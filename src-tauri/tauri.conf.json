@@ -1,0 +1,61 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "winshotx",
+  "version": "0.1.0",
+  "identifier": "com.munir.winshotx",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1421",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "winshotx · ajustes",
+        "url": "index.html",
+        "width": 840,
+        "height": 500,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "shadow": true,
+        "center": true,
+        "visible": false,
+        "skipTaskbar": false,
+        "minWidth": 780,
+        "minHeight": 500
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost blob:; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$TEMP/winshotx/**",
+          "$APPDATA/winshotx/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "shortDescription": "Captura y grabacion de pantalla local",
+    "longDescription": "Captura de region, grabacion a GIF y MP4 y editor de recorte, todo local y sin dependencias externas."
+  }
+}

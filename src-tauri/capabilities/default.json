@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos minimos: manejo de la propia ventana y eventos.",
+  "windows": [
+    "main",
+    "editor-*",
+    "recorder-*",
+    "overlay-*"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-minimize",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging",
+    "core:webview:allow-internal-toggle-devtools"
+  ]
+}

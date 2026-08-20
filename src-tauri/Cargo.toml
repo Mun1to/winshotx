@@ -1,0 +1,47 @@
+[package]
+name = "winshotx"
+version = "0.1.0"
+description = "Captura de pantalla y grabacion GIF/MP4 local, ligera y open source"
+authors = ["munir"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.82"
+
+[lib]
+name = "winshotx_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "protocol-asset"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+parking_lot = "0.12"
+rayon = "1"
+image = { version = "0.25", default-features = false, features = ["png"] }
+gif = "0.13"
+color_quant = "1.1"
+qoi = "0.4"
+xcap = "0.9"
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows-capture = "2"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_System_Registry", "Win32_Graphics_Dwm"] }
+clipboard-win = "5"
+
+# El binario tiene que caber en unos pocos MB: nada de simbolos ni unidades sueltas.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = false

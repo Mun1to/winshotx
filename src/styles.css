@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* Paleta y radios del sistema visual: superficies oscuras translucidas,
+   acento azul macOS y sombras suaves de ventana flotante. */
+@theme {
+  --color-surface: oklch(0.21 0.006 285.9);
+  --color-surface-strong: oklch(0.17 0.006 285.9);
+  --color-accent: oklch(0.68 0.17 251);
+  --color-accent-strong: oklch(0.62 0.19 251);
+  --radius-window: 16px;
+  --shadow-window: 0 24px 60px -12px rgb(0 0 0 / 0.65), 0 0 0 0.5px rgb(255 255 255 / 0.08);
+  --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.55), 0 0 0 0.5px rgb(255 255 255 / 0.1);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background-color: #161618;
+    font-family:
+      "Inter", -apple-system, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    color: rgb(245 245 245);
+  }
+
+  /* Nada de menu contextual del webview: esto tiene que sentirse nativo. */
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.14);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(255 255 255 / 0.24);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@utility glass {
+  background-color: rgb(23 23 23 / 0.9);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: var(--shadow-float);
+}
