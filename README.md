@@ -14,6 +14,10 @@ Local, sin cuenta, sin nube y sin binarios externos.
 La estética y el flujo de CleanShot X, la edición fotograma a fotograma de ScreenToGif y los
 atajos globales de ShareX, en un solo ejecutable de 4 MB.
 
+<a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
+  <img src="docs/img/descargar.png" alt="Descargar winshotx para Windows" width="420">
+</a>
+
 <img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="820">
 
 </div>
@@ -33,8 +37,9 @@ atajos globales de ShareX, en un solo ejecutable de 4 MB.
 
 ## Instalación
 
-Descarga el instalador desde [Releases](../../releases) y ejecútalo. Pesa 1,5 MB, se instala solo
-para tu usuario y no pide permisos de administrador.
+[**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+· 1,5 MB · se instala solo para tu usuario y no pide permisos de administrador. Las versiones
+anteriores están en [Releases](../../releases).
 
 Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo
 ves, está detrás de la flecha `^` de la barra de tareas.
