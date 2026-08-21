@@ -311,6 +311,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       const y = e.clientY;
       setCursor({ x, y });
       if (mode.kind === "drawing") {
+        // La lupa sigue en pantalla mientras se dibuja, asi que el color tiene
+        // que seguir al cursor en vez de quedarse en el del primer clic.
+        readHex(x, y);
         setSelection(normalize(mode.originX, mode.originY, x, y));
       } else if (mode.kind === "moving") {
         setSelection({
@@ -343,7 +346,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [mode]);
+  }, [mode, readHex]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (busy) return;

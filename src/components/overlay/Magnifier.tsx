@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { clamp } from "../../lib/format";
 
 const SIZE = 132; // lado del recuadro en px CSS
 const ZOOM = 6; // cada pixel fisico se pinta como 6x6
@@ -26,9 +27,14 @@ export function Magnifier({ source, px, py, left, top, hex }: Props) {
 
     const span = Math.floor(SIZE / ZOOM); // pixeles fisicos visibles
     const half = Math.floor(span / 2);
+    // Pegado a un borde, el recuadro se queda dentro de la imagen en vez de
+    // salirse: si se sale, el navegador recorta origen y destino a la vez y el
+    // pixel que se esta leyendo deja de coincidir con la cruz del centro.
+    const sx = clamp(Math.round(px) - half, 0, Math.max(0, source.width - span));
+    const sy = clamp(Math.round(py) - half, 0, Math.max(0, source.height - span));
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, SIZE, SIZE);
-    ctx.drawImage(source, px - half, py - half, span, span, 0, 0, SIZE, SIZE);
+    ctx.drawImage(source, sx, sy, span, span, 0, 0, SIZE, SIZE);
 
     // Reticula: una cruz sobre el pixel exacto que se esta leyendo.
     ctx.strokeStyle = "rgba(255,255,255,0.28)";
@@ -44,7 +50,7 @@ export function Magnifier({ source, px, py, left, top, hex }: Props) {
     }
     ctx.strokeStyle = "#3b82f6";
     ctx.lineWidth = 2;
-    ctx.strokeRect(half * ZOOM, half * ZOOM, ZOOM, ZOOM);
+    ctx.strokeRect((Math.round(px) - sx) * ZOOM, (Math.round(py) - sy) * ZOOM, ZOOM, ZOOM);
   }, [source, px, py]);
 
   return (
