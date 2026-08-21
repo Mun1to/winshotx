@@ -108,8 +108,12 @@ pub fn window_rects() -> Vec<WindowRect> {
     let Ok(windows) = xcap::Window::all() else {
         return Vec::new();
     };
+    // Las ventanas del propio overlay tapan la pantalla entera y se enumeran como
+    // cualquier otra: sin este filtro, el ajuste automatico se ofreceria a si mismo.
+    let own_pid = std::process::id();
     windows
         .iter()
+        .filter(|w| w.pid().map(|pid| pid != own_pid).unwrap_or(true))
         .filter(|w| !w.is_minimized().unwrap_or(true))
         .filter_map(|w| {
             let title = w.title().unwrap_or_default();

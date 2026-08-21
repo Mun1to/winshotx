@@ -133,14 +133,16 @@ impl FrameCache {
     }
 }
 
-/// Hash barato con paso de 4 bytes: solo hace falta para saber si algo cambio.
+/// Hash barato para saber si el fotograma ha cambiado. El paso es 5 y no 4 a
+/// proposito: con 4 sobre datos RGBA se leeria siempre el mismo canal de cada
+/// pixel, y un cambio que solo tocara el verde o el azul pasaria por identico.
 fn quick_hash(data: &[u8]) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     let mut i = 0;
     while i < data.len() {
         hash ^= data[i] as u64;
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-        i += 4;
+        i += 5;
     }
     hash ^= data.len() as u64;
     hash

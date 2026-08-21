@@ -6,6 +6,9 @@ import { formatBytes, formatDuration } from "../../lib/format";
 import { EVENTS, type RecordingTick } from "../../lib/types";
 import { IconButton } from "../ui/IconButton";
 
+/** A partir de aqui el cache de fotogramas empieza a comerse el disco de verdad. */
+const CACHE_AVISO = 1_000_000_000;
+
 /** Barra minima que acompanna a la grabacion: tiempo, tamanno y los tres botones. */
 export function RecorderBar() {
   const [tick, setTick] = useState<RecordingTick>({
@@ -51,7 +54,14 @@ export function RecorderBar() {
       {tick.frames > 0 && (
         <span
           data-tauri-drag-region
-          className="text-[11px] leading-none tabular-nums text-neutral-500"
+          title={
+            tick.bytes > CACHE_AVISO
+              ? "El cache sin perdida esta ocupando mucho disco: para y exporta"
+              : undefined
+          }
+          className={`text-[11px] leading-none tabular-nums ${
+            tick.bytes > CACHE_AVISO ? "text-amber-400" : "text-neutral-500"
+          }`}
         >
           {tick.frames} f · {formatBytes(tick.bytes)}
         </span>

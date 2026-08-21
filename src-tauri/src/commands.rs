@@ -243,6 +243,17 @@ pub async fn cache_stats(app: AppHandle) -> Result<CacheStats> {
 pub async fn clear_cache(app: AppHandle) -> Result<CacheStats> {
     let state = app.state::<AppState>();
     let root = state.temp_root.join("sessions");
+    // El editor lee los fotogramas del disco segun los pide: borrarlos con la
+    // ventana abierta la deja mostrando una sesion que ya no existe.
+    if app
+        .webview_windows()
+        .keys()
+        .any(|label| label.starts_with(windows_mgr::EDITOR_LABEL))
+    {
+        return Err(AppError::Msg(
+            "cierra el editor antes de vaciar la cache".into(),
+        ));
+    }
     if !state.is_recording() {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root)?;

@@ -43,6 +43,11 @@ fn purge_old_sessions(root: &std::path::Path) {
 
 pub fn run() {
     tauri::Builder::default()
+        // Tiene que ir la primera: si ya hay un winshotx vivo, esta instancia se
+        // cierra y le pasa el testigo, en vez de robarle los atajos globales.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = windows_mgr::show_settings(app);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())

@@ -268,7 +268,11 @@ export function SettingsApp() {
                 <button
                   type="button"
                   disabled={cache.sessions === 0}
-                  onClick={() => void clearCache().then(setCache)}
+                  onClick={() =>
+                    void clearCache()
+                      .then(setCache)
+                      .catch((e) => setError(String(e)))
+                  }
                   className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
                 >
                   Vaciar

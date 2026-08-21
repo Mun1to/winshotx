@@ -19,6 +19,9 @@ tauri = { version = "2", features = ["tray-icon", "image-png", "protocol-asset"]
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+# Una sola instancia: dos winshotx a la vez se pelean por los atajos globales
+# y el segundo se queda sin ellos sin decir por que.
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
