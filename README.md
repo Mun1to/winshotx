@@ -9,10 +9,10 @@ Local, sin cuenta, sin nube y sin binarios externos.
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#estado)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584)](https://www.rust-lang.org)
-[![Binario 4 MB](https://img.shields.io/badge/binario-4%20MB-22c55e)](#cómo-está-construido)
+[![Instalador 2 MB](https://img.shields.io/badge/instalador-2%20MB-22c55e)](#instalación)
 
 La estética y el flujo de CleanShot X, la edición fotograma a fotograma de ScreenToGif y los
-atajos globales de ShareX, en un solo ejecutable de 4 MB.
+atajos globales de ShareX, en un instalador de 2 MB.
 
 [![Descargar winshotx para Windows](https://img.shields.io/badge/descargar-para%20Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
 
@@ -36,8 +36,12 @@ atajos globales de ShareX, en un solo ejecutable de 4 MB.
 ## Instalación
 
 [**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 1,5 MB · se instala solo para tu usuario y no pide permisos de administrador. Las versiones
+· 2,2 MB · se instala solo para tu usuario y no pide permisos de administrador. Las versiones
 anteriores están en [Releases](../../releases).
+
+A partir de la 0.1.2 se actualiza sola: en **Ajustes → Actualizaciones** aparece el botón cuando
+hay versión nueva, y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas
+y la app comprueba la firma antes de instalar nada, así que un archivo manipulado no entra.
 
 Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo
 ves, está detrás de la flecha `^` de la barra de tareas.
@@ -68,6 +72,7 @@ nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
 | Capa | Elección | Por qué |
 |---|---|---|
 | Escritorio | [Tauri 2](https://tauri.app) | binario pequeño, webview del sistema, backend en Rust |
+| Actualización | plugin `updater` de Tauri, firmas minisign | un botón, sin salir de la app y sin instalar nada a ciegas |
 | Interfaz | React 19 + Vite + Tailwind 4 + framer-motion | ventanas independientes, animación nativa |
 | Captura estática | [`xcap`](https://crates.io/crates/xcap) | enumera monitores y ventanas con sus coordenadas reales |
 | Grabación | [`windows-capture`](https://crates.io/crates/windows-capture) | Windows Graphics Capture, 60 fps sin coste de CPU |
@@ -93,6 +98,15 @@ pnpm install
 pnpm approve-builds --all
 pnpm tauri dev      # arranca la app (vive en la bandeja del sistema)
 pnpm tauri build    # instalador NSIS en target/release/bundle/nsis
+```
+
+Para publicar una versión hace falta la clave privada de firma, que **no está en el repositorio**
+y sin la cual el actualizador no aceptaría la descarga:
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/winshotx.key)"
+pnpm tauri build
+node scripts/publicar.mjs --publicar   # prepara latest.json y crea la release
 ```
 
 Pruebas del backend:

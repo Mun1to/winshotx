@@ -18,6 +18,9 @@ use tauri::{Manager, RunEvent, WindowEvent};
 
 use crate::state::AppState;
 
+/// Se lo manda la bandeja a la ventana de ajustes para que mire si hay version nueva.
+pub const EVENT_CHECK_UPDATE: &str = "winshotx://check-update";
+
 /// Las sesiones son cache: si llevan un dia en el disco, ya no le importan a nadie.
 fn purge_old_sessions(root: &std::path::Path) {
     let Ok(entries) = std::fs::read_dir(root.join("sessions")) else {
@@ -48,6 +51,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = windows_mgr::show_settings(app);
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())

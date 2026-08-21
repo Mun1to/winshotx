@@ -1,6 +1,6 @@
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::error::Result;
 use crate::state::AppState;
@@ -11,6 +11,7 @@ pub fn build(app: &AppHandle) -> Result<()> {
     let capture = MenuItem::with_id(app, "capture", "Capturar región", true, None::<&str>)?;
     let record = MenuItem::with_id(app, "record", "Grabar región", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Ajustes…", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "Buscar actualizaciones…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
@@ -19,6 +20,7 @@ pub fn build(app: &AppHandle) -> Result<()> {
             &record,
             &PredefinedMenuItem::separator(app)?,
             &settings,
+            &update,
             &PredefinedMenuItem::separator(app)?,
             &quit,
         ],
@@ -41,6 +43,14 @@ pub fn build(app: &AppHandle) -> Result<()> {
             }
             "settings" => {
                 let _ = windows_mgr::show_settings(app);
+            }
+            // La comprobacion vive en la ventana de ajustes: desde la bandeja se
+            // abre y se le dice que mire, para no tener dos caminos distintos.
+            "update" => {
+                let _ = windows_mgr::show_settings(app);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit(crate::EVENT_CHECK_UPDATE, ());
+                }
             }
             "quit" => app.exit(0),
             _ => {}

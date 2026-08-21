@@ -1,6 +1,6 @@
 {
   "name": "winshotx",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local-first screen capture and GIF/MP4 recorder for Windows",
   "license": "MIT",
   "private": true,
@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.544.0",
     "react": "^19.1.1",
@@ -22,8 +24,8 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "@tauri-apps/cli": "^2.9.0",
-    "@types/react": "^19.1.13",
     "@types/node": "^24.3.1",
+    "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.2",
     "tailwindcss": "^4.1.13",

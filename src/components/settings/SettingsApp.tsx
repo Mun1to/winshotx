@@ -27,7 +27,11 @@ import type { CacheStats, Settings, ShortcutStatus } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
 import { Row, Section } from "./Section";
+import { UpdateRow } from "./UpdateRow";
 import { ShortcutField } from "./ShortcutField";
+
+/** La version se escribe una vez aqui y se usa en el pie y en el actualizador. */
+const VERSION = "0.1.2";
 
 const FPS_OPTIONS = [
   { value: 15, label: "15 fps" },
@@ -173,6 +177,7 @@ export function SettingsApp() {
             />
           </Section>
           <Section title="Sistema">
+            <UpdateRow version={VERSION} />
             <Row
               icon={<Power className="size-4" />}
               label="Arrancar con Windows"
@@ -297,7 +302,7 @@ export function SettingsApp() {
               <span className="text-emerald-400">Guardado</span>
             </>
           ) : (
-            "winshotx 0.1.1 · MIT"
+            `winshotx ${VERSION} · MIT`
           )}
         </span>
         <button

@@ -147,4 +147,6 @@ export const EVENTS = {
   sessionReady: "winshotx://session-ready",
   exportProgress: "winshotx://export-progress",
   settingsChanged: "winshotx://settings-changed",
+  /** Lo manda la bandeja cuando se pide mirar si hay version nueva. */
+  checkUpdate: "winshotx://check-update",
 } as const;
