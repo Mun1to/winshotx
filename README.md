@@ -14,11 +14,9 @@ Local, sin cuenta, sin nube y sin binarios externos.
 La estética y el flujo de CleanShot X, la edición fotograma a fotograma de ScreenToGif y los
 atajos globales de ShareX, en un solo ejecutable de 4 MB.
 
-<a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
-  <img src="docs/img/descargar.png" alt="Descargar winshotx para Windows" width="420">
-</a>
+[![Descargar winshotx para Windows](https://img.shields.io/badge/descargar-para%20Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
 
-<img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="820">
+<img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="760">
 
 </div>
 
@@ -60,7 +58,7 @@ ves, está detrás de la flecha `^` de la barra de tareas.
 | `Esc` | Cancelar |
 
 En el editor: `espacio` reproduce, `I` y `O` marcan inicio y final del recorte, `←` `→` avanzan
-fotograma a fotograma.
+fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel y `Esc` cierra.
 
 Los dos atajos globales se cambian desde Ajustes pulsando sobre ellos y tecleando la combinación
 nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
@@ -107,10 +105,11 @@ cargo test
 Las pruebas de integración no son de mentira: capturan la pantalla real, graban un clip con Windows
 Graphics Capture y exportan GIF y MP4 que luego se releen para comprobar que son válidos.
 
-En [`docs/TRAMPAS.md`](docs/TRAMPAS.md) están los cinco fallos de Tauri v2 en Windows que costaron
+En [`docs/TRAMPAS.md`](docs/TRAMPAS.md) están los seis fallos de Tauri v2 en Windows que costaron
 horas de depuración: comandos síncronos que congelan la interfaz, etiquetas de ventana que no se
-pueden reutilizar, el primer clic que se come el sistema y el canvas contaminado por el protocolo
-`asset:`. Si vas a tocar ventanas, léelo antes.
+pueden reutilizar, el primer clic que se come el sistema, el canvas contaminado por el protocolo
+`asset:` y una CSP incompleta que solo se nota en el instalador. Si vas a tocar ventanas o la
+seguridad del webview, léelo antes.
 
 ## Estado
 
