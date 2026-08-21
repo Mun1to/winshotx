@@ -45,8 +45,10 @@ export function FrameStrip({
     if (!drag) return;
     const onMove = (e: PointerEvent) => {
       const index = indexAt(e.clientX);
-      if (drag === "in") onChangeIn(Math.min(index, outIndex - 1));
-      else if (drag === "out") onChangeOut(Math.max(index, inIndex + 1));
+      // Los limites del recorte los aplica el editor: aqui solo se informa del
+      // fotograma sobre el que se ha soltado el marcador.
+      if (drag === "in") onChangeIn(index);
+      else if (drag === "out") onChangeOut(index);
       else onScrub(index);
     };
     const onUp = () => setDrag(null);
@@ -56,7 +58,7 @@ export function FrameStrip({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, indexAt, inIndex, outIndex, onChangeIn, onChangeOut, onScrub]);
+  }, [drag, indexAt, onChangeIn, onChangeOut, onScrub]);
 
   const width = Math.max(frames.length * THUMB_W, 1);
   const kept = frames.slice(inIndex, outIndex + 1);

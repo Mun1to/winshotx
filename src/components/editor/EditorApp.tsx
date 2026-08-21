@@ -5,11 +5,12 @@ import { Pause, Play, Scissors } from "lucide-react";
 import {
   discardSession,
   ffmpegAvailable,
+  frameImage,
   getSettings,
   sessionFrames,
   sessionInfo,
 } from "../../lib/ipc";
-import { formatTimecode } from "../../lib/format";
+import { clamp, formatTimecode } from "../../lib/format";
 import type { FrameMeta, SessionInfo, Settings } from "../../lib/types";
 import { ExportPanel } from "./ExportPanel";
 import { FrameStrip } from "./FrameStrip";
@@ -49,6 +50,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       .catch((e) => setError(String(e)));
   }, [sessionId]);
 
+  /** El marcador A nunca puede caer fuera de la tira ni pasarse del B. */
+  const markIn = useCallback(
+    (index: number) => setInIndex(clamp(index, 0, outIndex)),
+    [outIndex],
+  );
+
+  /** Y el B, ni por debajo del A ni mas alla del ultimo fotograma. */
+  const markOut = useCallback(
+    (index: number) => setOutIndex(clamp(index, inIndex, Math.max(0, frames.length - 1))),
+    [inIndex, frames.length],
+  );
+
   const scrub = useCallback(
     (index: number) => {
       setCurrentIndex(index);
@@ -76,9 +89,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         e.preventDefault();
         togglePlay();
       } else if (key === "i") {
-        setInIndex(Math.min(currentIndex, outIndex - 1));
+        markIn(currentIndex);
       } else if (key === "o") {
-        setOutIndex(Math.max(currentIndex, inIndex + 1));
+        markOut(currentIndex);
       } else if (e.key === "ArrowLeft") {
         scrub(Math.max(0, currentIndex - 1));
       } else if (e.key === "ArrowRight") {
@@ -89,16 +102,32 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [currentIndex, inIndex, outIndex, frames.length, togglePlay, scrub]);
+  }, [currentIndex, frames.length, togglePlay, scrub, markIn, markOut]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
     [session],
   );
-  const posterUrl = useMemo(
-    () => (frames[currentIndex] ? convertFileSrc(frames[currentIndex].thumbPath) : null),
-    [frames, currentIndex],
-  );
+  // Sin MP4 la vista previa es una imagen: la miniatura de 80 px se veria borrosa,
+  // asi que se pide el fotograma entero y se sustituye en cuanto llega.
+  const [stillPath, setStillPath] = useState<string | null>(null);
+  useEffect(() => {
+    if (!session || session.mp4Path || !frames[currentIndex]) return;
+    let cancelled = false;
+    void frameImage(sessionId, currentIndex)
+      .then((path) => {
+        if (!cancelled) setStillPath(path);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [session, frames, currentIndex, sessionId]);
+
+  const posterUrl = useMemo(() => {
+    if (stillPath) return convertFileSrc(stillPath);
+    return frames[currentIndex] ? convertFileSrc(frames[currentIndex].thumbPath) : null;
+  }, [stillPath, frames, currentIndex]);
 
   const onTime = useCallback(
     (ms: number) => {
@@ -171,9 +200,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               <span className="h-4 w-px bg-white/10" />
               <button
                 type="button"
-                onClick={() => {
-                  setInIndex(Math.min(currentIndex, outIndex - 1));
-                }}
+                onClick={() => markIn(currentIndex)}
                 className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
                 title="Marcar inicio (I)"
               >
@@ -181,9 +208,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setOutIndex(Math.max(currentIndex, inIndex + 1));
-                }}
+                onClick={() => markOut(currentIndex)}
                 className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
                 title="Marcar final (O)"
               >
@@ -197,8 +222,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             inIndex={inIndex}
             outIndex={outIndex}
             currentIndex={currentIndex}
-            onChangeIn={setInIndex}
-            onChangeOut={setOutIndex}
+            onChangeIn={markIn}
+            onChangeOut={markOut}
             onScrub={scrub}
           />
         </main>

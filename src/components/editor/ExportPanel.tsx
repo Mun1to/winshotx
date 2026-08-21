@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Clipboard, Cpu, FolderOpen, Link2, Save, Sparkles, Unlink2, Zap } from "lucide-react";
 import { exportMedia, pickDirectory, revealInExplorer } from "../../lib/ipc";
@@ -39,7 +39,12 @@ export function ExportPanel({
   hasFfmpeg,
   saveDirectory,
 }: Props) {
-  const [format, setFormat] = useState<ExportFormat>(session.format === "gif" ? "gif" : "mp4");
+  const [format, setFormat] = useState<ExportFormat>(() => {
+    if (session.format === "gif") return "gif";
+    // Una sesion de un solo fotograma es una imagen: exportarla a MP4 no tiene sentido.
+    if (session.format === "still" || session.frameCount <= 1) return "png";
+    return "mp4";
+  });
   const [useFfmpeg, setUseFfmpeg] = useState(false);
   const [quality, setQuality] = useState(80);
   const [fps, setFps] = useState(Math.min(session.fps, 30));
@@ -74,8 +79,11 @@ export function ExportPanel({
   }, [format, width, height, quality, fps, inIndex, outIndex, session.fps]);
 
   const run = async (copyToClipboard: boolean) => {
+    // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
+    if (progress !== null) return;
     setError(null);
     setResult(null);
+    setProgress({ stage: "reading", done: 0, total: 1 });
     try {
       const res = await exportMedia({
         sessionId: session.id,
@@ -99,6 +107,20 @@ export function ExportPanel({
       setProgress(null);
     }
   };
+
+  // Ctrl+S exporta sin ir al raton, igual que en el overlay. El ref evita volver
+  // a registrar el listener en cada tecleo del panel.
+  const runRef = useRef(run);
+  runRef.current = run;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
+      e.preventDefault();
+      void runRef.current(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const setW = (value: number) => {
     setWidth(value);
@@ -246,6 +268,7 @@ export function ExportPanel({
             type="button"
             disabled={progress !== null}
             onClick={() => void run(false)}
+            title="Exportar a la carpeta elegida (Ctrl+S)"
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-blue-400 disabled:opacity-50"
           >
             <Save className="size-4" /> Guardar

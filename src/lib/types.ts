@@ -43,6 +43,9 @@ export interface StillResult {
 
 export type RecordFormat = "gif" | "video";
 
+/** Lo que puede traer una sesion: una grabacion o una captura fija llevada al editor. */
+export type SessionFormat = RecordFormat | "still";
+
 export interface RecordOptions {
   format: RecordFormat;
   fps: number;
@@ -57,7 +60,7 @@ export interface SessionInfo {
   frameCount: number;
   durationMs: number;
   hasAudio: boolean;
-  format: RecordFormat;
+  format: SessionFormat;
   /** MP4 escrito en streaming durante la grabacion, si lo hubo. */
   mp4Path: string | null;
 }
