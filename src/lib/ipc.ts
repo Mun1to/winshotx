@@ -22,6 +22,10 @@ export const overlayBootstrap = (monitorId: number) =>
 export const captureStill = (region: Rect, action: StillAction) =>
   invoke<StillResult>("capture_still", { region, action });
 
+/** Respaldo del fondo del overlay cuando el protocolo asset no responde. */
+export const freezeBytes = (monitorId: number) =>
+  invoke<ArrayBuffer>("freeze_bytes", { monitorId });
+
 export const cancelCapture = () => invoke<void>("cancel_capture");
 
 export const startRecording = (region: Rect, options: RecordOptions) =>

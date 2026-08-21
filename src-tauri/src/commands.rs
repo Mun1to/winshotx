@@ -56,6 +56,26 @@ pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> R
     })
 }
 
+/// Respaldo del overlay: el PNG congelado servido por el propio IPC.
+/// El camino normal es el protocolo asset, pero si ese falla (CSP, ambito del
+/// scope, ruta fuera de $TEMP) el overlay se quedaria en negro tapando la
+/// pantalla entera. Con esto siempre hay una segunda via para pintar el fondo.
+#[tauri::command]
+pub async fn freeze_bytes(
+    state: State<'_, AppState>,
+    monitor_id: u32,
+) -> Result<tauri::ipc::Response> {
+    let path = {
+        let freezes = state.freezes.read();
+        freezes
+            .iter()
+            .find(|f| f.monitor.id == monitor_id)
+            .map(|f| f.path.clone())
+            .ok_or_else(|| AppError::Msg(format!("monitor {monitor_id} sin captura congelada")))?
+    };
+    Ok(tauri::ipc::Response::new(std::fs::read(path)?))
+}
+
 #[tauri::command]
 pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Result<StillResult> {
     let state = app.state::<AppState>();

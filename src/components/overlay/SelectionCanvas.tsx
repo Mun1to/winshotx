@@ -2,9 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { cancelCapture, captureStill, overlayBootstrap, startRecording } from "../../lib/ipc";
+import {
+  cancelCapture,
+  captureStill,
+  freezeBytes,
+  overlayBootstrap,
+  startRecording,
+} from "../../lib/ipc";
 import { clamp } from "../../lib/format";
 import type { OverlayPayload, Rect, StillAction } from "../../lib/types";
+import { BootScreen } from "./BootScreen";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
@@ -43,6 +50,27 @@ function contains(rect: Rect, x: number, y: number): boolean {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 }
 
+/**
+ * El fondo del overlay tapa la pantalla entera: si no se pinta, el usuario se
+ * queda con un rectangulo negro encima de todo. Por eso hay dos vias.
+ */
+async function loadFreeze(path: string, monitorId: number): Promise<Blob> {
+  try {
+    // Via rapida: el protocolo asset sirve el PNG sin copiarlo por el IPC.
+    const response = await fetch(convertFileSrc(path));
+    if (!response.ok) throw new Error(`asset devolvio ${response.status}`);
+    const blob = await response.blob();
+    if (blob.size === 0) throw new Error("el asset ha llegado vacio");
+    return blob;
+  } catch (assetError) {
+    // Via de respaldo: los bytes por el IPC. Mas lenta, pero no depende ni de la
+    // CSP ni del ambito del protocolo asset.
+    console.warn("el protocolo asset ha fallado, se tira del IPC", assetError);
+    const bytes = await freezeBytes(monitorId);
+    return new Blob([bytes], { type: "image/png" });
+  }
+}
+
 export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [payload, setPayload] = useState<OverlayPayload | null>(null);
   const [selection, setSelection] = useState<Rect | null>(null);
@@ -52,6 +80,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [audio, setAudio] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bootError, setBootError] = useState<string | null>(null);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const selectionRef = useRef<Rect | null>(null);
   selectionRef.current = selection;
@@ -117,11 +146,10 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       setAudio(data.settings.recordAudio);
       void getCurrentWindow().setFocus();
 
-      // El PNG se descarga a un blob del mismo origen: si se cargara directamente
-      // desde el protocolo asset, el canvas quedaria contaminado y la lupa no
-      // podria leer ni un pixel.
-      const response = await fetch(convertFileSrc(data.freezePath));
-      const blob = await response.blob();
+      // El PNG se pasa a un blob del mismo origen: cargado directamente desde el
+      // protocolo asset, el canvas quedaria contaminado y la lupa no podria leer
+      // ni un pixel.
+      const blob = await loadFreeze(data.freezePath, monitorId);
       if (cancelled) return;
       objectUrl = URL.createObjectURL(blob);
       setFreezeUrl(objectUrl);
@@ -135,7 +163,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       setSource(canvas);
     };
 
-    void boot();
+    void boot().catch((e) => {
+      if (!cancelled) setBootError(String(e));
+    });
     return () => {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -335,7 +365,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   };
 
   if (!payload || !freezeUrl) {
-    return <div className="h-full w-full bg-black" />;
+    return <BootScreen error={bootError} />;
   }
 
   const active =

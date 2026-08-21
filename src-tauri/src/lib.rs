@@ -74,6 +74,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::overlay_bootstrap,
+            commands::freeze_bytes,
             commands::capture_still,
             commands::cancel_capture,
             commands::start_recording,
