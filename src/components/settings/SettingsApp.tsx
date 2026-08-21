@@ -297,7 +297,7 @@ export function SettingsApp() {
               <span className="text-emerald-400">Guardado</span>
             </>
           ) : (
-            "winshotx 0.1.0 · MIT"
+            "winshotx 0.1.1 · MIT"
           )}
         </span>
         <button
