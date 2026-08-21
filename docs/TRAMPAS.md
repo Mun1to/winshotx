@@ -1,6 +1,6 @@
 # Trampas de Tauri v2 + Windows que costaron sangre
 
-Seis fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
+Siete fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
 cuelga, sale en negro o no hace nada. Si vuelve a pasar algo raro con ventanas, empieza
 por aquí. El número 6 es el peor de todos, porque no se ve en desarrollo.
 
@@ -82,6 +82,28 @@ Dos defensas más, porque una config no se compila y nadie la revisa:
 **Regla de la casa: lo que se toca en la CSP se prueba con `pnpm tauri build`, nunca con
 `pnpm tauri dev`.** Y ojo, `cargo build --release` a secas no sirve: ese binario sigue
 apuntando al servidor de desarrollo y arranca con un error de conexión.
+
+## 7. La clave de firma se pasa por `TAURI_SIGNING_PRIVATE_KEY`, no por su ruta
+
+El CLI documenta tres variables y solo una funciona de verdad al compilar:
+`TAURI_SIGNING_PRIVATE_KEY_PATH` se ignora y el build muere al final, después de haber
+generado el instalador, con «A public key has been found, but no private key». Hay que
+pasarle **el contenido** del archivo:
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/winshotx.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""   # la clave se generó sin contraseña
+pnpm tauri build
+```
+
+Y dos cosas que hay que tener claras del actualizador:
+
+- **La versión que se instala hoy es la que decide si mañana puede actualizarse.** Quien
+  tenga la 0.1.1 no se enterará nunca de que existe la 0.1.2, porque su copia no lleva
+  actualizador. El salto se da a mano una vez y ya.
+- **El `latest.json` no se escribe a mano.** Lo genera `scripts/publicar.mjs` a partir del
+  `.sig` que acaba de producir el bundler. Una firma vieja pegada ahí dentro no da error al
+  publicar: falla en el equipo del usuario, al intentar actualizar, que es donde no lo vas a ver.
 
 ## Extra: los eventos globales tropiezan con ventanas muertas
 
