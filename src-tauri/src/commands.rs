@@ -254,11 +254,14 @@ pub async fn clear_cache(app: AppHandle) -> Result<CacheStats> {
             "cierra el editor antes de vaciar la caché".into(),
         ));
     }
-    if !state.is_recording() {
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root)?;
-        state.sessions.write().clear();
+    if state.is_recording() {
+        return Err(AppError::Msg(
+            "hay una grabación en curso; párala antes de vaciar la caché".into(),
+        ));
     }
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root)?;
+    state.sessions.write().clear();
     cache_stats(app.clone()).await
 }
 
@@ -289,11 +292,10 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     *state.settings.write() = settings.clone();
     crate::settings::save(&app, &settings)?;
 
-    if previous.capture_shortcut != settings.capture_shortcut
-        || previous.record_shortcut != settings.record_shortcut
-    {
-        crate::hotkeys::register(&app, &settings);
-    }
+    // Se registra siempre, aunque la combinacion no haya cambiado: es la unica forma
+    // de reintentar cuando el atajo estaba cogido por otra aplicacion y ya se ha
+    // cerrado. `register` empieza desregistrando todo, asi que repetirlo no molesta.
+    crate::hotkeys::register(&app, &settings);
     if previous.start_with_windows != settings.start_with_windows {
         crate::platform::autostart::set(settings.start_with_windows)?;
     }

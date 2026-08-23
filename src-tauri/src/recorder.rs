@@ -336,7 +336,16 @@ fn finish_recording(app: &AppHandle) -> Result<SessionData> {
 }
 
 pub fn stop(app: &AppHandle) -> Result<SessionInfo> {
-    let session = finish_recording(app).inspect_err(|e| eprintln!("fallo al parar: {e}"))?;
+    // La barra es always-on-top y no tiene aspa: si esto se va por el desague sin
+    // cerrarla, se queda encima de todo y no hay forma de quitarla.
+    let session = match finish_recording(app) {
+        Ok(session) => session,
+        Err(error) => {
+            eprintln!("fallo al parar: {error}");
+            cerrar_barra(app);
+            return Err(error);
+        }
+    };
 
     if session.frames.is_empty() {
         let _ = std::fs::remove_dir_all(&session.dir);
@@ -379,7 +388,13 @@ fn cerrar_barra(app: &AppHandle) {
 }
 
 pub fn cancel(app: &AppHandle) -> Result<()> {
-    let session = finish_recording(app)?;
+    let session = match finish_recording(app) {
+        Ok(session) => session,
+        Err(error) => {
+            cerrar_barra(app);
+            return Err(error);
+        }
+    };
     cerrar_barra(app);
     let _ = std::fs::remove_dir_all(&session.dir);
     Ok(())
