@@ -17,7 +17,7 @@
         "title": "winshotx · ajustes",
         "url": "index.html",
         "width": 840,
-        "height": 500,
+        "height": 560,
         "resizable": true,
         "decorations": true,
         "transparent": false,
@@ -26,7 +26,7 @@
         "visible": false,
         "skipTaskbar": false,
         "minWidth": 780,
-        "minHeight": 500
+        "minHeight": 560
       }
     ],
     "security": {

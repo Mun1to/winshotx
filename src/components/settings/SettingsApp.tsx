@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle,
   Camera,
   Check,
   Clipboard,
@@ -79,11 +78,9 @@ export function SettingsApp() {
     );
   }
 
-  const conflicto = !shortcuts.capture || !shortcuts.record;
-
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
-      <div className="grid flex-1 grid-cols-2 gap-x-4 gap-y-3 overflow-hidden p-4">
+      <div className="grid flex-1 grid-cols-2 content-start items-start gap-x-4 gap-y-3 overflow-hidden p-4">
         <div className="space-y-3">
           <Section title="Atajos globales">
             <Row
@@ -92,7 +89,7 @@ export function SettingsApp() {
               hint={
                 shortcuts.capture
                   ? undefined
-                  : "lo tiene cogido otra aplicación"
+                  : "lo tiene otra aplicación, púlsalo para cambiarlo"
               }
               control={
                 <ShortcutField
@@ -108,7 +105,7 @@ export function SettingsApp() {
               hint={
                 shortcuts.record
                   ? "púlsalo otra vez para terminar"
-                  : "lo tiene cogido otra aplicación"
+                  : "lo tiene otra aplicación, púlsalo para cambiarlo"
               }
               control={
                 <ShortcutField
@@ -119,14 +116,6 @@ export function SettingsApp() {
               }
             />
           </Section>
-
-          {conflicto && (
-            <p className="flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
-              <AlertTriangle className="mt-px size-3.5 shrink-0" />
-              Otra aplicación ya usa esa combinación. Elige otra pulsando sobre
-              el atajo.
-            </p>
-          )}
 
           <Section title="Captura">
             <Row
@@ -172,21 +161,6 @@ export function SettingsApp() {
                   checked={settings.playSound}
                   onChange={(v) => patch({ playSound: v })}
                   label="Sonido de obturador"
-                />
-              }
-            />
-          </Section>
-          <Section title="Sistema">
-            <UpdateRow version={VERSION} />
-            <Row
-              icon={<Power className="size-4" />}
-              label="Arrancar con Windows"
-              hint="se abre en la bandeja, sin ventana"
-              control={
-                <Switch
-                  checked={settings.startWithWindows}
-                  onChange={(v) => patch({ startWithWindows: v })}
-                  label="Arrancar con Windows"
                 />
               }
             />
@@ -286,11 +260,30 @@ export function SettingsApp() {
             />
           </Section>
 
+
           {error && (
             <p className="rounded-lg bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
               {error}
             </p>
           )}
+        </div>
+
+        <div className="col-span-2">
+          <Section title="Sistema">
+            <UpdateRow version={VERSION} />
+            <Row
+              icon={<Power className="size-4" />}
+              label="Arrancar con Windows"
+              hint="se abre en la bandeja, sin ventana"
+              control={
+                <Switch
+                  checked={settings.startWithWindows}
+                  onChange={(v) => patch({ startWithWindows: v })}
+                  label="Arrancar con Windows"
+                />
+              }
+            />
+          </Section>
         </div>
       </div>
 
