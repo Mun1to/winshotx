@@ -68,11 +68,12 @@ export function FrameStrip({
     <section className="shrink-0 border-t border-white/8 bg-black/25 px-3 pt-2 pb-3">
       <div className="mb-1.5 flex items-center justify-between text-[11px] tabular-nums text-neutral-500">
         <span>
-          Frame {currentIndex + 1} / {frames.length} ·{" "}
+          Fotograma {currentIndex + 1} de {frames.length} ·{" "}
           {formatTimecode(frames[currentIndex]?.timestampMs ?? 0)}
         </span>
         <span>
-          Recorte {inIndex + 1}–{outIndex + 1} · {kept.length} frames · {formatTimecode(keptMs)}
+          Recorte {inIndex + 1} a {outIndex + 1} · {kept.length} fotogramas ·{" "}
+          {formatTimecode(keptMs)}
         </span>
       </div>
 

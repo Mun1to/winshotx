@@ -159,7 +159,7 @@ pub fn read_frame(session: &SessionData, index: usize) -> Result<RgbaImage> {
     file.read_exact(&mut buffer)?;
     let (header, pixels) = qoi::decode_to_vec(&buffer)?;
     RgbaImage::from_raw(header.width, header.height, pixels)
-        .ok_or_else(|| AppError::Msg("fotograma corrupto en el cache".into()))
+        .ok_or_else(|| AppError::Msg("fotograma corrupto en la caché".into()))
 }
 
 /// Genera las miniaturas de la tira de tiempo. Se hace en paralelo porque es

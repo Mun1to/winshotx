@@ -46,7 +46,7 @@ pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> R
     let freeze = freezes
         .iter()
         .find(|f| f.monitor.id == monitor_id)
-        .ok_or_else(|| AppError::Msg(format!("monitor {monitor_id} sin captura congelada")))?;
+        .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?;
 
     Ok(OverlayPayload {
         monitor: freeze.monitor.clone(),
@@ -71,7 +71,7 @@ pub async fn freeze_bytes(
             .iter()
             .find(|f| f.monitor.id == monitor_id)
             .map(|f| f.path.clone())
-            .ok_or_else(|| AppError::Msg(format!("monitor {monitor_id} sin captura congelada")))?
+            .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?
     };
     Ok(tauri::ipc::Response::new(std::fs::read(path)?))
 }
@@ -119,7 +119,7 @@ pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Resu
             windows_mgr::open_editor(&app, &session.id)?;
             return Ok(result);
         }
-        other => return Err(AppError::Msg(format!("accion desconocida: {other}"))),
+        other => return Err(AppError::Msg(format!("acción desconocida: {other}"))),
     }
 
     windows_mgr::close_overlays(&app);
@@ -251,7 +251,7 @@ pub async fn clear_cache(app: AppHandle) -> Result<CacheStats> {
         .any(|label| label.starts_with(windows_mgr::EDITOR_LABEL))
     {
         return Err(AppError::Msg(
-            "cierra el editor antes de vaciar la cache".into(),
+            "cierra el editor antes de vaciar la caché".into(),
         ));
     }
     if !state.is_recording() {

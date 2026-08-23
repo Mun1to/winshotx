@@ -17,7 +17,7 @@ import { Toggle } from "../ui/Toggle";
 const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: "gif", label: "GIF", hint: "bucle, sin audio" },
   { id: "mp4", label: "MP4", hint: "H.264 por hardware" },
-  { id: "png", label: "PNG", hint: "frame actual" },
+  { id: "png", label: "PNG", hint: "el fotograma actual" },
 ];
 
 interface Props {

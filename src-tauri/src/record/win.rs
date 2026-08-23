@@ -22,7 +22,7 @@ fn monitor_at(x: i32, y: i32) -> Result<WcMonitor> {
 
     let handle = unsafe { MonitorFromPoint(POINT { x, y }, MONITOR_DEFAULTTONEAREST) };
     if handle.is_invalid() {
-        return Err(AppError::Msg("no hay monitor en esa posicion".into()));
+        return Err(AppError::Msg("no hay monitor en esa posición".into()));
     }
     Ok(WcMonitor::from_raw_hmonitor(handle.0))
 }

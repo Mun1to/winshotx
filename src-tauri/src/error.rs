@@ -6,11 +6,11 @@ use serde::{Serialize, Serializer};
 pub enum AppError {
     #[error("{0}")]
     Msg(String),
-    #[error("no hay ninguna grabacion en curso")]
+    #[error("no hay ninguna grabación en curso")]
     NoRecording,
-    #[error("sesion desconocida: {0}")]
+    #[error("sesión desconocida: {0}")]
     UnknownSession(String),
-    #[error("esta funcion solo esta implementada en Windows")]
+    #[error("esta función solo está implementada en Windows")]
     #[allow(dead_code)]
     Unsupported,
     #[error("error de entrada/salida: {0}")]

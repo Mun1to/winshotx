@@ -98,7 +98,7 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
     }
 
     if out.is_empty() {
-        return Err(AppError::Msg("no se ha detectado ningun monitor".into()));
+        return Err(AppError::Msg("no se ha detectado ningún monitor".into()));
     }
     Ok(out)
 }
@@ -150,7 +150,7 @@ pub fn crop_from_freeze(freezes: &[Freeze], region: Rect) -> Result<image::RgbaI
     let width = region.width.min(image.width().saturating_sub(local_x));
     let height = region.height.min(image.height().saturating_sub(local_y));
     if width == 0 || height == 0 {
-        return Err(AppError::Msg("la seleccion queda fuera de la pantalla".into()));
+        return Err(AppError::Msg("la selección queda fuera de la pantalla".into()));
     }
     Ok(image::imageops::crop_imm(&image, local_x, local_y, width, height).to_image())
 }

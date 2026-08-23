@@ -116,7 +116,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
 
     let state = app.state::<AppState>();
     if state.is_recording() {
-        return Err(AppError::Msg("ya hay una grabacion en curso".into()));
+        return Err(AppError::Msg("ya hay una grabación en curso".into()));
     }
 
     windows_mgr::close_overlays(app);
@@ -329,10 +329,10 @@ fn finish_recording(app: &AppHandle) -> Result<SessionData> {
     let writer = recording
         .writer
         .take()
-        .ok_or_else(|| AppError::Msg("la grabacion no tenia escritor".into()))?;
+        .ok_or_else(|| AppError::Msg("la grabación no tenía escritor".into()))?;
     writer
         .join()
-        .map_err(|_| AppError::Msg("el hilo de escritura ha caido".into()))?
+        .map_err(|_| AppError::Msg("el hilo de escritura se ha caído".into()))?
 }
 
 pub fn stop(app: &AppHandle) -> Result<SessionInfo> {
@@ -342,7 +342,7 @@ pub fn stop(app: &AppHandle) -> Result<SessionInfo> {
         let _ = std::fs::remove_dir_all(&session.dir);
         cerrar_barra(app);
         return Err(AppError::Msg(
-            "no se ha capturado ningun fotograma; prueba a bajar los fps".into(),
+            "no se ha capturado ningún fotograma; prueba a bajar los fps".into(),
         ));
     }
 
