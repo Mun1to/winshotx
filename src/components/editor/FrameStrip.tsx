@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { clamp, formatTimecode } from "../../lib/format";
+import { clamp, formatTimecode, plural } from "../../lib/format";
 import type { FrameMeta } from "../../lib/types";
 
 const THUMB_W = 56;
@@ -30,26 +30,40 @@ export function FrameStrip({
   const trackRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag>(null);
 
+  const ultimo = Math.max(0, frames.length - 1);
+
+  /** Posicion del puntero dentro de la tira, en pixeles. */
+  const xEnTira = useCallback((clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return 0;
+    const rect = track.getBoundingClientRect();
+    return clientX - rect.left + track.scrollLeft;
+  }, []);
+
+  /** El fotograma sobre el que esta el puntero. */
   const indexAt = useCallback(
-    (clientX: number) => {
-      const track = trackRef.current;
-      if (!track) return 0;
-      const rect = track.getBoundingClientRect();
-      const x = clientX - rect.left + track.scrollLeft;
-      return clamp(Math.round(x / THUMB_W), 0, Math.max(0, frames.length - 1));
-    },
-    [frames.length],
+    (clientX: number) => clamp(Math.floor(xEnTira(clientX) / THUMB_W), 0, ultimo),
+    [xEnTira, ultimo],
+  );
+
+  /**
+   * Lo mismo para el marcador B, que se dibuja en el borde DERECHO de su fotograma.
+   * Con el redondeo normal, soltarlo justo donde estaba lo movia un fotograma a la
+   * derecha y ese fotograma de mas se colaba en la exportacion.
+   */
+  const indexAtEnd = useCallback(
+    (clientX: number) => clamp(Math.ceil(xEnTira(clientX) / THUMB_W) - 1, 0, ultimo),
+    [xEnTira, ultimo],
   );
 
   useEffect(() => {
     if (!drag) return;
     const onMove = (e: PointerEvent) => {
-      const index = indexAt(e.clientX);
       // Los limites del recorte los aplica el editor: aqui solo se informa del
       // fotograma sobre el que se ha soltado el marcador.
-      if (drag === "in") onChangeIn(index);
-      else if (drag === "out") onChangeOut(index);
-      else onScrub(index);
+      if (drag === "in") onChangeIn(indexAt(e.clientX));
+      else if (drag === "out") onChangeOut(indexAtEnd(e.clientX));
+      else onScrub(indexAt(e.clientX));
     };
     const onUp = () => setDrag(null);
     window.addEventListener("pointermove", onMove);
@@ -58,11 +72,14 @@ export function FrameStrip({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, indexAt, onChangeIn, onChangeOut, onScrub]);
+  }, [drag, indexAt, indexAtEnd, onChangeIn, onChangeOut, onScrub]);
 
   const width = Math.max(frames.length * THUMB_W, 1);
   const kept = frames.slice(inIndex, outIndex + 1);
-  const keptMs = kept.reduce((acc, f) => acc + f.durationMs, 0);
+  const keptMs =
+    (frames[outIndex]?.timestampMs ?? 0) +
+    (frames[outIndex]?.durationMs ?? 0) -
+    (frames[inIndex]?.timestampMs ?? 0);
 
   return (
     <section className="shrink-0 border-t border-white/8 bg-black/25 px-3 pt-2 pb-3">
@@ -72,7 +89,7 @@ export function FrameStrip({
           {formatTimecode(frames[currentIndex]?.timestampMs ?? 0)}
         </span>
         <span>
-          Recorte {inIndex + 1} a {outIndex + 1} · {kept.length} fotogramas ·{" "}
+          Recorte {inIndex + 1} a {outIndex + 1} · {plural(kept.length, "fotograma")} ·{" "}
           {formatTimecode(keptMs)}
         </span>
       </div>

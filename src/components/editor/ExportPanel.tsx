@@ -62,7 +62,10 @@ export function ExportPanel({
 
   useEffect(() => {
     const unlisten = listen<ExportProgress>(EVENTS.exportProgress, (e) => {
-      setProgress(e.payload.stage === "done" ? null : e.payload);
+      // El "done" del backend llega antes de copiar al portapapeles y antes de que el
+      // comando devuelva: si soltara aqui la guarda, un segundo clic arrancaria otra
+      // exportacion sobre la misma sesion. Quien la suelta es el finally de run().
+      if (e.payload.stage !== "done") setProgress(e.payload);
     });
     return () => {
       void unlisten.then((fn) => fn());
