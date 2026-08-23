@@ -1,139 +1,144 @@
 <div align="center">
 
+**English** · [Español](README.es.md)
+
 # winshotx
 
-**Captura de pantalla y grabación de GIF/MP4 para Windows.**
-Local, sin cuenta, sin nube y sin binarios externos.
+**Screenshots and GIF/MP4 screen recording for Windows.**
+Local, no account, no cloud, no bundled binaries.
 
-[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-3b82f6)](LICENSE)
-[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#estado)
+[![MIT license](https://img.shields.io/badge/license-MIT-3b82f6)](LICENSE)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#status)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584)](https://www.rust-lang.org)
-[![Instalador 2 MB](https://img.shields.io/badge/instalador-2%20MB-22c55e)](#instalación)
+[![2 MB installer](https://img.shields.io/badge/installer-2%20MB-22c55e)](#install)
 
-La estética y el flujo de CleanShot X, la edición fotograma a fotograma de ScreenToGif y los
-atajos globales de ShareX, en un instalador de 2 MB.
+The look and flow of CleanShot X, the frame by frame editing of ScreenToGif and the global
+shortcuts of ShareX, in a 2 MB installer.
 
-[![Descargar winshotx para Windows](https://img.shields.io/badge/descargar-para%20Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+[![Download winshotx for Windows](https://img.shields.io/badge/download-for%20Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
 
-<img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="760">
+<img src="docs/img/ajustes.png" alt="winshotx settings panel" width="760">
 
 </div>
 
-## Qué hace
+> **The interface is in Spanish.** The code, the commits and this page are in English, but every
+> label you see in the app is Spanish. Translating it is not planned; open an issue if you want it.
 
-- **Captura de región** sobre la pantalla congelada, con lupa de píxel que muestra el color exacto
-  en hexadecimal y ajuste automático a las ventanas del sistema: un clic encima de una ventana la
-  selecciona entera.
-- **Grabación de la región** a 15, 30 o 60 fps con Windows Graphics Capture, sin FFmpeg y sin
-  overlays que se cuelen en el vídeo.
-- **Editor** con tira de miniaturas, recorte A/B, reproducción en bucle, escala con proporción
-  bloqueada y control de calidad.
-- **Exportación** a GIF, MP4 o PNG, a disco y al portapapeles: la imagen se pega como imagen y el
-  GIF o el MP4 se pegan como archivo en Slack, Discord o el Explorador.
-- **Todo local.** No hay cuenta, ni telemetría, ni subidas. Lo que capturas no sale de tu equipo.
+## What it does
 
-## Instalación
+- **Region capture** over a frozen screenshot, with a pixel magnifier showing the exact colour in
+  hex and automatic snapping to system windows: one click on a window selects the whole thing.
+- **Region recording** at 15, 30 or 60 fps through Windows Graphics Capture, with no FFmpeg and no
+  overlays leaking into the video.
+- **Editor** with a thumbnail strip, A/B trimming, looped playback, scaling with locked aspect
+  ratio and a quality control.
+- **Export** to GIF, MP4 or PNG, to disk and to the clipboard: an image pastes as an image, and a
+  GIF or MP4 pastes as a file into Slack, Discord or Explorer.
+- **Everything stays local.** No account, no telemetry, no uploads. What you capture never leaves
+  your machine.
 
-[**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2,2 MB · se instala solo para tu usuario y no pide permisos de administrador. Las versiones
-anteriores están en [Releases](../../releases).
+## Install
 
-A partir de la 0.1.2 se actualiza sola: en **Ajustes → Actualizaciones** aparece el botón cuando
-hay versión nueva, y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas
-y la app comprueba la firma antes de instalar nada, así que un archivo manipulado no entra.
+[**Download the installer**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+· 2.2 MB · installs for your user only and never asks for administrator rights. Older versions are
+in [Releases](../../releases).
 
-Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo
-ves, está detrás de la flecha `^` de la barra de tareas.
+Since 0.1.2 it updates itself: **Ajustes → Actualizaciones** shows a button when a new version is
+out, and one click downloads it, installs it and restarts the app. Downloads are signed and the
+signature is verified before anything is installed, so a tampered file is rejected.
 
-## Atajos
+It lives in the system tray with no window of its own. Windows hides new tray icons, so if you
+cannot see it, look behind the `^` arrow on the taskbar.
 
-| Atajo | Acción |
+## Shortcuts
+
+| Shortcut | Action |
 |---|---|
-| `Ctrl+Shift+2` | Capturar región |
-| `Ctrl+Shift+5` | Grabar región · púlsalo otra vez para terminar |
-| `Enter` | Copiar la selección al portapapeles |
-| `Ctrl+S` | Guardar la selección |
-| `E` | Abrir la selección en el editor |
-| `G` / `V` | Grabar la selección como GIF / vídeo |
-| `M` | Silenciar o activar el audio |
-| `Ctrl+A` | Seleccionar el monitor entero |
-| `←↑→↓` | Mover la selección · con `Shift` de 10 en 10 · con `Alt` redimensiona |
-| `Esc` | Cancelar |
+| `Ctrl+Shift+2` | Capture a region |
+| `Ctrl+Shift+5` | Record a region · press again to stop |
+| `Enter` | Copy the selection to the clipboard |
+| `Ctrl+S` | Save the selection |
+| `E` | Open the selection in the editor |
+| `G` / `V` | Record the selection as GIF / video |
+| `M` | Mute or unmute the audio |
+| `Ctrl+A` | Select the whole monitor |
+| `←↑→↓` | Move the selection · `Shift` for steps of 10 · `Alt` resizes |
+| `Esc` | Cancel |
 
-En el editor: `espacio` reproduce, `I` y `O` marcan inicio y final del recorte, `←` `→` avanzan
-fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel y `Esc` cierra.
+In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `←` `→` step through
+frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
 
-Los dos atajos globales se cambian desde Ajustes pulsando sobre ellos y tecleando la combinación
-nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
+Both global shortcuts can be changed in the settings by clicking them and typing the new
+combination. If another application already holds it, the field turns red and says so.
 
-## Cómo está construido
+## How it is built
 
-| Capa | Elección | Por qué |
+| Layer | Choice | Why |
 |---|---|---|
-| Escritorio | [Tauri 2](https://tauri.app) | binario pequeño, webview del sistema, backend en Rust |
-| Actualización | plugin `updater` de Tauri, firmas minisign | un botón, sin salir de la app y sin instalar nada a ciegas |
-| Interfaz | React 19 + Vite + Tailwind 4 + framer-motion | ventanas independientes, animación nativa |
-| Captura estática | [`xcap`](https://crates.io/crates/xcap) | enumera monitores y ventanas con sus coordenadas reales |
-| Grabación | [`windows-capture`](https://crates.io/crates/windows-capture) | Windows Graphics Capture, 60 fps sin coste de CPU |
-| MP4 | Media Foundation, H.264 por hardware | 0 MB de dependencias, aceleración del sistema |
-| GIF | [`gif`](https://crates.io/crates/gif) + [`color_quant`](https://crates.io/crates/color_quant) | paleta global, dithering y diferencia entre fotogramas |
-| Caché de edición | [QOI](https://qoiformat.org) sin pérdida | rápido de escribir y editable fotograma a fotograma |
+| Desktop | [Tauri 2](https://tauri.app) | small binary, system webview, Rust backend |
+| Updates | Tauri `updater` plugin, minisign signatures | one button, without leaving the app or installing blind |
+| Interface | React 19 + Vite + Tailwind 4 + framer-motion | independent windows, native feeling animation |
+| Still capture | [`xcap`](https://crates.io/crates/xcap) | enumerates monitors and windows with their real coordinates |
+| Recording | [`windows-capture`](https://crates.io/crates/windows-capture) | Windows Graphics Capture, 60 fps at no CPU cost |
+| MP4 | Media Foundation, hardware H.264 | 0 MB of dependencies, system acceleration |
+| GIF | [`gif`](https://crates.io/crates/gif) + [`color_quant`](https://crates.io/crates/color_quant) | global palette, dithering and frame differencing |
+| Editing cache | lossless [QOI](https://qoiformat.org) | fast to write and editable frame by frame |
 
-### Dos decisiones que explican el resto
+### Two decisions that explain the rest
 
-**El overlay de selección no es una ventana transparente.** Se captura la pantalla, se muestra
-congelada y se selecciona encima. Esquiva el bug de transparencia de Tauri v2 en Windows, elimina el
-parpadeo del contenido en movimiento y regala una lupa exacta al píxel.
+**The selection overlay is not a transparent window.** The screen is captured, shown frozen, and
+the selection happens on top of that image. It sidesteps the Tauri v2 transparency bug on Windows,
+removes the flicker of moving content underneath, and gives a pixel exact magnifier for free.
 
-**Nada de FFmpeg empaquetado.** El MP4 lo escribe Media Foundation por hardware y el GIF se genera
-en Rust puro con paleta global, dithering Floyd–Steinberg y escritura solo del rectángulo que cambia
-entre fotogramas. Si tienes `ffmpeg` en el `PATH`, el editor ofrece además un motor de máxima
-calidad (`palettegen`), pero nunca se descarga ni se distribuye.
+**No bundled FFmpeg.** MP4 is written by Media Foundation in hardware, and the GIF is produced in
+pure Rust with a global palette, Floyd–Steinberg dithering and writing only the rectangle that
+changed between frames. If you happen to have `ffmpeg` on your `PATH`, the editor offers a maximum
+quality engine (`palettegen`) as well, but it is never downloaded and never shipped.
 
-## Desarrollo
+## Development
 
 ```bash
 pnpm install
 pnpm approve-builds --all
-pnpm tauri dev      # arranca la app (vive en la bandeja del sistema)
-pnpm tauri build    # instalador NSIS en target/release/bundle/nsis
+pnpm tauri dev      # starts the app (it lives in the system tray)
+pnpm tauri build    # NSIS installer in target/release/bundle/nsis
 ```
 
-Para publicar una versión hace falta la clave privada de firma, que **no está en el repositorio**
-y sin la cual el actualizador no aceptaría la descarga:
+Publishing a version needs the private signing key, which is **not in this repository** and without
+which the updater would reject the download:
 
 ```bash
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/winshotx.key)"
 pnpm tauri build
-node scripts/publicar.mjs --publicar   # prepara latest.json y crea la release
+node scripts/publicar.mjs --publicar   # writes latest.json and creates the release
 ```
 
-Pruebas del backend:
+Backend tests:
 
 ```bash
 cd src-tauri
 cargo test
 ```
 
-Las pruebas de integración no son de mentira: capturan la pantalla real, graban un clip con Windows
-Graphics Capture y exportan GIF y MP4 que luego se releen para comprobar que son válidos.
+The integration tests are not pretend: they capture the real screen, record a clip through Windows
+Graphics Capture and export GIF and MP4 files that are then read back to check they are valid.
 
-En [`docs/TRAMPAS.md`](docs/TRAMPAS.md) están los seis fallos de Tauri v2 en Windows que costaron
-horas de depuración: comandos síncronos que congelan la interfaz, etiquetas de ventana que no se
-pueden reutilizar, el primer clic que se come el sistema, el canvas contaminado por el protocolo
-`asset:` y una CSP incompleta que solo se nota en el instalador. Si vas a tocar ventanas o la
-seguridad del webview, léelo antes.
+[`docs/TRAMPAS.md`](docs/TRAMPAS.md) (in Spanish) collects the seven Tauri v2 traps on Windows that
+cost hours of debugging: synchronous commands that freeze the interface, window labels that cannot
+be reused, the first click being eaten by the system, a canvas tainted by the `asset:` protocol, an
+incomplete CSP that only shows up in the installer, and the signing key that is passed one way and
+not the other. Read it before touching windows or webview security.
 
-## Estado
+## Status
 
-Funciona en Windows 10 1903 o superior. macOS y Linux compilan, pero las funciones de captura
-devuelven "no implementado": el backend está detrás de un trait `CaptureBackend`, así que añadirlos
-es escribir `capture/mac.rs` y `capture/linux.rs`.
+Runs on Windows 10 1903 or newer. macOS and Linux compile, but the capture functions return "not
+implemented": the backend sits behind a `CaptureBackend` trait, so adding them means writing
+`capture/mac.rs` and `capture/linux.rs`.
 
-**Lo que falta:** el audio del sistema todavía no se graba. Hace falta WASAPI en modo loopback para
-alimentar al codificador; el interruptor ya está en la interfaz y avisa de que no está disponible.
+**What is missing:** system audio is not recorded yet. It needs WASAPI in loopback mode to feed the
+encoder; the switch is already in the interface, disabled and saying so.
 
-## Licencia
+## License
 
-[MIT](LICENSE). Úsalo, cámbialo y véndelo si quieres.
+[MIT](LICENSE). Use it, change it and sell it if you want.
