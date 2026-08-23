@@ -279,8 +279,6 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         void runRecord("gif");
       } else if (key === "v") {
         void runRecord("video");
-      } else if (key === "m") {
-        setAudio((a) => !a);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -452,14 +450,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             left={clamp(active.x + active.width / 2, 190, window.innerWidth - 190)}
             top={toolbarFlip ? active.y - 10 : active.y + active.height + 10}
             flipped={toolbarFlip}
-            audio={audio}
             busy={busy}
             onCopy={() => void runStill("copy")}
             onSave={() => void runStill("save")}
             onEdit={() => void runStill("edit")}
             onRecordGif={() => void runRecord("gif")}
             onRecordVideo={() => void runRecord("video")}
-            onToggleAudio={() => setAudio((a) => !a)}
             onCancel={() => void cancelCapture()}
           />
         )}

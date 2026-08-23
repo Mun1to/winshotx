@@ -1,14 +1,4 @@
-import {
-  Check,
-  Copy,
-  Download,
-  Film,
-  Mic,
-  MicOff,
-  Pencil,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { Check, Copy, Download, Film, MicOff, Pencil, Sparkles, X } from "lucide-react";
 import { GlassPanel } from "../ui/GlassPanel";
 import { IconButton } from "../ui/IconButton";
 
@@ -17,14 +7,12 @@ interface Props {
   top: number;
   /** La barra se pega arriba de la seleccion cuando abajo no cabe. */
   flipped: boolean;
-  audio: boolean;
   busy: boolean;
   onCopy: () => void;
   onSave: () => void;
   onEdit: () => void;
   onRecordGif: () => void;
   onRecordVideo: () => void;
-  onToggleAudio: () => void;
   onCancel: () => void;
 }
 
@@ -32,14 +20,12 @@ export function FloatingToolbar({
   left,
   top,
   flipped,
-  audio,
   busy,
   onCopy,
   onSave,
   onEdit,
   onRecordGif,
   onRecordVideo,
-  onToggleAudio,
   onCancel,
 }: Props) {
   return (
@@ -73,13 +59,7 @@ export function FloatingToolbar({
           onClick={onRecordVideo}
           disabled={busy}
         />
-        <IconButton
-          icon={audio ? Mic : MicOff}
-          label={audio ? "Audio activado" : "Audio silenciado"}
-          shortcut="M"
-          onClick={onToggleAudio}
-          active={audio}
-        />
+        <IconButton icon={MicOff} label="Audio: todavía no disponible" disabled />
         <span className="mx-0.5 h-5 w-px bg-white/10" />
         <IconButton icon={X} label="Cancelar" shortcut="Esc" onClick={onCancel} danger />
       </GlassPanel>
