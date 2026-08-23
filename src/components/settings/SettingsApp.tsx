@@ -30,7 +30,7 @@ import { UpdateRow } from "./UpdateRow";
 import { ShortcutField } from "./ShortcutField";
 
 /** La version se escribe una vez aqui y se usa en el pie y en el actualizador. */
-const VERSION = "0.1.3";
+const VERSION = "0.1.4";
 
 const FPS_OPTIONS = [
   { value: 15, label: "15 fps" },
