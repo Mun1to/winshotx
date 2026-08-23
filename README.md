@@ -22,8 +22,9 @@ shortcuts of ShareX, in a 2 MB installer.
 
 </div>
 
-> **The interface is in Spanish.** The code, the commits and this page are in English, but every
-> label you see in the app is Spanish. Translating it is not planned; open an issue if you want it.
+> **The interface is in Spanish**, and so are the identifiers, comments and test names in the
+> source. The commits and this page are in English. Translating the app is not planned; open an
+> issue if you want it.
 
 ## What it does
 
@@ -44,7 +45,7 @@ shortcuts of ShareX, in a 2 MB installer.
 · 2.2 MB · installs for your user only and never asks for administrator rights. Older versions are
 in [Releases](../../releases).
 
-Since 0.1.2 it updates itself: **Ajustes → Actualizaciones** shows a button when a new version is
+Since 0.1.2 it updates itself: **Ajustes**, then **Actualizaciones**, shows a button when a new version is
 out, and one click downloads it, installs it and restarts the app. Downloads are signed and the
 signature is verified before anything is installed, so a tampered file is rejected.
 
@@ -61,7 +62,6 @@ cannot see it, look behind the `^` arrow on the taskbar.
 | `Ctrl+S` | Save the selection |
 | `E` | Open the selection in the editor |
 | `G` / `V` | Record the selection as GIF / video |
-| `M` | Mute or unmute the audio |
 | `Ctrl+A` | Select the whole monitor |
 | `←↑→↓` | Move the selection · `Shift` for steps of 10 · `Alt` resizes |
 | `Esc` | Cancel |
@@ -92,7 +92,7 @@ the selection happens on top of that image. It sidesteps the Tauri v2 transparen
 removes the flicker of moving content underneath, and gives a pixel exact magnifier for free.
 
 **No bundled FFmpeg.** MP4 is written by Media Foundation in hardware, and the GIF is produced in
-pure Rust with a global palette, Floyd–Steinberg dithering and writing only the rectangle that
+pure Rust with a global palette, Floyd-Steinberg dithering and writing only the rectangle that
 changed between frames. If you happen to have `ffmpeg` on your `PATH`, the editor offers a maximum
 quality engine (`palettegen`) as well, but it is never downloaded and never shipped.
 
@@ -110,6 +110,7 @@ which the updater would reject the download:
 
 ```bash
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/winshotx.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""   # the key was generated without one
 pnpm tauri build
 node scripts/publicar.mjs --publicar   # writes latest.json and creates the release
 ```
@@ -125,16 +126,17 @@ The integration tests are not pretend: they capture the real screen, record a cl
 Graphics Capture and export GIF and MP4 files that are then read back to check they are valid.
 
 [`docs/TRAMPAS.md`](docs/TRAMPAS.md) (in Spanish) collects the seven Tauri v2 traps on Windows that
-cost hours of debugging: synchronous commands that freeze the interface, window labels that cannot
-be reused, the first click being eaten by the system, a canvas tainted by the `asset:` protocol, an
-incomplete CSP that only shows up in the installer, and the signing key that is passed one way and
-not the other. Read it before touching windows or webview security.
+cost hours of debugging: synchronous commands that freeze the interface, windows that must not be
+created from a global shortcut thread, window labels that cannot be reused, the first click being
+eaten by the system, a canvas tainted by the `asset:` protocol, an incomplete CSP that only shows
+up in the installer, and the signing key that is passed one way and not the other. Read it before touching windows or webview security.
 
 ## Status
 
-Runs on Windows 10 1903 or newer. macOS and Linux compile, but the capture functions return "not
-implemented": the backend sits behind a `CaptureBackend` trait, so adding them means writing
-`capture/mac.rs` and `capture/linux.rs`.
+Runs on Windows 10 1903 or newer. macOS and Linux compile, but every platform specific function
+returns "esta función solo está implementada en Windows": capture, recording, MP4 encoding,
+clipboard and autostart are all behind `#[cfg(windows)]` with a stub for everything else, so
+porting means filling those stubs in.
 
 **What is missing:** system audio is not recorded yet. It needs WASAPI in loopback mode to feed the
 encoder; the switch is already in the interface, disabled and saying so.

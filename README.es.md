@@ -41,7 +41,7 @@ atajos globales de ShareX, en un instalador de 2 MB.
 · 2,2 MB · se instala solo para tu usuario y no pide permisos de administrador. Las versiones
 anteriores están en [Releases](../../releases).
 
-A partir de la 0.1.2 se actualiza sola: en **Ajustes → Actualizaciones** aparece el botón cuando
+A partir de la 0.1.2 se actualiza sola: en **Ajustes**, apartado **Actualizaciones**, aparece el botón cuando
 hay versión nueva, y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas
 y la app comprueba la firma antes de instalar nada, así que un archivo manipulado no entra.
 
@@ -58,7 +58,6 @@ ves, está detrás de la flecha `^` de la barra de tareas.
 | `Ctrl+S` | Guardar la selección |
 | `E` | Abrir la selección en el editor |
 | `G` / `V` | Grabar la selección como GIF / vídeo |
-| `M` | Silenciar o activar el audio |
 | `Ctrl+A` | Seleccionar el monitor entero |
 | `←↑→↓` | Mover la selección · con `Shift` de 10 en 10 · con `Alt` redimensiona |
 | `Esc` | Cancelar |
@@ -89,7 +88,7 @@ congelada y se selecciona encima. Esquiva el bug de transparencia de Tauri v2 en
 parpadeo del contenido en movimiento y regala una lupa exacta al píxel.
 
 **Nada de FFmpeg empaquetado.** El MP4 lo escribe Media Foundation por hardware y el GIF se genera
-en Rust puro con paleta global, dithering Floyd–Steinberg y escritura solo del rectángulo que cambia
+en Rust puro con paleta global, dithering Floyd-Steinberg y escritura solo del rectángulo que cambia
 entre fotogramas. Si tienes `ffmpeg` en el `PATH`, el editor ofrece además un motor de máxima
 calidad (`palettegen`), pero nunca se descarga ni se distribuye.
 
@@ -107,6 +106,7 @@ y sin la cual el actualizador no aceptaría la descarga:
 
 ```bash
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/winshotx.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""   # la clave se generó sin contraseña
 pnpm tauri build
 node scripts/publicar.mjs --publicar   # prepara latest.json y crea la release
 ```
@@ -124,15 +124,16 @@ Graphics Capture y exportan GIF y MP4 que luego se releen para comprobar que son
 En [`docs/TRAMPAS.md`](docs/TRAMPAS.md) están los siete fallos de Tauri v2 en Windows que costaron
 horas de depuración: comandos síncronos que congelan la interfaz, etiquetas de ventana que no se
 pueden reutilizar, el primer clic que se come el sistema, el canvas contaminado por el protocolo
-`asset:`, una CSP incompleta que solo se nota en el instalador y la clave de firma que se pasa
-de una forma y no de la otra. Si vas a tocar ventanas o la
+`asset:`, las ventanas que no se pueden crear desde el hilo de un atajo global, una CSP incompleta
+que solo se nota en el instalador y la clave de firma que se pasa de una forma y no de la otra. Si vas a tocar ventanas o la
 seguridad del webview, léelo antes.
 
 ## Estado
 
-Funciona en Windows 10 1903 o superior. macOS y Linux compilan, pero las funciones de captura
-devuelven "no implementado": el backend está detrás de un trait `CaptureBackend`, así que añadirlos
-es escribir `capture/mac.rs` y `capture/linux.rs`.
+Funciona en Windows 10 1903 o superior. macOS y Linux compilan, pero todo lo que depende del
+sistema devuelve "esta función solo está implementada en Windows": captura, grabación, codificación
+MP4, portapapeles y arranque automático viven bajo `#[cfg(windows)]` con un tapón para lo demás,
+así que portarlo es rellenar esos tapones.
 
 **Lo que falta:** el audio del sistema todavía no se graba. Hace falta WASAPI en modo loopback para
 alimentar al codificador; el interruptor ya está en la interfaz y avisa de que no está disponible.
