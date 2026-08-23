@@ -56,7 +56,7 @@ export function RecorderBar() {
           data-tauri-drag-region
           title={
             tick.bytes > CACHE_AVISO
-              ? "El cache sin perdida esta ocupando mucho disco: para y exporta"
+              ? "La caché sin pérdida está ocupando mucho disco: para y exporta"
               : undefined
           }
           className={`text-[11px] leading-none tabular-nums ${

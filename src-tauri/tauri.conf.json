@@ -67,7 +67,7 @@
         "installMode": "currentUser"
       }
     },
-    "shortDescription": "Captura y grabacion de pantalla local",
-    "longDescription": "Captura de region, grabacion a GIF y MP4 y editor de recorte, todo local y sin dependencias externas."
+    "shortDescription": "Captura y grabación de pantalla local",
+    "longDescription": "Captura de región, grabación a GIF y MP4 y editor de recorte, todo local y sin dependencias externas."
   }
 }

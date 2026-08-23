@@ -54,7 +54,7 @@ pub fn set(enabled: bool) -> Result<()> {
 
         if result.is_err() {
             return Err(crate::error::AppError::Msg(
-                "no se ha podido escribir el arranque automatico".into(),
+                "no se ha podido escribir el arranque automático".into(),
             ));
         }
     }
