@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import {
   Camera,
   Check,
@@ -22,7 +23,7 @@ import {
   shortcutStatus,
 } from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
-import type { CacheStats, Settings, ShortcutStatus } from "../../lib/types";
+import { EVENTS, type CacheStats, type Settings, type ShortcutStatus } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
 import { Row, Section } from "./Section";
@@ -48,11 +49,26 @@ export function SettingsApp() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refrescar = useCallback(() => {
     void getSettings().then(setLocal);
     void shortcutStatus().then(setShortcuts);
     void cacheStats().then(setCache);
   }, []);
+
+  // Cerrar los ajustes solo esconde la ventana, nunca la destruye, asi que esto se
+  // monta una vez por sesion. Sin volver a preguntar al reaparecer, el tamanno de la
+  // cache se quedaba en el que tenia al arrancar y el boton de vaciar, muerto.
+  useEffect(() => {
+    refrescar();
+    setError(null);
+    const unlisten = listen(EVENTS.settingsShown, () => {
+      refrescar();
+      setError(null);
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [refrescar]);
 
   const patch = useCallback((partial: Partial<Settings>) => {
     setError(null);
@@ -89,7 +105,7 @@ export function SettingsApp() {
               hint={
                 shortcuts.capture
                   ? undefined
-                  : "lo tiene otra aplicación, púlsalo para cambiarlo"
+                  : "ocupado, púlsalo para cambiarlo"
               }
               control={
                 <ShortcutField
@@ -105,7 +121,7 @@ export function SettingsApp() {
               hint={
                 shortcuts.record
                   ? "púlsalo otra vez para terminar"
-                  : "lo tiene otra aplicación, púlsalo para cambiarlo"
+                  : "ocupado, púlsalo para cambiarlo"
               }
               control={
                 <ShortcutField

@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use tauri::{
-    AppHandle, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewUrl,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewUrl,
     WebviewWindowBuilder,
 };
 
@@ -134,10 +134,14 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     Ok(())
 }
 
+/// La ventana de ajustes no se destruye al cerrarla, solo se esconde, asi que su
+/// interfaz sigue montada con los datos del arranque. Al volver a mostrarla hay que
+/// decirselo para que refresque el tamanno de la cache y mire si hay version nueva.
 pub fn show_settings(app: &AppHandle) -> Result<()> {
     if let Some(window) = app.get_webview_window("main") {
         window.show()?;
         window.set_focus()?;
+        let _ = window.emit(crate::EVENT_SETTINGS_SHOWN, ());
     }
     Ok(())
 }

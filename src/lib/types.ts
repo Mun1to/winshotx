@@ -149,4 +149,6 @@ export const EVENTS = {
   settingsChanged: "winshotx://settings-changed",
   /** Lo manda la bandeja cuando se pide mirar si hay version nueva. */
   checkUpdate: "winshotx://check-update",
+  /** La ventana de ajustes vuelve a estar a la vista: toca refrescar lo de dentro. */
+  settingsShown: "winshotx://settings-shown",
 } as const;

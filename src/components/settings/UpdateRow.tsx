@@ -48,9 +48,13 @@ export function UpdateRow({ version }: { version: string }) {
     void mirar(false);
     const timer = window.setInterval(() => void mirar(false), CADA_MS);
     const unlisten = listen(EVENTS.checkUpdate, () => void mirar(true));
+    // Y al volver a abrir la ventana: si no, una version publicada hace un rato no
+    // aparece hasta que salte el temporizador de seis horas.
+    const alVolver = listen(EVENTS.settingsShown, () => void mirar(false));
     return () => {
       window.clearInterval(timer);
       void unlisten.then((fn) => fn());
+      void alVolver.then((fn) => fn());
     };
   }, [mirar]);
 

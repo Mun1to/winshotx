@@ -21,6 +21,10 @@ use crate::state::AppState;
 /// Se lo manda la bandeja a la ventana de ajustes para que mire si hay version nueva.
 pub const EVENT_CHECK_UPDATE: &str = "winshotx://check-update";
 
+/// Y este avisa de que la ventana vuelve a estar a la vista, para refrescar lo que
+/// se haya quedado viejo mientras estaba escondida.
+pub const EVENT_SETTINGS_SHOWN: &str = "winshotx://settings-shown";
+
 /// Las sesiones son cache: si llevan un dia en el disco, ya no le importan a nadie.
 fn purge_old_sessions(root: &std::path::Path) {
     let Ok(entries) = std::fs::read_dir(root.join("sessions")) else {
