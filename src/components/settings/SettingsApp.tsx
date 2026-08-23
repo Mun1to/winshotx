@@ -80,7 +80,7 @@ export function SettingsApp() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
-      <div className="grid flex-1 grid-cols-2 content-start items-start gap-x-4 gap-y-3 overflow-hidden p-4">
+      <div className="grid flex-1 grid-cols-2 content-start items-start gap-x-4 gap-y-3 overflow-y-auto p-4">
         <div className="space-y-3">
           <Section title="Atajos globales">
             <Row

@@ -26,7 +26,7 @@
         "visible": false,
         "skipTaskbar": false,
         "minWidth": 780,
-        "minHeight": 560
+        "minHeight": 420
       }
     ],
     "security": {
