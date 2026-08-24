@@ -145,7 +145,6 @@ export interface ShortcutStatus {
   capture: boolean;
   record: boolean;
   printScreen: boolean;
-  winShiftS: boolean;
 }
 
 export interface PrintScreenState {
@@ -155,8 +154,6 @@ export interface PrintScreenState {
   active: boolean;
   /** La Herramienta de Recortes la sigue teniendo asignada. */
   takenByWindows: boolean;
-  /** Win+Mayús+S también ha caído del lado de winshotx. */
-  winShiftS: boolean;
 }
 
 export interface CacheStats {

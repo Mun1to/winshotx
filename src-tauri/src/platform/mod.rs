@@ -1,8 +1,6 @@
 pub mod autostart;
 pub mod clipboard;
 pub mod snipping;
-#[cfg(windows)]
-pub mod teclado;
 pub mod window_style;
 
 use std::path::Path;

@@ -51,7 +51,6 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
     capture: true,
     record: true,
     printScreen: false,
-    winShiftS: false,
   });
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -452,8 +451,8 @@ function TeclaImprPant({
   return (
     <div>
       <Titulo
-        texto="¿Le quitamos las teclas a la Herramienta de Recortes?"
-        sub="Windows tiene dos teclas de captura: Impr Pant y Win + Mayús + S. winshotx puede quedarse con ellas y responder al mismo dedo de siempre, sin aprender ningún atajo nuevo."
+        texto="¿Le quitamos la tecla a la Herramienta de Recortes?"
+        sub="En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo."
       />
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -476,8 +475,8 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-white">winshotx</span>
           </span>
           <span className="mt-2 block text-[12px] text-neutral-400">
-            Apaga el ajuste de Windows que le da Impr Pant a la Herramienta de Recortes, y pide
-            también Win + Mayús + S.
+            Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la
+            pasa a winshotx.
           </span>
         </button>
 
@@ -497,8 +496,7 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-white">Dejarla como está</span>
           </span>
           <span className="mt-2 block text-[12px] text-neutral-400">
-            La Herramienta de Recortes se queda con sus dos teclas y winshotx se llama con su
-            atajo.
+            La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.
           </span>
         </button>
       </div>
@@ -510,11 +508,6 @@ function TeclaImprPant({
               {estado.active
                 ? "Impr Pant abre winshotx."
                 : "Impr Pant no ha caído: hay otro programa que la tiene cogida."}
-            </li>
-            <li className={estado.winShiftS ? "text-emerald-400" : "text-neutral-400"}>
-              {estado.winShiftS
-                ? "Win + Mayús + S también abre winshotx."
-                : "Win + Mayús + S se la queda Windows: esa no la cede a nadie."}
             </li>
             <li className="text-neutral-500">
               Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y
@@ -530,8 +523,8 @@ function TeclaImprPant({
       </div>
 
       <p className="mt-1 text-[11px] text-neutral-600">
-        La Herramienta de Recortes sigue instalada y se puede abrir desde Inicio: winshotx le quita
-        las teclas, no la desinstala.
+        Win + Mayús + S se queda como está: esa tecla la atiende Windows antes que cualquier
+        programa, y no la cede a nadie.
       </p>
     </div>
   );

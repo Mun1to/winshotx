@@ -9,11 +9,6 @@ use crate::windows_mgr::{self, OverlayIntent};
 /// La tecla suelta, tal y como la escribe el parser de atajos.
 pub const PRINT_SCREEN: &str = "PrintScreen";
 
-/// La otra tecla de captura de Windows. Esta no tiene ningun ajuste que la libere: o el
-/// sistema la cede a quien la pide, o se la queda la Herramienta de Recortes. Se intenta
-/// y se cuenta lo que ha pasado, que es lo unico honesto que se puede hacer con ella.
-pub const WIN_SHIFT_S: &str = "Super+Shift+KeyS";
-
 /// Que atajos han quedado activos de verdad. Si otra aplicacion ya tiene cogida la
 /// combinacion, el registro falla y el usuario tiene derecho a enterarse.
 #[derive(Debug, Clone, Copy, Default, Serialize)]
@@ -22,7 +17,6 @@ pub struct ShortcutStatus {
     pub capture: bool,
     pub record: bool,
     pub print_screen: bool,
-    pub win_shift_s: bool,
 }
 
 /// Abrir el overlay para capturar. Lo comparten el atajo de captura y la tecla
@@ -89,15 +83,6 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
                 }
             }
         }
-
-        // Y de paso se pide la otra. Windows reserva algunas combinaciones con la tecla
-        // Win para el shell, asi que esto puede fallar sin que nadie haya hecho nada mal.
-        if let Ok(shortcut) = WIN_SHIFT_S.parse::<Shortcut>() {
-            if manager.on_shortcut(shortcut, on_capture).is_ok() {
-                status.win_shift_s = true;
-                puestos.push(shortcut);
-            }
-        }
     }
 
     match settings.record_shortcut.parse::<Shortcut>() {
@@ -128,31 +113,23 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
         }
     }
 
-    // El hook de bajo nivel vigila lo mismo, y ese si le gana la tecla a quien la tenga
-    // secuestrada. Va despues del registro: si el atajo normal basta, el hook no llega a
-    // ver la pulsacion porque nadie se la ha comido antes.
-    #[cfg(windows)]
-    {
-        use crate::platform::teclado;
-        teclado::vigilar(&settings.capture_shortcut, settings.print_screen_capture);
-        // Con el hook puesto, las teclas de Windows son nuestras aunque `RegisterHotKey`
-        // las diera por ocupadas: el hook las ve antes que el shell y se las queda.
-        if settings.print_screen_capture && teclado::instalado() {
-            status.print_screen = true;
-            status.win_shift_s = true;
-        }
-    }
-
+    // Lo que dice el plugin y lo que dice el sistema no siempre coinciden: el registro se
+    // encola en el hilo principal y puede darse por bueno antes de que Windows conteste.
+    let de_verdad = |texto: &str| -> bool {
+        texto
+            .parse::<Shortcut>()
+            .map(|s| manager.is_registered(s))
+            .unwrap_or(false)
+    };
     eprintln!(
-        "[atajo] registrados: captura={} ({}) grabacion={} ({}) imprPant={} winShiftS={}",
+        "[atajo] registrados: captura={} ({}, sistema={}) grabacion={} imprPant={} (sistema={})",
         status.capture,
         settings.capture_shortcut,
+        de_verdad(&settings.capture_shortcut),
         status.record,
-        settings.record_shortcut,
         status.print_screen,
-        status.win_shift_s
+        de_verdad(PRINT_SCREEN)
     );
-
     *state.registered.write() = puestos;
     *state.shortcuts.write() = status;
     status
@@ -181,7 +158,6 @@ mod tests {
             "Alt+KeyX",
             "Alt+KeyV",
             "CmdOrCtrl+Shift+KeyS",
-            WIN_SHIFT_S,
         ] {
             assert!(sugerida.parse::<Shortcut>().is_ok(), "{sugerida}");
         }
