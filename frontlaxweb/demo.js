@@ -15,7 +15,10 @@ function formatTimecode(ms) {
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+  // La coma es la separacion decimal en espanol y el punto en ingles: se decide con el
+  // idioma que declara la propia pagina, no a mano.
+  const decimal = document.documentElement.lang === "en" ? "." : ",";
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", decimal)} MB`;
 }
 function plural(cantidad, singular, terminacion = "s") {
   return `${cantidad} ${singular}${cantidad === 1 ? "" : terminacion}`;
@@ -589,3 +592,13 @@ function nombrarPalancas() {
   }
 }
 nombrarPalancas();
+// El candado de la proporcion tambien enciende y apaga, pero no es una .palanca, asi que
+// se queda fuera del bucle de arriba y necesita su propio par role + estado.
+candado.setAttribute("role", "switch");
+const marcarCandado = () =>
+  candado.setAttribute("aria-checked", candado.dataset.on === "1" ? "true" : "false");
+marcarCandado();
+// El manejador de arriba cambia data-on en su propio escuchador; con la microtarea este
+// lee el valor ya actualizado en vez del anterior.
+candado.addEventListener("click", () => queueMicrotask(marcarCandado));
+
