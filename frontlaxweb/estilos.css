@@ -70,26 +70,18 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
 }
 .idioma:hover { background: #ffffff1f; border-color: #ffffff33; }
 
-/* El de GitHub va del mismo alto y el mismo borde que el de idioma, para que la
-   esquina derecha de la barra sea una sola pieza y no dos botones sueltos. */
+/* Solo el logo, en un circulo del mismo alto y el mismo borde que el boton de idioma,
+   para que la esquina derecha de la barra sea una pieza y no dos cosas distintas. */
 .gh {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border-radius: 999px; border: 1px solid #ffffff1a;
-  background: #ffffff0d; color: var(--texto); font-size: 13px; font-weight: 650;
-  font-variant-numeric: tabular-nums; transition: background .14s, border-color .14s;
+  display: grid; place-items: center; width: 36px; height: 36px;
+  border-radius: 999px; border: 1px solid #ffffff1a; background: #ffffff0d;
+  color: var(--suave); transition: background .14s, border-color .14s, color .14s;
 }
-.gh:hover { background: #ffffff1f; border-color: #ffffff33; text-decoration: none; }
+.gh:hover { background: #ffffff1f; border-color: #ffffff33; color: var(--texto); }
 .gh-marca { width: 17px; height: 17px; }
-.gh-raya { width: 1px; height: 16px; background: #ffffff24; }
-.gh-estrella { width: 14px; height: 14px; color: #f0b429; margin-right: -3px; }
 @media (max-width: 900px) {
   nav .env { grid-template-columns: 1fr auto; padding-right: 10px; }
   nav .enlaces { display: none; }
-}
-/* En pantallas estrechas el contador sobra antes que el boton entero. */
-@media (max-width: 460px) {
-  .gh { padding: 8px 11px; gap: 6px; }
-  .gh-raya, .gh-estrella, #gh-estrellas { display: none; }
 }
 
 /* ---------- portada ---------- */

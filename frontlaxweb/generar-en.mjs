@@ -69,14 +69,14 @@ function traducir(html) {
  */
 function versionar(html, huellas) {
   return html.replace(
-    /((?:\.\.\/)*)(estilos\.css|demo\.js|estrellas\.js)(\?v=[a-f0-9]+)?/g,
+    /((?:\.\.\/)*)(estilos\.css|demo\.js)(\?v=[a-f0-9]+)?/g,
     (_todo, subir, archivo) => `${subir}${archivo}?v=${huellas[archivo]}`,
   );
 }
 
 const huellas = Object.fromEntries(
   await Promise.all(
-    ["estilos.css", "demo.js", "estrellas.js"].map(async (archivo) => [
+    ["estilos.css", "demo.js"].map(async (archivo) => [
       archivo,
       // El texto se normaliza a saltos de linea de Unix antes de la huella: en Windows el
       // archivo esta en disco con CRLF y en el servidor con LF, y sin esto cada uno
@@ -163,7 +163,6 @@ const PAGINAS = [
       'href="logo.svg"': 'href="../logo.svg"',
       'href="estilos.css?v=': 'href="../estilos.css?v=',
       'src="demo.js?v=': 'src="../demo.js?v=',
-      'src="estrellas.js?v=': 'src="../estrellas.js?v=',
       '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
     },
@@ -178,7 +177,6 @@ const PAGINAS = [
       [`"item": "${BASE}docs/" }`]: `"item": "${BASE}en/docs/" }`,
       'href="../logo.svg"': 'href="../../logo.svg"',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
-      'src="../estrellas.js?v=': 'src="../../estrellas.js?v=',
       '<a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>',
     },
