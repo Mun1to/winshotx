@@ -98,6 +98,7 @@ incluidas las seis que gana la de Windows.
 |---|---|
 | `Ctrl+Shift+2` | Capturar región |
 | `Ctrl+Shift+5` | Grabar región · púlsalo otra vez para terminar |
+| `Impr Pant` | Capturar región · si le quitas la tecla a la Herramienta de Recortes |
 | `Enter` | Copiar la selección al portapapeles |
 | `Ctrl+S` | Guardar la selección |
 | `E` | Abrir la selección en el editor |
@@ -111,6 +112,23 @@ fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel y `Esc` cierra
 
 Los dos atajos globales se cambian desde Ajustes pulsando el campo y tecleando la combinación
 nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
+
+La tecla `Impr Pant` la tiene la Herramienta de Recortes por un valor del registro del usuario, así
+que registrar el atajo por su cuenta parece funcionar y luego no llega ninguna pulsación. El
+interruptor de Ajustes apaga ese valor y coge la tecla, y al desactivarlo lo deja como estaba.
+
+## Dos formas de capturar
+
+Las dos usan el mismo atajo y la misma selección. Lo que cambia es el momento de soltar:
+
+| Perfil | Qué pasa al soltar el ratón |
+|---|---|
+| **Sale la barra** | Aparece una barra sobre la selección: copiar, guardar, editar, GIF, vídeo |
+| **Se copia sola** | No aparece nada · la imagen ya está en el portapapeles |
+
+El atajo de grabar siempre saca la barra, tengas el perfil que tengas: tiene que preguntar si
+quieres GIF o vídeo. El perfil se elige en la bienvenida del primer arranque, y se cambia cuando
+quieras desde Ajustes.
 
 <details>
 <summary><b>Cómo está construido</b></summary>

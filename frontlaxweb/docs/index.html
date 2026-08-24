@@ -77,6 +77,14 @@
     },
     {
       "@type": "Question",
+      "name": "¿Puedo capturar con la tecla Impr Pant?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sí. En Ajustes → Atajos globales hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes, y al desactivarlo lo deja exactamente como estaba. Win + Mayús + S sigue siendo de Windows: esa no se puede ceder."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "¿Cómo pego un GIF en Slack o en Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -175,6 +183,9 @@
     <p data-en="It updates itself. When a new version is out, a button shows up in &lt;b&gt;Ajustes → Actualizaciones&lt;/b&gt;, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.">
       Se actualiza sola. Cuando hay versión nueva aparece un botón en <b>Ajustes → Actualizaciones</b>, y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas y la firma se comprueba antes de instalar nada, así que un archivo manipulado no entra.
     </p>
+    <p data-en="The first time it opens on its own with four steps: the shortcuts, how you prefer to capture, whether the &lt;kbd&gt;Impr Pant&lt;/kbd&gt; key should open winshotx instead of the Snipping Tool, and whether it should start with Windows. You can see it again in &lt;b&gt;Ajustes → Sistema → Bienvenida&lt;/b&gt;." data-html>
+      La primera vez se abre sola con cuatro pasos: los atajos, cómo prefieres capturar, si quieres que la tecla <kbd>Impr Pant</kbd> abra winshotx en vez de la Herramienta de Recortes y si debe arrancar con Windows. Se puede volver a ver en <b>Ajustes → Sistema → Bienvenida</b>.
+    </p>
   </section>
 
   <section id="capturar">
@@ -188,8 +199,15 @@
       <li data-en="&lt;b&gt;Fine tuning.&lt;/b&gt; The arrow keys move the selection one pixel at a time, &lt;kbd&gt;Shift&lt;/kbd&gt; moves it ten, and &lt;kbd&gt;Alt&lt;/kbd&gt; resizes instead of moving." data-html><b>Ajuste fino.</b> Las flechas mueven la selección de píxel en píxel, con <kbd>Shift</kbd> de diez en diez, y con <kbd>Alt</kbd> redimensionan en vez de mover.</li>
       <li data-en="&lt;b&gt;Several monitors.&lt;/b&gt; Every screen freezes at once, each at its own scaling, and a 100 × 100 selection produces a 100 × 100 file in real pixels." data-html><b>Varios monitores.</b> Se congelan todas las pantallas a la vez, cada una con su escalado, y una selección de 100 × 100 produce un archivo de 100 × 100 píxeles reales.</li>
     </ul>
-    <p data-en="With the selection made, a small toolbar appears: copy, save, open in the editor, record as GIF, record as video, or cancel with &lt;kbd&gt;Esc&lt;/kbd&gt;.">
-      Con la selección hecha aparece una barra pequeña: copiar, guardar, abrir en el editor, grabar en GIF, grabar en vídeo, o cancelar con <kbd>Esc</kbd>.
+    <p data-en="What happens when you let go depends on the profile picked in &lt;b&gt;Ajustes → Captura&lt;/b&gt;, and both use the same shortcut and the same selection." data-html>
+      Lo que pasa al soltar depende del perfil que tengas en <b>Ajustes → Captura</b>, y los dos usan el mismo atajo y la misma selección.
+    </p>
+    <ul role="list">
+      <li data-en="&lt;b&gt;Sale la barra.&lt;/b&gt; A small toolbar appears over the selection: copy, save, open in the editor, record as GIF, record as video, or cancel with &lt;kbd&gt;Esc&lt;/kbd&gt;. It is the complete one." data-html><b>Sale la barra.</b> Aparece una barra pequeña sobre la selección: copiar, guardar, abrir en el editor, grabar en GIF, grabar en vídeo, o cancelar con <kbd>Esc</kbd>. Es la completa.</li>
+      <li data-en="&lt;b&gt;Se copia sola.&lt;/b&gt; Nothing appears: you let go of the mouse and the image is already in the clipboard, ready to paste. A single click on a window copies it whole." data-html><b>Se copia sola.</b> No aparece nada: sueltas el ratón y la imagen ya está en el portapapeles, lista para pegar. Un clic sobre una ventana la copia entera.</li>
+    </ul>
+    <p class="nota" data-en="The recording shortcut always shows the toolbar, whichever profile is set: it has to ask whether you want a GIF or a video.">
+      El atajo de grabar siempre saca la barra, tengas el perfil que tengas: tiene que preguntar si quieres GIF o vídeo.
     </p>
   </section>
 
@@ -266,6 +284,8 @@
         <tr>
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></th><td data-en="Record a region, press again to stop">Grabar una región, púlsalo otra vez para parar</td></tr>
         <tr>
+          <th scope="row"><kbd>Impr Pant</kbd></th><td data-en="Capture a region, if you took the key from the Snipping Tool">Capturar una región, si le has quitado la tecla a la Herramienta de Recortes</td></tr>
+        <tr>
           <th scope="row"><kbd>Enter</kbd></th><td data-en="Copy the selection to the clipboard">Copiar la selección al portapapeles</td></tr>
         <tr>
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>S</kbd></th><td data-en="Save the selection">Guardar la selección</td></tr>
@@ -291,8 +311,11 @@
     <p data-en="Right click the tray icon and choose &lt;b&gt;Ajustes&lt;/b&gt;. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.">
       Pincha con el botón derecho en el icono de la bandeja y elige <b>Ajustes</b>. Los dos atajos globales se cambian pulsando el campo y tecleando la combinación nueva; si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
     </p>
-    <p data-en="The rest is short on purpose: whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.">
-      El resto es corto a propósito: si copiar al portapapeles al guardar, si incluir el cursor, la lupa, el sonido de obturador, los fotogramas por segundo, la carpeta de destino, arrancar con Windows y buscar actualizaciones.
+    <p data-en="Under them there is a switch that hands the &lt;kbd&gt;Impr Pant&lt;/kbd&gt; key over from the Snipping Tool, and it says whether Windows actually let go of it." data-html>
+      Debajo hay un interruptor que le quita la tecla <kbd>Impr Pant</kbd> a la Herramienta de Recortes, y dice si Windows la ha soltado de verdad.
+    </p>
+    <p data-en="The rest is short on purpose: what happens when you let go of the mouse, whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.">
+      El resto es corto a propósito: qué pasa al soltar el ratón, si copiar al portapapeles al guardar, si incluir el cursor, la lupa, el sonido de obturador, los fotogramas por segundo, la carpeta de destino, arrancar con Windows y buscar actualizaciones.
     </p>
     <p><a href="../#demo" data-en="You can click through all of it in the demo on the home page, without installing anything.">Puedes tocarlo todo en la demo de la portada, sin instalar nada.</a></p>
   </section>
@@ -318,6 +341,11 @@
     <h3 data-en="Can I change the keyboard shortcut?">¿Puedo cambiar el atajo de teclado?</h3>
     <p data-en="Yes, in &lt;b&gt;Ajustes&lt;/b&gt;. Click the field and press the combination you want.">
       Sí, en <b>Ajustes</b>. Pulsa el campo y teclea la combinación que quieras.
+    </p>
+
+    <h3 data-en="Can I capture with the Print Screen key?">¿Puedo capturar con la tecla Impr Pant?</h3>
+    <p data-en="Yes. In &lt;b&gt;Ajustes → Atajos globales&lt;/b&gt; a switch takes the key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands that key to the Snipping Tool, and turning the switch back off leaves it exactly as it was. &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;S&lt;/kbd&gt; still belongs to Windows: that one cannot be handed over." data-html>
+      Sí. En <b>Ajustes → Atajos globales</b> hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes, y al desactivarlo lo deja exactamente como estaba. <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> sigue siendo de Windows: esa no se puede ceder.
     </p>
 
     <h3 data-en="How do I paste a GIF into Slack or Discord?">¿Cómo pego un GIF en Slack o en Discord?</h3>

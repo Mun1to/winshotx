@@ -97,6 +97,7 @@ has the nineteen rows, including the six the Snipping Tool wins.
 |---|---|
 | `Ctrl+Shift+2` | Capture a region |
 | `Ctrl+Shift+5` | Record a region · press again to stop |
+| `Print Screen` | Capture a region · once you take the key from the Snipping Tool |
 | `Enter` | Copy the selection to the clipboard |
 | `Ctrl+S` | Save the selection |
 | `E` | Open the selection in the editor |
@@ -110,6 +111,22 @@ frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
 
 Both global shortcuts can be changed in the settings by clicking the field and typing the new
 combination. If another application already holds it, the field turns red and says so.
+
+`Print Screen` belongs to the Snipping Tool through a per-user registry value, so registering the
+hotkey alone looks like it worked and never fires. The switch in the settings clears that value and
+takes the key, and turning it off puts the value back exactly as it was.
+
+## Two ways to capture
+
+Both use the same shortcut and the same selection. What changes is the moment you let go:
+
+| Profile | What happens when you release the mouse |
+|---|---|
+| **Sale la barra** | A toolbar appears over the selection: copy, save, edit, GIF, video |
+| **Se copia sola** | Nothing appears · the image is already in the clipboard |
+
+The recording shortcut always shows the toolbar, whichever profile is set: it has to ask for GIF or
+video. The profile is picked in the welcome on the first run, and changed any time in the settings.
 
 <details>
 <summary><b>How it is built</b></summary>

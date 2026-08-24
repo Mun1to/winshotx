@@ -77,6 +77,14 @@
     },
     {
       "@type": "Question",
+      "name": "Can I capture with the Print Screen key?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. In Ajustes → Atajos globales a switch takes the key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands that key to the Snipping Tool, and turning the switch back off leaves it exactly as it was. Win + Shift + S still belongs to Windows: that one cannot be handed over."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "How do I paste a GIF into Slack or Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -167,6 +175,7 @@
     </div>
     <p>It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the <code>^</code> arrow on the taskbar.</p>
     <p>It updates itself. When a new version is out, a button shows up in <b>Ajustes → Actualizaciones</b>, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.</p>
+    <p>The first time it opens on its own with four steps: the shortcuts, how you prefer to capture, whether the <kbd>Impr Pant</kbd> key should open winshotx instead of the Snipping Tool, and whether it should start with Windows. You can see it again in <b>Ajustes → Sistema → Bienvenida</b>.</p>
   </section>
 
   <section id="capturar">
@@ -178,7 +187,12 @@
       <li><b>Fine tuning.</b> The arrow keys move the selection one pixel at a time, <kbd>Shift</kbd> moves it ten, and <kbd>Alt</kbd> resizes instead of moving.</li>
       <li><b>Several monitors.</b> Every screen freezes at once, each at its own scaling, and a 100 × 100 selection produces a 100 × 100 file in real pixels.</li>
     </ul>
-    <p>With the selection made, a small toolbar appears: copy, save, open in the editor, record as GIF, record as video, or cancel with <kbd>Esc</kbd>.</p>
+    <p>What happens when you let go depends on the profile picked in <b>Ajustes → Captura</b>, and both use the same shortcut and the same selection.</p>
+    <ul role="list">
+      <li><b>Sale la barra.</b> A small toolbar appears over the selection: copy, save, open in the editor, record as GIF, record as video, or cancel with <kbd>Esc</kbd>. It is the complete one.</li>
+      <li><b>Se copia sola.</b> Nothing appears: you let go of the mouse and the image is already in the clipboard, ready to paste. A single click on a window copies it whole.</li>
+    </ul>
+    <p class="nota">The recording shortcut always shows the toolbar, whichever profile is set: it has to ask whether you want a GIF or a video.</p>
   </section>
 
   <section id="grabar">
@@ -240,6 +254,8 @@
         <tr>
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></th><td>Record a region, press again to stop</td></tr>
         <tr>
+          <th scope="row"><kbd>Impr Pant</kbd></th><td>Capture a region, if you took the key from the Snipping Tool</td></tr>
+        <tr>
           <th scope="row"><kbd>Enter</kbd></th><td>Copy the selection to the clipboard</td></tr>
         <tr>
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>S</kbd></th><td>Save the selection</td></tr>
@@ -261,7 +277,8 @@
   <section id="ajustes">
     <h2>Settings</h2>
     <p>Right click the tray icon and choose <b>Ajustes</b>. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
-    <p>The rest is short on purpose: whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.</p>
+    <p>Under them there is a switch that hands the <kbd>Impr Pant</kbd> key over from the Snipping Tool, and it says whether Windows actually let go of it.</p>
+    <p>The rest is short on purpose: what happens when you let go of the mouse, whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.</p>
     <p><a href="../#demo">You can click through all of it in the demo on the home page, without installing anything.</a></p>
   </section>
 
@@ -279,6 +296,9 @@
 
     <h3>Can I change the keyboard shortcut?</h3>
     <p>Yes, in <b>Ajustes</b>. Click the field and press the combination you want.</p>
+
+    <h3>Can I capture with the Print Screen key?</h3>
+    <p>Yes. In <b>Ajustes → Atajos globales</b> a switch takes the key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands that key to the Snipping Tool, and turning the switch back off leaves it exactly as it was. <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> still belongs to Windows: that one cannot be handed over.</p>
 
     <h3>How do I paste a GIF into Slack or Discord?</h3>
     <p>Use <b>Copiar</b> in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.</p>
