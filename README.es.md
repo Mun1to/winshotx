@@ -2,25 +2,43 @@
 
 **Español** · [English](README.md)
 
+<img src="docs/img/logo.png" alt="" width="92">
+
 # winshotx
 
-**Captura de pantalla y grabación de GIF/MP4 para Windows.**
-Local, sin cuenta, sin nube y sin binarios externos.
+**Recorta la pantalla antes de que parpadees.**
+Captura y grabación de GIF/MP4 para Windows: 2 MB, sin cuenta, sin nube y sin binarios
+externos.
 
-[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-3b82f6)](LICENSE)
+[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-0a9bff)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#estado)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584)](https://www.rust-lang.org)
-[![Instalador 2 MB](https://img.shields.io/badge/instalador-2%20MB-22c55e)](#instalación)
+[![Instalador 2,2 MB](https://img.shields.io/badge/instalador-2,2%20MB-22c55e)](#instalación)
 
-La estética y el flujo de CleanShot X, la edición fotograma a fotograma de ScreenToGif y los
-atajos globales de ShareX, en un instalador de 2 MB.
-
-[![Descargar winshotx para Windows](https://img.shields.io/badge/descargar-para%20Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+[![Descargar winshotx para Windows](https://img.shields.io/badge/descargar-para%20Windows-0a9bff?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
 
 <img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="760">
 
 </div>
+
+## Frente a la Herramienta de Recortes
+
+Mismo equipo con Windows 11, tres pasadas cada una y las dos arrancando desde cero. El
+cronómetro para cuando la selección ya se ve en pantalla.
+
+| | winshotx | Herramienta de Recortes |
+|---|---|---|
+| Del atajo a la selección | **28 ms** | 920 ms |
+| Memoria mientras capturas | **33 MB** | 253 MB |
+| Memoria esperando quieta | **31 MB** | 98 MB |
+| Instalador | **2,2 MB** | viene con Windows |
+| Graba GIF y MP4 | sí | no |
+| Editor fotograma a fotograma | sí | no |
+
+Hay una página de presentación con una demo interactiva de la app en
+[`frontlaxweb/`](frontlaxweb/index.html): ábrela en el navegador y arrastra sobre el escritorio
+de mentira.
 
 ## Qué hace
 

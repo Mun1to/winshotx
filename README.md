@@ -2,25 +2,42 @@
 
 **English** · [Español](README.es.md)
 
+<img src="docs/img/logo.png" alt="" width="92">
+
 # winshotx
 
-**Screenshots and GIF/MP4 screen recording for Windows.**
-Local, no account, no cloud, no bundled binaries.
+**Crop the screen before you blink.**
+Screenshots and GIF/MP4 screen recording for Windows: 2 MB, no account, no cloud,
+no bundled binaries.
 
-[![MIT license](https://img.shields.io/badge/license-MIT-3b82f6)](LICENSE)
+[![MIT license](https://img.shields.io/badge/license-MIT-0a9bff)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#status)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584)](https://www.rust-lang.org)
-[![2 MB installer](https://img.shields.io/badge/installer-2%20MB-22c55e)](#install)
+[![2 MB installer](https://img.shields.io/badge/installer-2.2%20MB-22c55e)](#install)
 
-The look and flow of CleanShot X, the frame by frame editing of ScreenToGif and the global
-shortcuts of ShareX, in a 2 MB installer.
-
-[![Download winshotx for Windows](https://img.shields.io/badge/download-for%20Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+[![Download winshotx for Windows](https://img.shields.io/badge/download-for%20Windows-0a9bff?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
 
 <img src="docs/img/ajustes.png" alt="winshotx settings panel" width="760">
 
 </div>
+
+## Against the Snipping Tool
+
+Same machine, Windows 11, three runs each, both started from scratch. The clock stops when the
+selection is actually on screen.
+
+| | winshotx | Snipping Tool |
+|---|---|---|
+| From shortcut to selection | **28 ms** | 920 ms |
+| Memory while capturing | **33 MB** | 253 MB |
+| Memory sitting idle | **31 MB** | 98 MB |
+| Installer | **2.2 MB** | ships with Windows |
+| Records GIF and MP4 | yes | no |
+| Frame by frame editor | yes | no |
+
+There is a landing page with an interactive demo of the app in
+[`frontlaxweb/`](frontlaxweb/index.html): open it in a browser and drag on the fake desktop.
 
 > **The interface is in Spanish**, and so are the identifiers, comments and test names in the
 > source. The commits and this page are in English. Translating the app is not planned; open an
