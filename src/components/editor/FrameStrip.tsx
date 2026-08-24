@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { clamp, formatTimecode, plural } from "../../lib/format";
 import type { FrameMeta } from "../../lib/types";
@@ -31,6 +31,10 @@ export function FrameStrip({
   const [drag, setDrag] = useState<Drag>(null);
 
   const ultimo = Math.max(0, frames.length - 1);
+
+  // Las rutas no cambian mientras dure la sesion, pero sin esto se recalculaban las de los
+  // ochenta y pico fotogramas en cada tic de la reproduccion.
+  const miniaturas = useMemo(() => frames.map((f) => convertFileSrc(f.thumbPath)), [frames]);
 
   /** Posicion del puntero dentro de la tira, en pixeles. */
   const xEnTira = useCallback((clientX: number) => {
@@ -103,10 +107,10 @@ export function FrameStrip({
         className="relative h-[52px] overflow-x-auto overflow-y-hidden rounded-lg border border-white/8 bg-black/40"
       >
         <div className="relative h-[42px]" style={{ width }}>
-          {frames.map((frame) => (
+          {frames.map((frame, posicion) => (
             <img
               key={frame.index}
-              src={convertFileSrc(frame.thumbPath)}
+              src={miniaturas[posicion]}
               alt=""
               draggable={false}
               loading="lazy"
