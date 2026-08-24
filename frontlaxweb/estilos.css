@@ -38,40 +38,40 @@ a { color: var(--azul-claro); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { font-family: inherit; }
 
-/* ---------- cabecera ---------- */
+/* ---------- cabecera: una barra ovalada que flota sobre la página ---------- */
 nav {
-  position: sticky; top: 0; z-index: 50;
-  backdrop-filter: blur(14px);
-  background: #0b0b0dcc;
-  border-bottom: 1px solid var(--borde);
+  position: sticky; top: 0; z-index: 50; padding: 14px 0 12px;
+  background: linear-gradient(180deg, var(--fondo) 62%, transparent);
 }
 nav .env {
+  /* 1fr a los lados para que el menú caiga en el centro exacto de la barra */
   display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: 14px; height: 62px;
+  align-items: center; gap: 16px; height: 58px; padding: 0 8px 0 18px;
+  border-radius: 999px; border: 1px solid #ffffff1a;
+  background: #14141ccc; backdrop-filter: blur(18px);
+  box-shadow: 0 14px 34px #00000059;
 }
 .marca { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
 .marca svg { width: 26px; height: 26px; }
 .marca svg.chico { width: 20px; height: 20px; }
 nav .enlaces {
-  justify-self: center; display: flex; align-items: center; gap: 4px; font-size: 14px;
-  padding: 4px; border-radius: 12px; background: #ffffff06; border: 1px solid var(--borde);
+  justify-self: center; display: flex; align-items: center; gap: 2px; font-size: 14px;
 }
 nav .enlaces a {
-  color: var(--suave); padding: 6px 13px; border-radius: 8px;
+  color: var(--suave); padding: 9px 15px; border-radius: 999px;
   transition: background .14s, color .14s;
 }
-nav .enlaces a:hover { color: var(--texto); background: #ffffff12; text-decoration: none; }
+nav .enlaces a:hover { color: var(--texto); background: #ffffff14; text-decoration: none; }
 .idioma {
-  justify-self: end; display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 13px; border-radius: 10px; border: 1px solid var(--borde);
-  background: #ffffff08; color: var(--suave); font-size: 13px; font-weight: 550;
-  cursor: pointer; transition: background .14s, color .14s;
+  justify-self: end; padding: 9px 18px; border-radius: 999px; border: 1px solid #ffffff1a;
+  background: #ffffff0d; color: var(--texto); font-size: 13.5px; font-weight: 600;
+  cursor: pointer; transition: background .14s, border-color .14s;
 }
-.idioma:hover { background: #ffffff14; color: var(--texto); }
-.idioma svg { width: 15px; height: 15px; }
+.idioma:hover { background: #ffffff1f; border-color: #ffffff33; }
 @media (max-width: 900px) {
-  nav .env { grid-template-columns: 1fr auto; }
+  nav .env { grid-template-columns: 1fr auto; padding-right: 10px; }
   nav .enlaces { display: none; }
+  .idioma { justify-self: end; }
 }
 
 /* ---------- portada ---------- */
