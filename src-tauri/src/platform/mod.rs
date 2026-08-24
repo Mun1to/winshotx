@@ -1,5 +1,6 @@
 pub mod autostart;
 pub mod clipboard;
+pub mod snipping;
 pub mod window_style;
 
 use std::path::Path;

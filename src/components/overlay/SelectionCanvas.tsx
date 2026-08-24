@@ -185,21 +185,37 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     [payload, scale],
   );
 
-  const runStill = useCallback(
-    async (action: StillAction) => {
-      if (!selection || !payload || busy) return;
+  const capturarRegion = useCallback(
+    async (rect: Rect, action: StillAction) => {
+      if (!payload || busy) return;
       setBusy(true);
       setError(null);
       try {
-        await captureStill(toPhysical(selection), action);
+        await captureStill(toPhysical(rect), action);
       } catch (e) {
         setError(String(e));
       } finally {
         setBusy(false);
       }
     },
-    [selection, payload, busy, toPhysical],
+    [payload, busy, toPhysical],
   );
+
+  const runStill = useCallback(
+    async (action: StillAction) => {
+      if (!selection) return;
+      await capturarRegion(selection, action);
+    },
+    [selection, capturarRegion],
+  );
+
+  /**
+   * Perfil al vuelo: se suelta el raton y la imagen ya esta en el portapapeles, sin
+   * barra y sin un solo clic mas. Solo cuando el overlay se abrio para capturar: con
+   * el atajo de grabar hace falta elegir entre GIF y video, asi que ahi manda la barra.
+   */
+  const alVuelo =
+    payload?.settings.captureFlow === "instant" && payload?.intent === "capture";
 
   const runRecord = useCallback(
     async (format: "gif" | "video") => {
@@ -272,7 +288,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         void runStill("save");
       } else if (key === "a" && e.ctrlKey) {
         e.preventDefault();
-        setSelection({ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight });
+        const todo = { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
+        if (alVuelo) void capturarRegion(todo, "copy");
+        else setSelection(todo);
       } else if (key === "e") {
         void runStill("edit");
       } else if (key === "g") {
@@ -283,7 +301,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [runStill, runRecord, nudge]);
+  }, [runStill, runRecord, nudge, alVuelo, capturarRegion]);
 
   const readHex = useCallback(
     (cssX: number, cssY: number) => {
@@ -328,10 +346,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     const onUp = () => {
       if (mode.kind === "drawing") {
         const drawn = selectionRef.current;
-        if (!drawn || drawn.width < MIN_DRAG || drawn.height < MIN_DRAG) {
-          // Clic seco: si hay una ventana debajo, se selecciona entera (estilo ShareX).
-          setSelection(mode.candidate);
-        }
+        const dibujado = drawn && drawn.width >= MIN_DRAG && drawn.height >= MIN_DRAG;
+        // Clic seco: si hay una ventana debajo, se selecciona entera (estilo ShareX).
+        if (!dibujado) setSelection(mode.candidate);
+        const elegido = dibujado ? drawn : mode.candidate;
+        if (alVuelo && elegido) void capturarRegion(elegido, "copy");
       }
       setMode({ kind: "idle" });
     };
@@ -344,7 +363,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [mode, readHex]);
+  }, [mode, readHex, alVuelo, capturarRegion]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (busy) return;
@@ -444,7 +463,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       )}
 
       <AnimatePresence>
-        {active && mode.kind === "idle" && (
+        {active && mode.kind === "idle" && !alVuelo && (
           <FloatingToolbar
             key="toolbar"
             left={clamp(active.x + active.width / 2, 190, window.innerWidth - 190)}
@@ -472,8 +491,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       {!active && (
         <div className="pointer-events-none absolute inset-x-0 bottom-10 flex justify-center">
           <div className="rounded-full border border-white/10 bg-neutral-900/85 px-4 py-2 text-xs text-neutral-300 shadow-xl backdrop-blur-md">
-            Arrastra para seleccionar · clic sobre una ventana para capturarla entera · Esc para
-            salir
+            {alVuelo
+              ? "Arrastra y suelta: se copia sola · clic sobre una ventana para copiarla entera · Esc para salir"
+              : "Arrastra para seleccionar · clic sobre una ventana para capturarla entera · Esc para salir"}
           </div>
         </div>
       )}

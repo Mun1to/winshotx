@@ -8,6 +8,7 @@ import type {
   Rect,
   RecordOptions,
   SessionInfo,
+  PrintScreenState,
   Settings,
   ShortcutStatus,
   StillAction,
@@ -67,6 +68,12 @@ export const discardSession = (sessionId: string) =>
   invoke<void>("discard_session", { sessionId });
 
 export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
+
+export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
+
+/** Le quita la tecla Impr Pant a la Herramienta de Recortes, o se la devuelve. */
+export const usePrintScreen = (enabled: boolean) =>
+  invoke<PrintScreenState>("use_print_screen", { enabled });
 
 export const cacheStats = () => invoke<CacheStats>("cache_stats");
 

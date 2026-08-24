@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::error::Result;
 use crate::state::AppState;
-use crate::windows_mgr;
+use crate::windows_mgr::{self, OverlayIntent};
 
 /// La app vive en la bandeja: no hay ventana principal hasta que se piden los ajustes.
 pub fn build(app: &AppHandle) -> Result<()> {
@@ -32,13 +32,13 @@ pub fn build(app: &AppHandle) -> Result<()> {
         .tooltip("winshotx")
         .on_menu_event(|app, event| match event.id.as_ref() {
             "capture" => {
-                let _ = windows_mgr::open_overlays(app);
+                let _ = windows_mgr::open_overlays(app, OverlayIntent::Capture);
             }
             "record" => {
                 if app.state::<AppState>().is_recording() {
                     let _ = crate::recorder::stop(app);
                 } else {
-                    let _ = windows_mgr::open_overlays(app);
+                    let _ = windows_mgr::open_overlays(app, OverlayIntent::Record);
                 }
             }
             "settings" => {
@@ -62,7 +62,7 @@ pub fn build(app: &AppHandle) -> Result<()> {
                 ..
             } = event
             {
-                let _ = windows_mgr::open_overlays(tray.app_handle());
+                let _ = windows_mgr::open_overlays(tray.app_handle(), OverlayIntent::Capture);
             }
         });
 

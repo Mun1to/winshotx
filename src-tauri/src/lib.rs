@@ -69,10 +69,22 @@ pub fn run() {
             purge_old_sessions(&temp_root);
 
             app.manage(AppState::new(config.clone(), temp_root));
+
+            // Si el usuario nos dio la tecla Impr Pant hay que comprobarlo en cada
+            // arranque: una actualizacion de Windows o un paseo por Configuracion se la
+            // devuelven a la Herramienta de Recortes sin avisar, y entonces el atajo se
+            // registra igual pero no llega ni una pulsacion.
+            #[cfg(windows)]
+            if config.print_screen_capture {
+                let _ = platform::snipping::write(0);
+            }
+
             hotkeys::register(&handle, &config);
             tray::build(&handle)?;
 
-            if std::env::args().any(|arg| arg == "--settings") {
+            // La primera vez se abre sola con la bienvenida: recien instalada, la app
+            // vive en la bandeja y sin esto no habria nada que mirar.
+            if !config.onboarded || std::env::args().any(|arg| arg == "--settings") {
                 windows_mgr::show_settings(&handle)?;
             }
             Ok(())
@@ -108,6 +120,8 @@ pub fn run() {
             commands::cache_stats,
             commands::clear_cache,
             commands::shortcut_status,
+            commands::print_screen_state,
+            commands::use_print_screen,
             commands::open_folder,
             commands::quit_app,
         ])

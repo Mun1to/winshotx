@@ -5,12 +5,31 @@ use tauri::{AppHandle, Manager};
 
 use crate::error::Result;
 
+/// Que pasa justo despues de soltar el raton sobre la region elegida.
+/// Son las dos formas de trabajar que pidio la gente: la que deja decidir y la que
+/// no pregunta nada. Cualquier otra cosa se puede montar encima de estas dos.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CaptureFlow {
+    /// Sale la barra flotante y el usuario elige: copiar, guardar, editar o grabar.
+    Toolbar,
+    /// La imagen se copia al portapapeles sola y el overlay se cierra. Cero clics.
+    Instant,
+}
+
+impl Default for CaptureFlow {
+    fn default() -> Self {
+        Self::Toolbar
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub capture_shortcut: String,
     pub record_shortcut: String,
     pub save_directory: String,
+    pub capture_flow: CaptureFlow,
     pub copy_after_capture: bool,
     pub open_editor_after_recording: bool,
     pub capture_cursor: bool,
@@ -19,6 +38,16 @@ pub struct Settings {
     pub play_sound: bool,
     pub show_magnifier: bool,
     pub start_with_windows: bool,
+    /// La tecla Impr Pant abre winshotx. Va aparte del atajo normal: se suma, no lo
+    /// sustituye, asi que quien tenga el suyo puesto no lo pierde al activar esto.
+    pub print_screen_capture: bool,
+    /// Falso hasta que se termina la bienvenida. Es lo que decide si al abrir la
+    /// ventana se ven los cuatro pasos o directamente los ajustes.
+    pub onboarded: bool,
+    /// Lo que valia `PrintScreenKeyForSnippingEnabled` antes de que le quitaramos la
+    /// tecla a la Herramienta de Recortes. Al desactivarlo se devuelve tal cual: la
+    /// maquina tiene que quedarse como estaba, no como nos venga bien.
+    pub snipping_key_restore: Option<u32>,
 }
 
 impl Default for Settings {
@@ -27,6 +56,7 @@ impl Default for Settings {
             capture_shortcut: "CmdOrCtrl+Shift+2".into(),
             record_shortcut: "CmdOrCtrl+Shift+5".into(),
             save_directory: default_save_dir(),
+            capture_flow: CaptureFlow::Toolbar,
             copy_after_capture: true,
             open_editor_after_recording: true,
             capture_cursor: true,
@@ -35,6 +65,9 @@ impl Default for Settings {
             play_sound: false,
             show_magnifier: true,
             start_with_windows: false,
+            print_screen_capture: false,
+            onboarded: false,
+            snipping_key_restore: None,
         }
     }
 }
@@ -63,10 +96,24 @@ pub fn load(app: &AppHandle) -> Settings {
     let Ok(path) = config_path(app) else {
         return Settings::default();
     };
-    std::fs::read_to_string(path)
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return Settings::default();
+    };
+    let Ok(mut settings) = serde_json::from_str::<Settings>(&raw) else {
+        return Settings::default();
+    };
+
+    // Quien ya tenia winshotx configurado no esta estrenandolo. Si el archivo viene de
+    // una version anterior a la bienvenida no trae la clave, y sin esto le saldrian los
+    // cuatro pasos a todo el mundo al actualizar.
+    let decidido = serde_json::from_str::<serde_json::Value>(&raw)
         .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
-        .unwrap_or_default()
+        .and_then(|valor| valor.get("onboarded").cloned())
+        .is_some();
+    if !decidido {
+        settings.onboarded = true;
+    }
+    settings
 }
 
 pub fn save(app: &AppHandle, settings: &Settings) -> Result<()> {

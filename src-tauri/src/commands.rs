@@ -11,7 +11,7 @@ use crate::record;
 use crate::recorder::{self, RecordOptions, SessionInfo};
 use crate::settings::Settings;
 use crate::state::AppState;
-use crate::windows_mgr;
+use crate::windows_mgr::{self, OverlayIntent};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,6 +20,8 @@ pub struct OverlayPayload {
     freeze_path: String,
     windows: Vec<WindowRect>,
     settings: Settings,
+    /// Si se abrio para capturar o para grabar. El overlay es el mismo.
+    intent: OverlayIntent,
 }
 
 #[derive(Debug, Serialize)]
@@ -53,6 +55,7 @@ pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> R
         freeze_path: freeze.path.to_string_lossy().to_string(),
         windows: capture::window_rects(),
         settings: state.settings.read().clone(),
+        intent: *state.intent.read(),
     })
 }
 
@@ -278,6 +281,65 @@ pub async fn open_folder(path: String) -> Result<()> {
 #[tauri::command]
 pub async fn quit_app(app: AppHandle) {
     app.exit(0);
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrintScreenState {
+    /// winshotx ha pedido la tecla.
+    enabled: bool,
+    /// Y Windows se la ha dado de verdad. Lo segundo no se deduce de lo primero.
+    active: bool,
+    /// La Herramienta de Recortes la sigue teniendo asignada en el registro. Cuando el
+    /// valor no existe se da por asignada, que es como viene Windows 11 de fabrica.
+    taken_by_windows: bool,
+}
+
+fn print_screen_now(state: &AppState) -> PrintScreenState {
+    PrintScreenState {
+        enabled: state.settings.read().print_screen_capture,
+        active: state.shortcuts.read().print_screen,
+        taken_by_windows: crate::platform::snipping::read().unwrap_or(1) == 1,
+    }
+}
+
+#[tauri::command]
+pub async fn print_screen_state(state: State<'_, AppState>) -> Result<PrintScreenState> {
+    Ok(print_screen_now(&state))
+}
+
+/// Le quita la tecla Impr Pant a la Herramienta de Recortes y se la da a winshotx,
+/// o la devuelve. Las dos cosas van juntas a proposito: apagar el ajuste de Windows
+/// sin registrar el atajo deja la tecla muerta, y registrarlo sin apagar el ajuste
+/// deja un atajo que nunca se dispara.
+#[tauri::command]
+pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScreenState> {
+    use crate::platform::snipping;
+
+    let state = app.state::<AppState>();
+    let mut settings = state.settings.read().clone();
+
+    if enabled {
+        // Solo la primera vez: si ya estaba activo, lo guardado es el 0 que pusimos
+        // nosotros y machacarlo seria perder el valor original del usuario.
+        if !settings.print_screen_capture {
+            settings.snipping_key_restore = snipping::read();
+        }
+        snipping::write(0)?;
+        settings.print_screen_capture = true;
+    } else {
+        // Se deja el registro como estaba, incluido el caso de que no hubiera valor.
+        match settings.snipping_key_restore.take() {
+            Some(previo) => snipping::write(previo)?,
+            None => snipping::remove()?,
+        }
+        settings.print_screen_capture = false;
+    }
+
+    *state.settings.write() = settings.clone();
+    crate::settings::save(&app, &settings)?;
+    crate::hotkeys::register(&app, &settings);
+    Ok(print_screen_now(&state))
 }
 
 #[tauri::command]

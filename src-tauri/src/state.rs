@@ -11,6 +11,7 @@ use crate::capture::{Freeze, Rect};
 use crate::error::Result;
 use crate::record::SessionData;
 use crate::settings::Settings;
+use crate::windows_mgr::OverlayIntent;
 
 /// Todo lo que hay que compartir con el hilo de captura mientras se graba.
 pub struct RecordingState {
@@ -45,6 +46,10 @@ pub struct AppState {
     pub freezes: RwLock<Vec<Freeze>>,
     pub sessions: RwLock<HashMap<String, SessionData>>,
     pub shortcuts: RwLock<crate::hotkeys::ShortcutStatus>,
+    /// Con que se ha abierto el overlay que hay en pantalla. El mismo overlay sirve
+    /// para capturar y para grabar, y sin esto no podria saber si al soltar el raton
+    /// toca copiar la imagen o empezar a grabar.
+    pub intent: RwLock<OverlayIntent>,
     pub recording: Mutex<Option<RecordingState>>,
     pub temp_root: PathBuf,
 }
@@ -56,6 +61,7 @@ impl AppState {
             freezes: RwLock::new(Vec::new()),
             sessions: RwLock::new(HashMap::new()),
             shortcuts: RwLock::new(crate::hotkeys::ShortcutStatus::default()),
+            intent: RwLock::new(OverlayIntent::Capture),
             recording: Mutex::new(None),
             temp_root,
         }

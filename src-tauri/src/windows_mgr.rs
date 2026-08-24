@@ -1,5 +1,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use serde::Serialize;
+
 use tauri::{
     AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewUrl,
     WebviewWindowBuilder,
@@ -17,14 +19,24 @@ static OVERLAY_SEQUENCE: AtomicU32 = AtomicU32::new(0);
 pub const RECORDER_PREFIX: &str = "recorder-";
 pub const EDITOR_LABEL: &str = "editor";
 
+/// Con que intencion se ha abierto el overlay. Lo decide el atajo que se pulso, y
+/// es lo que deja que el modo instantaneo copie al soltar sin cargarse la grabacion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OverlayIntent {
+    Capture,
+    Record,
+}
+
 /// Congela la pantalla y abre un overlay por monitor.
 /// Congelar primero es lo que hace que la seleccion sea estable y precisa al pixel.
-pub fn open_overlays(app: &AppHandle) -> Result<()> {
+pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     let state = app.state::<AppState>();
     if state.is_recording() {
         return Ok(());
     }
     close_overlays(app);
+    *state.intent.write() = intent;
 
     let freezes = capture::freeze_all(&state.freeze_dir())?;
     let monitors: Vec<_> = freezes.iter().map(|f| f.monitor.clone()).collect();

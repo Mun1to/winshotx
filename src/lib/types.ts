@@ -24,12 +24,19 @@ export interface WindowRect {
   rect: Rect;
 }
 
+/** Que pasa al soltar el raton sobre la region. Son los dos perfiles de trabajo. */
+export type CaptureFlow = "toolbar" | "instant";
+
+/** Con que se abrio el overlay: el mismo sirve para capturar y para grabar. */
+export type OverlayIntent = "capture" | "record";
+
 export interface OverlayPayload {
   monitor: MonitorInfo;
   /** Ruta absoluta del PNG congelado de este monitor. */
   freezePath: string;
   windows: WindowRect[];
   settings: Settings;
+  intent: OverlayIntent;
 }
 
 export type StillAction = "copy" | "save" | "edit";
@@ -127,11 +134,26 @@ export interface Settings {
   playSound: boolean;
   showMagnifier: boolean;
   startWithWindows: boolean;
+  captureFlow: CaptureFlow;
+  printScreenCapture: boolean;
+  onboarded: boolean;
+  /** Interno: lo que valía el ajuste de Windows antes de quitarle la tecla. */
+  snippingKeyRestore: number | null;
 }
 
 export interface ShortcutStatus {
   capture: boolean;
   record: boolean;
+  printScreen: boolean;
+}
+
+export interface PrintScreenState {
+  /** winshotx ha pedido la tecla. */
+  enabled: boolean;
+  /** Y Windows se la ha dado de verdad. */
+  active: boolean;
+  /** La Herramienta de Recortes la sigue teniendo asignada. */
+  takenByWindows: boolean;
 }
 
 export interface CacheStats {
