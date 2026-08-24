@@ -117,7 +117,9 @@ La tecla `Impr Pant` la tiene la Herramienta de Recortes por un valor del regist
 que registrar el atajo por su cuenta parece funcionar y luego no llega ninguna pulsación. El
 interruptor de Ajustes apaga ese valor y coge la tecla, y al desactivarlo lo deja como estaba.
 `Win+Mayús+S` no se puede coger: esa la atiende Windows por delante de cualquier programa, hook o
-atajo, y no la cede.
+atajo, y no la cede. La única forma de que deje de abrir la Herramienta de Recortes es desinstalarla
+desde Configuración, cosa que hace el usuario y no la aplicación; winshotx solo le abre esa
+pantalla.
 
 ## Dos formas de capturar
 

@@ -85,6 +85,14 @@
     },
     {
       "@type": "Question",
+      "name": "How do I stop Win+Shift+S from opening the Snipping Tool?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only by uninstalling it. That key is attended by Windows before any program sees it, so no application can take it: not with a shortcut, not with a keyboard hook, not with a system policy. Uninstalling the Snipping Tool is done from Configuración → Aplicaciones → Aplicaciones instaladas , it only affects your user, and it comes back from the Microsoft Store whenever you want. winshotx opens that screen for you from Ajustes → Atajos globales , and never uninstalls anything by itself."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "How do I paste a GIF into Slack or Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -297,6 +305,9 @@
 
     <h3>Can I capture with the Print Screen key?</h3>
     <p>Yes. In <b>Ajustes → Atajos globales</b> a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is.</p>
+
+    <h3>How do I stop Win+Shift+S from opening the Snipping Tool?</h3>
+    <p>Only by uninstalling it. That key is attended by Windows before any program sees it, so no application can take it: not with a shortcut, not with a keyboard hook, not with a system policy. Uninstalling the Snipping Tool is done from <b>Configuración → Aplicaciones → Aplicaciones instaladas</b>, it only affects your user, and it comes back from the Microsoft Store whenever you want. winshotx opens that screen for you from <b>Ajustes → Atajos globales</b>, and never uninstalls anything by itself.</p>
 
     <h3>How do I paste a GIF into Slack or Discord?</h3>
     <p>Use <b>Copiar</b> in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.</p>

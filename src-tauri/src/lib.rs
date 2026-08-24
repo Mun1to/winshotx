@@ -123,6 +123,7 @@ pub fn run() {
             commands::print_screen_state,
             commands::use_print_screen,
             commands::open_folder,
+            commands::open_windows_apps,
             commands::quit_app,
         ])
         .build(tauri::generate_context!())

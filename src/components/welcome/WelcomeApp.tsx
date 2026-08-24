@@ -12,7 +12,13 @@ import {
   Scissors,
   Video,
 } from "lucide-react";
-import { getSettings, setSettings, shortcutStatus, usePrintScreen } from "../../lib/ipc";
+import {
+  getSettings,
+  openWindowsApps,
+  setSettings,
+  shortcutStatus,
+  usePrintScreen,
+} from "../../lib/ipc";
 import type {
   CaptureFlow,
   PrintScreenState,
@@ -522,9 +528,18 @@ function TeclaImprPant({
         )}
       </div>
 
-      <p className="mt-1 text-[11px] text-neutral-600">
-        Win + Mayús + S se queda como está: esa tecla la atiende Windows antes que cualquier
-        programa, y no la cede a nadie.
+      <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
+        <b className="font-medium text-neutral-400">Win + Mayús + S se queda como está.</b> Esa
+        tecla la atiende Windows antes que cualquier programa y no la cede a nadie: ni con un
+        atajo, ni de ninguna otra forma. Si quieres que deje de abrir la Herramienta de Recortes,
+        hay que quitarla desde Windows, y se recupera cuando quieras desde la Microsoft Store.{" "}
+        <button
+          type="button"
+          onClick={() => void openWindowsApps()}
+          className="text-blue-400 underline underline-offset-2 hover:text-blue-300"
+        >
+          Abrir las aplicaciones de Windows
+        </button>
       </p>
     </div>
   );

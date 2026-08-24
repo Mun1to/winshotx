@@ -273,6 +273,13 @@ pub async fn shortcut_status(state: State<'_, AppState>) -> Result<crate::hotkey
     Ok(*state.shortcuts.read())
 }
 
+/// Lleva al usuario a la lista de aplicaciones de Windows, que es donde se quita la
+/// Herramienta de Recortes si quiere que Win+Mayus+S deje de abrirla.
+#[tauri::command]
+pub async fn open_windows_apps() -> Result<()> {
+    crate::platform::abrir_aplicaciones_de_windows()
+}
+
 #[tauri::command]
 pub async fn open_folder(path: String) -> Result<()> {
     crate::platform::open_folder(&PathBuf::from(path))

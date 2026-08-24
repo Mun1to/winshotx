@@ -8,6 +8,7 @@ import {
   HardDrive,
   MousePointer2,
   Power,
+  Scissors,
   Search,
   Sparkles,
   Video,
@@ -19,6 +20,7 @@ import {
   clearCache,
   getSettings,
   openFolder,
+  openWindowsApps,
   pickDirectory,
   printScreenState,
   quitApp,
@@ -187,6 +189,20 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                   onChange={(v) => void cambiarImprPant(v)}
                   label="Usar también Impr Pant"
                 />
+              }
+            />
+            <Row
+              icon={<Scissors className="size-4" />}
+              label="Win+Mayús+S"
+              hint="la atiende Windows y no la cede; se quita desinstalando Recortes"
+              control={
+                <button
+                  type="button"
+                  onClick={() => void openWindowsApps()}
+                  className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  Ver cómo
+                </button>
               }
             />
           </Section>
