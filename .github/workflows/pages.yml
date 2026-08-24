@@ -1,9 +1,9 @@
-name: Comprobar la web
+name: Publicar la web
 
-# La web ya no se publica desde aqui: la sirve Cloudflare Pages, que compila el repo en
-# cada push. Lo que queda es la comprobacion, que sigue siendo util porque si el ingles o
-# las huellas de los archivos estan desfasados, Cloudflare desplegaria una version torcida
-# sin quejarse de nada.
+# La web vive en Cloudflare Pages, no en GitHub Pages. Este workflow comprueba primero y
+# publica despues: si el ingles o las huellas de los archivos estan desfasados, Cloudflare
+# desplegaria una version torcida sin quejarse de nada, asi que la comprobacion es la que
+# frena el despliegue.
 on:
   push:
     branches: [main]
@@ -60,3 +60,31 @@ jobs:
             console.log(`${urls.length} URLs en el sitemap, ${mal} sin pagina`);
             process.exit(mal ? 1 : 0);
           '
+
+  publicar:
+    needs: comprobar
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-pages
+      url: https://winshotx.com/
+    steps:
+      - uses: actions/checkout@v4
+      # Direct Upload en vez de conectar el repo a Cloudflare: asi no hay que instalar
+      # ninguna aplicacion de terceros en la cuenta de GitHub, y el despliegue se ve y se
+      # audita aqui, en el mismo sitio que el codigo.
+      - name: Subir a Cloudflare Pages
+        run: |
+          # Sin el secreto puesto, avisar y seguir: mejor que dejar el CI en rojo por algo
+          # que solo puede arreglar quien tiene acceso a los ajustes del repositorio.
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::falta el secreto CLOUDFLARE_API_TOKEN, no se ha desplegado"
+            exit 0
+          fi
+          npx --yes wrangler@4 pages deploy frontlaxweb --project-name=winshotx --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Avisar a los buscadores
+        run: node frontlaxweb/avisar-buscadores.mjs
+        continue-on-error: true

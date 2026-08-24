@@ -1,21 +1,27 @@
 # Cabeceras para Cloudflare Pages.
 #
+# OJO: las reglas que coinciden se ACUMULAN, no se pisan. Si `/*` y `/*.css` definen las
+# dos un Cache-Control, el navegador recibe los dos pegados con una coma y el resultado
+# es indefinido. Por eso aqui `/*` solo lleva seguridad, y el cache va en las concretas.
+#
+# El HTML no necesita regla: Cloudflare Pages ya lo sirve con max-age=0 y revalidacion,
+# que es exactamente lo que hace falta para que apunte siempre al asset bueno.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
 # El CSS y el JS llevan su huella en la URL (estilos.css?v=abc123), asi que un cambio de
-# contenido es una direccion nueva. Con eso, cachearlos un ano es seguro: nadie se puede
-# quedar con la version vieja, que es justo lo que pasaba antes con las 4 horas de GitHub.
+# contenido es una direccion nueva y cachearlos un ano es seguro: nadie se puede quedar
+# con la version vieja, que es justo lo que rompio la pagina con las 4 horas de GitHub.
 /*.css
   Cache-Control: public, max-age=31536000, immutable
+
 /*.js
   Cache-Control: public, max-age=31536000, immutable
 
-# Las imagenes y el logo cambian poco y no llevan huella: una semana, y que revaliden.
+# Las imagenes y el logo no llevan huella, asi que una semana y que revaliden despues.
 /*.png
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
 /*.svg
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-# El HTML se revalida siempre: es lo que ata las paginas a la version buena de los assets.
-/*
-  Cache-Control: public, max-age=0, must-revalidate
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
