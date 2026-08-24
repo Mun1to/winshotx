@@ -1,0 +1,70 @@
+name: Redirigir la URL vieja
+
+# La web se mudo a Cloudflare Pages y GitHub Pages quedo apagado, asi que
+# mun1to.github.io/winshotx pasaba a dar 404 y con ella cualquier enlace antiguo: fichas de
+# directorios, el manifiesto de winget, READMEs de otra gente.
+#
+# Este workflow vuelve a encender GitHub Pages, pero solo para servir una redireccion a
+# winshotx.com. No hay copia de la web: son dos archivos que mandan a la direccion buena y le
+# dicen al buscador cual es la pagina canonica, para que no cuente como contenido duplicado.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/redirigir-lo-viejo.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  redirigir:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Escribir la redireccion
+        run: |
+          mkdir -p salida
+          cat > salida/index.html <<'HTML'
+          <!doctype html>
+          <html lang="es">
+          <head>
+          <meta charset="utf-8">
+          <title>winshotx se ha mudado a winshotx.com</title>
+          <link rel="canonical" href="https://winshotx.com/">
+          <meta name="robots" content="noindex, follow">
+          <meta http-equiv="refresh" content="0; url=https://winshotx.com/">
+          <style>
+            body { background:#0b0b0d; color:#e9e9ee; font:16px/1.6 system-ui, sans-serif;
+                   display:grid; place-items:center; min-height:100vh; margin:0; text-align:center }
+            a { color:#0a9bff }
+          </style>
+          </head>
+          <body>
+            <p>winshotx vive ahora en <a href="https://winshotx.com/">winshotx.com</a>.<br>
+               Si no te lleva sola, pulsa el enlace.</p>
+            <script>
+              // Se conserva la ruta: /winshotx/en/ acaba en winshotx.com/en/ y no en la portada.
+              var resto = location.pathname.replace(/^\/winshotx/, "") || "/";
+              location.replace("https://winshotx.com" + resto + location.search + location.hash);
+            </script>
+          </body>
+          </html>
+          HTML
+          # 404.html es el que atiende cualquier ruta que no exista, que aqui son todas.
+          cp salida/index.html salida/404.html
+          ls -la salida
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: salida
+      - id: despliegue
+        uses: actions/deploy-pages@v4
