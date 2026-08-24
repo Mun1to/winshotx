@@ -1,8 +1,26 @@
 # winshotx · https://winshotx.com/
-# Todo abierto, también para los rastreadores que alimentan a los asistentes.
+#
+# Todo abierto, tambien para los rastreadores que alimentan a los asistentes.
+# La regla de abajo ya permite a todo el mundo; los agentes se nombran uno a uno
+# para dejar la postura por escrito y que no haya dudas.
+#
+# Lista verificada el 2026-08-24 en la documentacion de cada proveedor.
+# Caduca: aparecen agentes nuevos cada pocos meses, reverificar antes de copiarla.
+
 User-agent: *
 Allow: /
 
+# --- Buscadores de siempre ---
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+# --- OpenAI ---
 User-agent: GPTBot
 Allow: /
 
@@ -12,15 +30,27 @@ Allow: /
 User-agent: ChatGPT-User
 Allow: /
 
+User-agent: OAI-AdsBot
+Allow: /
+
+# --- Anthropic ---
 User-agent: ClaudeBot
 Allow: /
 
-User-agent: Claude-Web
+User-agent: Claude-SearchBot
 Allow: /
 
+User-agent: Claude-User
+Allow: /
+
+# --- Perplexity ---
 User-agent: PerplexityBot
 Allow: /
 
+User-agent: Perplexity-User
+Allow: /
+
+# --- Entrenamiento de otros modelos ---
 User-agent: Google-Extended
 Allow: /
 
@@ -28,6 +58,15 @@ User-agent: Applebot-Extended
 Allow: /
 
 User-agent: CCBot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: Bytespider
 Allow: /
 
 Sitemap: https://winshotx.com/sitemap.xml
