@@ -9,8 +9,10 @@ import {
   MousePointer2,
   Power,
   Search,
+  Sparkles,
   Video,
   Volume2,
+  Zap,
 } from "lucide-react";
 import {
   cacheStats,
@@ -18,12 +20,21 @@ import {
   getSettings,
   openFolder,
   pickDirectory,
+  printScreenState,
   quitApp,
   setSettings,
   shortcutStatus,
+  usePrintScreen,
 } from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
-import { EVENTS, type CacheStats, type Settings, type ShortcutStatus } from "../../lib/types";
+import {
+  EVENTS,
+  type CacheStats,
+  type CaptureFlow,
+  type PrintScreenState,
+  type Settings,
+  type ShortcutStatus,
+} from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
 import { Row, Section } from "./Section";
@@ -39,13 +50,20 @@ const FPS_OPTIONS = [
   { value: 60, label: "60 fps" },
 ];
 
-export function SettingsApp() {
+const FLUJOS: { value: CaptureFlow; label: string }[] = [
+  { value: "toolbar", label: "Sale la barra" },
+  { value: "instant", label: "Se copia sola" },
+];
+
+export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }) {
   const [settings, setLocal] = useState<Settings | null>(null);
   const [shortcuts, setShortcuts] = useState<ShortcutStatus>({
     capture: true,
     record: true,
+    printScreen: false,
   });
   const [cache, setCache] = useState<CacheStats>({ bytes: 0, sessions: 0 });
+  const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +71,7 @@ export function SettingsApp() {
     void getSettings().then(setLocal);
     void shortcutStatus().then(setShortcuts);
     void cacheStats().then(setCache);
+    void printScreenState().then(setImprPant);
   }, []);
 
   // Cerrar los ajustes solo esconde la ventana, nunca la destruye, asi que esto se
@@ -90,6 +109,21 @@ export function SettingsApp() {
         return shortcutStatus().then(setShortcuts);
       })
       .catch((e) => setError(String(e)));
+  }, []);
+
+  const cambiarImprPant = useCallback(async (quiere: boolean) => {
+    setError(null);
+    try {
+      setImprPant(await usePrintScreen(quiere));
+      // usePrintScreen escribe los ajustes en Rust. Sin volver a leerlos, el proximo
+      // cambio de cualquier otra fila reenviaria el valor viejo y desharia esto.
+      const frescos = await getSettings();
+      ultimo.current = frescos;
+      setLocal(frescos);
+      setShortcuts(await shortcutStatus());
+    } catch (e) {
+      setError(String(e));
+    }
   }, []);
 
   if (!settings) {
@@ -137,9 +171,43 @@ export function SettingsApp() {
                 />
               }
             />
+            <Row
+              icon={<Zap className="size-4" />}
+              label="Usar también Impr Pant"
+              hint={
+                imprPant?.enabled
+                  ? imprPant.active
+                    ? "se la hemos quitado a la Herramienta de Recortes"
+                    : "Windows no la ha soltado; cierra sesión y vuelve a entrar"
+                  : "ahora abre la Herramienta de Recortes"
+              }
+              control={
+                <Switch
+                  checked={imprPant?.enabled ?? false}
+                  onChange={(v) => void cambiarImprPant(v)}
+                  label="Usar también Impr Pant"
+                />
+              }
+            />
           </Section>
 
           <Section title="Captura">
+            <Row
+              label="Al soltar el ratón"
+              hint={
+                settings.captureFlow === "instant"
+                  ? "el atajo de grabar sigue sacando la barra"
+                  : "copiar, guardar, editar o grabar"
+              }
+              stacked
+              control={
+                <Segmented
+                  value={settings.captureFlow}
+                  options={FLUJOS}
+                  onChange={(v) => patch({ captureFlow: v })}
+                />
+              }
+            />
             <Row
               icon={<Clipboard className="size-4" />}
               label="Copiar al portapapeles"
@@ -282,17 +350,22 @@ export function SettingsApp() {
             />
           </Section>
 
-
-          {error && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
-              {error}
-            </p>
-          )}
-        </div>
-
-        <div className="col-span-2">
           <Section title="Sistema">
             <UpdateRow version={VERSION} />
+            <Row
+              icon={<Sparkles className="size-4" />}
+              label="Bienvenida"
+              hint="los cuatro pasos del primer arranque"
+              control={
+                <button
+                  type="button"
+                  onClick={onVerBienvenida}
+                  className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  Ver otra vez
+                </button>
+              }
+            />
             <Row
               icon={<Power className="size-4" />}
               label="Arrancar con Windows"
@@ -306,6 +379,12 @@ export function SettingsApp() {
               }
             />
           </Section>
+
+          {error && (
+            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+              {error}
+            </p>
+          )}
         </div>
       </div>
 
