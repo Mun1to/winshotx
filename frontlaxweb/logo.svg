@@ -1,16 +1,11 @@
 <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="winshotx">
-  <g fill="none" stroke="#0A9BFF" stroke-linecap="round">
-    <g stroke-width="8">
-      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/>
-      <path d="M42 8h8a6 6 0 0 1 6 6v8"/>
-      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/>
-      <path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
-    </g>
-    <g stroke-width="3.5">
-      <path d="M24 8h16"/><path d="M56 24v16"/><path d="M40 56H24"/><path d="M8 40V24"/>
-    </g>
+  <g fill="none" stroke="#0A9BFF" stroke-linecap="round" stroke-width="8">
+    <path d="M8 22v-8a6 6 0 0 1 6-6h8"/>
+    <path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+    <path d="M56 42v8a6 6 0 0 1-6 6h-8"/>
+    <path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
   </g>
   <g stroke="#fff" stroke-width="8.5" stroke-linecap="round">
-    <path d="M32 20.5v23"/><path d="M20.5 32h23"/>
+    <path d="M24 24 40 40"/><path d="M40 24 24 40"/>
   </g>
 </svg>
