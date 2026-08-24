@@ -541,6 +541,12 @@ tbody tr:hover { background: #ffffff06; }
 footer { border-top: 1px solid var(--borde); padding: 40px 0 60px; color: var(--apagado); font-size: 14px; }
 footer .env { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
 
+/* Un enlace metido dentro de una frase no se puede distinguir solo por el color. Sobre el gris
+   del pie, el azul de marca queda en 1,26 de contraste y la norma pide 3 o un subrayado, asi
+   que aqui va subrayado desde el principio y no solo al pasar el raton. */
+footer a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+footer a:hover { color: var(--texto); }
+
 /* ---------- la guia ---------- */
 .guia { max-width: 780px; padding-top: 56px; padding-bottom: 40px; }
 .guia h1 { font-size: clamp(32px, 5vw, 46px); letter-spacing: -0.025em; line-height: 1.08; }
