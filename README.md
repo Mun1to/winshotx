@@ -2,54 +2,84 @@
 
 **English** · [Español](README.es.md)
 
-<img src="docs/img/logo.png" alt="" width="92">
+<img src="frontlaxweb/social-en.png" alt="winshotx: crop the screen before you blink" width="820">
 
-# winshotx
+<br>
 
-**Crop the screen before you blink.**
-A free, open source **Snipping Tool alternative for Windows**: region screenshots, **GIF and MP4
-screen recording** and a frame by frame editor, in a 2.2 MB installer with no account, no cloud
-and no bundled binaries.
+[![MIT license](https://img.shields.io/badge/license-MIT-0a9bff?style=flat-square)](LICENSE)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#status)
+[![Latest release](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=release)](https://github.com/Mun1to/winshotx/releases/latest)
+[![Installer 2.2 MB](https://img.shields.io/badge/installer-2.2%20MB-22c55e?style=flat-square)](#install)
+[![Built with Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 
-[![MIT license](https://img.shields.io/badge/license-MIT-0a9bff)](LICENSE)
-[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#status)
-[![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131)](https://tauri.app)
-[![Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584)](https://www.rust-lang.org)
-[![2 MB installer](https://img.shields.io/badge/installer-2.2%20MB-22c55e)](#install)
-
-[![Download winshotx for Windows](https://img.shields.io/badge/download-for%20Windows-0a9bff?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-
-<img src="docs/img/ajustes.png" alt="winshotx settings panel" width="760">
+**[⬇ Download for Windows](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)**
+&nbsp;·&nbsp;
+**[▶ Try it in your browser](https://mun1to.github.io/winshotx/en/)**
+&nbsp;·&nbsp;
+[Compare with the Snipping Tool](#snipping-tool-against-winshotx)
 
 </div>
 
-## Against the Snipping Tool
+---
 
-Same machine, Windows 11, three runs each, both started from scratch. The clock stops when the
-selection is actually on screen.
+A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
+magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It opens the selection in
+28 ms, uses 33 MB of memory and fits in a 2.2 MB installer. No account, no cloud, no telemetry and
+no bundled FFmpeg.
+
+> The interface is in Spanish, and so are the identifiers and comments in the source. The commits,
+> this page and the [home page](https://mun1to.github.io/winshotx/en/) are in English.
+
+## Install
+
+[**Download the installer**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+· 2.2 MB · it installs for your user only, so Windows never asks for administrator rights. Older
+versions are in [Releases](../../releases).
+
+It lives in the system tray with no window of its own. Windows hides new tray icons, so if you
+cannot see it, look behind the `^` arrow on the taskbar.
+
+**It updates itself.** In **Ajustes → Actualizaciones** a button shows up when a new version is out,
+and one click downloads it, installs it and restarts the app. Every download is signed and the
+signature is checked before anything is installed, so a tampered file is rejected.
+
+## What it does
+
+|  |  |
+|---|---|
+| 📸 **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex and snapping to system windows: one click takes the whole window. |
+| 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. |
+| ✂️ **Frame by frame editor** | Thumbnail strip, A/B trimming, looped playback, scaling with locked aspect ratio and a quality control. |
+| 💾 **Export** | GIF, MP4 or PNG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
+| 🔒 **Everything stays local** | No account, no telemetry, no uploads. The only network call is checking GitHub for a new version. |
+
+<img src="docs/img/ajustes.png" alt="winshotx settings panel" width="820">
+
+## Snipping Tool against winshotx
+
+Same machine with Windows 11, three runs each, both starting from cold. The clock stops when the
+selection is actually on screen. The [full table](https://mun1to.github.io/winshotx/en/#frente-a-frente)
+has the nineteen rows, including the six the Snipping Tool wins.
 
 | | winshotx | Snipping Tool |
 |---|---|---|
 | From shortcut to selection | **28 ms** | 920 ms |
 | Memory while capturing | **33 MB** | 253 MB |
 | Memory sitting idle | **31 MB** | 98 MB |
-| Installer | **2.2 MB** | ships with Windows |
-| Records GIF and MP4 | yes | no |
-| Frame by frame editor | yes | no |
-
-**[Try it in your browser](https://mun1to.github.io/winshotx/en/)** without installing anything:
-the page rebuilds the selection overlay, the editor and the settings panel from this same code,
-and you can drag on a fake desktop to crop.
-
-> **The interface is in Spanish**, and so are the identifiers, comments and test names in the
-> source. The commits and this page are in English. Translating the app is not planned; open an
-> issue if you want it.
+| Records GIF | **yes** | no |
+| Frame by frame editor | **yes** | no |
+| Pick your own shortcut | **yes** | no |
+| Draw and annotate on top | no | **yes** |
+| Copy the text out of the image | no | **yes** |
+| System audio when recording | not yet | **yes** |
+| Timer before capturing | no | **yes** |
 
 ## Is this what you were looking for?
 
 - **"I want a Snipping Tool alternative for Windows."** This is it, and it is 33 times faster to
   open. The Snipping Tool still wins at annotating, text recognition and system audio, and the
-  comparison above says so.
+  table above says so.
 - **"How do I record a GIF of my screen on Windows?"** Press `Ctrl+Shift+5`, drag over the area,
   press it again to stop, and export to GIF from the editor. No FFmpeg to install.
 - **"I need a lightweight screen recorder that does not eat my RAM."** 33 MB while capturing,
@@ -57,35 +87,9 @@ and you can drag on a fake desktop to crop.
 - **"Something like ShareX or CleanShot X, but simpler."** The same global shortcuts and the same
   frozen-screen overlay, without the hundreds of settings.
 - **"I want to pick a colour off the screen."** The magnifier gives you the hex code of the pixel
-  under the cursor at 6x zoom.
+  under the cursor at 6× zoom.
 - **"Does it upload my screenshots anywhere?"** No. There is no account, no telemetry and no
   network calls other than checking for updates on GitHub.
-
-## What it does
-
-- **Region capture** over a frozen screenshot, with a pixel magnifier showing the exact colour in
-  hex and automatic snapping to system windows: one click on a window selects the whole thing.
-- **Region recording** at 15, 30 or 60 fps through Windows Graphics Capture, with no FFmpeg and no
-  overlays leaking into the video.
-- **Editor** with a thumbnail strip, A/B trimming, looped playback, scaling with locked aspect
-  ratio and a quality control.
-- **Export** to GIF, MP4 or PNG, to disk and to the clipboard: an image pastes as an image, and a
-  GIF or MP4 pastes as a file into Slack, Discord or Explorer.
-- **Everything stays local.** No account, no telemetry, no uploads. What you capture never leaves
-  your machine.
-
-## Install
-
-[**Download the installer**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2.2 MB · installs for your user only and never asks for administrator rights. Older versions are
-in [Releases](../../releases).
-
-Since 0.1.2 it updates itself: **Ajustes**, then **Actualizaciones**, shows a button when a new version is
-out, and one click downloads it, installs it and restarts the app. Downloads are signed and the
-signature is verified before anything is installed, so a tampered file is rejected.
-
-It lives in the system tray with no window of its own. Windows hides new tray icons, so if you
-cannot see it, look behind the `^` arrow on the taskbar.
 
 ## Shortcuts
 
@@ -104,10 +108,13 @@ cannot see it, look behind the `^` arrow on the taskbar.
 In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `←` `→` step through
 frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
 
-Both global shortcuts can be changed in the settings by clicking them and typing the new
+Both global shortcuts can be changed in the settings by clicking the field and typing the new
 combination. If another application already holds it, the field turns red and says so.
 
-## How it is built
+<details>
+<summary><b>How it is built</b></summary>
+
+<br>
 
 | Layer | Choice | Why |
 |---|---|---|
@@ -120,8 +127,6 @@ combination. If another application already holds it, the field turns red and sa
 | GIF | [`gif`](https://crates.io/crates/gif) + [`color_quant`](https://crates.io/crates/color_quant) | global palette, dithering and frame differencing |
 | Editing cache | lossless [QOI](https://qoiformat.org) | fast to write and editable frame by frame |
 
-### Two decisions that explain the rest
-
 **The selection overlay is not a transparent window.** The screen is captured, shown frozen, and
 the selection happens on top of that image. It sidesteps the Tauri v2 transparency bug on Windows,
 removes the flicker of moving content underneath, and gives a pixel exact magnifier for free.
@@ -131,13 +136,41 @@ pure Rust with a global palette, Floyd-Steinberg dithering and writing only the 
 changed between frames. If you happen to have `ffmpeg` on your `PATH`, the editor offers a maximum
 quality engine (`palettegen`) as well, but it is never downloaded and never shipped.
 
-## Development
+[`docs/TRAMPAS.md`](docs/TRAMPAS.md) (in Spanish) collects the seven Tauri v2 traps on Windows that
+cost hours of debugging: synchronous commands that freeze the interface, windows that must not be
+created from a global shortcut thread, window labels that cannot be reused, the first click being
+eaten by the system, a canvas tainted by the `asset:` protocol, an incomplete CSP that only shows up
+in the installer, and the signing key that is passed one way and not the other.
+
+</details>
+
+<details>
+<summary><b>Development</b></summary>
+
+<br>
 
 ```bash
 pnpm install
 pnpm approve-builds --all
 pnpm tauri dev      # starts the app (it lives in the system tray)
 pnpm tauri build    # NSIS installer in target/release/bundle/nsis
+```
+
+Backend tests are not pretend: they capture the real screen, record a clip through Windows Graphics
+Capture and export GIF and MP4 files that are then read back to check they are valid.
+
+```bash
+cd src-tauri
+cargo test
+```
+
+The landing page lives in [`frontlaxweb/`](frontlaxweb) and GitHub Pages serves it on every push.
+The English copy at `/en/` is generated from the Spanish one, and the workflow refuses to deploy if
+it is out of date:
+
+```bash
+node frontlaxweb/generar-en.mjs      # rebuild frontlaxweb/en/index.html
+python frontlaxweb/generar-social.py # rebuild both 1200x630 cards
 ```
 
 Publishing a version needs the private signing key, which is **not in this repository** and without
@@ -150,21 +183,12 @@ pnpm tauri build
 node scripts/publicar.mjs --publicar   # writes latest.json and creates the release
 ```
 
-Backend tests:
+`publicar.mjs` refuses to run if `package.json` and `Cargo.toml` disagree on the version, or if the
+`.sig` is older than the installer, which is what happens when you build without the key.
 
-```bash
-cd src-tauri
-cargo test
-```
+The winget manifests are in [`packaging/winget`](packaging/winget).
 
-The integration tests are not pretend: they capture the real screen, record a clip through Windows
-Graphics Capture and export GIF and MP4 files that are then read back to check they are valid.
-
-[`docs/TRAMPAS.md`](docs/TRAMPAS.md) (in Spanish) collects the seven Tauri v2 traps on Windows that
-cost hours of debugging: synchronous commands that freeze the interface, windows that must not be
-created from a global shortcut thread, window labels that cannot be reused, the first click being
-eaten by the system, a canvas tainted by the `asset:` protocol, an incomplete CSP that only shows
-up in the installer, and the signing key that is passed one way and not the other. Read it before touching windows or webview security.
+</details>
 
 ## Status
 
@@ -174,8 +198,10 @@ clipboard and autostart are all behind `#[cfg(windows)]` with a stub for everyth
 porting means filling those stubs in.
 
 **What is missing:** system audio is not recorded yet. It needs WASAPI in loopback mode to feed the
-encoder; the switch is already in the interface, disabled and saying so.
+encoder; the switch is already in the interface, disabled and saying so. Annotating on top of a
+capture, text recognition and a timer are not there either, and the comparison above says so.
 
 ## License
 
-[MIT](LICENSE). Use it, change it and sell it if you want.
+[MIT](LICENSE). Use it, change it and sell it if you want. Built by
+[Munir Torres](https://munito.dev).

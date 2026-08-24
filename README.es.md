@@ -2,86 +2,95 @@
 
 **Español** · [English](README.md)
 
-<img src="docs/img/logo.png" alt="" width="92">
+<img src="frontlaxweb/social.png" alt="winshotx: recorta la pantalla antes de que parpadees" width="820">
 
-# winshotx
+<br>
 
-**Recorta la pantalla antes de que parpadees.**
-Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región,
-**grabación en GIF y MP4** y editor fotograma a fotograma, en un instalador de 2,2 MB sin
-cuenta, sin nube y sin binarios externos.
+[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-0a9bff?style=flat-square)](LICENSE)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#estado)
+[![Última versión](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=versión)](https://github.com/Mun1to/winshotx/releases/latest)
+[![Instalador 2,2 MB](https://img.shields.io/badge/instalador-2,2%20MB-22c55e?style=flat-square)](#instalación)
+[![Hecho con Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
+[![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 
-[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-0a9bff)](LICENSE)
-[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#estado)
-[![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131)](https://tauri.app)
-[![Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584)](https://www.rust-lang.org)
-[![Instalador 2,2 MB](https://img.shields.io/badge/instalador-2,2%20MB-22c55e)](#instalación)
-
-[![Descargar winshotx para Windows](https://img.shields.io/badge/descargar-para%20Windows-0a9bff?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-
-<img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="760">
+**[⬇ Descargar para Windows](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)**
+&nbsp;·&nbsp;
+**[▶ Probarla en el navegador](https://mun1to.github.io/winshotx/)**
+&nbsp;·&nbsp;
+[Comparar con la Herramienta de Recortes](#herramienta-de-recortes-contra-winshotx)
 
 </div>
 
-## Frente a la Herramienta de Recortes
+---
 
-Mismo equipo con Windows 11, tres pasadas cada una y las dos arrancando desde cero. El
-cronómetro para cuando la selección ya se ve en pantalla.
+Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región con lupa de
+píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Abre la selección en 28 ms, gasta
+33 MB de memoria y cabe en un instalador de 2,2 MB. Sin cuenta, sin nube, sin telemetría y sin
+FFmpeg empaquetado.
+
+> La interfaz está en español, igual que los identificadores y los comentarios del código. Los
+> commits y la portada en inglés van aparte.
+
+## Instalación
+
+[**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+· 2,2 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
+versiones anteriores están en [Releases](../../releases).
+
+Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo
+ves, está detrás de la flecha `^` de la barra de tareas.
+
+**Se actualiza sola.** En **Ajustes → Actualizaciones** aparece el botón cuando hay versión nueva, y
+con un clic se descarga, se instala y se reinicia. Las descargas van firmadas y la app comprueba la
+firma antes de instalar nada, así que un archivo manipulado no entra.
+
+## Qué hace
+
+|  |  |
+|---|---|
+| 📸 **Captura de región** | Sobre la pantalla congelada, con lupa 6× que da el color exacto en hexadecimal y ajuste a las ventanas: un clic coge la ventana entera. |
+| 🎬 **Grabación de la región** | A 15, 30 o 60 fps con Windows Graphics Capture, sin que se cuelen overlays en el vídeo. |
+| ✂️ **Editor fotograma a fotograma** | Tira de miniaturas, recorte A/B, reproducción en bucle, escala con proporción bloqueada y control de calidad. |
+| 💾 **Exportación** | GIF, MP4 o PNG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como **archivo** en Slack, Discord o el Explorador. |
+| 🔒 **Todo local** | Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub. |
+
+<img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="820">
+
+## Herramienta de Recortes contra winshotx
+
+Mismo equipo con Windows 11, tres pasadas cada una y las dos arrancando desde cero. El cronómetro
+para cuando la selección ya se ve en pantalla. La
+[tabla entera](https://mun1to.github.io/winshotx/#frente-a-frente) tiene las diecinueve filas,
+incluidas las seis que gana la de Windows.
 
 | | winshotx | Herramienta de Recortes |
 |---|---|---|
 | Del atajo a la selección | **28 ms** | 920 ms |
 | Memoria mientras capturas | **33 MB** | 253 MB |
 | Memoria esperando quieta | **31 MB** | 98 MB |
-| Instalador | **2,2 MB** | viene con Windows |
-| Graba GIF y MP4 | sí | no |
-| Editor fotograma a fotograma | sí | no |
-
-**[Pruébala en el navegador](https://mun1to.github.io/winshotx/)** sin instalar nada: la página
-rehace el overlay de selección, el editor y el panel de ajustes desde este mismo código, y
-puedes arrastrar sobre un escritorio de mentira para recortar.
+| Graba GIF | **sí** | no |
+| Editor fotograma a fotograma | **sí** | no |
+| Elegir el atajo de teclado | **sí** | no |
+| Dibujar y anotar encima | no | **sí** |
+| Copiar el texto de la imagen | no | **sí** |
+| Audio del sistema al grabar | todavía no | **sí** |
+| Temporizador antes de capturar | no | **sí** |
 
 ## ¿Es esto lo que buscabas?
 
-- **"Quiero algo mejor que la Herramienta de Recortes."** Es esto, y se abre 33 veces antes. La
-  de Windows sigue ganando en anotar, en leer el texto de la imagen y en el audio del sistema, y
-  la tabla de arriba lo dice.
-- **"¿Cómo grabo un GIF de la pantalla en Windows?"** Pulsa `Ctrl+Shift+5`, arrastra sobre la
-  zona, púlsalo otra vez para parar y exporta a GIF desde el editor. Sin instalar FFmpeg.
+- **"Quiero algo mejor que la Herramienta de Recortes."** Es esto, y se abre 33 veces antes. La de
+  Windows sigue ganando en anotar, en leer el texto de la imagen y en el audio del sistema, y la
+  tabla de arriba lo dice.
+- **"¿Cómo grabo un GIF de la pantalla en Windows?"** Pulsa `Ctrl+Shift+5`, arrastra sobre la zona,
+  púlsalo otra vez para parar y exporta a GIF desde el editor. Sin instalar FFmpeg.
 - **"Necesito un grabador de pantalla ligero."** 33 MB mientras captura y 31 esperando en la
   bandeja.
 - **"Algo como ShareX o CleanShot X, pero más simple."** Los mismos atajos globales y el mismo
   overlay sobre la pantalla congelada, sin cientos de ajustes.
-- **"Quiero sacar un color de la pantalla."** La lupa te da el hexadecimal del píxel bajo el
-  cursor con zoom 6×.
-- **"¿Sube mis capturas a algún sitio?"** No. Ni cuenta, ni telemetría, ni más red que mirar si
-  hay versión nueva en GitHub.
-
-## Qué hace
-
-- **Captura de región** sobre la pantalla congelada, con lupa de píxel que muestra el color exacto
-  en hexadecimal y ajuste automático a las ventanas del sistema: un clic encima de una ventana la
-  selecciona entera.
-- **Grabación de la región** a 15, 30 o 60 fps con Windows Graphics Capture, sin FFmpeg y sin
-  overlays que se cuelen en el vídeo.
-- **Editor** con tira de miniaturas, recorte A/B, reproducción en bucle, escala con proporción
-  bloqueada y control de calidad.
-- **Exportación** a GIF, MP4 o PNG, a disco y al portapapeles: la imagen se pega como imagen y el
-  GIF o el MP4 se pegan como archivo en Slack, Discord o el Explorador.
-- **Todo local.** No hay cuenta, ni telemetría, ni subidas. Lo que capturas no sale de tu equipo.
-
-## Instalación
-
-[**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2,2 MB · se instala solo para tu usuario y no pide permisos de administrador. Las versiones
-anteriores están en [Releases](../../releases).
-
-A partir de la 0.1.2 se actualiza sola: en **Ajustes**, apartado **Actualizaciones**, aparece el botón cuando
-hay versión nueva, y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas
-y la app comprueba la firma antes de instalar nada, así que un archivo manipulado no entra.
-
-Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo
-ves, está detrás de la flecha `^` de la barra de tareas.
+- **"Quiero sacar un color de la pantalla."** La lupa te da el hexadecimal del píxel bajo el cursor
+  con zoom 6×.
+- **"¿Sube mis capturas a algún sitio?"** No. Ni cuenta, ni telemetría, ni más red que mirar si hay
+  versión nueva en GitHub.
 
 ## Atajos
 
@@ -100,10 +109,13 @@ ves, está detrás de la flecha `^` de la barra de tareas.
 En el editor: `espacio` reproduce, `I` y `O` marcan inicio y final del recorte, `←` `→` avanzan
 fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel y `Esc` cierra.
 
-Los dos atajos globales se cambian desde Ajustes pulsando sobre ellos y tecleando la combinación
+Los dos atajos globales se cambian desde Ajustes pulsando el campo y tecleando la combinación
 nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
 
-## Cómo está construido
+<details>
+<summary><b>Cómo está construido</b></summary>
+
+<br>
 
 | Capa | Elección | Por qué |
 |---|---|---|
@@ -116,8 +128,6 @@ nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
 | GIF | [`gif`](https://crates.io/crates/gif) + [`color_quant`](https://crates.io/crates/color_quant) | paleta global, dithering y diferencia entre fotogramas |
 | Caché de edición | [QOI](https://qoiformat.org) sin pérdida | rápido de escribir y editable fotograma a fotograma |
 
-### Dos decisiones que explican el resto
-
 **El overlay de selección no es una ventana transparente.** Se captura la pantalla, se muestra
 congelada y se selecciona encima. Esquiva el bug de transparencia de Tauri v2 en Windows, elimina el
 parpadeo del contenido en movimiento y regala una lupa exacta al píxel.
@@ -127,7 +137,18 @@ en Rust puro con paleta global, dithering Floyd-Steinberg y escritura solo del r
 entre fotogramas. Si tienes `ffmpeg` en el `PATH`, el editor ofrece además un motor de máxima
 calidad (`palettegen`), pero nunca se descarga ni se distribuye.
 
-## Desarrollo
+[`docs/TRAMPAS.md`](docs/TRAMPAS.md) recoge las siete trampas de Tauri v2 en Windows que costaron
+horas: comandos síncronos que congelan la interfaz, ventanas que no se pueden crear desde el hilo de
+un atajo global, etiquetas de ventana que no se reutilizan, el primer clic que se come el sistema,
+un canvas contaminado por el protocolo `asset:`, una CSP incompleta que solo falla en el instalador
+y la clave de firma que se pasa de una forma y no de otra.
+
+</details>
+
+<details>
+<summary><b>Desarrollo</b></summary>
+
+<br>
 
 ```bash
 pnpm install
@@ -136,8 +157,25 @@ pnpm tauri dev      # arranca la app (vive en la bandeja del sistema)
 pnpm tauri build    # instalador NSIS en target/release/bundle/nsis
 ```
 
-Para publicar una versión hace falta la clave privada de firma, que **no está en el repositorio**
-y sin la cual el actualizador no aceptaría la descarga:
+Las pruebas del backend no son de mentira: capturan la pantalla real, graban un clip con Windows
+Graphics Capture y exportan GIF y MP4 que luego se vuelven a leer para comprobar que son válidos.
+
+```bash
+cd src-tauri
+cargo test
+```
+
+La página de presentación está en [`frontlaxweb/`](frontlaxweb) y GitHub Pages la publica en cada
+push. La copia inglesa de `/en/` se genera desde la española, y el workflow no despliega si está
+desfasada:
+
+```bash
+node frontlaxweb/generar-en.mjs      # rehace frontlaxweb/en/index.html
+python frontlaxweb/generar-social.py # rehace las dos tarjetas de 1200x630
+```
+
+Para publicar una versión hace falta la clave privada de firma, que **no está en el repositorio** y
+sin la cual el actualizador no aceptaría la descarga:
 
 ```bash
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/winshotx.key)"
@@ -146,33 +184,26 @@ pnpm tauri build
 node scripts/publicar.mjs --publicar   # prepara latest.json y crea la release
 ```
 
-Pruebas del backend:
+`publicar.mjs` se niega a seguir si `package.json` y `Cargo.toml` no dicen la misma versión, o si el
+`.sig` es más viejo que el instalador, que es lo que pasa cuando compilas sin la clave.
 
-```bash
-cd src-tauri
-cargo test
-```
+Los manifiestos de winget están en [`packaging/winget`](packaging/winget).
 
-Las pruebas de integración no son de mentira: capturan la pantalla real, graban un clip con Windows
-Graphics Capture y exportan GIF y MP4 que luego se releen para comprobar que son válidos.
-
-En [`docs/TRAMPAS.md`](docs/TRAMPAS.md) están los siete fallos de Tauri v2 en Windows que costaron
-horas de depuración: comandos síncronos que congelan la interfaz, etiquetas de ventana que no se
-pueden reutilizar, el primer clic que se come el sistema, el canvas contaminado por el protocolo
-`asset:`, las ventanas que no se pueden crear desde el hilo de un atajo global, una CSP incompleta
-que solo se nota en el instalador y la clave de firma que se pasa de una forma y no de la otra. Si vas a tocar ventanas o la
-seguridad del webview, léelo antes.
+</details>
 
 ## Estado
 
-Funciona en Windows 10 1903 o superior. macOS y Linux compilan, pero todo lo que depende del
-sistema devuelve "esta función solo está implementada en Windows": captura, grabación, codificación
-MP4, portapapeles y arranque automático viven bajo `#[cfg(windows)]` con un tapón para lo demás,
-así que portarlo es rellenar esos tapones.
+Funciona en Windows 10 1903 o superior. macOS y Linux compilan, pero toda función específica de
+plataforma devuelve "esta función solo está implementada en Windows": captura, grabación,
+codificación MP4, portapapeles y arranque automático están detrás de `#[cfg(windows)]` con un stub
+para el resto, así que portarlo es rellenar esos stubs.
 
-**Lo que falta:** el audio del sistema todavía no se graba. Hace falta WASAPI en modo loopback para
-alimentar al codificador; el interruptor ya está en la interfaz y avisa de que no está disponible.
+**Lo que falta:** el audio del sistema todavía no se graba. Necesita WASAPI en modo loopback para
+alimentar el codificador; el interruptor ya está en la interfaz, desactivado y diciéndolo. Anotar
+encima de una captura, leer el texto de la imagen y el temporizador tampoco están, y la comparativa
+de arriba lo dice.
 
 ## Licencia
 
-[MIT](LICENSE). Úsalo, cámbialo y véndelo si quieres.
+[MIT](LICENSE). Úsalo, cámbialo y véndelo si quieres. Hecho por
+[Munir Torres](https://munito.dev).
