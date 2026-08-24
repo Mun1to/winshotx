@@ -103,19 +103,47 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
   margin-top: 26px; border: 1px solid var(--borde); border-radius: var(--radio);
   overflow-x: auto; background: var(--panel);
 }
-.duelo table { width: 100%; min-width: 660px; border-collapse: collapse; margin: 0; font-size: 14px; }
-.duelo th, .duelo td { padding: 11px 18px; border-bottom: 1px solid var(--borde); text-align: left; }
+.duelo table {
+  width: 100%; min-width: 660px; border-collapse: collapse; margin: 0; font-size: 14px;
+  table-layout: fixed;
+}
+.duelo th, .duelo td { padding: 13px 18px; border-bottom: 1px solid var(--borde); text-align: left; }
 .duelo tr:last-child th, .duelo tr:last-child td { border-bottom: 0; }
 .duelo thead th {
   position: sticky; top: 0; z-index: 1; background: #191920;
   font-size: 14px; font-weight: 650; text-transform: none; letter-spacing: -0.01em; color: var(--texto);
+  border-bottom: 1px solid #ffffff1f;
 }
-.duelo thead th:first-child { width: 34%; }
-.duelo tbody th { font-weight: 500; font-size: 13.5px; text-transform: none; letter-spacing: 0; color: var(--suave); }
+/* Los dos contendientes ocupan lo mismo: si una columna es mas ancha que la otra, la
+   comparacion ya parece inclinada antes de leer ni un dato. */
+.duelo thead th:first-child { width: 38%; }
+.duelo thead th:not(:first-child) { width: 31%; }
+/* Las dos columnas comparadas van centradas y con cifras de ancho fijo, para que los
+   numeros queden en columna y se puedan comparar de un vistazo. */
+.duelo td { text-align: center; font-variant-numeric: tabular-nums; }
+.duelo thead th:not(:first-child) { text-align: center; }
+.duelo .equipo { justify-content: center; }
+/* Una linea separa a los dos, que es de lo que va la tabla. */
+.duelo th:nth-child(2), .duelo td:nth-child(2) { border-left: 1px solid var(--borde); }
+.duelo th:last-child, .duelo td:last-child { border-left: 1px solid var(--borde); }
+/* Y la columna de winshotx, un poco de azul de fondo para que se siga sin perderse. */
+.duelo thead th:last-child { background: #0a9bff1a; }
+.duelo tbody td:last-child { background: #0a9bff08; }
+
+.duelo tbody th {
+  font-weight: 650; font-size: 13.5px; text-transform: none; letter-spacing: -0.01em;
+  color: var(--texto);
+}
 .duelo tbody td { color: var(--apagado); white-space: nowrap; }
-.duelo tbody td.gana { color: var(--texto); font-weight: 600; background: #34d3990f; }
+.duelo tbody td.gana { color: var(--texto); font-weight: 650; background: #34d99914; }
+.duelo tbody td:last-child.gana { background: #34d9991f; }
 .duelo tbody td.empate { color: var(--texto); }
-.duelo tbody tr:hover td:not(.gana) { background: #ffffff05; }
+.duelo tbody tr:hover td:not(.gana) { background: #ffffff08; }
+.duelo tbody tr:hover td:last-child:not(.gana) { background: #0a9bff14; }
+/* Los tres primeros son los numeros medidos: el argumento entero de la pagina esta ahi,
+   asi que se leen mas grandes que el resto de la tabla. */
+.duelo tbody tr.cifras td { font-size: 17px; padding-top: 15px; padding-bottom: 15px; }
+.duelo tbody tr.cifras td.gana { font-weight: 700; letter-spacing: -0.01em; }
 .equipo { display: inline-flex; align-items: center; gap: 9px; }
 .equipo.nuestro { color: var(--azul); }
 .mini-marca { width: 20px; height: 20px; }
