@@ -79,6 +79,11 @@ pub fn run() {
                 let _ = platform::snipping::write(0);
             }
 
+            // Antes de registrar nada: el hook es el que decide quien se queda la tecla
+            // cuando otro programa la tiene cogida con otro hook.
+            #[cfg(windows)]
+            platform::teclado::instalar(handle.clone());
+
             hotkeys::register(&handle, &config);
             tray::build(&handle)?;
 

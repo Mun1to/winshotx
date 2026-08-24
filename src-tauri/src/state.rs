@@ -11,7 +11,8 @@ use crate::capture::{Freeze, Rect};
 use crate::error::Result;
 use crate::record::SessionData;
 use crate::settings::Settings;
-use crate::windows_mgr::OverlayIntent;
+use crate::windows_mgr::OverlayIntent;
+use tauri_plugin_global_shortcut::Shortcut;
 
 /// Todo lo que hay que compartir con el hilo de captura mientras se graba.
 pub struct RecordingState {
@@ -46,6 +47,9 @@ pub struct AppState {
     pub freezes: RwLock<Vec<Freeze>>,
     pub sessions: RwLock<HashMap<String, SessionData>>,
     pub shortcuts: RwLock<crate::hotkeys::ShortcutStatus>,
+    /// Los atajos que hemos pedido al sistema, para poder soltarlos uno a uno.
+    /// Sin esta lista hay que fiarse de `unregister_all`, y no se puede: ver hotkeys.rs.
+    pub registered: RwLock<Vec<Shortcut>>,
     /// Con que se ha abierto el overlay que hay en pantalla. El mismo overlay sirve
     /// para capturar y para grabar, y sin esto no podria saber si al soltar el raton
     /// toca copiar la imagen o empezar a grabar.
@@ -61,6 +65,7 @@ impl AppState {
             freezes: RwLock::new(Vec::new()),
             sessions: RwLock::new(HashMap::new()),
             shortcuts: RwLock::new(crate::hotkeys::ShortcutStatus::default()),
+            registered: RwLock::new(Vec::new()),
             intent: RwLock::new(OverlayIntent::Capture),
             recording: Mutex::new(None),
             temp_root,

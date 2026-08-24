@@ -293,12 +293,16 @@ pub struct PrintScreenState {
     /// La Herramienta de Recortes la sigue teniendo asignada en el registro. Cuando el
     /// valor no existe se da por asignada, que es como viene Windows 11 de fabrica.
     taken_by_windows: bool,
+    /// Win+Mayus+S tambien ha caido. Esa no tiene ningun ajuste que la libere, asi que
+    /// se pide y se cuenta lo que haya pasado.
+    win_shift_s: bool,
 }
 
 fn print_screen_now(state: &AppState) -> PrintScreenState {
     PrintScreenState {
         enabled: state.settings.read().print_screen_capture,
         active: state.shortcuts.read().print_screen,
+        win_shift_s: state.shortcuts.read().win_shift_s,
         taken_by_windows: crate::platform::snipping::read().unwrap_or(1) == 1,
     }
 }
