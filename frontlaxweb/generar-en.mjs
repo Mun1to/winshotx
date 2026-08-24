@@ -10,6 +10,7 @@
  * Paginas: index.html -> en/index.html, y docs/index.html -> en/docs/index.html.
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -56,6 +57,31 @@ function traducir(html) {
   html = html.replaceAll(`${BASE}social.png`, `${BASE}social-en.png`);
   return html;
 }
+
+/**
+ * Pone la version en la URL del CSS y del JS.
+ *
+ * GitHub Pages sirve el HTML con 10 minutos de cache y los recursos con 4 horas, asi que
+ * al publicar un cambio de estilos hay una ventana larga en la que el visitante que ya
+ * habia entrado se lleva la pagina nueva con el CSS viejo: los iconos salen a tamano
+ * natural y la barra se descoloca. Con la huella del archivo en la URL, un cambio de
+ * contenido es una URL distinta y el navegador no puede servir la de antes.
+ */
+function versionar(html, huellas) {
+  return html.replace(
+    /((?:\.\.\/)*)(estilos\.css|demo\.js|estrellas\.js)(\?v=[a-f0-9]+)?/g,
+    (_todo, subir, archivo) => `${subir}${archivo}?v=${huellas[archivo]}`,
+  );
+}
+
+const huellas = Object.fromEntries(
+  await Promise.all(
+    ["estilos.css", "demo.js", "estrellas.js"].map(async (archivo) => [
+      archivo,
+      createHash("sha256").update(await readFile(join(aqui, archivo))).digest("hex").slice(0, 8),
+    ]),
+  ),
+);
 
 /**
  * Construye el bloque FAQPage a partir de las preguntas que la pagina ENSENA.
@@ -129,9 +155,9 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}">`]: `<meta property="og:url" content="${BASE}en/">`,
       [`"url": "${BASE}"`]: `"url": "${BASE}en/"`,
       'href="logo.svg"': 'href="../logo.svg"',
-      'href="estilos.css"': 'href="../estilos.css"',
-      'src="demo.js"': 'src="../demo.js"',
-      'src="estrellas.js"': 'src="../estrellas.js"',
+      'href="estilos.css?v=': 'href="../estilos.css?v=',
+      'src="demo.js?v=': 'src="../demo.js?v=',
+      'src="estrellas.js?v=': 'src="../estrellas.js?v=',
       '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
     },
@@ -145,8 +171,8 @@ const PAGINAS = [
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"item": "${BASE}docs/" }`]: `"item": "${BASE}en/docs/" }`,
       'href="../logo.svg"': 'href="../../logo.svg"',
-      'href="../estilos.css"': 'href="../../estilos.css"',
-      'src="../estrellas.js"': 'src="../../estrellas.js"',
+      'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../estrellas.js?v=': 'src="../../estrellas.js?v=',
       '<a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>',
     },
@@ -159,11 +185,11 @@ for (const pagina of PAGINAS) {
 
   // La pagina espanola es el origen, asi que su bloque de preguntas se reescribe aqui
   // mismo: es la unica forma de que el JSON-LD y lo que se ve no se separen nunca.
-  const conFaq = construirFaq(original, "es");
-  if (conFaq !== original) {
-    await writeFile(rutaOrigen, conFaq, "utf8");
-    original = conFaq;
-    console.log(`${pagina.origen}: preguntas actualizadas`);
+  const puesto = versionar(construirFaq(original, "es"), huellas);
+  if (puesto !== original) {
+    await writeFile(rutaOrigen, puesto, "utf8");
+    original = puesto;
+    console.log(`${pagina.origen}: actualizado`);
   }
 
   let html = construirFaq(traducir(original), "en");
