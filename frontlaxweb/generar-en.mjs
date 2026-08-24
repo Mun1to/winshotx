@@ -78,7 +78,13 @@ const huellas = Object.fromEntries(
   await Promise.all(
     ["estilos.css", "demo.js", "estrellas.js"].map(async (archivo) => [
       archivo,
-      createHash("sha256").update(await readFile(join(aqui, archivo))).digest("hex").slice(0, 8),
+      // El texto se normaliza a saltos de linea de Unix antes de la huella: en Windows el
+      // archivo esta en disco con CRLF y en el servidor con LF, y sin esto cada uno
+      // calcularia una huella distinta y la comprobacion del despliegue no cuadraria nunca.
+      createHash("sha256")
+        .update((await readFile(join(aqui, archivo), "utf8")).replaceAll("\r\n", "\n"))
+        .digest("hex")
+        .slice(0, 8),
     ]),
   ),
 );
