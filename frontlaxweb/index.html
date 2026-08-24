@@ -149,56 +149,124 @@
 
 <section id="frente-a-frente">
   <div class="env">
-    <p class="titulillo">Frente a frente</p>
-    <h2>Qué ganas y qué pierdes</h2>
+    <h2>Herramienta de Recortes contra winshotx</h2>
     <p class="entradilla">
-      La Herramienta de Recortes viene puesta y hace cosas que winshotx no hace. Aquí está la
-      lista entera, también la parte que no nos favorece.
+      Punto por punto, también donde pierde winshotx. La de Windows viene puesta y hace cosas
+      que esta todavía no sabe hacer.
     </p>
 
-    <div class="balanza">
-      <div class="lado bueno">
-        <h3><span class="chapa mas"><svg><use href="#i-plus"/></svg></span> Lo que ganas</h3>
-        <ul>
-          <li><b>Se abre 33 veces antes.</b> 28 milisegundos contra 920. No hay espera.</li>
-          <li><b>Ocho veces menos memoria</b> mientras capturas: 33 MB contra 253 MB.</li>
-          <li><b>Graba GIF</b>, que la de Windows no sabe hacer, con paleta propia y solo el trozo
-              que cambia entre fotogramas.</li>
-          <li><b>Editor fotograma a fotograma</b> para recortar el principio y el final, con bucle
-              y control de tamaño y calidad.</li>
-          <li><b>Atajos que eliges tú</b>, no los que decida Windows.</li>
-          <li><b>Lupa de píxel</b> con el color en hexadecimal, para copiar un color de cualquier
-              sitio de la pantalla.</li>
-          <li><b>El GIF y el vídeo se copian como archivo</b>, así que se pegan de una en Slack,
-              Discord o el Explorador.</li>
-          <li><b>Sin cuenta y sin telemetría</b>, con el código a la vista y 2,2 MB de instalador.</li>
-        </ul>
-      </div>
-
-      <div class="lado malo">
-        <h3><span class="chapa menos"><svg><use href="#i-minus"/></svg></span> Lo que pierdes</h3>
-        <ul>
-          <li><b>No se dibuja encima.</b> La de Windows trae bolígrafo, resaltador, formas y texto;
-              winshotx todavía no.</li>
-          <li><b>No copia el texto de la imagen.</b> El reconocimiento de texto de Windows es muy
-              cómodo y aquí no está.</li>
-          <li><b>No tapa datos personales</b> a un clic, como hace la redacción automática de
-              Windows.</li>
-          <li><b>No graba el audio del sistema</b> todavía; la de Windows sí desde hace un par de
-              años.</li>
-          <li><b>No hay temporizador</b> de tres o cinco segundos para preparar la pantalla.</li>
-          <li><b>Hay que instalarlo</b>, y como no está firmado con certificado de pago, Windows
-              puede enseñarte un aviso la primera vez.</li>
-          <li><b>Solo Windows</b>, de la versión 10 en adelante, y la interfaz solo en español.</li>
-        </ul>
-      </div>
+    <div class="duelo">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th><span class="equipo"><span class="ventanita"></span> Herramienta de Recortes</span></th>
+            <th><span class="equipo nuestro"><svg class="mini-marca"><use href="#marca"/></svg> winshotx</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Del atajo a la selección</th>
+            <td>920 ms</td>
+            <td class="gana">28 ms</td>
+          </tr>
+          <tr>
+            <th scope="row">Memoria mientras capturas</th>
+            <td>253 MB</td>
+            <td class="gana">33 MB</td>
+          </tr>
+          <tr>
+            <th scope="row">Memoria esperando quieta</th>
+            <td>98 MB</td>
+            <td class="gana">31 MB</td>
+          </tr>
+          <tr>
+            <th scope="row">Instalación</th>
+            <td class="gana">ya viene con Windows</td>
+            <td>instalador de 2,2 MB</td>
+          </tr>
+          <tr>
+            <th scope="row">Capturar una región</th>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, con ajuste a ventanas</td>
+          </tr>
+          <tr>
+            <th scope="row">Grabar vídeo</th>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, a 15, 30 o 60 fps</td>
+          </tr>
+          <tr>
+            <th scope="row">Grabar GIF</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
+          </tr>
+          <tr>
+            <th scope="row">Editor fotograma a fotograma</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, con recorte A y B</td>
+          </tr>
+          <tr>
+            <th scope="row">Elegir el atajo de teclado</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> El que decida Windows</td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> El que quieras</td>
+          </tr>
+          <tr>
+            <th scope="row">Lupa de píxel con el color</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Zoom 6× y hexadecimal</td>
+          </tr>
+          <tr>
+            <th scope="row">Pegar el GIF o el vídeo como archivo</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, en Slack o Discord</td>
+          </tr>
+          <tr>
+            <th scope="row">Dibujar y anotar encima</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Bolígrafo, formas y texto</td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> Todavía no</td>
+          </tr>
+          <tr>
+            <th scope="row">Copiar el texto de la imagen</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+          </tr>
+          <tr>
+            <th scope="row">Tapar datos personales</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Automático</td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+          </tr>
+          <tr>
+            <th scope="row">Audio del sistema al grabar</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> Todavía no</td>
+          </tr>
+          <tr>
+            <th scope="row">Temporizador antes de capturar</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> 3, 5 o 10 segundos</td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+          </tr>
+          <tr>
+            <th scope="row">Idiomas</th>
+            <td class="gana">los de Windows</td>
+            <td>solo español</td>
+          </tr>
+          <tr>
+            <th scope="row">Código abierto</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> MIT, entero a la vista</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+    <p class="letra-chica">
+      Los milisegundos y los megas salen de medir las dos en el mismo equipo con Windows 11, tres
+      veces seguidas y arrancando de cero. El resto es lo que trae cada una a día de hoy.
+    </p>
   </div>
 </section>
 
 <section id="demo">
   <div class="env">
-    <p class="titulillo">La app por dentro</p>
     <h2>Pruébala sin instalar nada</h2>
     <div class="cabecera-demo">
       <p class="entradilla">
@@ -439,7 +507,6 @@
 
 <section id="que-hace">
   <div class="env">
-    <p class="titulillo">Qué hace</p>
     <h2>Lo que necesitas y nada más</h2>
     <div class="rejilla">
       <div class="caja"><div class="ico"><svg><use href="#i-zap"/></svg></div>
@@ -472,7 +539,6 @@
 
 <section id="atajos">
   <div class="env">
-    <p class="titulillo">Atajos</p>
     <h2>Sin tocar el ratón</h2>
     <p class="entradilla">Los dos atajos globales se cambian desde los ajustes: pulsas el campo y
       tecleas la combinación que quieras.</p>
@@ -496,7 +562,6 @@
 
 <section>
   <div class="env centrado">
-    <p class="titulillo">Instalar</p>
     <h2>Dos clics y ya está</h2>
     <p class="entradilla">
       El instalador va a tu usuario y no al sistema, así que Windows no te pide permisos de

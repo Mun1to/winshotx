@@ -65,23 +65,43 @@ nav .enlaces a:hover { color: var(--texto); text-decoration: none; }
 .portada .logo { width: 62px; height: 62px; }
 .firma .palabra { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; }
 
-/* ---------- pros y contras ---------- */
-.balanza { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 30px; }
-@media (max-width: 820px) { .balanza { grid-template-columns: 1fr; } }
-.lado { border: 1px solid var(--borde); border-radius: var(--radio); padding: 22px; background: var(--panel); }
-.lado.bueno { border-color: #34d39926; background: linear-gradient(180deg, #34d9991a, transparent 42%), var(--panel); }
-.lado.malo { border-color: #f59e0b26; background: linear-gradient(180deg, #f59e0b17, transparent 42%), var(--panel); }
-.lado h3 { display: flex; align-items: center; gap: 10px; font-size: 17px; letter-spacing: -0.01em; margin-bottom: 14px; }
-.chapa { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; }
-.chapa svg { width: 15px; height: 15px; }
-.chapa.mas { background: #34d99926; color: #6ee7b7; }
-.chapa.menos { background: #f59e0b26; color: #fcd34d; }
-.lado ul { list-style: none; display: grid; gap: 10px; }
-.lado li { position: relative; padding-left: 18px; font-size: 14px; color: var(--suave); line-height: 1.5; }
-.lado li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 6px; height: 6px; border-radius: 50%; }
-.lado.bueno li::before { background: #34d399; }
-.lado.malo li::before { background: #f59e0b; }
-.lado li b { color: var(--texto); font-weight: 600; }
+/* ---------- comparación cara a cara ---------- */
+.duelo {
+  margin-top: 26px; border: 1px solid var(--borde); border-radius: var(--radio);
+  overflow-x: auto; background: var(--panel);
+}
+.duelo table { width: 100%; min-width: 660px; border-collapse: collapse; margin: 0; font-size: 14px; }
+.duelo th, .duelo td { padding: 11px 18px; border-bottom: 1px solid var(--borde); text-align: left; }
+.duelo tr:last-child th, .duelo tr:last-child td { border-bottom: 0; }
+.duelo thead th {
+  position: sticky; top: 0; z-index: 1; background: #191920;
+  font-size: 14px; font-weight: 650; text-transform: none; letter-spacing: -0.01em; color: var(--texto);
+}
+.duelo thead th:first-child { width: 34%; }
+.duelo tbody th { font-weight: 500; font-size: 13.5px; text-transform: none; letter-spacing: 0; color: var(--suave); }
+.duelo tbody td { color: var(--apagado); white-space: nowrap; }
+.duelo tbody td.gana { color: var(--texto); font-weight: 600; background: #34d3990f; }
+.duelo tbody td.empate { color: var(--texto); }
+.duelo tbody tr:hover td:not(.gana) { background: #ffffff05; }
+.equipo { display: inline-flex; align-items: center; gap: 9px; }
+.equipo.nuestro { color: var(--azul); }
+.mini-marca { width: 20px; height: 20px; }
+/* los cuatro cuadraditos de Windows, sin traerse ninguna imagen */
+.ventanita {
+  width: 17px; height: 17px; flex: none;
+  background:
+    linear-gradient(#0078d4, #0078d4) 0 0 / 7.5px 7.5px no-repeat,
+    linear-gradient(#0078d4, #0078d4) 9.5px 0 / 7.5px 7.5px no-repeat,
+    linear-gradient(#0078d4, #0078d4) 0 9.5px / 7.5px 7.5px no-repeat,
+    linear-gradient(#0078d4, #0078d4) 9.5px 9.5px / 7.5px 7.5px no-repeat;
+}
+.duelo b.si, .duelo b.no {
+  display: inline-grid; place-items: center; width: 17px; height: 17px;
+  border-radius: 5px; margin-right: 5px; vertical-align: -3px;
+}
+.duelo b.si { background: #34d99926; color: #6ee7b7; }
+.duelo b.no { background: #ffffff12; color: #7c7c88; }
+.duelo b svg { width: 11px; height: 11px; }
 h1 { font-size: clamp(34px, 6vw, 60px); line-height: 1.06; letter-spacing: -0.035em; font-weight: 700; }
 h1 em { font-style: normal; color: var(--azul); }
 .bajada { margin: 20px auto 0; max-width: 62ch; font-size: clamp(16px, 2.2vw, 19px); color: var(--suave); }
@@ -117,8 +137,7 @@ h1 em { font-style: normal; color: var(--azul); }
 /* ---------- secciones ---------- */
 /* solo las secciones de la página; dentro de las demos hay <section> propias */
 body > section { padding: 74px 0; }
-.titulillo { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--azul); font-weight: 700; }
-h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03em; margin: 10px 0 12px; font-weight: 700; }
+h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03em; margin: 0 0 12px; font-weight: 700; }
 .entradilla { color: var(--suave); max-width: 65ch; }
 
 /* ---------- marco de las demos ---------- */
