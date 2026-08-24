@@ -61,6 +61,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
     capture: true,
     record: true,
     printScreen: false,
+    winShiftS: false,
   });
   const [cache, setCache] = useState<CacheStats>({ bytes: 0, sessions: 0 });
   const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
@@ -173,19 +174,21 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             />
             <Row
               icon={<Zap className="size-4" />}
-              label="Usar también Impr Pant"
+              label="Quitarle las teclas a la Herramienta de Recortes"
               hint={
                 imprPant?.enabled
                   ? imprPant.active
-                    ? "se la hemos quitado a la Herramienta de Recortes"
-                    : "Windows no la ha soltado; cierra sesión y vuelve a entrar"
-                  : "ahora abre la Herramienta de Recortes"
+                    ? imprPant.winShiftS
+                      ? "Impr Pant y Win+Mayús+S abren winshotx"
+                      : "Impr Pant abre winshotx; Win+Mayús+S se la queda Windows"
+                    : "Windows no ha soltado Impr Pant; cierra sesión y vuelve a entrar"
+                  : "ahora las dos abren la Herramienta de Recortes"
               }
               control={
                 <Switch
                   checked={imprPant?.enabled ?? false}
                   onChange={(v) => void cambiarImprPant(v)}
-                  label="Usar también Impr Pant"
+                  label="Quitarle las teclas a la Herramienta de Recortes"
                 />
               }
             />

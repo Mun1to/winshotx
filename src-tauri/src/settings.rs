@@ -96,17 +96,25 @@ pub fn load(app: &AppHandle) -> Settings {
     let Ok(path) = config_path(app) else {
         return Settings::default();
     };
-    let Ok(raw) = std::fs::read_to_string(path) else {
+    let Ok(raw) = std::fs::read_to_string(&path) else {
         return Settings::default();
     };
-    let Ok(mut settings) = serde_json::from_str::<Settings>(&raw) else {
+    // El Bloc de notas y PowerShell guardan UTF-8 con marca de orden de bytes, y con esos
+    // tres bytes delante serde no lee ni la primera llave. Sin quitarlos, editar el archivo
+    // a mano borra la configuracion entera sin decir nada.
+    let raw = raw.trim_start_matches('\u{feff}');
+
+    let Ok(mut settings) = serde_json::from_str::<Settings>(raw) else {
+        // Se aparta antes de que la app lo pise con los valores por defecto: unos ajustes
+        // que no se entienden se pueden arreglar a mano, pero no si ya no estan.
+        let _ = std::fs::rename(&path, path.with_extension("json.roto"));
         return Settings::default();
     };
 
     // Quien ya tenia winshotx configurado no esta estrenandolo. Si el archivo viene de
     // una version anterior a la bienvenida no trae la clave, y sin esto le saldrian los
     // cuatro pasos a todo el mundo al actualizar.
-    let decidido = serde_json::from_str::<serde_json::Value>(&raw)
+    let decidido = serde_json::from_str::<serde_json::Value>(raw)
         .ok()
         .and_then(|valor| valor.get("onboarded").cloned())
         .is_some();

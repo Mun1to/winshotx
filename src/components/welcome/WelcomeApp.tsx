@@ -10,12 +10,18 @@ import {
   MousePointer2,
   Power,
   Scissors,
-  Sparkles,
   Video,
-  Zap,
 } from "lucide-react";
-import { getSettings, setSettings, usePrintScreen } from "../../lib/ipc";
-import type { CaptureFlow, PrintScreenState, Settings } from "../../lib/types";
+import { getSettings, setSettings, shortcutStatus, usePrintScreen } from "../../lib/ipc";
+import type {
+  CaptureFlow,
+  PrintScreenState,
+  Settings,
+  ShortcutStatus,
+} from "../../lib/types";
+import { partesDeAtajo } from "../../lib/teclas";
+import { ShortcutField } from "../settings/ShortcutField";
+import { Marca } from "../ui/Marca";
 import { Switch } from "../ui/Switch";
 
 /**
@@ -29,15 +35,30 @@ import { Switch } from "../ui/Switch";
 
 const PASOS = ["Hola", "Estilo", "Impr Pant", "Listo"];
 
+/**
+ * Combinaciones recomendadas. Elegidas por no chocar con lo que ya usa Windows ni con lo
+ * que usan a diario el navegador y el editor: `Ctrl+Shift+2` y `Ctrl+Shift+5` son las de
+ * fabrica, `Ctrl+Alt+letra` casi nunca esta cogida, y `Alt+letra` es la mas corta de teclear.
+ */
+const SUGERIDOS_CAPTURA = ["CmdOrCtrl+Shift+Digit2", "CmdOrCtrl+Alt+KeyA", "Alt+KeyX"];
+const SUGERIDOS_GRABACION = ["CmdOrCtrl+Shift+Digit5", "CmdOrCtrl+Alt+KeyR", "Alt+KeyV"];
+
 export function WelcomeApp({ onDone }: { onDone: () => void }) {
   const [paso, setPaso] = useState(0);
   const [ajustes, setAjustes] = useState<Settings | null>(null);
   const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
+  const [atajos, setAtajos] = useState<ShortcutStatus>({
+    capture: true,
+    record: true,
+    printScreen: false,
+    winShiftS: false,
+  });
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void getSettings().then(setAjustes);
+    void shortcutStatus().then(setAtajos);
   }, []);
 
   /** Se guarda en cuanto se toca algo: si la ventana se cierra a medias, no se pierde. */
@@ -45,7 +66,9 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
     setAjustes((previo) => {
       if (!previo) return previo;
       const siguiente = { ...previo, ...parcial };
-      void setSettings(siguiente).catch((e) => setError(String(e)));
+      void setSettings(siguiente)
+        .then(() => shortcutStatus().then(setAtajos))
+        .catch((e) => setError(String(e)));
       return siguiente;
     });
   }, []);
@@ -89,7 +112,14 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
             transition={{ duration: 0.16, ease: "easeOut" }}
             className="h-full"
           >
-            {paso === 0 && <Hola ajustes={ajustes} />}
+            {paso === 0 && (
+              <Hola
+                ajustes={ajustes}
+                atajos={atajos}
+                onCaptura={(v) => guardar({ captureShortcut: v })}
+                onGrabacion={(v) => guardar({ recordShortcut: v })}
+              />
+            )}
             {paso === 1 && (
               <Estilo valor={ajustes.captureFlow} onChange={(v) => guardar({ captureFlow: v })} />
             )}
@@ -187,15 +217,10 @@ function Tecla({ children }: { children: string }) {
   );
 }
 
-/** "CmdOrCtrl+Shift+2" no se lee: en Windows eso son las teclas Ctrl, Shift y 2. */
-function partesAtajo(atajo: string): string[] {
-  return atajo.split("+").map((parte) => (parte === "CmdOrCtrl" ? "Ctrl" : parte));
-}
-
 function Atajo({ valor }: { valor: string }) {
   return (
     <span className="flex items-center gap-1">
-      {partesAtajo(valor).map((parte, i) => (
+      {partesDeAtajo(valor).map((parte, i) => (
         <span key={parte + String(i)} className="flex items-center gap-1">
           {i > 0 && <span className="text-[10px] text-neutral-600">+</span>}
           <Tecla>{parte}</Tecla>
@@ -205,26 +230,92 @@ function Atajo({ valor }: { valor: string }) {
   );
 }
 
-function Hola({ ajustes }: { ajustes: Settings }) {
+/** Una combinacion recomendada, para no obligar a nadie a inventarse una. */
+function Sugerencias({
+  opciones,
+  valor,
+  onElegir,
+}: {
+  opciones: string[];
+  valor: string;
+  onElegir: (valor: string) => void;
+}) {
+  return (
+    <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] text-neutral-600">o prueba</span>
+      {opciones.map((opcion) => {
+        const puesta = opcion === valor;
+        return (
+          <button
+            key={opcion}
+            type="button"
+            onClick={() => onElegir(opcion)}
+            aria-pressed={puesta}
+            className={`rounded-md border px-1.5 py-0.5 font-mono text-[11px] transition-colors ${
+              puesta
+                ? "border-blue-500/70 bg-blue-500/15 text-blue-200"
+                : "border-white/10 text-neutral-400 hover:border-white/25 hover:text-white"
+            }`}
+          >
+            {partesDeAtajo(opcion).join(" ")}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
+function Ocupado({ visible }: { visible: boolean }) {
+  return (
+    <span aria-live="polite" className="mt-2 block min-h-[15px] text-[11px] text-amber-300">
+      {visible ? "Esta la tiene otra aplicación. Prueba con otra." : ""}
+    </span>
+  );
+}
+
+function Hola({
+  ajustes,
+  atajos,
+  onCaptura,
+  onGrabacion,
+}: {
+  ajustes: Settings;
+  atajos: ShortcutStatus;
+  onCaptura: (valor: string) => void;
+  onGrabacion: (valor: string) => void;
+}) {
   return (
     <div>
-      <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-400">
-        <Sparkles className="size-5" />
-      </span>
+      <Marca className="mb-4 size-12" />
       <Titulo
         texto="winshotx ya está en marcha"
         sub="Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece."
       />
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
+      <p className="mt-4 text-[12px] text-neutral-400">
+        Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que
+        quieras si prefieres otras.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
           <span className="flex items-center gap-2 text-[13px] font-medium text-neutral-200">
             <Camera className="size-4 text-neutral-500" />
             Capturar una región
           </span>
           <span className="mt-2.5 flex">
-            <Atajo valor={ajustes.captureShortcut} />
+            <ShortcutField
+              value={ajustes.captureShortcut}
+              active={atajos.capture}
+              onChange={onCaptura}
+            />
           </span>
+          <Sugerencias
+            opciones={SUGERIDOS_CAPTURA}
+            valor={ajustes.captureShortcut}
+            onElegir={onCaptura}
+          />
+          <Ocupado visible={!atajos.capture} />
         </div>
         <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
           <span className="flex items-center gap-2 text-[13px] font-medium text-neutral-200">
@@ -232,12 +323,22 @@ function Hola({ ajustes }: { ajustes: Settings }) {
             Grabar en GIF o vídeo
           </span>
           <span className="mt-2.5 flex">
-            <Atajo valor={ajustes.recordShortcut} />
+            <ShortcutField
+              value={ajustes.recordShortcut}
+              active={atajos.record}
+              onChange={onGrabacion}
+            />
           </span>
+          <Sugerencias
+            opciones={SUGERIDOS_GRABACION}
+            valor={ajustes.recordShortcut}
+            onElegir={onGrabacion}
+          />
+          <Ocupado visible={!atajos.record} />
         </div>
       </div>
 
-      <p className="mt-4 text-[12px] text-neutral-500">
+      <p className="mt-3 text-[12px] text-neutral-500">
         Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.
       </p>
     </div>
@@ -350,12 +451,9 @@ function TeclaImprPant({
 }) {
   return (
     <div>
-      <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-400">
-        <Zap className="size-5" />
-      </span>
       <Titulo
-        texto="¿Le quitamos la tecla a la Herramienta de Recortes?"
-        sub="En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo."
+        texto="¿Le quitamos las teclas a la Herramienta de Recortes?"
+        sub="Windows tiene dos teclas de captura: Impr Pant y Win + Mayús + S. winshotx puede quedarse con ellas y responder al mismo dedo de siempre, sin aprender ningún atajo nuevo."
       />
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -378,8 +476,8 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-white">winshotx</span>
           </span>
           <span className="mt-2 block text-[12px] text-neutral-400">
-            Apaga el ajuste de Windows que le da la tecla a la Herramienta de Recortes y se la pasa
-            a winshotx.
+            Apaga el ajuste de Windows que le da Impr Pant a la Herramienta de Recortes, y pide
+            también Win + Mayús + S.
           </span>
         </button>
 
@@ -399,24 +497,30 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-white">Dejarla como está</span>
           </span>
           <span className="mt-2 block text-[12px] text-neutral-400">
-            La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.
+            La Herramienta de Recortes se queda con sus dos teclas y winshotx se llama con su
+            atajo.
           </span>
         </button>
       </div>
 
-      <div aria-live="polite" className="mt-4 min-h-[36px] text-[12px]">
-        {estado?.enabled && estado.active && (
-          <p className="flex items-start gap-1.5 text-emerald-400">
-            <Check className="mt-0.5 size-3.5 shrink-0" />
-            Hecho: Impr Pant abre winshotx. Si Windows sigue abriendo la Herramienta de Recortes,
-            cierra sesión y vuelve a entrar.
-          </p>
-        )}
-        {estado?.enabled && !estado.active && (
-          <p className="text-amber-300">
-            Windows no ha soltado la tecla: hay otro programa que la tiene cogida. El atajo de
-            siempre sigue funcionando.
-          </p>
+      <div aria-live="polite" className="mt-4 min-h-[52px] text-[12px]">
+        {estado?.enabled && (
+          <ul className="space-y-1">
+            <li className={estado.active ? "text-emerald-400" : "text-amber-300"}>
+              {estado.active
+                ? "Impr Pant abre winshotx."
+                : "Impr Pant no ha caído: hay otro programa que la tiene cogida."}
+            </li>
+            <li className={estado.winShiftS ? "text-emerald-400" : "text-neutral-400"}>
+              {estado.winShiftS
+                ? "Win + Mayús + S también abre winshotx."
+                : "Win + Mayús + S se la queda Windows: esa no la cede a nadie."}
+            </li>
+            <li className="text-neutral-500">
+              Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y
+              vuelve a entrar.
+            </li>
+          </ul>
         )}
         {estado !== null && !estado.enabled && (
           <p className="text-neutral-500">
@@ -426,7 +530,8 @@ function TeclaImprPant({
       </div>
 
       <p className="mt-1 text-[11px] text-neutral-600">
-        Win + Mayús + S sigue siendo de Windows: esa no la puede ceder.
+        La Herramienta de Recortes sigue instalada y se puede abrir desde Inicio: winshotx le quita
+        las teclas, no la desinstala.
       </p>
     </div>
   );

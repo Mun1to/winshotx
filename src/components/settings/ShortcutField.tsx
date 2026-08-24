@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { partesDeAtajo } from "../../lib/teclas";
 
 /** Teclas que solo acompañan: por sí solas no forman un atajo. */
 const MODIFIERS = new Set([
@@ -15,40 +16,6 @@ const MODIFIERS = new Set([
   "MetaLeft",
   "MetaRight",
 ]);
-
-/** Del código físico de la tecla al nombre que entiende Tauri y al que lee el usuario. */
-function labelFor(code: string): string {
-  if (code.startsWith("Digit")) return code.slice(5);
-  if (code.startsWith("Key")) return code.slice(3);
-  if (code.startsWith("Numpad")) return `Num ${code.slice(6)}`;
-  const bonitos: Record<string, string> = {
-    CmdOrCtrl: "Ctrl",
-    CommandOrControl: "Ctrl",
-    Control: "Ctrl",
-    Super: "Win",
-    Meta: "Win",
-    Escape: "Esc",
-    Space: "Espacio",
-    PrintScreen: "Impr Pant",
-    ArrowUp: "↑",
-    ArrowDown: "↓",
-    ArrowLeft: "←",
-    ArrowRight: "→",
-    Backslash: "\\",
-    Slash: "/",
-    Comma: ",",
-    Period: ".",
-    Minus: "-",
-    Equal: "=",
-    BracketLeft: "[",
-    BracketRight: "]",
-  };
-  return bonitos[code] ?? code;
-}
-
-function toParts(shortcut: string): string[] {
-  return shortcut.split("+").filter(Boolean).map(labelFor);
-}
 
 interface Props {
   value: string;
@@ -104,7 +71,7 @@ export function ShortcutField({ value, onChange, active }: Props) {
     return () => window.removeEventListener("mousedown", onClickOutside);
   }, [recording]);
 
-  const parts = toParts(value);
+  const parts = partesDeAtajo(value);
 
   return (
     <button
