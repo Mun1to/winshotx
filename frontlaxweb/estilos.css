@@ -8,7 +8,7 @@
   --borde: #ffffff14;
   --texto: #e9e9ee;
   --suave: #8e8e9a;
-  --apagado: #6e6e78;
+  --apagado: #84848f;
   --radio: 16px;
 }
 
@@ -62,16 +62,34 @@ nav .enlaces a {
   transition: background .14s, color .14s;
 }
 nav .enlaces a:hover { color: var(--texto); background: #ffffff14; text-decoration: none; }
+nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px; }
 .idioma {
-  justify-self: end; padding: 9px 18px; border-radius: 999px; border: 1px solid #ffffff1a;
+  padding: 9px 18px; border-radius: 999px; border: 1px solid #ffffff1a;
   background: #ffffff0d; color: var(--texto); font-size: 13.5px; font-weight: 600;
   cursor: pointer; transition: background .14s, border-color .14s;
 }
 .idioma:hover { background: #ffffff1f; border-color: #ffffff33; }
+
+/* El de GitHub va del mismo alto y el mismo borde que el de idioma, para que la
+   esquina derecha de la barra sea una sola pieza y no dos botones sueltos. */
+.gh {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 999px; border: 1px solid #ffffff1a;
+  background: #ffffff0d; color: var(--texto); font-size: 13px; font-weight: 650;
+  font-variant-numeric: tabular-nums; transition: background .14s, border-color .14s;
+}
+.gh:hover { background: #ffffff1f; border-color: #ffffff33; text-decoration: none; }
+.gh-marca { width: 17px; height: 17px; }
+.gh-raya { width: 1px; height: 16px; background: #ffffff24; }
+.gh-estrella { width: 14px; height: 14px; color: #f0b429; margin-right: -3px; }
 @media (max-width: 900px) {
   nav .env { grid-template-columns: 1fr auto; padding-right: 10px; }
   nav .enlaces { display: none; }
-  .idioma { justify-self: end; }
+}
+/* En pantallas estrechas el contador sobra antes que el boton entero. */
+@media (max-width: 460px) {
+  .gh { padding: 8px 11px; gap: 6px; }
+  .gh-raya, .gh-estrella, #gh-estrellas { display: none; }
 }
 
 /* ---------- portada ---------- */
@@ -414,7 +432,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   .ajustes { grid-template-columns: 1fr; }
   .ajustes .a-lo-ancho { grid-column: span 1; }
 }
-.grupo h4 {
+.grupo h3 {
   font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
   color: #737373; margin: 0 0 4px 4px; font-weight: 600;
 }
@@ -489,3 +507,64 @@ tbody tr:hover { background: #ffffff06; }
 
 footer { border-top: 1px solid var(--borde); padding: 40px 0 60px; color: var(--apagado); font-size: 14px; }
 footer .env { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+
+/* ---------- la guia ---------- */
+.guia { max-width: 780px; padding-top: 56px; padding-bottom: 40px; }
+.guia h1 { font-size: clamp(32px, 5vw, 46px); letter-spacing: -0.025em; line-height: 1.08; }
+.guia .entradilla { margin-top: 14px; font-size: 17px; color: var(--suave); max-width: 62ch; }
+.guia section { padding: 0; margin-top: 54px; scroll-margin-top: 96px; }
+.guia h2 {
+  font-size: 26px; letter-spacing: -0.02em;
+  padding-bottom: 12px; border-bottom: 1px solid var(--borde);
+}
+.guia h3 { margin-top: 28px; font-size: 17px; letter-spacing: -0.01em; }
+.guia p { margin-top: 14px; color: var(--suave); line-height: 1.65; }
+.guia h3 + p { margin-top: 8px; }
+.guia ul { margin-top: 16px; padding-left: 0; list-style: none; display: grid; gap: 12px; }
+.guia li {
+  position: relative; padding-left: 20px; color: var(--suave); line-height: 1.6;
+}
+.guia li::before {
+  content: ""; position: absolute; left: 3px; top: 10px;
+  width: 6px; height: 6px; border-radius: 99px; background: var(--azul);
+}
+.guia b { color: var(--texto); font-weight: 650; }
+.guia .botones { justify-content: flex-start; margin-top: 22px; }
+.guia .nota {
+  margin-top: 18px; padding: 14px 16px; border-radius: 12px;
+  border: 1px solid #f0b42933; background: #f0b4290f; color: #e8cf9a; font-size: 14.5px;
+}
+.guia code {
+  padding: 2px 6px; border-radius: 6px; background: #ffffff12;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .9em; color: var(--texto);
+}
+
+/* el indice, pegajoso arriba en pantallas anchas y en fila en las estrechas */
+.indice { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 30px; }
+.indice a {
+  padding: 7px 13px; border-radius: 999px; border: 1px solid #ffffff1a;
+  background: #ffffff08; color: var(--suave); font-size: 13.5px;
+  transition: background .14s, color .14s;
+}
+.indice a:hover { background: #ffffff1a; color: var(--texto); text-decoration: none; }
+
+.tabla-guia { width: 100%; margin-top: 18px; border-collapse: collapse; font-size: 14.5px; }
+.tabla-guia th {
+  text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--apagado);
+  border-bottom: 1px solid var(--borde);
+}
+.tabla-guia td { padding: 12px; color: var(--suave); border-bottom: 1px solid var(--borde); vertical-align: top; }
+.tabla-guia tr:last-child td { border-bottom: 0; }
+.tabla-guia td:first-child { color: var(--texto); white-space: nowrap; }
+
+.guia kbd {
+  display: inline-block; padding: 2px 7px; border-radius: 6px;
+  border: 1px solid #ffffff26; border-bottom-width: 2px; background: #ffffff12;
+  font-family: inherit; font-size: .85em; font-weight: 600; color: var(--texto);
+}
+nav .enlaces a.aqui { color: var(--texto); background: #ffffff14; }
+
+@media (max-width: 720px) {
+  .tabla-guia { display: block; overflow-x: auto; }
+}

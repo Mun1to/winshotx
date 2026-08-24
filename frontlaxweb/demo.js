@@ -55,7 +55,11 @@ document.querySelectorAll(".pestana").forEach((boton) => {
   });
 });
 document.querySelectorAll(".palanca").forEach((p) => {
-  p.addEventListener("click", () => (p.dataset.on = p.dataset.on === "1" ? "0" : "1"));
+  p.addEventListener("click", () => {
+    p.dataset.on = p.dataset.on === "1" ? "0" : "1";
+    // Sin esto el lector de pantalla sigue anunciando el estado anterior.
+    p.setAttribute("aria-checked", p.dataset.on === "1" ? "true" : "false");
+  });
 });
 
 /* ======================================================= 1. seleccionar === */
@@ -557,3 +561,22 @@ document.getElementById("porcientos").addEventListener("click", (e) => {
 });
 
 refrescarEditor();
+
+// Los interruptores de la maqueta son botones vacios: el dibujo lo hace el CSS, asi que
+// un lector de pantalla no tiene nada que leer. Se les pone el nombre del texto que
+// tienen al lado, que ya viene traducido, y se anuncian como interruptor de verdad.
+function nombrarPalancas() {
+  for (const p of document.querySelectorAll(".palanca")) {
+    const etiqueta = p.parentElement?.querySelector(".txt");
+    const nombre = etiqueta ? etiqueta.textContent.replace(/\s+/g, " ").trim() : "";
+    if (nombre) p.setAttribute("aria-label", nombre);
+    p.setAttribute("role", "switch");
+    p.setAttribute("aria-checked", p.dataset.on === "1" ? "true" : "false");
+    if (p.disabled) p.setAttribute("aria-disabled", "true");
+  }
+}
+nombrarPalancas();
+
+// El resultado del editor sale de un boton oculto que se rellena al exportar; hasta
+// entonces esta vacio y tampoco tiene nombre.
+document.getElementById("edi-resultado")?.setAttribute("aria-live", "polite");
