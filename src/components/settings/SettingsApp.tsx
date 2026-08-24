@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   Camera,
@@ -70,20 +70,26 @@ export function SettingsApp() {
     };
   }, [refrescar]);
 
+  // El ultimo valor conocido, para poder guardar fuera del updater de useState.
+  const ultimo = useRef<Settings | null>(null);
+  ultimo.current = settings;
+
   const patch = useCallback((partial: Partial<Settings>) => {
+    const prev = ultimo.current;
+    if (!prev) return;
+    const next = { ...prev, ...partial };
+    // Guardar dentro del updater parecia mas corto, pero React lo llama dos veces y
+    // salian dos escrituras y dos re-registros de atajos por cada cambio.
+    ultimo.current = next;
     setError(null);
-    setLocal((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...partial };
-      void setSettings(next)
-        .then(() => {
-          setSaved(true);
-          window.setTimeout(() => setSaved(false), 1200);
-          return shortcutStatus().then(setShortcuts);
-        })
-        .catch((e) => setError(String(e)));
-      return next;
-    });
+    setLocal(next);
+    void setSettings(next)
+      .then(() => {
+        setSaved(true);
+        window.setTimeout(() => setSaved(false), 1200);
+        return shortcutStatus().then(setShortcuts);
+      })
+      .catch((e) => setError(String(e)));
   }, []);
 
   if (!settings) {

@@ -80,10 +80,15 @@ export function ShortcutField({ value, onChange, active }: Props) {
       if (e.altKey) parts.push("Alt");
       // Un atajo global sin modificadores secuestraría la tecla en todo el sistema.
       if (parts.length === 0) return;
+      // Sin código físico, el atajo saldría como "CmdOrCtrl+Shift+" y Windows no puede
+      // registrar eso: pasa con el teclado en pantalla y con las teclas automatizadas.
+      if (!e.code) return;
 
       parts.push(e.code);
-      onChange(parts.join("+"));
+      // Cerrar ANTES de guardar. Si el guardado se va por el desagüe, el campo se
+      // quedaba pidiendo teclas para siempre y parecía que no se había enterado.
       setRecording(false);
+      onChange(parts.join("+"));
     };
 
     window.addEventListener("keydown", onKey, true);
