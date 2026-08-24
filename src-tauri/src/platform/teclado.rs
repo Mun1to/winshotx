@@ -13,14 +13,12 @@
 #![cfg(windows)]
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::OnceLock;
 
 use tauri::AppHandle;
 
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
-};
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage, HHOOK,
     KBDLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
@@ -38,7 +36,14 @@ const MOD_SHIFT: u32 = 1 << 9;
 const MOD_ALT: u32 = 1 << 10;
 const MOD_WIN: u32 = 1 << 11;
 
-static APP: OnceLock<AppHandle> = OnceLock::new();
+/// Por aqui se avisa al hilo que abre el overlay.
+///
+/// **El callback no puede hacer nada mas que esto.** Mientras un hook de bajo nivel no
+/// devuelve el control, Windows tiene parada la entrada de teclado y raton de TODO el
+/// sistema. Hablar ahi con el bucle de eventos de Tauri, que es lo que hacia la primera
+/// version, comparte cerrojos con el hilo principal: si ese hilo esta ocupado congelando
+/// las pantallas para una captura, el equipo entero se queda tieso.
+static AVISO: OnceLock<SyncSender<()>> = OnceLock::new();
 /// El atajo de captura del usuario, empaquetado como modificadores + codigo virtual.
 /// Cero significa que no hay ninguno que vigilar.
 static OBJETIVO: AtomicU32 = AtomicU32::new(0);
@@ -63,28 +68,11 @@ fn bit_de_modificador(vk: u32) -> Option<u32> {
     }
 }
 
-fn pulsada(vk: i32) -> bool {
-    // El bit alto dice si la tecla esta abajo ahora mismo.
-    unsafe { (GetAsyncKeyState(vk) as u16 & 0x8000) != 0 }
-}
-
-/// Lo apuntado por el hook, reforzado con lo que diga el sistema: si el hook se instala
-/// con una tecla ya pulsada, lo primero se habria perdido esa tecla.
+/// Solo lo que el propio hook ha ido apuntando. Nada de preguntarle al sistema: dentro de
+/// un hook de bajo nivel cada llamada se paga con la entrada de todo el escritorio parada,
+/// y ademas `GetAsyncKeyState` ahi no es de fiar, que es como se perdio Win+Mayus+S.
 fn modificadores() -> u32 {
-    let mut mods = MODS.load(Ordering::Relaxed);
-    if pulsada(VK_CONTROL.0 as i32) {
-        mods |= MOD_CTRL;
-    }
-    if pulsada(VK_SHIFT.0 as i32) {
-        mods |= MOD_SHIFT;
-    }
-    if pulsada(VK_MENU.0 as i32) {
-        mods |= MOD_ALT;
-    }
-    if pulsada(VK_LWIN.0 as i32) || pulsada(VK_RWIN.0 as i32) {
-        mods |= MOD_WIN;
-    }
-    mods
+    MODS.load(Ordering::Relaxed)
 }
 
 /// Traduce un atajo del formato de Tauri ("CmdOrCtrl+Shift+KeyS") a modificadores y codigo
@@ -162,18 +150,10 @@ fn es_nuestra(vk: u32) -> bool {
 /// Abre el overlay sin bloquear el hook. Windows desinstala un hook de bajo nivel que
 /// tarde demasiado en responder, asi que aqui solo se encola y se vuelve enseguida.
 fn disparar() {
-    let Some(app) = APP.get() else {
-        eprintln!("[hook] no hay AppHandle todavia");
-        return;
-    };
-    let app = app.clone();
-    if let Err(error) = app.clone().run_on_main_thread(move || {
-        if let Err(error) = windows_mgr::open_overlays(&app, OverlayIntent::Capture) {
-            eprintln!("[hook] no se ha podido abrir el overlay: {error}");
-        }
-    }) {
-        eprintln!("[hook] no se ha podido encolar en el hilo principal: {error}");
-    }
+    let Some(aviso) = AVISO.get() else { return };
+    // `try_send` no espera jamas: si ya hay una captura en camino, esta pulsacion sobra.
+    // Un `send` normal aqui bastaria para colgar el teclado del sistema entero.
+    let _ = aviso.try_send(());
 }
 
 unsafe extern "system" fn callback(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -214,7 +194,21 @@ pub fn instalar(app: AppHandle) {
     if INSTALADO.swap(true, Ordering::SeqCst) {
         return;
     }
-    let _ = APP.set(app);
+
+    // Cabe un aviso y solo uno: mientras se atiende una captura, las pulsaciones que
+    // lleguen se descartan en vez de amontonarse.
+    let (emisor, receptor) = sync_channel::<()>(1);
+    let _ = AVISO.set(emisor);
+    std::thread::spawn(move || {
+        for _ in receptor {
+            let copia = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                if let Err(error) = windows_mgr::open_overlays(&copia, OverlayIntent::Capture) {
+                    eprintln!("[hook] no se ha podido abrir el overlay: {error}");
+                }
+            });
+        }
+    });
 
     std::thread::spawn(|| unsafe {
         let hook: HHOOK = match SetWindowsHookExW(WH_KEYBOARD_LL, Some(callback), None, 0) {
