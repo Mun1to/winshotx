@@ -22,6 +22,54 @@ function plural(cantidad, singular, terminacion = "s") {
 }
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
+/* --------------------------------------------------------------- idiomas */
+/* El botón dice a qué idioma cambias: si pone English, la página está en español. */
+const FRASES = {
+  fotograma: ["Fotograma", "Frame"],
+  de: ["de", "of"],
+  recorte: ["Recorte", "Trim"],
+  a: ["a", "to"],
+  unidad: ["fotograma", "frame"],
+  copiar: ["Copiada al portapapeles", "Copied to the clipboard"],
+  guardar: ["Guardada en Pictures\\winshotx", "Saved to Pictures\\winshotx"],
+  editar: ["Abriendo el editor", "Opening the editor"],
+  gif: ["Grabando un GIF de esa región", "Recording a GIF of that region"],
+  video: ["Grabando vídeo de esa región", "Recording video of that region"],
+  copiado: ["copiado", "copied"],
+  abrirCarpeta: ["abrir carpeta", "open folder"],
+  bloqueada: ["Proporción bloqueada", "Aspect ratio locked"],
+  libre: ["Proporción libre", "Aspect ratio free"],
+};
+let idioma = "es";
+const frase = (clave) => FRASES[clave][idioma === "en" ? 1 : 0];
+
+function traducir(lang) {
+  idioma = lang;
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-en]").forEach((el) => {
+    const conMarcas = el.hasAttribute("data-html");
+    if (el.dataset.es === undefined) el.dataset.es = conMarcas ? el.innerHTML : el.textContent;
+    const valor = lang === "en" ? el.dataset.en : el.dataset.es;
+    if (conMarcas) el.innerHTML = valor;
+    else el.textContent = valor;
+  });
+  document.querySelectorAll("[data-titulo-en]").forEach((el) => {
+    if (el.dataset.tituloEs === undefined) el.dataset.tituloEs = el.title;
+    el.title = lang === "en" ? el.dataset.tituloEn : el.dataset.tituloEs;
+  });
+  document.getElementById("idioma-texto").textContent = lang === "en" ? "Español" : "English";
+  try {
+    localStorage.setItem("winshotx-idioma", lang);
+  } catch {
+    // ventana privada o almacenamiento bloqueado: el idioma dura lo que la visita
+  }
+  if (typeof refrescarEditor === "function") refrescarEditor();
+}
+
+document.getElementById("idioma").addEventListener("click", () => {
+  traducir(idioma === "en" ? "es" : "en");
+});
+
 /* ---------------------------------------------------------------- pestañas */
 document.querySelectorAll(".pestana").forEach((boton) => {
   boton.addEventListener("click", () => {
@@ -262,7 +310,7 @@ herramientas.addEventListener("click", (e) => {
   const r = rectangulo();
   aviso.style.display = "flex";
   aviso.querySelector("span").textContent =
-    `${boton.dataset.accion} · ${Math.round(r.w * ANCHO)} × ${Math.round(r.h * ALTO)} px`;
+    `${frase(boton.dataset.accion)} · ${Math.round(r.w * ANCHO)} × ${Math.round(r.h * ALTO)} px`;
 });
 
 document.addEventListener("keydown", (e) => {
@@ -397,9 +445,10 @@ function refrescarEditor() {
 
   const n = fuera - dentro + 1;
   const keptMs = tiempoDe(fuera) + Math.round(1000 / FPS_GRABADO) - tiempoDe(dentro);
-  tiraIzq.textContent = `Fotograma ${actual + 1} de ${TOTAL} · ${formatTimecode(tiempoDe(actual))}`;
-  tiraDer.textContent =
-    `Recorte ${dentro + 1} a ${fuera + 1} · ${plural(n, "fotograma")} · ${formatTimecode(keptMs)}`;
+  tiraIzq.textContent =
+    `${frase("fotograma")} ${actual + 1} ${frase("de")} ${TOTAL} · ${formatTimecode(tiempoDe(actual))}`;
+  tiraDer.textContent = `${frase("recorte")} ${dentro + 1} ${frase("a")} ${fuera + 1} · ` +
+    `${plural(n, frase("unidad"))} · ${formatTimecode(keptMs)}`;
   ediSub.textContent = `${REGION.width} × ${REGION.height} · ${formatTimecode(keptMs)}`;
   ediTiempo.textContent = formatTimecode(tiempoDe(actual));
   estimar();
@@ -513,7 +562,7 @@ candado.dataset.on = "1";
 candado.addEventListener("click", () => {
   atado = !atado;
   candado.dataset.on = atado ? "1" : "0";
-  candado.title = atado ? "Proporción bloqueada" : "Proporción libre";
+  candado.title = atado ? frase("bloqueada") : frase("libre");
 });
 
 document.getElementById("porcientos").addEventListener("click", (e) => {
@@ -529,8 +578,17 @@ document.getElementById("porcientos").addEventListener("click", (e) => {
     const peso = document.getElementById("v-peso").textContent.replace("≈ ", "");
     resultado.hidden = false;
     resultado.querySelector("span").textContent =
-      `${peso} · ${copia ? "copiado · " : ""}abrir carpeta`;
+      `${peso} · ${copia ? frase("copiado") + " · " : ""}${frase("abrirCarpeta")}`;
   });
 });
 
 refrescarEditor();
+
+/* Y por último, el idioma que dejó elegido la última visita. */
+let guardado = "es";
+try {
+  guardado = localStorage.getItem("winshotx-idioma") || "es";
+} catch {
+  // sin almacenamiento, se queda en español
+}
+traducir(guardado);

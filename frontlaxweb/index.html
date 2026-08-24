@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>winshotx · capturas y grabación de pantalla para Windows</title>
+<title data-en="winshotx · screenshots and screen recording for Windows">winshotx · capturas y grabación de pantalla para Windows</title>
 <meta name="description" content="Capturas y grabación de pantalla para Windows. 2 MB, sin cuenta y sin nube. Abre la selección en 28 ms y gasta 33 MB de memoria.">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="estilos.css">
@@ -81,8 +81,8 @@
       <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></symbol>
-    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
   </g>
 </svg>
 
@@ -90,12 +90,16 @@
   <div class="env">
     <a class="marca solo-logo" href="#" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
     <span class="enlaces">
-      <a href="#numeros">Números</a>
-      <a href="#demo">Pruébalo</a>
-      <a href="#que-hace">Qué hace</a>
-      <a href="#atajos">Atajos</a>
+      <a href="#numeros" data-en="Numbers">Números</a>
+      <a href="#frente-a-frente" data-en="Head to head">Comparativa</a>
+      <a href="#demo" data-en="Try it">Pruébalo</a>
+      <a href="#que-hace" data-en="Features">Qué hace</a>
+      <a href="#atajos" data-en="Shortcuts">Atajos</a>
       <a href="https://github.com/Mun1to/winshotx">GitHub</a>
     </span>
+    <button class="idioma" id="idioma" type="button">
+      <svg><use href="#i-globe"/></svg><span id="idioma-texto">English</span>
+    </button>
   </div>
 </nav>
 
@@ -105,42 +109,43 @@
       <svg class="logo"><use href="#marca"/></svg>
       <span class="palabra">winshotx</span>
     </div>
-    <h1>Recorta la pantalla <em>antes de que parpadees</em></h1>
-    <p class="bajada">
+    <h1 data-html data-en="Crop the screen &lt;em&gt;before you blink&lt;/em&gt;">Recorta la pantalla <em>antes de que parpadees</em></h1>
+    <p class="bajada" data-en="Screenshots and screen recording for Windows. It weighs 2 MB, opens in 28 milliseconds and asks for no account, no cloud and no administrator rights. What you capture never leaves your machine.">
       Capturas y grabación de pantalla para Windows. Pesa 2 MB, se abre en 28 milisegundos y no
       pide cuenta, ni nube, ni permisos de administrador. Lo que capturas no sale de tu máquina.
     </p>
     <div class="botones">
       <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
-        <svg width="17" height="17"><use href="#i-download"/></svg> Descargar para Windows
+        <svg width="17" height="17"><use href="#i-download"/></svg>
+        <span data-en="Download for Windows">Descargar para Windows</span>
       </a>
-      <a class="btn fantasma" href="#demo">Probarlo aquí mismo</a>
+      <a class="btn fantasma" href="#demo" data-en="Try it right here">Probarlo aquí mismo</a>
     </div>
-    <p class="letra-chica">Instalador de 2,2 MB · Windows 10 y 11 · Licencia MIT · Se instala solo para tu usuario</p>
+    <p class="letra-chica" data-en="2.2 MB installer · Windows 10 and 11 · MIT licence · Installs for your user only">Instalador de 2,2 MB · Windows 10 y 11 · Licencia MIT · Se instala solo para tu usuario</p>
 
     <div class="numeros" id="numeros">
       <div class="dato">
-        <div class="valor">28 ms</div>
-        <div class="que">del atajo a la selección en pantalla</div>
-        <div class="contra">Herramienta de Recortes: 920 ms</div>
+        <span class="valor">28 ms</span>
+        <span class="que" data-en="to open the selection">en abrir la selección</span>
+        <span class="contra" data-en="Snipping Tool: 920 ms">Recortes: 920 ms</span>
       </div>
       <div class="dato">
-        <div class="valor">33 MB</div>
-        <div class="que">de memoria mientras capturas</div>
-        <div class="contra">Herramienta de Recortes: 253 MB</div>
+        <span class="valor">33 MB</span>
+        <span class="que" data-en="of memory while capturing">de memoria capturando</span>
+        <span class="contra" data-en="Snipping Tool: 253 MB">Recortes: 253 MB</span>
       </div>
       <div class="dato">
-        <div class="valor">31 MB</div>
-        <div class="que">esperando en la bandeja</div>
-        <div class="contra">Herramienta de Recortes: 98 MB</div>
+        <span class="valor">31 MB</span>
+        <span class="que" data-en="waiting in the tray">esperando en la bandeja</span>
+        <span class="contra" data-en="Snipping Tool: 98 MB">Recortes: 98 MB</span>
       </div>
       <div class="dato">
-        <div class="valor">2,2 MB</div>
-        <div class="que">pesa el instalador entero</div>
-        <div class="contra">Sin FFmpeg ni binarios de fuera</div>
+        <span class="valor">2,2 MB</span>
+        <span class="que" data-en="the whole installer">pesa el instalador</span>
+        <span class="contra" data-en="no FFmpeg, nothing bundled">sin FFmpeg ni nada empaquetado</span>
       </div>
     </div>
-    <p class="letra-chica">
+    <p class="letra-chica" data-en="Measured on the same Windows 11 machine, three runs each and both starting from cold. The clock stops when the selection is already on screen.">
       Medido en un mismo equipo con Windows 11, tres veces seguidas y arrancando las dos desde
       cero. El cronómetro para cuando la selección ya se ve en pantalla.
     </p>
@@ -149,8 +154,8 @@
 
 <section id="frente-a-frente">
   <div class="env">
-    <h2>Herramienta de Recortes contra winshotx</h2>
-    <p class="entradilla">
+    <h2 data-en="Snipping Tool against winshotx">Herramienta de Recortes contra winshotx</h2>
+    <p class="entradilla" data-en="Point by point, including where winshotx loses. The Windows one comes preinstalled and does things this one cannot do yet.">
       Punto por punto, también donde pierde winshotx. La de Windows viene puesta y hace cosas
       que esta todavía no sabe hacer.
     </p>
@@ -160,105 +165,105 @@
         <thead>
           <tr>
             <th></th>
-            <th><span class="equipo"><span class="ventanita"></span> Herramienta de Recortes</span></th>
+            <th><span class="equipo"><span class="ventanita"></span> <span data-en="Snipping Tool">Herramienta de Recortes</span></span></th>
             <th><span class="equipo nuestro"><svg class="mini-marca"><use href="#marca"/></svg> winshotx</span></th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <th scope="row">Del atajo a la selección</th>
+            <th scope="row" data-en="From shortcut to selection">Del atajo a la selección</th>
             <td>920 ms</td>
             <td class="gana">28 ms</td>
           </tr>
           <tr>
-            <th scope="row">Memoria mientras capturas</th>
+            <th scope="row" data-en="Memory while capturing">Memoria mientras capturas</th>
             <td>253 MB</td>
             <td class="gana">33 MB</td>
           </tr>
           <tr>
-            <th scope="row">Memoria esperando quieta</th>
+            <th scope="row" data-en="Memory sitting idle">Memoria esperando quieta</th>
             <td>98 MB</td>
             <td class="gana">31 MB</td>
           </tr>
           <tr>
-            <th scope="row">Instalación</th>
-            <td class="gana">ya viene con Windows</td>
-            <td>instalador de 2,2 MB</td>
+            <th scope="row" data-en="Installation">Instalación</th>
+            <td class="gana" data-en="already in Windows">ya viene con Windows</td>
+            <td data-en="2.2 MB installer">instalador de 2,2 MB</td>
           </tr>
           <tr>
-            <th scope="row">Capturar una región</th>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, con ajuste a ventanas</td>
+            <th scope="row" data-en="Capture a region">Capturar una región</th>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, snapping to windows">Sí, con ajuste a ventanas</span></td>
           </tr>
           <tr>
-            <th scope="row">Grabar vídeo</th>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, a 15, 30 o 60 fps</td>
+            <th scope="row" data-en="Record video">Grabar vídeo</th>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, at 15, 30 or 60 fps">Sí, a 15, 30 o 60 fps</span></td>
           </tr>
           <tr>
-            <th scope="row">Grabar GIF</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
+            <th scope="row" data-en="Record GIF">Grabar GIF</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
           </tr>
           <tr>
-            <th scope="row">Editor fotograma a fotograma</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, con recorte A y B</td>
+            <th scope="row" data-en="Frame by frame editor">Editor fotograma a fotograma</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, with A and B trim">Sí, con recorte A y B</span></td>
           </tr>
           <tr>
-            <th scope="row">Elegir el atajo de teclado</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> El que decida Windows</td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> El que quieras</td>
+            <th scope="row" data-en="Pick your own shortcut">Elegir el atajo de teclado</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="whatever Windows decides">El que decida Windows</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="whatever you want">El que quieras</span></td>
           </tr>
           <tr>
-            <th scope="row">Lupa de píxel con el color</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Zoom 6× y hexadecimal</td>
+            <th scope="row" data-en="Pixel magnifier with the colour">Lupa de píxel con el color</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="6× zoom and hex code">Zoom 6× y hexadecimal</span></td>
           </tr>
           <tr>
-            <th scope="row">Pegar el GIF o el vídeo como archivo</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí, en Slack o Discord</td>
+            <th scope="row" data-en="Paste the GIF or the video as a file">Pegar el GIF o el vídeo como archivo</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, into Slack or Discord">Sí, en Slack o Discord</span></td>
           </tr>
           <tr>
-            <th scope="row">Dibujar y anotar encima</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Bolígrafo, formas y texto</td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> Todavía no</td>
+            <th scope="row" data-en="Draw and annotate on top">Dibujar y anotar encima</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="pen, shapes and text">Bolígrafo, formas y texto</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="Not yet">Todavía no</span></td>
           </tr>
           <tr>
-            <th scope="row">Copiar el texto de la imagen</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <th scope="row" data-en="Copy the text out of the image">Copiar el texto de la imagen</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
           </tr>
           <tr>
-            <th scope="row">Tapar datos personales</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Automático</td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <th scope="row" data-en="Blur out personal data">Tapar datos personales</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Automatic">Automático</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
           </tr>
           <tr>
-            <th scope="row">Audio del sistema al grabar</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> Sí</td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> Todavía no</td>
+            <th scope="row" data-en="System audio when recording">Audio del sistema al grabar</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="Not yet">Todavía no</span></td>
           </tr>
           <tr>
-            <th scope="row">Temporizador antes de capturar</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> 3, 5 o 10 segundos</td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
+            <th scope="row" data-en="Timer before capturing">Temporizador antes de capturar</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="3, 5 or 10 seconds">3, 5 o 10 segundos</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
           </tr>
           <tr>
-            <th scope="row">Idiomas</th>
-            <td class="gana">los de Windows</td>
-            <td>solo español</td>
+            <th scope="row" data-en="Languages">Idiomas</th>
+            <td class="gana" data-en="all of Windows'">los de Windows</td>
+            <td data-en="Spanish only">solo español</td>
           </tr>
           <tr>
-            <th scope="row">Código abierto</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> No</td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> MIT, entero a la vista</td>
+            <th scope="row" data-en="Open source">Código abierto</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="MIT, all of it">MIT, entero a la vista</span></td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="letra-chica">
+    <p class="letra-chica" data-en="The milliseconds and the megabytes come from measuring both on the same Windows 11 machine, three runs each, starting from cold. The rest is what each one ships today.">
       Los milisegundos y los megas salen de medir las dos en el mismo equipo con Windows 11, tres
       veces seguidas y arrancando de cero. El resto es lo que trae cada una a día de hoy.
     </p>
@@ -267,28 +272,31 @@
 
 <section id="demo">
   <div class="env">
-    <h2>Pruébala sin instalar nada</h2>
     <div class="cabecera-demo">
-      <p class="entradilla">
-        Las tres pantallas están rehechas a partir del código de la app, con sus mismos iconos y
-        sus mismas medidas. Arrastra sobre el escritorio de abajo como harías sobre el tuyo.
-      </p>
+      <div>
+        <h2 data-en="Try it without installing anything">Pruébala sin instalar nada</h2>
+        <p class="entradilla" data-en="The three screens are rebuilt from the app's own code, with its icons and its measurements. Drag on the desktop below just like you would on yours.">
+          Las tres pantallas están rehechas a partir del código de la app, con sus mismos iconos y
+          sus mismas medidas. Arrastra sobre el escritorio de abajo como harías sobre el tuyo.
+        </p>
+      </div>
       <div class="pestanas" role="tablist">
         <button class="pestana" role="tab" aria-selected="true" data-panel="p-sel">
-          <svg><use href="#i-camera"/></svg> Seleccionar
+          <svg><use href="#i-camera"/></svg> <span data-en="Select">Seleccionar</span>
         </button>
         <button class="pestana" role="tab" aria-selected="false" data-panel="p-edi">
-          <svg><use href="#i-pencil"/></svg> Editor
+          <svg><use href="#i-pencil"/></svg> <span data-en="Editor">Editor</span>
         </button>
         <button class="pestana" role="tab" aria-selected="false" data-panel="p-set">
-          <svg><use href="#i-sliders"/></svg> Ajustes
+          <svg><use href="#i-sliders"/></svg> <span data-en="Settings">Ajustes</span>
         </button>
       </div>
     </div>
 
     <!-- ======================= 1. seleccionar ======================= -->
     <div class="marco" id="p-sel">
-      <div class="barra-falsa"><span class="semaforo"><i></i><i></i><i></i></span> tu escritorio, congelado al pulsar Ctrl + Shift + S</div>
+      <div class="barra-falsa"><span class="semaforo"><i></i><i></i><i></i></span>
+        <span data-en="your desktop, frozen the moment you press Ctrl + Shift + S">tu escritorio, congelado al pulsar Ctrl + Shift + S</span></div>
       <div class="lienzo-caja" id="caja">
         <canvas id="escritorio"></canvas>
         <div class="velo" id="velo"></div>
@@ -297,17 +305,20 @@
         <div class="medida" id="medida">0 × 0</div>
         <div class="lupa" id="lupa"><canvas id="zoom" width="116" height="116"></canvas><div class="hex" id="hex">#000000</div></div>
         <div class="herramientas" id="herramientas">
-          <button title="Copiar · Enter" data-accion="Copiada al portapapeles"><svg><use href="#i-copy"/></svg></button>
-          <button title="Guardar · Ctrl+S" data-accion="Guardada en Pictures\winshotx"><svg><use href="#i-download"/></svg></button>
-          <button title="Editar · E" data-accion="Abriendo el editor"><svg><use href="#i-pencil"/></svg></button>
+          <button title="Copiar · Enter" data-titulo-en="Copy · Enter" data-accion="copiar"><svg><use href="#i-copy"/></svg></button>
+          <button title="Guardar · Ctrl+S" data-titulo-en="Save · Ctrl+S" data-accion="guardar"><svg><use href="#i-download"/></svg></button>
+          <button title="Editar · E" data-titulo-en="Edit · E" data-accion="editar"><svg><use href="#i-pencil"/></svg></button>
           <span class="raya"></span>
-          <button title="Grabar GIF · G" data-accion="Grabando un GIF de esa región"><svg><use href="#i-sparkles"/></svg></button>
-          <button title="Grabar vídeo · V" data-accion="Grabando vídeo de esa región"><svg><use href="#i-film"/></svg></button>
-          <button title="Audio: todavía no disponible" disabled><svg><use href="#i-mic-off"/></svg></button>
+          <button title="Grabar GIF · G" data-titulo-en="Record GIF · G" data-accion="gif"><svg><use href="#i-sparkles"/></svg></button>
+          <button title="Grabar vídeo · V" data-titulo-en="Record video · V" data-accion="video"><svg><use href="#i-film"/></svg></button>
+          <button title="Audio: todavía no disponible" data-titulo-en="Audio: not available yet" disabled><svg><use href="#i-mic-off"/></svg></button>
           <span class="raya"></span>
-          <button class="mata" title="Cancelar · Esc" data-accion="cancelar"><svg><use href="#i-x"/></svg></button>
+          <button class="mata" title="Cancelar · Esc" data-titulo-en="Cancel · Esc" data-accion="cancelar"><svg><use href="#i-x"/></svg></button>
         </div>
-        <div class="pista" id="pista"><b>Arrastra para recortar</b>la lupa te canta el color exacto del píxel</div>
+        <div class="pista" id="pista">
+          <b data-en="Drag to crop">Arrastra para recortar</b>
+          <span data-en="the magnifier calls out the exact colour of the pixel">la lupa te canta el color exacto del píxel</span>
+        </div>
       </div>
     </div>
     <p class="aviso" id="aviso"><svg width="16" height="16"><use href="#i-check"/></svg><span></span></p>
@@ -329,8 +340,8 @@
               <button class="redondo" id="reproducir" aria-label="Reproducir"><svg><use href="#i-play"/></svg></button>
               <span class="edi-tiempo" id="edi-tiempo">0:00.00</span>
               <span class="raya"></span>
-              <button class="marca" data-marca="in" title="Marcar inicio (I)"><svg><use href="#i-scissors"/></svg> A</button>
-              <button class="marca" data-marca="out" title="Marcar final (O)"><svg class="espejo"><use href="#i-scissors"/></svg> B</button>
+              <button class="marca" data-marca="in" title="Marcar inicio (I)" data-titulo-en="Mark the start (I)"><svg><use href="#i-scissors"/></svg> A</button>
+              <button class="marca" data-marca="out" title="Marcar final (O)" data-titulo-en="Mark the end (O)"><svg class="espejo"><use href="#i-scissors"/></svg> B</button>
             </div>
           </div>
           <section class="edi-tira">
@@ -346,29 +357,29 @@
 
         <aside class="edi-panel">
           <div>
-            <span class="edi-rotulo">Formato</span>
+            <span class="edi-rotulo" data-en="Format">Formato</span>
             <div class="segmentado" id="formatos">
-              <button data-formato="gif" class="viva" title="bucle, sin audio">GIF</button>
-              <button data-formato="mp4" title="H.264 por hardware">MP4</button>
-              <button data-formato="png" title="el fotograma actual">PNG</button>
+              <button data-formato="gif" class="viva">GIF</button>
+              <button data-formato="mp4">MP4</button>
+              <button data-formato="png">PNG</button>
             </div>
           </div>
 
           <div class="campo" data-solo-video>
-            <div class="campo-cab"><span>Calidad</span><span id="v-calidad">80%</span></div>
+            <div class="campo-cab"><span data-en="Quality">Calidad</span><span id="v-calidad">80%</span></div>
             <input type="range" id="calidad" min="10" max="100" value="80">
           </div>
           <div class="campo" data-solo-video>
-            <div class="campo-cab"><span>Fotogramas por segundo</span><span id="v-fps">30 fps</span></div>
+            <div class="campo-cab"><span data-en="Frames per second">Fotogramas por segundo</span><span id="v-fps">30 fps</span></div>
             <input type="range" id="fps" min="5" max="30" value="30">
           </div>
 
           <div>
-            <span class="edi-rotulo">Dimensiones</span>
+            <span class="edi-rotulo" data-en="Size">Dimensiones</span>
             <div class="dimensiones">
-              <label class="numero">Ancho<span><input id="ancho" value="800" inputmode="numeric"><i>px</i></span></label>
-              <button class="candado" id="candado" title="Proporción bloqueada"><svg><use href="#i-link-2"/></svg></button>
-              <label class="numero">Alto<span><input id="alto" value="500" inputmode="numeric"><i>px</i></span></label>
+              <label class="numero"><span data-en="Width">Ancho</span><span><input id="ancho" value="800" inputmode="numeric"><i>px</i></span></label>
+              <button class="candado" id="candado" title="Proporción bloqueada" data-titulo-en="Aspect ratio locked"><svg><use href="#i-link-2"/></svg></button>
+              <label class="numero"><span data-en="Height">Alto</span><span><input id="alto" value="500" inputmode="numeric"><i>px</i></span></label>
             </div>
             <div class="porcientos" id="porcientos">
               <button data-pct="100">100%</button><button data-pct="75">75%</button><button data-pct="50">50%</button>
@@ -376,20 +387,20 @@
           </div>
 
           <div class="edi-separado">
-            <div class="fila-toggle" id="fila-bucle"><span class="txt">Bucle infinito</span><button class="palanca" data-on="1"></button></div>
-            <div class="fila-toggle" id="fila-audio" hidden><span class="txt">Audio del sistema<small>esta grabación se hizo sin audio</small></span><button class="palanca" data-on="0"></button></div>
+            <div class="fila-toggle" id="fila-bucle"><span class="txt" data-en="Loop forever">Bucle infinito</span><button class="palanca" data-on="1"></button></div>
+            <div class="fila-toggle" id="fila-audio" hidden><span class="txt"><span data-en="System audio">Audio del sistema</span><small data-en="this recording was made without audio">esta grabación se hizo sin audio</small></span><button class="palanca" data-on="0"></button></div>
           </div>
 
           <button class="carpeta"><svg><use href="#i-folder-open"/></svg><span>C:\Users\tu-usuario\Pictures\winshotx</span></button>
 
           <div class="edi-abajo">
             <div class="edi-estimado">
-              <span><svg width="14" height="14" class="ambar"><use href="#i-zap"/></svg> Nativo</span>
+              <span><svg width="14" height="14" class="ambar"><use href="#i-zap"/></svg> <span data-en="Native">Nativo</span></span>
               <span id="v-peso">≈ 1,4 MB</span>
             </div>
             <div class="edi-acciones">
-              <button class="azul" id="btn-guardar"><svg><use href="#i-save"/></svg> Guardar</button>
-              <button class="hueco" id="btn-copiar" title="Exportar y copiar al portapapeles"><svg><use href="#i-clipboard"/></svg></button>
+              <button class="azul" id="btn-guardar"><svg><use href="#i-save"/></svg> <span data-en="Save">Guardar</span></button>
+              <button class="hueco" id="btn-copiar" title="Exportar y copiar al portapapeles" data-titulo-en="Export and copy to the clipboard"><svg><use href="#i-clipboard"/></svg></button>
             </div>
             <button class="edi-resultado" id="edi-resultado" hidden>
               <svg width="14" height="14"><use href="#i-sparkles"/></svg><span></span>
@@ -402,7 +413,7 @@
     <!-- ========================= 3. ajustes ========================= -->
     <div class="marco" id="p-set" hidden>
       <header class="edi-titulo">
-        <span class="edi-nombre">winshotx <span class="edi-sub">ajustes</span></span>
+        <span class="edi-nombre">winshotx <span class="edi-sub" data-en="settings">ajustes</span></span>
         <span class="edi-controles">
           <button aria-label="Minimizar"><svg><use href="#i-minus"/></svg></button>
           <button class="cerrar" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
@@ -411,38 +422,38 @@
       <div class="ajustes">
         <div class="columna">
           <section class="grupo">
-            <h4>Atajos globales</h4>
+            <h4 data-en="Global shortcuts">Atajos globales</h4>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-camera"/></svg>
-                  <span>Capturar región</span></span>
+                  <span><span data-en="Capture a region">Capturar región</span></span></span>
                 <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span>
               </div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg>
-                  <span>Grabar región<small>púlsalo otra vez para terminar</small></span></span>
+                  <span><span data-en="Record a region">Grabar región</span><small data-en="press it again to stop">púlsalo otra vez para terminar</small></span></span>
                 <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></span>
               </div>
             </div>
           </section>
           <section class="grupo">
-            <h4>Captura</h4>
+            <h4 data-en="Capture">Captura</h4>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-clipboard"/></svg>
-                  <span>Copiar al portapapeles<small>al guardar, deja además la imagen lista para pegar</small></span></span>
+                  <span><span data-en="Copy to the clipboard">Copiar al portapapeles</span><small data-en="when saving, it also leaves the image ready to paste">al guardar, deja además la imagen lista para pegar</small></span></span>
                 <button class="palanca" data-on="1"></button></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-mouse-pointer-2"/></svg>
-                  <span>Incluir el cursor</span></span>
+                  <span><span data-en="Include the cursor">Incluir el cursor</span></span></span>
                 <button class="palanca" data-on="1"></button></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-search"/></svg>
-                  <span>Lupa de píxel<small>zoom 6× con el color exacto bajo el cursor</small></span></span>
+                  <span><span data-en="Pixel magnifier">Lupa de píxel</span><small data-en="6× zoom with the exact colour under the cursor">zoom 6× con el color exacto bajo el cursor</small></span></span>
                 <button class="palanca" data-on="1"></button></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-volume-2"/></svg>
-                  <span>Sonido de obturador</span></span>
+                  <span><span data-en="Shutter sound">Sonido de obturador</span></span></span>
                 <button class="palanca" data-on="0"></button></div>
             </div>
           </section>
@@ -450,48 +461,48 @@
 
         <div class="columna">
           <section class="grupo">
-            <h4>Grabación</h4>
+            <h4 data-en="Recording">Grabación</h4>
             <div class="tarjeta">
               <div class="fila apilada">
-                <span class="txt"><span>Fotogramas por segundo</span></span>
+                <span class="txt"><span data-en="Frames per second">Fotogramas por segundo</span></span>
                 <div class="segmentado fps">
                   <button>15 fps</button><button class="viva">30 fps</button><button>60 fps</button>
                 </div>
               </div>
               <div class="fila">
-                <span class="txt"><span>Audio del sistema<small>todavía no disponible</small></span></span>
+                <span class="txt"><span><span data-en="System audio">Audio del sistema</span><small data-en="not available yet">todavía no disponible</small></span></span>
                 <button class="palanca" data-on="0" disabled></button></div>
               <div class="fila">
-                <span class="txt"><span>Abrir el editor al terminar</span></span>
+                <span class="txt"><span data-en="Open the editor when it ends">Abrir el editor al terminar</span></span>
                 <button class="palanca" data-on="1"></button></div>
             </div>
           </section>
           <section class="grupo">
-            <h4>Archivos</h4>
+            <h4 data-en="Files">Archivos</h4>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-folder-open"/></svg>
-                  <span>Carpeta de destino<small>C:\Users\tu-usuario\Pictures\winshotx</small></span></span>
-                <span class="botoncitos"><button>Abrir</button><button>Cambiar</button></span></div>
+                  <span><span data-en="Destination folder">Carpeta de destino</span><small>C:\Users\tu-usuario\Pictures\winshotx</small></span></span>
+                <span class="botoncitos"><button data-en="Open">Abrir</button><button data-en="Change">Cambiar</button></span></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-hard-drive"/></svg>
-                  <span>Caché de grabaciones<small>vacía</small></span></span>
-                <span class="botoncitos"><button disabled>Vaciar</button></span></div>
+                  <span><span data-en="Recording cache">Caché de grabaciones</span><small data-en="empty">vacía</small></span></span>
+                <span class="botoncitos"><button disabled data-en="Empty">Vaciar</button></span></div>
             </div>
           </section>
         </div>
 
         <div class="a-lo-ancho">
           <section class="grupo">
-            <h4>Sistema</h4>
+            <h4 data-en="System">Sistema</h4>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila verde"><use href="#i-check"/></svg>
-                  <span>Actualizaciones<small>estás en la última versión</small></span></span>
-                <span class="botoncitos"><button><svg><use href="#i-refresh-cw"/></svg> Buscar</button></span></div>
+                  <span><span data-en="Updates">Actualizaciones</span><small data-en="you are on the latest version">estás en la última versión</small></span></span>
+                <span class="botoncitos"><button><svg><use href="#i-refresh-cw"/></svg> <span data-en="Check">Buscar</span></button></span></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-power"/></svg>
-                  <span>Arrancar con Windows<small>se abre en la bandeja, sin ventana</small></span></span>
+                  <span><span data-en="Start with Windows">Arrancar con Windows</span><small data-en="opens in the tray, with no window">se abre en la bandeja, sin ventana</small></span></span>
                 <button class="palanca" data-on="0"></button></div>
             </div>
           </section>
@@ -499,7 +510,7 @@
       </div>
       <footer class="pie-ajustes">
         <span>winshotx 0.1.5 · MIT</span>
-        <button class="salir">Salir de winshotx</button>
+        <button class="salir" data-en="Quit winshotx">Salir de winshotx</button>
       </footer>
     </div>
   </div>
@@ -507,31 +518,31 @@
 
 <section id="que-hace">
   <div class="env">
-    <h2>Lo que necesitas y nada más</h2>
+    <h2 data-en="What you need and nothing else">Lo que necesitas y nada más</h2>
     <div class="rejilla">
       <div class="caja"><div class="ico"><svg><use href="#i-zap"/></svg></div>
-        <h3>Se abre al instante</h3>
-        <p>Pulsas el atajo y la selección ya está ahí, en 28 milisegundos. Ni pantalla de carga ni
+        <h3 data-en="It opens instantly">Se abre al instante</h3>
+        <p data-en="Press the shortcut and the selection is already there, in 28 milliseconds. No loading screen and no full second staring at a frozen desktop.">Pulsas el atajo y la selección ya está ahí, en 28 milisegundos. Ni pantalla de carga ni
            un segundo entero mirando el escritorio quieto.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-box"/></svg></div>
-        <h3>Ocupa lo que un icono</h3>
-        <p>33 MB de memoria mientras capturas y 2,2 MB de instalador. La app que trae Windows gasta
+        <h3 data-en="It takes up what an icon does">Ocupa lo que un icono</h3>
+        <p data-en="33 MB of memory while capturing and a 2.2 MB installer. The app Windows ships spends eight times more to do less.">33 MB de memoria mientras capturas y 2,2 MB de instalador. La app que trae Windows gasta
            ocho veces más para hacer menos cosas.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-search"/></svg></div>
-        <h3>Lupa de píxel exacta</h3>
-        <p>Zoom 6× con el color en hexadecimal bajo el cursor, y las ventanas se resaltan solas: un
+        <h3 data-en="Pixel exact magnifier">Lupa de píxel exacta</h3>
+        <p data-en="6× zoom with the colour in hex under the cursor, and windows highlight themselves: one click and you have the whole window, with no fiddling with edges.">Zoom 6× con el color en hexadecimal bajo el cursor, y las ventanas se resaltan solas: un
            clic y tienes la ventana entera, sin ajustar bordes.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-film"/></svg></div>
-        <h3>GIF y vídeo, no solo fotos</h3>
-        <p>Graba la región a 15, 30 o 60 fotogramas y exporta a GIF o MP4. Sin FFmpeg empaquetado:
+        <h3 data-en="GIF and video, not just stills">GIF y vídeo, no solo fotos</h3>
+        <p data-en="Record the region at 15, 30 or 60 frames and export to GIF or MP4. With no bundled FFmpeg: Windows writes the video in hardware.">Graba la región a 15, 30 o 60 fotogramas y exporta a GIF o MP4. Sin FFmpeg empaquetado:
            el vídeo lo escribe Windows por hardware.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-pencil"/></svg></div>
-        <h3>Editor fotograma a fotograma</h3>
-        <p>Recorta el principio y el final con dos marcas, mira el bucle, cambia el tamaño y la
+        <h3 data-en="Frame by frame editor">Editor fotograma a fotograma</h3>
+        <p data-en="Trim the start and the end with two marks, watch the loop, change the size and the quality, and export. All in the same window.">Recorta el principio y el final con dos marcas, mira el bucle, cambia el tamaño y la
            calidad, y exporta. Todo en la misma ventana.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-lock"/></svg></div>
-        <h3>No sale de tu máquina</h3>
-        <p>Sin cuenta, sin telemetría y sin subidas. El código está abierto y el instalador ni
+        <h3 data-en="It never leaves your machine">No sale de tu máquina</h3>
+        <p data-en="No account, no telemetry and no uploads. The code is open and the installer does not even ask for administrator rights.">Sin cuenta, sin telemetría y sin subidas. El código está abierto y el instalador ni
            siquiera pide permisos de administrador.</p></div>
     </div>
   </div>
@@ -539,22 +550,22 @@
 
 <section id="atajos">
   <div class="env">
-    <h2>Sin tocar el ratón</h2>
-    <p class="entradilla">Los dos atajos globales se cambian desde los ajustes: pulsas el campo y
+    <h2 data-en="Without touching the mouse">Sin tocar el ratón</h2>
+    <p class="entradilla" data-en="Both global shortcuts can be changed in the settings: click the field and type the combination you want.">Los dos atajos globales se cambian desde los ajustes: pulsas el campo y
       tecleas la combinación que quieras.</p>
     <table>
-      <thead><tr><th>Teclas</th><th>Qué hace</th></tr></thead>
+      <thead><tr><th data-en="Keys">Teclas</th><th data-en="What it does">Qué hace</th></tr></thead>
       <tbody class="llave-tabla">
-        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></td><td>Capturar una región</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></td><td>Grabar una región, y pararla</td></tr>
-        <tr><td><kbd>Enter</kbd></td><td>Copiar la selección al portapapeles</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>S</kbd></td><td>Guardarla como PNG</td></tr>
-        <tr><td><kbd>E</kbd></td><td>Abrirla en el editor</td></tr>
-        <tr><td><kbd>G</kbd><kbd>V</kbd></td><td>Grabar la selección como GIF o como vídeo</td></tr>
-        <tr><td><kbd>I</kbd><kbd>O</kbd></td><td>En el editor, marcar el principio y el final del recorte</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>A</kbd></td><td>Seleccionar el monitor entero</td></tr>
-        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td>Mover la selección; con Shift va de 10 en 10 y con Alt la redimensiona</td></tr>
-        <tr><td><kbd>Esc</kbd></td><td>Cancelar</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></td><td data-en="Capture a region">Capturar una región</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></td><td data-en="Record a region, and stop it">Grabar una región, y pararla</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td data-en="Copy the selection to the clipboard">Copiar la selección al portapapeles</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>S</kbd></td><td data-en="Save it as PNG">Guardarla como PNG</td></tr>
+        <tr><td><kbd>E</kbd></td><td data-en="Open it in the editor">Abrirla en el editor</td></tr>
+        <tr><td><kbd>G</kbd><kbd>V</kbd></td><td data-en="Record the selection as GIF or as video">Grabar la selección como GIF o como vídeo</td></tr>
+        <tr><td><kbd>I</kbd><kbd>O</kbd></td><td data-en="In the editor, mark the start and the end of the trim">En el editor, marcar el principio y el final del recorte</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>A</kbd></td><td data-en="Select the whole monitor">Seleccionar el monitor entero</td></tr>
+        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td data-en="Move the selection; Shift moves it by 10 and Alt resizes it">Mover la selección; con Shift va de 10 en 10 y con Alt la redimensiona</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td data-en="Cancel">Cancelar</td></tr>
       </tbody>
     </table>
   </div>
@@ -562,15 +573,15 @@
 
 <section>
   <div class="env centrado">
-    <h2>Dos clics y ya está</h2>
-    <p class="entradilla">
+    <h2 data-en="Two clicks and you are done">Dos clics y ya está</h2>
+    <p class="entradilla" data-en="The installer goes to your user and not to the system, so Windows never asks for administrator rights. From inside the app it updates itself with one button, and every download is signed and checked before anything is installed.">
       El instalador va a tu usuario y no al sistema, así que Windows no te pide permisos de
       administrador. Desde dentro de la app se actualiza sola con un botón, y cada descarga viene
       firmada y se comprueba antes de instalarse.
     </p>
     <div class="botones">
-      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Descargar winshotx</a>
-      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx">Ver el código</a>
+      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe" data-en="Download winshotx">Descargar winshotx</a>
+      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx" data-en="See the code">Ver el código</a>
     </div>
   </div>
 </section>
@@ -578,7 +589,7 @@
 <footer>
   <div class="env">
     <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
-    <span>Hecho por <a href="https://github.com/Mun1to">Munir Torres</a> · sin cuentas, sin nube y sin sorpresas</span>
+    <span data-html data-en="Made by &lt;a href=&quot;https://github.com/Mun1to&quot;&gt;Munir Torres&lt;/a&gt; · no accounts, no cloud, no surprises">Hecho por <a href="https://github.com/Mun1to">Munir Torres</a> · sin cuentas, sin nube y sin sorpresas</span>
   </div>
 </footer>
 

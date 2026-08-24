@@ -45,14 +45,34 @@ nav {
   background: #0b0b0dcc;
   border-bottom: 1px solid var(--borde);
 }
-nav .env { display: flex; align-items: center; gap: 14px; height: 62px; }
+nav .env {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; gap: 14px; height: 62px;
+}
 .marca { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
 .marca svg { width: 26px; height: 26px; }
 .marca svg.chico { width: 20px; height: 20px; }
-nav .enlaces { margin-left: auto; display: flex; gap: 22px; font-size: 14px; }
-nav .enlaces a { color: var(--suave); }
-nav .enlaces a:hover { color: var(--texto); text-decoration: none; }
-@media (max-width: 720px) { nav .enlaces { display: none; } }
+nav .enlaces {
+  justify-self: center; display: flex; align-items: center; gap: 4px; font-size: 14px;
+  padding: 4px; border-radius: 12px; background: #ffffff06; border: 1px solid var(--borde);
+}
+nav .enlaces a {
+  color: var(--suave); padding: 6px 13px; border-radius: 8px;
+  transition: background .14s, color .14s;
+}
+nav .enlaces a:hover { color: var(--texto); background: #ffffff12; text-decoration: none; }
+.idioma {
+  justify-self: end; display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: 10px; border: 1px solid var(--borde);
+  background: #ffffff08; color: var(--suave); font-size: 13px; font-weight: 550;
+  cursor: pointer; transition: background .14s, color .14s;
+}
+.idioma:hover { background: #ffffff14; color: var(--texto); }
+.idioma svg { width: 15px; height: 15px; }
+@media (max-width: 900px) {
+  nav .env { grid-template-columns: 1fr auto; }
+  nav .enlaces { display: none; }
+}
 
 /* ---------- portada ---------- */
 .portada { position: relative; padding: 86px 0 60px; text-align: center; }
@@ -118,21 +138,24 @@ h1 em { font-style: normal; color: var(--azul); }
 .btn.fantasma:hover { background: #ffffff12; text-decoration: none; }
 .letra-chica { margin-top: 14px; font-size: 13px; color: var(--apagado); }
 
-/* ---------- numeros ---------- */
-.numeros {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
-  gap: 14px; margin-top: 66px;
-}
-.dato {
-  background: var(--panel); border: 1px solid var(--borde);
-  border-radius: var(--radio); padding: 20px; text-align: left;
-}
+/* ---------- números: sin cajas, solo el dato y una línea que los separa ---------- */
+.numeros { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 62px; }
+.dato { display: grid; gap: 3px; padding: 4px 18px; border-left: 1px solid var(--borde); }
+.dato:first-child { border-left: 0; }
 .dato .valor {
-  font-size: 32px; font-weight: 700; letter-spacing: -0.03em;
-  color: var(--azul); font-variant-numeric: tabular-nums;
+  font-size: clamp(30px, 3.4vw, 40px); font-weight: 700; letter-spacing: -0.035em;
+  line-height: 1.1; color: var(--azul); font-variant-numeric: tabular-nums;
 }
-.dato .que { font-size: 13.5px; margin-top: 2px; }
-.dato .contra { font-size: 12.5px; color: var(--apagado); margin-top: 7px; }
+.dato .que { font-size: 14px; color: var(--texto); }
+.dato .contra { font-size: 12.5px; color: var(--apagado); }
+@media (max-width: 760px) {
+  .numeros { grid-template-columns: 1fr 1fr; row-gap: 26px; }
+  .dato:nth-child(3) { border-left: 0; }
+}
+@media (max-width: 420px) {
+  .numeros { grid-template-columns: 1fr; row-gap: 22px; }
+  .dato { border-left: 0; padding-inline: 0; }
+}
 
 /* ---------- secciones ---------- */
 /* solo las secciones de la página; dentro de las demos hay <section> propias */
