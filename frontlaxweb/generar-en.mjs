@@ -39,6 +39,14 @@ function traducir(html) {
     (_t, medio, ingles) => ` title="${ingles}"${medio}`);
   html = html.replace(/\sdata-titulo-en="[^"]*"/g, "");
 
+  // Los aria-label son invisibles para quien revisa la pagina, asi que se quedaban en
+  // espanol sin que nadie lo notara. Mismo apano que los tooltips.
+  html = html.replace(/\saria-label="[^"]*"((?:[^>"]|"[^"]*")*?)\sdata-aria-en="([^"]*)"/g,
+    (_t, medio, ingles) => ` aria-label="${ingles}"${medio}`);
+  html = html.replace(/\sdata-aria-en="([^"]*)"((?:[^>"]|"[^"]*")*?)\saria-label="[^"]*"/g,
+    (_t, ingles, medio) => `${medio} aria-label="${ingles}"`);
+  html = html.replace(/\sdata-aria-en="[^"]*"/g, "");
+
   html = html.replace('<html lang="es">', '<html lang="en">');
   html = html.replace('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">');
   html = html.replace(
@@ -47,6 +55,44 @@ function traducir(html) {
   );
   html = html.replaceAll(`${BASE}social.png`, `${BASE}social-en.png`);
   return html;
+}
+
+/**
+ * Construye el bloque FAQPage a partir de las preguntas que la pagina ENSENA.
+ *
+ * Escribirlo a mano se desincroniza en cuanto alguien anade o quita una pregunta, y la
+ * politica de Google descalifica el bloque entero si marca algo que no esta visible. Al
+ * sacarlo del propio HTML eso no puede pasar, y cada idioma se queda con el suyo.
+ */
+function construirFaq(html, idioma) {
+  if (!html.includes("data-faq")) return html;
+
+  const seccion = html.match(/<section id="preguntas">([\s\S]*?)<\/section>/);
+  if (!seccion) throw new Error("no aparece la seccion de preguntas");
+
+  const soloTexto = (s) =>
+    desescapar(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+
+  const pares = [...seccion[1].matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/g)];
+  if (!pares.length) throw new Error("la seccion de preguntas no tiene ningun par h3 + p");
+
+  const bloque = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    inLanguage: idioma,
+    mainEntity: pares.map(([, pregunta, respuesta]) => ({
+      "@type": "Question",
+      name: soloTexto(pregunta),
+      acceptedAnswer: { "@type": "Answer", text: soloTexto(respuesta) },
+    })),
+  };
+
+  return html.replace(
+    /<script type="application\/ld\+json" data-faq>[\s\S]*?<\/script>/,
+    `<script type="application/ld+json" data-faq>
+${JSON.stringify(bloque, null, 2)}
+</script>`,
+  );
 }
 
 /** Las descripciones viven en atributos y no pueden llevar data-en. */
@@ -86,7 +132,6 @@ const PAGINAS = [
       'href="estilos.css"': 'href="../estilos.css"',
       'src="demo.js"': 'src="../demo.js"',
       'src="estrellas.js"': 'src="../estrellas.js"',
-      'href="docs/"': 'href="docs/"',
       '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
     },
@@ -97,6 +142,8 @@ const PAGINAS = [
     propios: {
       [`<link rel="canonical" href="${BASE}docs/">`]: `<link rel="canonical" href="${BASE}en/docs/">`,
       [`<meta property="og:url" content="${BASE}docs/">`]: `<meta property="og:url" content="${BASE}en/docs/">`,
+      [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
+      [`"item": "${BASE}docs/" }`]: `"item": "${BASE}en/docs/" }`,
       'href="../logo.svg"': 'href="../../logo.svg"',
       'href="../estilos.css"': 'href="../../estilos.css"',
       'src="../estrellas.js"': 'src="../../estrellas.js"',
@@ -107,8 +154,20 @@ const PAGINAS = [
 ];
 
 for (const pagina of PAGINAS) {
-  let html = traducir(await readFile(join(aqui, pagina.origen), "utf8"));
-  for (const [es, en] of Object.entries(ATRIBUTOS)) html = html.replace(es, en);
+  const rutaOrigen = join(aqui, pagina.origen);
+  let original = await readFile(rutaOrigen, "utf8");
+
+  // La pagina espanola es el origen, asi que su bloque de preguntas se reescribe aqui
+  // mismo: es la unica forma de que el JSON-LD y lo que se ve no se separen nunca.
+  const conFaq = construirFaq(original, "es");
+  if (conFaq !== original) {
+    await writeFile(rutaOrigen, conFaq, "utf8");
+    original = conFaq;
+    console.log(`${pagina.origen}: preguntas actualizadas`);
+  }
+
+  let html = construirFaq(traducir(original), "en");
+  for (const [es, en] of Object.entries(ATRIBUTOS)) html = html.replaceAll(es, en);
   for (const [de, a] of Object.entries(pagina.propios)) {
     if (!html.includes(de)) throw new Error(`${pagina.origen}: no aparece ${de}`);
     html = html.replaceAll(de, a);

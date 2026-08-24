@@ -539,7 +539,7 @@ footer .env { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; ju
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .9em; color: var(--texto);
 }
 
-/* el indice, pegajoso arriba en pantallas anchas y en fila en las estrechas */
+/* el indice: una fila de fichas que se parte sola en pantallas estrechas */
 .indice { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 30px; }
 .indice a {
   padding: 7px 13px; border-radius: 999px; border: 1px solid #ffffff1a;
@@ -567,4 +567,10 @@ nav .enlaces a.aqui { color: var(--texto); background: #ffffff14; }
 
 @media (max-width: 720px) {
   .tabla-guia { display: block; overflow-x: auto; }
+}
+
+.tabla-guia th[scope="row"] {
+  text-align: left; padding: 12px; font-size: inherit; font-weight: 600;
+  text-transform: none; letter-spacing: normal; color: var(--texto);
+  white-space: nowrap; vertical-align: top;
 }

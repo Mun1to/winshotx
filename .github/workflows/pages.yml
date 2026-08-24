@@ -30,8 +30,14 @@ jobs:
       - name: Comprobar que el ingles esta al dia
         run: |
           node frontlaxweb/generar-en.mjs
-          git diff --exit-code frontlaxweb/en \
-            || (echo "::error::frontlaxweb/en no coincide con el espanol; corre node frontlaxweb/generar-en.mjs y commitea" && exit 1)
+          # --porcelain y no `git diff`: diff no ve una pagina nueva que nadie anadio
+          # al indice, y el generador tambien reescribe las preguntas del espanol.
+          sucio=$(git status --porcelain frontlaxweb)
+          if [ -n "$sucio" ]; then
+            echo "$sucio"
+            echo "::error::frontlaxweb no esta al dia; corre node frontlaxweb/generar-en.mjs y commitea"
+            exit 1
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontlaxweb

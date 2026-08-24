@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
-# Abre el pull request de winshotx 0.1.6 a microsoft/winget-pkgs sin clonar el repo,
-# que pesa varios gigas. Los manifiestos salen de packaging/winget/0.1.6.
+# Abre el pull request de winshotx a microsoft/winget-pkgs sin clonar el repo, que pesa
+# varios gigas. Los manifiestos salen de packaging/winget/<version>.
+#
+#   packaging/winget/pr.sh 0.1.7
+#
+# Sin argumento coge la carpeta de version mas alta que haya, para no volver a abrir por
+# error el pull request de una version que ya esta fusionada.
 set -euo pipefail
 
-VERSION=0.1.6
+VERSION="${1:-$(ls -1 packaging/winget | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)}"
+if [ ! -d "packaging/winget/$VERSION" ]; then
+  echo "No existe packaging/winget/$VERSION" >&2
+  exit 1
+fi
+echo "Version: $VERSION"
 ORIGEN="packaging/winget/$VERSION"
 DESTINO="manifests/m/Mun1to/winshotx/$VERSION"
 RAMA="winshotx-$VERSION"
@@ -40,4 +50,4 @@ gh pr create --repo microsoft/winget-pkgs --head "$YO:$RAMA" --base "$BASE" \
 - [x] Does your manifest conform to the [1.6 schema](https://github.com/microsoft/winget-pkgs/tree/master/doc/manifest/schema/1.6.0)?
 
 Source: https://github.com/Mun1to/winshotx
-Home page: https://mun1to.github.io/winshotx/en/"
+Home page: https://winshotx.com/en/"

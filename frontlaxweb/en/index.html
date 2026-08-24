@@ -22,7 +22,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="winshotx: 28 ms against the Snipping Tool's 920 ms">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="winshotx · captura y grabación de pantalla para Windows">
+<meta name="twitter:title" content="winshotx · screenshots and screen recording for Windows">
 <meta name="twitter:description" content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms and 33 MB. 2.2 MB, open source.">
 <meta name="twitter:image" content="https://winshotx.com/social-en.png">
 <link rel="icon" href="../logo.svg" type="image/svg+xml">
@@ -269,8 +269,8 @@
       <header class="edi-titulo">
         <span class="edi-nombre">Editor <span class="edi-sub" id="edi-sub"></span></span>
         <span class="edi-controles">
-          <button aria-label="Minimizar"><svg><use href="#i-minus"/></svg></button>
-          <button class="cerrar" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+          <button aria-label="Minimise"><svg><use href="#i-minus"/></svg></button>
+          <button class="cerrar" aria-label="Close"><svg><use href="#i-x"/></svg></button>
         </span>
       </header>
       <div class="edi-cuerpo">
@@ -278,7 +278,7 @@
           <div class="edi-vista">
             <canvas id="lienzo-editor"></canvas>
             <div class="edi-pildora">
-              <button class="redondo" id="reproducir" aria-label="Reproducir"><svg><use href="#i-play"/></svg></button>
+              <button class="redondo" id="reproducir" aria-label="Play"><svg><use href="#i-play"/></svg></button>
               <span class="edi-tiempo" id="edi-tiempo">0:00.00</span>
               <span class="raya"></span>
               <button class="marca" data-marca="in" title="Mark the start (I)"><svg><use href="#i-scissors"/></svg> A</button>
@@ -343,9 +343,13 @@
               <button class="azul" id="btn-guardar"><svg><use href="#i-save"/></svg> <span>Save</span></button>
               <button class="hueco" id="btn-copiar" title="Export and copy to the clipboard"><svg><use href="#i-clipboard"/></svg></button>
             </div>
+            <!-- El aria-live va en un envoltorio que existe siempre: puesto en el propio
+                 boton oculto, el lector no lo tiene registrado cuando aparece el texto. -->
+            <div aria-live="polite">
             <button class="edi-resultado" id="edi-resultado" hidden>
               <svg width="14" height="14"><use href="#i-sparkles"/></svg><span></span>
             </button>
+            </div>
           </div>
         </aside>
       </div>
@@ -356,8 +360,8 @@
       <header class="edi-titulo">
         <span class="edi-nombre">winshotx <span class="edi-sub">settings</span></span>
         <span class="edi-controles">
-          <button aria-label="Minimizar"><svg><use href="#i-minus"/></svg></button>
-          <button class="cerrar" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+          <button aria-label="Minimise"><svg><use href="#i-minus"/></svg></button>
+          <button class="cerrar" aria-label="Close"><svg><use href="#i-x"/></svg></button>
         </span>
       </header>
       <div class="ajustes">

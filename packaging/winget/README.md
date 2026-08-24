@@ -17,9 +17,9 @@ real check is the validation plus the SHA256 of the published installer.
 3. `winget validate --manifest packaging/winget/X.Y.Z`
 4. Also update `DocumentUrl` in the locale manifest: it still points at the old
    `mun1to.github.io` address, which only works because of a 301. It should read
-   `https://winshotx.com/en/`. The 0.1.6 folder is left as it was submitted, on purpose.
+   `https://winshotx.com/en/docs/`, which is the actual guide. The 0.1.6 folder is left as it was submitted, on purpose.
 5. Fork winget-pkgs, copy the folder to `manifests/m/Mun1to/winshotx/X.Y.Z/` and open a pull
-   request. `packaging/winget/pr.sh` does all of that through the API, without cloning the
+   request. `packaging/winget/pr.sh X.Y.Z` does all of that through the API, without cloning the
    several gigabytes of winget-pkgs.
 
 About twenty bots then run on the pull request. The one that matters is `Installation

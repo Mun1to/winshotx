@@ -13,7 +13,9 @@
     });
     if (!r.ok) return;
     const { stargazers_count: estrellas } = await r.json();
-    if (typeof estrellas === "number") {
+    // Cero pasaria el typeof y borraria el numero escrito a mano, que es justo lo que
+    // este bloque promete no hacer.
+    if (typeof estrellas === "number" && estrellas > 0) {
       hueco.textContent = estrellas >= 1000 ? (estrellas / 1000).toFixed(1) + "k" : estrellas;
     }
   } catch {

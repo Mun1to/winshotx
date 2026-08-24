@@ -6,6 +6,10 @@
 #
 # Lista verificada el 2026-08-24 en la documentacion de cada proveedor.
 # Caduca: aparecen agentes nuevos cada pocos meses, reverificar antes de copiarla.
+#
+# OJO si algun dia hay que cerrar algo: el grupo mas concreto gana entero, asi que un
+# Disallow puesto solo bajo "*" no afectaria a ninguno de los agentes nombrados abajo.
+# Habria que repetir el Disallow en cada grupo, o borrar los grupos que sobren.
 
 User-agent: *
 Allow: /

@@ -278,8 +278,8 @@
       <header class="edi-titulo">
         <span class="edi-nombre">Editor <span class="edi-sub" id="edi-sub"></span></span>
         <span class="edi-controles">
-          <button aria-label="Minimizar"><svg><use href="#i-minus"/></svg></button>
-          <button class="cerrar" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+          <button aria-label="Minimizar" data-aria-en="Minimise"><svg><use href="#i-minus"/></svg></button>
+          <button class="cerrar" aria-label="Cerrar" data-aria-en="Close"><svg><use href="#i-x"/></svg></button>
         </span>
       </header>
       <div class="edi-cuerpo">
@@ -287,7 +287,7 @@
           <div class="edi-vista">
             <canvas id="lienzo-editor"></canvas>
             <div class="edi-pildora">
-              <button class="redondo" id="reproducir" aria-label="Reproducir"><svg><use href="#i-play"/></svg></button>
+              <button class="redondo" id="reproducir" aria-label="Reproducir" data-aria-en="Play"><svg><use href="#i-play"/></svg></button>
               <span class="edi-tiempo" id="edi-tiempo">0:00.00</span>
               <span class="raya"></span>
               <button class="marca" data-marca="in" title="Marcar inicio (I)" data-titulo-en="Mark the start (I)"><svg><use href="#i-scissors"/></svg> A</button>
@@ -352,9 +352,13 @@
               <button class="azul" id="btn-guardar"><svg><use href="#i-save"/></svg> <span data-en="Save">Guardar</span></button>
               <button class="hueco" id="btn-copiar" title="Exportar y copiar al portapapeles" data-titulo-en="Export and copy to the clipboard"><svg><use href="#i-clipboard"/></svg></button>
             </div>
+            <!-- El aria-live va en un envoltorio que existe siempre: puesto en el propio
+                 boton oculto, el lector no lo tiene registrado cuando aparece el texto. -->
+            <div aria-live="polite">
             <button class="edi-resultado" id="edi-resultado" hidden>
               <svg width="14" height="14"><use href="#i-sparkles"/></svg><span></span>
             </button>
+            </div>
           </div>
         </aside>
       </div>
@@ -365,8 +369,8 @@
       <header class="edi-titulo">
         <span class="edi-nombre">winshotx <span class="edi-sub" data-en="settings">ajustes</span></span>
         <span class="edi-controles">
-          <button aria-label="Minimizar"><svg><use href="#i-minus"/></svg></button>
-          <button class="cerrar" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
+          <button aria-label="Minimizar" data-aria-en="Minimise"><svg><use href="#i-minus"/></svg></button>
+          <button class="cerrar" aria-label="Cerrar" data-aria-en="Close"><svg><use href="#i-x"/></svg></button>
         </span>
       </header>
       <div class="ajustes">

@@ -568,7 +568,20 @@ refrescarEditor();
 function nombrarPalancas() {
   for (const p of document.querySelectorAll(".palanca")) {
     const etiqueta = p.parentElement?.querySelector(".txt");
-    const nombre = etiqueta ? etiqueta.textContent.replace(/\s+/g, " ").trim() : "";
+    // textContent pega el nombre con el <small> de debajo cuando no hay espacio entre las
+    // etiquetas, y sale "Lupa de pixelzoom 6x...". Se recorren los nodos y se unen con uno.
+    // Hay dos formas de fila: unas llevan el texto en hijos (<span> mas <small>) y otras
+    // lo llevan suelto en el propio .txt. textContent las pega sin espacio cuando no hay
+    // ninguno entre las etiquetas, asi que se recorren las hojas y se unen con un punto.
+    const hojas = etiqueta
+      ? [...etiqueta.querySelectorAll("span, small")].filter((n) => !n.querySelector("span, small"))
+      : [];
+    const trozos = hojas.length ? hojas : etiqueta ? [etiqueta] : [];
+    const nombre = trozos
+      .map((n) => n.textContent.trim())
+      .filter(Boolean)
+      .join(". ")
+      .replace(/\s+/g, " ");
     if (nombre) p.setAttribute("aria-label", nombre);
     p.setAttribute("role", "switch");
     p.setAttribute("aria-checked", p.dataset.on === "1" ? "true" : "false");
@@ -576,7 +589,3 @@ function nombrarPalancas() {
   }
 }
 nombrarPalancas();
-
-// El resultado del editor sale de un boton oculto que se rellena al exportar; hasta
-// entonces esta vacio y tampoco tiene nombre.
-document.getElementById("edi-resultado")?.setAttribute("aria-live", "polite");

@@ -22,7 +22,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="winshotx: 28 ms against the Snipping Tool's 920 ms">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Guía de winshotx">
+<meta name="twitter:title" content="winshotx documentation">
 <meta name="twitter:description" content="Install, shortcuts, region capture, GIF and MP4 recording, the editor and export.">
 <meta name="twitter:image" content="https://winshotx.com/social-en.png">
 <link rel="icon" href="../../logo.svg" type="image/svg+xml">
@@ -32,38 +32,39 @@
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
-    { "@type": "ListItem", "position": 2, "name": "Docs", "item": "https://winshotx.com/docs/" }
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/en/" },
+    { "@type": "ListItem", "position": 2, "name": "Docs", "item": "https://winshotx.com/en/docs/" }
   ]
 }
 </script>
-<script type="application/ld+json">
+<script type="application/ld+json" data-faq>
 {
   "@context": "https://schema.org",
   "@type": "FAQPage",
+  "inLanguage": "en",
   "mainEntity": [
     {
       "@type": "Question",
       "name": "How do I record a GIF of my screen on Windows?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Press Ctrl+Shift+5, drag over the area you want, and press the same shortcut again to stop. The editor opens with every frame, and the export panel writes the GIF. No FFmpeg to install: the GIF is produced in pure Rust with a global palette and frame differencing."
+        "text": "Press Ctrl + Shift + 5 , drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install."
       }
     },
     {
       "@type": "Question",
-      "name": "Is winshotx a free alternative to the Windows Snipping Tool?",
+      "name": "Is this a free alternative to the Snipping Tool?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. It is MIT licensed and open source, the installer is 2.2 MB and it needs no account. Measured on the same Windows 11 machine, it shows the selection in 28 ms against 920 ms and uses 33 MB of memory against 253 MB. The Snipping Tool still wins at annotating, text recognition and system audio."
+        "text": "Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at annotating, at reading the text out of an image and at system audio, and the comparison on the home page says so."
       }
     },
     {
       "@type": "Question",
-      "name": "Does winshotx upload my screenshots anywhere?",
+      "name": "Does it upload my screenshots anywhere?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. There is no account, no telemetry and no uploads. The only network call is checking GitHub for a new version, and that can be turned off in the settings."
+        "text": "No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off."
       }
     },
     {
@@ -71,23 +72,31 @@
       "name": "Can I change the keyboard shortcut?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. In Ajustes, click the shortcut field and press the new combination. If another application already holds it, the field turns red and says so. The defaults are Ctrl+Shift+2 to capture and Ctrl+Shift+5 to record."
+        "text": "Yes, in Ajustes . Click the field and press the combination you want."
       }
     },
     {
       "@type": "Question",
-      "name": "How do I paste a GIF into Slack or Discord from winshotx?",
+      "name": "How do I paste a GIF into Slack or Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Use Copiar in the export panel. A still image goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer."
+        "text": "Use Copiar in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer."
       }
     },
     {
       "@type": "Question",
-      "name": "Does winshotx need administrator rights?",
+      "name": "Does it need administrator rights?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. It installs for the current user only, so Windows never shows the administrator prompt. It runs on Windows 10 version 1903 or newer."
+        "text": "No. It installs for your user only, so the administrator prompt never shows up."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work on macOS or Linux?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not yet. The code compiles on both, but every platform specific function is behind a Windows guard with a stub for the rest, so porting means filling those stubs in. Capture, recording, MP4 encoding, clipboard and autostart are the ones that matter."
       }
     }
   ]
@@ -117,12 +126,13 @@
 
 <nav>
   <div class="env">
-    <a class="marca" href="../"><svg><use href="#marca"/></svg><span>winshotx</span></a>
+    <a class="marca solo-logo" href="../" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
     <span class="enlaces">
       <a href="../#numeros">Numbers</a>
       <a href="../#demo">Try it</a>
       <a href="../#frente-a-frente">Head to head</a>
       <a href="../#que-hace">Features</a>
+      <a href="../#atajos">Shortcuts</a>
       <a class="aqui" href="./">Docs</a>
     </span>
     <span class="acciones">
@@ -161,25 +171,25 @@
         <span>Download for Windows</span></a>
       <a class="btn fantasma" href="https://github.com/Mun1to/winshotx/releases">All versions</a>
     </div>
-    <p>It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the ^ arrow on the taskbar.</p>
-    <p>It updates itself. When a new version is out, a button shows up in Ajustes → Actualizaciones, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.</p>
+    <p>It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the <code>^</code> arrow on the taskbar.</p>
+    <p>It updates itself. When a new version is out, a button shows up in <b>Ajustes → Actualizaciones</b>, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.</p>
   </section>
 
   <section id="capturar">
     <h2>Capture a region</h2>
-    <p>Press Ctrl+Shift+2. The screen freezes and you drag over what you want. It is a frozen screenshot, not a transparent window, which is why the magnifier is exact to the pixel and nothing flickers underneath.</p>
-    <ul>
+    <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd>. The screen freezes and you drag over what you want. It is a frozen screenshot, not a transparent window, which is why the magnifier is exact to the pixel and nothing flickers underneath.</p>
+    <ul role="list">
       <li><b>Snapping to windows.</b> Move the cursor without dragging and the window underneath lights up; one click takes it whole, with its real coordinates.</li>
       <li><b>Magnifier.</b> While there is no selection, a 6× loupe follows the cursor and shows the hex code of the pixel underneath. That is the fastest way to pull a colour off the screen.</li>
-      <li><b>Fine tuning.</b> The arrow keys move the selection one pixel at a time, Shift moves it ten, and Alt resizes instead of moving.</li>
+      <li><b>Fine tuning.</b> The arrow keys move the selection one pixel at a time, <kbd>Shift</kbd> moves it ten, and <kbd>Alt</kbd> resizes instead of moving.</li>
       <li><b>Several monitors.</b> Every screen freezes at once, each at its own scaling, and a 100 × 100 selection produces a 100 × 100 file in real pixels.</li>
     </ul>
-    <p>With the selection made, a small toolbar appears: copy, save, open in the editor, record as GIF, record as video, or cancel with Esc.</p>
+    <p>With the selection made, a small toolbar appears: copy, save, open in the editor, record as GIF, record as video, or cancel with <kbd>Esc</kbd>.</p>
   </section>
 
   <section id="grabar">
     <h2>Record</h2>
-    <p>Press Ctrl+Shift+5, drag over the area and press the same shortcut again to stop. While it records you see a thin frame around the region and a small bar with the timer.</p>
+    <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, drag over the area and press the same shortcut again to stop. While it records you see a thin frame around the region and a small bar with the timer.</p>
     <p>It records through Windows Graphics Capture at 15, 30 or 60 fps, so no overlay leaks into the video and the cost to the processor is close to nothing. Every frame is written to a lossless cache on disk, which is what makes the frame by frame editing possible afterwards.</p>
     <p class="nota">System audio is not recorded yet. The switch is in the interface, disabled and saying so: it needs WASAPI in loopback mode to feed the encoder.</p>
   </section>
@@ -187,10 +197,10 @@
   <section id="editor">
     <h2>The editor</h2>
     <p>When the recording stops, the editor opens with the whole clip. It is not a timeline with effects: it is the frames, one by one, so you can throw away what you do not want.</p>
-    <ul>
+    <ul role="list">
       <li><b>Thumbnail strip.</b> Every frame with its number and its time. Click one to jump there.</li>
-      <li><b>A and B trim.</b> I marks the start and O marks the end. What falls outside is dimmed and does not reach the file.</li>
-      <li><b>Looped playback.</b> Space plays and pauses; the arrows step one frame at a time.</li>
+      <li><b>A and B trim.</b> <kbd>I</kbd> marks the start and <kbd>O</kbd> marks the end. What falls outside is dimmed and does not reach the file.</li>
+      <li><b>Looped playback.</b> <kbd>Space</kbd> plays and pauses; the arrows step one frame at a time.</li>
       <li><b>Scale.</b> Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons.</li>
     </ul>
   </section>
@@ -206,24 +216,24 @@
       </tr></thead>
       <tbody>
         <tr>
-          <td><b>PNG</b></td>
+          <th scope="row"><b>PNG</b></th>
           <td>Cut straight from the frozen screenshot, lossless.</td>
           <td>A still, a bug report, a colour.</td>
         </tr>
         <tr>
-          <td><b>GIF</b></td>
+          <th scope="row"><b>GIF</b></th>
           <td>Pure Rust: global palette, Floyd-Steinberg dithering and only the rectangle that changed between frames.</td>
           <td>Short interface clips. It loops everywhere with no player.</td>
         </tr>
         <tr>
-          <td><b>MP4</b></td>
+          <th scope="row"><b>MP4</b></th>
           <td>Media Foundation with hardware H.264. Zero megabytes of dependencies.</td>
           <td>Anything longer than a few seconds, or with a lot of movement.</td>
         </tr>
       </tbody>
     </table>
-    <p><b>Save</b> writes the file to disk. <b>Copy</b> puts it on the clipboard: a still goes as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.</p>
-    <p>If you happen to have ffmpeg on your PATH, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.</p>
+    <p><b>Save</b> writes the file to disk. <b>Copy</b> puts it on the clipboard: a still goes as an image, and a GIF or an MP4 goes as a <b>file</b>, so it pastes straight into Slack, Discord or File Explorer.</p>
+    <p>If you happen to have <code>ffmpeg</code> on your <code>PATH</code>, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.</p>
   </section>
 
   <section id="atajos-guia">
@@ -231,23 +241,32 @@
     <table class="tabla-guia">
       <thead><tr><th>Key</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd></td><td>Capture a region</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></td><td>Record a region, press again to stop</td></tr>
-        <tr><td><kbd>Enter</kbd></td><td>Copy the selection to the clipboard</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save the selection</td></tr>
-        <tr><td><kbd>E</kbd></td><td>Open the selection in the editor</td></tr>
-        <tr><td><kbd>G</kbd> / <kbd>V</kbd></td><td>Record the selection as GIF or as video</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Select the whole monitor</td></tr>
-        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td>Move the selection, Shift for steps of ten, Alt resizes</td></tr>
-        <tr><td><kbd>Esc</kbd></td><td>Cancel</td></tr>
+        <tr>
+          <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd></th><td>Capture a region</td></tr>
+        <tr>
+          <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></th><td>Record a region, press again to stop</td></tr>
+        <tr>
+          <th scope="row"><kbd>Enter</kbd></th><td>Copy the selection to the clipboard</td></tr>
+        <tr>
+          <th scope="row"><kbd>Ctrl</kbd>+<kbd>S</kbd></th><td>Save the selection</td></tr>
+        <tr>
+          <th scope="row"><kbd>E</kbd></th><td>Open the selection in the editor</td></tr>
+        <tr>
+          <th scope="row"><kbd>G</kbd> / <kbd>V</kbd></th><td>Record the selection as GIF or as video</td></tr>
+        <tr>
+          <th scope="row"><kbd>Ctrl</kbd>+<kbd>A</kbd></th><td>Select the whole monitor</td></tr>
+        <tr>
+          <th scope="row"><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></th><td>Move the selection, <kbd>Shift</kbd> for steps of ten, <kbd>Alt</kbd> resizes</td></tr>
+        <tr>
+          <th scope="row"><kbd>Esc</kbd></th><td>Cancel</td></tr>
       </tbody>
     </table>
-    <p>Inside the editor: space plays, I and O mark the trim, the arrows step through frames, Ctrl+S exports with whatever the panel has set, and Esc closes.</p>
+    <p>Inside the editor: <kbd>space</kbd> plays, <kbd>I</kbd> and <kbd>O</kbd> mark the trim, the arrows step through frames, <kbd>Ctrl</kbd>+<kbd>S</kbd> exports with whatever the panel has set, and <kbd>Esc</kbd> closes.</p>
   </section>
 
   <section id="ajustes">
     <h2>Settings</h2>
-    <p>Right click the tray icon and choose Ajustes. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
+    <p>Right click the tray icon and choose <b>Ajustes</b>. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
     <p>The rest is short on purpose: whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.</p>
     <p><a href="../#demo">You can click through all of it in the demo on the home page, without installing anything.</a></p>
   </section>
@@ -256,7 +275,7 @@
     <h2>Questions people actually ask</h2>
 
     <h3>How do I record a GIF of my screen on Windows?</h3>
-    <p>Press Ctrl+Shift+5, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.</p>
+    <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.</p>
 
     <h3>Is this a free alternative to the Snipping Tool?</h3>
     <p>Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at annotating, at reading the text out of an image and at system audio, and the comparison on the home page says so.</p>
@@ -265,7 +284,10 @@
     <p>No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off.</p>
 
     <h3>Can I change the keyboard shortcut?</h3>
-    <p>Yes, in Ajustes. Click the field and press the combination you want.</p>
+    <p>Yes, in <b>Ajustes</b>. Click the field and press the combination you want.</p>
+
+    <h3>How do I paste a GIF into Slack or Discord?</h3>
+    <p>Use <b>Copiar</b> in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.</p>
 
     <h3>Does it need administrator rights?</h3>
     <p>No. It installs for your user only, so the administrator prompt never shows up.</p>

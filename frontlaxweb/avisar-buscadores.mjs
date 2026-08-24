@@ -20,7 +20,20 @@ const aqui = dirname(fileURLToPath(import.meta.url));
 const dominio = readFileSync(join(aqui, "CNAME"), "utf8").trim();
 const clave = readFileSync(join(aqui, ".indexnow-clave"), "utf8").trim();
 
-const urls = [`https://${dominio}/`, `https://${dominio}/en/`];
+// Las URLs salen del sitemap, que ya es la lista buena. Escribirlas aqui otra vez
+// significa que el dia que se anada una pagina, este script avisa de menos y encima
+// dice que ha ido bien.
+const sitemap = readFileSync(join(aqui, "sitemap.xml"), "utf8");
+const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, u]) => u.trim());
+if (!urls.length) {
+  console.error("sitemap.xml no tiene ninguna URL.");
+  process.exit(1);
+}
+const ajenas = urls.filter((u) => !u.startsWith(`https://${dominio}/`));
+if (ajenas.length) {
+  console.error(`El sitemap tiene URLs de otro dominio: ${ajenas.join(", ")}`);
+  process.exit(1);
+}
 
 const cuerpo = {
   host: dominio,

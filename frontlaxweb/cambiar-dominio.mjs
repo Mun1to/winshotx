@@ -31,6 +31,7 @@ const CUALQUIER_BASE = /https:\/\/(?:mun1to\.github\.io\/winshotx|winshotx\.com|
 
 const archivos = [
   "frontlaxweb/index.html",
+  "frontlaxweb/docs/index.html",
   "frontlaxweb/generar-en.mjs",
   "frontlaxweb/robots.txt",
   "frontlaxweb/sitemap.xml",

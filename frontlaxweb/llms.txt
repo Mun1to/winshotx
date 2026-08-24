@@ -44,6 +44,8 @@ hardware, and GIF from a hand written encoder in pure Rust. Nothing is downloade
 
 - [Home page](https://winshotx.com/): Spanish, with an interactive demo of the app.
 - [Home page in English](https://winshotx.com/en/): same page, English.
+- [Guide](https://winshotx.com/docs/): Spanish, the full documentation on one page.
+- [Guide in English](https://winshotx.com/en/docs/): same guide, English.
 - [Source code](https://github.com/Mun1to/winshotx): GitHub repository, MIT licence.
 - [Download](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe): the installer, always the latest release.
 - [Releases](https://github.com/Mun1to/winshotx/releases): version history.
@@ -51,8 +53,7 @@ hardware, and GIF from a hand written encoder in pure Rust. Nothing is downloade
 
 ## Documentation
 
-Full guide, in Spanish at https://winshotx.com/docs/ and in English at
-https://winshotx.com/en/docs/: install, region capture with the magnifier, GIF and MP4
-recording, the frame by frame editor, export, the keyboard shortcuts and the settings.
-It also answers the questions people actually ask, such as how to record a GIF of the
-screen on Windows and whether the tool uploads anything anywhere (it does not).
+The guide covers install, region capture with the magnifier, GIF and MP4 recording, the
+frame by frame editor, export, the keyboard shortcuts and the settings. It also answers the
+questions people actually ask, such as how to record a GIF of the screen on Windows and
+whether the tool uploads anything anywhere (it does not).
