@@ -1,0 +1,21 @@
+# Cabeceras para Cloudflare Pages.
+#
+# El CSS y el JS llevan su huella en la URL (estilos.css?v=abc123), asi que un cambio de
+# contenido es una direccion nueva. Con eso, cachearlos un ano es seguro: nadie se puede
+# quedar con la version vieja, que es justo lo que pasaba antes con las 4 horas de GitHub.
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# Las imagenes y el logo cambian poco y no llevan huella: una semana, y que revaliden.
+/*.png
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/*.svg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# El HTML se revalida siempre: es lo que ata las paginas a la version buena de los assets.
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

@@ -1,33 +1,29 @@
-name: Publicar la web
+name: Comprobar la web
 
-# La landing vive en frontlaxweb/ y se publica en GitHub Pages tal cual, sin compilar nada.
+# La web ya no se publica desde aqui: la sirve Cloudflare Pages, que compila el repo en
+# cada push. Lo que queda es la comprobacion, que sigue siendo util porque si el ingles o
+# las huellas de los archivos estan desfasados, Cloudflare desplegaria una version torcida
+# sin quejarse de nada.
 on:
   push:
     branches: [main]
     paths:
       - "frontlaxweb/**"
       - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "frontlaxweb/**"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
-  publicar:
+  comprobar:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.despliegue.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - name: Comprobar que el ingles esta al dia
+      - name: El ingles y las huellas estan al dia
         run: |
           node frontlaxweb/generar-en.mjs
           # --porcelain y no `git diff`: diff no ve una pagina nueva que nadie anadio
@@ -38,8 +34,29 @@ jobs:
             echo "::error::frontlaxweb no esta al dia; corre node frontlaxweb/generar-en.mjs y commitea"
             exit 1
           fi
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: frontlaxweb
-      - id: despliegue
-        uses: actions/deploy-pages@v4
+      - name: Ninguna pagina se queda sin traducir
+        run: |
+          for f in frontlaxweb/en/index.html frontlaxweb/en/docs/index.html; do
+            if grep -q 'data-en=\|data-aria-en=\|data-titulo-en=' "$f"; then
+              echo "::error::$f tiene textos sin traducir"
+              grep -o 'data-\(en\|aria-en\|titulo-en\)="[^"]*"' "$f" | head -5
+              exit 1
+            fi
+          done
+      - name: El sitemap y las paginas dicen lo mismo
+        run: |
+          node -e '
+            const {readFileSync, existsSync} = require("node:fs");
+            const urls = [...readFileSync("frontlaxweb/sitemap.xml", "utf8")
+              .matchAll(/<loc>https:\/\/winshotx\.com\/([^<]*)<\/loc>/g)].map(([, r]) => r);
+            let mal = 0;
+            for (const ruta of urls) {
+              const archivo = "frontlaxweb/" + ruta + "index.html";
+              if (!existsSync(archivo)) {
+                console.error(`::error::el sitemap lista /${ruta} y no existe ${archivo}`);
+                mal++;
+              }
+            }
+            console.log(`${urls.length} URLs en el sitemap, ${mal} sin pagina`);
+            process.exit(mal ? 1 : 0);
+          '

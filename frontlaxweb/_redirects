@@ -1,0 +1,5 @@
+# Redirecciones de Cloudflare Pages.
+#
+# La direccion vieja de GitHub Pages seguira funcionando desde el propio GitHub; esto es
+# para el caso de que alguien llegue al subdominio de pruebas de Cloudflare.
+https://winshotx.pages.dev/* https://winshotx.com/:splat 301
