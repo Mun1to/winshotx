@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>winshotx · capturas y grabación de pantalla para Windows</title>
+<meta name="description" content="Capturas y grabación de pantalla para Windows. 2 MB, sin cuenta y sin nube. Abre la selección en 28 ms y gasta 33 MB de memoria.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round">
+      <g stroke-width="8">
+        <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+        <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+      </g>
+      <g stroke-width="3.5"><path d="M24 8h16"/><path d="M56 24v16"/><path d="M40 56H24"/><path d="M8 40V24"/></g>
+    </g>
+    <g stroke="#fff" stroke-width="8.5" stroke-linecap="round"><path d="M32 20.5v23"/><path d="M20.5 32h23"/></g>
+  </symbol>
+  <symbol id="i-copiar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-guardar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="i-editar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-gif" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 9h3M9.5 9v6H8m8-6h-3v6m0-3h2"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+  <symbol id="i-cerrar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-rayo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 2 3 14h8l-1 8 10-12h-8l1-8Z"/></symbol>
+  <symbol id="i-candado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-pluma" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4Z"/></symbol>
+  <symbol id="i-caja" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+  <symbol id="i-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-visto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m20 6-11 11-5-5"/></symbol>
+  <symbol id="i-bajar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+</svg>
+
+<nav>
+  <div class="env">
+    <span class="marca"><svg><use href="#marca"/></svg> winshotx</span>
+    <span class="enlaces">
+      <a href="#numeros">Números</a>
+      <a href="#demo">Pruébalo</a>
+      <a href="#que-hace">Qué hace</a>
+      <a href="#atajos">Atajos</a>
+      <a href="https://github.com/Mun1to/winshotx">GitHub</a>
+    </span>
+  </div>
+</nav>
+
+<header class="portada">
+  <div class="env">
+    <svg class="logo"><use href="#marca"/></svg>
+    <h1>Recorta la pantalla <em>antes de que parpadees</em></h1>
+    <p class="bajada">
+      Capturas y grabación de pantalla para Windows. Pesa 2 MB, se abre en 28 milisegundos y no
+      pide cuenta, ni nube, ni permisos de administrador. Lo que capturas no sale de tu máquina.
+    </p>
+    <div class="botones">
+      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
+        <svg width="17" height="17"><use href="#i-bajar"/></svg> Descargar para Windows
+      </a>
+      <a class="btn fantasma" href="#demo">Probarlo aquí mismo</a>
+    </div>
+    <p class="letra-chica">Instalador de 2,2 MB · Windows 10 y 11 · Licencia MIT · Se instala solo para tu usuario</p>
+
+    <div class="numeros" id="numeros">
+      <div class="dato">
+        <div class="valor">28 ms</div>
+        <div class="que">del atajo a la selección en pantalla</div>
+        <div class="contra">Herramienta de Recortes: 920 ms</div>
+      </div>
+      <div class="dato">
+        <div class="valor">33 MB</div>
+        <div class="que">de memoria mientras capturas</div>
+        <div class="contra">Herramienta de Recortes: 253 MB</div>
+      </div>
+      <div class="dato">
+        <div class="valor">31 MB</div>
+        <div class="que">esperando en la bandeja</div>
+        <div class="contra">Herramienta de Recortes: 98 MB</div>
+      </div>
+      <div class="dato">
+        <div class="valor">2,2 MB</div>
+        <div class="que">pesa el instalador entero</div>
+        <div class="contra">Sin FFmpeg ni binarios de fuera</div>
+      </div>
+    </div>
+    <p class="letra-chica">
+      Medido en un mismo equipo con Windows 11, tres veces seguidas y arrancando las dos desde
+      cero. El cronómetro para cuando la selección ya se ve en pantalla.
+    </p>
+  </div>
+</header>
+
+<section id="demo">
+  <div class="env">
+    <p class="titulillo">La app por dentro</p>
+    <h2>Pruébala sin instalar nada</h2>
+    <p class="entradilla">
+      winshotx recreado aquí mismo, con las tres pantallas que vas a usar de verdad. Arrastra
+      sobre la de abajo como harías sobre tu escritorio.
+    </p>
+
+    <div class="pestanas" role="tablist">
+      <button class="pestana" role="tab" aria-selected="true" data-panel="p-sel">1 · Seleccionar</button>
+      <button class="pestana" role="tab" aria-selected="false" data-panel="p-edi">2 · Editor</button>
+      <button class="pestana" role="tab" aria-selected="false" data-panel="p-set">3 · Ajustes</button>
+    </div>
+
+    <div class="marco" id="p-sel">
+      <div class="barra-falsa"><span class="semaforo"><i></i><i></i><i></i></span> tu escritorio, congelado al pulsar Ctrl + Shift + S</div>
+      <div class="lienzo-caja" id="caja">
+        <canvas id="escritorio"></canvas>
+        <div class="velo" id="velo"></div>
+        <div class="seleccion" id="sel"><i class="ne"></i><i class="no"></i><i class="se"></i><i class="so"></i></div>
+        <div class="medida" id="medida">0 × 0</div>
+        <div class="lupa" id="lupa"><canvas id="zoom" width="116" height="116"></canvas><div class="hex" id="hex">#000000</div></div>
+        <div class="herramientas" id="herramientas">
+          <button title="Copiar al portapapeles" data-accion="Copiada al portapapeles"><svg><use href="#i-copiar"/></svg></button>
+          <button title="Guardar como PNG" data-accion="Guardada en Pictures\winshotx"><svg><use href="#i-guardar"/></svg></button>
+          <button title="Abrir en el editor" data-accion="Abriendo el editor"><svg><use href="#i-editar"/></svg></button>
+          <button title="Grabar un GIF" data-accion="Grabando un GIF de esa región"><svg><use href="#i-gif"/></svg></button>
+          <button title="Grabar vídeo" data-accion="Grabando vídeo de esa región"><svg><use href="#i-video"/></svg></button>
+          <button class="mata" title="Cancelar" data-accion="cancelar"><svg><use href="#i-cerrar"/></svg></button>
+        </div>
+        <div class="pista" id="pista"><b>Arrastra para recortar</b>la lupa te canta el color exacto del píxel</div>
+      </div>
+    </div>
+    <p class="aviso" id="aviso"><svg width="16" height="16"><use href="#i-visto"/></svg><span></span></p>
+
+    <div class="marco" id="p-edi" hidden>
+      <div class="barra-falsa"><span class="semaforo"><i></i><i></i><i></i></span> winshotx · editor</div>
+      <div class="editor">
+        <div class="lienzo-editor"><canvas id="lienzo-editor"></canvas></div>
+        <div class="tira" id="tira"></div>
+        <div class="mandos">
+          <button id="reproducir" class="azul">▶ Reproducir</button>
+          <button data-marca="in">Marcar A</button>
+          <button data-marca="out">Marcar B</button>
+          <span id="estado-editor"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="marco" id="p-set" hidden>
+      <div class="barra-falsa"><span class="semaforo"><i></i><i></i><i></i></span> winshotx · ajustes</div>
+      <div class="ajustes">
+        <div>
+          <div class="grupo">
+            <h4>Atajos globales</h4>
+            <div class="tarjeta">
+              <div class="fila"><span class="txt">Capturar región</span>
+                <span class="llave"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span></div>
+              <div class="fila"><span class="txt">Grabar región<small>púlsalo otra vez para terminar</small></span>
+                <span class="llave"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></span></div>
+            </div>
+          </div>
+          <div class="grupo">
+            <h4>Captura</h4>
+            <div class="tarjeta">
+              <div class="fila"><span class="txt">Copiar al portapapeles<small>al guardar, deja además la imagen lista para pegar</small></span><button class="palanca" data-on="1"></button></div>
+              <div class="fila"><span class="txt">Incluir el cursor</span><button class="palanca" data-on="1"></button></div>
+              <div class="fila"><span class="txt">Lupa de píxel<small>zoom 6× con el color exacto bajo el cursor</small></span><button class="palanca" data-on="1"></button></div>
+              <div class="fila"><span class="txt">Sonido de obturador</span><button class="palanca" data-on="0"></button></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="grupo">
+            <h4>Grabación</h4>
+            <div class="tarjeta">
+              <div class="fila"><span class="txt">Fotogramas por segundo</span>
+                <span class="llave"><kbd>15</kbd><kbd class="viva">30</kbd><kbd>60</kbd></span></div>
+              <div class="fila"><span class="txt">Abrir el editor al terminar</span><button class="palanca" data-on="1"></button></div>
+            </div>
+          </div>
+          <div class="grupo">
+            <h4>Archivos</h4>
+            <div class="tarjeta">
+              <div class="fila"><span class="txt">Carpeta de destino<small>Pictures\winshotx</small></span></div>
+              <div class="fila"><span class="txt">Caché de grabaciones<small>vacía</small></span></div>
+            </div>
+          </div>
+          <div class="grupo">
+            <h4>Sistema</h4>
+            <div class="tarjeta">
+              <div class="fila"><span class="txt">Actualizaciones<small>estás en la última versión</small></span></div>
+              <div class="fila"><span class="txt">Arrancar con Windows<small>se abre en la bandeja, sin ventana</small></span><button class="palanca" data-on="0"></button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="que-hace">
+  <div class="env">
+    <p class="titulillo">Qué hace</p>
+    <h2>Lo que necesitas y nada más</h2>
+    <div class="rejilla">
+      <div class="caja"><div class="ico"><svg><use href="#i-rayo"/></svg></div>
+        <h3>Se abre al instante</h3>
+        <p>Pulsas el atajo y la selección ya está ahí, en 28 milisegundos. Ni pantalla de carga ni
+           un segundo entero mirando el escritorio quieto.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-caja"/></svg></div>
+        <h3>Ocupa lo que un icono</h3>
+        <p>33 MB de memoria mientras capturas y 2,2 MB de instalador. La app que trae Windows gasta
+           ocho veces más para hacer menos cosas.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-lupa"/></svg></div>
+        <h3>Lupa de píxel exacta</h3>
+        <p>Zoom 6× con el color en hexadecimal bajo el cursor, y las ventanas se resaltan solas: un
+           clic y tienes la ventana entera, sin ajustar bordes.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-video"/></svg></div>
+        <h3>GIF y vídeo, no solo fotos</h3>
+        <p>Graba la región a 15, 30 o 60 fotogramas y exporta a GIF o MP4. Sin FFmpeg empaquetado:
+           el vídeo lo escribe Windows por hardware.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-pluma"/></svg></div>
+        <h3>Editor fotograma a fotograma</h3>
+        <p>Recorta el principio y el final con dos marcas, mira el bucle, cambia el tamaño y la
+           calidad, y exporta. Todo en la misma ventana.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-candado"/></svg></div>
+        <h3>No sale de tu máquina</h3>
+        <p>Sin cuenta, sin telemetría y sin subidas. El código está abierto y el instalador ni
+           siquiera pide permisos de administrador.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="atajos">
+  <div class="env">
+    <p class="titulillo">Atajos</p>
+    <h2>Sin tocar el ratón</h2>
+    <p class="entradilla">Los dos atajos globales se cambian desde los ajustes: pulsas el campo y
+      tecleas la combinación que quieras.</p>
+    <table>
+      <thead><tr><th>Teclas</th><th>Qué hace</th></tr></thead>
+      <tbody class="llave-tabla">
+        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></td><td>Capturar una región</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></td><td>Grabar una región, y pararla</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>Copiar la selección al portapapeles</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>S</kbd></td><td>Guardarla como PNG</td></tr>
+        <tr><td><kbd>E</kbd></td><td>Abrirla en el editor</td></tr>
+        <tr><td><kbd>G</kbd><kbd>V</kbd></td><td>Grabar la selección como GIF o como vídeo</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>A</kbd></td><td>Seleccionar el monitor entero</td></tr>
+        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td>Mover la selección; con Shift va de 10 en 10 y con Alt la redimensiona</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Cancelar</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="env centrado">
+    <p class="titulillo">Instalar</p>
+    <h2>Dos clics y ya está</h2>
+    <p class="entradilla">
+      El instalador va a tu usuario y no al sistema, así que Windows no te pide permisos de
+      administrador. Desde dentro de la app se actualiza sola con un botón, y cada descarga viene
+      firmada y se comprueba antes de instalarse.
+    </p>
+    <div class="botones">
+      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Descargar winshotx</a>
+      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx">Ver el código</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="env">
+    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
+    <span>Hecho por <a href="https://github.com/Mun1to">Munir Torres</a> · sin cuentas, sin nube y sin sorpresas</span>
+  </div>
+</footer>
+
+<script src="demo.js"></script>
+</body>
+</html>
