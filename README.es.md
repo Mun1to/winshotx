@@ -165,12 +165,12 @@ cd src-tauri
 cargo test
 ```
 
-La página de presentación está en [`frontlaxweb/`](frontlaxweb) y GitHub Pages la publica en cada
-push. La copia inglesa de `/en/` se genera desde la española, y el workflow no despliega si está
-desfasada:
+La página está en [`frontlaxweb/`](frontlaxweb) y la sirve Cloudflare Pages. Cada push pasa las
+comprobaciones y solo entonces despliega, así que el inglés, las huellas de los archivos y el
+sitemap tienen que cuadrar primero:
 
 ```bash
-node frontlaxweb/generar-en.mjs      # rehace frontlaxweb/en/index.html
+node frontlaxweb/generar-en.mjs      # rehace /en/, el bloque de preguntas y las huellas
 python frontlaxweb/generar-social.py # rehace las dos tarjetas de 1200x630
 ```
 

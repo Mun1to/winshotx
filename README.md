@@ -164,12 +164,12 @@ cd src-tauri
 cargo test
 ```
 
-The landing page lives in [`frontlaxweb/`](frontlaxweb) and GitHub Pages serves it on every push.
-The English copy at `/en/` is generated from the Spanish one, and the workflow refuses to deploy if
-it is out of date:
+The site lives in [`frontlaxweb/`](frontlaxweb) and Cloudflare Pages serves it. Every push runs
+the checks and then deploys, so the English pages, the asset hashes and the sitemap all have to
+agree first:
 
 ```bash
-node frontlaxweb/generar-en.mjs      # rebuild frontlaxweb/en/index.html
+node frontlaxweb/generar-en.mjs      # rebuild /en/, the FAQ schema and the asset hashes
 python frontlaxweb/generar-social.py # rebuild both 1200x630 cards
 ```
 

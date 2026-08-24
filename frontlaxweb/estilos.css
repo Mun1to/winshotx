@@ -1,8 +1,13 @@
 :root {
-  --azul: #0a9bff;          /* el azul de la marca */
+  --azul: #0a9bff;          /* el azul de la marca, para texto y acentos sobre el fondo */
   --azul-claro: #4fb8ff;
+  /* El de marca con texto blanco encima da 2,94 de contraste y hace falta 4,5. Este es el
+     mismo tono un par de pasos mas oscuro y da 4,66, asi que los rellenos con texto blanco
+     usan este y la marca se queda intacta donde de verdad se ve: titulos, cifras y enlaces. */
+  --azul-boton: #0077cc;
   --app-azul: #3b82f6;      /* el que usa la app por dentro, blue-500 */
   --app-azul-claro: #60a5fa;
+  --app-azul-fuerte: #2563eb; /* blue-600: el mismo azul de la app, legible en un boton */
   --fondo: #0b0b0d;
   --panel: #141418;
   --borde: #ffffff14;
@@ -173,8 +178,13 @@ h1 em { font-style: normal; color: var(--azul); }
   font-weight: 600; font-size: 15px; border: 1px solid transparent;
   transition: background .16s, transform .16s;
 }
-.btn.primario { background: var(--azul); color: #fff; box-shadow: 0 8px 30px #0a9bff40; }
-.btn.primario:hover { background: #29a9ff; text-decoration: none; transform: translateY(-1px); }
+.btn.primario { background: var(--azul-boton); color: #fff; box-shadow: 0 8px 30px #0a9bff40; }
+/* En fondo oscuro lo natural seria aclarar al pasar por encima, pero eso tumba el
+   contraste del texto blanco. Se oscurece y el movimiento lo marca la sombra. */
+.btn.primario:hover {
+  background: #0072c4; text-decoration: none; transform: translateY(-1px);
+  box-shadow: 0 10px 34px #0a9bff59;
+}
 .btn.fantasma { border-color: var(--borde); color: var(--texto); background: #ffffff08; }
 .btn.fantasma:hover { background: #ffffff12; text-decoration: none; }
 .letra-chica { margin-top: 14px; font-size: 13px; color: var(--apagado); }
@@ -224,7 +234,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .pestana svg { width: 15px; height: 15px; opacity: .85; }
 .pestana:hover { color: var(--texto); }
 .pestana[aria-selected="true"] {
-  background: var(--azul); color: #fff; box-shadow: 0 4px 14px #0a9bff40;
+  background: var(--azul-boton); color: #fff; box-shadow: 0 4px 14px #0a9bff40;
 }
 .pestana[aria-selected="true"] svg { opacity: 1; }
 @media (max-width: 520px) { .pestana { padding: 8px 10px; font-size: 12.5px; } }
@@ -433,8 +443,8 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-size: 14px;
   transition: background .12s, color .12s;
 }
-.edi-acciones .azul { flex: 1; background: var(--app-azul); color: #fff; font-weight: 600; }
-.edi-acciones .azul:hover { background: var(--app-azul-claro); }
+.edi-acciones .azul { flex: 1; background: var(--app-azul-fuerte); color: #fff; font-weight: 600; }
+.edi-acciones .azul:hover { background: #1d4ed8; }
 .edi-acciones .hueco { padding: 0 12px; border-color: #ffffff1a; background: transparent; color: #d4d4d4; }
 .edi-acciones .hueco:hover { background: #ffffff1a; color: #fff; }
 .edi-acciones svg { width: 16px; height: 16px; }
