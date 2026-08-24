@@ -42,8 +42,8 @@ hardware, and GIF from a hand written encoder in pure Rust. Nothing is downloade
 
 ## Links
 
-- [Home page](https://mun1to.github.io/winshotx/): Spanish, with an interactive demo of the app.
-- [Home page in English](https://mun1to.github.io/winshotx/en/): same page, English.
+- [Home page](https://winshotx.com/): Spanish, with an interactive demo of the app.
+- [Home page in English](https://winshotx.com/en/): same page, English.
 - [Source code](https://github.com/Mun1to/winshotx): GitHub repository, MIT licence.
 - [Download](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe): the installer, always the latest release.
 - [Releases](https://github.com/Mun1to/winshotx/releases): version history.

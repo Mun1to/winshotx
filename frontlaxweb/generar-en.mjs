@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
-const BASE = "https://mun1to.github.io/winshotx/";
+const BASE = "https://winshotx.com/";
 
 /** Los data-en llevan las marcas escapadas: aquí se devuelven a su forma. */
 const desescapar = (t) =>

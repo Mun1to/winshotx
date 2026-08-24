@@ -15,7 +15,7 @@
 
 **[⬇ Descargar para Windows](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)**
 &nbsp;·&nbsp;
-**[▶ Probarla en el navegador](https://mun1to.github.io/winshotx/)**
+**[▶ Probarla en el navegador](https://winshotx.com/)**
 &nbsp;·&nbsp;
 [Comparar con la Herramienta de Recortes](#herramienta-de-recortes-contra-winshotx)
 
@@ -60,7 +60,7 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
 
 Mismo equipo con Windows 11, tres pasadas cada una y las dos arrancando desde cero. El cronómetro
 para cuando la selección ya se ve en pantalla. La
-[tabla entera](https://mun1to.github.io/winshotx/#frente-a-frente) tiene las diecinueve filas,
+[tabla entera](https://winshotx.com/#frente-a-frente) tiene las diecinueve filas,
 incluidas las seis que gana la de Windows.
 
 | | winshotx | Herramienta de Recortes |

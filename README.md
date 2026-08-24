@@ -15,7 +15,7 @@
 
 **[⬇ Download for Windows](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)**
 &nbsp;·&nbsp;
-**[▶ Try it in your browser](https://mun1to.github.io/winshotx/en/)**
+**[▶ Try it in your browser](https://winshotx.com/en/)**
 &nbsp;·&nbsp;
 [Compare with the Snipping Tool](#snipping-tool-against-winshotx)
 
@@ -29,7 +29,7 @@ magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It ope
 no bundled FFmpeg.
 
 > The interface is in Spanish, and so are the identifiers and comments in the source. The commits,
-> this page and the [home page](https://mun1to.github.io/winshotx/en/) are in English.
+> this page and the [home page](https://winshotx.com/en/) are in English.
 
 ## Install
 
@@ -59,7 +59,7 @@ signature is checked before anything is installed, so a tampered file is rejecte
 ## Snipping Tool against winshotx
 
 Same machine with Windows 11, three runs each, both starting from cold. The clock stops when the
-selection is actually on screen. The [full table](https://mun1to.github.io/winshotx/en/#frente-a-frente)
+selection is actually on screen. The [full table](https://winshotx.com/en/#frente-a-frente)
 has the nineteen rows, including the six the Snipping Tool wins.
 
 | | winshotx | Snipping Tool |

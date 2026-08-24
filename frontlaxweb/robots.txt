@@ -1,4 +1,4 @@
-# winshotx · https://mun1to.github.io/winshotx/
+# winshotx · https://winshotx.com/
 # Todo abierto, también para los rastreadores que alimentan a los asistentes.
 User-agent: *
 Allow: /
@@ -30,4 +30,4 @@ Allow: /
 User-agent: CCBot
 Allow: /
 
-Sitemap: https://mun1to.github.io/winshotx/sitemap.xml
+Sitemap: https://winshotx.com/sitemap.xml

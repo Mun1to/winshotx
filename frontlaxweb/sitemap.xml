@@ -2,21 +2,21 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://mun1to.github.io/winshotx/</loc>
+    <loc>https://winshotx.com/</loc>
     <lastmod>2026-08-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="es" href="https://mun1to.github.io/winshotx/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://mun1to.github.io/winshotx/en/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://mun1to.github.io/winshotx/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/"/>
   </url>
   <url>
-    <loc>https://mun1to.github.io/winshotx/en/</loc>
+    <loc>https://winshotx.com/en/</loc>
     <lastmod>2026-08-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="es" href="https://mun1to.github.io/winshotx/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://mun1to.github.io/winshotx/en/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://mun1to.github.io/winshotx/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/"/>
   </url>
 </urlset>
