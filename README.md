@@ -7,8 +7,9 @@
 # winshotx
 
 **Crop the screen before you blink.**
-Screenshots and GIF/MP4 screen recording for Windows: 2 MB, no account, no cloud,
-no bundled binaries.
+A free, open source **Snipping Tool alternative for Windows**: region screenshots, **GIF and MP4
+screen recording** and a frame by frame editor, in a 2.2 MB installer with no account, no cloud
+and no bundled binaries.
 
 [![MIT license](https://img.shields.io/badge/license-MIT-0a9bff)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#status)
@@ -36,12 +37,29 @@ selection is actually on screen.
 | Records GIF and MP4 | yes | no |
 | Frame by frame editor | yes | no |
 
-There is a landing page with an interactive demo of the app in
-[`frontlaxweb/`](frontlaxweb/index.html): open it in a browser and drag on the fake desktop.
+**[Try it in your browser](https://mun1to.github.io/winshotx/en/)** without installing anything:
+the page rebuilds the selection overlay, the editor and the settings panel from this same code,
+and you can drag on a fake desktop to crop.
 
 > **The interface is in Spanish**, and so are the identifiers, comments and test names in the
 > source. The commits and this page are in English. Translating the app is not planned; open an
 > issue if you want it.
+
+## Is this what you were looking for?
+
+- **"I want a Snipping Tool alternative for Windows."** This is it, and it is 33 times faster to
+  open. The Snipping Tool still wins at annotating, text recognition and system audio, and the
+  comparison above says so.
+- **"How do I record a GIF of my screen on Windows?"** Press `Ctrl+Shift+5`, drag over the area,
+  press it again to stop, and export to GIF from the editor. No FFmpeg to install.
+- **"I need a lightweight screen recorder that does not eat my RAM."** 33 MB while capturing,
+  31 MB waiting in the tray.
+- **"Something like ShareX or CleanShot X, but simpler."** The same global shortcuts and the same
+  frozen-screen overlay, without the hundreds of settings.
+- **"I want to pick a colour off the screen."** The magnifier gives you the hex code of the pixel
+  under the cursor at 6x zoom.
+- **"Does it upload my screenshots anywhere?"** No. There is no account, no telemetry and no
+  network calls other than checking for updates on GitHub.
 
 ## What it does
 

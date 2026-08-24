@@ -7,8 +7,9 @@
 # winshotx
 
 **Recorta la pantalla antes de que parpadees.**
-Captura y grabación de GIF/MP4 para Windows: 2 MB, sin cuenta, sin nube y sin binarios
-externos.
+Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región,
+**grabación en GIF y MP4** y editor fotograma a fotograma, en un instalador de 2,2 MB sin
+cuenta, sin nube y sin binarios externos.
 
 [![Licencia MIT](https://img.shields.io/badge/licencia-MIT-0a9bff)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#estado)
@@ -36,9 +37,25 @@ cronómetro para cuando la selección ya se ve en pantalla.
 | Graba GIF y MP4 | sí | no |
 | Editor fotograma a fotograma | sí | no |
 
-Hay una página de presentación con una demo interactiva de la app en
-[`frontlaxweb/`](frontlaxweb/index.html): ábrela en el navegador y arrastra sobre el escritorio
-de mentira.
+**[Pruébala en el navegador](https://mun1to.github.io/winshotx/)** sin instalar nada: la página
+rehace el overlay de selección, el editor y el panel de ajustes desde este mismo código, y
+puedes arrastrar sobre un escritorio de mentira para recortar.
+
+## ¿Es esto lo que buscabas?
+
+- **"Quiero algo mejor que la Herramienta de Recortes."** Es esto, y se abre 33 veces antes. La
+  de Windows sigue ganando en anotar, en leer el texto de la imagen y en el audio del sistema, y
+  la tabla de arriba lo dice.
+- **"¿Cómo grabo un GIF de la pantalla en Windows?"** Pulsa `Ctrl+Shift+5`, arrastra sobre la
+  zona, púlsalo otra vez para parar y exporta a GIF desde el editor. Sin instalar FFmpeg.
+- **"Necesito un grabador de pantalla ligero."** 33 MB mientras captura y 31 esperando en la
+  bandeja.
+- **"Algo como ShareX o CleanShot X, pero más simple."** Los mismos atajos globales y el mismo
+  overlay sobre la pantalla congelada, sin cientos de ajustes.
+- **"Quiero sacar un color de la pantalla."** La lupa te da el hexadecimal del píxel bajo el
+  cursor con zoom 6×.
+- **"¿Sube mis capturas a algún sitio?"** No. Ni cuenta, ni telemetría, ni más red que mirar si
+  hay versión nueva en GitHub.
 
 ## Qué hace
 
