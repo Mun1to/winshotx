@@ -99,6 +99,7 @@ incluidas las seis que gana la de Windows.
 | `Ctrl+Shift+2` | Capturar región |
 | `Ctrl+Shift+5` | Grabar región · púlsalo otra vez para terminar |
 | `Impr Pant` | Capturar región · si le quitas la tecla a la Herramienta de Recortes |
+| `Win+Mayús+S` | Lo mismo · la Herramienta de Recortes deja de abrirse |
 | `Enter` | Copiar la selección al portapapeles |
 | `Ctrl+S` | Guardar la selección |
 | `E` | Abrir la selección en el editor |
@@ -113,9 +114,13 @@ fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel y `Esc` cierra
 Los dos atajos globales se cambian desde Ajustes pulsando el campo y tecleando la combinación
 nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
 
-La tecla `Impr Pant` la tiene la Herramienta de Recortes por un valor del registro del usuario, así
-que registrar el atajo por su cuenta parece funcionar y luego no llega ninguna pulsación. El
-interruptor de Ajustes apaga ese valor y coge la tecla, y al desactivarlo lo deja como estaba.
+Windows se guarda dos teclas de captura, y winshotx puede quedarse con las dos. La tecla
+`Impr Pant` la tiene la Herramienta de Recortes por un valor del registro del usuario, así que
+registrar el atajo por su cuenta parece funcionar y luego no llega ninguna pulsación; el
+interruptor de Ajustes apaga ese valor primero. `Win+Mayús+S` no tiene ningún ajuste que la libere,
+así que se coge con un hook de teclado de bajo nivel, que ve la tecla antes que el sistema y se la
+traga. El hook vigila esas dos y tu propio atajo de captura, nada más, y al desactivar el
+interruptor se devuelven las dos tal y como estaban.
 
 ## Dos formas de capturar
 

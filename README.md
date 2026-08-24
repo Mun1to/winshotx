@@ -98,6 +98,7 @@ has the nineteen rows, including the six the Snipping Tool wins.
 | `Ctrl+Shift+2` | Capture a region |
 | `Ctrl+Shift+5` | Record a region · press again to stop |
 | `Print Screen` | Capture a region · once you take the key from the Snipping Tool |
+| `Win+Shift+S` | The same · the Snipping Tool stops opening |
 | `Enter` | Copy the selection to the clipboard |
 | `Ctrl+S` | Save the selection |
 | `E` | Open the selection in the editor |
@@ -112,9 +113,12 @@ frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
 Both global shortcuts can be changed in the settings by clicking the field and typing the new
 combination. If another application already holds it, the field turns red and says so.
 
-`Print Screen` belongs to the Snipping Tool through a per-user registry value, so registering the
-hotkey alone looks like it worked and never fires. The switch in the settings clears that value and
-takes the key, and turning it off puts the value back exactly as it was.
+Windows keeps two capture keys, and winshotx can take both. `Print Screen` belongs to the Snipping
+Tool through a per-user registry value, so registering the hotkey alone looks like it worked and
+never fires; the switch in the settings clears that value first. `Win+Shift+S` has no setting at
+all, so it is caught with a low level keyboard hook, which sees the key before the shell does and
+swallows it. The hook watches those two plus your own capture shortcut, nothing else, and turning
+the switch off gives both keys back exactly as they were.
 
 ## Two ways to capture
 
