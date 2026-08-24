@@ -175,26 +175,26 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             />
             <Row
               icon={<Zap className="size-4" />}
-              label="Usar también Impr Pant"
+              label="Quitarle las teclas a la Herramienta de Recortes"
               hint={
                 imprPant?.enabled
                   ? imprPant.active
-                    ? "se la hemos quitado a la Herramienta de Recortes"
-                    : "Windows no la ha soltado; cierra sesión y vuelve a entrar"
-                  : "ahora abre la Herramienta de Recortes"
+                    ? "Impr Pant es de winshotx · Win+Mayús+S y Win+S, al cerrar sesión"
+                    : "Windows no ha soltado Impr Pant; cierra sesión y vuelve a entrar"
+                  : "Impr Pant y Win+Mayús+S abren la Herramienta de Recortes"
               }
               control={
                 <Switch
                   checked={imprPant?.enabled ?? false}
                   onChange={(v) => void cambiarImprPant(v)}
-                  label="Usar también Impr Pant"
+                  label="Quitarle las teclas a la Herramienta de Recortes"
                 />
               }
             />
             <Row
               icon={<Scissors className="size-4" />}
-              label="Win+Mayús+S"
-              hint="la atiende Windows y no la cede; se quita desinstalando Recortes"
+              label="Quitar la Herramienta de Recortes"
+              hint="se desinstala desde Windows y vuelve desde la Store"
               control={
                 <button
                   type="button"

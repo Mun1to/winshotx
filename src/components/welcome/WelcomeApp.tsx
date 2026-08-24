@@ -457,8 +457,8 @@ function TeclaImprPant({
   return (
     <div>
       <Titulo
-        texto="¿Le quitamos la tecla a la Herramienta de Recortes?"
-        sub="En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo."
+        texto="¿Le quitamos las teclas a la Herramienta de Recortes?"
+        sub="Windows abre su recorte con Impr Pant y con Win + Mayús + S. winshotx puede quedarse con las dos y responder al mismo dedo de siempre, sin aprender ningún atajo nuevo."
       />
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -481,8 +481,8 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-white">winshotx</span>
           </span>
           <span className="mt-2 block text-[12px] text-neutral-400">
-            Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la
-            pasa a winshotx.
+            Apaga los dos ajustes de Windows que le dan esas teclas a la Herramienta de Recortes y
+            se las pasa a winshotx.
           </span>
         </button>
 
@@ -529,17 +529,19 @@ function TeclaImprPant({
       </div>
 
       <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-        <b className="font-medium text-neutral-400">Win + Mayús + S se queda como está.</b> Esa
-        tecla la atiende Windows antes que cualquier programa y no la cede a nadie: ni con un
-        atajo, ni de ninguna otra forma. Si quieres que deje de abrir la Herramienta de Recortes,
-        hay que quitarla desde Windows, y se recupera cuando quieras desde la Microsoft Store.{" "}
+        <b className="font-medium text-amber-300/90">Lo que cuesta Win + Mayús + S:</b> esa tecla
+        la atiende Windows antes que cualquier programa, y la única forma de quitársela es apagar
+        la S en los atajos de la tecla Windows. Eso apaga también <b>Win + S</b>, la búsqueda, y no
+        surte efecto hasta que cierres sesión. Todo vuelve a su sitio al desactivar este
+        interruptor. Si prefieres quitar la Herramienta de Recortes entera,{" "}
         <button
           type="button"
           onClick={() => void openWindowsApps()}
           className="text-blue-400 underline underline-offset-2 hover:text-blue-300"
         >
-          Abrir las aplicaciones de Windows
+          se hace desde aquí
         </button>
+        .
       </p>
     </div>
   );

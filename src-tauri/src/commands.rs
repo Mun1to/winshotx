@@ -331,15 +331,26 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
         // nosotros y machacarlo seria perder el valor original del usuario.
         if !settings.print_screen_capture {
             settings.snipping_key_restore = snipping::read();
+            settings.disabled_hotkeys_restore = snipping::read_disabled_hotkeys();
         }
         snipping::write(0)?;
+
+        // Y la S fuera de los atajos de la tecla Windows, que es lo unico que hace que
+        // Win+Mayus+S deje de abrir la Herramienta de Recortes. Se anade a lo que hubiera
+        // en vez de sustituirlo: quien tuviera otras letras apagadas las conserva.
+        let previas = settings.disabled_hotkeys_restore.clone().unwrap_or_default();
+        if !previas.to_uppercase().contains('S') {
+            snipping::write_disabled_hotkeys(Some(&format!("{previas}S")))?;
+        }
         settings.print_screen_capture = true;
     } else {
-        // Se deja el registro como estaba, incluido el caso de que no hubiera valor.
+        // Se deja todo como estaba, incluido el caso de que no hubiera valor.
         match settings.snipping_key_restore.take() {
             Some(previo) => snipping::write(previo)?,
             None => snipping::remove()?,
         }
+        let previas = settings.disabled_hotkeys_restore.take();
+        snipping::write_disabled_hotkeys(previas.as_deref())?;
         settings.print_screen_capture = false;
     }
 

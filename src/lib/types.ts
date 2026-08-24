@@ -139,6 +139,8 @@ export interface Settings {
   onboarded: boolean;
   /** Interno: lo que valía el ajuste de Windows antes de quitarle la tecla. */
   snippingKeyRestore: number | null;
+  /** Interno: y las letras que el shell tenía apagadas antes de tocar nada. */
+  disabledHotkeysRestore: string | null;
 }
 
 export interface ShortcutStatus {

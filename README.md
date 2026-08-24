@@ -114,10 +114,12 @@ combination. If another application already holds it, the field turns red and sa
 
 `Print Screen` belongs to the Snipping Tool through a per-user registry value, so registering the
 hotkey alone looks like it worked and never fires. The switch in the settings clears that value and
-takes the key, and turning it off puts the value back exactly as it was. `Win+Shift+S` cannot be
-taken: Windows attends that one ahead of any program, hook or hotkey, and does not hand it over. The
-only way to stop it opening the Snipping Tool is uninstalling that app from Settings, which is the
-user's call and never the application's; winshotx just opens that screen for them.
+takes the key, and turning it off puts the value back exactly as it was. `Win+Shift+S` is attended by Windows
+ahead of any program, hook or hotkey. The only thing that takes it away is turning the S off in
+`DisabledHotkeys`, which the same switch does: it costs `Win+S`, the search, it does not apply until
+the user signs out, and switching it off puts everything back as it was. For removing the Snipping
+Tool altogether, the app opens the Windows screen where that is done, and never uninstalls anything
+by itself.
 
 ## Two ways to capture
 

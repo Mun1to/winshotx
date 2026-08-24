@@ -48,6 +48,9 @@ pub struct Settings {
     /// tecla a la Herramienta de Recortes. Al desactivarlo se devuelve tal cual: la
     /// maquina tiene que quedarse como estaba, no como nos venga bien.
     pub snipping_key_restore: Option<u32>,
+    /// Y lo que valia la lista de atajos de la tecla Windows. Misma idea: se guarda lo que
+    /// hubiera para devolverlo tal cual, sin pisar las letras que apagara el usuario.
+    pub disabled_hotkeys_restore: Option<String>,
 }
 
 impl Default for Settings {
@@ -68,6 +71,7 @@ impl Default for Settings {
             print_screen_capture: false,
             onboarded: false,
             snipping_key_restore: None,
+            disabled_hotkeys_restore: None,
         }
     }
 }

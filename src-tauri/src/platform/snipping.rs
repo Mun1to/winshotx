@@ -16,6 +16,20 @@ const KEY_PATH: &str = r"Control Panel\Keyboard";
 #[cfg(windows)]
 const VALUE_NAME: &str = "PrintScreenKeyForSnippingEnabled";
 
+/// Y aqui vive la lista de letras que el shell deja de atender junto a la tecla Windows.
+///
+/// Es lo unico que existe para que `Win+Mayus+S` deje de abrir la Herramienta de Recortes:
+/// no valen ni un hook de teclado, ni una politica del sistema, ni redirigir el protocolo,
+/// porque el shell atiende esa tecla antes que cualquier programa. Con la letra apuntada
+/// aqui deja de atenderla y la tecla queda libre.
+///
+/// El precio hay que decirlo en la interfaz: la misma letra apaga tambien `Win+S`, que es
+/// la busqueda de Windows, y nada de esto surte efecto hasta cerrar sesion.
+#[cfg(windows)]
+const HOTKEYS_PATH: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
+#[cfg(windows)]
+const HOTKEYS_VALUE: &str = "DisabledHotkeys";
+
 #[cfg(windows)]
 fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
@@ -132,6 +146,110 @@ pub fn remove() -> Result<()> {
         let _ = RegCloseKey(key);
     }
     Ok(())
+}
+
+/// Las letras que el shell tiene apuntadas ahora mismo, o None si no hay ninguna.
+#[cfg(windows)]
+pub fn read_disabled_hotkeys() -> Option<String> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE,
+        REG_VALUE_TYPE,
+    };
+
+    let path = wide(HOTKEYS_PATH);
+    let name = wide(HOTKEYS_VALUE);
+    unsafe {
+        let mut key = HKEY::default();
+        if RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(path.as_ptr()),
+            Some(0),
+            KEY_QUERY_VALUE,
+            &mut key,
+        )
+        .is_err()
+        {
+            return None;
+        }
+
+        let mut kind = REG_VALUE_TYPE::default();
+        let mut datos = [0u16; 128];
+        let mut size = (datos.len() * 2) as u32;
+        let status = RegQueryValueExW(
+            key,
+            PCWSTR(name.as_ptr()),
+            None,
+            Some(&mut kind),
+            Some(datos.as_mut_ptr().cast::<u8>()),
+            Some(&mut size),
+        );
+        let _ = RegCloseKey(key);
+        if status.is_err() {
+            return None;
+        }
+        // El tamano viene en bytes e incluye el cero final del texto.
+        let largo = (size as usize / 2).saturating_sub(1);
+        Some(String::from_utf16_lossy(&datos[..largo]))
+    }
+}
+
+/// Escribe la lista de letras, o borra el valor entero cuando ya no queda ninguna.
+#[cfg(windows)]
+pub fn write_disabled_hotkeys(letras: Option<&str>) -> Result<()> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegDeleteValueW, RegOpenKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER,
+        KEY_SET_VALUE, REG_SZ,
+    };
+
+    let path = wide(HOTKEYS_PATH);
+    let name = wide(HOTKEYS_VALUE);
+    unsafe {
+        let mut key = HKEY::default();
+        if RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR(path.as_ptr()),
+            Some(0),
+            KEY_SET_VALUE,
+            &mut key,
+        )
+        .is_err()
+        {
+            return Err(AppError::Msg(
+                "no se ha podido abrir la configuración de atajos de Windows".into(),
+            ));
+        }
+        let resultado = match letras.filter(|l| !l.is_empty()) {
+            Some(letras) => {
+                let datos = wide(letras);
+                let bytes =
+                    std::slice::from_raw_parts(datos.as_ptr().cast::<u8>(), datos.len() * 2);
+                RegSetValueExW(key, PCWSTR(name.as_ptr()), None, REG_SZ, Some(bytes))
+            }
+            None => {
+                let _ = RegDeleteValueW(key, PCWSTR(name.as_ptr()));
+                windows::Win32::Foundation::WIN32_ERROR(0)
+            }
+        };
+        let _ = RegCloseKey(key);
+        if resultado.is_err() {
+            return Err(AppError::Msg(
+                "no se han podido cambiar los atajos de Windows".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn read_disabled_hotkeys() -> Option<String> {
+    None
+}
+
+#[cfg(not(windows))]
+pub fn write_disabled_hotkeys(_letras: Option<&str>) -> crate::error::Result<()> {
+    Err(crate::error::AppError::Unsupported)
 }
 
 #[cfg(not(windows))]

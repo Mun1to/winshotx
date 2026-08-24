@@ -116,10 +116,11 @@ nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
 La tecla `Impr Pant` la tiene la Herramienta de Recortes por un valor del registro del usuario, así
 que registrar el atajo por su cuenta parece funcionar y luego no llega ninguna pulsación. El
 interruptor de Ajustes apaga ese valor y coge la tecla, y al desactivarlo lo deja como estaba.
-`Win+Mayús+S` no se puede coger: esa la atiende Windows por delante de cualquier programa, hook o
-atajo, y no la cede. La única forma de que deje de abrir la Herramienta de Recortes es desinstalarla
-desde Configuración, cosa que hace el usuario y no la aplicación; winshotx solo le abre esa
-pantalla.
+`Win+Mayús+S` la atiende Windows por delante de cualquier programa, hook o atajo. Lo único que se la
+quita es apagar la S en `DisabledHotkeys`, y eso hace el mismo interruptor: cuesta perder `Win+S`, la
+búsqueda, no surte efecto hasta cerrar sesión, y al desactivarlo se devuelve todo tal cual. Si se
+prefiere quitar la Herramienta de Recortes entera, la app abre la pantalla de Windows donde se
+desinstala, pero nunca desinstala nada por su cuenta.
 
 ## Dos formas de capturar
 
