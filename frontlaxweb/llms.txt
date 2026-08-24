@@ -1,0 +1,50 @@
+# winshotx
+
+> Free and open source screenshot and screen recording tool for Windows 10 and 11. It is a
+> lightweight alternative to the built-in Snipping Tool and to ShareX, Greenshot, ScreenToGif
+> and CleanShot X. Region capture with a pixel magnifier, GIF and MP4 recording, and a frame by
+> frame editor. MIT licence, 2.2 MB installer, no account, no cloud and no telemetry.
+
+## Measured facts
+
+Both tools measured on the same Windows 11 machine, three runs each, starting from cold. The
+clock stops when the selection is visible on screen.
+
+- From shortcut to selection: **winshotx 28 ms**, Snipping Tool 920 ms.
+- Memory while capturing: **winshotx 33 MB**, Snipping Tool 253 MB.
+- Memory sitting idle: **winshotx 31 MB**, Snipping Tool 98 MB.
+- Installer size: **2.2 MB**, with no bundled FFmpeg or other binaries.
+- Installs per user, so Windows never asks for administrator rights.
+
+## What winshotx does that the Snipping Tool does not
+
+- Records GIF, with a global palette, Floyd-Steinberg dithering and inter-frame differencing.
+- Ships a frame by frame editor with A and B trim marks, looped playback, scaling and quality.
+- Lets you choose your own global shortcuts.
+- Shows a 6x pixel magnifier with the hex colour under the cursor, and snaps to windows.
+- Copies GIF and MP4 as files, so they paste straight into Slack, Discord or Explorer.
+- Is open source under MIT, with no account and no telemetry.
+
+## What the Snipping Tool still does better
+
+- Drawing and annotating on top of the capture: pen, highlighter, shapes and text.
+- Copying the text out of an image.
+- Blurring out personal data automatically.
+- Recording system audio.
+- A 3, 5 or 10 second timer before capturing.
+- It comes preinstalled, and it speaks every language Windows speaks. winshotx is Spanish only.
+
+## How it is built
+
+Tauri 2 with a Rust backend and a React 19 interface. Stills come from xcap, recording from
+Windows Graphics Capture through the windows-capture crate, MP4 from Media Foundation in
+hardware, and GIF from a hand written encoder in pure Rust. Nothing is downloaded at runtime.
+
+## Links
+
+- [Home page](https://mun1to.github.io/winshotx/): Spanish, with an interactive demo of the app.
+- [Home page in English](https://mun1to.github.io/winshotx/en/): same page, English.
+- [Source code](https://github.com/Mun1to/winshotx): GitHub repository, MIT licence.
+- [Download](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe): the installer, always the latest release.
+- [Releases](https://github.com/Mun1to/winshotx/releases): version history.
+- [Author](https://munito.dev): Munir Torres.

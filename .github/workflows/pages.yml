@@ -1,0 +1,39 @@
+name: Publicar la web
+
+# La landing vive en frontlaxweb/ y se publica en GitHub Pages tal cual, sin compilar nada.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontlaxweb/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Comprobar que el ingles esta al dia
+        run: |
+          node frontlaxweb/generar-en.mjs
+          git diff --exit-code frontlaxweb/en/index.html \
+            || (echo "::error::frontlaxweb/en/index.html no coincide con index.html; corre node frontlaxweb/generar-en.mjs y commitea" && exit 1)
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontlaxweb
+      - id: despliegue
+        uses: actions/deploy-pages@v4

@@ -40,35 +40,9 @@ const FRASES = {
   bloqueada: ["Proporción bloqueada", "Aspect ratio locked"],
   libre: ["Proporción libre", "Aspect ratio free"],
 };
-let idioma = "es";
+/* Cada idioma tiene su propia URL, así que aquí solo hay que leer cuál es esta página. */
+const idioma = document.documentElement.lang === "en" ? "en" : "es";
 const frase = (clave) => FRASES[clave][idioma === "en" ? 1 : 0];
-
-function traducir(lang) {
-  idioma = lang;
-  document.documentElement.lang = lang;
-  document.querySelectorAll("[data-en]").forEach((el) => {
-    const conMarcas = el.hasAttribute("data-html");
-    if (el.dataset.es === undefined) el.dataset.es = conMarcas ? el.innerHTML : el.textContent;
-    const valor = lang === "en" ? el.dataset.en : el.dataset.es;
-    if (conMarcas) el.innerHTML = valor;
-    else el.textContent = valor;
-  });
-  document.querySelectorAll("[data-titulo-en]").forEach((el) => {
-    if (el.dataset.tituloEs === undefined) el.dataset.tituloEs = el.title;
-    el.title = lang === "en" ? el.dataset.tituloEn : el.dataset.tituloEs;
-  });
-  document.getElementById("idioma-texto").textContent = lang === "en" ? "Español" : "English";
-  try {
-    localStorage.setItem("winshotx-idioma", lang);
-  } catch {
-    // ventana privada o almacenamiento bloqueado: el idioma dura lo que la visita
-  }
-  if (typeof refrescarEditor === "function") refrescarEditor();
-}
-
-document.getElementById("idioma").addEventListener("click", () => {
-  traducir(idioma === "en" ? "es" : "en");
-});
 
 /* ---------------------------------------------------------------- pestañas */
 document.querySelectorAll(".pestana").forEach((boton) => {
@@ -583,12 +557,3 @@ document.getElementById("porcientos").addEventListener("click", (e) => {
 });
 
 refrescarEditor();
-
-/* Y por último, el idioma que dejó elegido la última visita. */
-let guardado = "es";
-try {
-  guardado = localStorage.getItem("winshotx-idioma") || "es";
-} catch {
-  // sin almacenamiento, se queda en español
-}
-traducir(guardado);
