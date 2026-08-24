@@ -72,13 +72,16 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
 
 /* Solo el logo, en un circulo del mismo alto y el mismo borde que el boton de idioma,
    para que la esquina derecha de la barra sea una pieza y no dos cosas distintas. */
+/* 41.6 px es lo que mide el boton de idioma de al lado: 13.5 px de letra por el 1.6 de
+   interlineado del body, mas 9 de relleno arriba y abajo, mas los dos bordes. Se le da
+   ese tamano exacto para que los dos circulos de la esquina sean del mismo alto. */
 .gh {
-  display: grid; place-items: center; width: 36px; height: 36px;
+  display: grid; place-items: center; width: 41.6px; height: 41.6px;
   border-radius: 999px; border: 1px solid #ffffff1a; background: #ffffff0d;
-  color: var(--suave); transition: background .14s, border-color .14s, color .14s;
+  color: var(--texto); transition: background .14s, border-color .14s, color .14s;
 }
-.gh:hover { background: #ffffff1f; border-color: #ffffff33; color: var(--texto); }
-.gh-marca { width: 17px; height: 17px; }
+.gh:hover { background: #ffffff1f; border-color: #ffffff33; }
+.gh-marca { width: 22px; height: 22px; }
 @media (max-width: 900px) {
   nav .env { grid-template-columns: 1fr auto; padding-right: 10px; }
   nav .enlaces { display: none; }
