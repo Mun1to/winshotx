@@ -80,7 +80,7 @@
       "name": "Can I capture with the Print Screen key?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes, and Win+Shift+S too. In Ajustes → Atajos globales a switch takes both keys from the Snipping Tool, and the app asks the first time you open it. Impr Pant is freed by turning off a Windows setting; Win+Shift+S has no such setting, so winshotx catches it with a low level keyboard hook, which sees the key before the shell does. Turning the switch off gives both back exactly as they were."
+        "text": "Yes. In Ajustes → Atajos globales a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is."
       }
     },
     {
@@ -252,8 +252,7 @@
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></th><td>Record a region, press again to stop</td></tr>
         <tr>
           <th scope="row"><kbd>Impr Pant</kbd></th><td>Capture a region, if you took the key from the Snipping Tool</td></tr>
-        <tr>
-          <th scope="row"><kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd></th><td>The same, and the Snipping Tool no longer opens</td></tr>
+
         <tr>
           <th scope="row"><kbd>Enter</kbd></th><td>Copy the selection to the clipboard</td></tr>
         <tr>
@@ -276,7 +275,7 @@
   <section id="ajustes">
     <h2>Settings</h2>
     <p>Right click the tray icon and choose <b>Ajustes</b>. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
-    <p>Under them there is a switch that hands both Windows capture keys over from the Snipping Tool, and it says key by key which ones actually came across.</p>
+    <p>Under them there is a switch that hands the <kbd>Impr Pant</kbd> key over from the Snipping Tool, and it says whether Windows actually let go of it.</p>
     <p>The rest is short on purpose: what happens when you let go of the mouse, whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.</p>
     <p><a href="../#demo">You can click through all of it in the demo on the home page, without installing anything.</a></p>
   </section>
@@ -297,7 +296,7 @@
     <p>Yes, in <b>Ajustes</b>. Click the field and press the combination you want.</p>
 
     <h3>Can I capture with the Print Screen key?</h3>
-    <p>Yes, and Win+Shift+S too. In <b>Ajustes → Atajos globales</b> a switch takes both keys from the Snipping Tool, and the app asks the first time you open it. Impr Pant is freed by turning off a Windows setting; Win+Shift+S has no such setting, so winshotx catches it with a low level keyboard hook, which sees the key before the shell does. Turning the switch off gives both back exactly as they were.</p>
+    <p>Yes. In <b>Ajustes → Atajos globales</b> a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is.</p>
 
     <h3>How do I paste a GIF into Slack or Discord?</h3>
     <p>Use <b>Copiar</b> in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.</p>

@@ -80,7 +80,7 @@
       "name": "¿Puedo capturar con la tecla Impr Pant?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Sí, y Win + Mayús + S también. En Ajustes → Atajos globales hay un interruptor que le quita las dos teclas a la Herramienta de Recortes, y la app lo pregunta la primera vez que la abres. La de Impr Pant se libera apagando un ajuste de Windows; Win + Mayús + S no tiene ningún ajuste que la libere, así que winshotx la coge con un hook de teclado de bajo nivel, que ve la tecla antes que el sistema. Al desactivar el interruptor se devuelven las dos tal y como estaban."
+        "text": "Sí. En Ajustes → Atajos globales hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. Win + Mayús + S es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está."
       }
     },
     {
@@ -282,8 +282,7 @@
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></th><td data-en="Record a region, press again to stop">Grabar una región, púlsalo otra vez para parar</td></tr>
         <tr>
           <th scope="row"><kbd>Impr Pant</kbd></th><td data-en="Capture a region, if you took the key from the Snipping Tool">Capturar una región, si le has quitado la tecla a la Herramienta de Recortes</td></tr>
-        <tr>
-          <th scope="row"><kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd></th><td data-en="The same, and the Snipping Tool no longer opens">Lo mismo, y la Herramienta de Recortes deja de abrirse</td></tr>
+
         <tr>
           <th scope="row"><kbd>Enter</kbd></th><td data-en="Copy the selection to the clipboard">Copiar la selección al portapapeles</td></tr>
         <tr>
@@ -310,8 +309,8 @@
     <p data-en="Right click the tray icon and choose &lt;b&gt;Ajustes&lt;/b&gt;. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.">
       Pincha con el botón derecho en el icono de la bandeja y elige <b>Ajustes</b>. Los dos atajos globales se cambian pulsando el campo y tecleando la combinación nueva; si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
     </p>
-    <p data-en="Under them there is a switch that hands both Windows capture keys over from the Snipping Tool, and it says key by key which ones actually came across." data-html>
-      Debajo hay un interruptor que le quita a la Herramienta de Recortes las dos teclas de captura de Windows, y dice tecla por tecla cuáles ha conseguido de verdad.
+    <p data-en="Under them there is a switch that hands the &lt;kbd&gt;Impr Pant&lt;/kbd&gt; key over from the Snipping Tool, and it says whether Windows actually let go of it." data-html>
+      Debajo hay un interruptor que le quita la tecla <kbd>Impr Pant</kbd> a la Herramienta de Recortes, y dice si Windows la ha soltado de verdad.
     </p>
     <p data-en="The rest is short on purpose: what happens when you let go of the mouse, whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.">
       El resto es corto a propósito: qué pasa al soltar el ratón, si copiar al portapapeles al guardar, si incluir el cursor, la lupa, el sonido de obturador, los fotogramas por segundo, la carpeta de destino, arrancar con Windows y buscar actualizaciones.
@@ -343,8 +342,8 @@
     </p>
 
     <h3 data-en="Can I capture with the Print Screen key?">¿Puedo capturar con la tecla Impr Pant?</h3>
-    <p data-en="Yes, and Win+Shift+S too. In &lt;b&gt;Ajustes → Atajos globales&lt;/b&gt; a switch takes both keys from the Snipping Tool, and the app asks the first time you open it. Impr Pant is freed by turning off a Windows setting; Win+Shift+S has no such setting, so winshotx catches it with a low level keyboard hook, which sees the key before the shell does. Turning the switch off gives both back exactly as they were." data-html>
-      Sí, y <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> también. En <b>Ajustes → Atajos globales</b> hay un interruptor que le quita las dos teclas a la Herramienta de Recortes, y la app lo pregunta la primera vez que la abres. La de <kbd>Impr Pant</kbd> se libera apagando un ajuste de Windows; <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> no tiene ningún ajuste que la libere, así que winshotx la coge con un hook de teclado de bajo nivel, que ve la tecla antes que el sistema. Al desactivar el interruptor se devuelven las dos tal y como estaban.
+    <p data-en="Yes. In &lt;b&gt;Ajustes → Atajos globales&lt;/b&gt; a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is." data-html>
+      Sí. En <b>Ajustes → Atajos globales</b> hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está.
     </p>
 
     <h3 data-en="How do I paste a GIF into Slack or Discord?">¿Cómo pego un GIF en Slack o en Discord?</h3>
