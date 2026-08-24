@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>winshotx documentation · shortcuts, recording and export</title>
+<meta name="description" content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the frame by frame editor, export and settings.">
+<link rel="canonical" href="https://winshotx.com/en/docs/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/docs/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/docs/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/docs/">
+<meta name="theme-color" content="#0b0b0d">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:url" content="https://winshotx.com/en/docs/">
+<meta property="og:title" content="winshotx documentation">
+<meta property="og:description" content="Install, shortcuts, region capture, GIF and MP4 recording, the frame by frame editor and export.">
+<meta property="og:image" content="https://winshotx.com/social-en.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx: 28 ms against the Snipping Tool's 920 ms">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Guía de winshotx">
+<meta name="twitter:description" content="Install, shortcuts, region capture, GIF and MP4 recording, the editor and export.">
+<meta name="twitter:image" content="https://winshotx.com/social-en.png">
+<link rel="icon" href="../../logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../estilos.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Docs", "item": "https://winshotx.com/docs/" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I record a GIF of my screen on Windows?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Press Ctrl+Shift+5, drag over the area you want, and press the same shortcut again to stop. The editor opens with every frame, and the export panel writes the GIF. No FFmpeg to install: the GIF is produced in pure Rust with a global palette and frame differencing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is winshotx a free alternative to the Windows Snipping Tool?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. It is MIT licensed and open source, the installer is 2.2 MB and it needs no account. Measured on the same Windows 11 machine, it shows the selection in 28 ms against 920 ms and uses 33 MB of memory against 253 MB. The Snipping Tool still wins at annotating, text recognition and system audio."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does winshotx upload my screenshots anywhere?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. There is no account, no telemetry and no uploads. The only network call is checking GitHub for a new version, and that can be turned off in the settings."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I change the keyboard shortcut?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. In Ajustes, click the shortcut field and press the new combination. If another application already holds it, the field turns red and says so. The defaults are Ctrl+Shift+2 to capture and Ctrl+Shift+5 to record."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I paste a GIF into Slack or Discord from winshotx?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use Copiar in the export panel. A still image goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does winshotx need administrator rights?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. It installs for the current user only, so Windows never shows the administrator prompt. It runs on Windows 10 version 1903 or newer."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round">
+      <g stroke-width="8">
+        <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+        <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+      </g>
+      <g stroke-width="3.5"><path d="M24 8h16"/><path d="M56 24v16"/><path d="M40 56H24"/><path d="M8 40V24"/></g>
+    </g>
+    <g stroke="#fff" stroke-width="8.5" stroke-linecap="round"><path d="M32 20.5v23"/><path d="M20.5 32h23"/></g>
+  </symbol>
+  <symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+  <symbol id="i-star" viewBox="0 0 24 24">
+    <path fill="currentColor" d="m12 2.6 2.9 5.88 6.5.95-4.7 4.58 1.11 6.46L12 17.42l-5.81 3.05 1.11-6.46-4.7-4.58 6.5-.95z"/>
+  </symbol>
+</svg>
+
+<nav>
+  <div class="env">
+    <a class="marca" href="../"><svg><use href="#marca"/></svg><span>winshotx</span></a>
+    <span class="enlaces">
+      <a href="../#numeros">Numbers</a>
+      <a href="../#demo">Try it</a>
+      <a href="../#frente-a-frente">Head to head</a>
+      <a href="../#que-hace">Features</a>
+      <a class="aqui" href="./">Docs</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
+        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
+        <span class="gh-raya"></span>
+        <svg class="gh-estrella" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>
+        <span id="gh-estrellas">1</span>
+      </a>
+      <a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>
+    </span>
+  </div>
+</nav>
+
+<main class="env guia">
+
+  <h1>winshotx documentation</h1>
+  <p class="entradilla">Everything the app does, in the order you are going to need it. It fits on one page on purpose.</p>
+
+  <div class="indice">
+    <a href="#instalar">Install</a>
+    <a href="#capturar">Capture</a>
+    <a href="#grabar">Record</a>
+    <a href="#editor">Editor</a>
+    <a href="#exportar">Export</a>
+    <a href="#atajos-guia">Shortcuts</a>
+    <a href="#ajustes">Settings</a>
+    <a href="#preguntas">Questions</a>
+  </div>
+
+  <section id="instalar">
+    <h2>Install</h2>
+    <p>Download the installer and run it. It weighs 2.2 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.</p>
+    <div class="botones">
+      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
+        <span>Download for Windows</span></a>
+      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx/releases">All versions</a>
+    </div>
+    <p>It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the ^ arrow on the taskbar.</p>
+    <p>It updates itself. When a new version is out, a button shows up in Ajustes → Actualizaciones, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.</p>
+  </section>
+
+  <section id="capturar">
+    <h2>Capture a region</h2>
+    <p>Press Ctrl+Shift+2. The screen freezes and you drag over what you want. It is a frozen screenshot, not a transparent window, which is why the magnifier is exact to the pixel and nothing flickers underneath.</p>
+    <ul>
+      <li><b>Snapping to windows.</b> Move the cursor without dragging and the window underneath lights up; one click takes it whole, with its real coordinates.</li>
+      <li><b>Magnifier.</b> While there is no selection, a 6× loupe follows the cursor and shows the hex code of the pixel underneath. That is the fastest way to pull a colour off the screen.</li>
+      <li><b>Fine tuning.</b> The arrow keys move the selection one pixel at a time, Shift moves it ten, and Alt resizes instead of moving.</li>
+      <li><b>Several monitors.</b> Every screen freezes at once, each at its own scaling, and a 100 × 100 selection produces a 100 × 100 file in real pixels.</li>
+    </ul>
+    <p>With the selection made, a small toolbar appears: copy, save, open in the editor, record as GIF, record as video, or cancel with Esc.</p>
+  </section>
+
+  <section id="grabar">
+    <h2>Record</h2>
+    <p>Press Ctrl+Shift+5, drag over the area and press the same shortcut again to stop. While it records you see a thin frame around the region and a small bar with the timer.</p>
+    <p>It records through Windows Graphics Capture at 15, 30 or 60 fps, so no overlay leaks into the video and the cost to the processor is close to nothing. Every frame is written to a lossless cache on disk, which is what makes the frame by frame editing possible afterwards.</p>
+    <p class="nota">System audio is not recorded yet. The switch is in the interface, disabled and saying so: it needs WASAPI in loopback mode to feed the encoder.</p>
+  </section>
+
+  <section id="editor">
+    <h2>The editor</h2>
+    <p>When the recording stops, the editor opens with the whole clip. It is not a timeline with effects: it is the frames, one by one, so you can throw away what you do not want.</p>
+    <ul>
+      <li><b>Thumbnail strip.</b> Every frame with its number and its time. Click one to jump there.</li>
+      <li><b>A and B trim.</b> I marks the start and O marks the end. What falls outside is dimmed and does not reach the file.</li>
+      <li><b>Looped playback.</b> Space plays and pauses; the arrows step one frame at a time.</li>
+      <li><b>Scale.</b> Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons.</li>
+    </ul>
+  </section>
+
+  <section id="exportar">
+    <h2>Export</h2>
+    <p>Three formats: PNG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.</p>
+    <table class="tabla-guia">
+      <thead><tr>
+        <th>Format</th>
+        <th>How it is made</th>
+        <th>When to use it</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><b>PNG</b></td>
+          <td>Cut straight from the frozen screenshot, lossless.</td>
+          <td>A still, a bug report, a colour.</td>
+        </tr>
+        <tr>
+          <td><b>GIF</b></td>
+          <td>Pure Rust: global palette, Floyd-Steinberg dithering and only the rectangle that changed between frames.</td>
+          <td>Short interface clips. It loops everywhere with no player.</td>
+        </tr>
+        <tr>
+          <td><b>MP4</b></td>
+          <td>Media Foundation with hardware H.264. Zero megabytes of dependencies.</td>
+          <td>Anything longer than a few seconds, or with a lot of movement.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><b>Save</b> writes the file to disk. <b>Copy</b> puts it on the clipboard: a still goes as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.</p>
+    <p>If you happen to have ffmpeg on your PATH, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.</p>
+  </section>
+
+  <section id="atajos-guia">
+    <h2>Shortcuts</h2>
+    <table class="tabla-guia">
+      <thead><tr><th>Key</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd></td><td>Capture a region</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></td><td>Record a region, press again to stop</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>Copy the selection to the clipboard</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save the selection</td></tr>
+        <tr><td><kbd>E</kbd></td><td>Open the selection in the editor</td></tr>
+        <tr><td><kbd>G</kbd> / <kbd>V</kbd></td><td>Record the selection as GIF or as video</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Select the whole monitor</td></tr>
+        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td>Move the selection, Shift for steps of ten, Alt resizes</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Cancel</td></tr>
+      </tbody>
+    </table>
+    <p>Inside the editor: space plays, I and O mark the trim, the arrows step through frames, Ctrl+S exports with whatever the panel has set, and Esc closes.</p>
+  </section>
+
+  <section id="ajustes">
+    <h2>Settings</h2>
+    <p>Right click the tray icon and choose Ajustes. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
+    <p>The rest is short on purpose: whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.</p>
+    <p><a href="../#demo">You can click through all of it in the demo on the home page, without installing anything.</a></p>
+  </section>
+
+  <section id="preguntas">
+    <h2>Questions people actually ask</h2>
+
+    <h3>How do I record a GIF of my screen on Windows?</h3>
+    <p>Press Ctrl+Shift+5, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.</p>
+
+    <h3>Is this a free alternative to the Snipping Tool?</h3>
+    <p>Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at annotating, at reading the text out of an image and at system audio, and the comparison on the home page says so.</p>
+
+    <h3>Does it upload my screenshots anywhere?</h3>
+    <p>No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off.</p>
+
+    <h3>Can I change the keyboard shortcut?</h3>
+    <p>Yes, in Ajustes. Click the field and press the combination you want.</p>
+
+    <h3>Does it need administrator rights?</h3>
+    <p>No. It installs for your user only, so the administrator prompt never shows up.</p>
+
+    <h3>Does it work on macOS or Linux?</h3>
+    <p>Not yet. The code compiles on both, but every platform specific function is behind a Windows guard with a stub for the rest, so porting means filling those stubs in. Capture, recording, MP4 encoding, clipboard and autostart are the ones that matter.</p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="env">
+    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
+    <span>Made by <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">report a problem</a></span>
+  </div>
+</footer>
+
+<script src="../../estrellas.js" defer></script>
+</body>
+</html>

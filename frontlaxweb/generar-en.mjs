@@ -1,11 +1,13 @@
 /**
- * Genera en/index.html a partir de index.html.
- *
- * Cada idioma necesita su propia URL: un botón que cambia los textos con JavaScript deja a
- * Google y a los rastreadores de las IA viendo solo la versión española. Los textos ingleses
- * ya viven en los atributos data-en de la página, así que aquí solo hay que aplicarlos.
+ * Genera la version inglesa del sitio a partir de la espanola.
  *
  *   node frontlaxweb/generar-en.mjs
+ *
+ * Cada idioma necesita su propia URL: un boton que cambia los textos con JavaScript deja a
+ * Google y a los rastreadores de las IA viendo solo la version espanola. Los textos ingleses
+ * ya viven en los atributos data-en de cada pagina, asi que aqui solo hay que aplicarlos.
+ *
+ * Paginas: index.html -> en/index.html, y docs/index.html -> en/docs/index.html.
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -14,7 +16,7 @@ import { fileURLToPath } from "node:url";
 const aqui = dirname(fileURLToPath(import.meta.url));
 const BASE = "https://winshotx.com/";
 
-/** Los data-en llevan las marcas escapadas: aquí se devuelven a su forma. */
+/** Los data-en llevan las marcas escapadas: aqui se devuelven a su forma. */
 const desescapar = (t) =>
   t
     .replaceAll("&lt;", "<")
@@ -23,45 +25,32 @@ const desescapar = (t) =>
     .replaceAll("&#39;", "'")
     .replaceAll("&amp;", "&");
 
-let html = await readFile(join(aqui, "index.html"), "utf8");
+/** Lo que es igual en todas las paginas: aplicar los data-en y los tooltips. */
+function traducir(html) {
+  const traducible = /<([a-z0-9]+)((?:[^>"]|"[^"]*")*?\sdata-en="([^"]*)"(?:[^>"]|"[^"]*")*)>([\s\S]*?)<\/\1>/g;
+  html = html.replace(traducible, (_todo, tag, atributos, ingles) => {
+    const limpios = atributos
+      .replace(/\sdata-en="(?:[^"]*)"/, "")
+      .replace(/\sdata-html(?==|\s|$)/, "");
+    return `<${tag}${limpios}>${desescapar(ingles)}</${tag}>`;
+  });
 
-// 1. el contenido de cada elemento traducido pasa a ser su data-en
-const traducible = /<([a-z0-9]+)((?:[^>"]|"[^"]*")*?\sdata-en="([^"]*)"(?:[^>"]|"[^"]*")*)>([\s\S]*?)<\/\1>/g;
-html = html.replace(traducible, (_todo, tag, atributos, ingles) => {
-  const limpios = atributos
-    .replace(/\sdata-en="(?:[^"]*)"/, "")
-    .replace(/\sdata-html(?==|\s|$)/, "");
-  return `<${tag}${limpios}>${desescapar(ingles)}</${tag}>`;
-});
+  html = html.replace(/\stitle="[^"]*"((?:[^>"]|"[^"]*")*?)\sdata-titulo-en="([^"]*)"/g,
+    (_t, medio, ingles) => ` title="${ingles}"${medio}`);
+  html = html.replace(/\sdata-titulo-en="[^"]*"/g, "");
 
-// 2. y los tooltips
-html = html.replace(/\stitle="[^"]*"((?:[^>"]|"[^"]*")*?)\sdata-titulo-en="([^"]*)"/g,
-  (_t, medio, ingles) => ` title="${ingles}"${medio}`);
-html = html.replace(/\sdata-titulo-en="[^"]*"/g, "");
+  html = html.replace('<html lang="es">', '<html lang="en">');
+  html = html.replace('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">');
+  html = html.replace(
+    '<meta property="og:locale:alternate" content="en_US">',
+    '<meta property="og:locale:alternate" content="es_ES">',
+  );
+  html = html.replaceAll(`${BASE}social.png`, `${BASE}social-en.png`);
+  return html;
+}
 
-// 3. idioma de la página, rutas relativas y enlaces cruzados
-html = html.replace('<html lang="es">', '<html lang="en">');
-html = html.replace('href="logo.svg"', 'href="../logo.svg"');
-html = html.replace('href="estilos.css"', 'href="../estilos.css"');
-html = html.replace('src="demo.js"', 'src="../demo.js"');
-html = html.replace(
-  '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>',
-  '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
-);
-
-// 4. lo que apunta a sí misma: canónica, idioma social y la ficha de datos
-html = html.replace(`<link rel="canonical" href="${BASE}">`, `<link rel="canonical" href="${BASE}en/">`);
-html = html.replace(`<meta property="og:url" content="${BASE}">`, `<meta property="og:url" content="${BASE}en/">`);
-html = html.replace('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">');
-html = html.replace(
-  '<meta property="og:locale:alternate" content="en_US">',
-  '<meta property="og:locale:alternate" content="es_ES">',
-);
-html = html.replace(`"url": "${BASE}"`, `"url": "${BASE}en/"`);
-html = html.replaceAll(`${BASE}social.png`, `${BASE}social-en.png`);
-
-// 5. y las descripciones, que viven en atributos y no llevan data-en
-const enIngles = {
+/** Las descripciones viven en atributos y no pueden llevar data-en. */
+const ATRIBUTOS = {
   'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y editor fotograma a fotograma. Abre la selección en 28 ms y gasta 33 MB. Instalador de 2,2 MB, sin cuenta y sin nube."':
     'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and a frame by frame editor. Opens the selection in 28 ms and uses 33 MB. A 2.2 MB installer, no account and no cloud."',
   'content="winshotx · captura y grabación de pantalla para Windows"':
@@ -72,11 +61,65 @@ const enIngles = {
     'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms and 33 MB. 2.2 MB, open source."',
   'content="winshotx: 28 ms contra 920 ms de la Herramienta de Recortes"':
     'content="winshotx: 28 ms against the Snipping Tool\'s 920 ms"',
+  'content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, editor fotograma a fotograma, exportación y ajustes."':
+    'content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the frame by frame editor, export and settings."',
+  'content="Guía de winshotx"': 'content="winshotx documentation"',
+  'content="Instalación, atajos, captura de región, grabación en GIF y MP4, editor fotograma a fotograma y exportación."':
+    'content="Install, shortcuts, region capture, GIF and MP4 recording, the frame by frame editor and export."',
+  'content="Instalación, atajos, captura de región, grabación en GIF y MP4, editor y exportación."':
+    'content="Install, shortcuts, region capture, GIF and MP4 recording, the editor and export."',
 };
-for (const [es, en] of Object.entries(enIngles)) html = html.replace(es, en);
 
-await mkdir(join(aqui, "en"), { recursive: true });
-await writeFile(join(aqui, "en", "index.html"), html, "utf8");
+/**
+ * Cada pagina tiene sus propios enlaces que apuntan a si misma o al otro idioma, y estan
+ * escritos a mano porque son cuatro y equivocarse en uno rompe el hreflang entero.
+ */
+const PAGINAS = [
+  {
+    origen: "index.html",
+    destino: ["en", "index.html"],
+    propios: {
+      [`<link rel="canonical" href="${BASE}">`]: `<link rel="canonical" href="${BASE}en/">`,
+      [`<meta property="og:url" content="${BASE}">`]: `<meta property="og:url" content="${BASE}en/">`,
+      [`"url": "${BASE}"`]: `"url": "${BASE}en/"`,
+      'href="logo.svg"': 'href="../logo.svg"',
+      'href="estilos.css"': 'href="../estilos.css"',
+      'src="demo.js"': 'src="../demo.js"',
+      'src="estrellas.js"': 'src="../estrellas.js"',
+      'href="docs/"': 'href="docs/"',
+      '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
+        '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
+    },
+  },
+  {
+    origen: join("docs", "index.html"),
+    destino: ["en", "docs", "index.html"],
+    propios: {
+      [`<link rel="canonical" href="${BASE}docs/">`]: `<link rel="canonical" href="${BASE}en/docs/">`,
+      [`<meta property="og:url" content="${BASE}docs/">`]: `<meta property="og:url" content="${BASE}en/docs/">`,
+      'href="../logo.svg"': 'href="../../logo.svg"',
+      'href="../estilos.css"': 'href="../../estilos.css"',
+      'src="../estrellas.js"': 'src="../../estrellas.js"',
+      '<a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>':
+        '<a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>',
+    },
+  },
+];
 
-const pendientes = (html.match(/data-en=/g) ?? []).length;
-console.log(`en/index.html generado${pendientes ? ` (quedan ${pendientes} sin traducir)` : ""}`);
+for (const pagina of PAGINAS) {
+  let html = traducir(await readFile(join(aqui, pagina.origen), "utf8"));
+  for (const [es, en] of Object.entries(ATRIBUTOS)) html = html.replace(es, en);
+  for (const [de, a] of Object.entries(pagina.propios)) {
+    if (!html.includes(de)) throw new Error(`${pagina.origen}: no aparece ${de}`);
+    html = html.replaceAll(de, a);
+  }
+
+  const salida = join(aqui, ...pagina.destino);
+  await mkdir(dirname(salida), { recursive: true });
+  await writeFile(salida, html, "utf8");
+
+  const pendientes = (html.match(/data-en=/g) ?? []).length;
+  console.log(
+    `${pagina.destino.join("/")} generado${pendientes ? ` (quedan ${pendientes} sin traducir)` : ""}`,
+  );
+}

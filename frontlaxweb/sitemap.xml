@@ -19,4 +19,22 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/"/>
   </url>
+  <url>
+    <loc>https://winshotx.com/docs/</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/docs/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/docs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/docs/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/docs/</loc>
+    <lastmod>2026-08-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/docs/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/docs/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/docs/"/>
+  </url>
 </urlset>

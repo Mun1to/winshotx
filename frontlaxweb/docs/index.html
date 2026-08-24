@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="winshotx documentation · shortcuts, recording and export">Guía de winshotx · atajos, grabación y exportación</title>
+<meta name="description" content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, editor fotograma a fotograma, exportación y ajustes.">
+<link rel="canonical" href="https://winshotx.com/docs/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/docs/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/docs/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/docs/">
+<meta name="theme-color" content="#0b0b0d">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://winshotx.com/docs/">
+<meta property="og:title" content="Guía de winshotx">
+<meta property="og:description" content="Instalación, atajos, captura de región, grabación en GIF y MP4, editor fotograma a fotograma y exportación.">
+<meta property="og:image" content="https://winshotx.com/social.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx: 28 ms contra 920 ms de la Herramienta de Recortes">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Guía de winshotx">
+<meta name="twitter:description" content="Instalación, atajos, captura de región, grabación en GIF y MP4, editor y exportación.">
+<meta name="twitter:image" content="https://winshotx.com/social.png">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../estilos.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Docs", "item": "https://winshotx.com/docs/" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I record a GIF of my screen on Windows?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Press Ctrl+Shift+5, drag over the area you want, and press the same shortcut again to stop. The editor opens with every frame, and the export panel writes the GIF. No FFmpeg to install: the GIF is produced in pure Rust with a global palette and frame differencing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is winshotx a free alternative to the Windows Snipping Tool?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. It is MIT licensed and open source, the installer is 2.2 MB and it needs no account. Measured on the same Windows 11 machine, it shows the selection in 28 ms against 920 ms and uses 33 MB of memory against 253 MB. The Snipping Tool still wins at annotating, text recognition and system audio."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does winshotx upload my screenshots anywhere?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. There is no account, no telemetry and no uploads. The only network call is checking GitHub for a new version, and that can be turned off in the settings."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I change the keyboard shortcut?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. In Ajustes, click the shortcut field and press the new combination. If another application already holds it, the field turns red and says so. The defaults are Ctrl+Shift+2 to capture and Ctrl+Shift+5 to record."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I paste a GIF into Slack or Discord from winshotx?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use Copiar in the export panel. A still image goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does winshotx need administrator rights?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. It installs for the current user only, so Windows never shows the administrator prompt. It runs on Windows 10 version 1903 or newer."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round">
+      <g stroke-width="8">
+        <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+        <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+      </g>
+      <g stroke-width="3.5"><path d="M24 8h16"/><path d="M56 24v16"/><path d="M40 56H24"/><path d="M8 40V24"/></g>
+    </g>
+    <g stroke="#fff" stroke-width="8.5" stroke-linecap="round"><path d="M32 20.5v23"/><path d="M20.5 32h23"/></g>
+  </symbol>
+  <symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+  <symbol id="i-star" viewBox="0 0 24 24">
+    <path fill="currentColor" d="m12 2.6 2.9 5.88 6.5.95-4.7 4.58 1.11 6.46L12 17.42l-5.81 3.05 1.11-6.46-4.7-4.58 6.5-.95z"/>
+  </symbol>
+</svg>
+
+<nav>
+  <div class="env">
+    <a class="marca" href="../"><svg><use href="#marca"/></svg><span>winshotx</span></a>
+    <span class="enlaces">
+      <a href="../#numeros" data-en="Numbers">Números</a>
+      <a href="../#demo" data-en="Try it">Pruébalo</a>
+      <a href="../#frente-a-frente" data-en="Head to head">Comparativa</a>
+      <a href="../#que-hace" data-en="Features">Qué hace</a>
+      <a class="aqui" href="./" data-en="Docs">Guía</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
+        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
+        <span class="gh-raya"></span>
+        <svg class="gh-estrella" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>
+        <span id="gh-estrellas">1</span>
+      </a>
+      <a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>
+    </span>
+  </div>
+</nav>
+
+<main class="env guia">
+
+  <h1 data-en="winshotx documentation">Guía de winshotx</h1>
+  <p class="entradilla" data-en="Everything the app does, in the order you are going to need it. It fits on one page on purpose.">
+    Todo lo que hace la aplicación, en el orden en que lo vas a necesitar. Cabe en una sola página a propósito.
+  </p>
+
+  <div class="indice">
+    <a href="#instalar" data-en="Install">Instalar</a>
+    <a href="#capturar" data-en="Capture">Capturar</a>
+    <a href="#grabar" data-en="Record">Grabar</a>
+    <a href="#editor" data-en="Editor">Editor</a>
+    <a href="#exportar" data-en="Export">Exportar</a>
+    <a href="#atajos-guia" data-en="Shortcuts">Atajos</a>
+    <a href="#ajustes" data-en="Settings">Ajustes</a>
+    <a href="#preguntas" data-en="Questions">Preguntas</a>
+  </div>
+
+  <section id="instalar">
+    <h2 data-en="Install">Instalar</h2>
+    <p data-en="Download the installer and run it. It weighs 2.2 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.">
+      Descarga el instalador y ábrelo. Pesa 2,2 MB, se instala solo para tu usuario y nunca sale la ventana de permisos de administrador. Necesita Windows 10 versión 1903 o superior.
+    </p>
+    <div class="botones">
+      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
+        <span data-en="Download for Windows">Descargar para Windows</span></a>
+      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx/releases" data-en="All versions">Todas las versiones</a>
+    </div>
+    <p data-en="It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the ^ arrow on the taskbar.">
+      Vive en la bandeja del sistema, sin ventana propia. Windows esconde los iconos nuevos, así que si no lo ves está detrás de la flecha <code>^</code> de la barra de tareas.
+    </p>
+    <p data-en="It updates itself. When a new version is out, a button shows up in Ajustes → Actualizaciones, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.">
+      Se actualiza sola. Cuando hay versión nueva aparece un botón en <b>Ajustes → Actualizaciones</b>, y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas y la firma se comprueba antes de instalar nada, así que un archivo manipulado no entra.
+    </p>
+  </section>
+
+  <section id="capturar">
+    <h2 data-en="Capture a region">Capturar una región</h2>
+    <p data-en="Press Ctrl+Shift+2. The screen freezes and you drag over what you want. It is a frozen screenshot, not a transparent window, which is why the magnifier is exact to the pixel and nothing flickers underneath.">
+      Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd>. La pantalla se congela y arrastras sobre lo que quieras. Es una foto congelada, no una ventana transparente, y por eso la lupa es exacta al píxel y no parpadea nada por debajo.
+    </p>
+    <ul>
+      <li data-en="&lt;b&gt;Snapping to windows.&lt;/b&gt; Move the cursor without dragging and the window underneath lights up; one click takes it whole, with its real coordinates." data-html><b>Ajuste a las ventanas.</b> Mueve el cursor sin arrastrar y la ventana de debajo se resalta; un clic la coge entera, con sus coordenadas reales.</li>
+      <li data-en="&lt;b&gt;Magnifier.&lt;/b&gt; While there is no selection, a 6× loupe follows the cursor and shows the hex code of the pixel underneath. That is the fastest way to pull a colour off the screen." data-html><b>Lupa.</b> Mientras no hay selección, una lupa de 6× sigue al cursor y enseña el código hexadecimal del píxel de debajo. Es la forma más rápida de sacar un color de la pantalla.</li>
+      <li data-en="&lt;b&gt;Fine tuning.&lt;/b&gt; The arrow keys move the selection one pixel at a time, Shift moves it ten, and Alt resizes instead of moving." data-html><b>Ajuste fino.</b> Las flechas mueven la selección de píxel en píxel, con <kbd>Shift</kbd> de diez en diez, y con <kbd>Alt</kbd> redimensionan en vez de mover.</li>
+      <li data-en="&lt;b&gt;Several monitors.&lt;/b&gt; Every screen freezes at once, each at its own scaling, and a 100 × 100 selection produces a 100 × 100 file in real pixels." data-html><b>Varios monitores.</b> Se congelan todas las pantallas a la vez, cada una con su escalado, y una selección de 100 × 100 produce un archivo de 100 × 100 píxeles reales.</li>
+    </ul>
+    <p data-en="With the selection made, a small toolbar appears: copy, save, open in the editor, record as GIF, record as video, or cancel with Esc.">
+      Con la selección hecha aparece una barra pequeña: copiar, guardar, abrir en el editor, grabar en GIF, grabar en vídeo, o cancelar con <kbd>Esc</kbd>.
+    </p>
+  </section>
+
+  <section id="grabar">
+    <h2 data-en="Record">Grabar</h2>
+    <p data-en="Press Ctrl+Shift+5, drag over the area and press the same shortcut again to stop. While it records you see a thin frame around the region and a small bar with the timer.">
+      Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, arrastra sobre la zona y pulsa el mismo atajo otra vez para parar. Mientras graba se ve un marco fino alrededor de la región y una barra pequeña con el contador.
+    </p>
+    <p data-en="It records through Windows Graphics Capture at 15, 30 or 60 fps, so no overlay leaks into the video and the cost to the processor is close to nothing. Every frame is written to a lossless cache on disk, which is what makes the frame by frame editing possible afterwards.">
+      Graba con Windows Graphics Capture a 15, 30 o 60 fps, así que no se cuela ningún overlay en el vídeo y el coste para el procesador es casi cero. Cada fotograma se escribe en un caché sin pérdida en el disco, que es lo que permite editar después fotograma a fotograma.
+    </p>
+    <p class="nota" data-en="System audio is not recorded yet. The switch is in the interface, disabled and saying so: it needs WASAPI in loopback mode to feed the encoder.">
+      El audio del sistema todavía no se graba. El interruptor está en la interfaz, desactivado y diciéndolo: necesita WASAPI en modo loopback para alimentar al codificador.
+    </p>
+  </section>
+
+  <section id="editor">
+    <h2 data-en="The editor">El editor</h2>
+    <p data-en="When the recording stops, the editor opens with the whole clip. It is not a timeline with effects: it is the frames, one by one, so you can throw away what you do not want.">
+      Al parar la grabación se abre el editor con el clip entero. No es una línea de tiempo con efectos: son los fotogramas, uno a uno, para que tires lo que no quieras.
+    </p>
+    <ul>
+      <li data-en="&lt;b&gt;Thumbnail strip.&lt;/b&gt; Every frame with its number and its time. Click one to jump there." data-html><b>Tira de miniaturas.</b> Cada fotograma con su número y su tiempo. Pincha uno para saltar ahí.</li>
+      <li data-en="&lt;b&gt;A and B trim.&lt;/b&gt; I marks the start and O marks the end. What falls outside is dimmed and does not reach the file." data-html><b>Recorte A y B.</b> <kbd>I</kbd> marca el principio y <kbd>O</kbd> el final. Lo que queda fuera se atenúa y no llega al archivo.</li>
+      <li data-en="&lt;b&gt;Looped playback.&lt;/b&gt; Space plays and pauses; the arrows step one frame at a time." data-html><b>Reproducción en bucle.</b> <kbd>Espacio</kbd> reproduce y pausa; las flechas avanzan de fotograma en fotograma.</li>
+      <li data-en="&lt;b&gt;Scale.&lt;/b&gt; Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons." data-html><b>Escala.</b> El ancho y el alto van encadenados por defecto, así que la proporción no se rompe. Hay botones de 100, 75 y 50 por ciento.</li>
+    </ul>
+  </section>
+
+  <section id="exportar">
+    <h2 data-en="Export">Exportar</h2>
+    <p data-en="Three formats: PNG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.">
+      Tres formatos: PNG para una imagen, GIF para algo que haga bucle en un chat, y MP4 para lo que dure más. El panel enseña el tamaño estimado antes de escribir nada.
+    </p>
+    <table class="tabla-guia">
+      <thead><tr>
+        <th data-en="Format">Formato</th>
+        <th data-en="How it is made">Cómo se hace</th>
+        <th data-en="When to use it">Cuándo usarlo</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><b>PNG</b></td>
+          <td data-en="Cut straight from the frozen screenshot, lossless.">Recortado de la foto congelada, sin pérdida.</td>
+          <td data-en="A still, a bug report, a colour.">Una imagen, un informe de fallo, un color.</td>
+        </tr>
+        <tr>
+          <td><b>GIF</b></td>
+          <td data-en="Pure Rust: global palette, Floyd-Steinberg dithering and only the rectangle that changed between frames.">Rust puro: paleta global, dithering Floyd-Steinberg y solo el rectángulo que cambia entre fotogramas.</td>
+          <td data-en="Short interface clips. It loops everywhere with no player.">Clips cortos de interfaz. Hace bucle en todas partes sin reproductor.</td>
+        </tr>
+        <tr>
+          <td><b>MP4</b></td>
+          <td data-en="Media Foundation with hardware H.264. Zero megabytes of dependencies.">Media Foundation con H.264 por hardware. Cero megas de dependencias.</td>
+          <td data-en="Anything longer than a few seconds, or with a lot of movement.">Todo lo que pase de unos segundos, o con mucho movimiento.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p data-en="&lt;b&gt;Save&lt;/b&gt; writes the file to disk. &lt;b&gt;Copy&lt;/b&gt; puts it on the clipboard: a still goes as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer." data-html>
+      <b>Guardar</b> escribe el archivo en el disco. <b>Copiar</b> lo deja en el portapapeles: una imagen va como imagen, y un GIF o un MP4 van como <b>archivo</b>, así que se pegan directamente en Slack, Discord o el Explorador.
+    </p>
+    <p data-en="If you happen to have ffmpeg on your PATH, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.">
+      Si resulta que tienes <code>ffmpeg</code> en el <code>PATH</code>, el panel ofrece además un motor de máxima calidad. Nunca se descarga ni se distribuye: sin él, todo lo de arriba funciona igual.
+    </p>
+  </section>
+
+  <section id="atajos-guia">
+    <h2 data-en="Shortcuts">Atajos</h2>
+    <table class="tabla-guia">
+      <thead><tr><th data-en="Key">Tecla</th><th data-en="What it does">Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd></td><td data-en="Capture a region">Capturar una región</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></td><td data-en="Record a region, press again to stop">Grabar una región, púlsalo otra vez para parar</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td data-en="Copy the selection to the clipboard">Copiar la selección al portapapeles</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td data-en="Save the selection">Guardar la selección</td></tr>
+        <tr><td><kbd>E</kbd></td><td data-en="Open the selection in the editor">Abrir la selección en el editor</td></tr>
+        <tr><td><kbd>G</kbd> / <kbd>V</kbd></td><td data-en="Record the selection as GIF or as video">Grabar la selección como GIF o como vídeo</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td data-en="Select the whole monitor">Seleccionar el monitor entero</td></tr>
+        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td data-en="Move the selection, Shift for steps of ten, Alt resizes">Mover la selección, con <kbd>Shift</kbd> de diez en diez, con <kbd>Alt</kbd> redimensiona</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td data-en="Cancel">Cancelar</td></tr>
+      </tbody>
+    </table>
+    <p data-en="Inside the editor: space plays, I and O mark the trim, the arrows step through frames, Ctrl+S exports with whatever the panel has set, and Esc closes.">
+      Dentro del editor: <kbd>espacio</kbd> reproduce, <kbd>I</kbd> y <kbd>O</kbd> marcan el recorte, las flechas avanzan fotograma a fotograma, <kbd>Ctrl</kbd>+<kbd>S</kbd> exporta con lo que tenga puesto el panel y <kbd>Esc</kbd> cierra.
+    </p>
+  </section>
+
+  <section id="ajustes">
+    <h2 data-en="Settings">Ajustes</h2>
+    <p data-en="Right click the tray icon and choose Ajustes. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.">
+      Pincha con el botón derecho en el icono de la bandeja y elige <b>Ajustes</b>. Los dos atajos globales se cambian pulsando el campo y tecleando la combinación nueva; si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
+    </p>
+    <p data-en="The rest is short on purpose: whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.">
+      El resto es corto a propósito: si copiar al portapapeles al guardar, si incluir el cursor, la lupa, el sonido de obturador, los fotogramas por segundo, la carpeta de destino, arrancar con Windows y buscar actualizaciones.
+    </p>
+    <p><a href="../#demo" data-en="You can click through all of it in the demo on the home page, without installing anything.">Puedes tocarlo todo en la demo de la portada, sin instalar nada.</a></p>
+  </section>
+
+  <section id="preguntas">
+    <h2 data-en="Questions people actually ask">Preguntas que la gente hace de verdad</h2>
+
+    <h3 data-en="How do I record a GIF of my screen on Windows?">¿Cómo grabo un GIF de la pantalla en Windows?</h3>
+    <p data-en="Press Ctrl+Shift+5, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.">
+      Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, arrastra sobre la zona y púlsalo otra vez para parar. Se abre el editor con todos los fotogramas y el panel escribe el GIF. No hay que instalar FFmpeg.
+    </p>
+
+    <h3 data-en="Is this a free alternative to the Snipping Tool?">¿Es una alternativa libre a la Herramienta de Recortes?</h3>
+    <p data-en="Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at annotating, at reading the text out of an image and at system audio, and the comparison on the home page says so.">
+      Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección en 28 ms contra 920 ms, y gasta 33 MB contra 253 MB. La de Windows sigue ganando en anotar, en leer el texto de una imagen y en el audio del sistema, y la comparativa de la portada lo dice.
+    </p>
+
+    <h3 data-en="Does it upload my screenshots anywhere?">¿Sube mis capturas a algún sitio?</h3>
+    <p data-en="No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off.">
+      No. Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub, y se puede apagar.
+    </p>
+
+    <h3 data-en="Can I change the keyboard shortcut?">¿Puedo cambiar el atajo de teclado?</h3>
+    <p data-en="Yes, in Ajustes. Click the field and press the combination you want.">
+      Sí, en <b>Ajustes</b>. Pulsa el campo y teclea la combinación que quieras.
+    </p>
+
+    <h3 data-en="Does it need administrator rights?">¿Hace falta ser administrador?</h3>
+    <p data-en="No. It installs for your user only, so the administrator prompt never shows up.">
+      No. Se instala solo para tu usuario, así que la ventana de permisos no aparece nunca.
+    </p>
+
+    <h3 data-en="Does it work on macOS or Linux?">¿Funciona en macOS o en Linux?</h3>
+    <p data-en="Not yet. The code compiles on both, but every platform specific function is behind a Windows guard with a stub for the rest, so porting means filling those stubs in. Capture, recording, MP4 encoding, clipboard and autostart are the ones that matter.">
+      Todavía no. El código compila en los dos, pero cada función específica de plataforma está detrás de una guarda de Windows con un stub para el resto, así que portarlo es rellenar esos stubs. Los que importan son captura, grabación, codificación MP4, portapapeles y arranque automático.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="env">
+    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
+    <span data-html data-en="Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt; · &lt;a href=&quot;https://github.com/Mun1to/winshotx/issues&quot;&gt;report a problem&lt;/a&gt;">Hecho por <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">informar de un problema</a></span>
+  </div>
+</footer>
+
+<script src="../estrellas.js" defer></script>
+</body>
+</html>

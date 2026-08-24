@@ -30,8 +30,8 @@ jobs:
       - name: Comprobar que el ingles esta al dia
         run: |
           node frontlaxweb/generar-en.mjs
-          git diff --exit-code frontlaxweb/en/index.html \
-            || (echo "::error::frontlaxweb/en/index.html no coincide con index.html; corre node frontlaxweb/generar-en.mjs y commitea" && exit 1)
+          git diff --exit-code frontlaxweb/en \
+            || (echo "::error::frontlaxweb/en no coincide con el espanol; corre node frontlaxweb/generar-en.mjs y commitea" && exit 1)
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontlaxweb
