@@ -65,6 +65,14 @@
 <!-- La marca es nuestra; los demás iconos son los mismos de lucide-react que usa la app,
      copiados tal cual del paquete para que la demo no mienta. -->
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Logo de GitHub, el oficial de su pagina de marca. Va relleno, no de trazo
+       como los de lucide, por eso lleva su propio viewBox de 16. -->
+  <symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+  <symbol id="i-star" viewBox="0 0 24 24">
+    <path fill="currentColor" d="m12 2.6 2.9 5.88 6.5.95-4.7 4.58 1.11 6.46L12 17.42l-5.81 3.05 1.11-6.46-4.7-4.58 6.5-.95z"/>
+  </symbol>
   <symbol id="marca" viewBox="0 0 64 64">
     <g fill="none" stroke="#0a9bff" stroke-linecap="round">
       <g stroke-width="8">
@@ -143,13 +151,23 @@
     <a class="marca solo-logo" href="#" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
     <span class="enlaces">
       <a href="#numeros" data-en="Numbers">Números</a>
-      <a href="#frente-a-frente" data-en="Head to head">Comparativa</a>
       <a href="#demo" data-en="Try it">Pruébalo</a>
+      <a href="#frente-a-frente" data-en="Head to head">Comparativa</a>
       <a href="#que-hace" data-en="Features">Qué hace</a>
       <a href="#atajos" data-en="Shortcuts">Atajos</a>
-      <a href="https://github.com/Mun1to/winshotx">GitHub</a>
+      <a href="docs/" data-en="Docs">Guía</a>
     </span>
-    <a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>
+    <span class="acciones">
+      <!-- El contador arranca con el ultimo numero conocido y demo.js lo actualiza
+           con el de verdad; si GitHub no contesta, se queda el que hay. -->
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
+        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
+        <span class="gh-raya"></span>
+        <svg class="gh-estrella" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>
+        <span id="gh-estrellas">1</span>
+      </a>
+      <a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>
+    </span>
   </div>
 </nav>
 
@@ -201,124 +219,6 @@
     </p>
   </div>
 </header>
-
-<section id="frente-a-frente">
-  <div class="env">
-    <h2 data-en="Snipping Tool against winshotx">Herramienta de Recortes contra winshotx</h2>
-    <p class="entradilla" data-en="Point by point, including where winshotx loses. The Windows one comes preinstalled and does things this one cannot do yet.">
-      Punto por punto, también donde pierde winshotx. La de Windows viene puesta y hace cosas
-      que esta todavía no sabe hacer.
-    </p>
-
-    <div class="duelo">
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th><span class="equipo"><span class="ventanita"></span> <span data-en="Snipping Tool">Herramienta de Recortes</span></span></th>
-            <th><span class="equipo nuestro"><svg class="mini-marca"><use href="#marca"/></svg> winshotx</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row" data-en="From shortcut to selection">Del atajo a la selección</th>
-            <td>920 ms</td>
-            <td class="gana">28 ms</td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Memory while capturing">Memoria mientras capturas</th>
-            <td>253 MB</td>
-            <td class="gana">33 MB</td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Memory sitting idle">Memoria esperando quieta</th>
-            <td>98 MB</td>
-            <td class="gana">31 MB</td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Installation">Instalación</th>
-            <td class="gana" data-en="already in Windows">ya viene con Windows</td>
-            <td data-en="2.2 MB installer">instalador de 2,2 MB</td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Capture a region">Capturar una región</th>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, snapping to windows">Sí, con ajuste a ventanas</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Record video">Grabar vídeo</th>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, at 15, 30 or 60 fps">Sí, a 15, 30 o 60 fps</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Record GIF">Grabar GIF</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Frame by frame editor">Editor fotograma a fotograma</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, with A and B trim">Sí, con recorte A y B</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Pick your own shortcut">Elegir el atajo de teclado</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="whatever Windows decides">El que decida Windows</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="whatever you want">El que quieras</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Pixel magnifier with the colour">Lupa de píxel con el color</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="6× zoom and hex code">Zoom 6× y hexadecimal</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Paste the GIF or the video as a file">Pegar el GIF o el vídeo como archivo</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, into Slack or Discord">Sí, en Slack o Discord</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Draw and annotate on top">Dibujar y anotar encima</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="pen, shapes and text">Bolígrafo, formas y texto</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="Not yet">Todavía no</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Copy the text out of the image">Copiar el texto de la imagen</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Blur out personal data">Tapar datos personales</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Automatic">Automático</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="System audio when recording">Audio del sistema al grabar</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="Not yet">Todavía no</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Timer before capturing">Temporizador antes de capturar</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="3, 5 or 10 seconds">3, 5 o 10 segundos</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Languages">Idiomas</th>
-            <td class="gana" data-en="all of Windows'">los de Windows</td>
-            <td data-en="Spanish only">solo español</td>
-          </tr>
-          <tr>
-            <th scope="row" data-en="Open source">Código abierto</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="MIT, all of it">MIT, entero a la vista</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="letra-chica" data-en="The milliseconds and the megabytes come from measuring both on the same Windows 11 machine, three runs each, starting from cold. The rest is what each one ships today.">
-      Los milisegundos y los megas salen de medir las dos en el mismo equipo con Windows 11, tres
-      veces seguidas y arrancando de cero. El resto es lo que trae cada una a día de hoy.
-    </p>
-  </div>
-</section>
 
 <section id="demo">
   <div class="env">
@@ -472,7 +372,7 @@
       <div class="ajustes">
         <div class="columna">
           <section class="grupo">
-            <h4 data-en="Global shortcuts">Atajos globales</h4>
+            <h3 data-en="Global shortcuts">Atajos globales</h3>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-camera"/></svg>
@@ -487,7 +387,7 @@
             </div>
           </section>
           <section class="grupo">
-            <h4 data-en="Capture">Captura</h4>
+            <h3 data-en="Capture">Captura</h3>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-clipboard"/></svg>
@@ -511,7 +411,7 @@
 
         <div class="columna">
           <section class="grupo">
-            <h4 data-en="Recording">Grabación</h4>
+            <h3 data-en="Recording">Grabación</h3>
             <div class="tarjeta">
               <div class="fila apilada">
                 <span class="txt"><span data-en="Frames per second">Fotogramas por segundo</span></span>
@@ -528,7 +428,7 @@
             </div>
           </section>
           <section class="grupo">
-            <h4 data-en="Files">Archivos</h4>
+            <h3 data-en="Files">Archivos</h3>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-folder-open"/></svg>
@@ -544,7 +444,7 @@
 
         <div class="a-lo-ancho">
           <section class="grupo">
-            <h4 data-en="System">Sistema</h4>
+            <h3 data-en="System">Sistema</h3>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila verde"><use href="#i-check"/></svg>
@@ -563,6 +463,124 @@
         <button class="salir" data-en="Quit winshotx">Salir de winshotx</button>
       </footer>
     </div>
+  </div>
+</section>
+
+<section id="frente-a-frente">
+  <div class="env">
+    <h2 data-en="Snipping Tool against winshotx">Herramienta de Recortes contra winshotx</h2>
+    <p class="entradilla" data-en="Point by point, including where winshotx loses. The Windows one comes preinstalled and does things this one cannot do yet.">
+      Punto por punto, también donde pierde winshotx. La de Windows viene puesta y hace cosas
+      que esta todavía no sabe hacer.
+    </p>
+
+    <div class="duelo">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th><span class="equipo"><span class="ventanita"></span> <span data-en="Snipping Tool">Herramienta de Recortes</span></span></th>
+            <th><span class="equipo nuestro"><svg class="mini-marca"><use href="#marca"/></svg> winshotx</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" data-en="From shortcut to selection">Del atajo a la selección</th>
+            <td>920 ms</td>
+            <td class="gana">28 ms</td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Memory while capturing">Memoria mientras capturas</th>
+            <td>253 MB</td>
+            <td class="gana">33 MB</td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Memory sitting idle">Memoria esperando quieta</th>
+            <td>98 MB</td>
+            <td class="gana">31 MB</td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Installation">Instalación</th>
+            <td class="gana" data-en="already in Windows">ya viene con Windows</td>
+            <td data-en="2.2 MB installer">instalador de 2,2 MB</td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Capture a region">Capturar una región</th>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, snapping to windows">Sí, con ajuste a ventanas</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Record video">Grabar vídeo</th>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, at 15, 30 or 60 fps">Sí, a 15, 30 o 60 fps</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Record GIF">Grabar GIF</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Frame by frame editor">Editor fotograma a fotograma</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, with A and B trim">Sí, con recorte A y B</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Pick your own shortcut">Elegir el atajo de teclado</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="whatever Windows decides">El que decida Windows</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="whatever you want">El que quieras</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Pixel magnifier with the colour">Lupa de píxel con el color</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="6× zoom and hex code">Zoom 6× y hexadecimal</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Paste the GIF or the video as a file">Pegar el GIF o el vídeo como archivo</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, into Slack or Discord">Sí, en Slack o Discord</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Draw and annotate on top">Dibujar y anotar encima</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="pen, shapes and text">Bolígrafo, formas y texto</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="Not yet">Todavía no</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Copy the text out of the image">Copiar el texto de la imagen</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Blur out personal data">Tapar datos personales</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Automatic">Automático</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="System audio when recording">Audio del sistema al grabar</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="Not yet">Todavía no</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Timer before capturing">Temporizador antes de capturar</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="3, 5 or 10 seconds">3, 5 o 10 segundos</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Languages">Idiomas</th>
+            <td class="gana" data-en="all of Windows'">los de Windows</td>
+            <td data-en="Spanish only">solo español</td>
+          </tr>
+          <tr>
+            <th scope="row" data-en="Open source">Código abierto</th>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="MIT, all of it">MIT, entero a la vista</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="letra-chica" data-en="The milliseconds and the megabytes come from measuring both on the same Windows 11 machine, three runs each, starting from cold. The rest is what each one ships today.">
+      Los milisegundos y los megas salen de medir las dos en el mismo equipo con Windows 11, tres
+      veces seguidas y arrancando de cero. El resto es lo que trae cada una a día de hoy.
+    </p>
   </div>
 </section>
 
@@ -643,6 +661,7 @@
   </div>
 </footer>
 
+<script src="estrellas.js" defer></script>
 <script src="demo.js"></script>
 </body>
 </html>
