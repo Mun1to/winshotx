@@ -15,6 +15,14 @@ real check is the validation plus the SHA256 of the published installer.
    `InstallerSha256`, `ReleaseDate`, `DisplayVersion` and `ReleaseNotesUrl`.
    The hash comes from `(Get-FileHash winshotx_X.Y.Z_x64-setup.exe -Algorithm SHA256).Hash`.
 3. `winget validate --manifest packaging/winget/X.Y.Z`
-4. Fork winget-pkgs, copy the folder to `manifests/m/Mun1to/winshotx/X.Y.Z/` and open a pull
-   request. The bots check the hash, install the package in a sandbox and merge on their own if
-   everything is in order.
+4. Also update `DocumentUrl` in the locale manifest: it still points at the old
+   `mun1to.github.io` address, which only works because of a 301. It should read
+   `https://winshotx.com/en/`. The 0.1.6 folder is left as it was submitted, on purpose.
+5. Fork winget-pkgs, copy the folder to `manifests/m/Mun1to/winshotx/X.Y.Z/` and open a pull
+   request. `packaging/winget/pr.sh` does all of that through the API, without cloning the
+   several gigabytes of winget-pkgs.
+
+About twenty bots then run on the pull request. The one that matters is `Installation
+Validation`, which installs the package on a clean virtual machine and takes around half an
+hour. **Passing every check is not enough to merge:** `Review required` stays until a human
+moderator approves it, and that is normal, not a failure.
