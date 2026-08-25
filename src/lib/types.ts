@@ -30,6 +30,9 @@ export type CaptureFlow = "toolbar" | "instant";
 /** Con que se abrio el overlay: el mismo sirve para capturar y para grabar. */
 export type OverlayIntent = "capture" | "record";
 
+/** Que se hara con el recorte. Se elige en la barra de arriba, antes de recortar. */
+export type CaptureMode = "still" | "video" | "gif";
+
 export interface OverlayPayload {
   monitor: MonitorInfo;
   /** Ruta absoluta del PNG congelado de este monitor. */

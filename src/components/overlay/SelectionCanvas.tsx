@@ -10,11 +10,12 @@ import {
   startRecording,
 } from "../../lib/ipc";
 import { clamp } from "../../lib/format";
-import type { OverlayPayload, Rect, StillAction } from "../../lib/types";
+import type { CaptureMode, OverlayPayload, Rect, StillAction } from "../../lib/types";
 import { BootScreen } from "./BootScreen";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
+import { ModeBar } from "./ModeBar";
 import { SelectionHandles, type HandleId } from "./SelectionHandles";
 
 type Mode =
@@ -77,7 +78,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const [hex, setHex] = useState("#000000");
-  const [audio, setAudio] = useState(false);
+  /** Qué se hará con el recorte. Lo elige la barra de arriba, antes de recortar. */
+  const [modo, setModo] = useState<CaptureMode>("still");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -120,12 +122,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
 
   /** La ventana mas pequenna bajo el punto es la que esta encima. */
   const windowAt = useCallback(
-    (x: number, y: number): Rect | null => {
+    (x: number, y: number): { title: string; rect: Rect } | null => {
       const inside = snapTargets.filter((w) => contains(w.rect, x, y));
       if (inside.length === 0) return null;
       return inside.reduce((best, w) =>
         w.rect.width * w.rect.height < best.rect.width * best.rect.height ? w : best,
-      ).rect;
+      );
     },
     [snapTargets],
   );
@@ -143,7 +145,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       const data = await overlayBootstrap(monitorId);
       if (cancelled) return;
       setPayload(data);
-      setAudio(data.settings.recordAudio);
+      // Quien pulsa el atajo de grabar quiere grabar: la barra abre en vídeo y ya.
+      if (data.intent === "record") setModo("video");
       void getCurrentWindow().setFocus();
 
       // El PNG se pasa a un blob del mismo origen: cargado directamente desde el
@@ -210,24 +213,26 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   );
 
   /**
-   * Perfil al vuelo: se suelta el raton y la imagen ya esta en el portapapeles, sin
-   * barra y sin un solo clic mas. Solo cuando el overlay se abrio para capturar: con
-   * el atajo de grabar hace falta elegir entre GIF y video, asi que ahi manda la barra.
+   * Perfil al vuelo: se suelta el raton y ya esta, sin barra y sin un solo clic mas. En
+   * foto eso es la imagen en el portapapeles; en video o GIF, la grabacion arrancando.
+   * Con el otro perfil sale la barra, que ademas deja ajustar el recuadro antes: grabando
+   * eso importa mas que en una foto, porque lo que salga mal se ve minutos despues.
    */
-  const alVuelo =
-    payload?.settings.captureFlow === "instant" && payload?.intent === "capture";
+  const alVuelo = payload?.settings.captureFlow === "instant";
 
-  const runRecord = useCallback(
-    async (format: "gif" | "video") => {
-      if (!selection || !payload || busy) return;
+  const grabarRegion = useCallback(
+    async (rect: Rect, format: "gif" | "video") => {
+      if (!payload || busy) return;
       setBusy(true);
       setError(null);
       try {
-        await startRecording(toPhysical(selection), {
+        await startRecording(toPhysical(rect), {
           format,
           fps: payload.settings.fps,
           captureCursor: payload.settings.captureCursor,
-          audio: audio && format === "video",
+          // El interruptor de audio del overlay se fue con la barra vieja: mientras el
+          // ajuste diga "todavia no disponible", esto es siempre false.
+          audio: payload.settings.recordAudio && format === "video",
         });
       } catch (e) {
         setError(String(e));
@@ -235,7 +240,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         setBusy(false);
       }
     },
-    [selection, payload, busy, audio, toPhysical],
+    [payload, busy, toPhysical],
   );
 
   const nudge = useCallback((dx: number, dy: number, resize: boolean) => {
@@ -263,7 +268,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           return;
         case "Enter":
           e.preventDefault();
-          void runStill("copy");
+          // Enter hace lo que diga la barra de arriba: copiar la foto, o empezar a grabar.
+          if (modo !== "still") {
+            if (selectionRef.current) void grabarRegion(selectionRef.current, modo);
+          } else {
+            void runStill("copy");
+          }
           return;
         case "ArrowLeft":
           e.preventDefault();
@@ -289,19 +299,22 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       } else if (key === "a" && e.ctrlKey) {
         e.preventDefault();
         const todo = { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
-        if (alVuelo) void capturarRegion(todo, "copy");
-        else setSelection(todo);
+        if (!alVuelo) setSelection(todo);
+        else if (modo !== "still") void grabarRegion(todo, modo);
+        else void capturarRegion(todo, "copy");
       } else if (key === "e") {
         void runStill("edit");
+      } else if (key === "f") {
+        setModo("still");
       } else if (key === "g") {
-        void runRecord("gif");
+        setModo("gif");
       } else if (key === "v") {
-        void runRecord("video");
+        setModo("video");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [runStill, runRecord, nudge, alVuelo, capturarRegion]);
+  }, [runStill, nudge, alVuelo, modo, capturarRegion, grabarRegion]);
 
   const readHex = useCallback(
     (cssX: number, cssY: number) => {
@@ -350,7 +363,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         // Clic seco: si hay una ventana debajo, se selecciona entera (estilo ShareX).
         if (!dibujado) setSelection(mode.candidate);
         const elegido = dibujado ? drawn : mode.candidate;
-        if (alVuelo && elegido) void capturarRegion(elegido, "copy");
+        // Al soltar manda el modo elegido arriba: grabar empieza aqui mismo, y la foto
+        // solo se copia sola si ese es el perfil. Si no, sale la barra de la seleccion.
+        if (elegido) {
+          if (modo !== "still") void grabarRegion(elegido, modo);
+          else if (alVuelo) void capturarRegion(elegido, "copy");
+        }
       }
       setMode({ kind: "idle" });
     };
@@ -363,7 +381,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [mode, readHex, alVuelo, capturarRegion]);
+  }, [mode, readHex, alVuelo, modo, capturarRegion, grabarRegion]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (busy) return;
@@ -374,7 +392,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       setMode({ kind: "moving", grabX: x - current.x, grabY: y - current.y, base: current });
       return;
     }
-    setMode({ kind: "drawing", originX: x, originY: y, candidate: windowAt(x, y) });
+    setMode({ kind: "drawing", originX: x, originY: y, candidate: windowAt(x, y)?.rect ?? null });
     setSelection({ x, y, width: 0, height: 0 });
   };
 
@@ -414,16 +432,30 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       {/* Sin seleccion: velo uniforme. Con seleccion: el velo lo dibuja la sombra del recuadro. */}
       {!active && <div className="pointer-events-none absolute inset-0 bg-black/45" />}
 
+      {/* La ventana de debajo del cursor, con su nombre: el marco solo, y encima azul
+          fuerte, no decia de que era ni que se le podia hacer clic. */}
       {highlight && (
         <div
           style={{
-            left: highlight.x,
-            top: highlight.y,
-            width: highlight.width,
-            height: highlight.height,
+            left: highlight.rect.x,
+            top: highlight.rect.y,
+            width: highlight.rect.width,
+            height: highlight.rect.height,
           }}
-          className="pointer-events-none absolute rounded-[2px] border-2 border-blue-500/80 bg-blue-500/5"
-        />
+          className="pointer-events-none absolute rounded-[3px] border border-white/45 bg-white/[0.06]"
+        >
+          {highlight.title && (
+            <span
+              // Fuera del marco cuando cabe: dentro se pone justo encima de la barra de
+              // titulo de la ventana y se leen dos titulos pisados uno sobre otro.
+              className={`absolute left-0 max-w-[min(360px,100%)] truncate rounded-md bg-neutral-900/90 px-2 py-1 text-[11px] text-neutral-200 shadow-lg backdrop-blur-sm ${
+                highlight.rect.y > 28 ? "-top-7" : "top-1.5 left-1.5"
+              }`}
+            >
+              {highlight.title}
+            </span>
+          )}
+        </div>
       )}
 
       {active && (
@@ -470,11 +502,13 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             top={toolbarFlip ? active.y - 10 : active.y + active.height + 10}
             flipped={toolbarFlip}
             busy={busy}
+            modo={modo}
             onCopy={() => void runStill("copy")}
             onSave={() => void runStill("save")}
             onEdit={() => void runStill("edit")}
-            onRecordGif={() => void runRecord("gif")}
-            onRecordVideo={() => void runRecord("video")}
+            onRecord={() => {
+              if (selection && modo !== "still") void grabarRegion(selection, modo);
+            }}
             onCancel={() => void cancelCapture()}
           />
         )}
@@ -488,15 +522,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         </div>
       )}
 
-      {!active && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-10 flex justify-center">
-          <div className="rounded-full border border-white/10 bg-neutral-900/85 px-4 py-2 text-xs text-neutral-300 shadow-xl backdrop-blur-md">
-            {alVuelo
-              ? "Arrastra y suelta: se copia sola · clic sobre una ventana para copiarla entera · Esc para salir"
-              : "Arrastra para seleccionar · clic sobre una ventana para capturarla entera · Esc para salir"}
-          </div>
-        </div>
-      )}
+      <ModeBar
+        value={modo}
+        onChange={setModo}
+        onCancel={() => void cancelCapture()}
+        dimmed={mode.kind !== "idle"}
+      />
     </div>
   );
 }

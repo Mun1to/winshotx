@@ -1,4 +1,5 @@
-import { Check, Copy, Download, Film, MicOff, Pencil, Sparkles, X } from "lucide-react";
+import { Check, Circle, Copy, Download, Pencil, X } from "lucide-react";
+import type { CaptureMode } from "../../lib/types";
 import { GlassPanel } from "../ui/GlassPanel";
 import { IconButton } from "../ui/IconButton";
 
@@ -8,24 +9,32 @@ interface Props {
   /** La barra se pega arriba de la seleccion cuando abajo no cabe. */
   flipped: boolean;
   busy: boolean;
+  /** Lo que se eligio arriba: manda en lo que puede hacerse con esta seleccion. */
+  modo: CaptureMode;
   onCopy: () => void;
   onSave: () => void;
   onEdit: () => void;
-  onRecordGif: () => void;
-  onRecordVideo: () => void;
+  onRecord: () => void;
   onCancel: () => void;
 }
 
+/**
+ * Qué hacer con la foto ya recortada.
+ *
+ * Grabar en GIF o en vídeo ya no está aquí: eso se elige arriba, antes de recortar, en la
+ * misma barra que en el perfil "se copia sola". Tenerlo en los dos sitios significaba que
+ * el icono de GIF eran unas chispas, que no dicen nada, al lado del de vídeo.
+ */
 export function FloatingToolbar({
   left,
   top,
   flipped,
   busy,
+  modo,
   onCopy,
   onSave,
   onEdit,
-  onRecordGif,
-  onRecordVideo,
+  onRecord,
   onCancel,
 }: Props) {
   return (
@@ -35,31 +44,44 @@ export function FloatingToolbar({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <GlassPanel className="flex items-center gap-0.5 rounded-xl p-1">
-        <IconButton icon={Copy} label="Copiar" shortcut="Enter" onClick={onCopy} disabled={busy} />
-        <IconButton
-          icon={Download}
-          label="Guardar"
-          shortcut="Ctrl+S"
-          onClick={onSave}
-          disabled={busy}
-        />
-        <IconButton icon={Pencil} label="Editar" shortcut="E" onClick={onEdit} disabled={busy} />
-        <span className="mx-0.5 h-5 w-px bg-white/10" />
-        <IconButton
-          icon={Sparkles}
-          label="Grabar GIF"
-          shortcut="G"
-          onClick={onRecordGif}
-          disabled={busy}
-        />
-        <IconButton
-          icon={Film}
-          label="Grabar vídeo"
-          shortcut="V"
-          onClick={onRecordVideo}
-          disabled={busy}
-        />
-        <IconButton icon={MicOff} label="Audio: todavía no disponible" disabled />
+        {modo === "still" ? (
+          <>
+            <IconButton
+              icon={Copy}
+              label="Copiar"
+              shortcut="Enter"
+              onClick={onCopy}
+              disabled={busy}
+            />
+            <IconButton
+              icon={Download}
+              label="Guardar"
+              shortcut="Ctrl+S"
+              onClick={onSave}
+              disabled={busy}
+            />
+            <IconButton
+              icon={Pencil}
+              label="Editar"
+              shortcut="E"
+              onClick={onEdit}
+              disabled={busy}
+            />
+          </>
+        ) : (
+          // Un botón, y grande: aquí ya está elegido si es vídeo o GIF. Lo que falta es
+          // dejar ajustar el recuadro antes de empezar, que grabando importa más que en
+          // una foto porque lo que salga mal se descubre minutos después.
+          <button
+            type="button"
+            onClick={onRecord}
+            disabled={busy}
+            className="flex h-8 items-center gap-2 rounded-lg bg-red-500 px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-red-400 disabled:opacity-50"
+          >
+            <Circle className="size-3 fill-current" />
+            Grabar {modo === "gif" ? "GIF" : "vídeo"}
+          </button>
+        )}
         <span className="mx-0.5 h-5 w-px bg-white/10" />
         <IconButton icon={X} label="Cancelar" shortcut="Esc" onClick={onCancel} danger />
       </GlassPanel>
