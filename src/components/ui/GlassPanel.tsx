@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
 interface Props {
@@ -9,9 +9,13 @@ interface Props {
 }
 
 export function GlassPanel({ children, className = "", animate = true }: Props) {
+  // Quien pide menos movimiento no ve el panel escalar, y ademas aparece de golpe en vez
+  // de subir de opacidad: una barra que se desvanece hacia dentro tampoco es "menos
+  // movimiento" si lo que quieres es que este ahi cuando miras.
+  const quieto = useReducedMotion();
   const base =
     "rounded-2xl border border-white/10 bg-neutral-900/90 backdrop-blur-xl shadow-2xl";
-  if (!animate) return <div className={`${base} ${className}`}>{children}</div>;
+  if (!animate || quieto) return <div className={`${base} ${className}`}>{children}</div>;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.92, y: 4 }}
