@@ -38,6 +38,12 @@ const FRASES = {
   editar: ["Abriendo el editor", "Opening the editor"],
   gif: ["Grabando un GIF de esa región", "Recording a GIF of that region"],
   video: ["Grabando vídeo de esa región", "Recording video of that region"],
+  pantallaFoto: ["Pantalla entera capturada", "Whole screen captured"],
+  pantallaVideo: ["Grabando la pantalla entera", "Recording the whole screen"],
+  pantallaGif: ["Grabando la pantalla entera en GIF", "Recording the whole screen to GIF"],
+  cartelFoto: ["o clic para capturarla entera", "or click to capture it whole"],
+  cartelVideo: ["o clic para grabarla entera", "or click to record it whole"],
+  cartelGif: ["o clic para grabarla entera en GIF", "or click to record it whole to GIF"],
   copiado: ["copiado", "copied"],
   abrirCarpeta: ["abrir carpeta", "open folder"],
   bloqueada: ["Proporción bloqueada", "Aspect ratio locked"],
@@ -142,7 +148,13 @@ const medida = document.getElementById("medida");
 const lupa = document.getElementById("lupa");
 const hex = document.getElementById("hex");
 const herramientas = document.getElementById("herramientas");
-const pista = document.getElementById("pista");
+const modos = document.getElementById("modos");
+const eligePantalla = document.getElementById("elige-pantalla");
+const cartelPantalla = document.getElementById("cartel-pantalla");
+const botonGrabar = herramientas.querySelector(".grabar");
+/* Qué sale del recorte. Se elige arriba, antes de recortar, igual que en la app. */
+let modo = "foto";
+let pantallaEntera = false;
 const aviso = document.getElementById("aviso");
 const lente = document.getElementById("zoom").getContext("2d");
 lente.imageSmoothingEnabled = false;
@@ -247,20 +259,19 @@ function limpiar() {
 }
 
 caja.addEventListener("pointerdown", (e) => {
-  if (e.target.closest(".herramientas")) return;
+  if (e.target.closest(".herramientas") || e.target.closest(".modos")) return;
+  if (pantallaEntera) return llevarsePantalla();
   caja.setPointerCapture(e.pointerId);
   arrastrando = true;
   hay = false;
   herramientas.style.display = "none";
   aviso.style.display = "none";
-  pista.style.display = "none";
   ini = fin = enCaja(e);
   pintarSeleccion();
 });
 
 caja.addEventListener("pointermove", (e) => {
   const p = enCaja(e);
-  pista.style.display = "none";
   if (arrastrando) {
     fin = p;
     pintarSeleccion();
@@ -280,6 +291,48 @@ caja.addEventListener("pointerup", (e) => {
   colocarHerramientas();
 });
 
+/* --------------------------------------------- la barra de modos de arriba */
+
+/* Qué botones tienen sentido con lo que hay elegido: en vídeo o GIF no se copia
+   una imagen, se empieza a grabar, así que sale un botón y no tres. */
+function pintarModo() {
+  modos.querySelectorAll("[data-modo]").forEach((b) => {
+    const activo = b.dataset.modo === modo || (b.dataset.modo === "pantalla" && pantallaEntera);
+    b.classList.toggle("viva", activo);
+  });
+  eligePantalla.classList.toggle("viva", pantallaEntera);
+  cartelPantalla.textContent = frase(
+    modo === "video" ? "cartelVideo" : modo === "gif" ? "cartelGif" : "cartelFoto",
+  );
+  const grabando = modo !== "foto";
+  botonGrabar.hidden = !grabando;
+  herramientas.querySelectorAll("[data-accion=copiar],[data-accion=guardar],[data-accion=editar]")
+    .forEach((b) => (b.hidden = grabando));
+  if (pantallaEntera) limpiar();
+}
+
+modos.addEventListener("click", (e) => {
+  const boton = e.target.closest("button");
+  if (!boton) return;
+  if (boton.dataset.accion === "cancelar") {
+    pantallaEntera = false;
+    limpiar();
+    return pintarModo();
+  }
+  if (boton.dataset.modo === "pantalla") pantallaEntera = !pantallaEntera;
+  else modo = boton.dataset.modo;
+  pintarModo();
+});
+
+/* Con la pantalla entera elegida no hay nada que arrastrar: un clic y ya está. */
+function llevarsePantalla() {
+  pantallaEntera = false;
+  pintarModo();
+  aviso.style.display = "flex";
+  aviso.querySelector("span").textContent =
+    `${frase(modo === "video" ? "pantallaVideo" : modo === "gif" ? "pantallaGif" : "pantallaFoto")} · ${ANCHO} × ${ALTO} px`;
+}
+
 caja.addEventListener("pointerleave", () => {
   if (!arrastrando && !hay) lupa.style.display = "none";
 });
@@ -289,14 +342,33 @@ herramientas.addEventListener("click", (e) => {
   if (!boton || boton.disabled) return;
   if (boton.dataset.accion === "cancelar") return limpiar();
   const r = rectangulo();
+  const clave = boton.dataset.accion === "grabar" ? modo : boton.dataset.accion;
   aviso.style.display = "flex";
   aviso.querySelector("span").textContent =
-    `${frase(boton.dataset.accion)} · ${Math.round(r.w * ANCHO)} × ${Math.round(r.h * ALTO)} px`;
+    `${frase(clave)} · ${Math.round(r.w * ANCHO)} × ${Math.round(r.h * ALTO)} px`;
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (hay || arrastrando)) limpiar();
+  if (e.key === "Escape" && (hay || arrastrando || pantallaEntera)) {
+    pantallaEntera = false;
+    pintarModo();
+    return limpiar();
+  }
+  // Solo cuando la demo está a la vista: si no, escribir en la página movería la barra.
+  if (document.getElementById("p-sel").hidden) return;
+  const k = e.key.toLowerCase();
+  if (k === "f" || k === "v" || k === "g") {
+    modo = k === "f" ? "foto" : k === "v" ? "video" : "gif";
+    pintarModo();
+  } else if (k === "p") {
+    pantallaEntera = !pantallaEntera;
+    pintarModo();
+  } else if (k === "1" && pantallaEntera) {
+    llevarsePantalla();
+  }
 });
+
+pintarModo();
 
 /* ========================================================== 2. editor === */
 const REGION = { width: 800, height: 500 };

@@ -300,11 +300,63 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .herramientas button.mata:hover { background: #ef444426; color: #fca5a5; }
 .herramientas svg { width: 18px; height: 18px; stroke-width: 1.9; }
 .herramientas .raya, .edi-pildora .raya { width: 1px; height: 20px; background: #ffffff1a; margin: 0 2px; }
-.pista {
-  position: absolute; left: 50%; top: 50%; translate: -50% -50%; text-align: center;
-  font-size: 14px; color: #ffffffb0; pointer-events: none; text-shadow: 0 2px 12px #000;
+/* La barra de modos: qué sale del recorte y de qué pantalla, elegido ANTES de recortar.
+   Va arriba y centrada, donde Windows pone la suya y donde la gente ya la busca. */
+.modos {
+  position: absolute; left: 50%; top: 18px; translate: -50% 0; z-index: 6;
+  display: flex; align-items: center; gap: 4px; padding: 6px;
+  border-radius: 16px; background: #171717e6; border: 1px solid #ffffff1a;
+  backdrop-filter: blur(16px); box-shadow: 0 25px 50px -12px #000000bf;
+  transition: opacity .15s;
 }
-.pista b { display: block; font-size: 17px; color: #fff; margin-bottom: 4px; }
+.modos.apagada { opacity: .25; }
+.modos button {
+  display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+  border: 0; border-radius: 12px; background: transparent; color: #d4d4d4; cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.modos button:hover { background: #ffffff1a; color: #fff; }
+.modos button.viva { background: #0a9bff; color: #fff; }
+.modos button.viva:hover { background: #38aeff; }
+.modos button.mata { color: #f87171; }
+.modos button.mata:hover { background: #ef444426; color: #fca5a5; }
+.modos svg { width: 19px; height: 19px; }
+.modos .raya { width: 1px; height: 22px; background: #ffffff1a; margin: 0 3px; }
+
+/* Elegir pantalla: el número es lo que hace que una pantalla se pueda nombrar. */
+.elige-pantalla {
+  position: absolute; inset: 0; z-index: 5; display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  pointer-events: none;
+}
+.elige-pantalla.viva { display: flex; }
+.elige-pantalla::before {
+  content: ""; position: absolute; inset: 3px; border-radius: 8px;
+  border: 2px solid #0a9bffb3;
+}
+.numero-pantalla {
+  display: flex; align-items: center; justify-content: center; width: 104px; height: 104px;
+  border-radius: 24px; border: 2px solid #60b8ff80; background: #171717d9;
+  font-size: 56px; font-weight: 600; color: #fff; line-height: 1;
+  backdrop-filter: blur(10px); box-shadow: 0 25px 50px -12px #000000bf;
+}
+.cartel-pantalla {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px;
+  background: #171717e6; border: 1px solid #ffffff1a; font-size: 13px; color: #e5e5e5;
+  backdrop-filter: blur(10px); box-shadow: 0 20px 25px -5px #00000080;
+}
+.cartel-pantalla kbd {
+  padding: 2px 6px; border-radius: 5px; border: 1px solid #ffffff26; background: #ffffff1a;
+  font: inherit; font-size: 11px;
+}
+.cartel-pantalla em { font-style: normal; color: #a3a3a3; }
+
+/* El botón de grabar de la barra de selección: rojo, porque empieza algo que dura. */
+.herramientas button.grabar {
+  gap: 8px; background: #ef4444; color: #fff; font-weight: 600; font-size: 13px;
+  padding: 0 14px;
+}
+.herramientas button.grabar:hover { background: #f87171; color: #fff; }
 .aviso { display: none; align-items: center; gap: 8px; margin-top: 12px; font-size: 13.5px; color: #6ee7b7; }
 
 /* ---------- 2. editor ---------- */
