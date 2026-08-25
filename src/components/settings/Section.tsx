@@ -2,20 +2,17 @@ import type { ReactNode } from "react";
 
 interface SectionProps {
   title: string;
-  /** Una línea bajo el rótulo, para cuando las filas de dentro comparten un porqué. */
-  note?: string;
   children: ReactNode;
 }
 
 /** Bloque de ajustes: rótulo pequeño arriba y una tarjeta con las filas dentro. */
-export function Section({ title, note, children }: SectionProps) {
+export function Section({ title, children }: SectionProps) {
   return (
     <section>
       <h2 className="px-1 text-[10px] font-semibold tracking-[0.09em] text-neutral-500 uppercase">
         {title}
       </h2>
-      {note && <p className="mt-1 px-1 text-[11px] leading-snug text-neutral-500">{note}</p>}
-      <div className="mt-1.5 divide-y divide-white/6 overflow-hidden rounded-xl border border-white/8 bg-white/[0.03]">
+      <div className="mt-1.5 divide-y divide-white/5 overflow-hidden rounded-xl bg-white/[0.04]">
         {children}
       </div>
     </section>
@@ -67,7 +64,7 @@ export function Row({ label, hint, icon, control, stacked = false, tone = "norma
   // Altura fija para todas: con `py` a secas, las filas con explicación quedaban más
   // altas que las de una línea y la tarjeta parecía un montón de cajas sueltas.
   return (
-    <div className="flex min-h-[46px] items-center justify-between gap-3 px-3 py-2">
+    <div className="flex min-h-[42px] items-center justify-between gap-3 px-3 py-2">
       {texto}
       <span className="shrink-0">{control}</span>
     </div>

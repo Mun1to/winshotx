@@ -6,13 +6,13 @@ import {
   Camera,
   Check,
   Clipboard,
+  Crop,
   FolderOpen,
   Gauge,
   HardDrive,
   Keyboard,
   Mic,
   MousePointer2,
-  MousePointerClick,
   Power,
   Scissors,
   SquarePen,
@@ -180,18 +180,16 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
-      {/* Dos columnas que el navegador equilibra solo: con la rejilla fija, la izquierda
-          se salia por abajo mientras a la derecha le sobraba hueco. */}
-      {/* Izquierda, la captura de punta a punta. Derecha, lo que toca al sistema.
-          El reparto va por altura, para que las dos columnas terminen a la par. */}
+      {/* Cuatro grupos, no seis: con uno por cada cosa que hace la app, la ventana se leía
+          como una lista de cajas sueltas. Izquierda lo de capturar, derecha lo demás. */}
       <div className="grid flex-1 grid-cols-2 content-start items-start gap-x-4 gap-y-3 overflow-y-auto p-4">
         <div className="space-y-3">
-          <Section title="Atajos">
+          <Section title="Capturar">
             <Row
               icon={<Camera className="size-4" />}
               label="Capturar región"
-              hint={shortcuts.capture ? "abre la selección" : "esa combinación está ocupada"}
-              tone={shortcuts.capture ? "normal" : "warn"}
+              hint={shortcuts.capture ? undefined : "esa combinación está ocupada"}
+              tone="warn"
               control={
                 <ShortcutField
                   value={settings.captureShortcut}
@@ -201,28 +199,12 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
               }
             />
             <Row
-              icon={<Video className="size-4" />}
-              label="Grabar región"
-              hint={shortcuts.record ? "el mismo atajo la termina" : "esa combinación está ocupada"}
-              tone={shortcuts.record ? "normal" : "warn"}
-              control={
-                <ShortcutField
-                  value={settings.recordShortcut}
-                  active={shortcuts.record}
-                  onChange={(v) => patch({ recordShortcut: v })}
-                />
-              }
-            />
-          </Section>
-
-          <Section title="Captura">
-            <Row
-              icon={<MousePointerClick className="size-4" />}
+              icon={<Crop className="size-4" />}
               label="Al soltar el ratón"
               hint={
                 settings.captureFlow === "instant"
-                  ? "va directa al portapapeles · grabar sigue sacando la barra"
-                  : "sale la barra para copiar, guardar, editar o grabar"
+                  ? "va directa al portapapeles"
+                  : "sale la barra para copiar, guardar o editar"
               }
               stacked
               control={
@@ -235,20 +217,18 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             />
             <Row
               icon={<Clipboard className="size-4" />}
-              label="Copiar al portapapeles"
-              hint="al guardar, la deja además lista para pegar"
+              label="Copiar al guardar"
               control={
                 <Switch
                   checked={settings.copyAfterCapture}
                   onChange={(v) => patch({ copyAfterCapture: v })}
-                  label="Copiar al portapapeles"
+                  label="Copiar al guardar"
                 />
               }
             />
             <Row
               icon={<MousePointer2 className="size-4" />}
               label="Incluir el cursor"
-              hint="el puntero sale dibujado en la imagen"
               control={
                 <Switch
                   checked={settings.captureCursor}
@@ -260,7 +240,6 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             <Row
               icon={<ZoomIn className="size-4" />}
               label="Lupa de píxel"
-              hint="zoom 6× con el color exacto bajo el cursor"
               control={
                 <Switch
                   checked={settings.showMagnifier}
@@ -272,7 +251,6 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             <Row
               icon={<Volume2 className="size-4" />}
               label="Sonido de obturador"
-              hint="un clic corto al capturar"
               control={
                 <Switch
                   checked={settings.playSound}
@@ -283,7 +261,146 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             />
           </Section>
 
-          <Section title="Archivos">
+          <Section title="Teclas de Windows">
+            <Row
+              icon={<Keyboard className="size-4" />}
+              label="Impr Pant"
+              hint={
+                imprPant?.enabled
+                  ? imprPant.active
+                    ? "ya es de winshotx"
+                    : "cierra sesión para que Windows la suelte"
+                  : "hoy abre la Herramienta de Recortes"
+              }
+              tone={imprPant?.enabled ? (imprPant.active ? "ok" : "warn") : "normal"}
+              control={
+                <Switch
+                  checked={imprPant?.enabled ?? false}
+                  onChange={(v) => void cambiarImprPant(v)}
+                  label="Usar también Impr Pant"
+                />
+              }
+            />
+            <Row
+              icon={<AppWindow className="size-4" />}
+              label="Win + Mayús + S"
+              hint={
+                settings.takeWinShiftS
+                  ? "será tuya al cerrar sesión, y Win+S dejará de buscar"
+                  : "cuesta Win+S, la búsqueda"
+              }
+              tone={settings.takeWinShiftS ? "warn" : "normal"}
+              control={
+                <Switch
+                  checked={settings.takeWinShiftS}
+                  onChange={(v) => void cambiarWinShiftS(v)}
+                  label="Quedarme con Win+Mayús+S"
+                />
+              }
+            />
+            <Row
+              icon={<Scissors className="size-4" />}
+              label="Herramienta de Recortes"
+              hint={
+                recortes === "confirmar"
+                  ? "vuelve desde la Microsoft Store"
+                  : recortes === "quitando"
+                    ? "quitándola…"
+                    : recortes === "quitada"
+                      ? "quitada, ya no abre nada"
+                      : recortes === "ya no estaba"
+                        ? "no estaba instalada"
+                        : "quitarla es lo único que la calla del todo"
+              }
+              tone={
+                recortes === "confirmar"
+                  ? "warn"
+                  : recortes === "quitada" || recortes === "ya no estaba"
+                    ? "ok"
+                    : "normal"
+              }
+              control={
+                <span className="flex gap-1.5">
+                  {!recortes && (
+                    <RowButton onClick={() => void openWindowsApps()}>Ver cómo</RowButton>
+                  )}
+                  <RowButton
+                    danger={recortes === "confirmar"}
+                    disabled={
+                      recortes === "quitando" ||
+                      recortes === "quitada" ||
+                      recortes === "ya no estaba"
+                    }
+                    onClick={() => void quitarRecortes()}
+                  >
+                    {recortes === "confirmar"
+                      ? "Sí, quitarla"
+                      : recortes === "quitada" || recortes === "ya no estaba"
+                        ? "Hecho"
+                        : "Quitar"}
+                  </RowButton>
+                </span>
+              }
+            />
+          </Section>
+        </div>
+
+        <div className="space-y-3">
+          <Section title="Grabar">
+            <Row
+              icon={<Video className="size-4" />}
+              label="Grabar región"
+              hint={
+                shortcuts.record ? "el mismo atajo la termina" : "esa combinación está ocupada"
+              }
+              tone={shortcuts.record ? "normal" : "warn"}
+              control={
+                <ShortcutField
+                  value={settings.recordShortcut}
+                  active={shortcuts.record}
+                  onChange={(v) => patch({ recordShortcut: v })}
+                />
+              }
+            />
+            <Row
+              icon={<Gauge className="size-4" />}
+              label="Fotogramas por segundo"
+              stacked
+              control={
+                <Segmented
+                  value={settings.fps}
+                  options={FPS_OPTIONS}
+                  onChange={(v) => patch({ fps: v })}
+                />
+              }
+            />
+            <Row
+              icon={<Mic className="size-4" />}
+              label="Audio del sistema"
+              hint="todavía no disponible"
+              control={
+                <Switch
+                  checked={false}
+                  disabled
+                  onChange={() => undefined}
+                  label="Audio del sistema"
+                />
+              }
+            />
+            <Row
+              icon={<SquarePen className="size-4" />}
+              label="Abrir el editor al terminar"
+              control={
+                <Switch
+                  checked={settings.openEditorAfterRecording}
+                  onChange={(v) => patch({ openEditorAfterRecording: v })}
+                  label="Abrir el editor al terminar"
+                />
+              }
+            />
+          </Section>
+
+          <Section title="La app">
             <Row
               icon={<FolderOpen className="size-4" />}
               label="Carpeta de destino"
@@ -326,155 +443,15 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                 </RowButton>
               }
             />
-          </Section>
-        </div>
-
-        <div className="space-y-3">
-          <Section
-            title="Teclas de Windows"
-            note="Las dos que Windows guarda para su Herramienta de Recortes."
-          >
-            <Row
-              icon={<Keyboard className="size-4" />}
-              label="Impr Pant"
-              hint={
-                imprPant?.enabled
-                  ? imprPant.active
-                    ? "ya es de winshotx"
-                    : "cierra sesión para que Windows la suelte"
-                  : "hoy abre la Herramienta de Recortes"
-              }
-              tone={imprPant?.enabled ? (imprPant.active ? "ok" : "warn") : "normal"}
-              control={
-                <Switch
-                  checked={imprPant?.enabled ?? false}
-                  onChange={(v) => void cambiarImprPant(v)}
-                  label="Usar también Impr Pant"
-                />
-              }
-            />
-            <Row
-              icon={<AppWindow className="size-4" />}
-              label="Win + Mayús + S"
-              hint={
-                settings.takeWinShiftS
-                  ? "pedida · será tuya al cerrar sesión, y Win+S dejará de buscar"
-                  : "cuesta Win+S, la búsqueda: Windows no distingue las dos"
-              }
-              tone={settings.takeWinShiftS ? "warn" : "normal"}
-              control={
-                <Switch
-                  checked={settings.takeWinShiftS}
-                  onChange={(v) => void cambiarWinShiftS(v)}
-                  label="Quedarme con Win+Mayús+S"
-                />
-              }
-            />
-            <Row
-              icon={<Scissors className="size-4" />}
-              label="Herramienta de Recortes"
-              hint={
-                recortes === "confirmar"
-                  ? "se quita de tu usuario; vuelve desde la Microsoft Store"
-                  : recortes === "quitando"
-                    ? "quitándola…"
-                    : recortes === "quitada"
-                      ? "quitada, ya no abre nada"
-                      : recortes === "ya no estaba"
-                        ? "no estaba instalada"
-                        : "quitarla es lo único que la calla del todo"
-              }
-              tone={
-                recortes === "confirmar"
-                  ? "warn"
-                  : recortes === "quitada" || recortes === "ya no estaba"
-                    ? "ok"
-                    : "normal"
-              }
-              control={
-                <span className="flex gap-1.5">
-                  {!recortes && (
-                    <RowButton onClick={() => void openWindowsApps()}>Ver cómo</RowButton>
-                  )}
-                  <RowButton
-                    danger={recortes === "confirmar"}
-                    disabled={
-                      recortes === "quitando" ||
-                      recortes === "quitada" ||
-                      recortes === "ya no estaba"
-                    }
-                    onClick={() => void quitarRecortes()}
-                  >
-                    {recortes === "confirmar"
-                      ? "Sí, quitarla"
-                      : recortes === "quitada" || recortes === "ya no estaba"
-                        ? "Hecho"
-                        : "Quitar"}
-                  </RowButton>
-                </span>
-              }
-            />
-          </Section>
-
-          <Section title="Grabación">
-            <Row
-              icon={<Gauge className="size-4" />}
-              label="Fotogramas por segundo"
-              hint={
-                settings.fps >= 60
-                  ? "más fluido, y bastante más disco"
-                  : settings.fps <= 15
-                    ? "el que menos ocupa"
-                    : "el equilibrio para casi todo"
-              }
-              stacked
-              control={
-                <Segmented
-                  value={settings.fps}
-                  options={FPS_OPTIONS}
-                  onChange={(v) => patch({ fps: v })}
-                />
-              }
-            />
-            <Row
-              icon={<Mic className="size-4" />}
-              label="Audio del sistema"
-              hint="todavía no disponible"
-              control={
-                <Switch
-                  checked={false}
-                  disabled
-                  onChange={() => undefined}
-                  label="Audio del sistema"
-                />
-              }
-            />
-            <Row
-              icon={<SquarePen className="size-4" />}
-              label="Abrir el editor al terminar"
-              hint="para recortar y elegir formato antes de exportar"
-              control={
-                <Switch
-                  checked={settings.openEditorAfterRecording}
-                  onChange={(v) => patch({ openEditorAfterRecording: v })}
-                  label="Abrir el editor al terminar"
-                />
-              }
-            />
-          </Section>
-
-          <Section title="Sistema">
             <UpdateRow version={VERSION} />
             <Row
               icon={<BookOpen className="size-4" />}
               label="Bienvenida"
-              hint="los cuatro pasos del primer arranque"
               control={<RowButton onClick={onVerBienvenida}>Ver otra vez</RowButton>}
             />
             <Row
               icon={<Power className="size-4" />}
               label="Arrancar con Windows"
-              hint="se abre en la bandeja, sin ventana"
               control={
                 <Switch
                   checked={settings.startWithWindows}
