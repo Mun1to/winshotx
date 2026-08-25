@@ -28,7 +28,7 @@
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="icon" href="logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="estilos.css?v=140ba0db">
+<link rel="stylesheet" href="estilos.css?v=e962101e">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -58,6 +58,79 @@
     "Configurable global shortcuts",
     "Copies GIF and MP4 as files, ready to paste",
     "Fully offline, no account and no telemetry"
+  ]
+}
+</script>
+<script type="application/ld+json" data-faq>
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "es",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "¿Es gratis winshotx?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Necesita cuenta o conexión a internet?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. No pide cuenta, no manda nada a ninguna nube y funciona sin conexión; el único momento en que habla con internet es para comprobar si hay una versión nueva."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿En qué versiones de Windows funciona?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Windows 10 y Windows 11."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Está la app en inglés?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Por ahora la interfaz de la aplicación solo está en español. Esta web sí tiene versión en inglés."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Cómo se instala y se actualiza?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "El instalador pesa 2,2 MB y va a tu usuario, no al sistema, así que Windows no pide permisos de administrador. Desde dentro de la app se actualiza sola con un botón, y cada descarga viene firmada y se comprueba antes de instalarse."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Se puede instalar con winget?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Todavía no: el paquete está en revisión en el repositorio oficial de winget-pkgs. En cuanto se apruebe, winget install Mun1to.winshotx funcionará y esta respuesta lo dirá."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Qué puede capturar y grabar?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Captura de región con ajuste automático a ventanas, grabación de vídeo a 15, 30 o 60 fps, grabación en GIF, y un editor fotograma a fotograma con recorte A y B."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Qué le falta frente a la Herramienta de Recortes de Windows?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Todavía no dibuja ni anota encima de la captura, no lee el texto de la imagen, no tapa datos personales en automático, no graba el audio del sistema y no tiene temporizador antes de capturar. La comparación punto por punto está más arriba."
+      }
+    }
   ]
 }
 </script>
@@ -699,6 +772,46 @@
         <tr><td><kbd>Esc</kbd></td><td data-en="Cancel">Cancelar</td></tr>
       </tbody>
     </table>
+  </div>
+</section>
+
+<section id="preguntas">
+  <div class="env">
+    <h2 data-en="Questions people actually ask">Preguntas que hace la gente de verdad</h2>
+    <div class="faq">
+      <details>
+        <summary><h3 data-en="Is winshotx free?">¿Es gratis winshotx?</h3></summary>
+        <p data-en="Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.">Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago.</p>
+      </details>
+      <details>
+        <summary><h3 data-en="Does it need an account or an internet connection?">¿Necesita cuenta o conexión a internet?</h3></summary>
+        <p data-en="No. It never asks for an account, sends nothing to any cloud, and works offline; the only moment it talks to the internet is to check for a new version.">No. No pide cuenta, no manda nada a ninguna nube y funciona sin conexión; el único momento en que habla con internet es para comprobar si hay una versión nueva.</p>
+      </details>
+      <details>
+        <summary><h3 data-en="Which versions of Windows does it run on?">¿En qué versiones de Windows funciona?</h3></summary>
+        <p data-en="Windows 10 and Windows 11.">Windows 10 y Windows 11.</p>
+      </details>
+      <details>
+        <summary><h3 data-en="Is the app available in English?">¿Está la app en inglés?</h3></summary>
+        <p data-en="For now the application interface is Spanish only. This website does have an English version.">Por ahora la interfaz de la aplicación solo está en español. Esta web sí tiene versión en inglés.</p>
+      </details>
+      <details>
+        <summary><h3 data-en="How do you install and update it?">¿Cómo se instala y se actualiza?</h3></summary>
+        <p data-en="The installer is 2.2 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.">El instalador pesa 2,2 MB y va a tu usuario, no al sistema, así que Windows no pide permisos de administrador. Desde dentro de la app se actualiza sola con un botón, y cada descarga viene firmada y se comprueba antes de instalarse.</p>
+      </details>
+      <details>
+        <summary><h3 data-en="Can it be installed with winget?">¿Se puede instalar con winget?</h3></summary>
+        <p><span data-en="Not yet: the package is under review in the official winget-pkgs repository. Once it's approved,">Todavía no: el paquete está en revisión en el repositorio oficial de winget-pkgs. En cuanto se apruebe,</span> <code>winget install Mun1to.winshotx</code> <span data-en="will work and this answer will say so.">funcionará y esta respuesta lo dirá.</span></p>
+      </details>
+      <details>
+        <summary><h3 data-en="What can it capture and record?">¿Qué puede capturar y grabar?</h3></summary>
+        <p data-en="Region capture with automatic window snapping, video recording at 15, 30 or 60 fps, GIF recording, and a frame by frame editor with A and B trim.">Captura de región con ajuste automático a ventanas, grabación de vídeo a 15, 30 o 60 fps, grabación en GIF, y un editor fotograma a fotograma con recorte A y B.</p>
+      </details>
+      <details>
+        <summary><h3 data-en="What does it still lack compared to the Windows Snipping Tool?">¿Qué le falta frente a la Herramienta de Recortes de Windows?</h3></summary>
+        <p data-en="It doesn't draw or annotate on top of a capture yet, doesn't read text out of the image, doesn't blur personal data automatically, doesn't record system audio and has no capture timer. The point by point comparison is above.">Todavía no dibuja ni anota encima de la captura, no lee el texto de la imagen, no tapa datos personales en automático, no graba el audio del sistema y no tiene temporizador antes de capturar. La comparación punto por punto está más arriba.</p>
+      </details>
+    </div>
   </div>
 </section>
 

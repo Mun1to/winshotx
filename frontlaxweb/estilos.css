@@ -581,6 +581,25 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .caja h3 { font-size: 16px; margin-bottom: 6px; letter-spacing: -0.01em; }
 .caja p { font-size: 14px; color: var(--suave); }
 
+/* ---------- preguntas frecuentes: <details> nativo, sin JS ---------- */
+.faq { display: flex; flex-direction: column; gap: 10px; margin-top: 26px; }
+.faq details {
+  background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio);
+  padding: 16px 20px;
+}
+.faq summary {
+  cursor: pointer; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary h3 { font-size: inherit; font-weight: inherit; letter-spacing: inherit; margin: 0; }
+.faq summary::after {
+  content: "+"; color: var(--azul); font-size: 20px; font-weight: 400; flex: none;
+}
+.faq details[open] summary::after { content: "\2212"; }
+.faq details p { font-size: 14px; color: var(--suave); margin-top: 12px; }
+.faq details code { background: #ffffff14; padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+
 table { width: 100%; border-collapse: collapse; margin-top: 26px; font-size: 14.5px; }
 th, td { padding: 12px 14px; border-bottom: 1px solid var(--borde); text-align: left; }
 th { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #7c7c88; font-weight: 650; }
