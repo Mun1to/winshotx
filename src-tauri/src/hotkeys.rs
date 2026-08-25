@@ -9,6 +9,10 @@ use crate::windows_mgr::{self, OverlayIntent};
 /// La tecla suelta, tal y como la escribe el parser de atajos.
 pub const PRINT_SCREEN: &str = "PrintScreen";
 
+/// La otra tecla de captura de Windows. Solo se consigue cuando la S esta fuera de los
+/// atajos de la tecla Windows, y ni asi hasta que el usuario vuelve a iniciar sesion.
+pub const WIN_SHIFT_S: &str = "Super+Shift+KeyS";
+
 /// Que atajos han quedado activos de verdad. Si otra aplicacion ya tiene cogida la
 /// combinacion, el registro falla y el usuario tiene derecho a enterarse.
 #[derive(Debug, Clone, Copy, Default, Serialize)]
@@ -81,6 +85,17 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
                     status.print_screen = true;
                     puestos.push(shortcut);
                 }
+            }
+        }
+
+        // Y se pide Win+Mayus+S, que ahora puede estar libre: con la S fuera de
+        // `DisabledHotkeys` el shell deja de atenderla, aunque no hasta que el usuario
+        // cierra sesion. Hasta entonces esto falla y no pasa nada; despues, cae de este
+        // lado y winshotx sustituye del todo a la Herramienta de Recortes.
+        if let Ok(shortcut) = WIN_SHIFT_S.parse::<Shortcut>() {
+            if manager.on_shortcut(shortcut, on_capture).is_ok() {
+                puestos.push(shortcut);
+                eprintln!("[atajo] Win+Mayus+S tambien es nuestra");
             }
         }
     }

@@ -77,6 +77,15 @@ pub fn run() {
             #[cfg(windows)]
             if config.print_screen_capture {
                 let _ = platform::snipping::write(0);
+
+                // Lo mismo con la S de los atajos de la tecla Windows, que es lo unico que
+                // hace que Win+Mayus+S deje de abrir la Herramienta de Recortes. Se anade a
+                // lo que haya, nunca se sustituye.
+                let actuales = platform::snipping::read_disabled_hotkeys().unwrap_or_default();
+                if !actuales.to_uppercase().contains('S') {
+                    let _ =
+                        platform::snipping::write_disabled_hotkeys(Some(&format!("{actuales}S")));
+                }
             }
 
             hotkeys::register(&handle, &config);
