@@ -11,9 +11,9 @@ interface Props {
 }
 
 const QUE_HACE: Record<CaptureMode, string> = {
-  still: "Clic para capturarla entera",
-  video: "Clic para grabarla entera",
-  gif: "Clic para grabarla entera en GIF",
+  still: "capturarla entera",
+  video: "grabarla entera",
+  gif: "grabarla entera en GIF",
 };
 
 /**
@@ -35,9 +35,20 @@ export function ScreenPicker({ numero, total, modo, ancho, alto }: Props) {
             {numero}
           </span>
         )}
-        <span className="rounded-full border border-white/10 bg-neutral-900/90 px-4 py-2 text-[13px] text-neutral-200 shadow-xl backdrop-blur-md">
-          {QUE_HACE[modo]}
-          <span className="ml-2 text-neutral-500 tabular-nums">
+        <span className="flex items-center gap-2 rounded-full border border-white/10 bg-neutral-900/90 px-4 py-2 text-[13px] text-neutral-200 shadow-xl backdrop-blur-md">
+          {total > 1 && (
+            // La tecla, porque el numero grande no dice por si solo que se pueda pulsar,
+            // y con tres pantallas el raton casi nunca esta en la que se quiere.
+            <>
+              <kbd className="rounded-[5px] border border-white/15 bg-white/10 px-1.5 py-0.5 text-[11px] leading-none font-medium">
+                {numero}
+              </kbd>
+              <span className="text-neutral-500">o clic para</span>
+            </>
+          )}
+          {total === 1 && <span>Clic para</span>}
+          <span>{QUE_HACE[modo]}</span>
+          <span className="text-neutral-500 tabular-nums">
             {ancho} × {alto}
           </span>
         </span>

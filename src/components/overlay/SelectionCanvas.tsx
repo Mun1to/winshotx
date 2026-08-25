@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   cancelCapture,
@@ -10,7 +11,14 @@ import {
   startRecording,
 } from "../../lib/ipc";
 import { clamp } from "../../lib/format";
-import type { CaptureMode, OverlayPayload, Rect, StillAction } from "../../lib/types";
+import {
+  EVENTS,
+  type CaptureMode,
+  type OverlayModeState,
+  type OverlayPayload,
+  type Rect,
+  type StillAction,
+} from "../../lib/types";
 import { BootScreen } from "./BootScreen";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
@@ -83,12 +91,32 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [modo, setModo] = useState<CaptureMode>("still");
   /** Coger la pantalla entera de un clic, sin arrastrar. */
   const [pantallaEntera, setPantallaEntera] = useState(false);
+  const modoRef = useRef<CaptureMode>("still");
+  modoRef.current = modo;
+  const pantallaRef = useRef(false);
+  pantallaRef.current = pantallaEntera;
+
+  /**
+   * Cambia el estado de la barra en TODAS las pantallas.
+   *
+   * Hay un overlay por monitor y cada uno tiene su propio React, asi que tocar el boton
+   * aqui solo cambiaba esta pantalla. El evento vuelve tambien a quien lo manda, de modo
+   * que aplicar el cambio es cosa del listener y no hay dos caminos que mantener.
+   */
+  const difundir = useCallback((cambio: Partial<OverlayModeState>) => {
+    void emit(EVENTS.overlayMode, {
+      mode: cambio.mode ?? modoRef.current,
+      fullScreen: cambio.fullScreen ?? pantallaRef.current,
+    } satisfies OverlayModeState);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [source, setSource] = useState<HTMLCanvasElement | null>(null);
   const selectionRef = useRef<Rect | null>(null);
   selectionRef.current = selection;
+  /** El numero de ESTA pantalla, para saber si una orden por numero va con nosotros. */
+  const numeroPantalla = useRef(0);
 
   /** Pixeles fisicos por pixel CSS: el freeze manda, el webview puede estar escalado por DPI. */
   const scale = useMemo(() => {
@@ -148,6 +176,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       const data = await overlayBootstrap(monitorId);
       if (cancelled) return;
       setPayload(data);
+      numeroPantalla.current = data.screenNumber;
       // Quien pulsa el atajo de grabar quiere grabar: la barra abre en vídeo y ya.
       if (data.intent === "record") setModo("video");
       void getCurrentWindow().setFocus();
@@ -308,18 +337,24 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       } else if (key === "e") {
         void runStill("edit");
       } else if (key === "p") {
-        setPantallaEntera((v) => !v);
+        difundir({ fullScreen: !pantallaRef.current });
       } else if (key === "f") {
-        setModo("still");
+        difundir({ mode: "still" });
       } else if (key === "g") {
-        setModo("gif");
+        difundir({ mode: "gif" });
       } else if (key === "v") {
-        setModo("video");
+        difundir({ mode: "video" });
+      } else if (key >= "1" && key <= "9") {
+        // El numero que se ve en cada pantalla es la tecla que se la lleva. La orden va
+        // por evento porque la tecla solo llega a la pantalla que tiene el foco, y casi
+        // nunca es la que se quiere capturar.
+        e.preventDefault();
+        void emit(EVENTS.overlayTakeScreen, Number(key));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [runStill, nudge, alVuelo, modo, capturarRegion, grabarRegion]);
+  }, [runStill, nudge, alVuelo, modo, capturarRegion, grabarRegion, difundir]);
 
   const readHex = useCallback(
     (cssX: number, cssY: number) => {
@@ -388,24 +423,43 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     };
   }, [mode, readHex, alVuelo, modo, capturarRegion, grabarRegion]);
 
-  /** La pantalla de este overlay, entera, en coordenadas CSS. */
-  const pantallaCompleta = (): Rect => ({
-    x: 0,
-    y: 0,
-    width: window.innerWidth,
-    height: window.innerHeight,
-  });
+  /** Se lleva esta pantalla entera con lo que diga la barra: foto, video o GIF. */
+  const llevarsePantalla = useCallback(async () => {
+    const todo = {
+      x: 0,
+      y: 0,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    difundir({ fullScreen: false });
+    if (modoRef.current !== "still") await grabarRegion(todo, modoRef.current);
+    else await capturarRegion(todo, "copy");
+  }, [difundir, capturarRegion, grabarRegion]);
+
+  // Las dos ordenes que llegan de las otras pantallas: que cambie la barra, y que esta
+  // pantalla en concreto se capture entera porque alguien pulso su numero.
+  useEffect(() => {
+    const modos = listen<OverlayModeState>(EVENTS.overlayMode, ({ payload: p }) => {
+      setModo(p.mode);
+      setPantallaEntera(p.fullScreen);
+      if (p.fullScreen) setSelection(null);
+    });
+    const numeros = listen<number>(EVENTS.overlayTakeScreen, ({ payload: n }) => {
+      if (n === numeroPantalla.current) void llevarsePantalla();
+    });
+    return () => {
+      void modos.then((fn) => fn());
+      void numeros.then((fn) => fn());
+    };
+  }, [llevarsePantalla]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (busy) return;
     // Con "pantalla entera" puesto no hay nada que arrastrar: donde caiga el clic, esa
-    // pantalla es la que se lleva. Es el atajo para quien tiene tres y quiere una.
+    // pantalla se lleva, y se lleva YA. Un clic es un clic, tambien con el perfil de la
+    // barra: quien pide la pantalla entera ya ha dicho lo que quiere.
     if (pantallaEntera) {
-      const todo = pantallaCompleta();
-      if (modo !== "still") void grabarRegion(todo, modo);
-      else if (alVuelo) void capturarRegion(todo, "copy");
-      else setSelection(todo);
-      setPantallaEntera(false);
+      void llevarsePantalla();
       return;
     }
     const x = e.clientX;
@@ -557,9 +611,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
 
       <ModeBar
         value={modo}
-        onChange={setModo}
+        onChange={(m) => difundir({ mode: m })}
         pantallaEntera={pantallaEntera}
-        onPantallaEntera={setPantallaEntera}
+        onPantallaEntera={(v) => difundir({ fullScreen: v })}
         onCancel={() => void cancelCapture()}
         dimmed={mode.kind !== "idle"}
       />

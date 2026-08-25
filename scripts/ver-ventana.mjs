@@ -109,12 +109,24 @@ window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
   convertFileSrc: (p) => p,
   transformCallback: (cb) => { const id = Math.floor(Math.random() * 1e9); window["_" + id] = cb; return id; },
-  invoke: (cmd) => {
+  // Los eventos de Tauri, de mentira pero funcionando: la app los usa para hablar entre
+  // sus ventanas, y sin esto un botón que emite un evento no hace absolutamente nada aquí.
+  _oyentes: {},
+  invoke: function (cmd, args) {
     const tabla = ${JSON.stringify(RESPUESTAS)};
     if (cmd === "overlay_bootstrap") return Promise.resolve(${JSON.stringify(OVERLAY)});
     if (cmd in tabla) return Promise.resolve(tabla[cmd]);
-    // Un listen devuelve el número con el que se cancela; el updater sin endpoint, null.
-    if (cmd.startsWith("plugin:")) return Promise.resolve(cmd.endsWith("|listen") ? 0 : null);
+    if (cmd === "plugin:event|listen") {
+      (this._oyentes[args.event] ??= []).push(args.handler);
+      return Promise.resolve(this._oyentes[args.event].length);
+    }
+    if (cmd === "plugin:event|emit" || cmd === "plugin:event|emit_to") {
+      for (const id of this._oyentes[args.event] ?? []) {
+        window["_" + id]?.({ event: args.event, id: 0, payload: args.payload });
+      }
+      return Promise.resolve(null);
+    }
+    if (cmd.startsWith("plugin:")) return Promise.resolve(null);
     return Promise.resolve(null);
   },
 };

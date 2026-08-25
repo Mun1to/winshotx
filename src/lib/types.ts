@@ -185,4 +185,20 @@ export const EVENTS = {
   checkUpdate: "winshotx://check-update",
   /** La ventana de ajustes vuelve a estar a la vista: toca refrescar lo de dentro. */
   settingsShown: "winshotx://settings-shown",
+  /**
+   * Lo que hay elegido en la barra del overlay.
+   *
+   * Hay un overlay por monitor, cada uno con su propio React y su propia barra, y las
+   * teclas solo llegan al que tiene el foco. Sin esto, pulsar "pantalla entera" numeraba
+   * una sola pantalla y las otras dos se quedaban como si nada.
+   */
+  overlayMode: "winshotx://overlay-mode",
+  /** "Que la pantalla numero N se capture entera", venga la orden de donde venga. */
+  overlayTakeScreen: "winshotx://overlay-take-screen",
 } as const;
+
+/** Lo que viaja en `overlayMode`: el estado de la barra, igual en todas las pantallas. */
+export interface OverlayModeState {
+  mode: CaptureMode;
+  fullScreen: boolean;
+}
