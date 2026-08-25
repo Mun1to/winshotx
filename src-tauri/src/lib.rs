@@ -135,6 +135,7 @@ pub fn run() {
             commands::print_screen_state,
             commands::use_print_screen,
             commands::use_win_shift_s,
+            commands::restart_shell,
             commands::open_folder,
             commands::open_windows_apps,
             commands::remove_snipping_tool,

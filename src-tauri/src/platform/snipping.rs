@@ -272,6 +272,62 @@ pub fn uninstall_snipping_tool() -> Result<bool> {
     Ok(String::from_utf8_lossy(&salida.stdout).contains("quitada"))
 }
 
+/// Hace que el escritorio vuelva a leer `DisabledHotkeys`, sin cerrar sesion.
+///
+/// Esa lista se lee **una sola vez, al arrancar el shell**, asi que hasta ahora la unica
+/// forma de que la letra apagada surtiera efecto era cerrar sesion y volver a entrar. Y
+/// eso es pedirle a alguien que cierre todo lo que tiene abierto por un atajo: casi nadie
+/// lo hace, y mientras tanto la tecla no es de nadie.
+///
+/// Reiniciar el Explorador consigue lo mismo en dos segundos. Se lleva por delante las
+/// ventanas del Explorador de archivos que hubiera abiertas, nada mas: los programas
+/// siguen donde estaban. Verificado en la maquina de Munir el 25 de agosto de 2026, donde
+/// `RegisterHotKey` de `Win+Mayus+S` fallaba antes y pasaba a funcionar despues.
+#[cfg(windows)]
+pub fn restart_shell() -> Result<()> {
+    use std::os::windows::process::CommandExt;
+    use std::time::{Duration, Instant};
+    use windows::Win32::UI::WindowsAndMessaging::GetShellWindow;
+
+    let vivo = || unsafe { !GetShellWindow().0.is_null() };
+
+    std::process::Command::new("taskkill")
+        .creation_flags(0x0800_0000)
+        .args(["/F", "/IM", "explorer.exe"])
+        .output()?;
+
+    // Windows relanza el shell solo, pero tarda lo suyo. Si en cinco segundos no ha
+    // vuelto, se arranca a mano: a nadie se le puede dejar sin barra de tareas.
+    let hasta = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < hasta {
+        std::thread::sleep(Duration::from_millis(250));
+        if vivo() {
+            return Ok(());
+        }
+    }
+
+    std::process::Command::new("explorer.exe")
+        .creation_flags(0x0800_0000)
+        .spawn()?;
+
+    // Y aun asi se espera a verlo en pie antes de decir que salio bien.
+    let hasta = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < hasta {
+        std::thread::sleep(Duration::from_millis(250));
+        if vivo() {
+            return Ok(());
+        }
+    }
+    Err(AppError::Msg(
+        "el Explorador no ha vuelto solo; reinicia el equipo".into(),
+    ))
+}
+
+#[cfg(not(windows))]
+pub fn restart_shell() -> crate::error::Result<()> {
+    Err(crate::error::AppError::Unsupported)
+}
+
 #[cfg(not(windows))]
 pub fn uninstall_snipping_tool() -> crate::error::Result<bool> {
     Err(crate::error::AppError::Unsupported)

@@ -21,6 +21,9 @@ pub struct ShortcutStatus {
     pub capture: bool,
     pub record: bool,
     pub print_screen: bool,
+    /// Si el shell ha soltado ya `Win+Mayus+S`. Puede estar pedida en los ajustes y no
+    /// conseguida: la lista de teclas apagadas no vale hasta que el escritorio la relee.
+    pub win_shift_s: bool,
 }
 
 /// Abrir el overlay para capturar. Lo comparten el atajo de captura y la tecla
@@ -96,8 +99,11 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     if settings.take_win_shift_s {
         if let Ok(shortcut) = WIN_SHIFT_S.parse::<Shortcut>() {
             if manager.on_shortcut(shortcut, on_capture).is_ok() {
+                status.win_shift_s = true;
                 puestos.push(shortcut);
                 eprintln!("[atajo] Win+Mayus+S tambien es nuestra");
+            } else {
+                eprintln!("[atajo] Win+Mayus+S sigue siendo del escritorio");
             }
         }
     }

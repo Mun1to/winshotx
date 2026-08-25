@@ -5,6 +5,7 @@
  *   node scripts/ver-ventana.mjs ajustes.png
  *   node scripts/ver-ventana.mjs bienvenida.png --bienvenida
  *   node scripts/ver-ventana.mjs estrecho.png --ancho=780
+ *   node scripts/ver-ventana.mjs pendiente.png --tecla-pendiente
  *
  * Sirve el bundle DE VERDAD de `dist/` y le cuela un `__TAURI_INTERNALS__` de mentira en
  * el <head>, antes del script de la app, para que los `invoke` contesten datos fijos.
@@ -37,6 +38,8 @@ const ancho = bandera("ancho", "840");
 // El mismo alto que pide `tauri.conf.json`, para ver lo que de verdad entra sin rueda.
 const alto = bandera("alto", "640");
 const bienvenida = args.includes("--bienvenida");
+// Win+Mayús+S pedida pero todavía no conseguida, que es cuando sale el botón de aplicar.
+const teclaPendiente = args.includes("--tecla-pendiente");
 
 if (!existsSync(join(DIST, "index.html"))) {
   console.error("no hay dist/: corre antes `pnpm build`");
@@ -57,7 +60,7 @@ const AJUSTES = {
   startWithWindows: false,
   captureFlow: "toolbar",
   printScreenCapture: false,
-  takeWinShiftS: false,
+  takeWinShiftS: teclaPendiente,
   // Lo único que decide si sale la bienvenida o los ajustes.
   onboarded: !bienvenida,
   snippingKeyRestore: null,
@@ -67,7 +70,7 @@ const AJUSTES = {
 const RESPUESTAS = {
   get_settings: AJUSTES,
   set_settings: AJUSTES,
-  shortcut_status: { capture: true, record: true, printScreen: false },
+  shortcut_status: { capture: true, record: true, printScreen: false, winShiftS: false },
   cache_stats: { bytes: 0, sessions: 0 },
   print_screen_state: { enabled: false, active: false, takenByWindows: true },
 };

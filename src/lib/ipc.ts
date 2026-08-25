@@ -91,4 +91,7 @@ export const removeSnippingTool = () => invoke<boolean>("remove_snipping_tool");
 export const useWinShiftS = (enabled: boolean) =>
   invoke<boolean>("use_win_shift_s", { enabled });
 
+/** Hace que el escritorio relea la lista de teclas apagadas, sin cerrar sesión. */
+export const restartShell = () => invoke<ShortcutStatus>("restart_shell");
+
 export const quitApp = () => invoke<void>("quit_app");

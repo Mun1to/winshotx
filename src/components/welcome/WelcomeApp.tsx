@@ -51,6 +51,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
     capture: true,
     record: true,
     printScreen: false,
+    winShiftS: false,
   });
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);

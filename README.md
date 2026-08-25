@@ -116,8 +116,10 @@ combination. If another application already holds it, the field turns red and sa
 hotkey alone looks like it worked and never fires. The switch in the settings clears that value and
 takes the key, and turning it off puts the value back exactly as it was. `Win+Shift+S` is attended by Windows
 ahead of any program, hook or hotkey. The only thing that takes it away is turning the S off in
-`DisabledHotkeys`, which the same switch does: it costs `Win+S`, the search, it does not apply until
-the user signs out, and switching it off puts everything back as it was. For removing the Snipping
+`DisabledHotkeys`, which the same switch does: it costs `Win+S`, the search, and switching it off puts
+everything back as it was. The desktop only reads that list when it starts, so it has to start again:
+the **Aplicar** button on that row restarts Explorer, which takes two seconds and closes nothing,
+instead of making anyone sign out. For removing the Snipping
 Tool altogether, the app opens the Windows screen where that is done, and never uninstalls anything
 by itself.
 

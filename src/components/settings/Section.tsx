@@ -75,15 +75,24 @@ interface RowButtonProps {
   onClick: () => void;
   children: ReactNode;
   disabled?: boolean;
+  /** Lo que sale al dejar el ratón encima, cuando el botón solo no se explica. */
+  title?: string;
   /** Para el que hace algo que no se deshace solo. */
   danger?: boolean;
 }
 
 /** El botón secundario de una fila. Estaba copiado siete veces con las mismas clases. */
-export function RowButton({ onClick, children, disabled = false, danger = false }: RowButtonProps) {
+export function RowButton({
+  onClick,
+  children,
+  disabled = false,
+  danger = false,
+  title,
+}: RowButtonProps) {
   return (
     <button
       type="button"
+      title={title}
       disabled={disabled}
       onClick={onClick}
       className={`rounded-md border px-2.5 py-1 text-[11px] whitespace-nowrap transition-colors disabled:opacity-40 ${

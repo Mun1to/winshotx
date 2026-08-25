@@ -148,6 +148,8 @@ export interface ShortcutStatus {
   capture: boolean;
   record: boolean;
   printScreen: boolean;
+  /** Si el escritorio ha soltado ya Win+Mayús+S. Se puede pedir y no conseguir. */
+  winShiftS: boolean;
 }
 
 export interface PrintScreenState {

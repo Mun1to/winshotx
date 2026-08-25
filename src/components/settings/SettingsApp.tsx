@@ -31,6 +31,7 @@ import {
   useWinShiftS,
   printScreenState,
   quitApp,
+  restartShell,
   setSettings,
   shortcutStatus,
   usePrintScreen,
@@ -70,11 +71,14 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
     capture: true,
     record: true,
     printScreen: false,
+    winShiftS: false,
   });
   const [cache, setCache] = useState<CacheStats>({ bytes: 0, sessions: 0 });
   const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
   /** null = sin tocar · "confirmar" = esperando el segundo clic · el resto, el resultado. */
   const [recortes, setRecortes] = useState<string | null>(null);
+  /** Mientras se reinicia el Explorador, que son un par de segundos largos. */
+  const [aplicando, setAplicando] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,6 +171,21 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
       setShortcuts(await shortcutStatus());
     } catch (e) {
       setError(String(e));
+    }
+  }, []);
+
+  // Reiniciar el Explorador es lo que hace que Windows relea la lista de teclas apagadas.
+  // Antes esto era "cierra sesión y vuelve a entrar", que nadie hace por un atajo, y hasta
+  // entonces la tecla no era de nadie: ni la abría Windows ni la cogía winshotx.
+  const aplicarTecla = useCallback(async () => {
+    setError(null);
+    setAplicando(true);
+    try {
+      setShortcuts(await restartShell());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setAplicando(false);
     }
   }, []);
 
@@ -285,17 +304,34 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
               icon={<AppWindow className="size-4" />}
               label="Win + Mayús + S"
               hint={
-                settings.takeWinShiftS
-                  ? "será tuya al cerrar sesión, y Win+S dejará de buscar"
-                  : "cuesta Win+S, la búsqueda"
+                !settings.takeWinShiftS
+                  ? "cuesta Win+S, la búsqueda"
+                  : shortcuts.winShiftS
+                    ? "ya es de winshotx"
+                    : aplicando
+                      ? "reiniciando el Explorador…"
+                      : "el escritorio todavía la tiene"
               }
-              tone={settings.takeWinShiftS ? "warn" : "normal"}
+              tone={
+                !settings.takeWinShiftS ? "normal" : shortcuts.winShiftS ? "ok" : "warn"
+              }
               control={
-                <Switch
-                  checked={settings.takeWinShiftS}
-                  onChange={(v) => void cambiarWinShiftS(v)}
-                  label="Quedarme con Win+Mayús+S"
-                />
+                <span className="flex items-center gap-1.5">
+                  {settings.takeWinShiftS && !shortcuts.winShiftS && (
+                    <RowButton
+                      disabled={aplicando}
+                      onClick={() => void aplicarTecla()}
+                      title="Reinicia el Explorador para que Windows suelte la tecla. La barra de tareas parpadea un segundo y no se cierra nada más."
+                    >
+                      {aplicando ? "Un momento…" : "Aplicar"}
+                    </RowButton>
+                  )}
+                  <Switch
+                    checked={settings.takeWinShiftS}
+                    onChange={(v) => void cambiarWinShiftS(v)}
+                    label="Quedarme con Win+Mayús+S"
+                  />
+                </span>
               }
             />
             <Row

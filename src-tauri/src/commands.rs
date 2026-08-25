@@ -366,8 +366,9 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
 /// la S para que `Win+Mayus+S` no abra el recorte apaga tambien `Win+S`, la busqueda. No hay
 /// forma de afinar mas, y nadie deberia pagar eso sin haberlo pedido.
 ///
-/// Ninguna de las dos cosas surte efecto hasta que se vuelve a iniciar sesion: el escritorio
-/// lee esa lista al arrancar y no la relee.
+/// Ninguna de las dos cosas surte efecto hasta que el escritorio vuelve a leer esa lista,
+/// cosa que solo hace al arrancar. Para eso esta `restart_shell`, que se lo hace leer en dos
+/// segundos sin obligar a nadie a cerrar sesion.
 #[tauri::command]
 pub async fn use_win_shift_s(app: AppHandle, enabled: bool) -> Result<bool> {
     use crate::platform::snipping;
@@ -396,6 +397,20 @@ pub async fn use_win_shift_s(app: AppHandle, enabled: bool) -> Result<bool> {
     crate::settings::save(&app, &settings)?;
     crate::hotkeys::register(&app, &settings);
     Ok(settings.take_win_shift_s)
+}
+
+/// Reinicia el Explorador para que el escritorio relea la lista de teclas apagadas, y
+/// vuelve a pedir los atajos con la tecla ya libre.
+///
+/// Las dos partes tienen que ir juntas: al reiniciar el shell la tecla queda suelta, y si
+/// nadie la pide en ese momento no la tiene ni Windows ni winshotx, o sea que deja de hacer
+/// nada. Devuelve el estado de los atajos para poder decir en la interfaz si se consiguio.
+#[tauri::command]
+pub async fn restart_shell(app: AppHandle) -> Result<crate::hotkeys::ShortcutStatus> {
+    crate::platform::snipping::restart_shell()?;
+
+    let settings = app.state::<AppState>().settings.read().clone();
+    Ok(crate::hotkeys::register(&app, &settings))
 }
 
 #[tauri::command]
