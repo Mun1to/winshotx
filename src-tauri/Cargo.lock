@@ -6144,7 +6144,7 @@ dependencies = [
 
 [[package]]
 name = "winshotx"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "chrono",
  "clipboard-win",
