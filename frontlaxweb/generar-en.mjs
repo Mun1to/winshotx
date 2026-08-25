@@ -105,11 +105,11 @@ function construirFaq(html, idioma) {
   const soloTexto = (s) =>
     desescapar(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
 
-  // El </summary> es opcional: docs/ enseña el FAQ como h3+p sueltos, la portada lo mete
-  // en un <details><summary><h3>...</h3><svg chevron/></summary> para el acordeón, con el
-  // chevron de por medio. Las dos formas valen.
+  // docs/ enseña el FAQ como h3+p sueltos; la portada lo mete en un acordeón animado
+  // con el chevron y el <div class="faq-cajon"> de por medio. Cualquier cosa entre el
+  // </h3> y el <p> de la respuesta vale, con tal de que sea el <p> que le corresponde.
   const pares = [
-    ...seccion[1].matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>(?:[\s\S]*?<\/summary>)?\s*<p[^>]*>([\s\S]*?)<\/p>/g),
+    ...seccion[1].matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/g),
   ];
   if (!pares.length) throw new Error("la seccion de preguntas no tiene ningun par h3 + p");
 

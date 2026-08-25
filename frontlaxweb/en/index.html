@@ -28,7 +28,7 @@
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../estilos.css?v=d4929329">
+<link rel="stylesheet" href="../estilos.css?v=96ed81e2">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -261,7 +261,7 @@
       <a href="#demo">Try it</a>
       <a href="#frente-a-frente">Head to head</a>
       <a href="#que-hace">Features</a>
-      <a href="#atajos">Shortcuts</a>
+      <a href="#preguntas">FAQ</a>
       <a href="docs/">Docs</a>
     </span>
     <span class="acciones">
@@ -723,34 +723,14 @@
       <div class="caja"><div class="ico"><svg><use href="#i-pencil"/></svg></div>
         <h3>Frame by frame editor</h3>
         <p>Trim the start and the end with two marks, watch the loop, change the size and the quality, and export. All in the same window.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-lock"/></svg></div>
-        <h3>It never leaves your machine</h3>
-        <p>No account, no telemetry and no uploads. The code is open and the installer does not even ask for administrator rights.</p></div>
+      <div class="caja caja-ancha">
+        <div class="ico"><svg><use href="#i-lock"/></svg></div>
+        <div>
+          <h3>It never leaves your machine</h3>
+          <p>No account, no telemetry and no uploads. The code is open and the installer does not even ask for administrator rights.</p>
+        </div>
+      </div>
     </div>
-  </div>
-</section>
-
-<section id="atajos">
-  <div class="env">
-    <h2>Without touching the mouse</h2>
-    <p class="entradilla">Both global shortcuts can be changed in the settings: click the field and type the combination you want.</p>
-    <table>
-      <thead><tr><th>Keys</th><th>What it does</th></tr></thead>
-      <tbody class="llave-tabla">
-        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></td><td>Capture a region</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></td><td>Record a region, and stop it</td></tr>
-        <tr><td><kbd>Enter</kbd></td><td>Copy the selection to the clipboard</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>S</kbd></td><td>Save it as PNG</td></tr>
-        <tr><td><kbd>E</kbd></td><td>Open it in the editor</td></tr>
-        <tr><td><kbd>F</kbd><kbd>V</kbd><kbd>G</kbd></td><td>Switch between photo, video and GIF, before cropping</td></tr>
-        <tr><td><kbd>P</kbd></td><td>Whole screen: every screen puts up its number</td></tr>
-        <tr><td><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></td><td>Take that screen whole, wherever the pointer is</td></tr>
-        <tr><td><kbd>I</kbd><kbd>O</kbd></td><td>In the editor, mark the start and the end of the trim</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>A</kbd></td><td>Select the whole monitor</td></tr>
-        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td>Move the selection; Shift moves it by 10 and Alt resizes it</td></tr>
-        <tr><td><kbd>Esc</kbd></td><td>Cancel</td></tr>
-      </tbody>
-    </table>
   </div>
 </section>
 
@@ -767,40 +747,83 @@
       <div class="faq">
         <details>
         <summary><h3>Is winshotx free?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p>Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.</p>
+        <div class="faq-cajon"><p>Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.</p></div>
       </details>
       <details>
         <summary><h3>Does it need an account or an internet connection?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p>No. It never asks for an account, sends nothing to any cloud, and works offline; the only moment it talks to the internet is to check for a new version.</p>
+        <div class="faq-cajon"><p>No. It never asks for an account, sends nothing to any cloud, and works offline; the only moment it talks to the internet is to check for a new version.</p></div>
       </details>
       <details>
         <summary><h3>Which versions of Windows does it run on?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p>Windows 10 and Windows 11.</p>
+        <div class="faq-cajon"><p>Windows 10 and Windows 11.</p></div>
       </details>
       <details>
         <summary><h3>Is the app available in English?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p>For now the application interface is Spanish only. This website does have an English version.</p>
+        <div class="faq-cajon"><p>For now the application interface is Spanish only. This website does have an English version.</p></div>
       </details>
       <details>
         <summary><h3>How do you install and update it?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p>The installer is 2.2 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.</p>
+        <div class="faq-cajon"><p>The installer is 2.2 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.</p></div>
       </details>
       <details>
         <summary><h3>Can it be installed with winget?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p><span>Not yet: the package is under review in the official winget-pkgs repository. Once it's approved,</span> <code>winget install Mun1to.winshotx</code> <span>will work and this answer will say so.</span></p>
+        <div class="faq-cajon"><p><span>Not yet: the package is under review in the official winget-pkgs repository. Once it's approved,</span> <code>winget install Mun1to.winshotx</code> <span>will work and this answer will say so.</span></p></div>
       </details>
       <details>
         <summary><h3>What can it capture and record?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p>Region capture with automatic window snapping, video recording at 15, 30 or 60 fps, GIF recording, and a frame by frame editor with A and B trim.</p>
+        <div class="faq-cajon"><p>Region capture with automatic window snapping, video recording at 15, 30 or 60 fps, GIF recording, and a frame by frame editor with A and B trim.</p></div>
       </details>
       <details>
         <summary><h3>What does it still lack compared to the Windows Snipping Tool?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p>It doesn't draw or annotate on top of a capture yet, doesn't read text out of the image, doesn't blur personal data automatically, doesn't record system audio and has no capture timer. The point by point comparison is above.</p>
+        <div class="faq-cajon"><p>It doesn't draw or annotate on top of a capture yet, doesn't read text out of the image, doesn't blur personal data automatically, doesn't record system audio and has no capture timer. The point by point comparison is above.</p></div>
       </details>
     </div>
     </div>
   </div>
 </section>
+
+<script>
+  // Una pregunta abierta a la vez, y el cambio de una a otra en un solo movimiento.
+  // <details> no da nada de esto solo: deja abrir todas a la vez, y al quitarle
+  // `open` borra el contenido de golpe, así que la animación de salida no llega
+  // a verse. Por eso `data-abierta` manda en el CSS y `open` se queda un ratito
+  // más mientras dura la transición de cierre.
+  document.querySelectorAll(".faq").forEach((lista) => {
+    const items = Array.from(lista.querySelectorAll("details"));
+    const ms = parseFloat(getComputedStyle(lista).getPropertyValue("--faq-ms")) || 380;
+    const pendientes = new Map();
+
+    const cerrar = (item) => {
+      if (!item.open) return;
+      item.removeAttribute("data-abierta");
+      clearTimeout(pendientes.get(item));
+      pendientes.set(
+        item,
+        setTimeout(() => {
+          if (!item.hasAttribute("data-abierta")) item.open = false;
+          pendientes.delete(item);
+        }, ms),
+      );
+    };
+
+    const abrir = (item) => {
+      clearTimeout(pendientes.get(item));
+      pendientes.delete(item);
+      item.open = true;
+      requestAnimationFrame(() => item.setAttribute("data-abierta", ""));
+    };
+
+    items.forEach((item) => {
+      item.querySelector("summary").addEventListener("click", (evento) => {
+        evento.preventDefault();
+        const estaAbierta = item.hasAttribute("data-abierta");
+        items.forEach((otra) => { if (otra !== item) cerrar(otra); });
+        if (estaAbierta) cerrar(item);
+        else abrir(item);
+      });
+    });
+  });
+</script>
 
 <section>
   <div class="env centrado">

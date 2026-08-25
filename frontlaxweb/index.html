@@ -28,7 +28,7 @@
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="icon" href="logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="estilos.css?v=d4929329">
+<link rel="stylesheet" href="estilos.css?v=96ed81e2">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -261,7 +261,7 @@
       <a href="#demo" data-en="Try it">Pruébalo</a>
       <a href="#frente-a-frente" data-en="Head to head">Comparativa</a>
       <a href="#que-hace" data-en="Features">Qué hace</a>
-      <a href="#atajos" data-en="Shortcuts">Atajos</a>
+      <a href="#preguntas" data-en="FAQ">Preguntas</a>
       <a href="docs/" data-en="Docs">Guía</a>
     </span>
     <span class="acciones">
@@ -744,36 +744,15 @@
         <h3 data-en="Frame by frame editor">Editor fotograma a fotograma</h3>
         <p data-en="Trim the start and the end with two marks, watch the loop, change the size and the quality, and export. All in the same window.">Recorta el principio y el final con dos marcas, mira el bucle, cambia el tamaño y la
            calidad, y exporta. Todo en la misma ventana.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-lock"/></svg></div>
-        <h3 data-en="It never leaves your machine">No sale de tu máquina</h3>
-        <p data-en="No account, no telemetry and no uploads. The code is open and the installer does not even ask for administrator rights.">Sin cuenta, sin telemetría y sin subidas. El código está abierto y el instalador ni
-           siquiera pide permisos de administrador.</p></div>
+      <div class="caja caja-ancha">
+        <div class="ico"><svg><use href="#i-lock"/></svg></div>
+        <div>
+          <h3 data-en="It never leaves your machine">No sale de tu máquina</h3>
+          <p data-en="No account, no telemetry and no uploads. The code is open and the installer does not even ask for administrator rights.">Sin cuenta, sin telemetría y sin subidas. El código está abierto y el instalador ni
+             siquiera pide permisos de administrador.</p>
+        </div>
+      </div>
     </div>
-  </div>
-</section>
-
-<section id="atajos">
-  <div class="env">
-    <h2 data-en="Without touching the mouse">Sin tocar el ratón</h2>
-    <p class="entradilla" data-en="Both global shortcuts can be changed in the settings: click the field and type the combination you want.">Los dos atajos globales se cambian desde los ajustes: pulsas el campo y
-      tecleas la combinación que quieras.</p>
-    <table>
-      <thead><tr><th data-en="Keys">Teclas</th><th data-en="What it does">Qué hace</th></tr></thead>
-      <tbody class="llave-tabla">
-        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></td><td data-en="Capture a region">Capturar una región</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></td><td data-en="Record a region, and stop it">Grabar una región, y pararla</td></tr>
-        <tr><td><kbd>Enter</kbd></td><td data-en="Copy the selection to the clipboard">Copiar la selección al portapapeles</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>S</kbd></td><td data-en="Save it as PNG">Guardarla como PNG</td></tr>
-        <tr><td><kbd>E</kbd></td><td data-en="Open it in the editor">Abrirla en el editor</td></tr>
-        <tr><td><kbd>F</kbd><kbd>V</kbd><kbd>G</kbd></td><td data-en="Switch between photo, video and GIF, before cropping">Cambiar entre foto, vídeo y GIF, antes de recortar</td></tr>
-        <tr><td><kbd>P</kbd></td><td data-en="Whole screen: every screen puts up its number">Pantalla entera: cada pantalla saca su número</td></tr>
-        <tr><td><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></td><td data-en="Take that screen whole, wherever the pointer is">Llevarse esa pantalla entera, esté donde esté el ratón</td></tr>
-        <tr><td><kbd>I</kbd><kbd>O</kbd></td><td data-en="In the editor, mark the start and the end of the trim">En el editor, marcar el principio y el final del recorte</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>A</kbd></td><td data-en="Select the whole monitor">Seleccionar el monitor entero</td></tr>
-        <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td data-en="Move the selection; Shift moves it by 10 and Alt resizes it">Mover la selección; con Shift va de 10 en 10 y con Alt la redimensiona</td></tr>
-        <tr><td><kbd>Esc</kbd></td><td data-en="Cancel">Cancelar</td></tr>
-      </tbody>
-    </table>
   </div>
 </section>
 
@@ -790,40 +769,83 @@
       <div class="faq">
         <details>
         <summary><h3 data-en="Is winshotx free?">¿Es gratis winshotx?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p data-en="Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.">Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago.</p>
+        <div class="faq-cajon"><p data-en="Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.">Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago.</p></div>
       </details>
       <details>
         <summary><h3 data-en="Does it need an account or an internet connection?">¿Necesita cuenta o conexión a internet?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p data-en="No. It never asks for an account, sends nothing to any cloud, and works offline; the only moment it talks to the internet is to check for a new version.">No. No pide cuenta, no manda nada a ninguna nube y funciona sin conexión; el único momento en que habla con internet es para comprobar si hay una versión nueva.</p>
+        <div class="faq-cajon"><p data-en="No. It never asks for an account, sends nothing to any cloud, and works offline; the only moment it talks to the internet is to check for a new version.">No. No pide cuenta, no manda nada a ninguna nube y funciona sin conexión; el único momento en que habla con internet es para comprobar si hay una versión nueva.</p></div>
       </details>
       <details>
         <summary><h3 data-en="Which versions of Windows does it run on?">¿En qué versiones de Windows funciona?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p data-en="Windows 10 and Windows 11.">Windows 10 y Windows 11.</p>
+        <div class="faq-cajon"><p data-en="Windows 10 and Windows 11.">Windows 10 y Windows 11.</p></div>
       </details>
       <details>
         <summary><h3 data-en="Is the app available in English?">¿Está la app en inglés?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p data-en="For now the application interface is Spanish only. This website does have an English version.">Por ahora la interfaz de la aplicación solo está en español. Esta web sí tiene versión en inglés.</p>
+        <div class="faq-cajon"><p data-en="For now the application interface is Spanish only. This website does have an English version.">Por ahora la interfaz de la aplicación solo está en español. Esta web sí tiene versión en inglés.</p></div>
       </details>
       <details>
         <summary><h3 data-en="How do you install and update it?">¿Cómo se instala y se actualiza?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p data-en="The installer is 2.2 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.">El instalador pesa 2,2 MB y va a tu usuario, no al sistema, así que Windows no pide permisos de administrador. Desde dentro de la app se actualiza sola con un botón, y cada descarga viene firmada y se comprueba antes de instalarse.</p>
+        <div class="faq-cajon"><p data-en="The installer is 2.2 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.">El instalador pesa 2,2 MB y va a tu usuario, no al sistema, así que Windows no pide permisos de administrador. Desde dentro de la app se actualiza sola con un botón, y cada descarga viene firmada y se comprueba antes de instalarse.</p></div>
       </details>
       <details>
         <summary><h3 data-en="Can it be installed with winget?">¿Se puede instalar con winget?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p><span data-en="Not yet: the package is under review in the official winget-pkgs repository. Once it's approved,">Todavía no: el paquete está en revisión en el repositorio oficial de winget-pkgs. En cuanto se apruebe,</span> <code>winget install Mun1to.winshotx</code> <span data-en="will work and this answer will say so.">funcionará y esta respuesta lo dirá.</span></p>
+        <div class="faq-cajon"><p><span data-en="Not yet: the package is under review in the official winget-pkgs repository. Once it's approved,">Todavía no: el paquete está en revisión en el repositorio oficial de winget-pkgs. En cuanto se apruebe,</span> <code>winget install Mun1to.winshotx</code> <span data-en="will work and this answer will say so.">funcionará y esta respuesta lo dirá.</span></p></div>
       </details>
       <details>
         <summary><h3 data-en="What can it capture and record?">¿Qué puede capturar y grabar?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p data-en="Region capture with automatic window snapping, video recording at 15, 30 or 60 fps, GIF recording, and a frame by frame editor with A and B trim.">Captura de región con ajuste automático a ventanas, grabación de vídeo a 15, 30 o 60 fps, grabación en GIF, y un editor fotograma a fotograma con recorte A y B.</p>
+        <div class="faq-cajon"><p data-en="Region capture with automatic window snapping, video recording at 15, 30 or 60 fps, GIF recording, and a frame by frame editor with A and B trim.">Captura de región con ajuste automático a ventanas, grabación de vídeo a 15, 30 o 60 fps, grabación en GIF, y un editor fotograma a fotograma con recorte A y B.</p></div>
       </details>
       <details>
         <summary><h3 data-en="What does it still lack compared to the Windows Snipping Tool?">¿Qué le falta frente a la Herramienta de Recortes de Windows?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <p data-en="It doesn't draw or annotate on top of a capture yet, doesn't read text out of the image, doesn't blur personal data automatically, doesn't record system audio and has no capture timer. The point by point comparison is above.">Todavía no dibuja ni anota encima de la captura, no lee el texto de la imagen, no tapa datos personales en automático, no graba el audio del sistema y no tiene temporizador antes de capturar. La comparación punto por punto está más arriba.</p>
+        <div class="faq-cajon"><p data-en="It doesn't draw or annotate on top of a capture yet, doesn't read text out of the image, doesn't blur personal data automatically, doesn't record system audio and has no capture timer. The point by point comparison is above.">Todavía no dibuja ni anota encima de la captura, no lee el texto de la imagen, no tapa datos personales en automático, no graba el audio del sistema y no tiene temporizador antes de capturar. La comparación punto por punto está más arriba.</p></div>
       </details>
     </div>
     </div>
   </div>
 </section>
+
+<script>
+  // Una pregunta abierta a la vez, y el cambio de una a otra en un solo movimiento.
+  // <details> no da nada de esto solo: deja abrir todas a la vez, y al quitarle
+  // `open` borra el contenido de golpe, así que la animación de salida no llega
+  // a verse. Por eso `data-abierta` manda en el CSS y `open` se queda un ratito
+  // más mientras dura la transición de cierre.
+  document.querySelectorAll(".faq").forEach((lista) => {
+    const items = Array.from(lista.querySelectorAll("details"));
+    const ms = parseFloat(getComputedStyle(lista).getPropertyValue("--faq-ms")) || 380;
+    const pendientes = new Map();
+
+    const cerrar = (item) => {
+      if (!item.open) return;
+      item.removeAttribute("data-abierta");
+      clearTimeout(pendientes.get(item));
+      pendientes.set(
+        item,
+        setTimeout(() => {
+          if (!item.hasAttribute("data-abierta")) item.open = false;
+          pendientes.delete(item);
+        }, ms),
+      );
+    };
+
+    const abrir = (item) => {
+      clearTimeout(pendientes.get(item));
+      pendientes.delete(item);
+      item.open = true;
+      requestAnimationFrame(() => item.setAttribute("data-abierta", ""));
+    };
+
+    items.forEach((item) => {
+      item.querySelector("summary").addEventListener("click", (evento) => {
+        evento.preventDefault();
+        const estaAbierta = item.hasAttribute("data-abierta");
+        items.forEach((otra) => { if (otra !== item) cerrar(otra); });
+        if (estaAbierta) cerrar(item);
+        else abrir(item);
+      });
+    });
+  });
+</script>
 
 <section>
   <div class="env centrado">
