@@ -93,21 +93,6 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
 
     }
 
-    // Win+Mayus+S solo se pide si se acepto pagar lo que cuesta. Con la S fuera de
-    // `DisabledHotkeys` el escritorio deja de atenderla, aunque no hasta que el usuario
-    // vuelve a iniciar sesion: hasta entonces esto falla y no pasa nada.
-    if settings.take_win_shift_s {
-        if let Ok(shortcut) = WIN_SHIFT_S.parse::<Shortcut>() {
-            if manager.on_shortcut(shortcut, on_capture).is_ok() {
-                status.win_shift_s = true;
-                puestos.push(shortcut);
-                eprintln!("[atajo] Win+Mayus+S tambien es nuestra");
-            } else {
-                eprintln!("[atajo] Win+Mayus+S sigue siendo del escritorio");
-            }
-        }
-    }
-
     match settings.record_shortcut.parse::<Shortcut>() {
         Err(error) => eprintln!("atajo de grabacion invalido: {error}"),
         Ok(shortcut) => {
@@ -132,6 +117,29 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
             } else {
                 status.record = true;
                 puestos.push(shortcut);
+            }
+        }
+    }
+
+    // Win+Mayus+S solo se pide si se acepto pagar lo que cuesta, y va la ultima porque
+    // antes hay que saber si el usuario ya la puso como atajo suyo.
+    //
+    // Ese caso existe y no es raro: quien viene de la Herramienta de Recortes escribe esa
+    // misma combinacion en su atajo de capturar. Entonces la tecla YA es nuestra, y pedirla
+    // otra vez falla con "ya registrada", que es exactamente el mismo error que devuelve
+    // cuando la tiene el escritorio. Sin distinguirlos, los ajustes decian "el escritorio
+    // todavia la tiene" sobre una tecla que estaba funcionando.
+    if settings.take_win_shift_s {
+        if let Ok(shortcut) = WIN_SHIFT_S.parse::<Shortcut>() {
+            if puestos.contains(&shortcut) {
+                status.win_shift_s = true;
+                eprintln!("[atajo] Win+Mayus+S ya es nuestra: es un atajo del usuario");
+            } else if manager.on_shortcut(shortcut, on_capture).is_ok() {
+                status.win_shift_s = true;
+                puestos.push(shortcut);
+                eprintln!("[atajo] Win+Mayus+S tambien es nuestra");
+            } else {
+                eprintln!("[atajo] Win+Mayus+S sigue siendo del escritorio");
             }
         }
     }
