@@ -102,7 +102,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618] text-neutral-200">
       <div className="flex-1 px-9 pt-9">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={paso}
             initial={{ opacity: 0, x: 14 }}
