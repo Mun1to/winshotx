@@ -152,7 +152,14 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
 pub fn show_settings(app: &AppHandle) -> Result<()> {
     if let Some(window) = app.get_webview_window("main") {
         window.show()?;
-        window.set_focus()?;
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        // Lo mismo que el overlay, y por lo mismo: `show` y `set_focus` no bastan cuando
+        // la orden no viene de un clic del usuario en NUESTRA ventana. Desde el menu de la
+        // bandeja, o desde una segunda instancia que pasa el testigo, Windows nos niega el
+        // primer plano y la ventana se quedaba escondida sin decir ni un error.
+        #[cfg(windows)]
+        force_foreground(&window);
         let _ = window.emit(crate::EVENT_SETTINGS_SHOWN, ());
     }
     Ok(())
