@@ -130,12 +130,21 @@ Las dos usan el mismo atajo y la misma selección. Lo que cambia es el momento d
 
 | Perfil | Qué pasa al soltar el ratón |
 |---|---|
-| **Sale la barra** | Aparece una barra sobre la selección: copiar, guardar, editar, GIF, vídeo |
+| **Sale la barra** | Aparece una barra sobre la selección: copiar, guardar, editar |
 | **Se copia sola** | No aparece nada · la imagen ya está en el portapapeles |
 
-El atajo de grabar siempre saca la barra, tengas el perfil que tengas: tiene que preguntar si
-quieres GIF o vídeo. El perfil se elige en la bienvenida del primer arranque, y se cambia cuando
-quieras desde Ajustes.
+El perfil se elige en la bienvenida del primer arranque, y se cambia cuando quieras desde Ajustes.
+
+## Qué sale del recorte, y de qué pantalla
+
+Arriba y en el centro, donde Windows pone la suya, hay una barra con cuatro botones. Los tres
+primeros dicen **qué sale**: foto, vídeo o GIF, elegido antes de recortar y con las teclas `F`,
+`V` y `G`. El cuarto dice **de dónde**: al pulsarlo, cada monitor saca su propio número en el
+centro, y con `1`, `2` o `3` te llevas esa pantalla entera, esté donde esté el ratón en ese
+momento. Un clic sobre la pantalla hace lo mismo.
+
+Grabar respeta el perfil: con «se copia sola» arranca al soltar, y con «sale la barra» te deja
+ajustar el recuadro antes, porque equivocarse en una grabación cuesta minutos y no una tecla.
 
 <details>
 <summary><b>Cómo está construido</b></summary>

@@ -129,11 +129,22 @@ Both use the same shortcut and the same selection. What changes is the moment yo
 
 | Profile | What happens when you release the mouse |
 |---|---|
-| **Sale la barra** | A toolbar appears over the selection: copy, save, edit, GIF, video |
+| **Sale la barra** | A toolbar appears over the selection: copy, save, edit |
 | **Se copia sola** | Nothing appears · the image is already in the clipboard |
 
-The recording shortcut always shows the toolbar, whichever profile is set: it has to ask for GIF or
-video. The profile is picked in the welcome on the first run, and changed any time in the settings.
+The profile is picked in the welcome on the first run, and changed any time in the settings.
+
+## What comes out of the crop, and from which screen
+
+At the top centre, where Windows puts its own, there is a bar with four buttons. The first three
+say **what comes out**: photo, video or GIF, picked before cropping and bound to `F`, `V` and `G`.
+The fourth says **where from**: press it and every monitor puts its own number in the middle, and
+`1`, `2` or `3` takes that whole screen, wherever the pointer happens to be. Clicking the screen
+does the same.
+
+Recording honours the profile: with "se copia sola" it starts the moment you let go, and with
+"sale la barra" it lets you adjust the rectangle first, because getting a recording wrong costs
+minutes rather than one keystroke.
 
 <details>
 <summary><b>How it is built</b></summary>

@@ -133,6 +133,34 @@
       <path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></symbol>
     <symbol id="i-refresh-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>
+    </symbol>
+    <symbol id="i-app-window" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4M2 8h20M6 4v4"/>
+    </symbol>
+    <symbol id="i-crop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>
+    </symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+    </symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/>
+    </symbol>
+    <symbol id="i-square-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.9.5l-2.9.9a.5.5 0 0 1-.6-.6l.8-2.9a2 2 0 0 1 .5-.9z"/>
+    </symbol>
+    <symbol id="i-book-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
+    </symbol>
+    <symbol id="i-zoom-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6"/>
+    </symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/>
+    </symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></symbol>
     <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -358,34 +386,31 @@
       <div class="ajustes">
         <div class="columna">
           <section class="grupo">
-            <h3>Global shortcuts</h3>
-            <div class="tarjeta">
-              <div class="fila">
-                <span class="txt"><svg class="ico-fila"><use href="#i-camera"/></svg>
-                  <span><span>Capture a region</span></span></span>
-                <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span>
-              </div>
-              <div class="fila">
-                <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg>
-                  <span><span>Record a region</span><small>press it again to stop</small></span></span>
-                <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></span>
-              </div>
-            </div>
-          </section>
-          <section class="grupo">
             <h3>Capture</h3>
             <div class="tarjeta">
               <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-camera"/></svg>
+                  <span><span>Capture a region</span><small>opens the selection</small></span></span>
+                <span class="campo-atajo"><kbd>Win</kbd><kbd>Shift</kbd><kbd>S</kbd></span>
+              </div>
+              <div class="fila apilada">
+                <span class="txt"><svg class="ico-fila"><use href="#i-crop"/></svg>
+                  <span><span>When you release the mouse</span><small>the bar appears, to copy, save or edit</small></span></span>
+                <div class="segmentado">
+                  <button class="viva">The bar appears</button><button>It copies itself</button>
+                </div>
+              </div>
+              <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-clipboard"/></svg>
-                  <span><span>Copy to the clipboard</span><small>when saving, it also leaves the image ready to paste</small></span></span>
+                  <span><span>Copy when saving</span></span></span>
                 <button class="palanca" data-on="1"></button></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-mouse-pointer-2"/></svg>
                   <span><span>Include the cursor</span></span></span>
                 <button class="palanca" data-on="1"></button></div>
               <div class="fila">
-                <span class="txt"><svg class="ico-fila"><use href="#i-search"/></svg>
-                  <span><span>Pixel magnifier</span><small>6× zoom with the exact colour under the cursor</small></span></span>
+                <span class="txt"><svg class="ico-fila"><use href="#i-zoom-in"/></svg>
+                  <span><span>Pixel magnifier</span></span></span>
                 <button class="palanca" data-on="1"></button></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-volume-2"/></svg>
@@ -393,28 +418,53 @@
                 <button class="palanca" data-on="0"></button></div>
             </div>
           </section>
+          <section class="grupo">
+            <h3>Windows keys</h3>
+            <div class="tarjeta">
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-keyboard"/></svg>
+                  <span><span>Impr Pant</span><small>today it opens the Snipping Tool</small></span></span>
+                <button class="palanca" data-on="0"></button></div>
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-app-window"/></svg>
+                  <span><span>Win + Mayús + S</span><small class="aviso">it costs Win+S, the search</small></span></span>
+                <button class="palanca" data-on="0"></button></div>
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-scissors"/></svg>
+                  <span><span>Snipping Tool</span><small>removing it is the only thing that silences it for good</small></span></span>
+                <span class="botoncitos"><button>See how</button><button>Remove</button></span></div>
+            </div>
+          </section>
         </div>
 
         <div class="columna">
           <section class="grupo">
-            <h3>Recording</h3>
+            <h3>Record</h3>
             <div class="tarjeta">
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg>
+                  <span><span>Record a region</span><small>the same shortcut ends it</small></span></span>
+                <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span>
+              </div>
               <div class="fila apilada">
-                <span class="txt"><span>Frames per second</span></span>
+                <span class="txt"><svg class="ico-fila"><use href="#i-gauge"/></svg>
+                  <span><span>Frames per second</span></span></span>
                 <div class="segmentado fps">
                   <button>15 fps</button><button class="viva">30 fps</button><button>60 fps</button>
                 </div>
               </div>
               <div class="fila">
-                <span class="txt"><span><span>System audio</span><small>not available yet</small></span></span>
+                <span class="txt"><svg class="ico-fila"><use href="#i-mic"/></svg>
+                  <span><span>System audio</span><small>not available yet</small></span></span>
                 <button class="palanca" data-on="0" disabled></button></div>
               <div class="fila">
-                <span class="txt"><span>Open the editor when it ends</span></span>
+                <span class="txt"><svg class="ico-fila"><use href="#i-square-pen"/></svg>
+                  <span><span>Open the editor when it ends</span></span></span>
                 <button class="palanca" data-on="1"></button></div>
             </div>
           </section>
           <section class="grupo">
-            <h3>Files</h3>
+            <h3>The app</h3>
             <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-folder-open"/></svg>
@@ -424,28 +474,24 @@
                 <span class="txt"><svg class="ico-fila"><use href="#i-hard-drive"/></svg>
                   <span><span>Recording cache</span><small>empty</small></span></span>
                 <span class="botoncitos"><button disabled>Empty</button></span></div>
-            </div>
-          </section>
-        </div>
-
-        <div class="a-lo-ancho">
-          <section class="grupo">
-            <h3>System</h3>
-            <div class="tarjeta">
               <div class="fila">
                 <span class="txt"><svg class="ico-fila verde"><use href="#i-check"/></svg>
-                  <span><span>Updates</span><small>you are on the latest version</small></span></span>
+                  <span><span>Updates</span><small class="bien">you are on the latest version</small></span></span>
                 <span class="botoncitos"><button><svg><use href="#i-refresh-cw"/></svg> <span>Check</span></button></span></div>
               <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-book-open"/></svg>
+                  <span><span>Welcome</span></span></span>
+                <span class="botoncitos"><button>See it again</button></span></div>
+              <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-power"/></svg>
-                  <span><span>Start with Windows</span><small>opens in the tray, with no window</small></span></span>
+                  <span><span>Start with Windows</span></span></span>
                 <button class="palanca" data-on="0"></button></div>
             </div>
           </section>
         </div>
       </div>
       <footer class="pie-ajustes">
-        <span>winshotx 0.1.6 · MIT</span>
+        <span>winshotx 0.1.9 · MIT</span>
         <button class="salir">Quit winshotx</button>
       </footer>
     </div>
@@ -576,7 +622,10 @@
         <p>33 MB of memory while capturing and a 2.2 MB installer. The app Windows ships spends eight times more to do less.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-search"/></svg></div>
         <h3>Pixel exact magnifier</h3>
-        <p>6× zoom with the colour in hex under the cursor, and windows highlight themselves: one click and you have the whole window, with no fiddling with edges.</p></div>
+        <p>6× zoom with the colour in hex under the cursor, and windows highlight themselves with their name on them: one click and you have that whole window, with no fiddling with edges.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-monitor"/></svg></div>
+        <h3>Three screens, one key</h3>
+        <p>Turn on whole screen and every monitor puts up its own number. Press the number and it takes that one entire, wherever the pointer happens to be.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-film"/></svg></div>
         <h3>GIF and video, not just stills</h3>
         <p>Record the region at 15, 30 or 60 frames and export to GIF or MP4. With no bundled FFmpeg: Windows writes the video in hardware.</p></div>
@@ -598,11 +647,13 @@
       <thead><tr><th>Keys</th><th>What it does</th></tr></thead>
       <tbody class="llave-tabla">
         <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></td><td>Capture a region</td></tr>
-        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></td><td>Record a region, and stop it</td></tr>
+        <tr><td><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></td><td>Record a region, and stop it</td></tr>
         <tr><td><kbd>Enter</kbd></td><td>Copy the selection to the clipboard</td></tr>
         <tr><td><kbd>Ctrl</kbd><kbd>S</kbd></td><td>Save it as PNG</td></tr>
         <tr><td><kbd>E</kbd></td><td>Open it in the editor</td></tr>
-        <tr><td><kbd>G</kbd><kbd>V</kbd></td><td>Record the selection as GIF or as video</td></tr>
+        <tr><td><kbd>F</kbd><kbd>V</kbd><kbd>G</kbd></td><td>Switch between photo, video and GIF, before cropping</td></tr>
+        <tr><td><kbd>P</kbd></td><td>Whole screen: every screen puts up its number</td></tr>
+        <tr><td><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></td><td>Take that screen whole, wherever the pointer is</td></tr>
         <tr><td><kbd>I</kbd><kbd>O</kbd></td><td>In the editor, mark the start and the end of the trim</td></tr>
         <tr><td><kbd>Ctrl</kbd><kbd>A</kbd></td><td>Select the whole monitor</td></tr>
         <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td>Move the selection; Shift moves it by 10 and Alt resizes it</td></tr>
