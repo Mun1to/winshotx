@@ -109,6 +109,7 @@ export function UpdateRow({ version }: { version: string }) {
       }
       label="Actualizaciones"
       hint={hint()}
+      tone={fase.tipo === 'aldia' ? 'ok' : fase.tipo === 'error' ? 'error' : 'normal'}
       control={<Boton fase={fase} instalar={instalar} mirar={() => void mirar(true)} />}
     />
   );

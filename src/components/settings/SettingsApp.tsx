@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
+  AppWindow,
+  BookOpen,
   Camera,
   Check,
   Clipboard,
   FolderOpen,
+  Gauge,
   HardDrive,
+  Keyboard,
+  Mic,
   MousePointer2,
+  MousePointerClick,
   Power,
   Scissors,
-  Search,
-  Sparkles,
+  SquarePen,
   Video,
   Volume2,
-  Zap,
+  ZoomIn,
 } from "lucide-react";
 import {
   cacheStats,
@@ -41,7 +46,7 @@ import {
 } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
-import { Row, Section } from "./Section";
+import { Row, RowButton, Section } from "./Section";
 import { UpdateRow } from "./UpdateRow";
 import { ShortcutField } from "./ShortcutField";
 
@@ -175,17 +180,18 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
+      {/* Dos columnas que el navegador equilibra solo: con la rejilla fija, la izquierda
+          se salia por abajo mientras a la derecha le sobraba hueco. */}
+      {/* Izquierda, la captura de punta a punta. Derecha, lo que toca al sistema.
+          El reparto va por altura, para que las dos columnas terminen a la par. */}
       <div className="grid flex-1 grid-cols-2 content-start items-start gap-x-4 gap-y-3 overflow-y-auto p-4">
         <div className="space-y-3">
-          <Section title="Atajos globales">
+          <Section title="Atajos">
             <Row
               icon={<Camera className="size-4" />}
               label="Capturar región"
-              hint={
-                shortcuts.capture
-                  ? undefined
-                  : "ocupado, púlsalo para cambiarlo"
-              }
+              hint={shortcuts.capture ? "abre la selección" : "esa combinación está ocupada"}
+              tone={shortcuts.capture ? "normal" : "warn"}
               control={
                 <ShortcutField
                   value={settings.captureShortcut}
@@ -197,11 +203,8 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             <Row
               icon={<Video className="size-4" />}
               label="Grabar región"
-              hint={
-                shortcuts.record
-                  ? "púlsalo otra vez para terminar"
-                  : "ocupado, púlsalo para cambiarlo"
-              }
+              hint={shortcuts.record ? "el mismo atajo la termina" : "esa combinación está ocupada"}
+              tone={shortcuts.record ? "normal" : "warn"}
               control={
                 <ShortcutField
                   value={settings.recordShortcut}
@@ -210,93 +213,16 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                 />
               }
             />
-            <Row
-              icon={<Zap className="size-4" />}
-              label="Usar también Impr Pant"
-              hint={
-                imprPant?.enabled
-                  ? imprPant.active
-                    ? "se la hemos quitado a la Herramienta de Recortes"
-                    : "Windows no la ha soltado; cierra sesión y vuelve a entrar"
-                  : "ahora abre la Herramienta de Recortes"
-              }
-              control={
-                <Switch
-                  checked={imprPant?.enabled ?? false}
-                  onChange={(v) => void cambiarImprPant(v)}
-                  label="Usar también Impr Pant"
-                />
-              }
-            />
-            <Row
-              icon={<Search className="size-4" />}
-              label="Quedarme con Win+Mayús+S"
-              hint={
-                settings.takeWinShiftS
-                  ? "hecho · pierdes Win+S y no cambia hasta cerrar sesión"
-                  : "cuesta Win+S, la búsqueda: Windows no distingue las dos"
-              }
-              control={
-                <Switch
-                  checked={settings.takeWinShiftS}
-                  onChange={(v) => void cambiarWinShiftS(v)}
-                  label="Quedarme con Win+Mayús+S"
-                />
-              }
-            />
-            <Row
-              icon={<Scissors className="size-4" />}
-              label="Quitar la Herramienta de Recortes"
-              hint={
-                recortes === "confirmar"
-                  ? "se quita de tu usuario; vuelve desde la Microsoft Store"
-                  : recortes === "quitando"
-                    ? "quitándola…"
-                    : recortes === "quitada"
-                      ? "quitada; Win+Mayús+S ya no abre nada de Windows"
-                      : recortes === "ya no estaba"
-                        ? "ya no estaba instalada"
-                        : "así no vuelve a abrirse por ningún camino"
-              }
-              control={
-                <span className="flex gap-1">
-                  {!recortes && (
-                    <button
-                      type="button"
-                      onClick={() => void openWindowsApps()}
-                      className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                    >
-                      Ver cómo
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={recortes === "quitando" || recortes === "quitada" || recortes === "ya no estaba"}
-                    onClick={() => void quitarRecortes()}
-                    className={`rounded-md border px-2 py-1 text-[11px] transition-colors disabled:opacity-40 ${
-                      recortes === "confirmar"
-                        ? "border-red-500/50 bg-red-500/15 text-red-300 hover:bg-red-500/25"
-                        : "border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    {recortes === "confirmar"
-                      ? "Sí, quitarla"
-                      : recortes === "quitada" || recortes === "ya no estaba"
-                        ? "Hecho"
-                        : "Quitar"}
-                  </button>
-                </span>
-              }
-            />
           </Section>
 
           <Section title="Captura">
             <Row
+              icon={<MousePointerClick className="size-4" />}
               label="Al soltar el ratón"
               hint={
                 settings.captureFlow === "instant"
-                  ? "el atajo de grabar sigue sacando la barra"
-                  : "copiar, guardar, editar o grabar"
+                  ? "va directa al portapapeles · grabar sigue sacando la barra"
+                  : "sale la barra para copiar, guardar, editar o grabar"
               }
               stacked
               control={
@@ -310,7 +236,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             <Row
               icon={<Clipboard className="size-4" />}
               label="Copiar al portapapeles"
-              hint="al guardar, deja además la imagen lista para pegar"
+              hint="al guardar, la deja además lista para pegar"
               control={
                 <Switch
                   checked={settings.copyAfterCapture}
@@ -322,6 +248,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             <Row
               icon={<MousePointer2 className="size-4" />}
               label="Incluir el cursor"
+              hint="el puntero sale dibujado en la imagen"
               control={
                 <Switch
                   checked={settings.captureCursor}
@@ -331,7 +258,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
               }
             />
             <Row
-              icon={<Search className="size-4" />}
+              icon={<ZoomIn className="size-4" />}
               label="Lupa de píxel"
               hint="zoom 6× con el color exacto bajo el cursor"
               control={
@@ -345,50 +272,12 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             <Row
               icon={<Volume2 className="size-4" />}
               label="Sonido de obturador"
+              hint="un clic corto al capturar"
               control={
                 <Switch
                   checked={settings.playSound}
                   onChange={(v) => patch({ playSound: v })}
                   label="Sonido de obturador"
-                />
-              }
-            />
-          </Section>
-        </div>
-
-        <div className="space-y-3">
-          <Section title="Grabación">
-            <Row
-              label="Fotogramas por segundo"
-              hint={settings.fps >= 60 ? "más fluido, más disco" : undefined}
-              stacked
-              control={
-                <Segmented
-                  value={settings.fps}
-                  options={FPS_OPTIONS}
-                  onChange={(v) => patch({ fps: v })}
-                />
-              }
-            />
-            <Row
-              label="Audio del sistema"
-              hint="todavía no disponible"
-              control={
-                <Switch
-                  checked={false}
-                  disabled
-                  onChange={() => undefined}
-                  label="Audio del sistema"
-                />
-              }
-            />
-            <Row
-              label="Abrir el editor al terminar"
-              control={
-                <Switch
-                  checked={settings.openEditorAfterRecording}
-                  onChange={(v) => patch({ openEditorAfterRecording: v })}
-                  label="Abrir el editor al terminar"
                 />
               }
             />
@@ -400,25 +289,17 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
               label="Carpeta de destino"
               hint={settings.saveDirectory}
               control={
-                <span className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => void openFolder(settings.saveDirectory)}
-                    className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                  >
+                <span className="flex gap-1.5">
+                  <RowButton onClick={() => void openFolder(settings.saveDirectory)}>
                     Abrir
-                  </button>
-                  <button
-                    type="button"
+                  </RowButton>
+                  <RowButton
                     onClick={() =>
-                      void pickDirectory().then(
-                        (dir) => dir && patch({ saveDirectory: dir }),
-                      )
+                      void pickDirectory().then((dir) => dir && patch({ saveDirectory: dir }))
                     }
-                    className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
                   >
                     Cambiar
-                  </button>
+                  </RowButton>
                 </span>
               }
             />
@@ -433,18 +314,151 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                     }`
               }
               control={
-                <button
-                  type="button"
+                <RowButton
                   disabled={cache.sessions === 0}
                   onClick={() =>
                     void clearCache()
                       .then(setCache)
                       .catch((e) => setError(String(e)))
                   }
-                  className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
                 >
                   Vaciar
-                </button>
+                </RowButton>
+              }
+            />
+          </Section>
+        </div>
+
+        <div className="space-y-3">
+          <Section
+            title="Teclas de Windows"
+            note="Las dos que Windows guarda para su Herramienta de Recortes."
+          >
+            <Row
+              icon={<Keyboard className="size-4" />}
+              label="Impr Pant"
+              hint={
+                imprPant?.enabled
+                  ? imprPant.active
+                    ? "ya es de winshotx"
+                    : "cierra sesión para que Windows la suelte"
+                  : "hoy abre la Herramienta de Recortes"
+              }
+              tone={imprPant?.enabled ? (imprPant.active ? "ok" : "warn") : "normal"}
+              control={
+                <Switch
+                  checked={imprPant?.enabled ?? false}
+                  onChange={(v) => void cambiarImprPant(v)}
+                  label="Usar también Impr Pant"
+                />
+              }
+            />
+            <Row
+              icon={<AppWindow className="size-4" />}
+              label="Win + Mayús + S"
+              hint={
+                settings.takeWinShiftS
+                  ? "pedida · será tuya al cerrar sesión, y Win+S dejará de buscar"
+                  : "cuesta Win+S, la búsqueda: Windows no distingue las dos"
+              }
+              tone={settings.takeWinShiftS ? "warn" : "normal"}
+              control={
+                <Switch
+                  checked={settings.takeWinShiftS}
+                  onChange={(v) => void cambiarWinShiftS(v)}
+                  label="Quedarme con Win+Mayús+S"
+                />
+              }
+            />
+            <Row
+              icon={<Scissors className="size-4" />}
+              label="Herramienta de Recortes"
+              hint={
+                recortes === "confirmar"
+                  ? "se quita de tu usuario; vuelve desde la Microsoft Store"
+                  : recortes === "quitando"
+                    ? "quitándola…"
+                    : recortes === "quitada"
+                      ? "quitada, ya no abre nada"
+                      : recortes === "ya no estaba"
+                        ? "no estaba instalada"
+                        : "quitarla es lo único que la calla del todo"
+              }
+              tone={
+                recortes === "confirmar"
+                  ? "warn"
+                  : recortes === "quitada" || recortes === "ya no estaba"
+                    ? "ok"
+                    : "normal"
+              }
+              control={
+                <span className="flex gap-1.5">
+                  {!recortes && (
+                    <RowButton onClick={() => void openWindowsApps()}>Ver cómo</RowButton>
+                  )}
+                  <RowButton
+                    danger={recortes === "confirmar"}
+                    disabled={
+                      recortes === "quitando" ||
+                      recortes === "quitada" ||
+                      recortes === "ya no estaba"
+                    }
+                    onClick={() => void quitarRecortes()}
+                  >
+                    {recortes === "confirmar"
+                      ? "Sí, quitarla"
+                      : recortes === "quitada" || recortes === "ya no estaba"
+                        ? "Hecho"
+                        : "Quitar"}
+                  </RowButton>
+                </span>
+              }
+            />
+          </Section>
+
+          <Section title="Grabación">
+            <Row
+              icon={<Gauge className="size-4" />}
+              label="Fotogramas por segundo"
+              hint={
+                settings.fps >= 60
+                  ? "más fluido, y bastante más disco"
+                  : settings.fps <= 15
+                    ? "el que menos ocupa"
+                    : "el equilibrio para casi todo"
+              }
+              stacked
+              control={
+                <Segmented
+                  value={settings.fps}
+                  options={FPS_OPTIONS}
+                  onChange={(v) => patch({ fps: v })}
+                />
+              }
+            />
+            <Row
+              icon={<Mic className="size-4" />}
+              label="Audio del sistema"
+              hint="todavía no disponible"
+              control={
+                <Switch
+                  checked={false}
+                  disabled
+                  onChange={() => undefined}
+                  label="Audio del sistema"
+                />
+              }
+            />
+            <Row
+              icon={<SquarePen className="size-4" />}
+              label="Abrir el editor al terminar"
+              hint="para recortar y elegir formato antes de exportar"
+              control={
+                <Switch
+                  checked={settings.openEditorAfterRecording}
+                  onChange={(v) => patch({ openEditorAfterRecording: v })}
+                  label="Abrir el editor al terminar"
+                />
               }
             />
           </Section>
@@ -452,18 +466,10 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
           <Section title="Sistema">
             <UpdateRow version={VERSION} />
             <Row
-              icon={<Sparkles className="size-4" />}
+              icon={<BookOpen className="size-4" />}
               label="Bienvenida"
               hint="los cuatro pasos del primer arranque"
-              control={
-                <button
-                  type="button"
-                  onClick={onVerBienvenida}
-                  className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  Ver otra vez
-                </button>
-              }
+              control={<RowButton onClick={onVerBienvenida}>Ver otra vez</RowButton>}
             />
             <Row
               icon={<Power className="size-4" />}
@@ -478,14 +484,15 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
               }
             />
           </Section>
-
-          {error && (
-            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
-              {error}
-            </p>
-          )}
         </div>
       </div>
+
+      {/* Fuera de la rejilla: un fallo escondido al final de una columna no se ve. */}
+      {error && (
+        <p className="mx-4 mb-3 shrink-0 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+          {error}
+        </p>
+      )}
 
       <footer className="flex shrink-0 items-center justify-between border-t border-white/8 px-4 py-2">
         <span className="flex items-center gap-1.5 text-[11px] text-neutral-500">
