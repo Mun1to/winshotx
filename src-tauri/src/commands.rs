@@ -22,6 +22,10 @@ pub struct OverlayPayload {
     settings: Settings,
     /// Si se abrio para capturar o para grabar. El overlay es el mismo.
     intent: OverlayIntent,
+    /// Que numero de pantalla es esta, empezando por 1, y cuantas hay. Con varias
+    /// pantallas hay que poder decir "esta", y para eso hay que poder nombrarlas.
+    screen_number: usize,
+    screen_count: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -45,10 +49,11 @@ pub struct StillResult {
 #[tauri::command]
 pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> Result<OverlayPayload> {
     let freezes = state.freezes.read();
-    let freeze = freezes
+    let posicion = freezes
         .iter()
-        .find(|f| f.monitor.id == monitor_id)
+        .position(|f| f.monitor.id == monitor_id)
         .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?;
+    let freeze = &freezes[posicion];
 
     Ok(OverlayPayload {
         monitor: freeze.monitor.clone(),
@@ -56,6 +61,10 @@ pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> R
         windows: capture::window_rects(),
         settings: state.settings.read().clone(),
         intent: *state.intent.read(),
+        // El orden de `freezes` es el de los monitores del sistema, asi que el numero que
+        // se pinta en cada pantalla es siempre el mismo entre disparo y disparo.
+        screen_number: posicion + 1,
+        screen_count: freezes.len(),
     })
 }
 

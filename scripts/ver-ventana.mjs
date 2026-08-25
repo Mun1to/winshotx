@@ -16,6 +16,7 @@
  *   node scripts/ver-ventana.mjs overlay.png --overlay=escritorio.png
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --raton=300,260 --grabar
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --seleccion=200,180,600,380
+ *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --tecla=p
  *
  * Cubre la ventana principal (bienvenida y ajustes) y, con --overlay, la de selección: ahí
  * hay que darle un PNG que haga de pantalla congelada, porque el overlay se dibuja encima
@@ -52,6 +53,8 @@ const raton = bandera("raton", null);
 const grabar = args.includes("--grabar");
 // Un recorte ya hecho, "x,y,ancho,alto", para ver lo que sale despues de soltar.
 const seleccion = bandera("seleccion", null);
+// Una tecla que pulsar al cargar, para llegar a lo que solo se ve tras pulsarla.
+const tecla = bandera("tecla", null);
 
 if (!existsSync(join(DIST, "index.html"))) {
   console.error("no hay dist/: corre antes `pnpm build`");
@@ -96,6 +99,9 @@ const OVERLAY = {
   ],
   settings: AJUSTES,
   intent: grabar ? "record" : "capture",
+  // Se finge la pantalla 2 de 3, que es el caso que hay que poder mirar.
+  screenNumber: 2,
+  screenCount: 3,
 };
 
 const MOCK = `<script>
@@ -124,6 +130,14 @@ addEventListener("load", () => {
       new PointerEvent("pointermove", { clientX: x, clientY: y, bubbles: true }),
     );
   }, 600);
+});
+</script>`
+  : "";
+
+const TECLA = tecla
+  ? `<script>
+addEventListener("load", () => {
+  setTimeout(() => dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(tecla)}, bubbles: true })), 650);
 });
 </script>`
   : "";
@@ -166,7 +180,7 @@ const server = createServer(async (req, res) => {
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
-    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION);
+    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA);
     res.writeHead(200, { "Content-Type": TIPOS[extname(archivo)] ?? "application/octet-stream" });
     res.end(cuerpo);
   } catch {

@@ -40,6 +40,10 @@ export interface OverlayPayload {
   windows: WindowRect[];
   settings: Settings;
   intent: OverlayIntent;
+  /** Que numero de pantalla es esta, empezando por 1. */
+  screenNumber: number;
+  /** Cuantas pantallas hay en total. Con una sola no hace falta numerarlas. */
+  screenCount: number;
 }
 
 export type StillAction = "copy" | "save" | "edit";

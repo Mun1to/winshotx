@@ -16,6 +16,7 @@ import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
 import { ModeBar } from "./ModeBar";
+import { ScreenPicker } from "./ScreenPicker";
 import { SelectionHandles, type HandleId } from "./SelectionHandles";
 
 type Mode =
@@ -80,6 +81,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [hex, setHex] = useState("#000000");
   /** Qué se hará con el recorte. Lo elige la barra de arriba, antes de recortar. */
   const [modo, setModo] = useState<CaptureMode>("still");
+  /** Coger la pantalla entera de un clic, sin arrastrar. */
+  const [pantallaEntera, setPantallaEntera] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -133,9 +136,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   );
 
   const hovered = useMemo(() => {
-    if (selection || mode.kind !== "idle") return null;
+    if (selection || mode.kind !== "idle" || pantallaEntera) return null;
     return windowAt(cursor.x, cursor.y);
-  }, [windowAt, cursor, selection, mode.kind]);
+  }, [windowAt, cursor, selection, mode.kind, pantallaEntera]);
 
   useEffect(() => {
     let cancelled = false;
@@ -304,6 +307,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         else void capturarRegion(todo, "copy");
       } else if (key === "e") {
         void runStill("edit");
+      } else if (key === "p") {
+        setPantallaEntera((v) => !v);
       } else if (key === "f") {
         setModo("still");
       } else if (key === "g") {
@@ -383,8 +388,26 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     };
   }, [mode, readHex, alVuelo, modo, capturarRegion, grabarRegion]);
 
+  /** La pantalla de este overlay, entera, en coordenadas CSS. */
+  const pantallaCompleta = (): Rect => ({
+    x: 0,
+    y: 0,
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (busy) return;
+    // Con "pantalla entera" puesto no hay nada que arrastrar: donde caiga el clic, esa
+    // pantalla es la que se lleva. Es el atajo para quien tiene tres y quiere una.
+    if (pantallaEntera) {
+      const todo = pantallaCompleta();
+      if (modo !== "still") void grabarRegion(todo, modo);
+      else if (alVuelo) void capturarRegion(todo, "copy");
+      else setSelection(todo);
+      setPantallaEntera(false);
+      return;
+    }
     const x = e.clientX;
     const y = e.clientY;
     const current = selectionRef.current;
@@ -413,14 +436,14 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const highlight = !active && hovered ? hovered : null;
   const toolbarFlip = active ? active.y + active.height + 62 > window.innerHeight : false;
   const magnifierVisible =
-    payload.settings.showMagnifier && (!active || mode.kind === "drawing");
+    payload.settings.showMagnifier && !pantallaEntera && (!active || mode.kind === "drawing");
 
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       className="relative h-screen w-screen overflow-hidden"
-      style={{ cursor: active ? "default" : "crosshair" }}
+      style={{ cursor: pantallaEntera ? "pointer" : active ? "default" : "crosshair" }}
     >
       <img
         src={freezeUrl}
@@ -522,9 +545,21 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         </div>
       )}
 
+      {pantallaEntera && !active && (
+        <ScreenPicker
+          numero={payload.screenNumber}
+          total={payload.screenCount}
+          modo={modo}
+          ancho={payload.monitor.width}
+          alto={payload.monitor.height}
+        />
+      )}
+
       <ModeBar
         value={modo}
         onChange={setModo}
+        pantallaEntera={pantallaEntera}
+        onPantallaEntera={setPantallaEntera}
         onCancel={() => void cancelCapture()}
         dimmed={mode.kind !== "idle"}
       />

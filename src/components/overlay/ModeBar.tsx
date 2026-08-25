@@ -1,9 +1,12 @@
-import { Camera, Video, X } from "lucide-react";
+import { Camera, Monitor, Video, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 
 interface Props {
   value: CaptureMode;
   onChange: (mode: CaptureMode) => void;
+  /** Coger la pantalla entera de un clic, sin arrastrar nada. */
+  pantallaEntera: boolean;
+  onPantallaEntera: (valor: boolean) => void;
   onCancel: () => void;
   /** Se aparta mientras se arrastra, para no tapar lo que se está recortando. */
   dimmed: boolean;
@@ -20,7 +23,14 @@ interface Props {
  * un vistazo, y tres palabras al lado hacían la barra el doble de ancha para no decir
  * nada más. El texto vive en el tooltip, para quien lo necesite.
  */
-export function ModeBar({ value, onChange, onCancel, dimmed }: Props) {
+export function ModeBar({
+  value,
+  onChange,
+  pantallaEntera,
+  onPantallaEntera,
+  onCancel,
+  dimmed,
+}: Props) {
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
@@ -54,6 +64,19 @@ export function ModeBar({ value, onChange, onCancel, dimmed }: Props) {
           titulo="Grabar el recorte en GIF · G"
         >
           <IconoGif />
+        </Boton>
+
+        <span className="mx-1 h-6 w-px bg-white/10" />
+
+        {/* El otro eje: los tres de arriba dicen QUE sale, este dice DE DONDE. Con varias
+            pantallas, cada una se pone su numero encima y se coge con un clic. */}
+        <Boton
+          activo={pantallaEntera}
+          onClick={() => onPantallaEntera(!pantallaEntera)}
+          etiqueta="Pantalla entera"
+          titulo="Pantalla entera, de un clic · P"
+        >
+          <Monitor className="size-[19px]" />
         </Boton>
 
         <span className="mx-1 h-6 w-px bg-white/10" />
