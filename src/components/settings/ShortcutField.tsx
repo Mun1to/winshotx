@@ -42,7 +42,10 @@ export function ShortcutField({ value, onChange, active }: Props) {
       if (MODIFIERS.has(e.code) || MODIFIERS.has(e.key)) return;
 
       const parts: string[] = [];
-      if (e.ctrlKey || e.metaKey) parts.push("CmdOrCtrl");
+      // La tecla Windows es Super, no Ctrl. Estaban juntas en la misma línea, así que
+      // pulsar Win+X guardaba un atajo de Ctrl+X: otra tecla y otro atajo.
+      if (e.ctrlKey) parts.push("CmdOrCtrl");
+      if (e.metaKey) parts.push("Super");
       if (e.shiftKey) parts.push("Shift");
       if (e.altKey) parts.push("Alt");
       // Un atajo global sin modificadores secuestraría la tecla en todo el sistema.
@@ -78,7 +81,11 @@ export function ShortcutField({ value, onChange, active }: Props) {
       ref={boxRef}
       type="button"
       onClick={() => setRecording((r) => !r)}
-      title={recording ? "Pulsa la combinación" : "Clic para cambiar el atajo"}
+      title={
+        recording
+          ? "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí"
+          : "Clic para cambiar el atajo"
+      }
       className={`flex h-8 min-w-[132px] items-center justify-end gap-1 rounded-lg border px-2 transition-colors ${
         recording
           ? "animate-pulse border-blue-500 bg-blue-500/10"
