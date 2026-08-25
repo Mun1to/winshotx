@@ -357,3 +357,27 @@ pub fn write(_value: u32) -> crate::error::Result<()> {
 pub fn remove() -> crate::error::Result<()> {
     Err(crate::error::AppError::Unsupported)
 }
+
+#[cfg(all(test, windows))]
+mod tests {
+    /// Reinicia el Explorador de VERDAD, asi que va ignorado: no puede correr en cada
+    /// `cargo test` ni en CI. Se lanza a mano cuando se toca `restart_shell`, con
+    /// `cargo test -- --ignored --nocapture reinicia_el_shell`.
+    #[test]
+    #[ignore]
+    fn reinicia_el_shell() {
+        use windows::Win32::UI::WindowsAndMessaging::GetShellWindow;
+        let antes = unsafe { GetShellWindow() };
+        assert!(!antes.0.is_null(), "no habia shell antes de empezar");
+
+        super::restart_shell().expect("restart_shell ha fallado");
+
+        let despues = unsafe { GetShellWindow() };
+        assert!(!despues.0.is_null(), "el shell no ha vuelto");
+        // Si la ventana es otra, es que de verdad ha arrancado un shell nuevo y no se ha
+        // limitado a devolver el de antes sin hacer nada.
+        assert_ne!(antes.0, despues.0, "el shell es el mismo: no se ha reiniciado");
+        println!("shell reiniciado: {:?} -> {:?}", antes.0, despues.0);
+    }
+}
+
