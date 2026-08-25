@@ -21,7 +21,7 @@ def arco(cx, cy, r, a0, a1, n=18):
 
 
 def logo(tam):
-    """El mismo trazo del icono: cuatro esquinas gruesas y una cruz."""
+    """El mismo trazo del icono: cuatro esquinas gruesas y una X blanca."""
     ss, k = 4, tam / 64
     img = Image.new("RGBA", (tam * ss, tam * ss), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -41,11 +41,17 @@ def logo(tam):
     trazo([(42, 8)] + arco(56 - R, 14, R, 270, 360) + [(56, 22)], 8, AZUL + (255,))
     trazo([(56, 42)] + arco(56 - R, 50, R, 0, 90) + [(42, 56)], 8, AZUL + (255,))
     trazo([(22, 56)] + arco(8 + R, 50, R, 90, 180) + [(8, 42)], 8, AZUL + (255,))
-    for pts in ([(24, 8), (40, 8)], [(56, 24), (56, 40)], [(40, 56), (24, 56)], [(8, 40), (8, 24)]):
-        trazo(pts, 3.5, AZUL + (255,))
-    trazo([(32, 20.5), (32, 43.5)], 8.5, (255, 255, 255, 255))
-    trazo([(20.5, 32), (43.5, 32)], 8.5, (255, 255, 255, 255))
+    trazo([(24, 24), (40, 40)], 8.5, (255, 255, 255, 255))
+    trazo([(40, 24), (24, 40)], 8.5, (255, 255, 255, 255))
     return img.resize((tam, tam), Image.LANCZOS)
+
+
+# El PNG de la marca sale de la misma funcion que el logo de las tarjetas. Antes se
+# guardaba a mano y se quedo con la cruz vieja cuando el trazo paso a ser una X: si solo
+# hay una fuente, no se pueden desincronizar.
+marca_png = logo(1024)
+marca_png.save(AQUI.parent / "docs" / "img" / "logo.png")
+print("hecha: docs/img/logo.png")
 
 
 def fuente(nombre, tam):
