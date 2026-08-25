@@ -15,6 +15,10 @@ interface Props {
  * Va arriba y centrada, donde Windows pone la suya, porque es el sitio donde la gente
  * ya la busca. Y hace falta: en el perfil "se copia sola" no salía ninguna barra, así
  * que desde ese perfil no había forma de grabar nada.
+ *
+ * Solo iconos, sin etiqueta: una cámara, una cámara de vídeo y las letras GIF se leen de
+ * un vistazo, y tres palabras al lado hacían la barra el doble de ancha para no decir
+ * nada más. El texto vive en el tooltip, para quien lo necesite.
  */
 export function ModeBar({ value, onChange, onCancel, dimmed }: Props) {
   return (
@@ -28,32 +32,28 @@ export function ModeBar({ value, onChange, onCancel, dimmed }: Props) {
         <Boton
           activo={value === "still"}
           onClick={() => onChange("still")}
-          tecla="F"
-          titulo="Una imagen del recorte"
+          etiqueta="Foto"
+          titulo="Foto del recorte · F"
         >
-          <Camera className="size-4" />
-          Foto
+          <Camera className="size-[19px]" />
         </Boton>
 
         <Boton
           activo={value === "video"}
           onClick={() => onChange("video")}
-          tecla="V"
-          titulo="Graba el recorte en MP4"
+          etiqueta="Vídeo"
+          titulo="Grabar el recorte en MP4 · V"
         >
-          <Video className="size-4" />
-          Vídeo
+          <Video className="size-[19px]" />
         </Boton>
 
-        {/* Las letras, no un icono: no hay dibujo que diga "GIF" y el que había, unas
-            chispas, no lo decía. Tres letras que todo el mundo reconoce. */}
         <Boton
           activo={value === "gif"}
           onClick={() => onChange("gif")}
-          tecla="G"
-          titulo="Graba el recorte en GIF, para pegarlo en cualquier sitio"
+          etiqueta="GIF"
+          titulo="Grabar el recorte en GIF · G"
         >
-          <span className="font-mono text-[11px] font-bold tracking-[0.06em]">GIF</span>
+          <IconoGif />
         </Boton>
 
         <span className="mx-1 h-6 w-px bg-white/10" />
@@ -61,26 +61,58 @@ export function ModeBar({ value, onChange, onCancel, dimmed }: Props) {
         <button
           type="button"
           onClick={onCancel}
-          title="Salir sin capturar (Esc)"
-          className="flex size-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+          title="Salir sin capturar · Esc"
+          aria-label="Salir sin capturar"
+          className="flex size-9 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
         >
-          <X className="size-4" />
+          <X className="size-[19px]" />
         </button>
       </div>
     </div>
   );
 }
 
+/**
+ * Las letras GIF dentro de su caja, al peso de los iconos de lucide que tiene al lado.
+ *
+ * No hay dibujo que signifique "GIF": el que había antes eran unas chispas, que no lo
+ * decían. Las letras van como trazos, no como texto, para que engorden con el mismo
+ * `stroke-width` que la cámara y no salgan finas a su lado.
+ */
+function IconoGif() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-[19px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="1.6" y="4.4" width="20.8" height="15.2" rx="3.4" />
+      {/* Las tres letras, un pelín más finas que la caja: al mismo grosor se empastan a
+          los 19 px a los que se ve esto de verdad. */}
+      <g strokeWidth="1.7">
+        <path d="M9.5 10.2a2.5 2.5 0 0 0-4.4 1.8 2.5 2.5 0 0 0 4.5 1.6v-1.4H8.2" />
+        <path d="M12.7 9.7v4.6" />
+        <path d="M19 9.7h-3.1v4.6M15.9 12h2.5" />
+      </g>
+    </svg>
+  );
+}
+
 function Boton({
   activo,
   onClick,
-  tecla,
+  etiqueta,
   titulo,
   children,
 }: {
   activo: boolean;
   onClick: () => void;
-  tecla: string;
+  etiqueta: string;
   titulo: string;
   children: React.ReactNode;
 }) {
@@ -88,9 +120,10 @@ function Boton({
     <button
       type="button"
       onClick={onClick}
-      title={`${titulo} · ${tecla}`}
+      title={titulo}
+      aria-label={etiqueta}
       aria-pressed={activo}
-      className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium transition-colors ${
+      className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
         activo
           ? "bg-blue-500 text-white shadow-sm"
           : "text-neutral-300 hover:bg-white/10 hover:text-white"
