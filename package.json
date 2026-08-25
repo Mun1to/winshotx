@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "ver": "node scripts/ver-ventana.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
