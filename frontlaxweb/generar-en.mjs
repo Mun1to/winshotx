@@ -160,7 +160,7 @@ const PAGINAS = [
       [`<link rel="canonical" href="${BASE}">`]: `<link rel="canonical" href="${BASE}en/">`,
       [`<meta property="og:url" content="${BASE}">`]: `<meta property="og:url" content="${BASE}en/">`,
       [`"url": "${BASE}"`]: `"url": "${BASE}en/"`,
-      'href="logo.svg"': 'href="../logo.svg"',
+      'href="logo.svg': 'href="../logo.svg',
       'href="estilos.css?v=': 'href="../estilos.css?v=',
       'src="demo.js?v=': 'src="../demo.js?v=',
       '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
@@ -175,7 +175,7 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}docs/">`]: `<meta property="og:url" content="${BASE}en/docs/">`,
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"item": "${BASE}docs/" }`]: `"item": "${BASE}en/docs/" }`,
-      'href="../logo.svg"': 'href="../../logo.svg"',
+      'href="../logo.svg': 'href="../../logo.svg',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
       '<a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>',
