@@ -14,4 +14,5 @@ src-tauri/gen/
 # Documentos internos del taller: no viajan a un repositorio publico (regla P).
 AGENTS.md
 docs/METAS.md
+docs/SEO-ESTADO.md
 .playwright-mcp/
