@@ -84,4 +84,11 @@ export const openFolder = (path: string) => invoke<void>("open_folder", { path }
 /** Lleva a la lista de aplicaciones de Windows, donde se quita la Herramienta de Recortes. */
 export const openWindowsApps = () => invoke<void>("open_windows_apps");
 
+/** Quita la Herramienta de Recortes de este usuario. Devuelve si había algo que quitar. */
+export const removeSnippingTool = () => invoke<boolean>("remove_snipping_tool");
+
+/** Le quita Win+Mayús+S al escritorio, a cambio de perder Win+S. */
+export const useWinShiftS = (enabled: boolean) =>
+  invoke<boolean>("use_win_shift_s", { enabled });
+
 export const quitApp = () => invoke<void>("quit_app");

@@ -12,13 +12,7 @@ import {
   Scissors,
   Video,
 } from "lucide-react";
-import {
-  getSettings,
-  openWindowsApps,
-  setSettings,
-  shortcutStatus,
-  usePrintScreen,
-} from "../../lib/ipc";
+import { getSettings, setSettings, shortcutStatus, usePrintScreen } from "../../lib/ipc";
 import type {
   CaptureFlow,
   PrintScreenState,
@@ -457,8 +451,8 @@ function TeclaImprPant({
   return (
     <div>
       <Titulo
-        texto="¿Le quitamos las teclas a la Herramienta de Recortes?"
-        sub="Windows abre su recorte con Impr Pant y con Win + Mayús + S. winshotx puede quedarse con las dos y responder al mismo dedo de siempre, sin aprender ningún atajo nuevo."
+        texto="¿Le quitamos la tecla a la Herramienta de Recortes?"
+        sub="En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo."
       />
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -481,8 +475,8 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-white">winshotx</span>
           </span>
           <span className="mt-2 block text-[12px] text-neutral-400">
-            Apaga los dos ajustes de Windows que le dan esas teclas a la Herramienta de Recortes y
-            se las pasa a winshotx.
+            Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la
+            pasa a winshotx. No te quita nada más.
           </span>
         </button>
 
@@ -529,19 +523,10 @@ function TeclaImprPant({
       </div>
 
       <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-        <b className="font-medium text-amber-300/90">Lo que cuesta Win + Mayús + S:</b> esa tecla
-        la atiende Windows antes que cualquier programa, y la única forma de quitársela es apagar
-        la S en los atajos de la tecla Windows. Eso apaga también <b>Win + S</b>, la búsqueda, y no
-        surte efecto hasta que cierres sesión. Todo vuelve a su sitio al desactivar este
-        interruptor. Si prefieres quitar la Herramienta de Recortes entera,{" "}
-        <button
-          type="button"
-          onClick={() => void openWindowsApps()}
-          className="text-blue-400 underline underline-offset-2 hover:text-blue-300"
-        >
-          se hace desde aquí
-        </button>
-        .
+        <b className="font-medium text-neutral-400">Win + Mayús + S es otra historia.</b> Esa la
+        atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus
+        atajos, lo que apaga también <b>Win + S</b>, la búsqueda. Por eso va aparte, en{" "}
+        <b>Ajustes → Atajos globales</b>, y no entra aquí de propina.
       </p>
     </div>
   );

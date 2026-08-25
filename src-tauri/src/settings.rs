@@ -41,6 +41,10 @@ pub struct Settings {
     /// La tecla Impr Pant abre winshotx. Va aparte del atajo normal: se suma, no lo
     /// sustituye, asi que quien tenga el suyo puesto no lo pierde al activar esto.
     pub print_screen_capture: bool,
+    /// Quedarse tambien con Win+Mayus+S. Va aparte a proposito: es la unica opcion de toda
+    /// la aplicacion que le quita algo al usuario (Win+S, la busqueda), asi que no puede ir
+    /// de propina con otra cosa.
+    pub take_win_shift_s: bool,
     /// Falso hasta que se termina la bienvenida. Es lo que decide si al abrir la
     /// ventana se ven los cuatro pasos o directamente los ajustes.
     pub onboarded: bool,
@@ -69,6 +73,7 @@ impl Default for Settings {
             show_magnifier: true,
             start_with_windows: false,
             print_screen_capture: false,
+            take_win_shift_s: false,
             onboarded: false,
             snipping_key_restore: None,
             disabled_hotkeys_restore: None,

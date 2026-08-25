@@ -22,6 +22,8 @@ import {
   openFolder,
   openWindowsApps,
   pickDirectory,
+  removeSnippingTool,
+  useWinShiftS,
   printScreenState,
   quitApp,
   setSettings,
@@ -66,6 +68,8 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
   });
   const [cache, setCache] = useState<CacheStats>({ bytes: 0, sessions: 0 });
   const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
+  /** null = sin tocar · "confirmar" = esperando el segundo clic · el resto, el resultado. */
+  const [recortes, setRecortes] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -128,6 +132,39 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
     }
   }, []);
 
+  // Desinstalar algo no puede pasar de un clic despistado: el primero pregunta y el
+  // segundo lo hace. Y a los pocos segundos se olvida, para no dejar la trampa armada.
+  const quitarRecortes = useCallback(async () => {
+    if (recortes !== "confirmar") {
+      setRecortes("confirmar");
+      window.setTimeout(() => setRecortes((r) => (r === "confirmar" ? null : r)), 5000);
+      return;
+    }
+    setRecortes("quitando");
+    try {
+      const habia = await removeSnippingTool();
+      setRecortes(habia ? "quitada" : "ya no estaba");
+    } catch (e) {
+      setRecortes(null);
+      setError(String(e));
+    }
+  }, [recortes]);
+
+  // Va por su cuenta porque es lo unico que le quita algo al usuario: la lista de atajos
+  // de Windows va por letra, asi que apagar Win+Mayus+S apaga tambien Win+S.
+  const cambiarWinShiftS = useCallback(async (quiere: boolean) => {
+    setError(null);
+    try {
+      await useWinShiftS(quiere);
+      const frescos = await getSettings();
+      ultimo.current = frescos;
+      setLocal(frescos);
+      setShortcuts(await shortcutStatus());
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
   if (!settings) {
     return (
       <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-neutral-500">
@@ -175,34 +212,80 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             />
             <Row
               icon={<Zap className="size-4" />}
-              label="Quitarle las teclas a la Herramienta de Recortes"
+              label="Usar también Impr Pant"
               hint={
                 imprPant?.enabled
                   ? imprPant.active
-                    ? "Impr Pant es de winshotx · Win+Mayús+S y Win+S, al cerrar sesión"
-                    : "Windows no ha soltado Impr Pant; cierra sesión y vuelve a entrar"
-                  : "Impr Pant y Win+Mayús+S abren la Herramienta de Recortes"
+                    ? "se la hemos quitado a la Herramienta de Recortes"
+                    : "Windows no la ha soltado; cierra sesión y vuelve a entrar"
+                  : "ahora abre la Herramienta de Recortes"
               }
               control={
                 <Switch
                   checked={imprPant?.enabled ?? false}
                   onChange={(v) => void cambiarImprPant(v)}
-                  label="Quitarle las teclas a la Herramienta de Recortes"
+                  label="Usar también Impr Pant"
+                />
+              }
+            />
+            <Row
+              icon={<Search className="size-4" />}
+              label="Quedarme con Win+Mayús+S"
+              hint={
+                settings.takeWinShiftS
+                  ? "hecho · pierdes Win+S y no cambia hasta cerrar sesión"
+                  : "cuesta Win+S, la búsqueda: Windows no distingue las dos"
+              }
+              control={
+                <Switch
+                  checked={settings.takeWinShiftS}
+                  onChange={(v) => void cambiarWinShiftS(v)}
+                  label="Quedarme con Win+Mayús+S"
                 />
               }
             />
             <Row
               icon={<Scissors className="size-4" />}
               label="Quitar la Herramienta de Recortes"
-              hint="se desinstala desde Windows y vuelve desde la Store"
+              hint={
+                recortes === "confirmar"
+                  ? "se quita de tu usuario; vuelve desde la Microsoft Store"
+                  : recortes === "quitando"
+                    ? "quitándola…"
+                    : recortes === "quitada"
+                      ? "quitada; Win+Mayús+S ya no abre nada de Windows"
+                      : recortes === "ya no estaba"
+                        ? "ya no estaba instalada"
+                        : "así no vuelve a abrirse por ningún camino"
+              }
               control={
-                <button
-                  type="button"
-                  onClick={() => void openWindowsApps()}
-                  className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  Ver cómo
-                </button>
+                <span className="flex gap-1">
+                  {!recortes && (
+                    <button
+                      type="button"
+                      onClick={() => void openWindowsApps()}
+                      className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      Ver cómo
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={recortes === "quitando" || recortes === "quitada" || recortes === "ya no estaba"}
+                    onClick={() => void quitarRecortes()}
+                    className={`rounded-md border px-2 py-1 text-[11px] transition-colors disabled:opacity-40 ${
+                      recortes === "confirmar"
+                        ? "border-red-500/50 bg-red-500/15 text-red-300 hover:bg-red-500/25"
+                        : "border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {recortes === "confirmar"
+                      ? "Sí, quitarla"
+                      : recortes === "quitada" || recortes === "ya no estaba"
+                        ? "Hecho"
+                        : "Quitar"}
+                  </button>
+                </span>
               }
             />
           </Section>

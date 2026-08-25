@@ -78,9 +78,12 @@ pub fn run() {
             if config.print_screen_capture {
                 let _ = platform::snipping::write(0);
 
-                // Lo mismo con la S de los atajos de la tecla Windows, que es lo unico que
-                // hace que Win+Mayus+S deje de abrir la Herramienta de Recortes. Se anade a
-                // lo que haya, nunca se sustituye.
+            }
+
+            // Y la S fuera de los atajos del escritorio, solo si se pidio esa opcion
+            // aparte: es la que cuesta perder Win+S.
+            #[cfg(windows)]
+            if config.take_win_shift_s {
                 let actuales = platform::snipping::read_disabled_hotkeys().unwrap_or_default();
                 if !actuales.to_uppercase().contains('S') {
                     let _ =
@@ -131,8 +134,10 @@ pub fn run() {
             commands::shortcut_status,
             commands::print_screen_state,
             commands::use_print_screen,
+            commands::use_win_shift_s,
             commands::open_folder,
             commands::open_windows_apps,
+            commands::remove_snipping_tool,
             commands::quit_app,
         ])
         .build(tauri::generate_context!())

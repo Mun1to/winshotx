@@ -280,6 +280,15 @@ pub async fn open_windows_apps() -> Result<()> {
     crate::platform::abrir_aplicaciones_de_windows()
 }
 
+/// Quita la Herramienta de Recortes de este usuario. Devuelve si habia algo que quitar.
+///
+/// Solo se llega aqui pulsando dos veces a proposito en los ajustes. Vuelve desde la
+/// Microsoft Store, no hace falta ser administrador y no le afecta a nadie mas del equipo.
+#[tauri::command]
+pub async fn remove_snipping_tool() -> Result<bool> {
+    crate::platform::snipping::uninstall_snipping_tool()
+}
+
 #[tauri::command]
 pub async fn open_folder(path: String) -> Result<()> {
     crate::platform::open_folder(&PathBuf::from(path))
@@ -334,23 +343,13 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
             settings.disabled_hotkeys_restore = snipping::read_disabled_hotkeys();
         }
         snipping::write(0)?;
-
-        // Y la S fuera de los atajos de la tecla Windows, que es lo unico que hace que
-        // Win+Mayus+S deje de abrir la Herramienta de Recortes. Se anade a lo que hubiera
-        // en vez de sustituirlo: quien tuviera otras letras apagadas las conserva.
-        let previas = settings.disabled_hotkeys_restore.clone().unwrap_or_default();
-        if !previas.to_uppercase().contains('S') {
-            snipping::write_disabled_hotkeys(Some(&format!("{previas}S")))?;
-        }
         settings.print_screen_capture = true;
     } else {
-        // Se deja todo como estaba, incluido el caso de que no hubiera valor.
+        // Se deja el registro como estaba, incluido el caso de que no hubiera valor.
         match settings.snipping_key_restore.take() {
             Some(previo) => snipping::write(previo)?,
             None => snipping::remove()?,
         }
-        let previas = settings.disabled_hotkeys_restore.take();
-        snipping::write_disabled_hotkeys(previas.as_deref())?;
         settings.print_screen_capture = false;
     }
 
@@ -358,6 +357,45 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
     crate::settings::save(&app, &settings)?;
     crate::hotkeys::register(&app, &settings);
     Ok(print_screen_now(&state))
+}
+
+/// Le quita `Win+Mayus+S` al escritorio, o se la devuelve.
+///
+/// Esto es aparte de todo lo demas porque es lo unico de winshotx que le quita algo al
+/// usuario: la lista de atajos de Windows va por LETRA, no por combinacion, asi que apagar
+/// la S para que `Win+Mayus+S` no abra el recorte apaga tambien `Win+S`, la busqueda. No hay
+/// forma de afinar mas, y nadie deberia pagar eso sin haberlo pedido.
+///
+/// Ninguna de las dos cosas surte efecto hasta que se vuelve a iniciar sesion: el escritorio
+/// lee esa lista al arrancar y no la relee.
+#[tauri::command]
+pub async fn use_win_shift_s(app: AppHandle, enabled: bool) -> Result<bool> {
+    use crate::platform::snipping;
+
+    let state = app.state::<AppState>();
+    let mut settings = state.settings.read().clone();
+
+    if enabled {
+        if !settings.take_win_shift_s {
+            settings.disabled_hotkeys_restore = snipping::read_disabled_hotkeys();
+        }
+        // Se anade a lo que hubiera en vez de sustituirlo: quien tuviera otras letras
+        // apagadas las conserva.
+        let previas = settings.disabled_hotkeys_restore.clone().unwrap_or_default();
+        if !previas.to_uppercase().contains('S') {
+            snipping::write_disabled_hotkeys(Some(&format!("{previas}S")))?;
+        }
+        settings.take_win_shift_s = true;
+    } else {
+        let previas = settings.disabled_hotkeys_restore.take();
+        snipping::write_disabled_hotkeys(previas.as_deref())?;
+        settings.take_win_shift_s = false;
+    }
+
+    *state.settings.write() = settings.clone();
+    crate::settings::save(&app, &settings)?;
+    crate::hotkeys::register(&app, &settings);
+    Ok(settings.take_win_shift_s)
 }
 
 #[tauri::command]

@@ -136,6 +136,7 @@ export interface Settings {
   startWithWindows: boolean;
   captureFlow: CaptureFlow;
   printScreenCapture: boolean;
+  takeWinShiftS: boolean;
   onboarded: boolean;
   /** Interno: lo que valía el ajuste de Windows antes de quitarle la tecla. */
   snippingKeyRestore: number | null;

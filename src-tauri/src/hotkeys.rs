@@ -88,10 +88,12 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
             }
         }
 
-        // Y se pide Win+Mayus+S, que ahora puede estar libre: con la S fuera de
-        // `DisabledHotkeys` el shell deja de atenderla, aunque no hasta que el usuario
-        // cierra sesion. Hasta entonces esto falla y no pasa nada; despues, cae de este
-        // lado y winshotx sustituye del todo a la Herramienta de Recortes.
+    }
+
+    // Win+Mayus+S solo se pide si se acepto pagar lo que cuesta. Con la S fuera de
+    // `DisabledHotkeys` el escritorio deja de atenderla, aunque no hasta que el usuario
+    // vuelve a iniciar sesion: hasta entonces esto falla y no pasa nada.
+    if settings.take_win_shift_s {
         if let Ok(shortcut) = WIN_SHIFT_S.parse::<Shortcut>() {
             if manager.on_shortcut(shortcut, on_capture).is_ok() {
                 puestos.push(shortcut);

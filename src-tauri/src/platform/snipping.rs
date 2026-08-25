@@ -242,6 +242,41 @@ pub fn write_disabled_hotkeys(letras: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+/// Desinstala la Herramienta de Recortes del usuario que la pide.
+///
+/// Es la unica forma de que no vuelva a abrirse por ningun camino, y por eso solo se hace
+/// cuando alguien lo pulsa a proposito y confirma. No toca el sistema: el paquete se quita
+/// de este usuario y vuelve desde la Microsoft Store cuando quiera, sin permisos de
+/// administrador y sin que le afecte a nadie mas del equipo.
+#[cfg(windows)]
+pub fn uninstall_snipping_tool() -> Result<bool> {
+    use std::os::windows::process::CommandExt;
+
+    let salida = std::process::Command::new("powershell")
+        .creation_flags(0x0800_0000) // sin ventana de consola
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$p = Get-AppxPackage -Name Microsoft.ScreenSketch; \
+             if ($p) { $p | Remove-AppxPackage; 'quitada' } else { 'no estaba' }",
+        ])
+        .output()?;
+
+    if !salida.status.success() {
+        return Err(AppError::Msg(
+            "Windows no ha dejado quitar la Herramienta de Recortes".into(),
+        ));
+    }
+    // Devuelve si habia algo que quitar, para poder decirlo sin mentir.
+    Ok(String::from_utf8_lossy(&salida.stdout).contains("quitada"))
+}
+
+#[cfg(not(windows))]
+pub fn uninstall_snipping_tool() -> crate::error::Result<bool> {
+    Err(crate::error::AppError::Unsupported)
+}
+
 #[cfg(not(windows))]
 pub fn read_disabled_hotkeys() -> Option<String> {
     None
