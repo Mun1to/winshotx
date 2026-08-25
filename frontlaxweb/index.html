@@ -28,7 +28,7 @@
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="icon" href="logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="estilos.css?v=e962101e">
+<link rel="stylesheet" href="estilos.css?v=d4929329">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -188,6 +188,8 @@
       <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
       <path d="m20 6-11 11-5-5"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 9 6 6 6-6"/></symbol>
     <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -777,40 +779,48 @@
 
 <section id="preguntas">
   <div class="env">
-    <h2 data-en="Questions people actually ask">Preguntas que hace la gente de verdad</h2>
-    <div class="faq">
-      <details>
-        <summary><h3 data-en="Is winshotx free?">¿Es gratis winshotx?</h3></summary>
+    <div class="faq-grid">
+      <div class="faq-lateral">
+        <svg class="mini-marca faq-marca"><use href="#marca"/></svg>
+        <p class="faq-etiqueta" data-en="FAQ">Preguntas</p>
+        <h2 data-en="Questions people actually ask">Preguntas que hace la gente de verdad</h2>
+        <p class="entradilla" data-en="If it's not here, open an issue on GitHub and it gets answered and added.">Si no está aquí, abre un issue en GitHub y se contesta y se añade.</p>
+        <a class="btn fantasma" href="https://github.com/Mun1to/winshotx/issues" data-en="Ask on GitHub">Preguntar en GitHub</a>
+      </div>
+      <div class="faq">
+        <details>
+        <summary><h3 data-en="Is winshotx free?">¿Es gratis winshotx?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p data-en="Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.">Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago.</p>
       </details>
       <details>
-        <summary><h3 data-en="Does it need an account or an internet connection?">¿Necesita cuenta o conexión a internet?</h3></summary>
+        <summary><h3 data-en="Does it need an account or an internet connection?">¿Necesita cuenta o conexión a internet?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p data-en="No. It never asks for an account, sends nothing to any cloud, and works offline; the only moment it talks to the internet is to check for a new version.">No. No pide cuenta, no manda nada a ninguna nube y funciona sin conexión; el único momento en que habla con internet es para comprobar si hay una versión nueva.</p>
       </details>
       <details>
-        <summary><h3 data-en="Which versions of Windows does it run on?">¿En qué versiones de Windows funciona?</h3></summary>
+        <summary><h3 data-en="Which versions of Windows does it run on?">¿En qué versiones de Windows funciona?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p data-en="Windows 10 and Windows 11.">Windows 10 y Windows 11.</p>
       </details>
       <details>
-        <summary><h3 data-en="Is the app available in English?">¿Está la app en inglés?</h3></summary>
+        <summary><h3 data-en="Is the app available in English?">¿Está la app en inglés?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p data-en="For now the application interface is Spanish only. This website does have an English version.">Por ahora la interfaz de la aplicación solo está en español. Esta web sí tiene versión en inglés.</p>
       </details>
       <details>
-        <summary><h3 data-en="How do you install and update it?">¿Cómo se instala y se actualiza?</h3></summary>
+        <summary><h3 data-en="How do you install and update it?">¿Cómo se instala y se actualiza?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p data-en="The installer is 2.2 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.">El instalador pesa 2,2 MB y va a tu usuario, no al sistema, así que Windows no pide permisos de administrador. Desde dentro de la app se actualiza sola con un botón, y cada descarga viene firmada y se comprueba antes de instalarse.</p>
       </details>
       <details>
-        <summary><h3 data-en="Can it be installed with winget?">¿Se puede instalar con winget?</h3></summary>
+        <summary><h3 data-en="Can it be installed with winget?">¿Se puede instalar con winget?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p><span data-en="Not yet: the package is under review in the official winget-pkgs repository. Once it's approved,">Todavía no: el paquete está en revisión en el repositorio oficial de winget-pkgs. En cuanto se apruebe,</span> <code>winget install Mun1to.winshotx</code> <span data-en="will work and this answer will say so.">funcionará y esta respuesta lo dirá.</span></p>
       </details>
       <details>
-        <summary><h3 data-en="What can it capture and record?">¿Qué puede capturar y grabar?</h3></summary>
+        <summary><h3 data-en="What can it capture and record?">¿Qué puede capturar y grabar?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p data-en="Region capture with automatic window snapping, video recording at 15, 30 or 60 fps, GIF recording, and a frame by frame editor with A and B trim.">Captura de región con ajuste automático a ventanas, grabación de vídeo a 15, 30 o 60 fps, grabación en GIF, y un editor fotograma a fotograma con recorte A y B.</p>
       </details>
       <details>
-        <summary><h3 data-en="What does it still lack compared to the Windows Snipping Tool?">¿Qué le falta frente a la Herramienta de Recortes de Windows?</h3></summary>
+        <summary><h3 data-en="What does it still lack compared to the Windows Snipping Tool?">¿Qué le falta frente a la Herramienta de Recortes de Windows?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <p data-en="It doesn't draw or annotate on top of a capture yet, doesn't read text out of the image, doesn't blur personal data automatically, doesn't record system audio and has no capture timer. The point by point comparison is above.">Todavía no dibuja ni anota encima de la captura, no lee el texto de la imagen, no tapa datos personales en automático, no graba el audio del sistema y no tiene temporizador antes de capturar. La comparación punto por punto está más arriba.</p>
       </details>
+    </div>
     </div>
   </div>
 </section>
