@@ -44,6 +44,12 @@ export interface OverlayPayload {
   screenNumber: number;
   /** Cuantas pantallas hay en total. Con una sola no hace falta numerarlas. */
   screenCount: number;
+  /**
+   * La ultima region capturada, en coordenadas del escritorio virtual, o `null` si
+   * todavia no se ha capturado nada desde que arranco la app. Viene en coordenadas
+   * globales porque puede ser de otro monitor: cada overlay mira si es suya.
+   */
+  lastRegion: Rect | null;
 }
 
 export type StillAction = "copy" | "save" | "edit";

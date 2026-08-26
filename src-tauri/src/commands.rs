@@ -26,6 +26,9 @@ pub struct OverlayPayload {
     /// pantallas hay que poder decir "esta", y para eso hay que poder nombrarlas.
     screen_number: usize,
     screen_count: usize,
+    /// La ultima region capturada, en coordenadas del escritorio virtual, o nada si
+    /// todavia no se ha capturado ninguna desde que se abrio la app.
+    last_region: Option<Rect>,
 }
 
 /// Construye el payload de una pantalla. La usan tanto el comando `overlay_bootstrap`
@@ -49,6 +52,7 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         // se pinta en cada pantalla es siempre el mismo entre disparo y disparo.
         screen_number: posicion + 1,
         screen_count: freezes.len(),
+        last_region: *state.last_region.read(),
     })
 }
 
@@ -102,6 +106,10 @@ pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Resu
         let freezes = state.freezes.read();
         capture::crop_from_freeze(&freezes, region)?
     };
+    // Se recuerda solo si el recorte ha salido bien: repetir una region que fallo no
+    // repetiria nada. Y solo aqui, no en `capture_all_screens`, porque "la ultima region"
+    // que tiene sentido repetir es un recorte, no el escritorio entero.
+    *app.state::<AppState>().last_region.write() = Some(region);
     entregar(&app, image, region, &action)
 }
 

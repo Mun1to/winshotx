@@ -55,6 +55,10 @@ pub struct AppState {
     /// toca copiar la imagen o empezar a grabar.
     pub intent: RwLock<OverlayIntent>,
     pub recording: Mutex<Option<RecordingState>>,
+    /// La ultima region capturada, en coordenadas del escritorio virtual. Sobrevive al
+    /// cierre del overlay a proposito: repetir una captura solo sirve si se acuerda de la
+    /// vez anterior, que fue otro disparo del atajo.
+    pub last_region: RwLock<Option<Rect>>,
     pub temp_root: PathBuf,
     /// Si hay una captura de pantalla en curso ahora mismo (congelando o guardando).
     /// Sin este candado, pulsar el atajo dos veces seguidas muy rapido lanzaba dos
@@ -83,6 +87,7 @@ impl AppState {
             registered: RwLock::new(Vec::new()),
             intent: RwLock::new(OverlayIntent::Capture),
             recording: Mutex::new(None),
+            last_region: RwLock::new(None),
             temp_root,
             capturando: AtomicBool::new(false),
         }

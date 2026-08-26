@@ -308,6 +308,34 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     [payload, busy, toPhysical],
   );
 
+  /**
+   * La ultima region capturada, traida a coordenadas CSS de ESTA pantalla, o null si fue
+   * en otra. Es la vuelta de `toPhysical`: el payload la trae en coordenadas del
+   * escritorio virtual justamente porque puede no ser de aqui.
+   *
+   * Se mira por el centro, igual que hace Rust al decidir de que pantalla recorta, para
+   * que las dos mitades esten de acuerdo sobre de quien es una region.
+   */
+  const ultimaRegion = useMemo(() => {
+    const r = payload?.lastRegion;
+    if (!r || !payload) return null;
+    const m = payload.monitor;
+    const cx = r.x + Math.floor(r.width / 2);
+    const cy = r.y + Math.floor(r.height / 2);
+    const esDeEstaPantalla =
+      cx >= m.x && cy >= m.y && cx < m.x + m.width && cy < m.y + m.height;
+    if (!esDeEstaPantalla) return null;
+    return {
+      x: (r.x - m.x) / scale,
+      y: (r.y - m.y) / scale,
+      width: r.width / scale,
+      height: r.height / scale,
+    };
+  }, [payload, scale]);
+
+  const ultimaRegionRef = useRef<Rect | null>(null);
+  ultimaRegionRef.current = ultimaRegion;
+
   const capturarTodasLasPantallas = useCallback(
     async (action: StillAction) => {
       if (busy) return;
@@ -432,6 +460,18 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         difundir({ mode: "gif" });
       } else if (key === "v") {
         difundir({ mode: "video" });
+      } else if (key === "r") {
+        // La misma zona otra vez, sin volver a arrastrar. Solo responde la pantalla donde
+        // cayo aquella region: en las demas no hay nada que repetir, asi que no hacen nada
+        // en vez de capturar algo que no es.
+        const previa = ultimaRegionRef.current;
+        if (!previa) return;
+        e.preventDefault();
+        // Mismo reparto que `Ctrl+A`: con la barra se deja puesta para retocarla, y con el
+        // perfil "se copia sola" se hace y ya, que es lo que ese perfil promete.
+        if (!alVuelo) setSelection(previa);
+        else if (modoRef.current !== "still") void grabarRegion(previa, modoRef.current);
+        else void capturarRegion(previa, "copy");
       } else if (key === "0") {
         // Todas las pantallas de golpe, en una sola imagen. El `0` va con los numeros de
         // pantalla y significa "ninguna en concreto: todas".
@@ -710,6 +750,30 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           <div className="max-w-xl rounded-xl border border-red-500/30 bg-red-950/90 px-4 py-2.5 text-xs text-red-200 shadow-2xl backdrop-blur-md">
             {error}
           </div>
+        </div>
+      )}
+
+      {/*
+        El fantasma de la ultima captura, donde estuvo, con su tecla encima. Una tecla que
+        no se ve no la usa nadie, y esto se explica solo: ahi tenias lo de antes, pulsa R y
+        vuelve. Se va en cuanto se empieza a arrastrar, para no estorbar.
+      */}
+      {ultimaRegion && !selection && mode.kind === "idle" && !pantallaEntera && !hovered && (
+        <div
+          className="pointer-events-none absolute rounded-[3px] border border-dashed border-white/35"
+          style={{
+            left: ultimaRegion.x,
+            top: ultimaRegion.y,
+            width: ultimaRegion.width,
+            height: ultimaRegion.height,
+          }}
+        >
+          <span className="absolute -top-7 left-0 flex items-center gap-1.5 rounded-full border border-white/10 bg-neutral-900/85 px-2.5 py-1 text-[11px] whitespace-nowrap text-neutral-400 shadow-lg backdrop-blur-md">
+            <kbd className="rounded-[4px] border border-white/15 bg-white/10 px-1.5 py-0.5 text-[10px] leading-none font-medium text-neutral-200">
+              R
+            </kbd>
+            la de antes
+          </span>
         </div>
       )}
 
