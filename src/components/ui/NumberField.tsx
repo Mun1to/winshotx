@@ -19,8 +19,8 @@ export function NumberField({
 }: Props) {
   return (
     <label className={`block ${disabled ? "opacity-40" : ""}`}>
-      <span className="mb-1.5 block text-xs font-medium text-neutral-300">{label}</span>
-      <span className="flex items-center rounded-lg border border-white/10 bg-black/30 focus-within:border-blue-500/60">
+      <span className="mb-1.5 block text-xs font-medium text-suave">{label}</span>
+      <span className="flex items-center rounded-lg border border-linea-fuerte bg-hueco focus-within:border-blue-500/60">
         <input
           type="number"
           value={Math.round(value)}
@@ -31,9 +31,9 @@ export function NumberField({
             const next = Number(e.target.value);
             if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, next)));
           }}
-          className="w-full bg-transparent px-2.5 py-1.5 text-sm tabular-nums text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-full bg-transparent px-2.5 py-1.5 text-sm tabular-nums text-titulo outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
         />
-        {suffix && <span className="pr-2.5 text-xs text-neutral-500">{suffix}</span>}
+        {suffix && <span className="pr-2.5 text-xs text-tenue">{suffix}</span>}
       </span>
     </label>
   );

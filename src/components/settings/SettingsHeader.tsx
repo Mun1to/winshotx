@@ -51,10 +51,10 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
   // centro DE LA VENTANA. Con una fila normal quedaban centradas en el hueco que dejaban
   // los lados, que no miden lo mismo, asi que salian corridas hacia un lado.
   return (
-    <header className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-white/8 px-3">
+    <header className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-linea px-3">
       {/* Con la palabra delante y al tamanno de las explicaciones de las filas: un
           numero suelto a 11 px no se sabia que era, y habia que acercarse a leerlo. */}
-      <span className="justify-self-start ps-1 text-[12.5px] text-neutral-400">
+      <span className="justify-self-start ps-1 text-[12.5px] text-apagado">
         Versión {version}
       </span>
 
@@ -81,7 +81,7 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
         <button
           type="button"
           onClick={onSalir}
-          className="rounded-md px-2 py-1 text-[11.5px] text-neutral-400 transition-colors hover:bg-red-500/15 hover:text-red-300"
+          className="rounded-md px-2 py-1 text-[11.5px] text-apagado transition-colors hover:bg-red-500/15 hover:text-red-300"
         >
           Salir
         </button>

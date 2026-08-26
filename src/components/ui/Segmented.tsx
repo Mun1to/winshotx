@@ -20,7 +20,7 @@ export function Segmented<T extends string | number>({
   ajustado = false,
 }: Props<T>) {
   return (
-    <div className="flex gap-1 rounded-lg bg-black/40 p-1">
+    <div className="flex gap-1 rounded-lg bg-hueco p-1">
       {options.map((option) => (
         <button
           key={String(option.value)}
@@ -30,8 +30,8 @@ export function Segmented<T extends string | number>({
             ajustado ? "" : "flex-1"
           } ${
             option.value === value
-              ? "bg-white/15 text-white shadow-sm"
-              : "text-neutral-400 hover:text-white"
+              ? "bg-pastilla text-titulo shadow-sm"
+              : "text-apagado hover:text-titulo"
           }`}
         >
           {option.label}

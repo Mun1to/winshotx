@@ -23,6 +23,24 @@ impl Default for CaptureFlow {
     }
 }
 
+/// De que color se pinta la aplicacion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Theme {
+    /// El que tenga puesto Windows, y cambiando con el sin reiniciar nada. Es el de
+    /// fabrica: una aplicacion que vive en la bandeja no puede ser la unica ventana
+    /// blanca de un escritorio oscuro, ni al reves.
+    Sistema,
+    Claro,
+    Oscuro,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self::Sistema
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
@@ -30,6 +48,8 @@ pub struct Settings {
     pub record_shortcut: String,
     pub save_directory: String,
     pub capture_flow: CaptureFlow,
+    /// Claro, oscuro, o lo que diga Windows.
+    pub theme: Theme,
     pub copy_after_capture: bool,
     pub open_editor_after_recording: bool,
     pub capture_cursor: bool,
@@ -77,6 +97,7 @@ impl Default for Settings {
             record_shortcut: "CmdOrCtrl+Shift+5".into(),
             save_directory: default_save_dir(),
             capture_flow: CaptureFlow::Toolbar,
+            theme: Theme::Sistema,
             copy_after_capture: true,
             open_editor_after_recording: true,
             capture_cursor: true,

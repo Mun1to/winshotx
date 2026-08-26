@@ -27,6 +27,9 @@ export interface WindowRect {
 /** Que pasa al soltar el raton sobre la region. Son los dos perfiles de trabajo. */
 export type CaptureFlow = "toolbar" | "instant";
 
+/** De que color se pinta la app. "sistema" es seguir a Windows y cambiar con el. */
+export type Theme = "sistema" | "claro" | "oscuro";
+
 /** Con que se abrio el overlay: el mismo sirve para capturar y para grabar. */
 export type OverlayIntent = "capture" | "record";
 
@@ -137,6 +140,8 @@ export interface ExportProgress {
 
 export interface Settings {
   captureShortcut: string;
+  /** Claro, oscuro, o lo que diga Windows. */
+  theme: Theme;
   recordShortcut: string;
   saveDirectory: string;
   copyAfterCapture: boolean;

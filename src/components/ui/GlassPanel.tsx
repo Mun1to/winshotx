@@ -14,7 +14,7 @@ export function GlassPanel({ children, className = "", animate = true }: Props) 
   // movimiento" si lo que quieres es que este ahi cuando miras.
   const quieto = useReducedMotion();
   const base =
-    "rounded-2xl border border-white/10 bg-neutral-900/90 backdrop-blur-xl shadow-2xl";
+    "rounded-2xl border border-linea-fuerte bg-flotante/90 backdrop-blur-xl shadow-2xl";
   if (!animate || quieto) return <div className={`${base} ${className}`}>{children}</div>;
   return (
     <motion.div

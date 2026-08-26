@@ -10,12 +10,69 @@
   --radius-window: 16px;
   --shadow-window: 0 24px 60px -12px rgb(0 0 0 / 0.65), 0 0 0 0.5px rgb(255 255 255 / 0.08);
   --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.55), 0 0 0 0.5px rgb(255 255 255 / 0.1);
+
+  /* Los colores por su OFICIO, no por su tono: `bg-tarjeta` sigue queriendo decir lo
+     mismo en claro y en oscuro, y `bg-neutral-800` no. Es lo unico que permite cambiar
+     de tema sin repasar la interfaz entera cada vez.
+
+     Estos son los valores del tema oscuro, que es el de siempre, y valen exactamente lo
+     que valia la clase que sustituyen: cambiar de nombre no puede cambiar ni un pixel. */
+  --color-marca: #0a9bff;
+  --color-lienzo: #161618;
+  --color-tarjeta: --alpha(var(--color-white) / 3%);
+  --color-flotante: #1c1c1f;
+  --color-hueco: --alpha(var(--color-black) / 40%);
+  --color-linea-tenue: --alpha(var(--color-white) / 6%);
+  --color-linea: --alpha(var(--color-white) / 8%);
+  --color-linea-fuerte: --alpha(var(--color-white) / 12%);
+  --color-linea-viva: --alpha(var(--color-white) / 25%);
+  --color-realce: --alpha(var(--color-white) / 10%);
+  --color-activo: --alpha(var(--color-white) / 15%);
+  /* La pastilla del selector y el boton encendido: sobre fondo oscuro se hacen aclarando,
+     y sobre fondo claro no hay forma de aclarar mas, asi que ahi se hacen con blanco puro
+     y una sombra. Por eso no puede ser el mismo token que `activo`. */
+  --color-pastilla: --alpha(var(--color-white) / 15%);
+  /* Y la pista de un interruptor apagado, que tiene que verse sin gritar. */
+  --color-apagador: --alpha(var(--color-white) / 15%);
+  --color-titulo: var(--color-neutral-100);
+  --color-texto: var(--color-neutral-200);
+  --color-suave: var(--color-neutral-300);
+  --color-apagado: var(--color-neutral-400);
+  --color-tenue: var(--color-neutral-500);
+  --color-fantasma: var(--color-neutral-600);
 }
 
 @layer base {
   :root {
     color-scheme: dark;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* El tema claro no es el oscuro con los grises al reves: sobre un fondo claro los
+     trazos se hacen con negro transparente, porque el blanco transparente ahi no pinta
+     nada, y el texto no baja tanto de contraste como sube en el oscuro. */
+  :root[data-tema="claro"] {
+    color-scheme: light;
+
+    --color-marca: #0a76c9;
+    --color-lienzo: #f6f6f7;
+    --color-tarjeta: --alpha(var(--color-black) / 2%);
+    --color-flotante: #ffffff;
+    --color-hueco: --alpha(var(--color-black) / 6%);
+    --color-linea-tenue: --alpha(var(--color-black) / 6%);
+    --color-linea: --alpha(var(--color-black) / 10%);
+    --color-linea-fuerte: --alpha(var(--color-black) / 14%);
+    --color-linea-viva: --alpha(var(--color-black) / 28%);
+    --color-realce: --alpha(var(--color-black) / 6%);
+    --color-activo: --alpha(var(--color-black) / 10%);
+    --color-pastilla: #ffffff;
+    --color-apagador: --alpha(var(--color-black) / 22%);
+    --color-titulo: var(--color-neutral-900);
+    --color-texto: var(--color-neutral-800);
+    --color-suave: var(--color-neutral-700);
+    --color-apagado: var(--color-neutral-600);
+    --color-tenue: var(--color-neutral-500);
+    --color-fantasma: var(--color-neutral-400);
   }
 
   html,
@@ -26,10 +83,10 @@
   }
 
   body {
-    background-color: #161618;
+    background-color: var(--color-lienzo);
     font-family:
       "Inter", -apple-system, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
-    color: rgb(245 245 245);
+    color: var(--color-titulo);
   }
 
   /* Nada de menu contextual del webview: esto tiene que sentirse nativo. */
@@ -52,12 +109,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgb(255 255 255 / 0.14);
+    background: var(--color-activo);
     border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgb(255 255 255 / 0.24);
+    background: var(--color-linea-viva);
   }
 
   ::-webkit-scrollbar-track {

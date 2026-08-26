@@ -162,13 +162,13 @@ function Boton({
   if (fase.tipo === "bajando") {
     return (
       <span className="flex items-center gap-2">
-        <span className="h-1 w-20 overflow-hidden rounded-full bg-white/10">
+        <span className="h-1 w-20 overflow-hidden rounded-full bg-realce">
           <span
             className="block h-full bg-blue-500 transition-[width] duration-150"
             style={{ width: `${fase.pct}%` }}
           />
         </span>
-        <span className="text-[11px] tabular-nums text-neutral-400">{fase.pct} %</span>
+        <span className="text-[11px] tabular-nums text-apagado">{fase.pct} %</span>
       </span>
     );
   }
@@ -190,7 +190,7 @@ function Boton({
       type="button"
       onClick={mirar}
       disabled={fase.tipo === "mirando"}
-      className={`${base} border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white`}
+      className={`${base} border border-linea-fuerte text-suave hover:bg-realce hover:text-titulo`}
     >
       <RefreshCw className={`size-3.5 ${fase.tipo === "mirando" ? "animate-spin" : ""}`} />
       Buscar

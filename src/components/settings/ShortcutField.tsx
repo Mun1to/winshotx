@@ -90,7 +90,7 @@ export function ShortcutField({ value, onChange, active }: Props) {
         recording
           ? "animate-pulse border-blue-500 bg-blue-500/10"
           : active
-            ? "border-white/10 bg-black/40 hover:border-white/25"
+            ? "border-linea-fuerte bg-hueco hover:border-linea-viva"
             : "border-red-500/40 bg-red-500/10 hover:border-red-400"
       }`}
     >
@@ -100,7 +100,7 @@ export function ShortcutField({ value, onChange, active }: Props) {
         parts.map((part, index) => (
           <kbd
             key={`${part}-${index}`}
-            className="rounded-[5px] border border-white/10 bg-white/10 px-1.5 py-0.5 text-[11px] leading-none font-medium text-neutral-200"
+            className="rounded-[5px] border border-linea-fuerte bg-realce px-1.5 py-0.5 text-[11px] leading-none font-medium text-texto"
           >
             {part}
           </kbd>

@@ -27,10 +27,10 @@ export function IconButton({
   const tone = accent
     ? "bg-blue-500 text-white hover:bg-blue-400"
     : active
-      ? "bg-white/15 text-white"
+      ? "bg-pastilla text-titulo"
       : danger
         ? "text-red-400 hover:bg-red-500/15 hover:text-red-300"
-        : "text-neutral-300 hover:bg-white/10 hover:text-white";
+        : "text-suave hover:bg-realce hover:text-titulo";
 
   return (
     <button

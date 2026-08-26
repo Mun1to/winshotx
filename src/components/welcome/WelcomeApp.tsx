@@ -97,11 +97,11 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   }, [onDone]);
 
   if (!ajustes) {
-    return <div className="h-full bg-[#161618]" />;
+    return <div className="h-full bg-lienzo" />;
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#161618] text-neutral-200">
+    <div className="flex h-full flex-col overflow-hidden bg-lienzo text-texto">
       <div className="flex-1 px-9 pt-9">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -147,7 +147,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
         </p>
       )}
 
-      <footer className="flex shrink-0 items-center justify-between border-t border-white/8 px-6 py-3">
+      <footer className="flex shrink-0 items-center justify-between border-t border-linea px-6 py-3">
         <span className="flex items-center gap-1.5">
           {PASOS.map((nombre, i) => (
             <span
@@ -158,11 +158,11 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
                   ? "w-5 bg-blue-500"
                   : i < paso
                     ? "w-1.5 bg-blue-500/50"
-                    : "w-1.5 bg-white/15"
+                    : "w-1.5 bg-activo"
               }`}
             />
           ))}
-          <span className="ml-2 text-[11px] text-neutral-500">
+          <span className="ml-2 text-[11px] text-tenue">
             Paso {paso + 1} de {PASOS.length}
           </span>
         </span>
@@ -172,7 +172,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
             <button
               type="button"
               onClick={() => setPaso((p) => p - 1)}
-              className="rounded-lg px-3 py-1.5 text-xs text-neutral-400 transition-colors hover:bg-white/8 hover:text-white"
+              className="rounded-lg px-3 py-1.5 text-xs text-apagado transition-colors hover:bg-realce hover:text-titulo"
             >
               Atrás
             </button>
@@ -203,15 +203,15 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
 function Titulo({ texto, sub }: { texto: string; sub: string }) {
   return (
     <>
-      <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-white">{texto}</h1>
-      <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-neutral-400">{sub}</p>
+      <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-titulo">{texto}</h1>
+      <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-apagado">{sub}</p>
     </>
   );
 }
 
 function Tecla({ children }: { children: string }) {
   return (
-    <kbd className="rounded-md border border-white/12 bg-white/8 px-1.5 py-0.5 font-mono text-[11px] text-neutral-200">
+    <kbd className="rounded-md border border-linea-fuerte bg-realce px-1.5 py-0.5 font-mono text-[11px] text-texto">
       {children}
     </kbd>
   );
@@ -222,7 +222,7 @@ function Atajo({ valor }: { valor: string }) {
     <span className="flex items-center gap-1">
       {partesDeAtajo(valor).map((parte, i) => (
         <span key={parte + String(i)} className="flex items-center gap-1">
-          {i > 0 && <span className="text-[10px] text-neutral-600">+</span>}
+          {i > 0 && <span className="text-[10px] text-fantasma">+</span>}
           <Tecla>{parte}</Tecla>
         </span>
       ))}
@@ -242,7 +242,7 @@ function Sugerencias({
 }) {
   return (
     <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] text-neutral-600">o prueba</span>
+      <span className="text-[11px] text-fantasma">o prueba</span>
       {opciones.map((opcion) => {
         const puesta = opcion === valor;
         return (
@@ -254,7 +254,7 @@ function Sugerencias({
             className={`rounded-md border px-1.5 py-0.5 font-mono text-[11px] transition-colors ${
               puesta
                 ? "border-blue-500/70 bg-blue-500/15 text-blue-200"
-                : "border-white/10 text-neutral-400 hover:border-white/25 hover:text-white"
+                : "border-linea-fuerte text-apagado hover:border-linea-viva hover:text-titulo"
             }`}
           >
             {partesDeAtajo(opcion).join(" ")}
@@ -292,15 +292,15 @@ function Hola({
         sub="Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece."
       />
 
-      <p className="mt-4 text-[12px] text-neutral-400">
+      <p className="mt-4 text-[12px] text-apagado">
         Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que
         quieras si prefieres otras.
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
-          <span className="flex items-center gap-2 text-[13px] font-medium text-neutral-200">
-            <Camera className="size-4 text-neutral-500" />
+        <div className="rounded-xl border border-linea bg-tarjeta p-4">
+          <span className="flex items-center gap-2 text-[13px] font-medium text-texto">
+            <Camera className="size-4 text-tenue" />
             Capturar una región
           </span>
           <span className="mt-2.5 flex">
@@ -317,9 +317,9 @@ function Hola({
           />
           <Ocupado visible={!atajos.capture} />
         </div>
-        <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
-          <span className="flex items-center gap-2 text-[13px] font-medium text-neutral-200">
-            <Video className="size-4 text-neutral-500" />
+        <div className="rounded-xl border border-linea bg-tarjeta p-4">
+          <span className="flex items-center gap-2 text-[13px] font-medium text-texto">
+            <Video className="size-4 text-tenue" />
             Grabar en GIF o vídeo
           </span>
           <span className="mt-2.5 flex">
@@ -338,7 +338,7 @@ function Hola({
         </div>
       </div>
 
-      <p className="mt-3 text-[12px] text-neutral-500">
+      <p className="mt-3 text-[12px] text-tenue">
         Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.
       </p>
     </div>
@@ -363,36 +363,36 @@ function TarjetaEstilo({ elegido, onClick, titulo, resumen, pasos, nota }: Tarje
       className={`relative flex flex-col rounded-2xl border p-4 text-left transition-colors ${
         elegido
           ? "border-blue-500/70 bg-blue-500/10"
-          : "border-white/8 bg-white/[0.03] hover:border-white/20"
+          : "border-linea bg-tarjeta hover:border-linea-viva"
       }`}
     >
       <span
         aria-hidden="true"
         className={`absolute top-3.5 right-3.5 flex size-5 items-center justify-center rounded-full border transition-colors ${
-          elegido ? "border-blue-500 bg-blue-500 text-white" : "border-white/20"
+          elegido ? "border-blue-500 bg-blue-500 text-white" : "border-linea-viva"
         }`}
       >
         {elegido && <Check className="size-3" />}
       </span>
 
-      <span className="block text-[15px] font-semibold text-white">{titulo}</span>
-      <span className="mt-0.5 block text-[12px] text-neutral-400">{resumen}</span>
+      <span className="block text-[15px] font-semibold text-titulo">{titulo}</span>
+      <span className="mt-0.5 block text-[12px] text-apagado">{resumen}</span>
 
       <span className="mt-3.5 mb-3.5 block space-y-2">
         {pasos.map((paso, i) => (
           <span key={paso.texto} className="flex items-center gap-2.5">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-white/8 text-neutral-300">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-realce text-suave">
               {paso.icono}
             </span>
-            <span className="text-[12px] text-neutral-300">
-              <span className="mr-1 text-neutral-600">{i + 1}.</span>
+            <span className="text-[12px] text-suave">
+              <span className="mr-1 text-fantasma">{i + 1}.</span>
               {paso.texto}
             </span>
           </span>
         ))}
       </span>
 
-      <span className="mt-auto block border-t border-white/8 pt-2.5 text-[11px] text-neutral-500">
+      <span className="mt-auto block border-t border-linea pt-2.5 text-[11px] text-tenue">
         {nota}
       </span>
     </button>
@@ -465,17 +465,17 @@ function TeclaImprPant({
           className={`rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${
             estado?.enabled
               ? "border-blue-500/70 bg-blue-500/10"
-              : "border-white/8 bg-white/[0.03] hover:border-white/20"
+              : "border-linea bg-tarjeta hover:border-linea-viva"
           }`}
         >
           <span className="flex items-center gap-2">
             <Tecla>Impr Pant</Tecla>
-            <span aria-hidden="true" className="text-neutral-600">
+            <span aria-hidden="true" className="text-fantasma">
               →
             </span>
-            <span className="text-[13px] font-semibold text-white">winshotx</span>
+            <span className="text-[13px] font-semibold text-titulo">winshotx</span>
           </span>
-          <span className="mt-2 block text-[12px] text-neutral-400">
+          <span className="mt-2 block text-[12px] text-apagado">
             Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la
             pasa a winshotx. No te quita nada más.
           </span>
@@ -489,14 +489,14 @@ function TeclaImprPant({
           className={`rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${
             estado !== null && !estado.enabled
               ? "border-blue-500/70 bg-blue-500/10"
-              : "border-white/8 bg-white/[0.03] hover:border-white/20"
+              : "border-linea bg-tarjeta hover:border-linea-viva"
           }`}
         >
           <span className="flex items-center gap-2">
-            <Scissors className="size-4 text-neutral-500" />
-            <span className="text-[13px] font-semibold text-white">Dejarla como está</span>
+            <Scissors className="size-4 text-tenue" />
+            <span className="text-[13px] font-semibold text-titulo">Dejarla como está</span>
           </span>
-          <span className="mt-2 block text-[12px] text-neutral-400">
+          <span className="mt-2 block text-[12px] text-apagado">
             La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.
           </span>
         </button>
@@ -510,21 +510,21 @@ function TeclaImprPant({
                 ? "Impr Pant abre winshotx."
                 : "Impr Pant no ha caído: hay otro programa que la tiene cogida."}
             </li>
-            <li className="text-neutral-500">
+            <li className="text-tenue">
               Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y
               vuelve a entrar.
             </li>
           </ul>
         )}
         {estado !== null && !estado.enabled && (
-          <p className="text-neutral-500">
+          <p className="text-tenue">
             Sin cambios. Puedes activarlo más adelante en Ajustes, en “Atajos globales”.
           </p>
         )}
       </div>
 
-      <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
-        <b className="font-medium text-neutral-400">Win + Mayús + S es otra historia.</b> Esa la
+      <p className="mt-1 text-[11px] leading-relaxed text-tenue">
+        <b className="font-medium text-apagado">Win + Mayús + S es otra historia.</b> Esa la
         atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus
         atajos, lo que apaga también <b>Win + S</b>, la búsqueda. Por eso va aparte, en{" "}
         <b>Ajustes → Atajos globales</b>, y no entra aquí de propina.
@@ -552,22 +552,22 @@ function Final({
         sub="Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja."
       />
 
-      <div className="mt-5 divide-y divide-white/6 overflow-hidden rounded-xl border border-white/8 bg-white/[0.03]">
+      <div className="mt-5 divide-y divide-linea-tenue overflow-hidden rounded-xl border border-linea bg-tarjeta">
         <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-[13px] text-neutral-300">Capturar una región</span>
+          <span className="text-[13px] text-suave">Capturar una región</span>
           <span className="flex items-center gap-2">
             <Atajo valor={ajustes.captureShortcut} />
             {imprPant?.enabled && imprPant.active && (
               <>
-                <span className="text-[10px] text-neutral-600">o</span>
+                <span className="text-[10px] text-fantasma">o</span>
                 <Tecla>Impr Pant</Tecla>
               </>
             )}
           </span>
         </div>
         <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-[13px] text-neutral-300">Al soltar el ratón</span>
-          <span className="text-[12px] text-neutral-400">
+          <span className="text-[13px] text-suave">Al soltar el ratón</span>
+          <span className="text-[12px] text-apagado">
             {ajustes.captureFlow === "instant"
               ? "se copia al portapapeles"
               : "sale la barra para elegir"}
@@ -575,10 +575,10 @@ function Final({
         </div>
         <div className="flex items-center justify-between px-4 py-2.5">
           <span className="flex items-center gap-2.5">
-            <Power className="size-4 text-neutral-500" />
+            <Power className="size-4 text-tenue" />
             <span>
-              <span className="block text-[13px] text-neutral-300">Arrancar con Windows</span>
-              <span className="block text-[11px] text-neutral-500">
+              <span className="block text-[13px] text-suave">Arrancar con Windows</span>
+              <span className="block text-[11px] text-tenue">
                 se abre en la bandeja, sin ventana
               </span>
             </span>
@@ -591,7 +591,7 @@ function Final({
         </div>
       </div>
 
-      <p className="mt-4 text-[12px] text-neutral-500">
+      <p className="mt-4 text-[12px] text-tenue">
         Pulsa el atajo cuando quieras. Con el botón derecho en el icono de la bandeja se abren los
         ajustes.
       </p>

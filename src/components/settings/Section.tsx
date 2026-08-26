@@ -20,17 +20,17 @@ export function Section({ title, children, tour }: SectionProps) {
   return (
     <section
       data-tour={tour}
-      className="mb-3 w-full rounded-xl border border-white/8 bg-white/[0.03]"
+      className="mb-3 w-full rounded-xl border border-linea bg-tarjeta"
     >
       {title && (
-        <h2 className="border-b border-white/8 px-4 py-3 text-[14.5px] font-semibold text-[#0a9bff]">
+        <h2 className="border-b border-linea px-4 py-3 text-[14.5px] font-semibold text-marca">
           {title}
         </h2>
       )}
       {/* La linea va entre filas y nunca encima de la primera. Se pone sobre los hijos
           directos y no sobre `.fila + .fila`: alguna fila llega envuelta en su propio
           contenedor, y una regla de hermanos adyacentes se saltaba justo esas. */}
-      <div className="[&>*+*]:border-t [&>*+*]:border-white/8">{children}</div>
+      <div className="[&>*+*]:border-t [&>*+*]:border-linea">{children}</div>
     </section>
   );
 }
@@ -39,7 +39,7 @@ export function Section({ title, children, tour }: SectionProps) {
 export type RowTone = "normal" | "warn" | "ok" | "error";
 
 const TONO: Record<RowTone, string> = {
-  normal: "text-neutral-400",
+  normal: "text-apagado",
   warn: "text-amber-400/90",
   ok: "text-emerald-400/90",
   error: "text-red-400/90",
@@ -60,9 +60,9 @@ export function Row({ label, hint, icon, control, stacked = false, tone = "norma
   // icono dejaba su texto cuatro pixeles a la izquierda y la columna salía torcida.
   const texto = (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="flex w-4 shrink-0 justify-center text-neutral-500">{icon}</span>
+      <span className="flex w-4 shrink-0 justify-center text-tenue">{icon}</span>
       <span className="min-w-0">
-        <span className="block truncate text-[14px] font-medium text-neutral-100">{label}</span>
+        <span className="block truncate text-[14px] font-medium text-titulo">{label}</span>
         {/* Dos lineas, no una: en una columna de 390 px la explicacion se cortaba a la
             mitad, y son frases que hay que leer enteras para decidir ("quitarla es lo
             unico que la calla del todo"). El nombre de arriba si se corta, porque es
@@ -116,7 +116,7 @@ export function RowButton({
       className={`rounded-md border px-2.5 py-1 text-[11.5px] whitespace-nowrap transition-colors disabled:opacity-40 ${
         danger
           ? "border-red-500/50 bg-red-500/15 text-red-300 hover:bg-red-500/25"
-          : "border-white/10 text-neutral-300 hover:bg-white/10 hover:text-white"
+          : "border-linea-fuerte text-suave hover:bg-realce hover:text-titulo"
       }`}
     >
       {children}

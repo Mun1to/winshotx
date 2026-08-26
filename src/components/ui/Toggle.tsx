@@ -15,12 +15,12 @@ export function Toggle({ checked, onChange, label, hint }: Props) {
       className="flex w-full items-center justify-between gap-4 rounded-lg py-1.5 text-left"
     >
       <span>
-        <span className="block text-xs font-medium text-neutral-200">{label}</span>
-        {hint && <span className="block text-[11px] text-neutral-500">{hint}</span>}
+        <span className="block text-xs font-medium text-texto">{label}</span>
+        {hint && <span className="block text-[11px] text-tenue">{hint}</span>}
       </span>
       <span
         className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors duration-150 ${
-          checked ? "bg-blue-500" : "bg-white/15"
+          checked ? "bg-blue-500" : "bg-apagador"
         }`}
       >
         <span

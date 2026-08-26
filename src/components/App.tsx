@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings } from "../lib/ipc";
+import { aplicarTema } from "../lib/tema";
 import { SettingsApp } from "./settings/SettingsApp";
 import { WelcomeApp } from "./welcome/WelcomeApp";
 
@@ -20,7 +21,13 @@ export function App() {
   useEffect(() => {
     void getSettings()
       // Si los ajustes no se pueden leer, mejor los ajustes que una bienvenida repetida.
-      .then((ajustes) => setVista(ajustes.onboarded ? "ajustes" : "bienvenida"))
+      .then((ajustes) => {
+        // El modulo del tema ya ha pintado con lo que se recordaba del arranque anterior.
+        // Esto solo lo confirma o lo corrige, que es lo que hace falta la primera vez en
+        // una maquina nueva o si alguien edito el archivo de ajustes a mano.
+        aplicarTema(ajustes.theme);
+        setVista(ajustes.onboarded ? "ajustes" : "bienvenida");
+      })
       .catch(() => setVista("ajustes"));
   }, []);
 
@@ -37,7 +44,7 @@ export function App() {
     void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 470));
   }, [vista]);
 
-  if (vista === "cargando") return <div className="h-full bg-[#161618]" />;
+  if (vista === "cargando") return <div className="h-full bg-lienzo" />;
   if (vista === "bienvenida") {
     return (
       <WelcomeApp

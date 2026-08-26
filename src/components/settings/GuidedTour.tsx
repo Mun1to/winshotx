@@ -242,7 +242,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
           // El foco se desliza de un sitio a otro, salvo para quien pide menos
           // movimiento en Windows: ahi salta y ya esta. Solo se anima la geometria;
           // metiendo la sombra dentro, el oscurecido entraba desde cero.
-          className="pointer-events-none rounded-xl ring-2 ring-[#0a9bff] motion-safe:transition-[top,left,width,height] motion-safe:duration-200"
+          className="pointer-events-none rounded-xl ring-2 ring-marca motion-safe:transition-[top,left,width,height] motion-safe:duration-200"
           style={{
             position: "fixed",
             ...marco,
@@ -257,20 +257,20 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
         ref={tarjeta}
         role="dialog"
         aria-label={paso.titulo}
-        className="fixed rounded-xl border border-white/12 bg-[#1c1c1f] p-4 shadow-2xl"
+        className="fixed rounded-xl border border-linea-fuerte bg-flotante p-4 shadow-2xl"
         style={{ ...sitio, width: ANCHO_TARJETA }}
       >
         <button
           type="button"
           onClick={onCerrar}
           aria-label="Cerrar el tour"
-          className="absolute end-2.5 top-2.5 rounded-md p-1 text-neutral-500 transition-colors hover:bg-white/10 hover:text-neutral-200"
+          className="absolute end-2.5 top-2.5 rounded-md p-1 text-tenue transition-colors hover:bg-realce hover:text-texto"
         >
           <X className="size-3.5" />
         </button>
 
-        <h2 className="pe-6 text-[14.5px] font-semibold text-neutral-100">{paso.titulo}</h2>
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-neutral-400">{paso.texto}</p>
+        <h2 className="pe-6 text-[14.5px] font-semibold text-titulo">{paso.titulo}</h2>
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-apagado">{paso.texto}</p>
 
         <div className="mt-3.5 flex items-center justify-between">
           <span className="flex items-center gap-1.5" aria-hidden="true">
@@ -278,7 +278,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
               <span
                 key={p.id}
                 className={`h-1.5 rounded-full motion-safe:transition-all motion-safe:duration-200 ${
-                  i === indice ? "w-4 bg-[#0a9bff]" : "w-1.5 bg-white/15"
+                  i === indice ? "w-4 bg-marca" : "w-1.5 bg-activo"
                 }`}
               />
             ))}
@@ -289,7 +289,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
               <button
                 type="button"
                 onClick={() => setIndice((i) => i - 1)}
-                className="rounded-lg px-2.5 py-1.5 text-[12px] text-neutral-400 transition-colors hover:bg-white/8 hover:text-white"
+                className="rounded-lg px-2.5 py-1.5 text-[12px] text-apagado transition-colors hover:bg-realce hover:text-titulo"
               >
                 Atrás
               </button>

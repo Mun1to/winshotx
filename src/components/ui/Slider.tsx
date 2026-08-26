@@ -24,8 +24,8 @@ export function Slider({
     <label className={`block ${disabled ? "opacity-40" : ""}`}>
       {label && (
         <div className="mb-1.5 flex items-baseline justify-between">
-          <span className="text-xs font-medium text-neutral-300">{label}</span>
-          {hint && <span className="text-xs tabular-nums text-neutral-500">{hint}</span>}
+          <span className="text-xs font-medium text-suave">{label}</span>
+          {hint && <span className="text-xs tabular-nums text-tenue">{hint}</span>}
         </div>
       )}
       <input

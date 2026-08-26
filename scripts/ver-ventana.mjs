@@ -66,6 +66,8 @@ const seccion = bandera("seccion", null);
 // Como si la ventana se hubiera abierto sola despues de actualizar: abre en "La app" y
 // la fila de Actualizaciones dice a que version se ha actualizado.
 const actualizado = args.includes("--actualizado");
+// Con que tema se pinta la ventana: sistema, claro u oscuro.
+const tema = bandera("tema", "oscuro");
 // Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
 const cuenta = bandera("cuenta", null);
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
@@ -93,6 +95,7 @@ const AJUSTES = {
   captureDelaySeconds: 0,
   hideDesktopIcons: false,
   captureFlow: "toolbar",
+  theme: tema,
   printScreenCapture: false,
   takeWinShiftS: teclaPendiente,
   // Lo único que decide si sale la bienvenida o los ajustes.

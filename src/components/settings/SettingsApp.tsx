@@ -14,6 +14,7 @@ import {
   Keyboard,
   Mic,
   MousePointer2,
+  Palette,
   Power,
   Scissors,
   SquarePen,
@@ -40,12 +41,14 @@ import {
   usePrintScreen,
 } from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
+import { aplicarTema } from "../../lib/tema";
 import {
   EVENTS,
   type CacheStats,
   type CaptureFlow,
   type PrintScreenState,
   type Settings,
+  type Theme,
   type ShortcutStatus,
 } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
@@ -68,6 +71,13 @@ const FPS_OPTIONS = [
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
   { value: "toolbar", label: "Sale la barra" },
   { value: "instant", label: "Se copia sola" },
+];
+
+/** El automatico va primero porque es el de fabrica y el que acierta casi siempre. */
+const TEMAS: { value: Theme; label: string }[] = [
+  { value: "sistema", label: "Automático" },
+  { value: "claro", label: "Claro" },
+  { value: "oscuro", label: "Oscuro" },
 ];
 
 /** Tres opciones y ninguna más: un campo de números aquí solo sirve para escribir 47. */
@@ -228,14 +238,14 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
   if (!settings) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-neutral-500">
+      <div className="flex h-full items-center justify-center bg-lienzo text-sm text-tenue">
         Cargando…
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
+    <div className="flex h-full flex-col overflow-hidden bg-lienzo">
       <SettingsHeader
         activa={seccion}
         onCambiar={setSeccion}
@@ -540,6 +550,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
             {seccion === "app" && (
               <>
+                {/* Esta seccion tiene tres bloques y las demas dos. Sin envolver los dos
+                    de la izquierda, el tercero abre una fila nueva por debajo del bloque
+                    mas alto y la seccion deja de caber sin rueda. */}
+                <div className="flex flex-col">
                 <Section title="Archivos" tour="archivos">
                   <Row
                     icon={<FolderOpen className="size-4" />}
@@ -584,6 +598,31 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     }
                   />
                 </Section>
+                <Section title="Aspecto">
+                  <Row
+                    icon={<Palette className="size-4" />}
+                    label="Tema"
+                    hint={
+                      settings.theme === "sistema"
+                        ? "el mismo que tenga puesto Windows"
+                        : "siempre este, mande lo que mande Windows"
+                    }
+                    stacked
+                    control={
+                      <Segmented
+                        value={settings.theme}
+                        options={TEMAS}
+                        onChange={(v) => {
+                          // Se pinta en el acto y se guarda despues: esperar a que Rust
+                          // conteste para cambiar de color hace que el boton parezca roto.
+                          aplicarTema(v);
+                          patch({ theme: v });
+                        }}
+                      />
+                    }
+                  />
+                </Section>
+                </div>
                 <Section title="winshotx">
                   <UpdateRow version={VERSION} recienActualizado={recienActualizado} />
                   <Row
