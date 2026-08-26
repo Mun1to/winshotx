@@ -38,6 +38,10 @@ pub struct Settings {
     pub play_sound: bool,
     pub show_magnifier: bool,
     pub start_with_windows: bool,
+    /// Segundos de espera antes de congelar la pantalla. 0 es sin espera, que es lo de
+    /// siempre. Existe para poder capturar un menu abierto: pulsar el atajo lo cierra,
+    /// asi que la unica forma de fotografiarlo es no capturar en ese instante.
+    pub capture_delay_seconds: u32,
     /// La tecla Impr Pant abre winshotx. Va aparte del atajo normal: se suma, no lo
     /// sustituye, asi que quien tenga el suyo puesto no lo pierde al activar esto.
     pub print_screen_capture: bool,
@@ -72,6 +76,7 @@ impl Default for Settings {
             play_sound: false,
             show_magnifier: true,
             start_with_windows: false,
+            capture_delay_seconds: 0,
             print_screen_capture: false,
             take_win_shift_s: false,
             onboarded: false,
@@ -137,4 +142,42 @@ pub fn save(app: &AppHandle, settings: &Settings) -> Result<()> {
     let path = config_path(app)?;
     std::fs::write(path, serde_json::to_string_pretty(settings)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Un `settings.json` escrito por una version anterior no trae las claves nuevas. Sin
+    /// el `default` del contenedor, serde falla ahi y `load` aparta el archivo entero y
+    /// devuelve los valores de fabrica: quien actualice pierde sus atajos sin enterarse.
+    #[test]
+    fn unos_ajustes_de_antes_del_temporizador_se_leen_enteros() {
+        let viejo = r#"{
+            "captureShortcut": "Alt+KeyX",
+            "saveDirectory": "D:\\capturas",
+            "showMagnifier": false
+        }"#;
+        let settings: Settings = serde_json::from_str(viejo).expect("no se ha podido leer");
+
+        assert_eq!(settings.capture_shortcut, "Alt+KeyX");
+        assert_eq!(settings.save_directory, "D:\\capturas");
+        assert!(!settings.show_magnifier);
+        assert_eq!(settings.capture_delay_seconds, 0, "el temporizador nace apagado");
+    }
+
+    /// Las tres opciones que ofrece la interfaz tienen que caber en el tipo del campo.
+    /// Es un `u32`: un valor negativo o con decimales no llegaria nunca hasta aqui.
+    #[test]
+    fn las_esperas_que_ofrece_la_interfaz_se_guardan_y_se_releen() {
+        for segundos in [0u32, 3, 5] {
+            let settings = Settings {
+                capture_delay_seconds: segundos,
+                ..Settings::default()
+            };
+            let json = serde_json::to_string(&settings).expect("no se ha podido escribir");
+            let vuelta: Settings = serde_json::from_str(&json).expect("no se ha podido leer");
+            assert_eq!(vuelta.capture_delay_seconds, segundos);
+        }
+    }
 }

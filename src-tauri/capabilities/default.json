@@ -6,7 +6,8 @@
     "main",
     "editor-*",
     "recorder-*",
-    "overlay-*"
+    "overlay-*",
+    "countdown"
   ],
   "permissions": [
     "core:default",

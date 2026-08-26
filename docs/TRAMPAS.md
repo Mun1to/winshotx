@@ -171,3 +171,43 @@ es en cuanto hay mas de una ventana con el mismo codigo dentro.
 Los eventos que SI tienen que llegar a todas las ventanas (`overlayMode` y `overlayTakeScreen`,
 que son como se sincroniza la barra de modos entre pantallas) se quedan sin `target` a
 proposito. Ahi el broadcast es la funcion, no el fallo.
+
+## 9. `.focused(false)` no impide que una ventana reutilizada robe el foco
+
+La cuenta atras del temporizador existe para poder fotografiar un menu abierto: se pulsa el
+atajo, se abre el menu, y a los tres segundos se congela la pantalla con el menu dentro. Si la
+ventanita del numero coge el foco, el menu se cierra y la funcion no sirve para nada.
+
+`WebviewWindowBuilder::focused(false)` **solo vale la primera vez**. Es una opcion de
+construccion: le dice a Windows que no active la ventana al crearla. Pero esa ventana no se
+cierra entre capturas, se esconde y se reutiliza (igual que los overlays, ver la trampa 3), y el
+`show()` de la segunda vez es un `ShowWindow` normal y corriente, que activa la ventana como
+activaria cualquier otra. O sea: la primera cuenta atras respeta el menu y la segunda lo cierra.
+
+**El arreglo es un estilo extendido sobre el HWND, no una opcion del constructor:**
+
+```rust
+let actual = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+SetWindowLongPtrW(hwnd, GWL_EXSTYLE, actual | WS_EX_NOACTIVATE as isize | WS_EX_TOOLWINDOW as isize);
+```
+
+`WS_EX_NOACTIVATE` es una propiedad de la ventana, no del momento en que se muestra: Windows deja
+de activarla para siempre, tambien al hacerle clic encima. Vive en
+`platform::window_style::never_focus` y se aplica una sola vez, al construirla.
+
+**Cuidado con lo que eso implica:** una ventana que nunca coge el foco tampoco recibe teclado. Por
+eso durante la cuenta atras no se puede pulsar Escape para cancelar, y esta aceptado a proposito:
+la alternativa seria registrar un Escape global durante esos segundos, que se lo quitaria a la
+aplicacion que se esta fotografiando.
+
+## 10. Una ventana nueva sin su etiqueta en `capabilities` se queda muda
+
+`src-tauri/capabilities/default.json` lleva una lista de etiquetas (`main`, `overlay-*`,
+`recorder-*`, `editor-*`...) y los permisos solo alcanzan a las ventanas que casan con ella. Una
+ventana con una etiqueta nueva **no hereda nada**: `listen`, `emit` y las llamadas de ventana
+fallan, y fallan como una promesa rechazada dentro de un `useEffect`, o sea que en la ventana no
+se ve ningun error, solo una pantalla que no reacciona.
+
+Al anadir la cuenta atras del temporizador (etiqueta `countdown`) hubo que meterla en esa lista.
+**Es lo primero que hay que mirar cuando una ventana nueva no recibe sus eventos**, antes de
+sospechar de la trampa 8.

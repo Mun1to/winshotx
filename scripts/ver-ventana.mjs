@@ -55,6 +55,12 @@ const grabar = args.includes("--grabar");
 const seleccion = bandera("seleccion", null);
 // Una tecla que pulsar al cargar, para llegar a lo que solo se ve tras pulsarla.
 const tecla = bandera("tecla", null);
+// Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
+const cuenta = bandera("cuenta", null);
+// Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
+// para lo que se mueve solo: la cuenta atrás llega a cero en tres segundos de reloj, así
+// que con el valor de siempre se fotografía sola el final y nunca un número.
+const tiempo = bandera("tiempo", cuenta !== null ? "800" : "4000");
 
 if (!existsSync(join(DIST, "index.html"))) {
   console.error("no hay dist/: corre antes `pnpm build`");
@@ -73,6 +79,7 @@ const AJUSTES = {
   playSound: false,
   showMagnifier: true,
   startWithWindows: false,
+  captureDelaySeconds: 0,
   captureFlow: "toolbar",
   printScreenCapture: false,
   takeWinShiftS: teclaPendiente,
@@ -213,16 +220,26 @@ if (!navegador) {
 }
 
 server.listen(0, () => {
-  const pagina = overlay ? "overlay.html" : "index.html";
+  let pagina = overlay ? "overlay.html" : "index.html";
+  // La cuenta atrás es una ventanita cuadrada de 132 px, pero el navegador sin ventana no
+  // baja de unos 500: por debajo de eso deja el lienzo a 500 igual y la foto sale recortada
+  // por la esquina, en negro, porque lo centrado se queda fuera. Así que se fotografía a
+  // 500 y sale con más aire del que tiene de verdad. Para verla a su tamaño real hace
+  // falta un navegador de verdad con el viewport a 132.
+  let [w, h] = [ancho, alto];
+  if (cuenta !== null) {
+    pagina = `cuenta.html?segundos=${cuenta}`;
+    [w, h] = ["500", "500"];
+  }
   const url = `http://127.0.0.1:${server.address().port}/${pagina}`;
   const hijo = spawn(navegador, [
     "--headless=new",
     "--disable-gpu",
     "--hide-scrollbars",
-    `--window-size=${ancho},${alto}`,
+    `--window-size=${w},${h}`,
     `--screenshot=${salida}`,
     // Sin esto sale la pantalla antes de que React pinte nada.
-    "--virtual-time-budget=4000",
+    `--virtual-time-budget=${tiempo}`,
     // Y así se fotografía lo que ve quien tiene puesto "reducir movimiento" en Windows,
     // que es como la app se comporta desde que respeta esa preferencia.
     "--force-prefers-reduced-motion",

@@ -30,6 +30,11 @@ pub const EVENT_SETTINGS_SHOWN: &str = "winshotx://settings-shown";
 /// a recibir un remontaje que dispare su arranque solo.
 pub const EVENT_OVERLAY_SHOW: &str = "winshotx://overlay-show";
 
+/// Cuantos segundos le quedan al temporizador. Lo recibe la ventanita de la cuenta atras,
+/// que a partir de ahi baja sola de segundo en segundo: Rust solo dice el numero de
+/// partida y avisa con un cero cuando se acabo.
+pub const EVENT_COUNTDOWN: &str = "winshotx://countdown";
+
 /// Las sesiones son cache: si llevan un dia en el disco, ya no le importan a nadie.
 fn purge_old_sessions(root: &std::path::Path) {
     let Ok(entries) = std::fs::read_dir(root.join("sessions")) else {

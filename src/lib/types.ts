@@ -147,6 +147,8 @@ export interface Settings {
   playSound: boolean;
   showMagnifier: boolean;
   startWithWindows: boolean;
+  /** Segundos de espera antes de congelar la pantalla. 0 es sin espera. */
+  captureDelaySeconds: number;
   captureFlow: CaptureFlow;
   printScreenCapture: boolean;
   takeWinShiftS: boolean;
@@ -201,6 +203,11 @@ export const EVENTS = {
   overlayMode: "winshotx://overlay-mode",
   /** "Que la pantalla numero N se capture entera", venga la orden de donde venga. */
   overlayTakeScreen: "winshotx://overlay-take-screen",
+  /**
+   * Segundos que le quedan al temporizador. Rust manda el numero de partida al
+   * ensennar la ventanita y un cero al acabar; entre medias cuenta la propia pagina.
+   */
+  countdown: "winshotx://countdown",
 } as const;
 
 /** Lo que viaja en `overlayMode`: el estado de la barra, igual en todas las pantallas. */

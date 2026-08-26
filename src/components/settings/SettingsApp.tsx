@@ -16,6 +16,7 @@ import {
   Power,
   Scissors,
   SquarePen,
+  Timer,
   Video,
   Volume2,
   ZoomIn,
@@ -63,6 +64,13 @@ const FPS_OPTIONS = [
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
   { value: "toolbar", label: "Sale la barra" },
   { value: "instant", label: "Se copia sola" },
+];
+
+/** Tres opciones y ninguna más: un campo de números aquí solo sirve para escribir 47. */
+const ESPERAS = [
+  { value: 0, label: "Sin espera" },
+  { value: 3, label: "3 segundos" },
+  { value: 5, label: "5 segundos" },
 ];
 
 export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }) {
@@ -275,6 +283,23 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                   checked={settings.playSound}
                   onChange={(v) => patch({ playSound: v })}
                   label="Sonido de obturador"
+                />
+              }
+            />
+            <Row
+              icon={<Timer className="size-4" />}
+              label="Esperar antes de capturar"
+              hint={
+                settings.captureDelaySeconds === 0
+                  ? "la pantalla se congela al pulsar el atajo"
+                  : "da tiempo a abrir el menú que quieres fotografiar"
+              }
+              stacked
+              control={
+                <Segmented
+                  value={settings.captureDelaySeconds}
+                  options={ESPERAS}
+                  onChange={(v) => patch({ captureDelaySeconds: v })}
                 />
               }
             />

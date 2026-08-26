@@ -64,14 +64,18 @@ pub struct AppState {
     /// Sin este candado, pulsar el atajo dos veces seguidas muy rapido lanzaba dos
     /// `freeze_all` a la vez, y la captura de pantalla (GDI) no tolera bien que dos
     /// disparos capturen al mismo tiempo: se cruzaban entre si y todo salia mas lento.
-    capturando: AtomicBool,
+    ///
+    /// Va en un `Arc` y no suelto porque con el temporizador la captura deja de caber en
+    /// una sola llamada: el candado se coge al pulsar el atajo y no se suelta hasta que
+    /// terminan los tres o cinco segundos, ya en otro hilo. Prestado no podria viajar.
+    capturando: Arc<AtomicBool>,
 }
 
 /// Se suelta el candado de `capturando` solo al destruirse, asi que un `?` que sale a
 /// medio camino de `open_overlays` no lo deja puesto para siempre.
-pub struct CandadoCaptura<'a>(&'a AtomicBool);
+pub struct CandadoCaptura(Arc<AtomicBool>);
 
-impl Drop for CandadoCaptura<'_> {
+impl Drop for CandadoCaptura {
     fn drop(&mut self) {
         self.0.store(false, Ordering::Release);
     }
@@ -89,7 +93,7 @@ impl AppState {
             recording: Mutex::new(None),
             last_region: RwLock::new(None),
             temp_root,
-            capturando: AtomicBool::new(false),
+            capturando: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -106,10 +110,10 @@ impl AppState {
     }
 
     /// `None` si ya habia una captura en curso: quien lo pide no debe seguir.
-    pub fn intentar_capturar(&self) -> Option<CandadoCaptura<'_>> {
+    pub fn intentar_capturar(&self) -> Option<CandadoCaptura> {
         self.capturando
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
             .ok()
-            .map(|_| CandadoCaptura(&self.capturando))
+            .map(|_| CandadoCaptura(Arc::clone(&self.capturando)))
     }
 }
