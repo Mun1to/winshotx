@@ -49,7 +49,7 @@ import {
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
 import { Row, RowButton, Section } from "./Section";
-import { SECCIONES, SettingsHeader, type SeccionId } from "./SettingsHeader";
+import { SettingsHeader, type SeccionId } from "./SettingsHeader";
 import { UpdateRow } from "./UpdateRow";
 import { ShortcutField } from "./ShortcutField";
 
@@ -201,8 +201,6 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
     }
   }, []);
 
-  const actual = SECCIONES.find((s) => s.id === seccion) ?? SECCIONES[0];
-
   if (!settings) {
     return (
       <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-neutral-500">
@@ -222,8 +220,6 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <p className="mb-3 px-1 text-[12.5px] text-neutral-400">{actual.subtitulo}</p>
-
         {/* Dos columnas, que es para lo que se subio la navegacion arriba: cada seccion
             tiene dos bloques y asi la mas cargada cabe entera sin rueda. */}
         <div className="grid grid-cols-2 items-start gap-4">
