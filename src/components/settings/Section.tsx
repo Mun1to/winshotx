@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 interface SectionProps {
   title?: string;
   children: ReactNode;
+  /** Enganche para que el tour guiado pueda iluminar este bloque. */
+  tour?: string;
 }
 
 /**
@@ -14,9 +16,12 @@ interface SectionProps {
  * seguidos la pantalla se leia como una lista de cajas sueltas en vez de como una pagina.
  * Es el mismo patron que usa VoCript, que es de donde viene esta forma.
  */
-export function Section({ title, children }: SectionProps) {
+export function Section({ title, children, tour }: SectionProps) {
   return (
-    <section className="mb-3 w-full rounded-xl border border-white/8 bg-white/[0.03]">
+    <section
+      data-tour={tour}
+      className="mb-3 w-full rounded-xl border border-white/8 bg-white/[0.03]"
+    >
       {title && (
         <h2 className="border-b border-white/8 px-4 py-3 text-[14.5px] font-semibold text-[#0a9bff]">
           {title}

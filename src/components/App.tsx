@@ -13,6 +13,9 @@ type Vista = "cargando" | "bienvenida" | "ajustes";
 
 export function App() {
   const [vista, setVista] = useState<Vista>("cargando");
+  // Solo cuando se acaba de terminar la bienvenida. Quien abre los ajustes de siempre no
+  // quiere un tour delante: para eso esta el boton de repetirlo en "La app".
+  const [tourAlEntrar, setTourAlEntrar] = useState(false);
 
   useEffect(() => {
     void getSettings()
@@ -35,6 +38,20 @@ export function App() {
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-[#161618]" />;
-  if (vista === "bienvenida") return <WelcomeApp onDone={() => setVista("ajustes")} />;
-  return <SettingsApp onVerBienvenida={() => setVista("bienvenida")} />;
+  if (vista === "bienvenida") {
+    return (
+      <WelcomeApp
+        onDone={() => {
+          setTourAlEntrar(true);
+          setVista("ajustes");
+        }}
+      />
+    );
+  }
+  return (
+    <SettingsApp
+      onVerBienvenida={() => setVista("bienvenida")}
+      arrancarTour={tourAlEntrar}
+    />
+  );
 }

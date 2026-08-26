@@ -58,7 +58,7 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
         Versión {version}
       </span>
 
-      <nav aria-label="Secciones de ajustes" className="justify-self-center">
+      <nav aria-label="Secciones de ajustes" data-tour="secciones" className="justify-self-center">
         <Segmented
           ajustado
           value={activa}

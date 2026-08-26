@@ -4,6 +4,7 @@ import {
   AppWindow,
   BookOpen,
   Camera,
+  Compass,
   Clipboard,
   Crop,
   EyeOff,
@@ -50,6 +51,7 @@ import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
 import { Row, RowButton, Section } from "./Section";
 import { SettingsHeader, type SeccionId } from "./SettingsHeader";
+import { GuidedTour } from "./GuidedTour";
 import { UpdateRow } from "./UpdateRow";
 import { ShortcutField } from "./ShortcutField";
 
@@ -74,10 +76,17 @@ const ESPERAS = [
   { value: 5, label: "5 segundos" },
 ];
 
-export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }) {
+interface SettingsAppProps {
+  onVerBienvenida: () => void;
+  /** Arranca el tour nada mas montarse: es lo que pasa al terminar la bienvenida. */
+  arrancarTour?: boolean;
+}
+
+export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsAppProps) {
   // Que seccion se esta viendo. Es estado de la pantalla y no un ajuste: no tiene sentido
   // guardarlo en disco ni que sobreviva a cerrar la ventana.
   const [seccion, setSeccion] = useState<SeccionId>("capturar");
+  const [tour, setTour] = useState(arrancarTour);
   const [settings, setLocal] = useState<Settings | null>(null);
   const [shortcuts, setShortcuts] = useState<ShortcutStatus>({
     capture: true,
@@ -226,7 +235,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
             {seccion === "capturar" && (
               <>
-                <Section title="Al pulsar el atajo">
+                <Section title="Al pulsar el atajo" tour="al-pulsar">
                   <Row
                     icon={<Camera className="size-4" />}
                     label="Capturar región"
@@ -272,7 +281,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
                 </Section>
 
-                <Section title="La captura">
+                <Section title="La captura" tour="la-captura">
                   <Row
                     icon={<MousePointer2 className="size-4" />}
                     label="Incluir el cursor"
@@ -340,7 +349,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
             {seccion === "grabar" && (
               <>
-                <Section title="Cómo se graba">
+                <Section title="Cómo se graba" tour="como-se-graba">
                   <Row
                     icon={<Video className="size-4" />}
                     label="Grabar región"
@@ -400,7 +409,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
             {seccion === "teclas" && (
               <>
-                <Section title="Las teclas de captura de Windows">
+                <Section title="Las teclas de captura de Windows" tour="las-teclas">
                   <Row
                     icon={<Keyboard className="size-4" />}
                     label="Impr Pant"
@@ -515,7 +524,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
             {seccion === "app" && (
               <>
-                <Section title="Archivos">
+                <Section title="Archivos" tour="archivos">
                   <Row
                     icon={<FolderOpen className="size-4" />}
                     label="Carpeta de destino"
@@ -567,6 +576,12 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                     control={<RowButton onClick={onVerBienvenida}>Ver otra vez</RowButton>}
                   />
                   <Row
+                    icon={<Compass className="size-4" />}
+                    label="Tour de los ajustes"
+                    hint="seis paradas, una por sección"
+                    control={<RowButton onClick={() => setTour(true)}>Empezar</RowButton>}
+                  />
+                  <Row
                     icon={<Power className="size-4" />}
                     label="Arrancar con Windows"
                     control={
@@ -582,6 +597,8 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
             )}
         </div>
       </div>
+
+      {tour && <GuidedTour onNavegar={setSeccion} onCerrar={() => setTour(false)} />}
 
       {/* Fuera de la rejilla: un fallo escondido al final de una columna no se ve. */}
       {error && (

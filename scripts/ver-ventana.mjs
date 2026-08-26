@@ -58,6 +58,9 @@ const tecla = bandera("tecla", null);
 // Cuántas veces se avanza en la bienvenida antes de la foto, para mirar los pasos de
 // dentro: son los que hay que recomprobar cada vez que se le añade algo a uno.
 const paso = bandera("paso", null);
+// En qué parada del tour guiado se hace la foto (0 = la primera). Arranca el tour desde
+// su botón de "La app" y avanza con la flecha derecha, igual que una persona.
+const tour = bandera("tour", null);
 // Qué sección de los ajustes se abre: capturar, grabar, teclas o app.
 const seccion = bandera("seccion", null);
 // Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
@@ -199,6 +202,30 @@ addEventListener("load", () => {
 </script>`
   : "";
 
+const TOUR = tour !== null
+  ? `<script>
+addEventListener("load", () => {
+  setTimeout(() => {
+    for (const b of document.querySelectorAll("header button")) {
+      if (b.textContent.trim() === "La app") { b.click(); break; }
+    }
+    setTimeout(() => {
+      for (const b of document.querySelectorAll("button")) {
+        if (b.textContent.trim() === "Empezar") { b.click(); break; }
+      }
+      let n = ${JSON.stringify(Number(tour))};
+      const avanzar = () => {
+        if (n-- <= 0) return;
+        dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+        setTimeout(avanzar, 260);
+      };
+      setTimeout(avanzar, 420);
+    }, 420);
+  }, 500);
+});
+</script>`
+  : "";
+
 const TECLA = tecla
   ? `<script>
 addEventListener("load", () => {
@@ -245,7 +272,7 @@ const server = createServer(async (req, res) => {
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
-    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA + SECCION + PASO);
+    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA + SECCION + PASO + TOUR);
     res.writeHead(200, { "Content-Type": TIPOS[extname(archivo)] ?? "application/octet-stream" });
     res.end(cuerpo);
   } catch {
