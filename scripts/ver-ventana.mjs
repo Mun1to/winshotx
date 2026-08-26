@@ -63,6 +63,9 @@ const paso = bandera("paso", null);
 const tour = bandera("tour", null);
 // Qué sección de los ajustes se abre: capturar, grabar, teclas o app.
 const seccion = bandera("seccion", null);
+// Como si la ventana se hubiera abierto sola despues de actualizar: abre en "La app" y
+// la fila de Actualizaciones dice a que version se ha actualizado.
+const actualizado = args.includes("--actualizado");
 // Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
 const cuenta = bandera("cuenta", null);
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
@@ -104,6 +107,7 @@ const RESPUESTAS = {
   shortcut_status: { capture: true, record: true, printScreen: false, winShiftS: false },
   cache_stats: { bytes: 0, sessions: 0 },
   print_screen_state: { enabled: false, active: false, takenByWindows: true },
+  just_updated: actualizado,
 };
 
 const OVERLAY = {

@@ -26,6 +26,7 @@ import {
   cacheStats,
   clearCache,
   getSettings,
+  justUpdated,
   openFolder,
   openWindowsApps,
   pickDirectory,
@@ -86,6 +87,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // Que seccion se esta viendo. Es estado de la pantalla y no un ajuste: no tiene sentido
   // guardarlo en disco ni que sobreviva a cerrar la ventana.
   const [seccion, setSeccion] = useState<SeccionId>("capturar");
+  // Si esta ventana se ha abierto sola porque se acaba de actualizar, hay que llevarle
+  // a donde esta la noticia. Abrir en Capturar dejaria el aviso en otra pestanna, y la
+  // ventana se leeria como que ha aparecido porque si.
+  const [recienActualizado, setRecienActualizado] = useState(false);
   const [tour, setTour] = useState(arrancarTour);
   const [settings, setLocal] = useState<Settings | null>(null);
   const [shortcuts, setShortcuts] = useState<ShortcutStatus>({
@@ -116,6 +121,17 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   useEffect(() => {
     refrescar();
     setError(null);
+    // Se pregunta una sola vez y en un solo sitio: en Rust la respuesta se consume al
+    // leerla, asi que dos preguntas dejarian a una de las dos sin enterarse.
+    void justUpdated()
+      .then((si) => {
+        if (!si) return;
+        setRecienActualizado(true);
+        setSeccion("app");
+      })
+      .catch(() => {
+        // Una compilacion sin este comando: se abre donde siempre.
+      });
     const unlisten = listen(EVENTS.settingsShown, () => {
       refrescar();
       setError(null);
@@ -569,7 +585,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   />
                 </Section>
                 <Section title="winshotx">
-                  <UpdateRow version={VERSION} />
+                  <UpdateRow version={VERSION} recienActualizado={recienActualizado} />
                   <Row
                     icon={<BookOpen className="size-4" />}
                     label="Bienvenida"

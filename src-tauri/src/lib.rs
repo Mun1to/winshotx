@@ -72,13 +72,32 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().clone();
-            let config = settings::load(&handle);
+            let mut config = settings::load(&handle);
+
+            // Actualizar desde los propios ajustes acaba en `relaunch()`, y winshotx vuelve
+            // a arrancar en la bandeja: la version nueva entra pero no se ve nada, ni
+            // siquiera que ha pasado algo. Si la version guardada no es la de ahora, este
+            // arranque viene de una actualizacion, y da igual por donde haya entrado
+            // (los ajustes, winget o reinstalar a mano).
+            //
+            // `onboarded` separa actualizar de estrenar: recien instalada la ventana ya se
+            // abre sola con la bienvenida, y ahi no hay ninguna novedad que anunciar.
+            let version = handle.package_info().version.to_string();
+            let recien_actualizado = settings::viene_de_actualizar(
+                config.last_version.as_deref(),
+                &version,
+                config.onboarded,
+            );
+            if config.last_version.as_deref() != Some(version.as_str()) {
+                config.last_version = Some(version);
+                let _ = settings::save(&handle, &config);
+            }
 
             let temp_root = std::env::temp_dir().join("winshotx");
             std::fs::create_dir_all(temp_root.join("sessions"))?;
             purge_old_sessions(&temp_root);
 
-            app.manage(AppState::new(config.clone(), temp_root));
+            app.manage(AppState::new(config.clone(), temp_root, recien_actualizado));
 
             // Si el usuario nos dio la tecla Impr Pant hay que comprobarlo en cada
             // arranque: una actualizacion de Windows o un paseo por Configuracion se la
@@ -109,8 +128,12 @@ pub fn run() {
             windows_mgr::precrear_overlays(&handle);
 
             // La primera vez se abre sola con la bienvenida: recien instalada, la app
-            // vive en la bandeja y sin esto no habria nada que mirar.
-            if !config.onboarded || std::env::args().any(|arg| arg == "--settings") {
+            // vive en la bandeja y sin esto no habria nada que mirar. Y al actualizar
+            // igual, que es el mismo problema: si no, se reinicia y no se ve nada.
+            if !config.onboarded
+                || recien_actualizado
+                || std::env::args().any(|arg| arg == "--settings")
+            {
                 windows_mgr::show_settings(&handle)?;
             }
             Ok(())
@@ -144,6 +167,7 @@ pub fn run() {
             commands::pick_directory,
             commands::reveal_in_explorer,
             commands::discard_session,
+            commands::just_updated,
             commands::cache_stats,
             commands::clear_cache,
             commands::shortcut_status,

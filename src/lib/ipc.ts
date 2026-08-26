@@ -71,6 +71,9 @@ export const revealInExplorer = (path: string) =>
 export const discardSession = (sessionId: string) =>
   invoke<void>("discard_session", { sessionId });
 
+/** Cierto una sola vez, si este arranque viene de actualizar. Se consume al leerlo. */
+export const justUpdated = () => invoke<boolean>("just_updated");
+
 export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
 
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");

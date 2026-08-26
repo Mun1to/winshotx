@@ -56,6 +56,11 @@ pub struct Settings {
     /// Falso hasta que se termina la bienvenida. Es lo que decide si al abrir la
     /// ventana se ven los cuatro pasos o directamente los ajustes.
     pub onboarded: bool,
+    /// La version con la que arranco la app la ultima vez. Comparandola con la actual se
+    /// sabe que se acaba de actualizar, venga de donde venga la actualizacion: desde la
+    /// propia app, desde winget o reinstalando a mano. Sin esto, actualizar desde los
+    /// ajustes reinicia winshotx en la bandeja y no se ve absolutamente nada.
+    pub last_version: Option<String>,
     /// Lo que valia `PrintScreenKeyForSnippingEnabled` antes de que le quitaramos la
     /// tecla a la Herramienta de Recortes. Al desactivarlo se devuelve tal cual: la
     /// maquina tiene que quedarse como estaba, no como nos venga bien.
@@ -85,6 +90,7 @@ impl Default for Settings {
             print_screen_capture: false,
             take_win_shift_s: false,
             onboarded: false,
+            last_version: None,
             snipping_key_restore: None,
             disabled_hotkeys_restore: None,
         }
@@ -143,6 +149,16 @@ pub fn load(app: &AppHandle) -> Settings {
     settings
 }
 
+/// Si este arranque viene de una actualizacion, mirando lo que quedo guardado la ultima
+/// vez. `onboarded` separa actualizar de estrenar: en una instalacion nueva no hay
+/// version anterior con la que comparar y la ventana ya se abre sola con la bienvenida.
+///
+/// Que `guardada` sea `None` cuenta como actualizacion: significa que los ajustes vienen
+/// de una version que todavia no apuntaba esto, o sea que se ha actualizado desde ella.
+pub fn viene_de_actualizar(guardada: Option<&str>, actual: &str, onboarded: bool) -> bool {
+    onboarded && guardada != Some(actual)
+}
+
 pub fn save(app: &AppHandle, settings: &Settings) -> Result<()> {
     let path = config_path(app)?;
     std::fs::write(path, serde_json::to_string_pretty(settings)?)?;
@@ -185,5 +201,29 @@ mod tests {
             let vuelta: Settings = serde_json::from_str(&json).expect("no se ha podido leer");
             assert_eq!(vuelta.capture_delay_seconds, segundos);
         }
+    }
+
+    /// Los cuatro casos de abrir los ajustes solos al arrancar. El que de verdad importa
+    /// es el tercero: unos ajustes guardados por una version que no apuntaba `lastVersion`
+    /// tienen que contar como actualizacion, porque si no, la primera vez que alguien
+    /// actualiza a una version con esto dentro no se le abre nada y parece que no funciona.
+    #[test]
+    fn solo_se_abre_sola_cuando_de_verdad_se_ha_actualizado() {
+        assert!(
+            !viene_de_actualizar(Some("0.1.12"), "0.1.12", true),
+            "la misma version de siempre no es ninguna novedad"
+        );
+        assert!(
+            viene_de_actualizar(Some("0.1.11"), "0.1.12", true),
+            "cambiar de version es lo que hay que anunciar"
+        );
+        assert!(
+            viene_de_actualizar(None, "0.1.12", true),
+            "sin version guardada, los ajustes vienen de una version anterior a esto"
+        );
+        assert!(
+            !viene_de_actualizar(None, "0.1.12", false),
+            "recien instalada ya se abre la bienvenida: no hay nada que actualizar"
+        );
     }
 }

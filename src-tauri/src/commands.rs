@@ -501,6 +501,15 @@ pub async fn reveal_in_explorer(path: String) -> Result<()> {
     crate::platform::reveal(&PathBuf::from(path))
 }
 
+/// Cierto una sola vez, si este arranque viene de actualizar. Lo pregunta la fila de
+/// Actualizaciones al montarse, para decir que se ha actualizado en vez de quedarse
+/// callada: los ajustes se abren solos despues de una actualizacion, y una ventana que
+/// aparece sin motivo se lee como un fallo.
+#[tauri::command]
+pub async fn just_updated(app: AppHandle) -> bool {
+    app.state::<AppState>().consumir_recien_actualizado()
+}
+
 #[tauri::command]
 pub async fn discard_session(app: AppHandle, session_id: String) -> Result<()> {
     let state = app.state::<AppState>();

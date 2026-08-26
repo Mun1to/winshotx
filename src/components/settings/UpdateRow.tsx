@@ -13,6 +13,7 @@ type Fase =
   | { tipo: "quieto" }
   | { tipo: "mirando" }
   | { tipo: "aldia" }
+  | { tipo: "acabadeactualizarse" }
   | { tipo: "hay"; update: Update }
   | { tipo: "bajando"; version: string; pct: number }
   | { tipo: "listo"; version: string }
@@ -25,8 +26,16 @@ type Fase =
  * En una compilación de desarrollo no hay endpoint y `check()` falla; ahí se
  * queda callado, porque avisar de eso sería ruido en cada arranque.
  */
-export function UpdateRow({ version }: { version: string }) {
-  const [fase, setFase] = useState<Fase>({ tipo: "quieto" });
+export function UpdateRow({
+  version,
+  recienActualizado = false,
+}: {
+  version: string;
+  recienActualizado?: boolean;
+}) {
+  const [fase, setFase] = useState<Fase>(
+    recienActualizado ? { tipo: "acabadeactualizarse" } : { tipo: "quieto" },
+  );
   const mirando = useRef(false);
 
   const mirar = useCallback(async (aMano: boolean) => {
@@ -45,7 +54,10 @@ export function UpdateRow({ version }: { version: string }) {
   }, []);
 
   useEffect(() => {
-    void mirar(false);
+    // Si la ventana se ha abierto sola por una actualizacion, lo primero que hay que
+    // decir es eso. Buscar version nueva en ese mismo instante no aporta nada y ademas
+    // taparia la unica frase que explica por que ha aparecido la ventana.
+    if (!recienActualizado) void mirar(false);
     const timer = window.setInterval(() => void mirar(false), CADA_MS);
     const unlisten = listen(EVENTS.checkUpdate, () => void mirar(true));
     // Y al volver a abrir la ventana: si no, una version publicada hace un rato no
@@ -56,7 +68,7 @@ export function UpdateRow({ version }: { version: string }) {
       void unlisten.then((fn) => fn());
       void alVolver.then((fn) => fn());
     };
-  }, [mirar]);
+  }, [mirar, recienActualizado]);
 
   const instalar = (update: Update) => {
     setFase({ tipo: "bajando", version: update.version, pct: 0 });
@@ -85,6 +97,8 @@ export function UpdateRow({ version }: { version: string }) {
         return "mirando si hay versión nueva…";
       case "aldia":
         return "estás en la última versión";
+      case "acabadeactualizarse":
+        return `actualizado a la ${version}`;
       case "hay":
         return `la ${fase.update.version} ya está disponible`;
       case "bajando":
@@ -101,7 +115,7 @@ export function UpdateRow({ version }: { version: string }) {
   return (
     <Row
       icon={
-        fase.tipo === "aldia" ? (
+        fase.tipo === "aldia" || fase.tipo === "acabadeactualizarse" ? (
           <Check className="size-4 text-emerald-400" />
         ) : (
           <Download className="size-4" />
@@ -109,7 +123,13 @@ export function UpdateRow({ version }: { version: string }) {
       }
       label="Actualizaciones"
       hint={hint()}
-      tone={fase.tipo === 'aldia' ? 'ok' : fase.tipo === 'error' ? 'error' : 'normal'}
+      tone={
+        fase.tipo === "aldia" || fase.tipo === "acabadeactualizarse"
+          ? "ok"
+          : fase.tipo === "error"
+            ? "error"
+            : "normal"
+      }
       control={<Boton fase={fase} instalar={instalar} mirar={() => void mirar(true)} />}
     />
   );

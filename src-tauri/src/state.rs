@@ -69,6 +69,9 @@ pub struct AppState {
     /// una sola llamada: el candado se coge al pulsar el atajo y no se suelta hasta que
     /// terminan los tres o cinco segundos, ya en otro hilo. Prestado no podria viajar.
     capturando: Arc<AtomicBool>,
+    /// Si este arranque viene de una actualizacion. Se enciende una vez en el arranque y
+    /// lo apaga la interfaz al leerlo: es una noticia que se da una sola vez, no un estado.
+    recien_actualizado: AtomicBool,
 }
 
 /// Se suelta el candado de `capturando` solo al destruirse, asi que un `?` que sale a
@@ -82,8 +85,9 @@ impl Drop for CandadoCaptura {
 }
 
 impl AppState {
-    pub fn new(settings: Settings, temp_root: PathBuf) -> Self {
+    pub fn new(settings: Settings, temp_root: PathBuf, recien_actualizado: bool) -> Self {
         Self {
+            recien_actualizado: AtomicBool::new(recien_actualizado),
             settings: RwLock::new(settings),
             freezes: RwLock::new(Vec::new()),
             sessions: RwLock::new(HashMap::new()),
@@ -115,5 +119,12 @@ impl AppState {
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
             .ok()
             .map(|_| CandadoCaptura(Arc::clone(&self.capturando)))
+    }
+
+    /// Cierto solo la primera vez que se pregunta, y solo si este arranque vino de una
+    /// actualizacion. Se consume al leerlo para que reabrir los ajustes mas tarde no
+    /// vuelva a anunciar algo que ya se conto.
+    pub fn consumir_recien_actualizado(&self) -> bool {
+        self.recien_actualizado.swap(false, Ordering::Relaxed)
     }
 }
