@@ -52,7 +52,11 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
   // los lados, que no miden lo mismo, asi que salian corridas hacia un lado.
   return (
     <header className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-white/8 px-3">
-      <span className="justify-self-start ps-1 text-[11px] text-neutral-500">{version}</span>
+      {/* Con la palabra delante y al tamanno de las explicaciones de las filas: un
+          numero suelto a 11 px no se sabia que era, y habia que acercarse a leerlo. */}
+      <span className="justify-self-start ps-1 text-[12.5px] text-neutral-400">
+        Versión {version}
+      </span>
 
       <nav aria-label="Secciones de ajustes" className="justify-self-center">
         <Segmented
