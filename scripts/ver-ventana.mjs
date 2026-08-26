@@ -55,6 +55,8 @@ const grabar = args.includes("--grabar");
 const seleccion = bandera("seleccion", null);
 // Una tecla que pulsar al cargar, para llegar a lo que solo se ve tras pulsarla.
 const tecla = bandera("tecla", null);
+// Qué sección de los ajustes se abre: capturar, grabar, teclas o app.
+const seccion = bandera("seccion", null);
 // Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
 const cuenta = bandera("cuenta", null);
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
@@ -154,6 +156,18 @@ addEventListener("load", () => {
 </script>`
   : "";
 
+// La sección se elige haciendo clic en su botón del menú, como haría una persona: así se
+// fotografía la pantalla de verdad y no un estado montado a mano que quizá no exista.
+const SECCION = seccion
+  ? `<script>
+addEventListener("load", () => {
+  setTimeout(() => {
+    document.querySelector('[data-seccion=' + ${JSON.stringify(JSON.stringify(seccion))} + ']')?.click();
+  }, 500);
+});
+</script>`
+  : "";
+
 const TECLA = tecla
   ? `<script>
 addEventListener("load", () => {
@@ -200,7 +214,7 @@ const server = createServer(async (req, res) => {
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
-    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA);
+    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA + SECCION);
     res.writeHead(200, { "Content-Type": TIPOS[extname(archivo)] ?? "application/octet-stream" });
     res.end(cuerpo);
   } catch {

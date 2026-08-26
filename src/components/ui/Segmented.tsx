@@ -13,7 +13,7 @@ export function Segmented<T extends string | number>({ value, options, onChange 
           key={String(option.value)}
           type="button"
           onClick={() => onChange(option.value)}
-          className={`flex-1 rounded-md py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
+          className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
             option.value === value
               ? "bg-white/15 text-white shadow-sm"
               : "text-neutral-400 hover:text-white"
