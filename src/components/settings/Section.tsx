@@ -58,7 +58,11 @@ export function Row({ label, hint, icon, control, stacked = false, tone = "norma
       <span className="flex w-4 shrink-0 justify-center text-neutral-500">{icon}</span>
       <span className="min-w-0">
         <span className="block truncate text-[14px] font-medium text-neutral-100">{label}</span>
-        {hint && <span className={`block truncate text-[12.5px] ${TONO[tone]}`}>{hint}</span>}
+        {/* Dos lineas, no una: en una columna de 390 px la explicacion se cortaba a la
+            mitad, y son frases que hay que leer enteras para decidir ("quitarla es lo
+            unico que la calla del todo"). El nombre de arriba si se corta, porque es
+            corto y el hueco es suyo. */}
+        {hint && <span className={`line-clamp-2 text-[12.5px] ${TONO[tone]}`}>{hint}</span>}
       </span>
     </span>
   );

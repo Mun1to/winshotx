@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings } from "../lib/ipc";
 import { SettingsApp } from "./settings/SettingsApp";
 import { WelcomeApp } from "./welcome/WelcomeApp";
@@ -23,9 +23,15 @@ export function App() {
 
   useEffect(() => {
     if (vista === "cargando") return;
-    void getCurrentWindow().setTitle(
+    const ventana = getCurrentWindow();
+    void ventana.setTitle(
       vista === "bienvenida" ? "winshotx · bienvenida" : "winshotx · ajustes",
     );
+    // Cada pantalla pide el alto que necesita. La bienvenida es un texto largo y necesita
+    // 640; los ajustes, con la navegacion arriba y los bloques en dos columnas, caben en
+    // 520. Dejar la ventana siempre en el alto de la mas alta le pone a los ajustes un
+    // palmo de hueco debajo, y es la que se abre todos los dias.
+    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 520));
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-[#161618]" />;

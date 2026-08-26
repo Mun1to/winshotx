@@ -55,6 +55,9 @@ const grabar = args.includes("--grabar");
 const seleccion = bandera("seleccion", null);
 // Una tecla que pulsar al cargar, para llegar a lo que solo se ve tras pulsarla.
 const tecla = bandera("tecla", null);
+// Cuántas veces se avanza en la bienvenida antes de la foto, para mirar los pasos de
+// dentro: son los que hay que recomprobar cada vez que se le añade algo a uno.
+const paso = bandera("paso", null);
 // Qué sección de los ajustes se abre: capturar, grabar, teclas o app.
 const seccion = bandera("seccion", null);
 // Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
@@ -168,6 +171,23 @@ addEventListener("load", () => {
 </script>`
   : "";
 
+// Avanzar se hace pulsando el botón de la esquina, como una persona: es el último del
+// pie, y así el guion no depende de cómo se llame en cada paso.
+const PASO = paso
+  ? `<script>
+addEventListener("load", () => {
+  let n = ${JSON.stringify(Number(paso))};
+  const avanzar = () => {
+    if (n-- <= 0) return;
+    const botones = document.querySelectorAll("footer button");
+    botones[botones.length - 1]?.click();
+    setTimeout(avanzar, 320);
+  };
+  setTimeout(avanzar, 500);
+});
+</script>`
+  : "";
+
 const TECLA = tecla
   ? `<script>
 addEventListener("load", () => {
@@ -214,7 +234,7 @@ const server = createServer(async (req, res) => {
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
-    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA + SECCION);
+    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA + SECCION + PASO);
     res.writeHead(200, { "Content-Type": TIPOS[extname(archivo)] ?? "application/octet-stream" });
     res.end(cuerpo);
   } catch {

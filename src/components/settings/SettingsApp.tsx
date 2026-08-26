@@ -4,7 +4,6 @@ import {
   AppWindow,
   BookOpen,
   Camera,
-  Check,
   Clipboard,
   Crop,
   EyeOff,
@@ -50,7 +49,7 @@ import {
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
 import { Row, RowButton, Section } from "./Section";
-import { SECCIONES, SettingsNav, type SeccionId } from "./SettingsNav";
+import { SECCIONES, SettingsHeader, type SeccionId } from "./SettingsHeader";
 import { UpdateRow } from "./UpdateRow";
 import { ShortcutField } from "./ShortcutField";
 
@@ -214,18 +213,20 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
-      <div className="flex min-h-0 flex-1">
-        <SettingsNav activa={seccion} onCambiar={setSeccion} />
+      <SettingsHeader
+        activa={seccion}
+        onCambiar={setSeccion}
+        version={VERSION}
+        guardado={saved}
+        onSalir={() => void quitApp()}
+      />
 
-        {/* Una seccion cada vez, y la columna con un ancho tope: una fila de 800 px de
-            ancho deja el interruptor tan lejos de su nombre que hay que seguir la linea
-            con el dedo. */}
-        <div className="min-w-0 flex-1 overflow-y-auto px-6 py-4">
-          <div className="mx-auto w-full max-w-[560px]">
-            <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-neutral-100">
-              {actual.rotulo}
-            </h1>
-            <p className="mt-[3px] mb-3.5 text-[13.5px] text-neutral-400">{actual.subtitulo}</p>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <p className="mb-3 px-1 text-[12.5px] text-neutral-400">{actual.subtitulo}</p>
+
+        {/* Dos columnas, que es para lo que se subio la navegacion arriba: cada seccion
+            tiene dos bloques y asi la mas cargada cabe entera sin rueda. */}
+        <div className="grid grid-cols-2 items-start gap-4">
 
             {seccion === "capturar" && (
               <>
@@ -251,6 +252,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                         ? "la pantalla se congela al pulsar el atajo"
                         : "da tiempo a abrir el menú que quieres fotografiar"
                     }
+                    stacked
                     control={
                       <Segmented
                         value={settings.captureDelaySeconds}
@@ -305,6 +307,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                         ? "va directa al portapapeles"
                         : "sale la barra para copiar, guardar o editar"
                     }
+                    stacked
                     control={
                       <Segmented
                         value={settings.captureFlow}
@@ -360,6 +363,7 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                   <Row
                     icon={<Gauge className="size-4" />}
                     label="Fotogramas por segundo"
+                    stacked
                     control={
                       <Segmented
                         value={settings.fps}
@@ -580,7 +584,6 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                 </Section>
               </>
             )}
-          </div>
         </div>
       </div>
 
@@ -591,25 +594,6 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
         </p>
       )}
 
-      <footer className="flex shrink-0 items-center justify-between border-t border-white/8 px-4 py-2">
-        <span className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-          {saved ? (
-            <>
-              <Check className="size-3 text-emerald-400" />
-              <span className="text-emerald-400">Guardado</span>
-            </>
-          ) : (
-            `winshotx ${VERSION} · MIT`
-          )}
-        </span>
-        <button
-          type="button"
-          onClick={() => void quitApp()}
-          className="rounded-md px-2 py-1 text-[11px] text-neutral-400 transition-colors hover:bg-red-500/15 hover:text-red-300"
-        >
-          Salir de winshotx
-        </button>
-      </footer>
     </div>
   );
 }
