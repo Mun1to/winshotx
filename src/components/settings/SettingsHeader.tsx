@@ -1,19 +1,22 @@
 import { Check } from "lucide-react";
 import { Marca } from "../ui/Marca";
+import { Segmented } from "../ui/Segmented";
 
-/** Las cuatro secciones de los ajustes, en el orden en que se usan. */
+/**
+ * Las cuatro secciones de los ajustes, en el orden en que se usan.
+ *
+ * Sin frase explicando de que va cada una: la seccion se llama Capturar y dentro pone
+ * "Al pulsar el atajo", asi que una linea diciendo "el atajo, la espera y que entra en la
+ * foto" no ensennaba nada que no estuviera ya debajo, y ocupaba sitio.
+ */
 export const SECCIONES = [
-  { id: "capturar", rotulo: "Capturar", subtitulo: "El atajo, la espera y qué entra en la foto." },
-  { id: "grabar", rotulo: "Grabar", subtitulo: "El atajo, la fluidez y qué pasa al terminar." },
-  {
-    id: "teclas",
-    rotulo: "Teclas de Windows",
-    subtitulo: "Quedarse con las teclas de captura que ya trae el sistema.",
-  },
-  { id: "app", rotulo: "La app", subtitulo: "Dónde caen los archivos y cómo se comporta winshotx." },
-] as const satisfies readonly { id: string; rotulo: string; subtitulo: string }[];
+  { value: "capturar", label: "Capturar" },
+  { value: "grabar", label: "Grabar" },
+  { value: "teclas", label: "Teclas de Windows" },
+  { value: "app", label: "La app" },
+] as const satisfies readonly { value: string; label: string }[];
 
-export type SeccionId = (typeof SECCIONES)[number]["id"];
+export type SeccionId = (typeof SECCIONES)[number]["value"];
 
 interface Props {
   activa: SeccionId;
@@ -31,47 +34,32 @@ interface Props {
  * hace falta para poner los ajustes en dos columnas y que una seccion entera quepa de una
  * vez. Arriba, la navegacion cuesta alto una sola vez y el ancho queda entero para lo que se
  * ha venido a ver. Aqui vive tambien el pie que habia antes: dos barras de adorno en una
- * ventana de 640 px de alto eran una de mas.
+ * ventana de 520 px de alto eran una de mas.
  *
- * Lo elegido se marca con una linea debajo, como los enlaces de una web, en vez de con una
- * pastilla: en horizontal la pastilla pesaba mas que el propio nombre de la seccion.
+ * Las secciones son un `Segmented`, el MISMO componente que eligen los segundos de espera o
+ * los fps ahi debajo. No una copia parecida: el mismo, para que no puedan separarse con el
+ * tiempo. Antes eran pestannas subrayadas y eran un estilo que no existia en ningun otro
+ * sitio de la aplicacion.
  */
 export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }: Props) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-5 border-b border-white/8 px-4">
-      <span className="flex shrink-0 items-center gap-2">
+    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-white/8 px-3">
+      <span className="flex shrink-0 items-center gap-2 ps-1">
         <Marca className="size-[18px]" />
         <span className="text-[13.5px] font-semibold text-neutral-100">winshotx</span>
         <span className="text-[11px] text-neutral-500">{version}</span>
       </span>
 
-      <nav aria-label="Secciones de ajustes" className="flex min-w-0 flex-1 items-center gap-1">
-        {SECCIONES.map((seccion) => {
-          const seleccionada = seccion.id === activa;
-          return (
-            <button
-              key={seccion.id}
-              type="button"
-              onClick={() => onCambiar(seccion.id)}
-              aria-current={seleccionada ? "page" : undefined}
-              // Deja que una prueba llegue a una seccion sin depender de su nombre visible.
-              data-seccion={seccion.id}
-              className={`relative h-12 shrink-0 px-3 text-[13px] whitespace-nowrap transition-colors ${
-                seleccionada
-                  ? "font-semibold text-white"
-                  : "text-neutral-400 hover:text-neutral-100"
-              }`}
-            >
-              {seccion.rotulo}
-              {seleccionada && (
-                <span className="absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-[#0a9bff]" />
-              )}
-            </button>
-          );
-        })}
+      <nav aria-label="Secciones de ajustes" className="min-w-0">
+        <Segmented
+          ajustado
+          value={activa}
+          options={SECCIONES as unknown as { value: SeccionId; label: string }[]}
+          onChange={onCambiar}
+        />
       </nav>
 
-      <span className="flex shrink-0 items-center gap-3">
+      <span className="ms-auto flex shrink-0 items-center gap-2">
         {/* Ocupa sitio siempre, tenga texto o no: sin esto, guardar movia el boton de
             salir cada vez que se tocaba un interruptor. */}
         <span className="flex w-[74px] items-center justify-end gap-1.5 text-[11px] text-emerald-400">

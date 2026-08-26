@@ -29,9 +29,9 @@ export function App() {
     );
     // Cada pantalla pide el alto que necesita. La bienvenida es un texto largo y necesita
     // 640; los ajustes, con la navegacion arriba y los bloques en dos columnas, caben en
-    // 520. Dejar la ventana siempre en el alto de la mas alta le pone a los ajustes un
+    // 470. Dejar la ventana siempre en el alto de la mas alta le pone a los ajustes un
     // palmo de hueco debajo, y es la que se abre todos los dias.
-    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 520));
+    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 470));
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-[#161618]" />;

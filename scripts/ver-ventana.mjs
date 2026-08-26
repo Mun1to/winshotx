@@ -159,13 +159,24 @@ addEventListener("load", () => {
 </script>`
   : "";
 
-// La sección se elige haciendo clic en su botón del menú, como haría una persona: así se
+// La sección se elige haciendo clic en su botón, como haría una persona: así se
 // fotografía la pantalla de verdad y no un estado montado a mano que quizá no exista.
+// Se busca por el texto porque las secciones son un `Segmented`, el mismo control que los
+// selectores de dentro, y ese componente no lleva atributos propios de cada opción.
+const ROTULOS = {
+  capturar: "Capturar",
+  grabar: "Grabar",
+  teclas: "Teclas de Windows",
+  app: "La app",
+};
 const SECCION = seccion
   ? `<script>
 addEventListener("load", () => {
   setTimeout(() => {
-    document.querySelector('[data-seccion=' + ${JSON.stringify(JSON.stringify(seccion))} + ']')?.click();
+    const rotulo = ${JSON.stringify(JSON.stringify(ROTULOS[seccion] ?? seccion))};
+    for (const b of document.querySelectorAll("header button")) {
+      if (b.textContent.trim() === JSON.parse(rotulo)) { b.click(); return; }
+    }
   }, 500);
 });
 </script>`
