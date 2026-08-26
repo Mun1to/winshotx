@@ -306,10 +306,10 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
               hint={
                 !settings.takeWinShiftS
                   ? "cuesta Win+S, la búsqueda"
-                  : shortcuts.winShiftS
-                    ? "ya es de winshotx"
-                    : aplicando
-                      ? "reiniciando el Explorador…"
+                  : aplicando
+                    ? "reiniciando el Explorador…"
+                    : shortcuts.winShiftS
+                      ? "de winshotx, o pulsa Aplicar si Windows la sigue abriendo"
                       : "el escritorio todavía la tiene"
               }
               tone={
@@ -317,7 +317,16 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
               }
               control={
                 <span className="flex items-center gap-1.5">
-                  {settings.takeWinShiftS && !shortcuts.winShiftS && (
+                  {/*
+                    Cuando el atajo de captura del usuario ya es Win+Mayus+S, el backend lo
+                    marca como conseguido en cuanto RegisterHotKey tiene exito, sin poder
+                    saber si el Explorador (que intercepta esta combinacion antes que
+                    cualquier programa) ya releyo la lista de teclas apagadas o sigue con la
+                    de antes de activar el interruptor. El boton se deja siempre visible en
+                    vez de solo cuando el backend dice que falta: reiniciar el Explorador no
+                    hace dano de mas, y es la unica forma real de confirmarlo.
+                  */}
+                  {settings.takeWinShiftS && (
                     <RowButton
                       disabled={aplicando}
                       onClick={() => void aplicarTecla()}

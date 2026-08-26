@@ -1,6 +1,6 @@
 # Trampas de Tauri v2 + Windows que costaron sangre
 
-Siete fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
+Ocho fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
 cuelga, sale en negro o no hace nada. Si vuelve a pasar algo raro con ventanas, empieza
 por aquí. El número 6 es el peor de todos, porque no se ve en desarrollo.
 
@@ -111,3 +111,63 @@ Y dos cosas que hay que tener claras del actualizador:
 cerrar, y suelta `PostMessage failed … El identificador de la ventana no es válido`. El
 contador de la barra de grabación se quedaba a cero por esto. Se emite ventana a ventana
 recorriendo `app.webview_windows()` y filtrando por prefijo de etiqueta.
+
+## 8. `WebviewWindow::emit(...)` no es "emitir desde esta ventana", es "emitir a todas"
+
+Llamarlo sobre una instancia concreta (`ventana.emit(...)`) engaña: parece que el evento sale
+de esa ventana y llega a esa ventana, pero es exactamente el mismo broadcast global que
+`app.emit(...)` (comparten el mismo `manager()` por debajo). Esto mordió de verdad el 26 de
+agosto de 2026, cuando el overlay pasó a reutilizar una ventana por monitor en vez de crear
+una nueva en cada captura (ver `windows_mgr::open_overlays` y la memoria
+`winshotx-overlay-multimonitor`): al avisar a cada ventana reutilizada de que había una
+captura nueva con `ventana.emit(EVENT_OVERLAY_SHOW, payload_de_ese_monitor)`, las **tres**
+ventanas lo recibían, y la última emitida ganaba en las tres pantallas a la vez.
+
+**La forma correcta es `emit_to(etiqueta, evento, payload)`**, con la etiqueta de la ventana
+concreta como primer argumento, no un método distinto sobre una instancia distinta.
+
+**Y la segunda mitad, que es la que costo de verdad: `emit_to` era necesario y NO bastaba.**
+Munir seguia viendo su pantalla principal duplicada en las otras, en la vista previa y en el
+recorte final. Se comprobo que no era ninguna de las sospechas obvias: los `freeze-N.bmp` en
+disco eran correctos (verificado con Python/PIL), la posicion real de cada ventana coincidia con
+la pedida, y Rust recortaba de la pantalla correcta (hay dos tests en `capture/mod.rs` que lo
+fijan).
+
+La causa estaba en el **otro lado**. El frontend hacia:
+
+```ts
+listen(EVENTS.overlayShow, (e) => boot(e.payload))   // <- sin target
+```
+
+`listen` sin `target` se registra como `{ kind: 'Any' }`; lo dice el propio paquete en
+`@tauri-apps/api/event.d.ts`: *"The event target to listen to, defaults to `{ kind: 'Any' }`"*.
+Y en `tauri`, `event/listener.rs` decide asi si un oyente recibe:
+
+```rust
+*target == EventTarget::Any || filter.as_ref().map(|f| f(target)).unwrap_or(true)
+```
+
+donde `target` es el del **oyente**: si se registro como `Any`, la funcion devuelve `true` **sin
+llegar a mirar el filtro**. O sea que un oyente `Any` se salta entero cualquier `emit_to`. Las
+tres ventanas recibian los tres payloads del bucle de `open_overlays` y se quedaban con el
+ultimo, asi que las tres pintaban y recortaban la misma pantalla.
+
+**El arreglo es pasar la etiqueta de la ventana al registrarse:**
+
+```ts
+listen(EVENTS.overlayShow, (e) => boot(e.payload), { target: getCurrentWindow().label })
+```
+
+Se pasa como **cadena** a proposito: una cadena se convierte en `AnyLabel`, igual que
+`emit_to(label, ...)` en Rust, y `filter_target` en `manager/mod.rs` casa `AnyLabel` con
+`AnyLabel` por etiqueta. Los dos lados hablan el mismo idioma sin depender de si el destino es
+Window, Webview o WebviewWindow.
+
+**La leccion general, que vale para cualquier evento de esta app:** en Tauri v2 el destino de un
+evento lo deciden **los dos lados**. Acotar solo el que emite no sirve de nada si el que escucha
+se apunto a todo. Y el `target` del `listen` parece opcional porque el tipo lo deja fuera; no lo
+es en cuanto hay mas de una ventana con el mismo codigo dentro.
+
+Los eventos que SI tienen que llegar a todas las ventanas (`overlayMode` y `overlayTakeScreen`,
+que son como se sincroniza la barra de modos entre pantallas) se quedan sin `target` a
+proposito. Ahi el broadcast es la funcion, no el fallo.

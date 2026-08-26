@@ -13,7 +13,7 @@ use crate::settings::Settings;
 use crate::state::AppState;
 use crate::windows_mgr::{self, OverlayIntent};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OverlayPayload {
     monitor: MonitorInfo,
@@ -26,6 +26,42 @@ pub struct OverlayPayload {
     /// pantallas hay que poder decir "esta", y para eso hay que poder nombrarlas.
     screen_number: usize,
     screen_count: usize,
+}
+
+/// Construye el payload de una pantalla. La usan tanto el comando `overlay_bootstrap`
+/// (primer montaje de la ventana) como `windows_mgr::open_overlays` (para mandarlo ya
+/// hecho en el evento cuando se reutiliza una ventana, y ahorrarse la vuelta de invoke).
+pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<OverlayPayload> {
+    let freezes = state.freezes.read();
+    let posicion = freezes
+        .iter()
+        .position(|f| f.monitor.id == monitor_id)
+        .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?;
+    let freeze = &freezes[posicion];
+
+    Ok(OverlayPayload {
+        monitor: freeze.monitor.clone(),
+        freeze_path: freeze.path.to_string_lossy().to_string(),
+        windows: capture::window_rects(),
+        settings: state.settings.read().clone(),
+        intent: *state.intent.read(),
+        // El orden de `freezes` es el de los monitores del sistema, asi que el numero que
+        // se pinta en cada pantalla es siempre el mismo entre disparo y disparo.
+        screen_number: posicion + 1,
+        screen_count: freezes.len(),
+    })
+}
+
+/// TEMPORAL: para medir el total del frontend desde la terminal de `tauri dev`. Quitar
+/// junto con la llamada en `SelectionCanvas`.
+#[tauri::command]
+pub fn medir_frontend(monitor_id: u32, ms: f64) {
+    eprintln!("[medir-front] monitor {monitor_id}: total hasta imagen lista = {ms:.1}ms");
+}
+
+#[tauri::command]
+pub fn diag_frontend(mensaje: String) {
+    eprintln!("[diag-front] {mensaje}");
 }
 
 #[derive(Debug, Serialize)]
@@ -48,24 +84,7 @@ pub struct StillResult {
 
 #[tauri::command]
 pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> Result<OverlayPayload> {
-    let freezes = state.freezes.read();
-    let posicion = freezes
-        .iter()
-        .position(|f| f.monitor.id == monitor_id)
-        .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?;
-    let freeze = &freezes[posicion];
-
-    Ok(OverlayPayload {
-        monitor: freeze.monitor.clone(),
-        freeze_path: freeze.path.to_string_lossy().to_string(),
-        windows: capture::window_rects(),
-        settings: state.settings.read().clone(),
-        intent: *state.intent.read(),
-        // El orden de `freezes` es el de los monitores del sistema, asi que el numero que
-        // se pinta en cada pantalla es siempre el mismo entre disparo y disparo.
-        screen_number: posicion + 1,
-        screen_count: freezes.len(),
-    })
+    build_overlay_payload(&state, monitor_id)
 }
 
 /// Respaldo del overlay: el PNG congelado servido por el propio IPC.

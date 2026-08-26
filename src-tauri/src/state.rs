@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
@@ -11,7 +11,7 @@ use crate::capture::{Freeze, Rect};
 use crate::error::Result;
 use crate::record::SessionData;
 use crate::settings::Settings;
-use crate::windows_mgr::OverlayIntent;
+use crate::windows_mgr::OverlayIntent;
 use tauri_plugin_global_shortcut::Shortcut;
 
 /// Todo lo que hay que compartir con el hilo de captura mientras se graba.
@@ -56,6 +56,21 @@ pub struct AppState {
     pub intent: RwLock<OverlayIntent>,
     pub recording: Mutex<Option<RecordingState>>,
     pub temp_root: PathBuf,
+    /// Si hay una captura de pantalla en curso ahora mismo (congelando o guardando).
+    /// Sin este candado, pulsar el atajo dos veces seguidas muy rapido lanzaba dos
+    /// `freeze_all` a la vez, y la captura de pantalla (GDI) no tolera bien que dos
+    /// disparos capturen al mismo tiempo: se cruzaban entre si y todo salia mas lento.
+    capturando: AtomicBool,
+}
+
+/// Se suelta el candado de `capturando` solo al destruirse, asi que un `?` que sale a
+/// medio camino de `open_overlays` no lo deja puesto para siempre.
+pub struct CandadoCaptura<'a>(&'a AtomicBool);
+
+impl Drop for CandadoCaptura<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
 }
 
 impl AppState {
@@ -69,6 +84,7 @@ impl AppState {
             intent: RwLock::new(OverlayIntent::Capture),
             recording: Mutex::new(None),
             temp_root,
+            capturando: AtomicBool::new(false),
         }
     }
 
@@ -82,5 +98,13 @@ impl AppState {
 
     pub fn is_recording(&self) -> bool {
         self.recording.lock().is_some()
+    }
+
+    /// `None` si ya habia una captura en curso: quien lo pide no debe seguir.
+    pub fn intentar_capturar(&self) -> Option<CandadoCaptura<'_>> {
+        self.capturando
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .ok()
+            .map(|_| CandadoCaptura(&self.capturando))
     }
 }

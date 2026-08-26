@@ -6,7 +6,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   cancelCapture,
   captureStill,
+  diagFrontend,
   freezeBytes,
+  medirFrontend,
   overlayBootstrap,
   startRecording,
 } from "../../lib/ipc";
@@ -66,18 +68,32 @@ function contains(rect: Rect, x: number, y: number): boolean {
  */
 async function loadFreeze(path: string, monitorId: number): Promise<Blob> {
   try {
-    // Via rapida: el protocolo asset sirve el PNG sin copiarlo por el IPC.
-    const response = await fetch(convertFileSrc(path));
+    // Via rapida: el protocolo asset sirve el archivo sin copiarlo por el IPC.
+    // (Se probo lanzar esta via y la de IPC a la vez, tomando la que respondiera antes,
+    // pero con las tres ventanas pidiendolo simultaneamente competian por el mismo disco
+    // y salia peor que dejar una sola via fija: descartado.)
+    //
+    // El nombre del archivo es siempre el mismo entre capturas (freeze-N.bmp: el indice es
+    // del monitor, no de la captura), asi que si el navegador cachea por URL sin mirar que
+    // el contenido cambio, serviria el freeze de la vez anterior. `cache: "no-store"` mas
+    // un parametro que cambia siempre es la doble seguridad de que esto nunca pasa.
+    const url = convertFileSrc(path);
+    const sinCache = `${url}${url.includes("?") ? "&" : "?"}t=${crypto.randomUUID()}`;
+    const response = await fetch(sinCache, { cache: "no-store" });
     if (!response.ok) throw new Error(`asset devolvio ${response.status}`);
     const blob = await response.blob();
     if (blob.size === 0) throw new Error("el asset ha llegado vacio");
+    // TEMPORAL: quitar junto con diagFrontend.
+    void diagFrontend(`monitor ${monitorId}: via asset, path=${path}, bytes=${blob.size}`);
     return blob;
   } catch (assetError) {
-    // Via de respaldo: los bytes por el IPC. Mas lenta, pero no depende ni de la
-    // CSP ni del ambito del protocolo asset.
+    // Via de respaldo: los bytes por el IPC. No depende ni de la CSP ni del ambito del
+    // protocolo asset.
     console.warn("el protocolo asset ha fallado, se tira del IPC", assetError);
+    void diagFrontend(`monitor ${monitorId}: VIA ASSET FALLO (${String(assetError)}), usando IPC`);
     const bytes = await freezeBytes(monitorId);
-    return new Blob([bytes], { type: "image/png" });
+    void diagFrontend(`monitor ${monitorId}: via ipc, bytes=${bytes.byteLength}`);
+    return new Blob([bytes], { type: "image/bmp" });
   }
 }
 
@@ -168,44 +184,107 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     return windowAt(cursor.x, cursor.y);
   }, [windowAt, cursor, selection, mode.kind, pantallaEntera]);
 
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
+  /**
+   * La ventana overlay se reutiliza entre capturas (ver `windows_mgr::open_overlays`): no
+   * se desmonta ni se remonta, asi que este arranque no puede depender solo del montaje
+   * inicial. `bootIdRef` distingue la invocacion vigente de una anterior que aun estuviera
+   * a medias, para que una llegada tardia de la vieja no pise el estado de la nueva.
+   */
+  const bootIdRef = useRef(0);
+  const freezeUrlRef = useRef<string | null>(null);
+  freezeUrlRef.current = freezeUrl;
 
-    const boot = async () => {
-      const data = await overlayBootstrap(monitorId);
-      if (cancelled) return;
+  const boot = useCallback(async (payloadListo?: OverlayPayload) => {
+    const miId = ++bootIdRef.current;
+    const vigente = () => bootIdRef.current === miId;
+    const t0 = performance.now(); // TEMPORAL: quitar junto con medirFrontend.
+
+    // Se limpia lo de la vez anterior ANTES de pedir nada: si esta ventana se reutiliza,
+    // sin esto se veria un instante la captura vieja antes de que llegue la nueva.
+    if (freezeUrlRef.current) URL.revokeObjectURL(freezeUrlRef.current);
+    setPayload(null);
+    setFreezeUrl(null);
+    setSource(null);
+    setSelection(null);
+    setMode({ kind: "idle" });
+    setPantallaEntera(false);
+    setBusy(false);
+    setError(null);
+    setBootError(null);
+
+    try {
+      // Cuando se reutiliza una ventana, el backend manda el payload ya hecho en el
+      // propio evento (ver EVENTS.overlayShow): pedirlo aparte por invoke seria una
+      // vuelta de IPC completa que no hace falta. Solo en el primer montaje, cuando
+      // nadie nos lo ha dado, se pide.
+      const data = payloadListo ?? (await overlayBootstrap(monitorId));
+      if (!vigente()) return;
       setPayload(data);
       numeroPantalla.current = data.screenNumber;
       // Quien pulsa el atajo de grabar quiere grabar: la barra abre en vídeo y ya.
-      if (data.intent === "record") setModo("video");
+      setModo(data.intent === "record" ? "video" : "still");
       void getCurrentWindow().setFocus();
 
       // El PNG se pasa a un blob del mismo origen: cargado directamente desde el
       // protocolo asset, el canvas quedaria contaminado y la lupa no podria leer
       // ni un pixel.
-      const blob = await loadFreeze(data.freezePath, monitorId);
-      if (cancelled) return;
-      objectUrl = URL.createObjectURL(blob);
+      //
+      // Aqui va el id de `data.monitor.id` (el de ESTA captura, siempre correcto),
+      // NUNCA el prop `monitorId` de la URL: esta ventana se reutiliza entre capturas
+      // (ver windows_mgr::open_overlays) y ese prop se fijo la primera vez que se creo,
+      // que puede no coincidir con el id actual si el orden de los monitores del sistema
+      // cambio entre medias. Solo importa para la via de respaldo por IPC (loadFreeze),
+      // y pedir ahi el id equivocado significaba ensennar el freeze de otro monitor.
+      const blob = await loadFreeze(data.freezePath, data.monitor.id);
+      if (!vigente()) return;
+      const objectUrl = URL.createObjectURL(blob);
       setFreezeUrl(objectUrl);
+      void medirFrontend(data.monitor.id, performance.now() - t0);
 
       const bitmap = await createImageBitmap(blob);
-      if (cancelled) return;
+      if (!vigente()) return;
       const canvas = document.createElement("canvas");
       canvas.width = bitmap.width;
       canvas.height = bitmap.height;
       canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
       setSource(canvas);
-    };
+    } catch (e) {
+      if (vigente()) setBootError(String(e));
+    }
+  }, [monitorId]);
 
-    void boot().catch((e) => {
-      if (!cancelled) setBootError(String(e));
+  useEffect(() => {
+    void boot();
+  }, [boot]);
+
+  // La ventana ya estaba montada de una captura anterior: no llega un remontaje que
+  // dispare el arranque solo, asi que el backend lo pide explicitamente por evento, con
+  // el payload de la captura nueva ya dentro.
+  //
+  // `target` NO es opcional aqui, aunque el tipo lo deje pasar. Sin el, `listen` se
+  // registra como `{ kind: 'Any' }` y eso significa recibir TODO lo que se emita, incluso
+  // lo que iba dirigido a otra ventana (@tauri-apps/api/event.d.ts: "defaults to
+  // { kind: 'Any' }"). Con un overlay por monitor, cada ventana recibia tambien los
+  // payloads de las otras dos y se quedaba con el ultimo del bucle de `open_overlays`:
+  // las tres acababan pintando y recortando la misma pantalla. Arreglarlo en Rust con
+  // `emit_to` era necesario y no bastaba, porque el que se apuntaba a todo era este lado.
+  // Se pasa la etiqueta como cadena a proposito: asi los dos lados usan `AnyLabel` con la
+  // misma etiqueta y coinciden sin depender de que tipo de destino sea cada uno.
+  useEffect(() => {
+    const etiqueta = getCurrentWindow().label;
+    const unlisten = listen<OverlayPayload>(EVENTS.overlayShow, (e) => void boot(e.payload), {
+      target: etiqueta,
     });
     return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      void unlisten.then((fn) => fn());
     };
-  }, [monitorId]);
+  }, [boot]);
+
+  useEffect(() => {
+    return () => {
+      if (freezeUrlRef.current) URL.revokeObjectURL(freezeUrlRef.current);
+    };
+  }, []);
 
   const toPhysical = useCallback(
     (rect: Rect): Rect => {
@@ -499,7 +578,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       className="relative h-screen w-screen overflow-hidden"
       style={{ cursor: pantallaEntera ? "pointer" : active ? "default" : "crosshair" }}
     >
+      {/* La key fuerza a React a desmontar y crear un <img> nuevo en cada captura, en vez
+          de reutilizar el elemento cambiandole el src: asi no hay forma de que el
+          navegador siga pintando el frame anterior mientras decide si actualizar. */}
       <img
+        key={freezeUrl}
         src={freezeUrl}
         alt=""
         draggable={false}

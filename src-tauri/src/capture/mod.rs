@@ -1,5 +1,9 @@
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
+use image::ExtendedColorType;
+use image::ImageEncoder;
+use image::codecs::bmp::BmpEncoder;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
@@ -68,13 +72,20 @@ pub struct Freeze {
     pub path: PathBuf,
 }
 
-/// Captura todos los monitores de una vez y deja los PNG en disco.
+/// Captura todos los monitores de una vez y deja los BMP en disco.
 /// Congelar la imagen evita pelearse con ventanas transparentes y da lupa exacta.
+///
+/// Capturar es estrictamente secuencial: GDI (lo que usa `xcap` en Windows) no tolera
+/// bien que varios hilos capturen pantalla a la vez, y paralelizarlo fue justo lo que
+/// colgo la app la primera vez que se intento (ver la memoria del proyecto). Pero una vez
+/// que cada imagen ya esta en memoria, guardarla a disco no comparte nada entre monitores
+/// (cada uno escribe su propio archivo), asi que eso si se reparte en hilos: mientras se
+/// captura el monitor 2, el monitor 1 ya se puede estar escribiendo en paralelo.
 pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
     std::fs::create_dir_all(dir)?;
     let monitors = xcap::Monitor::all().map_err(|e| AppError::Msg(e.to_string()))?;
-    let mut out = Vec::with_capacity(monitors.len());
 
+    let mut capturas = Vec::with_capacity(monitors.len());
     for (index, monitor) in monitors.iter().enumerate() {
         let info = MonitorInfo {
             id: index as u32,
@@ -89,18 +100,50 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
         let image = monitor
             .capture_image()
             .map_err(|e| AppError::Msg(e.to_string()))?;
-        let path = dir.join(format!("freeze-{index}.png"));
-        image.save(&path)?;
-        out.push(Freeze {
-            monitor: info,
-            path,
-        });
+        capturas.push((index, info, image));
     }
 
-    if out.is_empty() {
+    if capturas.is_empty() {
         return Err(AppError::Msg("no se ha detectado ningún monitor".into()));
     }
-    Ok(out)
+
+    std::thread::scope(|scope| -> Result<Vec<Freeze>> {
+        let handles: Vec<_> = capturas
+            .into_iter()
+            .map(|(index, info, image)| {
+                let dir = dir.to_path_buf();
+                scope.spawn(move || -> Result<Freeze> {
+                    // BMP en vez de PNG: sin compresion, casi sin coste de CPU al escribir
+                    // ni al decodificar en el navegador (PNG comprimido, aunque "rapido",
+                    // seguia costando varios cientos de ms por monitor entre escribirlo y
+                    // luego decodificarlo en cada ventana). El navegador lo entiende nativo
+                    // en <img>/createImageBitmap. El canal alfa de una captura de escritorio
+                    // siempre es opaco, asi que da igual si algun decodificador lo ignora.
+                    let path = dir.join(format!("freeze-{index}.bmp"));
+                    let mut writer = BufWriter::new(std::fs::File::create(&path)?);
+                    BmpEncoder::new(&mut writer).write_image(
+                        image.as_raw(),
+                        image.width(),
+                        image.height(),
+                        ExtendedColorType::Rgba8,
+                    )?;
+                    Ok(Freeze {
+                        monitor: info,
+                        path,
+                    })
+                })
+            })
+            .collect();
+
+        handles
+            .into_iter()
+            .map(|handle| {
+                handle
+                    .join()
+                    .map_err(|_| AppError::Msg("un hilo de guardado ha fallado".into()))?
+            })
+            .collect()
+    })
 }
 
 /// Rectangulos de las ventanas visibles, para el ajuste automatico del overlay.
@@ -153,4 +196,88 @@ pub fn crop_from_freeze(freezes: &[Freeze], region: Rect) -> Result<image::RgbaI
         return Err(AppError::Msg("la selección queda fuera de la pantalla".into()));
     }
     Ok(image::imageops::crop_imm(&image, local_x, local_y, width, height).to_image())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Escribe una pantalla congelada de un solo color, como las que deja `freeze_all`.
+    /// El color es la firma: si el recorte sale de otra pantalla, se ve en el pixel.
+    fn pantalla(dir: &Path, id: u32, x: i32, color: [u8; 3]) -> Freeze {
+        let (ancho, alto) = (1920u32, 1080u32);
+        let imagen = image::RgbaImage::from_pixel(
+            ancho,
+            alto,
+            image::Rgba([color[0], color[1], color[2], 255]),
+        );
+        let path = dir.join(format!("freeze-{id}.bmp"));
+        imagen.save(&path).expect("no se ha podido escribir la pantalla de prueba");
+        Freeze {
+            monitor: MonitorInfo {
+                id,
+                label: format!("PRUEBA-{id}"),
+                x,
+                y: 0,
+                width: ancho,
+                height: alto,
+                scale: 1.0,
+                is_primary: id == 0,
+            },
+            path,
+        }
+    }
+
+    /// Tres monitores de 1920 en fila, como los de Munir: rojo, verde y azul.
+    fn tres_pantallas(nombre: &str) -> (PathBuf, Vec<Freeze>) {
+        let dir = std::env::temp_dir().join(format!("winshotx-test-{nombre}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("no se ha podido crear el directorio de prueba");
+        let freezes = vec![
+            pantalla(&dir, 0, 0, [255, 0, 0]),
+            pantalla(&dir, 1, 1920, [0, 255, 0]),
+            pantalla(&dir, 2, 3840, [0, 0, 255]),
+        ];
+        (dir, freezes)
+    }
+
+    fn primer_pixel(imagen: &image::RgbaImage) -> [u8; 3] {
+        let p = imagen.get_pixel(0, 0).0;
+        [p[0], p[1], p[2]]
+    }
+
+    #[test]
+    fn recorta_de_la_pantalla_donde_cae_la_seleccion() {
+        let (_dir, freezes) = tres_pantallas("donde-cae");
+
+        // Coordenadas del escritorio virtual, que es lo que manda `toPhysical`.
+        let en_la_primera = crop_from_freeze(&freezes, Rect { x: 10, y: 10, width: 100, height: 100 }).unwrap();
+        assert_eq!(primer_pixel(&en_la_primera), [255, 0, 0], "la primera pantalla es roja");
+
+        let en_la_segunda = crop_from_freeze(&freezes, Rect { x: 1930, y: 10, width: 100, height: 100 }).unwrap();
+        assert_eq!(primer_pixel(&en_la_segunda), [0, 255, 0], "la segunda pantalla es verde");
+
+        let en_la_tercera = crop_from_freeze(&freezes, Rect { x: 3850, y: 10, width: 100, height: 100 }).unwrap();
+        assert_eq!(primer_pixel(&en_la_tercera), [0, 0, 255], "la tercera pantalla es azul");
+    }
+
+    /// EL BUG. Una seleccion que no cae en ninguna pantalla no puede devolver la primera
+    /// en silencio: eso es exactamente lo que se ve como "mi pantalla principal duplicada
+    /// en las otras", porque cualquier error de coordenadas rio arriba acaba aqui.
+    #[test]
+    fn una_seleccion_fuera_de_todo_falla_en_vez_de_devolver_la_principal() {
+        let (_dir, freezes) = tres_pantallas("fuera-de-todo");
+
+        let resultado = crop_from_freeze(
+            &freezes,
+            Rect { x: 10_000, y: 10_000, width: 100, height: 100 },
+        );
+
+        assert!(
+            resultado.is_err(),
+            "una seleccion fuera de toda pantalla devolvio una imagen en vez de fallar; \
+             si el pixel es rojo, ha caido en la pantalla principal: {:?}",
+            resultado.map(|i| primer_pixel(&i))
+        );
+    }
 }

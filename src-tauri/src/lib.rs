@@ -1,5 +1,5 @@
 pub mod capture;
-mod commands;
+pub(crate) mod commands;
 pub mod encode;
 pub mod error;
 mod exporter;
@@ -24,6 +24,11 @@ pub const EVENT_CHECK_UPDATE: &str = "winshotx://check-update";
 /// Y este avisa de que la ventana vuelve a estar a la vista, para refrescar lo que
 /// se haya quedado viejo mientras estaba escondida.
 pub const EVENT_SETTINGS_SHOWN: &str = "winshotx://settings-shown";
+
+/// El overlay se reutiliza entre capturas (ver windows_mgr::open_overlays): esto le dice
+/// a una ventana que YA estaba montada que hay una captura nueva que cargar, porque no va
+/// a recibir un remontaje que dispare su arranque solo.
+pub const EVENT_OVERLAY_SHOW: &str = "winshotx://overlay-show";
 
 /// Las sesiones son cache: si llevan un dia en el disco, ya no le importan a nadie.
 fn purge_old_sessions(root: &std::path::Path) {
@@ -93,6 +98,10 @@ pub fn run() {
 
             hotkeys::register(&handle, &config);
             tray::build(&handle)?;
+            // No hay ninguna ventana visible esperando en este momento (la app arranca
+            // en la bandeja), asi que crear las ventanas overlay ahora, ocultas, no lo
+            // nota nadie: la primera captura del dia encuentra el pool ya listo.
+            windows_mgr::precrear_overlays(&handle);
 
             // La primera vez se abre sola con la bienvenida: recien instalada, la app
             // vive en la bandeja y sin esto no habria nada que mirar.
@@ -111,6 +120,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            commands::medir_frontend,
+            commands::diag_frontend,
             commands::overlay_bootstrap,
             commands::freeze_bytes,
             commands::capture_still,
