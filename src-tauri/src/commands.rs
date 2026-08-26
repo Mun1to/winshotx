@@ -52,18 +52,6 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
     })
 }
 
-/// TEMPORAL: para medir el total del frontend desde la terminal de `tauri dev`. Quitar
-/// junto con la llamada en `SelectionCanvas`.
-#[tauri::command]
-pub fn medir_frontend(monitor_id: u32, ms: f64) {
-    eprintln!("[medir-front] monitor {monitor_id}: total hasta imagen lista = {ms:.1}ms");
-}
-
-#[tauri::command]
-pub fn diag_frontend(mensaje: String) {
-    eprintln!("[diag-front] {mensaje}");
-}
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrameDto {

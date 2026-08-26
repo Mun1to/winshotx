@@ -20,13 +20,6 @@ import type {
 export const overlayBootstrap = (monitorId: number) =>
   invoke<OverlayPayload>("overlay_bootstrap", { monitorId });
 
-/** TEMPORAL: manda a la terminal de `tauri dev` el tiempo hasta que la imagen esta lista. */
-export const medirFrontend = (monitorId: number, ms: number) =>
-  invoke<void>("medir_frontend", { monitorId, ms });
-
-/** TEMPORAL: diagnostico libre a la terminal de `tauri dev`. */
-export const diagFrontend = (mensaje: string) => invoke<void>("diag_frontend", { mensaje });
-
 export const captureStill = (region: Rect, action: StillAction) =>
   invoke<StillResult>("capture_still", { region, action });
 

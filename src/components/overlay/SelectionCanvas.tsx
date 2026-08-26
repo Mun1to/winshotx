@@ -6,9 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   cancelCapture,
   captureStill,
-  diagFrontend,
   freezeBytes,
-  medirFrontend,
   overlayBootstrap,
   startRecording,
 } from "../../lib/ipc";
@@ -83,16 +81,12 @@ async function loadFreeze(path: string, monitorId: number): Promise<Blob> {
     if (!response.ok) throw new Error(`asset devolvio ${response.status}`);
     const blob = await response.blob();
     if (blob.size === 0) throw new Error("el asset ha llegado vacio");
-    // TEMPORAL: quitar junto con diagFrontend.
-    void diagFrontend(`monitor ${monitorId}: via asset, path=${path}, bytes=${blob.size}`);
     return blob;
   } catch (assetError) {
     // Via de respaldo: los bytes por el IPC. No depende ni de la CSP ni del ambito del
     // protocolo asset.
     console.warn("el protocolo asset ha fallado, se tira del IPC", assetError);
-    void diagFrontend(`monitor ${monitorId}: VIA ASSET FALLO (${String(assetError)}), usando IPC`);
     const bytes = await freezeBytes(monitorId);
-    void diagFrontend(`monitor ${monitorId}: via ipc, bytes=${bytes.byteLength}`);
     return new Blob([bytes], { type: "image/bmp" });
   }
 }
@@ -197,7 +191,6 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const boot = useCallback(async (payloadListo?: OverlayPayload) => {
     const miId = ++bootIdRef.current;
     const vigente = () => bootIdRef.current === miId;
-    const t0 = performance.now(); // TEMPORAL: quitar junto con medirFrontend.
 
     // Se limpia lo de la vez anterior ANTES de pedir nada: si esta ventana se reutiliza,
     // sin esto se veria un instante la captura vieja antes de que llegue la nueva.
@@ -239,7 +232,6 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       if (!vigente()) return;
       const objectUrl = URL.createObjectURL(blob);
       setFreezeUrl(objectUrl);
-      void medirFrontend(data.monitor.id, performance.now() - t0);
 
       const bitmap = await createImageBitmap(blob);
       if (!vigente()) return;

@@ -120,8 +120,6 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            commands::medir_frontend,
-            commands::diag_frontend,
             commands::overlay_bootstrap,
             commands::freeze_bytes,
             commands::capture_still,

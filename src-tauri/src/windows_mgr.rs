@@ -54,10 +54,6 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     let freezes = capture::freeze_all(&state.freeze_dir())?;
     let monitors: Vec<_> = freezes.iter().map(|f| f.monitor.clone()).collect();
     for m in &monitors {
-        eprintln!(
-            "[medir-mon] id={} x={} y={} w={} h={} scale={} primary={} label={:?}",
-            m.id, m.x, m.y, m.width, m.height, m.scale, m.is_primary, m.label
-        );
     }
     *state.freezes.write() = freezes;
 
@@ -102,13 +98,6 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
         window.set_position(PhysicalPosition::new(monitor.x, monitor.y))?;
         window.set_size(PhysicalSize::new(monitor.width, monitor.height))?;
         window.show()?;
-        // TEMPORAL: confirmar que la ventana termina de verdad donde se le pidio.
-        if let Ok(pos) = window.outer_position() {
-            eprintln!(
-                "[medir-win] {}: pedido=({},{}) real=({},{})",
-                label, monitor.x, monitor.y, pos.x, pos.y
-            );
-        }
         windows.push((monitor, window));
     }
 
@@ -127,7 +116,6 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
         force_foreground(window);
     }
 
-    eprintln!("[medir] open_overlays: {:?}", arranque.elapsed());
     Ok(())
 }
 
