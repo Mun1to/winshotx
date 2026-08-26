@@ -1,5 +1,4 @@
 import { Check } from "lucide-react";
-import { Marca } from "../ui/Marca";
 import { Segmented } from "../ui/Segmented";
 
 /**
@@ -27,7 +26,13 @@ interface Props {
 }
 
 /**
- * La cabecera: marca a la izquierda, las cuatro secciones en el medio y salir a la derecha.
+ * La cabecera: la version a la izquierda, las cuatro secciones en el medio y salir a la
+ * derecha.
+ *
+ * Sin logo ni nombre: la ventana ya se llama "winshotx · ajustes" en su propia barra de
+ * titulo, dos pixeles mas arriba. Repetirlo dentro era decir lo mismo dos veces seguidas y
+ * ademas empujaba las secciones a la izquierda, que es de donde vienen las ganas de
+ * centrarlas.
  *
  * Es una cabecera de pagina web y no un menu lateral por una razon de espacio, no de gusto:
  * una columna a la izquierda se lleva casi doscientos pixeles de ANCHO, que es justo lo que
@@ -42,15 +47,14 @@ interface Props {
  * sitio de la aplicacion.
  */
 export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }: Props) {
+  // Tres columnas y las de los lados iguales: es lo unico que deja las secciones en el
+  // centro DE LA VENTANA. Con una fila normal quedaban centradas en el hueco que dejaban
+  // los lados, que no miden lo mismo, asi que salian corridas hacia un lado.
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-white/8 px-3">
-      <span className="flex shrink-0 items-center gap-2 ps-1">
-        <Marca className="size-[18px]" />
-        <span className="text-[13.5px] font-semibold text-neutral-100">winshotx</span>
-        <span className="text-[11px] text-neutral-500">{version}</span>
-      </span>
+    <header className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-white/8 px-3">
+      <span className="justify-self-start ps-1 text-[11px] text-neutral-500">{version}</span>
 
-      <nav aria-label="Secciones de ajustes" className="min-w-0">
+      <nav aria-label="Secciones de ajustes" className="justify-self-center">
         <Segmented
           ajustado
           value={activa}
@@ -59,7 +63,7 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
         />
       </nav>
 
-      <span className="ms-auto flex shrink-0 items-center gap-2">
+      <span className="flex items-center justify-self-end gap-2">
         {/* Ocupa sitio siempre, tenga texto o no: sin esto, guardar movia el boton de
             salir cada vez que se tocaba un interruptor. */}
         <span className="flex w-[74px] items-center justify-end gap-1.5 text-[11px] text-emerald-400">
