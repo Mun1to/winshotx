@@ -7,6 +7,7 @@ import {
   Check,
   Clipboard,
   Crop,
+  EyeOff,
   FolderOpen,
   Gauge,
   HardDrive,
@@ -300,6 +301,18 @@ export function SettingsApp({ onVerBienvenida }: { onVerBienvenida: () => void }
                   value={settings.captureDelaySeconds}
                   options={ESPERAS}
                   onChange={(v) => patch({ captureDelaySeconds: v })}
+                />
+              }
+            />
+            <Row
+              icon={<EyeOff className="size-4" />}
+              label="Ocultar iconos del escritorio"
+              hint="solo mientras dura el disparo"
+              control={
+                <Switch
+                  checked={settings.hideDesktopIcons}
+                  onChange={(v) => patch({ hideDesktopIcons: v })}
+                  label="Ocultar iconos del escritorio"
                 />
               }
             />

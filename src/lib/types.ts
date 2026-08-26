@@ -149,6 +149,8 @@ export interface Settings {
   startWithWindows: boolean;
   /** Segundos de espera antes de congelar la pantalla. 0 es sin espera. */
   captureDelaySeconds: number;
+  /** Esconder los iconos del escritorio mientras se congela, y devolverlos después. */
+  hideDesktopIcons: boolean;
   captureFlow: CaptureFlow;
   printScreenCapture: boolean;
   takeWinShiftS: boolean;

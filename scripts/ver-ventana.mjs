@@ -80,6 +80,7 @@ const AJUSTES = {
   showMagnifier: true,
   startWithWindows: false,
   captureDelaySeconds: 0,
+  hideDesktopIcons: false,
   captureFlow: "toolbar",
   printScreenCapture: false,
   takeWinShiftS: teclaPendiente,

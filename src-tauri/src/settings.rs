@@ -42,6 +42,10 @@ pub struct Settings {
     /// siempre. Existe para poder capturar un menu abierto: pulsar el atajo lo cierra,
     /// asi que la unica forma de fotografiarlo es no capturar en ese instante.
     pub capture_delay_seconds: u32,
+    /// Esconder los iconos del escritorio mientras se congela la pantalla. Se devuelven
+    /// en cuanto la captura esta hecha: el overlay ya tapa el escritorio, asi que no hace
+    /// falta tenerlos escondidos mas tiempo del que dura el disparo.
+    pub hide_desktop_icons: bool,
     /// La tecla Impr Pant abre winshotx. Va aparte del atajo normal: se suma, no lo
     /// sustituye, asi que quien tenga el suyo puesto no lo pierde al activar esto.
     pub print_screen_capture: bool,
@@ -77,6 +81,7 @@ impl Default for Settings {
             show_magnifier: true,
             start_with_windows: false,
             capture_delay_seconds: 0,
+            hide_desktop_icons: false,
             print_screen_capture: false,
             take_win_shift_s: false,
             onboarded: false,
@@ -164,6 +169,7 @@ mod tests {
         assert_eq!(settings.save_directory, "D:\\capturas");
         assert!(!settings.show_magnifier);
         assert_eq!(settings.capture_delay_seconds, 0, "el temporizador nace apagado");
+        assert!(!settings.hide_desktop_icons, "los iconos no se tocan sin pedirlo");
     }
 
     /// Las tres opciones que ofrece la interfaz tienen que caber en el tipo del campo.

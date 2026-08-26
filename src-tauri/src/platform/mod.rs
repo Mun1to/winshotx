@@ -1,5 +1,6 @@
 pub mod autostart;
 pub mod clipboard;
+pub mod desktop_icons;
 pub mod snipping;
 pub mod window_style;
 

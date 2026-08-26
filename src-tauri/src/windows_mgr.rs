@@ -103,7 +103,19 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
 fn congelar_y_abrir(app: &AppHandle, _candado: CandadoCaptura) -> Result<()> {
     let state = app.state::<AppState>();
 
+    // Los iconos se esconden solo lo que dura el disparo, no toda la seleccion: el
+    // overlay tapa el escritorio de todas formas, asi que tenerlos escondidos mas rato no
+    // se ve en la imagen y si aumenta la posibilidad de dejarselos escondidos a alguien.
+    // El guardian los devuelve tambien si `freeze_all` sale por el `?`.
+    let esconder_iconos = state.settings.read().hide_desktop_icons;
+    let iconos = if esconder_iconos {
+        crate::platform::desktop_icons::esconder()
+    } else {
+        None
+    };
+
     let freezes = capture::freeze_all(&state.freeze_dir())?;
+    drop(iconos);
     let monitors: Vec<_> = freezes.iter().map(|f| f.monitor.clone()).collect();
     *state.freezes.write() = freezes;
 
