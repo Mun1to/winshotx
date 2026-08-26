@@ -1,0 +1,18 @@
+# Sin esto, un archivo tocado desde otro editor vuelve entero en el diff por el salto de
+# linea y no por el codigo: state.rs salio con 196 lineas cambiadas de las que solo 23
+# eran de verdad. Git normaliza a LF en el historial y respeta lo que use cada equipo.
+* text=auto eol=lf
+
+# Los de Windows tienen que seguir con CRLF aunque el resto no.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binarios: que git no los toque ni intente adivinar.
+*.png binary
+*.ico binary
+*.svg text
+*.exe binary
+*.zip binary
+*.woff binary
+*.woff2 binary
