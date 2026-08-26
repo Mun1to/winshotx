@@ -20,10 +20,14 @@ pub const EDITOR_LABEL: &str = "editor";
 /// este el raton, y como los overlays se esconde en vez de cerrarse.
 pub const COUNTDOWN_LABEL: &str = "countdown";
 
-/// Lado de la ventanita de la cuenta atras y hueco que deja hasta la esquina, los dos en
-/// pixeles logicos: en una pantalla al 150 % tiene que verse igual de grande, no menor.
+/// Lado de la ventanita de la cuenta atras, en pixeles logicos: en una pantalla al 150 %
+/// tiene que verse igual de grande, no mas pequenna.
 const CUENTA_LADO: f64 = 132.0;
-const CUENTA_MARGEN: f64 = 48.0;
+
+/// Lo que se le da al escritorio para repintar el hueco de la cuenta atras antes de
+/// congelar. Sin esto la captura se lleva la ventanita dentro, y en el centro de la
+/// pantalla eso no se le escapa a nadie.
+const MARGEN_REPINTADO: std::time::Duration = std::time::Duration::from_millis(120);
 
 /// Con que intencion se ha abierto el overlay. Lo decide el atajo que se pulso, y
 /// es lo que deja que el modo instantaneo copie al soltar sin cargarse la grabacion.
@@ -73,12 +77,23 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     mostrar_cuenta_atras(app, segundos);
     let espera = app.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(u64::from(segundos)));
+        // La cuenta atras se esconde un pelin ANTES del final, no en el mismo instante en
+        // que se congela. Esconder una ventana no borra su hueco de la pantalla: hay que
+        // darle al escritorio el tiempo de repintar lo que habia debajo, o la captura se
+        // lleva la ventanita dentro. Ese margen sale de la cuenta atras, no se suma
+        // detras, asi que la espera total sigue siendo la que pidio el usuario y el ultimo
+        // numero se ve 880 ms en vez de 1000: no se nota.
+        let total = std::time::Duration::from_secs(u64::from(segundos));
+        std::thread::sleep(total.saturating_sub(MARGEN_REPINTADO));
+
+        // Volver al hilo principal no es opcional: manejar ventanas desde otro hilo se
+        // queda esperando al bucle de eventos.
+        let para_esconder = espera.clone();
+        let _ = espera.run_on_main_thread(move || esconder_cuenta_atras(&para_esconder));
+
+        std::thread::sleep(MARGEN_REPINTADO);
         let seguir = espera.clone();
-        // Volver al hilo principal no es opcional: construir y ensennar ventanas desde
-        // otro hilo se queda esperando al bucle de eventos.
         let _ = espera.run_on_main_thread(move || {
-            esconder_cuenta_atras(&seguir);
             if let Err(error) = congelar_y_abrir(&seguir, candado) {
                 eprintln!("no se ha podido abrir el overlay: {error}");
             }
@@ -228,9 +243,13 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
     let _ = window.show();
 }
 
-/// La pone abajo a la derecha del monitor donde esta el cursor, que es el que el usuario
-/// esta mirando. Se recoloca en cada disparo porque el raton puede estar en otra pantalla
-/// que la vez anterior, y porque cada pantalla puede tener su propio escalado.
+/// La pone en el centro del monitor donde esta el cursor, que es el que el usuario esta
+/// mirando. Se recoloca en cada disparo porque el raton puede estar en otra pantalla que
+/// la vez anterior, y porque cada pantalla puede tener su propio escalado.
+///
+/// En el centro y no en una esquina porque es donde se mira sin buscarla: con tres
+/// pantallas, un numero en la esquina de una de ellas se pierde. Tapa lo que haya debajo
+/// durante la cuenta, pero eso no llega a la captura: se esconde antes de congelar.
 fn colocar_cuenta_atras(window: &tauri::WebviewWindow) {
     let Ok(monitores) = xcap::Monitor::all() else {
         return;
@@ -262,12 +281,11 @@ fn colocar_cuenta_atras(window: &tauri::WebviewWindow) {
     // preguntarselo a la ventana da el numero de la pantalla equivocada.
     let escala = f64::from(monitor.scale_factor().unwrap_or(1.0));
     let lado = (CUENTA_LADO * escala) as u32;
-    let margen = (CUENTA_MARGEN * escala) as i32;
 
     let _ = window.set_size(PhysicalSize::new(lado, lado));
     let _ = window.set_position(PhysicalPosition::new(
-        x + width as i32 - lado as i32 - margen,
-        y + height as i32 - lado as i32 - margen,
+        x + (width as i32 - lado as i32) / 2,
+        y + (height as i32 - lado as i32) / 2,
     ));
 }
 
