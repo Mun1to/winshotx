@@ -714,6 +714,26 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         </>
       )}
 
+      {/*
+        La cruceta: dos guias que cruzan la pantalla por donde esta el cursor. Alinear el
+        borde de una seleccion con algo que esta al otro lado de la pantalla se hacia a
+        ojo; con la guia se ve si estan en la misma linea antes de soltar.
+        Se pinta cuando se pinta la lupa, que es cuando hace falta precision, y desaparece
+        con la seleccion hecha para no ensuciar lo que se esta mirando.
+      */}
+      {magnifierVisible && (
+        <div className="pointer-events-none absolute inset-0 z-30">
+          <div
+            className="absolute inset-x-0 h-px bg-white/25 mix-blend-difference"
+            style={{ top: cursor.y }}
+          />
+          <div
+            className="absolute inset-y-0 w-px bg-white/25 mix-blend-difference"
+            style={{ left: cursor.x }}
+          />
+        </div>
+      )}
+
       {magnifierVisible && source && (
         <Magnifier
           source={source}
