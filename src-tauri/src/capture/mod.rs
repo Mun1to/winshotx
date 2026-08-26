@@ -198,6 +198,54 @@ pub fn crop_from_freeze(freezes: &[Freeze], region: Rect) -> Result<image::RgbaI
     Ok(image::imageops::crop_imm(&image, local_x, local_y, width, height).to_image())
 }
 
+/// El rectangulo que contiene todas las pantallas: el escritorio virtual entero.
+/// Con monitores de distinto alto o mal alineados sobra sitio por algun lado, y ese
+/// sobrante no pertenece a ninguna pantalla: ver `stitch_all`.
+pub fn virtual_desktop(freezes: &[Freeze]) -> Option<Rect> {
+    let primero = freezes.first()?;
+    let (mut x0, mut y0) = (primero.monitor.x, primero.monitor.y);
+    let (mut x1, mut y1) = (
+        primero.monitor.x + primero.monitor.width as i32,
+        primero.monitor.y + primero.monitor.height as i32,
+    );
+    for f in freezes.iter().skip(1) {
+        x0 = x0.min(f.monitor.x);
+        y0 = y0.min(f.monitor.y);
+        x1 = x1.max(f.monitor.x + f.monitor.width as i32);
+        y1 = y1.max(f.monitor.y + f.monitor.height as i32);
+    }
+    Some(Rect {
+        x: x0,
+        y: y0,
+        width: (x1 - x0) as u32,
+        height: (y1 - y0) as u32,
+    })
+}
+
+/// Pega todas las pantallas congeladas en una sola imagen, cada una en su sitio real.
+///
+/// Los huecos que quedan entre monitores desalineados se dejan **transparentes**, no en
+/// negro (decision D7). Conviene saber que pasa despues con esa transparencia, porque no
+/// es igual en todas las salidas: el PNG guardado la conserva; el portapapeles la compone
+/// sobre blanco, porque `platform::clipboard` construye el CF_DIB sobre blanco ya que
+/// muchas aplicaciones ignoran el alfa; y el GIF y el MP4 no tienen alfa, asi que ahi los
+/// huecos salen negros. No hay nada que arreglar en eso, solo que no sorprenda.
+pub fn stitch_all(freezes: &[Freeze]) -> Result<(image::RgbaImage, Rect)> {
+    let marco = virtual_desktop(freezes)
+        .ok_or_else(|| AppError::Msg("no hay ninguna pantalla congelada".into()))?;
+
+    let mut lienzo = image::RgbaImage::from_pixel(marco.width, marco.height, image::Rgba([0, 0, 0, 0]));
+
+    for f in freezes {
+        let trozo = image::open(&f.path)?.to_rgba8();
+        let dx = f.monitor.x - marco.x;
+        let dy = f.monitor.y - marco.y;
+        image::imageops::overlay(&mut lienzo, &trozo, dx as i64, dy as i64);
+    }
+
+    Ok((lienzo, marco))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,4 +328,73 @@ mod tests {
             resultado.map(|i| primer_pixel(&i))
         );
     }
+    /// Un monitor mas bajo que los otros deja un hueco debajo que no es de nadie.
+    fn tres_pantallas_desalineadas(nombre: &str) -> (PathBuf, Vec<Freeze>) {
+        let dir = std::env::temp_dir().join(format!("winshotx-test-{nombre}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("no se ha podido crear el directorio de prueba");
+        let mut freezes = vec![
+            pantalla(&dir, 0, 0, [255, 0, 0]),
+            pantalla(&dir, 1, 1920, [0, 255, 0]),
+        ];
+        // La tercera es de 1920x720 en vez de 1920x1080: deja 360 px de hueco debajo.
+        let bajita = image::RgbaImage::from_pixel(1920, 720, image::Rgba([0, 0, 255, 255]));
+        let path = dir.join("freeze-2.bmp");
+        bajita.save(&path).expect("no se ha podido escribir la pantalla baja");
+        freezes.push(Freeze {
+            monitor: MonitorInfo {
+                id: 2,
+                label: "PRUEBA-2".into(),
+                x: 3840,
+                y: 0,
+                width: 1920,
+                height: 720,
+                scale: 1.0,
+                is_primary: false,
+            },
+            path,
+        });
+        (dir, freezes)
+    }
+
+    #[test]
+    fn el_escritorio_virtual_abarca_todas_las_pantallas() {
+        let (_dir, freezes) = tres_pantallas("marco");
+        let marco = virtual_desktop(&freezes).expect("hay tres pantallas");
+        assert_eq!(marco.x, 0);
+        assert_eq!(marco.y, 0);
+        assert_eq!(marco.width, 5760, "tres monitores de 1920 en fila");
+        assert_eq!(marco.height, 1080);
+    }
+
+    #[test]
+    fn juntar_las_pantallas_deja_cada_una_en_su_sitio() {
+        let (_dir, freezes) = tres_pantallas("juntar");
+        let (lienzo, marco) = stitch_all(&freezes).unwrap();
+
+        assert_eq!((lienzo.width(), lienzo.height()), (5760, 1080));
+        assert_eq!(marco.width, 5760);
+
+        // Un pixel del centro de cada tercio tiene que ser del color de esa pantalla.
+        let color = |x: u32| { let p = lienzo.get_pixel(x, 540).0; [p[0], p[1], p[2], p[3]] };
+        assert_eq!(color(960), [255, 0, 0, 255], "el primer tercio es la pantalla roja");
+        assert_eq!(color(2880), [0, 255, 0, 255], "el segundo tercio es la verde");
+        assert_eq!(color(4800), [0, 0, 255, 255], "el tercero es la azul");
+    }
+
+    /// D7: los huecos van transparentes, no negros. Si alguien lo cambia, que falle aqui
+    /// y no en el portapapeles de alguien.
+    #[test]
+    fn el_hueco_entre_monitores_desalineados_queda_transparente() {
+        let (_dir, freezes) = tres_pantallas_desalineadas("hueco");
+        let (lienzo, _) = stitch_all(&freezes).unwrap();
+
+        assert_eq!((lienzo.width(), lienzo.height()), (5760, 1080));
+
+        // Dentro de la tercera pantalla, que solo llega hasta y=720.
+        assert_eq!(lienzo.get_pixel(4800, 360).0[3], 255, "dentro de la pantalla, opaco");
+        // Debajo de ella no hay pantalla ninguna.
+        assert_eq!(lienzo.get_pixel(4800, 900).0[3], 0, "el hueco tiene que ser transparente");
+    }
+
 }

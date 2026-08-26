@@ -52,6 +52,20 @@ export function ScreenPicker({ numero, total, modo, ancho, alto }: Props) {
             {ancho} × {alto}
           </span>
         </span>
+
+        {/*
+          El `0` va con los numeros de pantalla y significa "todas". Sin decirlo aqui, la
+          tecla no la encuentra nadie: no hay nada en pantalla que la sugiera.
+          Solo sale con varias pantallas y solo en foto, que es lo unico que sabe hacer.
+        */}
+        {total > 1 && modo === "still" && (
+          <span className="flex items-center gap-2 rounded-full border border-white/10 bg-neutral-900/70 px-3 py-1.5 text-[12px] text-neutral-400 shadow-lg backdrop-blur-md">
+            <kbd className="rounded-[5px] border border-white/15 bg-white/10 px-1.5 py-0.5 text-[11px] leading-none font-medium text-neutral-200">
+              0
+            </kbd>
+            <span>para llevarte las {total} de una vez</span>
+          </span>
+        )}
       </div>
     </div>
   );

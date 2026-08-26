@@ -23,6 +23,10 @@ export const overlayBootstrap = (monitorId: number) =>
 export const captureStill = (region: Rect, action: StillAction) =>
   invoke<StillResult>("capture_still", { region, action });
 
+/** Todas las pantallas en una sola imagen, cada una en su sitio real. */
+export const captureAllScreens = (action: StillAction) =>
+  invoke<StillResult>("capture_all_screens", { action });
+
 /** Respaldo del fondo del overlay cuando el protocolo asset no responde. */
 export const freezeBytes = (monitorId: number) =>
   invoke<ArrayBuffer>("freeze_bytes", { monitorId });

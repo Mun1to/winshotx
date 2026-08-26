@@ -5,6 +5,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   cancelCapture,
+  captureAllScreens,
   captureStill,
   freezeBytes,
   overlayBootstrap,
@@ -307,6 +308,22 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     [payload, busy, toPhysical],
   );
 
+  const capturarTodasLasPantallas = useCallback(
+    async (action: StillAction) => {
+      if (busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await captureAllScreens(action);
+      } catch (e) {
+        setError(String(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy],
+  );
+
   const runStill = useCallback(
     async (action: StillAction) => {
       if (!selection) return;
@@ -415,6 +432,19 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         difundir({ mode: "gif" });
       } else if (key === "v") {
         difundir({ mode: "video" });
+      } else if (key === "0") {
+        // Todas las pantallas de golpe, en una sola imagen. El `0` va con los numeros de
+        // pantalla y significa "ninguna en concreto: todas".
+        //
+        // Esta no necesita ir por evento como las otras: no hay que decidir a que ventana
+        // le toca, porque Rust las junta todas leyendo las capturas congeladas. La que
+        // tiene el foco la pide y ya.
+        //
+        // Solo tiene sentido en foto: grabar es de una region de una pantalla, asi que en
+        // video o GIF esta tecla no hace nada en vez de hacer algo raro.
+        if (modoRef.current !== "still") return;
+        e.preventDefault();
+        void capturarTodasLasPantallas("copy");
       } else if (key >= "1" && key <= "9") {
         // El numero que se ve en cada pantalla es la tecla que se la lleva. La orden va
         // por evento porque la tecla solo llega a la pantalla que tiene el foco, y casi
@@ -425,7 +455,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [runStill, nudge, alVuelo, modo, capturarRegion, grabarRegion, difundir]);
+  }, [
+    runStill,
+    nudge,
+    alVuelo,
+    modo,
+    capturarRegion,
+    capturarTodasLasPantallas,
+    grabarRegion,
+    difundir,
+  ]);
 
   const readHex = useCallback(
     (cssX: number, cssY: number) => {

@@ -123,6 +123,7 @@ pub fn run() {
             commands::overlay_bootstrap,
             commands::freeze_bytes,
             commands::capture_still,
+            commands::capture_all_screens,
             commands::cancel_capture,
             commands::start_recording,
             commands::stop_recording,

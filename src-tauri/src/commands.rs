@@ -97,11 +97,39 @@ pub async fn freeze_bytes(
 
 #[tauri::command]
 pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Result<StillResult> {
-    let state = app.state::<AppState>();
     let image = {
+        let state = app.state::<AppState>();
         let freezes = state.freezes.read();
         capture::crop_from_freeze(&freezes, region)?
     };
+    entregar(&app, image, region, &action)
+}
+
+/// Se lleva las pantallas de golpe, todas en una imagen, cada una en su sitio real.
+///
+/// No pasa por `capture_still` porque ahi la region decide **de que pantalla** se recorta,
+/// y aqui no hay una pantalla: hay todas. La region que sale es el escritorio virtual
+/// entero, y es la que se guarda en la sesion si se abre el editor.
+#[tauri::command]
+pub async fn capture_all_screens(app: AppHandle, action: String) -> Result<StillResult> {
+    let (image, region) = {
+        let state = app.state::<AppState>();
+        let freezes = state.freezes.read();
+        capture::stitch_all(&freezes)?
+    };
+    entregar(&app, image, region, &action)
+}
+
+/// Que se hace con una imagen ya recortada: copiarla, guardarla o abrirla en el editor.
+/// Lo comparten la captura de una region y la de todas las pantallas, que solo se
+/// diferencian en como consiguen la imagen.
+fn entregar(
+    app: &AppHandle,
+    image: image::RgbaImage,
+    region: Rect,
+    action: &str,
+) -> Result<StillResult> {
+    let state = app.state::<AppState>();
     let (width, height) = (image.width(), image.height());
     let copy_after = state.settings.read().copy_after_capture;
 
@@ -112,7 +140,7 @@ pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Resu
         height,
     };
 
-    match action.as_str() {
+    match action {
         "copy" => {
             let bytes = png::to_bytes(&image)?;
             crate::platform::clipboard::copy_image(&image, &bytes)?;
@@ -133,15 +161,15 @@ pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Resu
             result.path = Some(path.to_string_lossy().to_string());
         }
         "edit" => {
-            let session = recorder::session_from_image(&app, &image, region)?;
-            windows_mgr::close_overlays(&app);
-            windows_mgr::open_editor(&app, &session.id)?;
+            let session = recorder::session_from_image(app, &image, region)?;
+            windows_mgr::close_overlays(app);
+            windows_mgr::open_editor(app, &session.id)?;
             return Ok(result);
         }
         other => return Err(AppError::Msg(format!("acción desconocida: {other}"))),
     }
 
-    windows_mgr::close_overlays(&app);
+    windows_mgr::close_overlays(app);
     Ok(result)
 }
 

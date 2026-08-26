@@ -37,7 +37,6 @@ pub enum OverlayIntent {
 /// remontaje de React que dispare su arranque solo, asi que se le avisa con
 /// `EVENT_OVERLAY_SHOW` para que recargue la captura nueva.
 pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
-    let arranque = std::time::Instant::now();
     let state = app.state::<AppState>();
     if state.is_recording() {
         return Ok(());
@@ -53,8 +52,6 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
 
     let freezes = capture::freeze_all(&state.freeze_dir())?;
     let monitors: Vec<_> = freezes.iter().map(|f| f.monitor.clone()).collect();
-    for m in &monitors {
-    }
     *state.freezes.write() = freezes;
 
     // Si algun monitor de la ultima vez ya no existe (se desconecto una pantalla), su
