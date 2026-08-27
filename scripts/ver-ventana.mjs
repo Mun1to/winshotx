@@ -217,13 +217,18 @@ const TOUR = tour !== null
   ? `<script>
 addEventListener("load", () => {
   setTimeout(() => {
-    for (const b of document.querySelectorAll("header button")) {
-      if (b.textContent.trim() === "La app") { b.click(); break; }
-    }
+    // Por posición, no por texto: los rótulos cambian con el idioma. "La app" es la
+    // cuarta sección, y dentro el botón del tour es el tercero de su bloque.
+    document.querySelectorAll("header nav button")[3]?.click();
     setTimeout(() => {
-      for (const b of document.querySelectorAll("button")) {
-        if (b.textContent.trim() === "Empezar") { b.click(); break; }
-      }
+      // Por el TÍTULO del bloque, no por su contenido: la carpeta de destino también
+      // dice "winshotx" y así se colaba el bloque de Archivos.
+      const bloque = [...document.querySelectorAll("section")].find(
+        (s) => s.querySelector("h2")?.textContent.trim() === "winshotx",
+      );
+      const botones = bloque ? [...bloque.querySelectorAll("button")] : [];
+      // Actualizaciones, Bienvenida, Tour: el tercero.
+      botones[2]?.click();
       let n = ${JSON.stringify(Number(tour))};
       const avanzar = () => {
         if (n-- <= 0) return;
