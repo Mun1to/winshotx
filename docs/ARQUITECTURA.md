@@ -158,10 +158,24 @@ Tres cosas salen gratis de esta decisión:
 
 ```
 src/components/editor/          se amplía lo que ya hay
-src-tauri/src/encode/jpg.rs     nuevo (H4)
+src-tauri/src/encode/jpg.rs     HECHO el 27-08-2026 (H4)
 src-tauri/src/encode/webp.rs    nuevo (H5)
 src-tauri/src/exporter.rs       carpeta por tipo (I6) + nombre con plantilla (H10)
 ```
+
+**Hecho el 27 de agosto de 2026, además de lo que decía este plano:**
+
+```
+src-tauri/src/encode/recorte.rs    el trozo que se exporta, de 0 a 1
+src/lib/recorte.ts                 las mismas cuentas en la interfaz
+src/components/editor/CapaRecorte.tsx
+src/lib/contener.ts                dónde cae la imagen dentro de su hueco
+```
+
+`contener.ts` no estaba previsto y salió de un fallo: las capas de dibujar iban estiradas al
+hueco entero mientras la imagen se contenía dentro dejando franjas, así que **todo lo dibujado
+cerca de un borde se guardaba desplazado**. Ahí se decidió que la caja se mide y no se negocia
+con el CSS.
 
 `exporter.rs` es el único sitio que decide **dónde** cae un archivo y **cómo** se llama. Hoy son
 dos líneas sueltas (`exporter.rs:95` y `commands.rs`, que guarda por su cuenta): **eso se unifica
@@ -249,6 +263,9 @@ Lo que cubre y por qué esas cuatro cosas y no otras:
 | `src/lib/i18n.test.ts` | La mecánica de `t()` y la salud del catálogo: claves huérfanas, traducciones que se dejaron la frase en español, marcadores perdidos al traducir. |
 | `src/components/**/*.test.tsx` | Que las pantallas salgan **enteras** en inglés. Es lo único que ve una frase escrita a pelo, sin pasar por `t()`. |
 | `src/lib/format.test.ts` | Los contadores que se pintan mientras se graba. |
+| `src/lib/contener.test.ts` | Dónde cae la imagen dentro de su hueco, que es lo que decide si lo dibujado encima acaba en su sitio dentro del archivo. |
+| `src/lib/recorte.test.ts` | Las cuentas del recorte: esquinas al revés, arrastres de nada y marcos que se salen. |
+| `src/components/editor/EditorApp.test.tsx` | Que las capas caigan **encima de la imagen** y que `Escape` no cierre el editor, que tira los fotogramas, mientras se está haciendo algo. |
 
 La regla que salió de montarlo: **una prueba que nunca se ha visto roja no ha probado nada.**
 Las dos de idioma se estrenaron rompiendo la traducción a mano y comprobando que mordían.
