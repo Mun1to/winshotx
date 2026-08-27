@@ -1,3 +1,4 @@
+pub mod archivos;
 pub mod capture;
 pub(crate) mod commands;
 pub mod encode;

@@ -156,11 +156,9 @@ fn entregar(
         }
         "save" => {
             let directory = PathBuf::from(state.settings.read().save_directory.clone());
-            std::fs::create_dir_all(&directory)?;
-            let path = directory.join(format!(
-                "winshotx-{}.png",
-                chrono::Local::now().format("%Y%m%d-%H%M%S")
-            ));
+            // El nombre lo pone `archivos`, que ademas comprueba que no exista ya: dos
+            // capturas guardadas dentro del mismo segundo dejaban una sola.
+            let path = crate::archivos::destino(&directory, "png")?;
             png::save(&image, &path, width, height)?;
             if copy_after {
                 let bytes = png::to_bytes(&image)?;
@@ -307,11 +305,7 @@ pub async fn copy_pinned(app: AppHandle, path: String) -> Result<()> {
 pub async fn save_pinned(app: AppHandle, path: String) -> Result<String> {
     let origen = ruta_de_anclada(&app, path)?;
     let directory = PathBuf::from(app.state::<AppState>().settings.read().save_directory.clone());
-    std::fs::create_dir_all(&directory)?;
-    let destino = directory.join(format!(
-        "winshotx-{}.png",
-        chrono::Local::now().format("%Y%m%d-%H%M%S")
-    ));
+    let destino = crate::archivos::destino(&directory, "png")?;
     std::fs::copy(&origen, &destino)?;
     Ok(destino.to_string_lossy().to_string())
 }

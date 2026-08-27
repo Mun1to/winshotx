@@ -106,11 +106,6 @@ fn resample(session: &SessionData, from: usize, to: usize, fps: u32) -> (Vec<usi
     (indices, delays)
 }
 
-fn timestamped_name(extension: &str) -> String {
-    let now = chrono::Local::now();
-    format!("winshotx-{}.{extension}", now.format("%Y%m%d-%H%M%S"))
-}
-
 fn destination_path(
     app: &AppHandle,
     request: &ExportRequest,
@@ -122,9 +117,9 @@ fn destination_path(
         .clone()
         .filter(|d| !d.trim().is_empty())
         .unwrap_or_else(|| state.settings.read().save_directory.clone());
-    let dir = PathBuf::from(dir);
-    std::fs::create_dir_all(&dir)?;
-    Ok(dir.join(timestamped_name(extension)))
+    // Quien decide donde cae un archivo y como se llama es `archivos`, y solo el: son
+    // tres sitios los que guardan y los tres tienen que nombrar igual y no pisar nada.
+    Ok(crate::archivos::destino(&PathBuf::from(dir), extension)?)
 }
 
 fn load_session(app: &AppHandle, id: &str) -> Result<SessionData> {
