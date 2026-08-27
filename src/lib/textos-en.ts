@@ -315,4 +315,9 @@ export const EN: Record<string, string> = {
   "Marcar los clics": "Mark the clicks",
   "un aro donde pulsas, para que se siga lo que haces":
     "a ring where you click, so people can follow what you do",
+
+  // Ensennar los atajos
+  "Enseñar los atajos": "Show the shortcuts",
+  "solo los que llevan Ctrl, Alt o Win: lo que escribes no sale":
+    "only the ones with Ctrl, Alt or Win: what you type never shows",
 };

@@ -25,6 +25,7 @@ const AJUSTES: Settings = {
   recordAudio: true,
   recordMicrophone: false,
   highlightClicks: false,
+  highlightKeys: false,
   fps: 30,
   playSound: true,
   showMagnifier: true,

@@ -461,6 +461,18 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                  <Row
+                    icon={<Keyboard className="size-4" />}
+                    label={t("Enseñar los atajos")}
+                    hint={t("solo los que llevan Ctrl, Alt o Win: lo que escribes no sale")}
+                    control={
+                      <Switch
+                        checked={settings.highlightKeys}
+                        onChange={(v) => patch({ highlightKeys: v })}
+                        label={t("Enseñar los atajos")}
+                      />
+                    }
+                  />
                 </Section>
                 <Section title={t("Al terminar")}>
                   <Row

@@ -360,6 +360,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           microphone: payload.settings.recordMicrophone && format === "video",
           // Los aros si valen igual en GIF: el fotograma es el mismo.
           highlightClicks: payload.settings.highlightClicks,
+          highlightKeys: payload.settings.highlightKeys,
         });
       } catch (e) {
         setError(String(e));

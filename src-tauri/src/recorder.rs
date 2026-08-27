@@ -29,6 +29,10 @@ pub struct RecordOptions {
     /// Marcar cada clic con un aro, para que se vea donde se esta pulsando.
     #[serde(default)]
     pub highlight_clicks: bool,
+    /// Ensennar los atajos que se pulsan, en una pastilla abajo. Solo atajos: una tecla
+    /// suelta no sale nunca, para que una contrasenna escrita no acabe dentro del video.
+    #[serde(default)]
+    pub highlight_keys: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -178,6 +182,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let writer_bytes = bytes_counter.clone();
     let writer_stop = stop.clone();
     let marcar_clics = options.highlight_clicks;
+    let marcar_teclas = options.highlight_keys;
     let writer = std::thread::spawn(move || -> Result<SessionData> {
         let mut session = session_seed;
         session.has_audio = audio.is_some();
@@ -197,6 +202,9 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // sistema: un enganche mal hecho le deja el escritorio a tirones a quien lo tenga.
         let mut vigilante = crate::record::raton::Vigilante::default();
         let mut clics: Vec<crate::record::realce::Clic> = Vec::new();
+        let mut teclado = crate::record::teclas::Vigilante::default();
+        let mut atajo: Option<crate::record::teclas::Atajo> = None;
+        let mut pastillas = crate::record::pastilla::Cache::default();
 
         let mut audio_file = audio.as_ref().and_then(|_| {
             std::fs::File::create(session.audio_path())
@@ -253,10 +261,24 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                     clics.push(clic);
                 }
                 crate::record::realce::olvidar_viejos(&mut clics, frame.ts_ms);
-                if !clics.is_empty() {
-                    if let Some(mut imagen) =
-                        image::RgbaImage::from_raw(width, height, rgba.clone())
-                    {
+            }
+            if marcar_teclas {
+                if let Some(nuevo) = teclado.mirar(frame.ts_ms) {
+                    atajo = Some(nuevo);
+                }
+            }
+
+            // Se monta la imagen UNA vez aunque haya que pintar las dos cosas: cada vuelta
+            // copia dos millones de pixeles y a treinta por segundo eso se nota.
+            let hay_teclas = atajo.as_ref().is_some_and(|a| {
+                crate::record::pastilla::opacidad(
+                    frame.ts_ms.saturating_sub(a.ms),
+                    crate::record::teclas::DURACION_MS,
+                ) > 0.0
+            });
+            if !clics.is_empty() || hay_teclas {
+                if let Some(mut imagen) = image::RgbaImage::from_raw(width, height, rgba.clone()) {
+                    if !clics.is_empty() {
                         crate::record::realce::pintar(
                             &mut imagen,
                             &clics,
@@ -264,8 +286,17 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                             region.y,
                             frame.ts_ms,
                         );
-                        rgba = imagen.into_raw();
                     }
+                    if let Some(a) = atajo.as_ref().filter(|_| hay_teclas) {
+                        let opaca = crate::record::pastilla::opacidad(
+                            frame.ts_ms.saturating_sub(a.ms),
+                            crate::record::teclas::DURACION_MS,
+                        );
+                        if let Some(dibujo) = pastillas.pastilla(&a.texto) {
+                            crate::record::pastilla::pegar(&mut imagen, dibujo, opaca);
+                        }
+                    }
+                    rgba = imagen.into_raw();
                 }
             }
 

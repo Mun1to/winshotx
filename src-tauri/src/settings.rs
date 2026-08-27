@@ -78,6 +78,9 @@ pub struct Settings {
     /// Marcar cada clic con un aro, para que una grabacion se entienda como tutorial.
     #[serde(default)]
     pub highlight_clicks: bool,
+    /// Ensennar los atajos que se pulsan. Solo atajos, nunca una tecla suelta.
+    #[serde(default)]
+    pub highlight_keys: bool,
     pub fps: u32,
     pub play_sound: bool,
     pub show_magnifier: bool,
@@ -129,6 +132,7 @@ impl Default for Settings {
             record_audio: false,
             record_microphone: false,
             highlight_clicks: false,
+            highlight_keys: false,
             fps: 30,
             play_sound: false,
             show_magnifier: true,

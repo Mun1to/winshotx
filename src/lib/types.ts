@@ -81,6 +81,8 @@ export interface RecordOptions {
   microphone: boolean;
   /** Marcar cada clic con un aro dentro del vídeo. */
   highlightClicks: boolean;
+  /** Enseñar los atajos que se pulsan. Solo atajos, nunca una tecla suelta. */
+  highlightKeys: boolean;
 }
 
 export interface SessionInfo {
@@ -170,6 +172,8 @@ export interface Settings {
   recordMicrophone: boolean;
   /** Marcar cada clic con un aro dentro del vídeo. */
   highlightClicks: boolean;
+  /** Enseñar los atajos que se pulsan. Solo atajos, nunca una tecla suelta. */
+  highlightKeys: boolean;
   fps: number;
   playSound: boolean;
   showMagnifier: boolean;
