@@ -239,3 +239,42 @@ muestras que ha recibido. Consecuencia practica: **un trozo de sonido que se pie
 no deja un hueco, desplaza todo lo que viene detras.** Por eso los buferes que Windows marca como
 `SILENT` (que llegan vacios a proposito) hay que rellenarlos de ceros a mano y enviarlos igual, en
 vez de saltarselos.
+
+## 12. Una foto de la pantalla no ve la mitad de lo que dice la aplicacion
+
+`scripts/ver-ventana.mjs` fotografia una pantalla entera y sirve para mirarla con los ojos, pero
+**lo que vive en un atributo no sale en la foto**. El 27 de agosto de 2026 la barra de captura
+llevaba semanas hablando espannol con la aplicacion en ingles y nadie lo habia visto: sus botones
+son solo iconos, asi que todo lo que dicen esta en `title` y en `aria-label`, y ninguno de los dos
+se dibuja hasta que alguien pasa el raton por encima.
+
+Lo mismo pasa con lo que solo aparece al pasar por encima. El banco ahora manda `pointerenter` y
+`pointerover` a cada antepasado del punto (el "entra" **no burbujea**, hay que mandarlo uno a uno),
+pero aun asi solo ve un estado por foto.
+
+**Lo que si lo caza:** una prueba que monta la pantalla en ingles y comprueba que no queda ni una
+frase espannola en `document.body.textContent` ni en los `aria-label`. Estan en
+`SettingsApp.test.tsx`, `ModeBar.test.tsx` y `FrameStrip.test.tsx`.
+
+Y la regla que salio de montarlas: **una prueba que nunca se ha visto roja no ha probado nada.**
+Las dos de idioma se estrenaron rompiendo la traduccion a mano, viendolas fallar, y devolviendo el
+codigo a su sitio.
+
+## 13. Un OCR no lee letras dibujadas a mano
+
+La primera prueba del lector de texto dibujaba «HI» con rectangulos negros gordos sobre blanco, que
+para una persona se lee sin dudar. `Windows.Media.Ocr` devolvio **cadena vacia**, y durante un rato
+parecio que el motor no funcionaba.
+
+No era el motor: un OCR esta entrenado con letras de verdad, con sus curvas y su grosor variable, y
+unas barras rectas no se le parecen a ninguna. La prueba buena **dibuja el texto con GDI usando la
+fuente del sistema** (`CreateFontW` + `TextOutW` sobre un `CreateDIBSection`), que ademas es lo mas
+parecido a la captura que va a leer de verdad. Con eso lee `"winshotx lee texto"` a la primera.
+
+Dos detalles de GDI que cuestan un rato: el `biHeight` del `BITMAPINFOHEADER` va **negativo** para
+que las filas salgan de arriba abajo, que es como las quiere `image`, y los pixeles del DIB vienen
+en **BGRA**, no en RGBA.
+
+Y una del crate `windows` 0.62: para esperar a una operacion de WinRT el metodo es **`.join()`**, no
+`.get()`. Es un metodo inherente de `IAsyncOperation`, asi que no hace falta importar ningun trait
+(el trait `Async` que sugiere el compilador es privado y no se puede importar).
