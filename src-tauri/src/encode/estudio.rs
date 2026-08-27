@@ -321,4 +321,154 @@ mod tests {
             "el aro cambia de tamanno con la camara: {sin_zoom} vs {con_zoom}"
         );
     }
+
+    /// Cuanto cuesta vestir un fotograma, que es lo que se paga en CADA uno al exportar.
+    ///
+    /// Munir, el 27 de agosto de 2026: «por que tarda tanto en guardar el video?». La
+    /// exportacion de un minuto son mil ochocientos fotogramas, asi que un milisegundo de
+    /// mas por fotograma son dos segundos de espera mirando una barra.
+    #[test]
+    #[ignore]
+    fn medir_lo_que_cuesta_vestir_un_fotograma() {
+        use std::time::Instant;
+
+        let fotogramas = 1800usize;
+        // Un rastro de raton de un minuto a 30 fps, que es lo que se anota al grabar.
+        let rastro: Vec<(u64, i32, i32)> = (0..fotogramas as u64)
+            .map(|i| (i * 33, 200 + (i % 400) as i32, 150 + (i % 300) as i32))
+            .collect();
+        let clics: Vec<Clic> = (0..30)
+            .map(|i| Clic {
+                ms: i * 2000,
+                x: 300,
+                y: 200,
+                derecho: false,
+            })
+            .collect();
+        let ajustes = Ajustes {
+            clics: true,
+            teclas: false,
+            cursor: 40.0,
+        };
+        let mut cache = pastilla::Cache::default();
+        let mut imagen = RgbaImage::from_pixel(1280, 800, image::Rgba([30, 30, 30, 255]));
+
+        let t = Instant::now();
+        for f in 0..fotogramas {
+            pintar(
+                &mut imagen,
+                f as u64 * 33,
+                &clics,
+                &[],
+                &rastro,
+                (1280, 800),
+                &[],
+                &ajustes,
+                &mut cache,
+            );
+        }
+        let vestir = t.elapsed();
+
+        // Y lo que cuesta preguntar donde mira la camara, que es lo otro que se hace en
+        // cada fotograma.
+        let za = super::super::zoom::Ajustes::default();
+        let zclics: Vec<super::super::zoom::Clic> = clics.clone();
+        let tramos = super::super::zoom::tramos(&zclics, &za);
+        let t = Instant::now();
+        for f in 0..fotogramas {
+            let _ = super::super::zoom::siguiendo(&tramos, &rastro, f as u64 * 33, 1280, 800, &za);
+        }
+        let camara = t.elapsed();
+
+        eprintln!(
+            "[estudio] {fotogramas} fotogramas: vestir {:?} ({:.3} ms/fotograma), camara {:?} ({:.3} ms/fotograma)",
+            vestir,
+            vestir.as_secs_f64() * 1000.0 / fotogramas as f64,
+            camara,
+            camara.as_secs_f64() * 1000.0 / fotogramas as f64,
+        );
+    }
+
+    /// Lo que cuesta ESCALAR un fotograma, que es lo que el zoom obliga a hacer.
+    ///
+    /// Sin zoom, un fotograma que ya mide lo que se pide no se escala: pasa tal cual. Con
+    /// zoom, cada fotograma se recorta a un trozo y hay que estirarlo al tamanno final, o
+    /// sea que aparece un escalado que antes no existia. Aqui se mide cuanto cuesta con
+    /// cada filtro, para elegir con datos y no a ojo.
+    #[test]
+    #[ignore]
+    fn medir_lo_que_cuesta_escalar_un_fotograma() {
+        use image::imageops::FilterType;
+        use std::time::Instant;
+
+        let trozo = RgbaImage::from_fn(640, 400, |x, y| {
+            image::Rgba([(x % 256) as u8, (y % 256) as u8, 90, 255])
+        });
+        for (nombre, filtro) in [
+            ("Lanczos3", FilterType::Lanczos3),
+            ("CatmullRom", FilterType::CatmullRom),
+            ("Triangle", FilterType::Triangle),
+            ("Nearest", FilterType::Nearest),
+        ] {
+            let t = Instant::now();
+            let veces = 20;
+            for _ in 0..veces {
+                let _ = image::imageops::resize(&trozo, 1280, 800, filtro);
+            }
+            let cada = t.elapsed().as_secs_f64() * 1000.0 / veces as f64;
+            eprintln!("[escalar] 640x400 -> 1280x800 con {nombre}: {cada:.1} ms por fotograma");
+        }
+    }
+
+    /// Lo que tarda de verdad una exportacion, con zoom y sin el.
+    ///
+    /// Las dos medidas de arriba miden piezas. Esta mide lo que espera el usuario mirando
+    /// la barra, que es lo unico que le importa.
+    #[test]
+    #[ignore]
+    fn medir_una_exportacion_entera() {
+        use image::imageops::FilterType;
+        use std::time::Instant;
+
+        let fotogramas = 300usize;
+        let fuente = RgbaImage::from_fn(1280, 800, |x, y| {
+            image::Rgba([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8, 255])
+        });
+
+        // Sin zoom: el fotograma ya mide lo que se pide, asi que no se escala.
+        let t = Instant::now();
+        for _ in 0..fotogramas {
+            let salida = fuente.clone();
+            std::hint::black_box(salida);
+        }
+        let sin = t.elapsed();
+
+        // Con zoom: cada fotograma se recorta a un trozo y se estira al tamanno final.
+        // Por el camino de verdad, que es el que usa el exportador.
+        let t = Instant::now();
+        for i in 0..fotogramas {
+            let x = (i % 200) as u32;
+            let trozo = image::imageops::crop_imm(&fuente, x, 0, 640, 400).to_image();
+            let salida = super::super::escalar::ampliar(&trozo, 1280, 800);
+            std::hint::black_box(salida);
+        }
+        let con = t.elapsed();
+
+        // Y lo que costaba antes, para que la diferencia quede escrita.
+        let t = Instant::now();
+        for i in 0..30 {
+            let x = (i % 200) as u32;
+            let trozo = image::imageops::crop_imm(&fuente, x, 0, 640, 400).to_image();
+            std::hint::black_box(image::imageops::resize(&trozo, 1280, 800, FilterType::Lanczos3));
+        }
+        let antes = t.elapsed().as_secs_f64() * 1000.0 / 30.0;
+        eprintln!("[exportar] con `image`, lo de antes: {antes:.0} ms/fotograma");
+
+        eprintln!(
+            "[exportar] {fotogramas} fotogramas de 1280x800: sin zoom {:?}, con zoom {:?} ({:.0} ms/fotograma)",
+            sin,
+            con,
+            con.as_secs_f64() * 1000.0 / fotogramas as f64
+        );
+    }
 }

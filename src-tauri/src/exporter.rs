@@ -4,7 +4,9 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::encode::{anotacion, estudio, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte, zoom};
+use crate::encode::{
+    anotacion, escalar, estudio, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte, zoom,
+};
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
 use crate::state::AppState;
@@ -486,9 +488,17 @@ fn enmarcar_y_anotar(
             usados.push(*r);
         }
     }
+    // Escalar es lo mas caro de exportar, y con el zoom pasa por aqui CADA fotograma: sin
+    // zoom la imagen ya mide lo que se pide y no se toca, con zoom hay que estirar el
+    // trozo. Con `image` eso costaba 60 ms por fotograma, o sea dos minutos por un video
+    // de un minuto; `escalar::ampliar` hace lo mismo en menos de cuatro.
     let mut escalada = if recortada.dimensions() == (ancho, alto) {
         recortada
+    } else if recortada.width() < ancho || recortada.height() < alto {
+        escalar::ampliar(&recortada, ancho, alto)
     } else {
+        // Reduciendo hay que promediar muchos pixeles en uno, y ahi Lanczos3 gana. Ademas
+        // reducir cuesta menos: la imagen de salida es mas pequenna que la de entrada.
         image::imageops::resize(
             &recortada,
             ancho,

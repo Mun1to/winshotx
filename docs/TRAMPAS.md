@@ -363,3 +363,41 @@ cualquier componente `..`**, no solo mirar el principio. `canonicalize` tambien 
 exige que el archivo ya exista, que aqui no siempre pasa.
 
 En `commands.rs`, con una prueba que se pone roja contra el codigo de antes.
+
+## 18. `image::imageops::resize` cuesta 60 ms por fotograma, y el filtro no tiene la culpa
+
+Munir, el 27 de agosto de 2026, probando el zoom en `tauri dev`: *«por que tarda tanto en
+guardar el video? se ha quedado pillado lo de saving»*.
+
+No estaba colgado: estaba escalando. **Sin zoom, un fotograma que ya mide lo que se pide no
+se escala, pasa tal cual.** Con zoom, cada fotograma se recorta a un trozo y hay que
+estirarlo al tamanno final, asi que aparece un escalado que antes no existia, en TODOS los
+fotogramas del tramo acercado.
+
+Medido sobre 640x400 → 1280x800:
+
+| | release | debug |
+|---|---:|---:|
+| `image` con Lanczos3 | 62 ms | 2.167 ms |
+| `image` con Triangle | 53 ms | 1.138 ms |
+| `image` con Nearest | 52 ms | 602 ms |
+| **`encode::escalar::ampliar`** | **3,8 ms** | **19 ms** |
+
+**La pista fue que `Nearest` costara lo mismo que `Lanczos3`.** Si el filtro mas tonto tarda
+igual que el mas fino, el tiempo no se va en filtrar: se va en el camino generico que
+recorre `image` para servir a cualquier tipo de pixel. Aqui solo hay un caso, RGBA de 8
+bits, y se puede ir derecho: tabla de pesos en punto fijo, un bucle plano y las filas
+repartidas con rayon.
+
+Y dos cosas mas que salieron de la misma medicion:
+
+1. **`opt-level = "s"`** compila el binario entero para ocupar poco, que es de lo que vive
+   este proyecto. Pero deja los bucles de pixeles sin vectorizar. Ahora `image` y el propio
+   `winshotx` se compilan con `opt-level = 3` y el resto sigue en `"s"`.
+2. **En debug el factor no es 20, es hasta 85.** Un video de un minuto con zoom habria
+   tardado cuarenta minutos en `tauri dev` y dos en la version instalada. Al probar
+   rendimiento, la version instalada; `dev` solo para ver si algo funciona.
+
+Bilineal y no Lanczos3 **a proposito**: Lanczos3 sirve para REDUCIR, donde hay que promediar
+muchos pixeles en uno. Ampliando, sus lobulos negativos dejan halos en los bordes con
+contraste. Reduciendo se sigue usando el de `image`.
