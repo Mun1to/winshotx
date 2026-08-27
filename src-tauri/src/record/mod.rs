@@ -110,6 +110,13 @@ pub struct SessionData {
     /// contrasenna no lleva Ctrl delante.
     #[serde(default)]
     pub teclas: Vec<teclas::Atajo>,
+    /// Donde estaba el raton en cada fotograma, en pixeles de la region grabada.
+    ///
+    /// Un par de enteros por fotograma: a 30 fps, un minuto son 14 KB. Con esto el cursor
+    /// se puede dibujar **al exportar**, del tamanno que se pida, en vez de venir cocido
+    /// del tamanno que tenga Windows puesto.
+    #[serde(default)]
+    pub cursor: Vec<(u64, i32, i32)>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -485,6 +492,7 @@ mod tests {
             audio: None,
             clics: Vec::new(),
             teclas: Vec::new(),
+            cursor: Vec::new(),
             frames,
         }
     }

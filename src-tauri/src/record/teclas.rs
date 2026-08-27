@@ -26,6 +26,15 @@ pub struct Atajo {
     pub texto: String,
     /// Cuándo se pulsó, desde que empezó la grabación.
     pub ms: u64,
+    /// Dónde estaba el ratón al pulsarlo, en coordenadas de la región grabada.
+    ///
+    /// Un atajo no tiene sitio propio, pero quien lo pulsa está mirando a algún lado, y ese
+    /// lado es donde está su ratón. De aquí sale el zoom al pulsar una tecla: sin esto, la
+    /// cámara no sabría a dónde acercarse.
+    #[serde(default)]
+    pub x: i32,
+    #[serde(default)]
+    pub y: i32,
 }
 
 /// Lo que se sabía del teclado la última vez.
@@ -56,9 +65,12 @@ impl Vigilante {
                 self.ultima = Some(codigo);
                 let mut partes = modificadores;
                 partes.push(nombre_de(codigo));
+                let (x, y) = super::raton::cursor().unwrap_or_default();
                 Some(Atajo {
                     texto: partes.join(" + "),
                     ms,
+                    x,
+                    y,
                 })
             }
         }

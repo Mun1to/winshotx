@@ -57,6 +57,15 @@ fn pulsado(tecla: i32) -> bool {
 }
 
 /// Donde esta el puntero, en coordenadas del escritorio virtual (pueden ser negativas).
+/// Donde esta el cursor ahora mismo, en coordenadas del escritorio virtual.
+///
+/// Se usa para dos cosas ademas de los clics: para saber a donde acercar la camara cuando
+/// se pulsa un atajo (un atajo no tiene sitio propio, pero el raton si), y para dibujar el
+/// cursor al exportar.
+pub fn cursor() -> Option<(i32, i32)> {
+    donde()
+}
+
 fn donde() -> Option<(i32, i32)> {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;

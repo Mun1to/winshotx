@@ -23,11 +23,16 @@ pub struct Ajustes {
     pub clics: bool,
     /// Una pastilla abajo con el atajo que se acaba de pulsar.
     pub teclas: bool,
+    /// El alto del puntero dibujado, en píxeles del fotograma final. Cero es no dibujarlo.
+    ///
+    /// Se dibuja aquí en vez de usar el que capturó Windows porque así **se puede hacer
+    /// grande sin pixelarlo**: no se amplía una imagen, se dibuja la forma a otra escala.
+    pub cursor: f32,
 }
 
 impl Ajustes {
     pub fn hay_algo(&self) -> bool {
-        self.clics || self.teclas
+        self.clics || self.teclas || self.cursor > 0.0
     }
 }
 
@@ -79,12 +84,23 @@ pub fn pintar(
     ms: u64,
     clics: &[Clic],
     atajos: &[Atajo],
+    rastro: &[(u64, i32, i32)],
     origen: (u32, u32),
     recortes: &[Recorte],
     ajustes: &Ajustes,
     pastillas: &mut pastilla::Cache,
 ) {
     let destino = (imagen.width(), imagen.height());
+
+    // El puntero va DEBAJO del aro: el aro se abre desde donde se pulsó, y tapar el
+    // cursor con él sería tapar justo lo que se está señalando.
+    if ajustes.cursor > 0.0 {
+        if let Some((_, x, y)) = donde_estaba(rastro, ms) {
+            if let Some((px, py)) = colocar(x, y, origen, recortes, destino) {
+                super::cursor::pintar(imagen, px, py, ajustes.cursor);
+            }
+        }
+    }
 
     if ajustes.clics {
         // Solo los que todavía se ven: el aro dura menos de medio segundo.
@@ -126,6 +142,19 @@ pub fn pintar(
 
 fn teclas_duracion() -> u64 {
     crate::record::teclas::DURACION_MS
+}
+
+/// Dónde estaba el ratón en ese instante, según el rastro anotado al grabar.
+///
+/// Se coge la última anotación que no sea posterior: el rastro lleva una por fotograma, así
+/// que la que toca es la del propio fotograma. Con una búsqueda binaria porque esto se
+/// pregunta una vez por cada fotograma exportado.
+pub fn donde_estaba(rastro: &[(u64, i32, i32)], ms: u64) -> Option<(u64, i32, i32)> {
+    match rastro.binary_search_by_key(&ms, |(t, _, _)| *t) {
+        Ok(i) => rastro.get(i).copied(),
+        Err(0) => None,
+        Err(i) => rastro.get(i - 1).copied(),
+    }
 }
 
 #[cfg(test)]
@@ -199,6 +228,7 @@ mod tests {
         let ajustes = Ajustes {
             clics: true,
             teclas: false,
+            cursor: 0.0,
         };
         let mut cache = pastilla::Cache::default();
         let mut tocado = |ms: u64| {
@@ -207,6 +237,7 @@ mod tests {
                 &mut imagen,
                 ms,
                 std::slice::from_ref(&clic),
+                &[],
                 &[],
                 (400, 300),
                 &entera(),
@@ -238,6 +269,7 @@ mod tests {
             1000,
             std::slice::from_ref(&clic),
             &[],
+            &[],
             (400, 300),
             &entera(),
             &Ajustes::default(),
@@ -259,6 +291,7 @@ mod tests {
         let ajustes = Ajustes {
             clics: true,
             teclas: false,
+            cursor: 0.0,
         };
         let mut cache = pastilla::Cache::default();
         let mut cuantos = |recortes: &[Recorte]| {
@@ -267,6 +300,7 @@ mod tests {
                 &mut imagen,
                 1000,
                 std::slice::from_ref(&clic),
+                &[],
                 &[],
                 (400, 300),
                 recortes,

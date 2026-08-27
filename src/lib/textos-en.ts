@@ -307,6 +307,12 @@ export const EN: Record<string, string> = {
   "Todo esto se dibuja al exportar, así que se puede cambiar sin volver a grabar.":
     "All of this is drawn when exporting, so it can be changed without recording again.",
 
+  // El puntero dibujado
+  "Puntero dibujado": "Drawn pointer",
+  // «el de Windows» ya está arriba, en el idioma: la clave es la frase, así que sirve.
+  "Es la flecha estándar, no la que tengas puesta. Graba sin cursor para no ver dos.":
+    "It is the standard arrow, not the one you have set. Record without the cursor to avoid seeing two.",
+
   // Recortar la imagen
   Recortar: "Crop",
   "Recortar la imagen (C)": "Crop the image (C)",

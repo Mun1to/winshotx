@@ -154,6 +154,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         audio: None,
         clics: Vec::new(),
         teclas: Vec::new(),
+        cursor: Vec::new(),
         frames: Vec::new(),
     };
 
@@ -212,6 +213,9 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // Los de arriba son los que todavia se estan dibujando y se olvidan enseguida.
         let mut anotados: Vec<crate::encode::zoom::Clic> = Vec::new();
         let mut atajos: Vec<crate::record::teclas::Atajo> = Vec::new();
+        // Donde esta el raton en cada fotograma. Cuesta una llamada al sistema, la misma
+        // que ya se hace para los clics, y permite dibujar el cursor al exportar.
+        let mut rastro: Vec<(u64, i32, i32)> = Vec::new();
         let mut teclado = crate::record::teclas::Vigilante::default();
         let mut atajo: Option<crate::record::teclas::Atajo> = None;
         let mut pastillas = crate::record::pastilla::Cache::default();
@@ -269,6 +273,9 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             // Los clics se anotan SIEMPRE, aunque no se hayan pedido los aros: de ahi
             // sale el zoom, y el zoom se decide al exportar. Quien graba no tiene que
             // adivinar antes de empezar si despues va a querer que la camara se acerque.
+            if let Some((cx, cy)) = crate::record::raton::cursor() {
+                rastro.push((frame.ts_ms, cx - region.x, cy - region.y));
+            }
             if let Some(clic) = vigilante.mirar(frame.ts_ms) {
                 anotados.push(crate::encode::zoom::Clic {
                     ms: clic.ms,
@@ -285,7 +292,13 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             }
             // Las teclas tambien se anotan siempre: la pastilla se dibuja al exportar.
             if let Some(nuevo) = teclado.mirar(frame.ts_ms) {
-                atajos.push(nuevo.clone());
+                // El raton viene en coordenadas del escritorio; se guarda en las de la
+                // region, como los clics, para que el zoom no tenga que saber de monitores.
+                atajos.push(crate::record::teclas::Atajo {
+                    x: nuevo.x - region.x,
+                    y: nuevo.y - region.y,
+                    ..nuevo.clone()
+                });
                 if marcar_teclas {
                     atajo = Some(nuevo);
                 }
@@ -369,6 +382,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         session.frames = cache.finish(last_ts, session.fps)?;
         session.clics = anotados;
         session.teclas = atajos;
+        session.cursor = rastro;
         record::generate_thumbnails(&mut session)?;
         session.persist()?;
         Ok(session)
@@ -625,6 +639,7 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         // Una captura fija no tiene clics que anotar: no hay tiempo dentro.
         clics: Vec::new(),
         teclas: Vec::new(),
+        cursor: Vec::new(),
         width: image.width(),
         height: image.height(),
         mp4_path: None,

@@ -1,4 +1,5 @@
 pub mod anotacion;
+pub mod cursor;
 pub mod estudio;
 pub mod ffmpeg;
 pub mod gif;

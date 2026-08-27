@@ -41,6 +41,11 @@ pub struct Ajustes {
     pub transicion_ms: u64,
     /// Lo que se queda quieto después del último clic del grupo.
     pub quieto_ms: u64,
+    /// Cuánto pasado del ratón se promedia para seguirlo.
+    ///
+    /// Más alto es más suave y más retrasado; más bajo, más pegado y más nervioso. Medio
+    /// segundo deja la cámara acompañando sin dar tirones.
+    pub seguir_ms: u64,
 }
 
 impl Default for Ajustes {
@@ -49,6 +54,7 @@ impl Default for Ajustes {
             escala: 1.8,
             transicion_ms: 450,
             quieto_ms: 1200,
+            seguir_ms: 500,
         }
     }
 }
@@ -157,7 +163,50 @@ fn suave(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-/// Dónde mira la cámara en ese milisegundo.
+/// Dónde mira la cámara en ese milisegundo, **siguiendo al ratón**.
+///
+/// Con la cámara acercada, quedarse clavada en el punto del clic deja al ratón saliéndose
+/// del cuadro en cuanto se mueve un poco. Siguiéndolo, la vista acompaña a lo que se está
+/// haciendo, que es lo que hace que se entienda.
+///
+/// **La cámara va por detrás.** El centro no salta a donde está el ratón, se acerca a él un
+/// poco en cada fotograma: así un movimiento nervioso no zarandea la imagen, y un
+/// movimiento largo se sigue igual. Sin ese retraso, el vídeo marea.
+pub fn siguiendo(
+    tramos: &[Tramo],
+    rastro: &[(u64, i32, i32)],
+    ms: u64,
+    ancho: u32,
+    alto: u32,
+    ajustes: &Ajustes,
+) -> Camara {
+    let base = camara(tramos, ms, ancho, alto, ajustes);
+    if base.escala <= 1.001 || rastro.is_empty() {
+        return base;
+    }
+    // El ratón, suavizado: la media de donde ha estado en el último tramo de tiempo, con
+    // más peso en lo reciente. Es lo que convierte un temblor en un movimiento.
+    let desde = ms.saturating_sub(ajustes.seguir_ms);
+    let (mut sx, mut sy, mut peso_total) = (0.0f32, 0.0f32, 0.0f32);
+    for (t, x, y) in rastro.iter().filter(|(t, _, _)| *t >= desde && *t <= ms) {
+        // De 0 en el punto más antiguo a 1 en el más reciente.
+        let cercania = (*t - desde) as f32 / ajustes.seguir_ms.max(1) as f32;
+        let peso = 0.15 + cercania * cercania;
+        sx += *x as f32 * peso;
+        sy += *y as f32 * peso;
+        peso_total += peso;
+    }
+    if peso_total <= 0.0 {
+        return base;
+    }
+    Camara {
+        x: (sx / peso_total).round() as i32,
+        y: (sy / peso_total).round() as i32,
+        escala: base.escala,
+    }
+}
+
+/// Dónde mira la cámara en ese milisegundo, sin mirar el ratón.
 pub fn camara(tramos: &[Tramo], ms: u64, ancho: u32, alto: u32, ajustes: &Ajustes) -> Camara {
     let entera = Camara::entera(ancho, alto);
     let Some(tramo) = tramos
@@ -208,6 +257,7 @@ mod tests {
             escala: 2.0,
             transicion_ms: 400,
             quieto_ms: 1000,
+            seguir_ms: 500,
         }
     }
 
@@ -381,5 +431,100 @@ mod tests {
         let ultimo = 1000 + 9 * 500;
         assert_eq!(t[0].hasta_ms, ultimo + a.quieto_ms + a.transicion_ms);
         assert_eq!(camara(&t, t[0].hasta_ms + 1, 1920, 1080, &a).escala, 1.0);
+    }
+
+    /// Un rastro de raton: una anotacion cada 33 ms, como al grabar a 30 fps.
+    fn rastro(puntos: &[(u64, i32, i32)]) -> Vec<(u64, i32, i32)> {
+        puntos.to_vec()
+    }
+
+    #[test]
+    fn sin_zoom_el_raton_no_mueve_la_camara() {
+        // Con la imagen entera no hay a donde seguir a nadie: se ve todo.
+        let a = ajustes();
+        let t = tramos(&[clic(2000, 100, 100)], &a);
+        let r = rastro(&[(5000, 1800, 1000)]);
+        assert_eq!(siguiendo(&t, &r, 5000, 1920, 1080, &a).escala, 1.0);
+    }
+
+    #[test]
+    fn con_zoom_la_camara_se_va_hacia_donde_esta_el_raton() {
+        // Quedarse clavada en el clic deja al raton fuera de cuadro en cuanto se mueve.
+        let a = ajustes();
+        let t = tramos(&[clic(1000, 200, 200)], &a);
+        let r = rastro(&[
+            (1000, 200, 200),
+            (1200, 400, 300),
+            (1400, 600, 400),
+            (1500, 700, 450),
+        ]);
+        let c = siguiendo(&t, &r, 1500, 1920, 1080, &a);
+        assert!(c.escala > 1.5, "tendria que seguir acercada");
+        assert!(c.x > 300, "no ha seguido al raton: x = {}", c.x);
+        assert!(c.y > 250, "no ha seguido al raton: y = {}", c.y);
+    }
+
+    #[test]
+    fn pero_va_por_detras_y_no_pegada() {
+        // Si saltara al punto exacto, un movimiento nervioso zarandearia la imagen.
+        let a = ajustes();
+        let t = tramos(&[clic(1000, 200, 200)], &a);
+        let r = rastro(&[
+            (1000, 200, 200),
+            (1100, 300, 200),
+            (1200, 400, 200),
+            (1300, 500, 200),
+            (1400, 900, 200),
+        ]);
+        let c = siguiendo(&t, &r, 1400, 1920, 1080, &a);
+        assert!(
+            c.x < 900,
+            "la camara ha saltado encima del raton en vez de ir detras: {}",
+            c.x
+        );
+        assert!(c.x > 300, "se ha quedado demasiado atras: {}", c.x);
+    }
+
+    #[test]
+    fn un_temblor_no_zarandea_la_imagen() {
+        // El raton va y viene alrededor de un punto: la camara tiene que quedarse quieta.
+        let a = ajustes();
+        let t = tramos(&[clic(1000, 500, 400)], &a);
+        let mut puntos = Vec::new();
+        for i in 0..20u64 {
+            let vaiven = if i % 2 == 0 { 12 } else { -12 };
+            puntos.push((1000 + i * 25, 500 + vaiven, 400 - vaiven));
+        }
+        let r = rastro(&puntos);
+        let uno = siguiendo(&t, &r, 1400, 1920, 1080, &a);
+        let otro = siguiendo(&t, &r, 1425, 1920, 1080, &a);
+        assert!(
+            (uno.x - otro.x).abs() <= 4,
+            "la camara tiembla con el raton: {} y {}",
+            uno.x,
+            otro.x
+        );
+    }
+
+    #[test]
+    fn sin_rastro_se_queda_en_el_punto_del_clic() {
+        // Las grabaciones de antes de esta version no tienen rastro anotado, y tienen que
+        // seguir exportandose: se acercan al clic y ya, como hacian.
+        let a = ajustes();
+        let t = tramos(&[clic(1000, 200, 200)], &a);
+        let c = siguiendo(&t, &[], 1000, 1920, 1080, &a);
+        assert_eq!((c.x, c.y), (200, 200));
+    }
+
+    #[test]
+    fn el_rastro_de_otro_momento_no_cuenta() {
+        // Solo se promedia el pasado reciente. Con todo el rastro, la camara se iria a la
+        // media de la grabacion entera, que es el centro de la pantalla.
+        let a = ajustes();
+        let t = tramos(&[clic(9000, 1500, 800)], &a);
+        let mut puntos = vec![(100, 50, 50), (200, 60, 60), (300, 70, 70)];
+        puntos.push((9000, 1500, 800));
+        let c = siguiendo(&t, &rastro(&puntos), 9000, 1920, 1080, &a);
+        assert!(c.x > 1200, "se ha ido al pasado antiguo: {}", c.x);
     }
 }

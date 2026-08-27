@@ -98,6 +98,14 @@ export function ExportPanel({
    */
   const [aros, setAros] = useState(false);
   const [teclas, setTeclas] = useState(false);
+  /**
+   * El alto del puntero dibujado, en píxeles. Cero es no dibujarlo.
+   *
+   * Se dibuja aquí en vez de usar el que capturó Windows, y por eso se puede hacer grande
+   * sin pixelarlo. **No es el puntero que tengas puesto**: es la flecha estándar, así que
+   * quien use uno personalizado verá otro en el vídeo. Por eso no se enciende solo.
+   */
+  const [cursor, setCursor] = useState(0);
   /** Aire alrededor de la captura. Cero significa sin marco, que es lo de siempre. */
   const [margen, setMargen] = useState(0);
   const [fondo, setFondo] = useState<Background>("blanco");
@@ -187,6 +195,7 @@ export function ExportPanel({
         // el tiempo.
         clicks: !esUnaFoto(format) && aros,
         keys: !esUnaFoto(format) && teclas,
+        cursor: esUnaFoto(format) ? 0 : cursor,
         loop,
         margin: margen,
         background: fondo,
@@ -322,6 +331,20 @@ export function ExportPanel({
             value={zoom}
             onChange={setZoom}
           />
+          <Slider
+            label={t("Puntero dibujado")}
+            hint={cursor === 0 ? t("el de Windows") : `${cursor} px`}
+            min={0}
+            max={80}
+            step={4}
+            value={cursor}
+            onChange={setCursor}
+          />
+          {cursor > 0 && (
+            <p className="text-[11px] leading-snug text-neutral-500">
+              {t("Es la flecha estándar, no la que tengas puesta. Graba sin cursor para no ver dos.")}
+            </p>
+          )}
           <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
           <Toggle
             checked={teclas}

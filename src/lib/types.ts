@@ -147,6 +147,8 @@ export interface ExportRequest {
   clicks: boolean;
   /** La pastilla de abajo con el atajo que se acaba de pulsar. */
   keys: boolean;
+  /** Alto del puntero dibujado, en píxeles. 0 deja el que capturó Windows. */
+  cursor: number;
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;

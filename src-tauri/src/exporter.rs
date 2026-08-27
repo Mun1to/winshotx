@@ -56,6 +56,9 @@ pub struct ExportRequest {
     /// La pastilla de abajo con el atajo que se acaba de pulsar.
     #[serde(default)]
     pub keys: bool,
+    /// El alto del puntero dibujado, en pixeles del fotograma. Cero es no dibujarlo.
+    #[serde(default)]
+    pub cursor: f32,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -325,6 +328,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
 struct Estudio<'a> {
     clics: &'a [zoom::Clic],
     teclas: &'a [crate::record::teclas::Atajo],
+    rastro: &'a [(u64, i32, i32)],
     origen: (u32, u32),
     ajustes: estudio::Ajustes,
     ms: u64,
@@ -338,6 +342,7 @@ impl Estudio<'_> {
             self.ms,
             self.clics,
             self.teclas,
+            self.rastro,
             self.origen,
             recortes,
             &self.ajustes,
@@ -350,6 +355,7 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
     let ajustes = estudio::Ajustes {
         clics: request.clicks,
         teclas: request.keys,
+        cursor: request.cursor,
     };
     if !ajustes.hay_algo() {
         return None;
@@ -357,6 +363,7 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
     Some(Estudio {
         clics: &session.clics,
         teclas: &session.teclas,
+        rastro: &session.cursor,
         origen: (session.width.max(1), session.height.max(1)),
         ajustes,
         ms: 0,
@@ -371,6 +378,9 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
 /// veces para obtener siempre lo mismo.
 struct Camara {
     tramos: Vec<zoom::Tramo>,
+    /// Donde estuvo el raton, ya trasladado al trozo que se exporta. La camara lo sigue
+    /// mientras esta acercada, en vez de quedarse clavada en el punto del clic.
+    rastro: Vec<(u64, i32, i32)>,
     ajustes: zoom::Ajustes,
     /// El tamanno sobre el que se mide, que es el de la imagen YA recortada por el usuario.
     ancho: u32,
@@ -380,7 +390,7 @@ struct Camara {
 impl Camara {
     fn preparar(session: &SessionData, request: &ExportRequest) -> Option<Self> {
         // Menos de 1,05 no se ve y solo cuesta trabajo: es apagado, dicho con un numero.
-        if request.zoom < 1.05 || session.clics.is_empty() {
+        if request.zoom < 1.05 || (session.clics.is_empty() && session.teclas.is_empty()) {
             return None;
         }
         let (ancho, alto) = (session.width.max(1), session.height.max(1));
@@ -394,8 +404,23 @@ impl Camara {
             }
             None => (0, 0, ancho, alto),
         };
-        let clics: Vec<zoom::Clic> = session
+        // La camara se acerca a los clics **y a los atajos**: quien pulsa Ctrl+C esta
+        // mirando a algun lado, y ese lado es donde tiene el raton. Un atajo sin sitio
+        // propio dejaria la mitad de un tutorial sin acercarse a nada.
+        let mut puntos: Vec<zoom::Clic> = session
             .clics
+            .iter()
+            .copied()
+            .chain(session.teclas.iter().map(|a| zoom::Clic {
+                ms: a.ms,
+                x: a.x,
+                y: a.y,
+                derecho: false,
+            }))
+            .collect();
+        // Van mezclados en el tiempo, y agrupar en tramos exige que vengan en orden.
+        puntos.sort_by_key(|c| c.ms);
+        let clics: Vec<zoom::Clic> = puntos
             .iter()
             .map(|c| zoom::Clic {
                 ms: c.ms,
@@ -412,8 +437,14 @@ impl Camara {
             escala: request.zoom.min(4.0),
             ..zoom::Ajustes::default()
         };
+        let rastro = session
+            .cursor
+            .iter()
+            .map(|(t, x, y)| (*t, x - dx, y - dy))
+            .collect();
         Some(Self {
             tramos: zoom::tramos(&clics, &ajustes),
+            rastro,
             ajustes,
             ancho,
             alto,
@@ -429,7 +460,7 @@ trait EnElInstante {
 impl EnElInstante for Option<Camara> {
     fn en(&self, ms: u64) -> Option<Recorte> {
         let c = self.as_ref()?;
-        let mirando = zoom::camara(&c.tramos, ms, c.ancho, c.alto, &c.ajustes);
+        let mirando = zoom::siguiendo(&c.tramos, &c.rastro, ms, c.ancho, c.alto, &c.ajustes);
         (mirando.escala > 1.001).then(|| mirando.como_recorte(c.ancho, c.alto))
     }
 }
@@ -643,6 +674,7 @@ mod tests {
             audio: None,
             clics: Vec::new(),
             teclas: Vec::new(),
+            cursor: Vec::new(),
             frames,
         }
     }
@@ -895,6 +927,7 @@ mod la_camara_del_exportador {
             audio: None,
             clics,
             teclas: Vec::new(),
+            cursor: Vec::new(),
             frames: Vec::new(),
         }
     }
@@ -920,6 +953,7 @@ mod la_camara_del_exportador {
             zoom,
             clicks: false,
             keys: false,
+            cursor: 0.0,
             destination: None,
             copy_to_clipboard: false,
         }
@@ -1003,6 +1037,51 @@ mod la_camara_del_exportador {
         };
         let camara = Camara::preparar(&sesion, &peticion(2.0, Some(mitad_izquierda)));
         assert!(camara.en(1000).is_none());
+    }
+
+    fn sesion_con_teclas(teclas: Vec<crate::record::teclas::Atajo>) -> SessionData {
+        let mut s = sesion_con_clics(vec![]);
+        s.teclas = teclas;
+        s
+    }
+
+    fn atajo(ms: u64, x: i32, y: i32) -> crate::record::teclas::Atajo {
+        crate::record::teclas::Atajo {
+            texto: "Ctrl + C".into(),
+            ms,
+            x,
+            y,
+        }
+    }
+
+    #[test]
+    fn la_camara_tambien_se_acerca_a_los_atajos() {
+        // Un atajo no tiene sitio propio, pero quien lo pulsa esta mirando a algun lado, y
+        // ese lado es donde tiene el raton. Sin esto, media grabacion de un tutorial (la
+        // que se hace a teclazos) no se acercaria a nada.
+        let sesion = sesion_con_teclas(vec![atajo(1000, 100, 100)]);
+        let camara = Camara::preparar(&sesion, &peticion(2.0, None));
+        let r = camara.en(1000).expect("tendria que estar acercada al atajo");
+        let (x, y, w, h) = r.en_pixeles(400, 300);
+        assert_eq!((x + w / 2, y + h / 2), (100, 100));
+    }
+
+    #[test]
+    fn los_clics_y_los_atajos_se_ordenan_juntos_en_el_tiempo() {
+        // Vienen en dos listas y se agrupan en tramos, y agrupar exige orden. Sin ordenar,
+        // un atajo anterior a un clic abriria un tramo hacia atras y la camara saltaria.
+        let mut sesion = sesion_con_clics(vec![zoom::Clic {
+            ms: 5000,
+            x: 300,
+            y: 200,
+            derecho: false,
+        }]);
+        sesion.teclas = vec![atajo(1000, 100, 100)];
+        let camara = Camara::preparar(&sesion, &peticion(2.0, None));
+        let primero = camara.en(1000).unwrap().en_pixeles(400, 300);
+        let segundo = camara.en(5000).unwrap().en_pixeles(400, 300);
+        assert_eq!((primero.0 + primero.2 / 2, primero.1 + primero.3 / 2), (100, 100));
+        assert_eq!((segundo.0 + segundo.2 / 2, segundo.1 + segundo.3 / 2), (300, 200));
     }
 
     #[test]
