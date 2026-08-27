@@ -44,14 +44,15 @@ export function PreviewCanvas({
     else video.pause();
   }, [playing]);
 
+  // La caja de fuera ya tiene la proporcion de la captura, asi que la imagen y el video
+  // la llenan entera. El `object-contain` se queda por si acaso: si algun dia la
+  // proporcion no cuadrara, es preferible una franja a una imagen deformada.
   if (!videoUrl) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        {posterUrl ? (
-          <img src={posterUrl} alt="" className="max-h-full max-w-full object-contain" />
-        ) : (
-          <span className="text-xs text-neutral-500">{t("Sin vista previa")}</span>
-        )}
+    return posterUrl ? (
+      <img src={posterUrl} alt="" className="size-full object-contain" />
+    ) : (
+      <div className="flex size-full items-center justify-center">
+        <span className="text-xs text-neutral-500">{t("Sin vista previa")}</span>
       </div>
     );
   }
@@ -65,7 +66,7 @@ export function PreviewCanvas({
       // parecía que el sonido no se había grabado.
       muted={!conSonido}
       playsInline
-      className="max-h-full max-w-full object-contain"
+      className="size-full object-contain"
       onTimeUpdate={(e) => {
         const ms = e.currentTarget.currentTime * 1000;
         // El recorte manda: al llegar a la marca B se vuelve a la A.

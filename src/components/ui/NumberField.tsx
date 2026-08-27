@@ -23,6 +23,9 @@ export function NumberField({
       <span className="flex items-center rounded-lg border border-linea-fuerte bg-hueco focus-within:border-blue-500/60">
         <input
           type="number"
+          // La etiqueta esta al lado, dentro del mismo `label`, pero el lector de pantalla
+          // llega antes al campo que al texto: sin esto anuncia «campo numerico» a secas.
+          aria-label={label}
           value={Math.round(value)}
           min={min}
           max={max}
