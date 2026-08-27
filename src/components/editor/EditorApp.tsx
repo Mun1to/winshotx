@@ -33,7 +33,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     if (!sessionId) {
-      setError("Falta el identificador de sesión");
+      setError(t("Falta el identificador de sesión"));
       return;
     }
     Promise.all([

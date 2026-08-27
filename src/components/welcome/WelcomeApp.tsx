@@ -242,9 +242,10 @@ function Sugerencias({
   valor: string;
   onElegir: (valor: string) => void;
 }) {
+  const t = useT();
   return (
     <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] text-fantasma">o prueba</span>
+      <span className="text-[11px] text-fantasma">{t("o prueba")}</span>
       {opciones.map((opcion) => {
         const puesta = opcion === valor;
         return (
@@ -268,9 +269,10 @@ function Sugerencias({
 }
 
 function Ocupado({ visible }: { visible: boolean }) {
+  const t = useT();
   return (
     <span aria-live="polite" className="mt-2 block min-h-[15px] text-[11px] text-amber-300">
-      {visible ? "Esta la tiene otra aplicación. Prueba con otra." : ""}
+      {visible ? t("Esta la tiene otra aplicación. Prueba con otra.") : ""}
     </span>
   );
 }
@@ -473,7 +475,7 @@ function TeclaImprPant({
           }`}
         >
           <span className="flex items-center gap-2">
-            <Tecla>Impr Pant</Tecla>
+            <Tecla>{t("Impr Pant")}</Tecla>
             <span aria-hidden="true" className="text-fantasma">
               →
             </span>
@@ -497,7 +499,7 @@ function TeclaImprPant({
         >
           <span className="flex items-center gap-2">
             <Scissors className="size-4 text-tenue" />
-            <span className="text-[13px] font-semibold text-titulo">Dejarla como está</span>
+            <span className="text-[13px] font-semibold text-titulo">{t("Dejarla como está")}</span>
           </span>
           <span className="mt-2 block text-[12px] text-apagado">
             {t("La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.")}
@@ -560,19 +562,19 @@ function Final({
 
       <div className="mt-5 divide-y divide-linea-tenue overflow-hidden rounded-xl border border-linea bg-tarjeta">
         <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-[13px] text-suave">Capturar una región</span>
+          <span className="text-[13px] text-suave">{t("Capturar una región")}</span>
           <span className="flex items-center gap-2">
             <Atajo valor={ajustes.captureShortcut} />
             {imprPant?.enabled && imprPant.active && (
               <>
                 <span className="text-[10px] text-fantasma">o</span>
-                <Tecla>Impr Pant</Tecla>
+                <Tecla>{t("Impr Pant")}</Tecla>
               </>
             )}
           </span>
         </div>
         <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-[13px] text-suave">Al soltar el ratón</span>
+          <span className="text-[13px] text-suave">{t("Al soltar el ratón")}</span>
           <span className="text-[12px] text-apagado">
             {ajustes.captureFlow === "instant"
               ? t("se copia al portapapeles")
@@ -583,7 +585,7 @@ function Final({
           <span className="flex items-center gap-2.5">
             <Power className="size-4 text-tenue" />
             <span>
-              <span className="block text-[13px] text-suave">Arrancar con Windows</span>
+              <span className="block text-[13px] text-suave">{t("Arrancar con Windows")}</span>
               <span className="block text-[11px] text-tenue">
                 {t("se abre en la bandeja, sin ventana")}
               </span>

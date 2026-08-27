@@ -240,7 +240,7 @@ export function ExportPanel({
       >
         <FolderOpen className="size-4 shrink-0 text-neutral-400" />
         <span className="truncate text-[11px] text-neutral-400" title={directory}>
-          {directory || "Elegir carpeta…"}
+          {directory || t("Elegir carpeta…")}
         </span>
       </button>
 
@@ -252,7 +252,7 @@ export function ExportPanel({
             ) : (
               <Zap className="size-3.5 text-amber-400" />
             )}
-            {useFfmpeg && hasFfmpeg ? "FFmpeg" : "Nativo"}
+            {useFfmpeg && hasFfmpeg ? "FFmpeg" : t("Nativo")}
           </span>
           <span className="tabular-nums">≈ {formatBytes(estimate)}</span>
         </div>
@@ -276,7 +276,7 @@ export function ExportPanel({
             title={t("Exportar a la carpeta elegida (Ctrl+S)")}
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-blue-400 disabled:opacity-50"
           >
-            <Save className="size-4" /> Guardar
+            <Save className="size-4" /> {t("Guardar")}
           </button>
           <button
             type="button"

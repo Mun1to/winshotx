@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { clamp, formatTimecode, plural } from "../../lib/format";
+import { clamp, formatTimecode } from "../../lib/format";
 import type { FrameMeta } from "../../lib/types";
 import { useT } from "../../lib/i18n";
 
@@ -28,6 +28,7 @@ export function FrameStrip({
   onChangeOut,
   onScrub,
 }: Props) {
+  const t = useT();
   const trackRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag>(null);
 
@@ -90,12 +91,18 @@ export function FrameStrip({
     <section className="shrink-0 border-t border-white/8 bg-black/25 px-3 pt-2 pb-3">
       <div className="mb-1.5 flex items-center justify-between text-[11px] tabular-nums text-neutral-500">
         <span>
-          Fotograma {currentIndex + 1} de {frames.length} ·{" "}
-          {formatTimecode(frames[currentIndex]?.timestampMs ?? 0)}
+          {t("Fotograma {actual} de {total}", {
+            actual: currentIndex + 1,
+            total: frames.length,
+          })}{" "}
+          · {formatTimecode(frames[currentIndex]?.timestampMs ?? 0)}
         </span>
         <span>
-          Recorte {inIndex + 1} a {outIndex + 1} · {plural(kept.length, "fotograma")} ·{" "}
-          {formatTimecode(keptMs)}
+          {t("Recorte {desde} a {hasta}", { desde: inIndex + 1, hasta: outIndex + 1 })} ·{" "}
+          {kept.length === 1
+            ? t("{n} fotograma", { n: kept.length })
+            : t("{n} fotogramas", { n: kept.length })}{" "}
+          · {formatTimecode(keptMs)}
         </span>
       </div>
 

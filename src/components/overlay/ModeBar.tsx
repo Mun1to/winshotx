@@ -141,12 +141,13 @@ function Boton({
   titulo: string;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <button
       type="button"
       onClick={onClick}
-      title={titulo}
-      aria-label={etiqueta}
+      title={t(titulo)}
+      aria-label={t(etiqueta)}
       aria-pressed={activo}
       className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
         activo

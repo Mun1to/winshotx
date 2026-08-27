@@ -22,8 +22,3 @@ export function formatBytes(bytes: number): string {
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
-
-/** "1 fotograma" y "8 fotogramas": el plural del castellano, para no cantar. */
-export function plural(cantidad: number, singular: string, terminacion = "s"): string {
-  return `${cantidad} ${singular}${cantidad === 1 ? "" : terminacion}`;
-}

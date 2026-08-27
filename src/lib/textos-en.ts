@@ -122,7 +122,6 @@ export const EN: Record<string, string> = {
   "seis paradas, una por sección": "six stops, one per section",
   Empezar: "Start",
   "Arrancar con Windows": "Start with Windows",
-  "Salir de winshotx": "Quit winshotx",
 
   // El campo de los atajos
   "Clic para cambiar el atajo": "Click to change the shortcut",
@@ -264,4 +263,28 @@ export const EN: Record<string, string> = {
   "el fotograma actual": "the frame you are on",
   "calidad máxima, más lento": "top quality, slower",
   "esta grabación se hizo sin audio": "this recording was made without sound",
+
+  // Los tres modos de la barra de captura, y el boton de pantalla entera
+  Foto: "Photo",
+  "Foto del recorte · F": "Photo of the crop · F",
+  Vídeo: "Video",
+  "Grabar el recorte en MP4 · V": "Record the crop to MP4 · V",
+  "Grabar el recorte en GIF · G": "Record the crop to GIF · G",
+  "Pantalla entera": "Whole screen",
+  "Pantalla entera, de un clic · P": "Whole screen, one click · P",
+
+  // La tira de miniaturas del editor
+  "Fotograma {actual} de {total}": "Frame {actual} of {total}",
+  "Recorte {desde} a {hasta}": "Crop {desde} to {hasta}",
+  "{n} fotograma": "{n} frame",
+  "{n} fotogramas": "{n} frames",
+  "Falta el identificador de sesión": "The session id is missing",
+
+  // Sueltos del panel de exportar
+  "Elegir carpeta…": "Choose a folder…",
+  Nativo: "Built-in",
+
+  // Sueltos de la bienvenida
+  "o prueba": "or try",
+  "Dejarla como está": "Leave it alone",
 };
