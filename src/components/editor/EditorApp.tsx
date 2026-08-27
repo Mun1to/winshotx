@@ -15,7 +15,6 @@ import type { FrameMeta, SessionInfo, Settings } from "../../lib/types";
 import { ExportPanel } from "./ExportPanel";
 import { FrameStrip } from "./FrameStrip";
 import { PreviewCanvas } from "./PreviewCanvas";
-import { TitleBar } from "./TitleBar";
 import { useT } from "../../lib/i18n";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
@@ -99,12 +98,51 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       } else if (e.key === "ArrowRight") {
         scrub(Math.min(frames.length - 1, currentIndex + 1));
       } else if (e.key === "Escape") {
-        void getCurrentWindow().close();
+        void cerrar();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [currentIndex, frames.length, togglePlay, scrub, markIn, markOut]);
+
+  /** Lo que dura el recorte de A a B, que es lo unico que se ensenna del tiempo. */
+  const keptMs =
+    (frames[outIndex]?.timestampMs ?? 0) +
+    (frames[outIndex]?.durationMs ?? 0) -
+    (frames[inIndex]?.timestampMs ?? 0);
+
+  // El marco del sistema pinta el titulo, asi que lo que decia la barra propia (el tamanno
+  // del recorte y lo que dura) se escribe ahi. Ademas es lo que sale en la barra de tareas
+  // y al pasar con Alt+Tab, donde antes solo ponia "winshotx · editor".
+  useEffect(() => {
+    if (!session) return;
+    const medida = `${session.region.width} × ${session.region.height}`;
+    void getCurrentWindow().setTitle(
+      `winshotx · ${t("Editor")} · ${medida} · ${formatTimecode(keptMs)}`,
+    );
+  }, [session, keptMs, t]);
+
+  /**
+   * Cerrar el editor tira la sesion, que son los fotogramas en crudo del disco.
+   *
+   * Va por `onCloseRequested` y no colgado de un boton propio porque ahora quien cierra es
+   * el marco de Windows: su X, Alt+F4 y el menu de la barra de tareas pasan todos por
+   * aqui, y colgarlo de un boton dibujado dejaria la carpeta llena en los otros tres.
+   */
+  const cerrar = useCallback(async () => {
+    if (session) await discardSession(session.id);
+    await getCurrentWindow().destroy();
+  }, [session]);
+
+  useEffect(() => {
+    const sinOir = getCurrentWindow().onCloseRequested(async (evento) => {
+      evento.preventDefault();
+      await cerrar();
+    });
+    return () => {
+      void sinOir.then((fn) => fn());
+    };
+  }, [cerrar]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
@@ -158,22 +196,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const keptMs =
-    (frames[outIndex]?.timestampMs ?? 0) +
-    (frames[outIndex]?.durationMs ?? 0) -
-    (frames[inIndex]?.timestampMs ?? 0);
-
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
-      <TitleBar
-        title={t("Editor")}
-        subtitle={`${session.region.width} × ${session.region.height} · ${formatTimecode(keptMs)}`}
-        onClose={() => {
-          void discardSession(session.id);
-          void getCurrentWindow().close();
-        }}
-      />
-
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="relative flex min-h-0 flex-1 items-center justify-center bg-[repeating-conic-gradient(#1c1c1c_0%_25%,#242424_0%_50%)] bg-[length:20px_20px] p-4">

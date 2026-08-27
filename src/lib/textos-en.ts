@@ -235,7 +235,6 @@ export const EN: Record<string, string> = {
   "Guardando…": "Saving…",
 
   Editor: "Editor",
-  Minimizar: "Minimise",
   Cerrar: "Close",
   "Preparando la sesión…": "Getting the session ready…",
   "Sin vista previa": "No preview",

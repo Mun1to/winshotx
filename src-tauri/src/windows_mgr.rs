@@ -486,6 +486,12 @@ pub fn close_recorder(app: &AppHandle) {
 }
 
 /// Editor de recorte y exportacion para una sesion ya grabada.
+///
+/// **Con el marco de Windows, no con una barra dibujada.** Es una ventana normal, de las
+/// que se minimizan, se maximizan y se cierran con los botones que todo el mundo conoce,
+/// y las ventanas normales de winshotx llevan el marco del sistema. Los overlays, la barra
+/// de grabacion, la cuenta atras y las capturas ancladas van sin marco porque son
+/// herramientas flotantes, no ventanas.
 pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     for (label, window) in app.webview_windows() {
         if label.starts_with(EDITOR_LABEL) {
@@ -499,15 +505,15 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     let url = WebviewUrl::App(format!("editor.html?session={session_id}").into());
     let window = WebviewWindowBuilder::new(app, &label, url)
         .title("winshotx · editor")
-        .decorations(false)
-        .shadow(true)
+        .decorations(true)
         .resizable(true)
         .inner_size(1080.0, 700.0)
         .min_inner_size(760.0, 520.0)
         .center()
         .visible(true)
         .build()?;
-    crate::platform::window_style::rounded_corners(&window);
+    // Sin `rounded_corners`: eso es para las ventanas sin marco. El marco del sistema ya
+    // trae las esquinas que Windows quiere, y forzarlas encima deja un borde raro.
     let _ = window.set_min_size(Some(LogicalSize::new(760.0, 520.0)));
     window.set_focus()?;
     Ok(())
