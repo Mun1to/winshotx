@@ -1,6 +1,6 @@
 {
   "name": "winshotx",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Local-first screen capture and GIF/MP4 recorder for Windows",
   "license": "MIT",
   "private": true,
