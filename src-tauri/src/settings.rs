@@ -23,6 +23,22 @@ impl Default for CaptureFlow {
     }
 }
 
+/// En que idioma habla la aplicacion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Language {
+    /// El de Windows, si winshotx lo habla; si no, ingles. Es el de fabrica.
+    Sistema,
+    Es,
+    En,
+}
+
+impl Default for Language {
+    fn default() -> Self {
+        Self::Sistema
+    }
+}
+
 /// De que color se pinta la aplicacion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +66,8 @@ pub struct Settings {
     pub capture_flow: CaptureFlow,
     /// Claro, oscuro, o lo que diga Windows.
     pub theme: Theme,
+    /// Espannol, ingles, o el idioma de Windows.
+    pub language: Language,
     pub copy_after_capture: bool,
     pub open_editor_after_recording: bool,
     pub capture_cursor: bool,
@@ -98,6 +116,7 @@ impl Default for Settings {
             save_directory: default_save_dir(),
             capture_flow: CaptureFlow::Toolbar,
             theme: Theme::Sistema,
+            language: Language::Sistema,
             copy_after_capture: true,
             open_editor_after_recording: true,
             capture_cursor: true,

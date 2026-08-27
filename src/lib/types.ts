@@ -30,6 +30,9 @@ export type CaptureFlow = "toolbar" | "instant";
 /** De que color se pinta la app. "sistema" es seguir a Windows y cambiar con el. */
 export type Theme = "sistema" | "claro" | "oscuro";
 
+/** En que idioma habla la app. "sistema" es el de Windows, si winshotx lo habla. */
+export type Language = "sistema" | "es" | "en";
+
 /** Con que se abrio el overlay: el mismo sirve para capturar y para grabar. */
 export type OverlayIntent = "capture" | "record";
 
@@ -142,6 +145,8 @@ export interface Settings {
   captureShortcut: string;
   /** Claro, oscuro, o lo que diga Windows. */
   theme: Theme;
+  /** Español, inglés, o el idioma de Windows. */
+  language: Language;
   recordShortcut: string;
   saveDirectory: string;
   copyAfterCapture: boolean;

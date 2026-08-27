@@ -12,6 +12,7 @@ import {
   Gauge,
   HardDrive,
   Keyboard,
+  Languages,
   Mic,
   MousePointer2,
   Palette,
@@ -42,6 +43,7 @@ import {
 } from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
 import { aplicarTema } from "../../lib/tema";
+import { aplicarIdioma, useT } from "../../lib/i18n";
 import {
   EVENTS,
   type CacheStats,
@@ -49,6 +51,7 @@ import {
   type PrintScreenState,
   type Settings,
   type Theme,
+  type Language,
   type ShortcutStatus,
 } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
@@ -80,6 +83,13 @@ const TEMAS: { value: Theme; label: string }[] = [
   { value: "oscuro", label: "Oscuro" },
 ];
 
+/** Los dos idiomas que habla hoy. Anadir uno mas es una linea aqui y un archivo mas. */
+const IDIOMAS: { value: Language; label: string }[] = [
+  { value: "sistema", label: "Automático" },
+  { value: "es", label: "Español" },
+  { value: "en", label: "Inglés" },
+];
+
 /** Tres opciones y ninguna más: un campo de números aquí solo sirve para escribir 47. */
 const ESPERAS = [
   { value: 0, label: "Sin espera" },
@@ -94,6 +104,13 @@ interface SettingsAppProps {
 }
 
 export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsAppProps) {
+  const t = useT();
+  // Las tablas de opciones se guardan en espannol y se traducen al pintarlas: el `value`
+  // es lo que va al disco y ese no puede cambiar de idioma nunca.
+  const flujos = FLUJOS.map((o) => ({ ...o, label: t(o.label) }));
+  const temas = TEMAS.map((o) => ({ ...o, label: t(o.label) }));
+  const esperas = ESPERAS.map((o) => ({ ...o, label: t(o.label) }));
+  const idiomas = IDIOMAS.map((o) => ({ ...o, label: t(o.label) }));
   // Que seccion se esta viendo. Es estado de la pantalla y no un ajuste: no tiene sentido
   // guardarlo en disco ni que sobreviva a cerrar la ventana.
   const [seccion, setSeccion] = useState<SeccionId>("capturar");
@@ -261,11 +278,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
             {seccion === "capturar" && (
               <>
-                <Section title="Al pulsar el atajo" tour="al-pulsar">
+                <Section title={t("Al pulsar el atajo")} tour="al-pulsar">
                   <Row
                     icon={<Camera className="size-4" />}
-                    label="Capturar región"
-                    hint={shortcuts.capture ? undefined : "esa combinación está ocupada"}
+                    label={t("Capturar región")}
+                    hint={shortcuts.capture ? undefined : t("esa combinación está ocupada")}
                     tone="warn"
                     control={
                       <ShortcutField
@@ -277,95 +294,95 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   />
                   <Row
                     icon={<Timer className="size-4" />}
-                    label="Esperar antes de capturar"
+                    label={t("Esperar antes de capturar")}
                     hint={
                       settings.captureDelaySeconds === 0
-                        ? "la pantalla se congela al pulsar el atajo"
-                        : "da tiempo a abrir el menú que quieres fotografiar"
+                        ? t("la pantalla se congela al pulsar el atajo")
+                        : t("da tiempo a abrir el menú que quieres fotografiar")
                     }
                     stacked
                     control={
                       <Segmented
                         value={settings.captureDelaySeconds}
-                        options={ESPERAS}
+                        options={esperas}
                         onChange={(v) => patch({ captureDelaySeconds: v })}
                       />
                     }
                   />
                   <Row
                     icon={<EyeOff className="size-4" />}
-                    label="Ocultar iconos del escritorio"
-                    hint="solo mientras dura el disparo"
+                    label={t("Ocultar iconos del escritorio")}
+                    hint={t("solo mientras dura el disparo")}
                     control={
                       <Switch
                         checked={settings.hideDesktopIcons}
                         onChange={(v) => patch({ hideDesktopIcons: v })}
-                        label="Ocultar iconos del escritorio"
+                        label={t("Ocultar iconos del escritorio")}
                       />
                     }
                   />
 
                 </Section>
 
-                <Section title="La captura" tour="la-captura">
+                <Section title={t("La captura")} tour="la-captura">
                   <Row
                     icon={<MousePointer2 className="size-4" />}
-                    label="Incluir el cursor"
+                    label={t("Incluir el cursor")}
                     control={
                       <Switch
                         checked={settings.captureCursor}
                         onChange={(v) => patch({ captureCursor: v })}
-                        label="Incluir el cursor"
+                        label={t("Incluir el cursor")}
                       />
                     }
                   />
                   <Row
                     icon={<ZoomIn className="size-4" />}
-                    label="Lupa de píxel"
+                    label={t("Lupa de píxel")}
                     control={
                       <Switch
                         checked={settings.showMagnifier}
                         onChange={(v) => patch({ showMagnifier: v })}
-                        label="Lupa de píxel"
+                        label={t("Lupa de píxel")}
                       />
                     }
                   />
                   <Row
                     icon={<Crop className="size-4" />}
-                    label="Al soltar el ratón"
+                    label={t("Al soltar el ratón")}
                     hint={
                       settings.captureFlow === "instant"
-                        ? "va directa al portapapeles"
-                        : "sale la barra para copiar, guardar o editar"
+                        ? t("va directa al portapapeles")
+                        : t("sale la barra para copiar, guardar o editar")
                     }
                     stacked
                     control={
                       <Segmented
                         value={settings.captureFlow}
-                        options={FLUJOS}
+                        options={flujos}
                         onChange={(v) => patch({ captureFlow: v })}
                       />
                     }
                   />
                   <Row
                     icon={<Clipboard className="size-4" />}
-                    label="Copiar al guardar"
+                    label={t("Copiar al guardar")}
                     control={
                       <Switch
                         checked={settings.copyAfterCapture}
                         onChange={(v) => patch({ copyAfterCapture: v })}
-                        label="Copiar al guardar"
+                        label={t("Copiar al guardar")}
                       />
                     }
                   />
                   <Row
                     icon={<Volume2 className="size-4" />}
-                    label="Sonido de obturador"
+                    label={t("Sonido de obturador")}
                     control={
                       <Switch
                         checked={settings.playSound}
                         onChange={(v) => patch({ playSound: v })}
-                        label="Sonido de obturador"
+                        label={t("Sonido de obturador")}
                       />
                     }
                   />
@@ -375,12 +392,12 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
             {seccion === "grabar" && (
               <>
-                <Section title="Cómo se graba" tour="como-se-graba">
+                <Section title={t("Cómo se graba")} tour="como-se-graba">
                   <Row
                     icon={<Video className="size-4" />}
-                    label="Grabar región"
+                    label={t("Grabar región")}
                     hint={
-                      shortcuts.record ? "el mismo atajo la termina" : "esa combinación está ocupada"
+                      shortcuts.record ? t("el mismo atajo la termina") : t("esa combinación está ocupada")
                     }
                     tone={shortcuts.record ? "normal" : "warn"}
                     control={
@@ -393,7 +410,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   />
                   <Row
                     icon={<Gauge className="size-4" />}
-                    label="Fotogramas por segundo"
+                    label={t("Fotogramas por segundo")}
                     stacked
                     control={
                       <Segmented
@@ -405,27 +422,27 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   />
                   <Row
                     icon={<Mic className="size-4" />}
-                    label="Audio del sistema"
-                    hint="todavía no disponible"
+                    label={t("Audio del sistema")}
+                    hint={t("todavía no disponible")}
                     control={
                       <Switch
                         checked={false}
                         disabled
                         onChange={() => undefined}
-                        label="Audio del sistema"
+                        label={t("Audio del sistema")}
                       />
                     }
                   />
                 </Section>
-                <Section title="Al terminar">
+                <Section title={t("Al terminar")}>
                   <Row
                     icon={<SquarePen className="size-4" />}
-                    label="Abrir el editor al terminar"
+                    label={t("Abrir el editor al terminar")}
                     control={
                       <Switch
                         checked={settings.openEditorAfterRecording}
                         onChange={(v) => patch({ openEditorAfterRecording: v })}
-                        label="Abrir el editor al terminar"
+                        label={t("Abrir el editor al terminar")}
                       />
                     }
                   />
@@ -435,37 +452,37 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
             {seccion === "teclas" && (
               <>
-                <Section title="Las teclas de captura de Windows" tour="las-teclas">
+                <Section title={t("Las teclas de captura de Windows")} tour="las-teclas">
                   <Row
                     icon={<Keyboard className="size-4" />}
-                    label="Impr Pant"
+                    label={t("Impr Pant")}
                     hint={
                       imprPant?.enabled
                         ? imprPant.active
-                          ? "ya es de winshotx"
-                          : "cierra sesión para que Windows la suelte"
-                        : "hoy abre la Herramienta de Recortes"
+                          ? t("ya es de winshotx")
+                          : t("cierra sesión para que Windows la suelte")
+                        : t("hoy abre la Herramienta de Recortes")
                     }
                     tone={imprPant?.enabled ? (imprPant.active ? "ok" : "warn") : "normal"}
                     control={
                       <Switch
                         checked={imprPant?.enabled ?? false}
                         onChange={(v) => void cambiarImprPant(v)}
-                        label="Usar también Impr Pant"
+                        label={t("Usar también Impr Pant")}
                       />
                     }
                   />
                   <Row
                     icon={<AppWindow className="size-4" />}
-                    label="Win + Mayús + S"
+                    label={t("Win + Mayús + S")}
                     hint={
                       !settings.takeWinShiftS
-                        ? "cuesta Win+S, la búsqueda"
+                        ? t("cuesta Win+S, la búsqueda")
                         : aplicando
-                          ? "reiniciando el Explorador…"
+                          ? t("reiniciando el Explorador…")
                           : shortcuts.winShiftS
-                            ? "de winshotx, o pulsa Aplicar si Windows la sigue abriendo"
-                            : "el escritorio todavía la tiene"
+                            ? t("de winshotx, o pulsa Aplicar si Windows la sigue abriendo")
+                            : t("el escritorio todavía la tiene")
                     }
                     tone={
                       !settings.takeWinShiftS ? "normal" : shortcuts.winShiftS ? "ok" : "warn"
@@ -485,34 +502,34 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                           <RowButton
                             disabled={aplicando}
                             onClick={() => void aplicarTecla()}
-                            title="Reinicia el Explorador para que Windows suelte la tecla. La barra de tareas parpadea un segundo y no se cierra nada más."
+                            title={t("Reinicia el Explorador para que Windows suelte la tecla. La barra de tareas parpadea un segundo y no se cierra nada más.")}
                           >
-                            {aplicando ? "Un momento…" : "Aplicar"}
+                            {aplicando ? t("Un momento…") : t("Aplicar")}
                           </RowButton>
                         )}
                         <Switch
                           checked={settings.takeWinShiftS}
                           onChange={(v) => void cambiarWinShiftS(v)}
-                          label="Quedarme con Win+Mayús+S"
+                          label={t("Quedarme con Win+Mayús+S")}
                         />
                       </span>
                     }
                   />
                 </Section>
-                <Section title="La Herramienta de Recortes">
+                <Section title={t("La Herramienta de Recortes")}>
                   <Row
                     icon={<Scissors className="size-4" />}
-                    label="Herramienta de Recortes"
+                    label={t("Herramienta de Recortes")}
                     hint={
                       recortes === "confirmar"
-                        ? "vuelve desde la Microsoft Store"
+                        ? t("vuelve desde la Microsoft Store")
                         : recortes === "quitando"
-                          ? "quitándola…"
+                          ? t("quitándola…")
                           : recortes === "quitada"
-                            ? "quitada, ya no abre nada"
+                            ? t("quitada, ya no abre nada")
                             : recortes === "ya no estaba"
-                              ? "no estaba instalada"
-                              : "quitarla es lo único que la calla del todo"
+                              ? t("no estaba instalada")
+                              : t("quitarla es lo único que la calla del todo")
                     }
                     tone={
                       recortes === "confirmar"
@@ -524,7 +541,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     control={
                       <span className="flex gap-1.5">
                         {!recortes && (
-                          <RowButton onClick={() => void openWindowsApps()}>Ver cómo</RowButton>
+                          <RowButton onClick={() => void openWindowsApps()}>{t("Ver cómo")}</RowButton>
                         )}
                         <RowButton
                           danger={recortes === "confirmar"}
@@ -536,10 +553,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                           onClick={() => void quitarRecortes()}
                         >
                           {recortes === "confirmar"
-                            ? "Sí, quitarla"
+                            ? t("Sí, quitarla")
                             : recortes === "quitada" || recortes === "ya no estaba"
-                              ? "Hecho"
-                              : "Quitar"}
+                              ? t("Hecho")
+                              : t("Quitar")}
                         </RowButton>
                       </span>
                     }
@@ -554,35 +571,37 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     de la izquierda, el tercero abre una fila nueva por debajo del bloque
                     mas alto y la seccion deja de caber sin rueda. */}
                 <div className="flex flex-col">
-                <Section title="Archivos" tour="archivos">
+                <Section title={t("Archivos")} tour="archivos">
                   <Row
                     icon={<FolderOpen className="size-4" />}
-                    label="Carpeta de destino"
+                    label={t("Carpeta de destino")}
                     hint={settings.saveDirectory}
                     control={
                       <span className="flex gap-1.5">
                         <RowButton onClick={() => void openFolder(settings.saveDirectory)}>
-                          Abrir
+                          {t("Abrir")}
                         </RowButton>
                         <RowButton
                           onClick={() =>
                             void pickDirectory().then((dir) => dir && patch({ saveDirectory: dir }))
                           }
                         >
-                          Cambiar
+                          {t("Cambiar")}
                         </RowButton>
                       </span>
                     }
                   />
                   <Row
                     icon={<HardDrive className="size-4" />}
-                    label="Caché de grabaciones"
+                    label={t("Caché de grabaciones")}
                     hint={
                       cache.sessions === 0
-                        ? "vacía"
-                        : `${formatBytes(cache.bytes)} en ${cache.sessions} ${
-                            cache.sessions === 1 ? "sesión" : "sesiones"
-                          }`
+                        ? t("vacía")
+                        : t("{tam} en {n} {palabra}", {
+                            tam: formatBytes(cache.bytes),
+                            n: cache.sessions,
+                            palabra: cache.sessions === 1 ? t("sesión") : t("sesiones"),
+                          })
                     }
                     control={
                       <RowButton
@@ -593,25 +612,21 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                             .catch((e) => setError(String(e)))
                         }
                       >
-                        Vaciar
+                        {t("Vaciar")}
                       </RowButton>
                     }
                   />
                 </Section>
-                <Section title="Aspecto">
+                <Section title={t("Aspecto")}>
                   <Row
                     icon={<Palette className="size-4" />}
-                    label="Tema"
-                    hint={
-                      settings.theme === "sistema"
-                        ? "el mismo que tenga puesto Windows"
-                        : "siempre este, mande lo que mande Windows"
-                    }
-                    stacked
+                    label={t("Tema")}
+                    hint={settings.theme === "sistema" ? t("sigue a Windows") : undefined}
                     control={
                       <Segmented
+                        ajustado
                         value={settings.theme}
-                        options={TEMAS}
+                        options={temas}
                         onChange={(v) => {
                           // Se pinta en el acto y se guarda despues: esperar a que Rust
                           // conteste para cambiar de color hace que el boton parezca roto.
@@ -621,29 +636,48 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                  <Row
+                    icon={<Languages className="size-4" />}
+                    label={t("Idioma")}
+                    hint={settings.language === "sistema" ? t("el de Windows") : undefined}
+                    control={
+                      <Segmented
+                        ajustado
+                        value={settings.language}
+                        options={idiomas}
+                        onChange={(v) => {
+                          // Igual que el tema: se cambia el idioma en el acto y se guarda
+                          // despues. Los textos se repintan solos, sin recargar la ventana
+                          // ni perder por donde iba el usuario.
+                          aplicarIdioma(v);
+                          patch({ language: v });
+                        }}
+                      />
+                    }
+                  />
                 </Section>
                 </div>
-                <Section title="winshotx">
+                <Section title={t("winshotx")}>
                   <UpdateRow version={VERSION} recienActualizado={recienActualizado} />
                   <Row
                     icon={<BookOpen className="size-4" />}
-                    label="Bienvenida"
-                    control={<RowButton onClick={onVerBienvenida}>Ver otra vez</RowButton>}
+                    label={t("Bienvenida")}
+                    control={<RowButton onClick={onVerBienvenida}>{t("Ver otra vez")}</RowButton>}
                   />
                   <Row
                     icon={<Compass className="size-4" />}
-                    label="Tour de los ajustes"
-                    hint="seis paradas, una por sección"
-                    control={<RowButton onClick={() => setTour(true)}>Empezar</RowButton>}
+                    label={t("Tour de los ajustes")}
+                    hint={t("seis paradas, una por sección")}
+                    control={<RowButton onClick={() => setTour(true)}>{t("Empezar")}</RowButton>}
                   />
                   <Row
                     icon={<Power className="size-4" />}
-                    label="Arrancar con Windows"
+                    label={t("Arrancar con Windows")}
                     control={
                       <Switch
                         checked={settings.startWithWindows}
                         onChange={(v) => patch({ startWithWindows: v })}
-                        label="Arrancar con Windows"
+                        label={t("Arrancar con Windows")}
                       />
                     }
                   />

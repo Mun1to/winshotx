@@ -4,6 +4,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Check, Download, RefreshCw, RotateCcw } from "lucide-react";
 import { EVENTS } from "../../lib/types";
+import { useT } from "../../lib/i18n";
 import { Row } from "./Section";
 
 /** Cada cuánto se mira solo, mientras la ventana de ajustes siga abierta. */
@@ -33,6 +34,7 @@ export function UpdateRow({
   version: string;
   recienActualizado?: boolean;
 }) {
+  const t = useT();
   const [fase, setFase] = useState<Fase>(
     recienActualizado ? { tipo: "acabadeactualizarse" } : { tipo: "quieto" },
   );
@@ -94,17 +96,17 @@ export function UpdateRow({
   const hint = () => {
     switch (fase.tipo) {
       case "mirando":
-        return "mirando si hay versión nueva…";
+        return t("mirando si hay versión nueva…");
       case "aldia":
-        return "estás en la última versión";
+        return t("estás en la última versión");
       case "acabadeactualizarse":
-        return `actualizado a la ${version}`;
+        return t("actualizado a la {v}", { v: version });
       case "hay":
-        return `la ${fase.update.version} ya está disponible`;
+        return t("la {v} ya está disponible", { v: fase.update.version });
       case "bajando":
-        return `descargando la ${fase.version}… ${fase.pct} %`;
+        return t("descargando la {v}… {pct} %", { v: fase.version, pct: fase.pct });
       case "listo":
-        return "instalada, solo falta reiniciar";
+        return t("instalada, solo falta reiniciar");
       case "error":
         return fase.mensaje;
       default:
@@ -121,7 +123,7 @@ export function UpdateRow({
           <Download className="size-4" />
         )
       }
-      label="Actualizaciones"
+      label={t("Actualizaciones")}
       hint={hint()}
       tone={
         fase.tipo === "aldia" || fase.tipo === "acabadeactualizarse"
@@ -144,6 +146,7 @@ function Boton({
   instalar: (update: Update) => void;
   mirar: () => void;
 }) {
+  const t = useT();
   const base =
     "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50";
 
@@ -154,7 +157,7 @@ function Boton({
         onClick={() => instalar(fase.update)}
         className={`${base} bg-blue-500 font-semibold text-white hover:bg-blue-400`}
       >
-        <Download className="size-3.5" /> Actualizar ahora
+        <Download className="size-3.5" /> {t("Actualizar ahora")}
       </button>
     );
   }
@@ -180,7 +183,7 @@ function Boton({
         onClick={() => void relaunch()}
         className={`${base} bg-emerald-500/15 font-semibold text-emerald-300 hover:bg-emerald-500/25`}
       >
-        <RotateCcw className="size-3.5" /> Reiniciar
+        <RotateCcw className="size-3.5" /> {t("Reiniciar")}
       </button>
     );
   }
@@ -193,7 +196,7 @@ function Boton({
       className={`${base} border border-linea-fuerte text-suave hover:bg-realce hover:text-titulo`}
     >
       <RefreshCw className={`size-3.5 ${fase.tipo === "mirando" ? "animate-spin" : ""}`} />
-      Buscar
+      {t("Buscar")}
     </button>
   );
 }

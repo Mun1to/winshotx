@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings } from "../lib/ipc";
 import { aplicarTema } from "../lib/tema";
+import { aplicarIdioma } from "../lib/i18n";
 import { SettingsApp } from "./settings/SettingsApp";
 import { WelcomeApp } from "./welcome/WelcomeApp";
 
@@ -26,6 +27,7 @@ export function App() {
         // Esto solo lo confirma o lo corrige, que es lo que hace falta la primera vez en
         // una maquina nueva o si alguien edito el archivo de ajustes a mano.
         aplicarTema(ajustes.theme);
+        aplicarIdioma(ajustes.language);
         setVista(ajustes.onboarded ? "ajustes" : "bienvenida");
       })
       .catch(() => setVista("ajustes"));

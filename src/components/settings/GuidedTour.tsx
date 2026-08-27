@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { CSSProperties } from "react";
 import { X } from "lucide-react";
 import type { SeccionId } from "./SettingsHeader";
+import { useT } from "../../lib/i18n";
 
 /**
  * Un paso del tour.
@@ -99,6 +100,7 @@ interface Props {
 }
 
 export function GuidedTour({ onNavegar, onCerrar }: Props) {
+  const t = useT();
   const [indice, setIndice] = useState(0);
   const [marco, setMarco] = useState<Marco | null>(null);
   // El alto de la tarjeta se MIDE, no se estima: los textos no miden todos lo mismo y de
@@ -256,21 +258,21 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
       <div
         ref={tarjeta}
         role="dialog"
-        aria-label={paso.titulo}
+        aria-label={t(paso.titulo)}
         className="fixed rounded-xl border border-linea-fuerte bg-flotante p-4 shadow-2xl"
         style={{ ...sitio, width: ANCHO_TARJETA }}
       >
         <button
           type="button"
           onClick={onCerrar}
-          aria-label="Cerrar el tour"
+          aria-label={t("Cerrar el tour")}
           className="absolute end-2.5 top-2.5 rounded-md p-1 text-tenue transition-colors hover:bg-realce hover:text-texto"
         >
           <X className="size-3.5" />
         </button>
 
-        <h2 className="pe-6 text-[14.5px] font-semibold text-titulo">{paso.titulo}</h2>
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-apagado">{paso.texto}</p>
+        <h2 className="pe-6 text-[14.5px] font-semibold text-titulo">{t(paso.titulo)}</h2>
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-apagado">{t(paso.texto)}</p>
 
         <div className="mt-3.5 flex items-center justify-between">
           <span className="flex items-center gap-1.5" aria-hidden="true">
@@ -291,7 +293,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
                 onClick={() => setIndice((i) => i - 1)}
                 className="rounded-lg px-2.5 py-1.5 text-[12px] text-apagado transition-colors hover:bg-realce hover:text-titulo"
               >
-                Atrás
+                {t("Atrás")}
               </button>
             )}
             <button
@@ -300,7 +302,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
               onClick={() => (ultimo ? onCerrar() : setIndice((i) => i + 1))}
               className="rounded-lg bg-blue-600 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-500"
             >
-              {ultimo ? "Listo" : "Siguiente"}
+              {ultimo ? t("Listo") : t("Siguiente")}
             </button>
           </span>
         </div>

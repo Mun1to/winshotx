@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useT } from "../../lib/i18n";
 import { Segmented } from "../ui/Segmented";
 
 /**
@@ -47,6 +48,8 @@ interface Props {
  * sitio de la aplicacion.
  */
 export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }: Props) {
+  const t = useT();
+  const secciones = SECCIONES.map((s) => ({ value: s.value, label: t(s.label) }));
   // Tres columnas y las de los lados iguales: es lo unico que deja las secciones en el
   // centro DE LA VENTANA. Con una fila normal quedaban centradas en el hueco que dejaban
   // los lados, que no miden lo mismo, asi que salian corridas hacia un lado.
@@ -55,14 +58,14 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
       {/* Con la palabra delante y al tamanno de las explicaciones de las filas: un
           numero suelto a 11 px no se sabia que era, y habia que acercarse a leerlo. */}
       <span className="justify-self-start ps-1 text-[12.5px] text-apagado">
-        Versión {version}
+        {t("Versión")} {version}
       </span>
 
-      <nav aria-label="Secciones de ajustes" data-tour="secciones" className="justify-self-center">
+      <nav aria-label={t("Secciones de ajustes")} data-tour="secciones" className="justify-self-center">
         <Segmented
           ajustado
           value={activa}
-          options={SECCIONES as unknown as { value: SeccionId; label: string }[]}
+          options={secciones as unknown as { value: SeccionId; label: string }[]}
           onChange={onCambiar}
         />
       </nav>
@@ -74,7 +77,7 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
           {guardado && (
             <>
               <Check className="size-3" />
-              Guardado
+              {t("Guardado")}
             </>
           )}
         </span>
@@ -83,7 +86,7 @@ export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }
           onClick={onSalir}
           className="rounded-md px-2 py-1 text-[11.5px] text-apagado transition-colors hover:bg-red-500/15 hover:text-red-300"
         >
-          Salir
+          {t("Salir")}
         </button>
       </span>
     </header>

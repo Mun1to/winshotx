@@ -68,6 +68,8 @@ const seccion = bandera("seccion", null);
 const actualizado = args.includes("--actualizado");
 // Con que tema se pinta la ventana: sistema, claro u oscuro.
 const tema = bandera("tema", "oscuro");
+// Y en que idioma: sistema, es o en.
+const idioma = bandera("idioma", "es");
 // Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
 const cuenta = bandera("cuenta", null);
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
@@ -96,6 +98,7 @@ const AJUSTES = {
   hideDesktopIcons: false,
   captureFlow: "toolbar",
   theme: tema,
+  language: idioma,
   printScreenCapture: false,
   takeWinShiftS: teclaPendiente,
   // Lo único que decide si sale la bienvenida o los ajustes.
@@ -183,10 +186,11 @@ const SECCION = seccion
   ? `<script>
 addEventListener("load", () => {
   setTimeout(() => {
-    const rotulo = ${JSON.stringify(JSON.stringify(ROTULOS[seccion] ?? seccion))};
-    for (const b of document.querySelectorAll("header button")) {
-      if (b.textContent.trim() === JSON.parse(rotulo)) { b.click(); return; }
-    }
+    // Por POSICIÓN y no por el texto del botón: los rótulos cambian con el idioma, y
+    // buscándolos por su nombre en español el guion dejaba de encontrarlos en inglés.
+    const orden = ${JSON.stringify(Object.keys(ROTULOS))};
+    const botones = document.querySelectorAll("header nav button");
+    botones[orden.indexOf(${JSON.stringify(seccion)})]?.click();
   }, 500);
 });
 </script>`

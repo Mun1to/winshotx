@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { partesDeAtajo } from "../../lib/teclas";
+import { useT } from "../../lib/i18n";
 
 /** Teclas que solo acompañan: por sí solas no forman un atajo. */
 const MODIFIERS = new Set([
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function ShortcutField({ value, onChange, active }: Props) {
+  const t = useT();
   const [recording, setRecording] = useState(false);
   const boxRef = useRef<HTMLButtonElement>(null);
 
@@ -83,8 +85,8 @@ export function ShortcutField({ value, onChange, active }: Props) {
       onClick={() => setRecording((r) => !r)}
       title={
         recording
-          ? "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí"
-          : "Clic para cambiar el atajo"
+          ? t("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí")
+          : t("Clic para cambiar el atajo")
       }
       className={`flex h-8 min-w-[132px] items-center justify-end gap-1 rounded-lg border px-2 transition-colors ${
         recording
@@ -95,7 +97,7 @@ export function ShortcutField({ value, onChange, active }: Props) {
       }`}
     >
       {recording ? (
-        <span className="w-full text-center text-[11px] text-blue-300">Pulsa las teclas…</span>
+        <span className="w-full text-center text-[11px] text-blue-300">{t("Pulsa las teclas…")}</span>
       ) : (
         parts.map((part, index) => (
           <kbd
