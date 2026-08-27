@@ -14,6 +14,8 @@
  * de lo que esté haciendo.
  *
  *   node scripts/ver-ventana.mjs anclada.png --anclada=recorte.png --ancho=520 --alto=340
+ *   node scripts/ver-ventana.mjs editor.png --editor=fotograma.png --ancho=1180 --alto=760
+ *   node scripts/ver-ventana.mjs editor.png --editor=x.png --recorte=200,120,420,300
  *   node scripts/ver-ventana.mjs overlay.png --overlay=escritorio.png
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --raton=300,260 --grabar
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --seleccion=200,180,600,380
@@ -21,11 +23,12 @@
  *
  * Cubre la ventana principal (bienvenida y ajustes) y, con --overlay, la de selección: ahí
  * hay que darle un PNG que haga de pantalla congelada, porque el overlay se dibuja encima
- * de una foto del escritorio. El editor necesita una sesión con frames y no entra aquí.
+ * de una foto del escritorio. Y con --editor, la del editor, con una sesión de mentira
+ * montada alrededor de ese único fotograma.
  */
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, extname, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -75,6 +78,13 @@ const idioma = bandera("idioma", "es");
 const cuenta = bandera("cuenta", null);
 // Un PNG que hará de captura anclada; si viene, se fotografía esa ventana flotante.
 const anclada = bandera("anclada", null);
+// Y otro que hará de fotograma del editor, con una sesión de mentira alrededor.
+const editor = bandera("editor", null);
+// Un marco de recorte ya colocado dentro del editor: "x,y,ancho,alto" en píxeles de la foto.
+const recorte = bandera("recorte", null);
+// En vez de una foto, escupe el DOM ya montado. Para cuando lo que falla no se ve mirando:
+// una medida que sale cero, una clase que no llegó, un estilo que el navegador no aplicó.
+const dom = args.includes("--dom");
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
 // para lo que se mueve solo: la cuenta atrás llega a cero en tres segundos de reloj, así
 // que con el valor de siempre se fotografía sola el final y nunca un número.
@@ -110,6 +120,41 @@ const AJUSTES = {
   disabledHotkeysRestore: null,
 };
 
+/**
+ * Lo que mide un PNG, leído de su cabecera.
+ *
+ * Los ocho primeros bytes son la firma y los ocho siguientes la cabecera del trozo IHDR;
+ * el ancho y el alto son los dos enteros de 32 bits que vienen justo detrás. Se lee a mano
+ * para no meter una dependencia solo por esto.
+ */
+function medidaDelPng(ruta) {
+  const bytes = readFileSync(resolve(ruta));
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
+const REGION = editor ? medidaDelPng(editor) : { width: 1280, height: 800 };
+
+// Una sesión de mentira para el editor: un solo fotograma repetido, que es todo lo que
+// hace falta para mirar la pantalla. Sin `mp4Path` la vista previa es la imagen, que es
+// justo lo que se quiere fotografiar.
+const SESION = {
+  id: "vista",
+  region: { x: 0, y: 0, ...REGION },
+  fps: 30,
+  frameCount: 40,
+  durationMs: 1333,
+  hasAudio: true,
+  format: "video",
+  mp4Path: null,
+};
+
+const FOTOGRAMAS = Array.from({ length: 40 }, (_, i) => ({
+  index: i,
+  timestampMs: Math.round((i * 1000) / 30),
+  durationMs: 33,
+  thumbPath: "/editor.png",
+}));
+
 const RESPUESTAS = {
   get_settings: AJUSTES,
   set_settings: AJUSTES,
@@ -117,6 +162,10 @@ const RESPUESTAS = {
   cache_stats: { bytes: 0, sessions: 0 },
   print_screen_state: { enabled: false, active: false, takenByWindows: true },
   just_updated: actualizado,
+  session_info: SESION,
+  session_frames: FOTOGRAMAS,
+  frame_image: "/editor.png",
+  ffmpeg_available: false,
 };
 
 const OVERLAY = {
@@ -136,7 +185,7 @@ const OVERLAY = {
 const MOCK = `<script>
 window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
-  convertFileSrc: (p) => (${anclada !== null} ? "/anclada.png" : p),
+  convertFileSrc: (p) => (${anclada !== null} ? "/anclada.png" : ${editor !== null} ? "/editor.png" : p),
   transformCallback: (cb) => { const id = Math.floor(Math.random() * 1e9); window["_" + id] = cb; return id; },
   // Los eventos de Tauri, de mentira pero funcionando: la app los usa para hablar entre
   // sus ventanas, y sin esto un botón que emite un evento no hace absolutamente nada aquí.
@@ -279,6 +328,31 @@ addEventListener("load", () => {
 </script>`
   : "";
 
+// El recorte del editor se coloca como lo haría una persona: se pulsa el botón y se
+// arrastra sobre la vista previa. Así se fotografía el estado de verdad y no uno montado
+// a mano que quizá el editor nunca llegue a tener.
+const RECORTE = recorte
+  ? `<script>
+addEventListener("load", () => {
+  const [x, y, w, h] = ${JSON.stringify(recorte)}.split(",").map(Number);
+  const nuevo = (tipo, cx, cy) => new PointerEvent(tipo, { clientX: cx, clientY: cy, bubbles: true });
+  setTimeout(() => {
+    [...document.querySelectorAll("button")]
+      .find((b) => (b.getAttribute("title") ?? "").startsWith("Recortar"))
+      ?.click();
+    setTimeout(() => {
+      const capa = document.querySelector('svg[role="figure"]');
+      capa?.dispatchEvent(nuevo("pointerdown", x, y));
+      setTimeout(() => {
+        capa?.dispatchEvent(nuevo("pointermove", x + w, y + h));
+        setTimeout(() => capa?.dispatchEvent(nuevo("pointerup", x + w, y + h)), 60);
+      }, 60);
+    }, 120);
+  }, 700);
+});
+</script>`
+  : "";
+
 const TIPOS = {
   ".html": "text/html",
   ".js": "text/javascript",
@@ -302,10 +376,16 @@ const server = createServer(async (req, res) => {
     res.end(await readFile(resolve(anclada)));
     return;
   }
+  // El editor pide sus miniaturas y su fotograma grande, todos el mismo archivo.
+  if (ruta === "/editor.png" && editor) {
+    res.writeHead(200, { "Content-Type": "image/png" });
+    res.end(await readFile(resolve(editor)));
+    return;
+  }
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
-    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + TECLA + SECCION + PASO + TOUR);
+    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + RECORTE + TECLA + SECCION + PASO + TOUR);
     res.writeHead(200, { "Content-Type": TIPOS[extname(archivo)] ?? "application/octet-stream" });
     res.end(cuerpo);
   } catch {
@@ -341,23 +421,26 @@ server.listen(0, () => {
     // La ventana anclada sale del tamaño del recorte, así que aquí manda --ancho/--alto.
     pagina = `pin.html?imagen=${encodeURIComponent(resolve(anclada))}`;
   }
+  if (editor !== null) {
+    pagina = "editor.html?session=vista";
+  }
   const url = `http://127.0.0.1:${server.address().port}/${pagina}`;
   const hijo = spawn(navegador, [
     "--headless=new",
     "--disable-gpu",
     "--hide-scrollbars",
     `--window-size=${w},${h}`,
-    `--screenshot=${salida}`,
+    ...(dom ? ["--dump-dom"] : [`--screenshot=${salida}`]),
     // Sin esto sale la pantalla antes de que React pinte nada.
     `--virtual-time-budget=${tiempo}`,
     // Y así se fotografía lo que ve quien tiene puesto "reducir movimiento" en Windows,
     // que es como la app se comporta desde que respeta esa preferencia.
     "--force-prefers-reduced-motion",
     url,
-  ]);
+  ], dom ? { stdio: "inherit" } : undefined);
   hijo.on("exit", (code) => {
     server.close();
-    console.log(code === 0 ? `hecha: ${salida}` : `el navegador salió con ${code}`);
+    if (!dom) console.log(code === 0 ? `hecha: ${salida}` : `el navegador salió con ${code}`);
     process.exit(code ?? 1);
   });
 });
