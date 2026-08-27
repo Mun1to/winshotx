@@ -28,8 +28,9 @@ píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Abre la sele
 33 MB de memoria y cabe en un instalador de 2,2 MB. Sin cuenta, sin nube, sin telemetría y sin
 FFmpeg empaquetado.
 
-> La interfaz está en español, igual que los identificadores y los comentarios del código. Los
-> commits y la portada en inglés van aparte.
+> **La interfaz habla español e inglés**, y arranca en el que tenga puesto Windows. Se puede fijar
+> uno de los dos en **Ajustes → La app → Aspecto**. Los identificadores y los comentarios del código
+> están en español; los commits y la portada en inglés van aparte.
 
 ## Instalación
 
@@ -52,6 +53,9 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
 | 🎬 **Grabación de la región** | A 15, 30 o 60 fps con Windows Graphics Capture, sin que se cuelen overlays en el vídeo. |
 | ✂️ **Editor fotograma a fotograma** | Tira de miniaturas, recorte A/B, reproducción en bucle, escala con proporción bloqueada y control de calidad. |
 | 💾 **Exportación** | GIF, MP4 o PNG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como **archivo** en Slack, Discord o el Explorador. |
+| 🔊 **Audio del sistema** | Lo que suena por tus altavoces entra en el MP4, cogido de la salida por defecto. Sin instalar nada, y lo sigues oyendo mientras se graba. |
+| ⏱️ **Capturar con espera** | 3 o 5 segundos antes de que se congele la pantalla, con la cuenta atrás en el centro. Es la única forma de fotografiar un menú abierto, porque al pulsar el atajo se cierra. |
+| 🌓 **Claro y oscuro** | Sigue el tema de Windows y cambia con él, o fijas el que quieras. |
 | 🔒 **Todo local** | Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub. |
 
 <img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx" width="820">

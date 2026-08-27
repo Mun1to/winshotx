@@ -28,8 +28,10 @@ magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It ope
 28 ms, uses 33 MB of memory and fits in a 2.2 MB installer. No account, no cloud, no telemetry and
 no bundled FFmpeg.
 
-> The interface is in Spanish, and so are the identifiers and comments in the source. The commits,
-> this page and the [home page](https://winshotx.com/en/) are in English.
+> **The interface speaks English and Spanish**, and follows whichever one Windows is set to. You
+> can pin it to either in **Settings → The app → Appearance**. The identifiers and comments in the
+> source are in Spanish; the commits, this page and the
+> [home page](https://winshotx.com/en/) are in English.
 
 ## Install
 
@@ -40,7 +42,7 @@ versions are in [Releases](../../releases).
 It lives in the system tray with no window of its own. Windows hides new tray icons, so if you
 cannot see it, look behind the `^` arrow on the taskbar.
 
-**It updates itself.** In **Ajustes → Actualizaciones** a button shows up when a new version is out,
+**It updates itself.** In **Settings → The app → Updates** a button shows up when a new version is out,
 and one click downloads it, installs it and restarts the app. Every download is signed and the
 signature is checked before anything is installed, so a tampered file is rejected.
 
@@ -52,6 +54,9 @@ signature is checked before anything is installed, so a tampered file is rejecte
 | 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. |
 | ✂️ **Frame by frame editor** | Thumbnail strip, A/B trimming, looped playback, scaling with locked aspect ratio and a quality control. |
 | 💾 **Export** | GIF, MP4 or PNG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
+| 🔊 **System audio** | What comes out of your speakers goes into the MP4, captured straight from the default output. No extra driver, and you keep hearing it while it records. |
+| ⏱️ **Shoot on a timer** | Wait 3 or 5 seconds before the screen freezes, with the countdown in the middle of the screen. It is the only way to photograph an open menu, because pressing the shortcut closes it. |
+| 🌓 **Light and dark** | It follows the Windows theme and changes with it, or you pin the one you want. |
 | 🔒 **Everything stays local** | No account, no telemetry, no uploads. The only network call is checking GitHub for a new version. |
 
 <img src="docs/img/ajustes.png" alt="winshotx settings panel" width="820">
