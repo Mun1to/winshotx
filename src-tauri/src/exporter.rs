@@ -23,7 +23,8 @@ pub struct ExportRequest {
     pub height: u32,
     pub fps: u32,
     pub quality: u8,
-    /// Reservado hasta que la grabacion capture audio del sistema.
+    /// Si el video exportado lleva el sonido que se grabo. Lo decide el interruptor del
+    /// editor, y solo tiene efecto si la grabacion llego a capturar audio.
     #[allow(dead_code)]
     pub audio: bool,
     #[serde(rename = "loop")]
@@ -239,8 +240,58 @@ where
             fps: request.fps.max(1),
             quality: request.quality,
         },
+        // El interruptor del editor manda: alguien puede querer el vídeo mudo.
+        request.audio.then(|| pista_de_audio(session, indices)).flatten(),
         |stage, done, total| emit(stage, done, total),
     )
+}
+
+/// El trozo de sonido que le toca al recorte que se esta exportando.
+///
+/// El usuario recorta por fotogramas, asi que el tramo va del primero al ultimo de los
+/// que se exportan. Sin esto el video que guarda sale mudo, aunque la grabacion tuviera
+/// sonido: exportar vuelve a codificar desde los fotogramas, y ahi no hay audio ninguno.
+fn pista_de_audio(session: &SessionData, indices: &[usize]) -> Option<mp4::Pista> {
+    use std::io::{Seek, SeekFrom};
+
+    let info = session.audio?;
+    let primero = session.frames.get(*indices.first()?)?;
+    let ultimo = session.frames.get(*indices.last()?)?;
+    let desde = primero.timestamp_ms;
+    let hasta = ultimo.timestamp_ms + u64::from(ultimo.duration_ms);
+    let (inicio, largo) = info.tramo(desde, hasta);
+    if largo == 0 {
+        return None;
+    }
+
+    let mut archivo = std::fs::File::open(session.audio_path()).ok()?;
+    archivo.seek(SeekFrom::Start(inicio)).ok()?;
+    let mut datos = vec![0u8; largo as usize];
+    // Lo que haya: si la grabacion acabo antes de lo que dicen los fotogramas, se exporta
+    // el sonido que exista en vez de fallar por unos milisegundos de menos.
+    let leidos = leer_lo_que_haya(&mut archivo, &mut datos);
+    datos.truncate(leidos);
+    if datos.is_empty() {
+        return None;
+    }
+    Some(mp4::Pista {
+        channels: info.channels,
+        sample_rate: info.sample_rate,
+        datos,
+    })
+}
+
+fn leer_lo_que_haya(archivo: &mut std::fs::File, destino: &mut [u8]) -> usize {
+    use std::io::Read;
+    let mut total = 0;
+    while total < destino.len() {
+        match archivo.read(&mut destino[total..]) {
+            Ok(0) => break,
+            Ok(n) => total += n,
+            Err(_) => break,
+        }
+    }
+    total
 }
 
 /// Una imagen se pega como imagen; un GIF o un MP4 se pegan como archivo.
@@ -294,6 +345,7 @@ mod tests {
             width: 10,
             height: 10,
             mp4_path: None,
+            audio: None,
             frames,
         }
     }

@@ -180,6 +180,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             <PreviewCanvas
               videoUrl={videoUrl}
               posterUrl={posterUrl}
+              conSonido={session?.hasAudio ?? false}
               inMs={frames[inIndex]?.timestampMs ?? 0}
               outMs={(frames[outIndex]?.timestampMs ?? 0) + (frames[outIndex]?.durationMs ?? 0)}
               playing={playing}

@@ -42,12 +42,35 @@ pub fn rgba_to_bgra_bottom_up(image: &RgbaImage) -> Vec<u8> {
 }
 
 #[cfg(windows)]
+/// El sonido que acompanna al video, ya recortado al tramo que se exporta.
+pub struct Pista {
+    pub channels: u16,
+    pub sample_rate: u32,
+    /// PCM de 16 bits con los canales intercalados, que es lo que quiere el codificador.
+    pub datos: Vec<u8>,
+}
+
+impl Pista {
+    fn bloque(&self) -> usize {
+        usize::from(self.channels) * 2
+    }
+
+    /// Cuantos bytes de sonido corresponden a ese trozo de tiempo, sin cortar una muestra
+    /// por la mitad.
+    fn bytes_de(&self, ms: u32) -> usize {
+        let bloque = self.bloque().max(1);
+        let bytes = u64::from(ms) * u64::from(self.sample_rate) * bloque as u64 / 1000;
+        (bytes as usize) / bloque * bloque
+    }
+}
+
 pub fn encode<L, P>(
     indices: &[usize],
     delays_ms: &[u32],
     loader: &mut L,
     path: &Path,
     options: &Mp4Options,
+    audio: Option<Pista>,
     mut progress: P,
 ) -> Result<()>
 where
@@ -71,7 +94,14 @@ where
             .sub_type(VideoSettingsSubType::H264)
             .frame_rate(options.fps.max(1))
             .bitrate(options.bitrate()),
-        AudioSettingsBuilder::default().disabled(true),
+        match audio.as_ref() {
+            Some(pista) => AudioSettingsBuilder::default()
+                .channel_count(u32::from(pista.channels))
+                .sample_rate(pista.sample_rate)
+                .bit_per_sample(16)
+                .disabled(false),
+            None => AudioSettingsBuilder::default().disabled(true),
+        },
         ContainerSettingsBuilder::default(),
         path,
     )
@@ -80,6 +110,7 @@ where
     let total = indices.len();
     // Media Foundation cuenta el tiempo en unidades de 100 nanosegundos.
     let mut timestamp: i64 = 0;
+    let mut enviado: usize = 0;
     for (position, index) in indices.iter().enumerate() {
         progress("encoding", position, total);
         let frame = loader(*index)?;
@@ -97,7 +128,30 @@ where
         encoder
             .send_frame_buffer(&buffer, timestamp)
             .map_err(|e| AppError::Msg(e.to_string()))?;
-        timestamp += delays_ms.get(position).copied().unwrap_or(33) as i64 * 10_000;
+        let dura = delays_ms.get(position).copied().unwrap_or(33);
+        timestamp += dura as i64 * 10_000;
+
+        // El sonido va detras de cada fotograma, en el trozo que le toca por duracion. De
+        // una tacada al final tambien valdria (el codificador coloca el audio contando
+        // muestras, no por la marca de tiempo), pero llenaria su cola de golpe.
+        if let Some(pista) = audio.as_ref() {
+            let hasta = (enviado + pista.bytes_de(dura)).min(pista.datos.len());
+            if hasta > enviado {
+                encoder
+                    .send_audio_buffer(&pista.datos[enviado..hasta], 0)
+                    .map_err(|e| AppError::Msg(e.to_string()))?;
+                enviado = hasta;
+            }
+        }
+    }
+
+    // Y lo que quede sonando cuando ya no hay mas fotogramas.
+    if let Some(pista) = audio.as_ref() {
+        if enviado < pista.datos.len() {
+            encoder
+                .send_audio_buffer(&pista.datos[enviado..], 0)
+                .map_err(|e| AppError::Msg(e.to_string()))?;
+        }
     }
 
     encoder.finish().map_err(|e| AppError::Msg(e.to_string()))?;
@@ -112,6 +166,7 @@ pub fn encode<L, P>(
     _loader: &mut L,
     _path: &Path,
     _options: &Mp4Options,
+    _audio: Option<Pista>,
     _progress: P,
 ) -> Result<()>
 where

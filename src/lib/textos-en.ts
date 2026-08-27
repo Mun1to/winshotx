@@ -257,4 +257,11 @@ export const EN: Record<string, string> = {
   "Exportar y copiar al portapapeles": "Export and copy to the clipboard",
   "abrir carpeta": "open folder",
   "copiado · ": "copied · ",
+
+  // El panel de exportar del editor
+  "bucle, sin audio": "loops, no sound",
+  "H.264 por hardware": "H.264 on the graphics card",
+  "el fotograma actual": "the frame you are on",
+  "calidad máxima, más lento": "top quality, slower",
+  "esta grabación se hizo sin audio": "this recording was made without sound",
 };

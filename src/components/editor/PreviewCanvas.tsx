@@ -5,6 +5,8 @@ interface Props {
   videoUrl: string | null;
   /** Fotograma que se muestra cuando no hay MP4 de referencia. */
   posterUrl: string | null;
+  /** Si la grabación trae sonido. Sin esto la vista previa siempre salía muda. */
+  conSonido: boolean;
   inMs: number;
   outMs: number;
   playing: boolean;
@@ -17,6 +19,7 @@ interface Props {
 export function PreviewCanvas({
   videoUrl,
   posterUrl,
+  conSonido,
   inMs,
   outMs,
   playing,
@@ -57,7 +60,10 @@ export function PreviewCanvas({
     <video
       ref={videoRef}
       src={videoUrl}
-      muted
+      // Solo se silencia si no hay nada que oír. Estaba fijo en `muted` de cuando el
+      // audio del sistema no existía, así que una grabación con sonido se veía muda y
+      // parecía que el sonido no se había grabado.
+      muted={!conSonido}
       playsInline
       className="max-h-full max-w-full object-contain"
       onTimeUpdate={(e) => {

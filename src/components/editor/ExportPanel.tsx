@@ -146,7 +146,7 @@ export function ExportPanel({
               key={f.id}
               type="button"
               onClick={() => setFormat(f.id)}
-              title={f.hint}
+              title={t(f.hint)}
               className={`rounded-md py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
                 format === f.id
                   ? "bg-white/15 text-white shadow-sm"
@@ -219,7 +219,7 @@ export function ExportPanel({
             checked={audio}
             onChange={setAudio}
             label={t("Audio del sistema")}
-            hint={session.hasAudio ? undefined : "esta grabación se hizo sin audio"}
+            hint={session.hasAudio ? undefined : t("esta grabación se hizo sin audio")}
           />
         )}
         {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}
@@ -228,7 +228,7 @@ export function ExportPanel({
             checked={useFfmpeg}
             onChange={setUseFfmpeg}
             label={t("Motor FFmpeg")}
-            hint="calidad máxima, más lento"
+            hint={t("calidad máxima, más lento")}
           />
         )}
       </div>

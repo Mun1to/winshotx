@@ -138,6 +138,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         width: region.width,
         height: region.height,
         mp4_path: Some(dir.join("preview.mp4")),
+        audio: None,
         frames: Vec::new(),
     };
 
@@ -177,21 +178,37 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         let mut encoder = build_preview_encoder(&session, formato_audio);
         let mut last_ts = 0u64;
 
-        // Lo que llega del altavoz se vuelca en el codificador segun va entrando. Si se
-        // dejara para el final habria que guardarlo entero en memoria, y cinco minutos de
-        // sonido son cientos de megas.
-        let mut volcar_audio = |enc: &mut Option<windows_capture::encoder::VideoEncoder>| {
+        // El sonido va a dos sitios a la vez: al MP4 de vista previa, para poder oirlo de
+        // una pieza, y a un archivo en crudo, que es lo que se recorta al exportar. Sin el
+        // archivo, el video que guarda el usuario sale mudo, porque la exportacion vuelve
+        // a codificar desde los fotogramas y ahi no hay sonido ninguno.
+        let mut audio_file = audio.as_ref().and_then(|_| {
+            std::fs::File::create(session.audio_path())
+                .ok()
+                .map(std::io::BufWriter::new)
+        });
+        let mut bytes_de_audio: u64 = 0;
+
+        let volcar_audio = |enc: &mut Option<windows_capture::encoder::VideoEncoder>,
+                                archivo: &mut Option<std::io::BufWriter<std::fs::File>>,
+                                escritos: &mut u64| {
+            use std::io::Write;
             let Some(captura) = audio.as_ref() else { return };
             while let Ok(trozo) = captura.trozos.try_recv() {
-                let Some(codificador) = enc.as_mut() else { return };
                 let pcm = crate::record::audio::a_pcm16(&trozo.datos);
+                if let Some(f) = archivo.as_mut() {
+                    if f.write_all(&pcm).is_ok() {
+                        *escritos += pcm.len() as u64;
+                    }
+                }
+                let Some(codificador) = enc.as_mut() else { continue };
                 if codificador
                     .send_audio_buffer(&pcm, trozo.desde_el_inicio)
                     .is_err()
                 {
-                    // El sonido se queda por el camino, pero la imagen sigue: el cache de
-                    // fotogramas es la fuente de verdad y no depende del codificador.
-                    return;
+                    // El sonido se queda fuera de la vista previa, pero la imagen sigue y
+                    // el archivo en crudo tambien: el video exportado saldra con sonido.
+                    *enc = None;
                 }
             }
         };
@@ -225,13 +242,25 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                     encoder = None;
                 }
             }
-            volcar_audio(&mut encoder);
+            volcar_audio(&mut encoder, &mut audio_file, &mut bytes_de_audio);
         }
 
         // Lo ultimo que quedo sonando, ya con la captura parada.
-        volcar_audio(&mut encoder);
+        volcar_audio(&mut encoder, &mut audio_file, &mut bytes_de_audio);
         if let Some(captura) = audio {
+            let formato = captura.formato;
             captura.parar();
+            if let Some(mut f) = audio_file.take() {
+                use std::io::Write;
+                let _ = f.flush();
+            }
+            // Sin un solo byte no hay sonido que exportar, y decir que lo hay dejaria al
+            // exportador buscando un archivo vacio.
+            session.audio = (bytes_de_audio > 0).then_some(crate::record::AudioInfo {
+                channels: formato.canales,
+                sample_rate: formato.muestras_por_segundo,
+            });
+            session.has_audio = session.audio.is_some();
         }
 
         if let Some(enc) = encoder.take() {
@@ -493,6 +522,7 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         fps: 1,
         format: "still".into(),
         has_audio: false,
+        audio: None,
         width: image.width(),
         height: image.height(),
         mp4_path: None,

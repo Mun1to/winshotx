@@ -74,6 +74,7 @@ fn el_cache_deduplica_y_devuelve_los_fotogramas_intactos() {
         width,
         height,
         mp4_path: None,
+        audio: None,
         frames,
     };
 
@@ -147,6 +148,7 @@ fn exporta_un_mp4_que_media_foundation_acepta() {
             fps: 30,
             quality: 70,
         },
+        None,
         |_stage, _done, _total| {},
     )
     .expect("el codificador de MP4 ha fallado");
@@ -306,6 +308,7 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
         width: region.width,
         height: region.height,
         mp4_path: None,
+        audio: None,
         frames,
     };
     record::generate_thumbnails(&mut session).expect("las miniaturas han fallado");
@@ -349,8 +352,67 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
             fps: 20,
             quality: 70,
         },
+        None,
         |_, _, _| {},
     )
     .expect("no se ha podido exportar el MP4");
     assert_eq!(&std::fs::read(&mp4_path).unwrap()[4..8], b"ftyp");
+}
+
+/// Exportar un vídeo con sonido tiene que dejar el sonido DENTRO del archivo.
+///
+/// Es el fallo que Munir encontró el 27 de agosto de 2026: la grabación cogía el audio
+/// bien, pero exportar volvía a codificar desde los fotogramas y el MP4 salía mudo.
+#[cfg(windows)]
+#[test]
+fn el_mp4_exportado_lleva_el_sonido_dentro() {
+    use winshotx_lib::encode::mp4;
+
+    let dir = std::env::temp_dir().join(format!(
+        "winshotx-export-audio-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let destino = dir.join("con-sonido.mp4");
+
+    let (ancho, alto) = (320u32, 240u32);
+    let cuantos = 15usize;
+    let imagen = image::RgbaImage::from_pixel(ancho, alto, image::Rgba([40, 60, 90, 255]));
+    let indices: Vec<usize> = (0..cuantos).collect();
+    let delays = vec![33u32; cuantos];
+    let mut loader = |_: usize| Ok(imagen.clone());
+
+    // Medio segundo de silencio en estéreo a 48 kHz, que es lo que dura el vídeo.
+    let pista = mp4::Pista {
+        channels: 2,
+        sample_rate: 48_000,
+        datos: vec![0u8; 48_000 / 2 * 2 * 2],
+    };
+
+    mp4::encode(
+        &indices,
+        &delays,
+        &mut loader,
+        &destino,
+        &mp4::Mp4Options {
+            width: ancho,
+            height: alto,
+            fps: 30,
+            quality: 70,
+        },
+        Some(pista),
+        |_, _, _| {},
+    )
+    .expect("no se ha podido exportar el MP4 con sonido");
+
+    let bytes = std::fs::read(&destino).expect("no se ha escrito el MP4");
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(&bytes[4..8], b"ftyp", "no parece un MP4");
+    assert!(
+        bytes.windows(4).any(|v| v == b"mp4a"),
+        "el MP4 exportado ha salido sin pista de sonido"
+    );
 }

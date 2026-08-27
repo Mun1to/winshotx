@@ -44,6 +44,35 @@ const FOTOGRAMA_ENTERO_CADA: u32 = 30;
 /// ahorra lo suficiente para pagar el trabajo de reconstruirlo despues.
 const PARTE_MAXIMA: f64 = 0.6;
 
+/// El sonido que se grabo, guardado aparte de la imagen.
+///
+/// Se guarda en crudo (PCM de 16 bits) y no dentro del MP4 de vista previa porque el
+/// usuario recorta por fotogramas: al exportar hay que quedarse con el tramo que va del
+/// primer fotograma al ultimo, y de un MP4 ya montado eso no se saca sin desmontarlo.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioInfo {
+    pub channels: u16,
+    pub sample_rate: u32,
+}
+
+impl AudioInfo {
+    /// Cuantos bytes ocupa un milisegundo de sonido, con todos sus canales.
+    pub fn bytes_por_ms(&self) -> u64 {
+        u64::from(self.sample_rate) * u64::from(self.channels) * 2 / 1000
+    }
+
+    /// El trozo de archivo que corresponde a ese tramo de tiempo, alineado para no cortar
+    /// una muestra por la mitad: media muestra suena a chasquido.
+    pub fn tramo(&self, desde_ms: u64, hasta_ms: u64) -> (u64, u64) {
+        let bloque = u64::from(self.channels) * 2;
+        let alinear = |bytes: u64| bytes / bloque * bloque;
+        let inicio = alinear(desde_ms * self.bytes_por_ms());
+        let fin = alinear(hasta_ms.max(desde_ms) * self.bytes_por_ms());
+        (inicio, fin.saturating_sub(inicio))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionData {
@@ -56,12 +85,19 @@ pub struct SessionData {
     pub width: u32,
     pub height: u32,
     pub mp4_path: Option<PathBuf>,
+    #[serde(default)]
+    pub audio: Option<AudioInfo>,
     pub frames: Vec<FrameEntry>,
 }
 
 impl SessionData {
     pub fn cache_path(&self) -> PathBuf {
         self.dir.join("frames.bin")
+    }
+
+    /// El sonido en crudo, si lo hubo.
+    pub fn audio_path(&self) -> PathBuf {
+        self.dir.join("audio.pcm")
     }
 
     pub fn duration_ms(&self) -> u64 {
@@ -423,6 +459,7 @@ mod tests {
             width,
             height,
             mp4_path: None,
+            audio: None,
             frames,
         }
     }
@@ -484,6 +521,33 @@ mod tests {
             "guardando solo lo que cambia se han escrito {escrito} bytes y guardándolo \
              todo serían {enteros}: no llega ni a un tercio de ahorro"
         );
+    }
+
+    /// El corte del sonido tiene que caer donde cae el recorte de imagen, y siempre en
+    /// una muestra entera: media muestra suena a chasquido, y un byte de desfase arrastra
+    /// todo el sonido que viene detras.
+    #[test]
+    fn el_sonido_se_corta_donde_se_corta_la_imagen() {
+        let info = AudioInfo {
+            channels: 2,
+            sample_rate: 48_000,
+        };
+        // Dos canales de dos bytes a 48 kHz: 192 bytes por milisegundo.
+        assert_eq!(info.bytes_por_ms(), 192);
+
+        // Del segundo 1 al 3: empieza en 192.000 y dura dos segundos.
+        let (inicio, largo) = info.tramo(1_000, 3_000);
+        assert_eq!(inicio, 192_000);
+        assert_eq!(largo, 384_000);
+
+        // Todo alineado a bloques de cuatro bytes, pase lo que pase con los milisegundos.
+        let (inicio, largo) = info.tramo(333, 777);
+        assert_eq!(inicio % 4, 0, "el principio corta una muestra por la mitad");
+        assert_eq!(largo % 4, 0, "y el final también");
+
+        // Un recorte al revés no puede devolver un tamaño dado la vuelta.
+        assert_eq!(info.tramo(5_000, 1_000).1, 0);
+        assert_eq!(info.tramo(0, 0).1, 0);
     }
 
     /// La cifra de la META 3, medida en vez de estimada. No corre sola porque tarda unos
