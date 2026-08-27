@@ -235,8 +235,26 @@ GIF y MP4 que se releen para comprobar que valen.
 2. **Que apagada no cuesta nada** — la que protege los 28 ms.
 3. Que no rompe la captura ni la grabación de siempre.
 
-**Y una que falta y hay que escribir en T1:** una prueba de arranque que **falle sola si pasa de
-28 ms**. Hoy ese número se mide a mano con scripts de un scratchpad, o sea que no se mide.
+**El frontend también se prueba, desde el 27 de agosto de 2026.** `pnpm test` levanta Vitest
+sobre el MISMO Vite que compila la aplicación, con `happy-dom` haciendo de ventana y un doble de
+`invoke` que contesta lo que le diga cada prueba (`src/test/preparar.ts`). Hasta entonces
+`pnpm build` solo comprobaba tipos y `cargo test` no veía nada de TypeScript: todo lo que se
+escribía en la interfaz salía sin red.
+
+Lo que cubre y por qué esas cuatro cosas y no otras:
+
+| Archivo | Qué protege |
+|---|---|
+| `src/lib/pantallas.test.ts` | Las coordenadas entre monitores, **con las negativas**, que es donde este proyecto se ha equivocado tres veces. |
+| `src/lib/i18n.test.ts` | La mecánica de `t()` y la salud del catálogo: claves huérfanas, traducciones que se dejaron la frase en español, marcadores perdidos al traducir. |
+| `src/components/**/*.test.tsx` | Que las pantallas salgan **enteras** en inglés. Es lo único que ve una frase escrita a pelo, sin pasar por `t()`. |
+| `src/lib/format.test.ts` | Los contadores que se pintan mientras se graba. |
+
+La regla que salió de montarlo: **una prueba que nunca se ha visto roja no ha probado nada.**
+Las dos de idioma se estrenaron rompiendo la traducción a mano y comprobando que mordían.
+
+**Y una que sigue faltando:** una prueba de arranque que **falle sola si pasa de 28 ms**. Hoy ese
+número se mide a mano con scripts de un scratchpad, o sea que no se mide.
 
 Al cerrar cada tanda se remiden los tres números de la línea base: milisegundos de arranque,
 bytes del instalador, MB de RAM. **Ninguna cifra publicada empeora en silencio**: están en el

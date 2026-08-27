@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -17,6 +18,15 @@ export default defineConfig({
     port: 1421,
     strictPort: true,
     watch: { ignored: ["**/src-tauri/**"] },
+  },
+  // El banco de pruebas del frontend. Corre con el MISMO Vite que compila la aplicacion,
+  // asi que lo que pasa una prueba se comporta igual dentro de la ventana: mismos alias,
+  // mismo `__VERSION__`, mismo Tailwind. Un empaquetador aparte se habria desincronizado.
+  test: {
+    environment: "happy-dom",
+    globals: true,
+    setupFiles: ["./src/test/preparar.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
   },
   build: {
     target: "chrome110",

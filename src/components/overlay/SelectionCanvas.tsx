@@ -13,6 +13,13 @@ import {
 } from "../../lib/ipc";
 import { clamp } from "../../lib/format";
 import {
+  aPantalla,
+  aVirtual,
+  esDeEstaPantalla,
+  ventanaBajoElPunto,
+  ventanasDeEstaPantalla,
+} from "../../lib/pantallas";
+import {
   EVENTS,
   type CaptureMode,
   type OverlayModeState,
@@ -138,39 +145,23 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [freezeUrl, setFreezeUrl] = useState<string | null>(null);
 
   /** Ventanas del sistema recortadas a este monitor, ya en coordenadas CSS locales. */
-  const snapTargets = useMemo(() => {
-    if (!payload) return [];
-    const m = payload.monitor;
-    return payload.windows
-      .map((w) => ({
-        title: w.title,
-        rect: {
-          x: (w.rect.x - m.x) / scale,
-          y: (w.rect.y - m.y) / scale,
-          width: w.rect.width / scale,
-          height: w.rect.height / scale,
-        },
-      }))
-      .filter(
-        (w) =>
-          w.rect.width > 8 &&
-          w.rect.height > 8 &&
-          w.rect.x < window.innerWidth &&
-          w.rect.y < window.innerHeight &&
-          w.rect.x + w.rect.width > 0 &&
-          w.rect.y + w.rect.height > 0,
-      );
-  }, [payload, scale]);
+  const snapTargets = useMemo(
+    () =>
+      payload
+        ? ventanasDeEstaPantalla(
+            payload.windows,
+            payload.monitor,
+            scale,
+            window.innerWidth,
+            window.innerHeight,
+          )
+        : [],
+    [payload, scale],
+  );
 
   /** La ventana mas pequenna bajo el punto es la que esta encima. */
   const windowAt = useCallback(
-    (x: number, y: number): { title: string; rect: Rect } | null => {
-      const inside = snapTargets.filter((w) => contains(w.rect, x, y));
-      if (inside.length === 0) return null;
-      return inside.reduce((best, w) =>
-        w.rect.width * w.rect.height < best.rect.width * best.rect.height ? w : best,
-      );
-    },
+    (x: number, y: number) => ventanaBajoElPunto(snapTargets, x, y),
     [snapTargets],
   );
 
@@ -280,15 +271,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   }, []);
 
   const toPhysical = useCallback(
-    (rect: Rect): Rect => {
-      const m = payload!.monitor;
-      return {
-        x: Math.round(m.x + rect.x * scale),
-        y: Math.round(m.y + rect.y * scale),
-        width: Math.max(2, Math.round(rect.width * scale)),
-        height: Math.max(2, Math.round(rect.height * scale)),
-      };
-    },
+    (rect: Rect): Rect => aVirtual(rect, payload!.monitor, scale),
     [payload, scale],
   );
 
@@ -319,18 +302,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const ultimaRegion = useMemo(() => {
     const r = payload?.lastRegion;
     if (!r || !payload) return null;
-    const m = payload.monitor;
-    const cx = r.x + Math.floor(r.width / 2);
-    const cy = r.y + Math.floor(r.height / 2);
-    const esDeEstaPantalla =
-      cx >= m.x && cy >= m.y && cx < m.x + m.width && cy < m.y + m.height;
-    if (!esDeEstaPantalla) return null;
-    return {
-      x: (r.x - m.x) / scale,
-      y: (r.y - m.y) / scale,
-      width: r.width / scale,
-      height: r.height / scale,
-    };
+    if (!esDeEstaPantalla(r, payload.monitor)) return null;
+    return aPantalla(r, payload.monitor, scale);
   }, [payload, scale]);
 
   const ultimaRegionRef = useRef<Rect | null>(null);
