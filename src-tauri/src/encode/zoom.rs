@@ -1,0 +1,339 @@
+//! El zoom que se acerca solo a donde se hizo clic.
+//!
+//! Es lo que hace que una grabación de pantalla se entienda: en un monitor de 1920 el botón
+//! que se pulsa mide veinte píxeles, y quien mira el vídeo no sabe dónde mirar. Acercarse a
+//! ese punto durante un segundo y volver es la diferencia entre un vídeo y un tutorial.
+//!
+//! **Todo se calcula al exportar, sobre los fotogramas que ya están en disco.** Durante la
+//! grabación solo se anota dónde y cuándo se pulsó. De ahí salen tres cosas:
+//!
+//! 1. **Cero megabytes de instalador y cero milisegundos de arranque.** Es aritmética.
+//! 2. **Se puede cambiar de idea después de grabar**: subir el zoom, bajarlo o quitarlo no
+//!    obliga a repetir la grabación.
+//! 3. No hace falta ningún enganche de teclado ni de ratón.
+//!
+//! La cámara nunca se sale de la imagen: al pulsar en una esquina se acerca a esa esquina,
+//! no a un trozo de negro que no existe.
+
+use serde::{Deserialize, Serialize};
+
+/// Un clic, en píxeles de la región grabada y milisegundos desde el principio.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Clic {
+    pub ms: u64,
+    pub x: i32,
+    pub y: i32,
+}
+
+/// Cómo se comporta el zoom. Lo elige quien exporta, no quien graba.
+#[derive(Debug, Clone, Copy)]
+pub struct Ajustes {
+    /// Cuánto se acerca. 2,0 es el doble de grande.
+    pub escala: f32,
+    /// Lo que tarda en acercarse y en alejarse.
+    pub transicion_ms: u64,
+    /// Lo que se queda quieto después del último clic del grupo.
+    pub quieto_ms: u64,
+}
+
+impl Default for Ajustes {
+    fn default() -> Self {
+        Self {
+            escala: 1.8,
+            transicion_ms: 450,
+            quieto_ms: 1200,
+        }
+    }
+}
+
+/// Un rato en el que la cámara está acercada a un sitio.
+///
+/// Sale de agrupar los clics cercanos en el tiempo: acercarse y alejarse por cada clic de un
+/// doble clic, o mientras alguien rellena un formulario, marea más que ayuda.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Tramo {
+    /// Cuándo empieza a acercarse.
+    pub desde_ms: u64,
+    /// Cuándo termina de alejarse.
+    pub hasta_ms: u64,
+    /// El primer clic del grupo, que es cuando ya tiene que estar cerca.
+    pub cerca_ms: u64,
+    /// El último clic del grupo: hasta aquí se queda quieto.
+    pub fin_cerca_ms: u64,
+    pub x: i32,
+    pub y: i32,
+}
+
+/// Dónde mira la cámara en un instante.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Camara {
+    pub x: i32,
+    pub y: i32,
+    /// 1,0 es la imagen entera.
+    pub escala: f32,
+}
+
+impl Camara {
+    /// La imagen entera, sin acercarse a nada.
+    pub fn entera(ancho: u32, alto: u32) -> Self {
+        Self {
+            x: ancho as i32 / 2,
+            y: alto as i32 / 2,
+            escala: 1.0,
+        }
+    }
+
+    /// El trozo que hay que recortar: `(x, y, ancho, alto)`, siempre dentro de la imagen.
+    ///
+    /// **El centro se corrige antes de recortar, no después.** Un clic pegado al borde
+    /// derecho pide una ventana que se sale, y lo correcto es enseñar la esquina de verdad,
+    /// no un trozo con la mitad en negro.
+    pub fn recorte(&self, ancho: u32, alto: u32) -> (u32, u32, u32, u32) {
+        let escala = self.escala.max(1.0);
+        let w = ((ancho as f32 / escala).round() as u32).clamp(2, ancho);
+        let h = ((alto as f32 / escala).round() as u32).clamp(2, alto);
+        let x = (self.x - w as i32 / 2).clamp(0, (ancho - w) as i32) as u32;
+        let y = (self.y - h as i32 / 2).clamp(0, (alto - h) as i32) as u32;
+        (x, y, w, h)
+    }
+}
+
+/// Agrupa los clics en tramos de zoom.
+///
+/// Dos clics entran en el mismo tramo si el segundo llega antes de que el primero haya
+/// terminado de estar quieto. El centro es el del PRIMER clic del grupo y no la media: la
+/// media de dos esquinas opuestas cae en el medio de la pantalla, que es donde no ha pasado
+/// nada.
+pub fn tramos(clics: &[Clic], ajustes: &Ajustes) -> Vec<Tramo> {
+    let mut salida: Vec<Tramo> = Vec::new();
+    for clic in clics {
+        match salida.last_mut() {
+            // Sigue dentro del anterior: se alarga en vez de abrir otro.
+            Some(ultimo) if clic.ms <= ultimo.fin_cerca_ms + ajustes.quieto_ms => {
+                ultimo.fin_cerca_ms = clic.ms;
+                ultimo.hasta_ms = clic.ms + ajustes.quieto_ms + ajustes.transicion_ms;
+            }
+            _ => salida.push(Tramo {
+                desde_ms: clic.ms.saturating_sub(ajustes.transicion_ms),
+                cerca_ms: clic.ms,
+                fin_cerca_ms: clic.ms,
+                hasta_ms: clic.ms + ajustes.quieto_ms + ajustes.transicion_ms,
+                x: clic.x,
+                y: clic.y,
+            }),
+        }
+    }
+    salida
+}
+
+/// Una rampa que empieza y acaba parada, de 0 a 1.
+///
+/// Con una recta se nota el tirón al empezar y al terminar, y el zoom parece un salto en vez
+/// de un movimiento. Es la misma curva que usa cualquier animación que se ve bien.
+fn suave(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// Dónde mira la cámara en ese milisegundo.
+pub fn camara(tramos: &[Tramo], ms: u64, ancho: u32, alto: u32, ajustes: &Ajustes) -> Camara {
+    let entera = Camara::entera(ancho, alto);
+    let Some(tramo) = tramos
+        .iter()
+        .find(|t| ms >= t.desde_ms && ms <= t.hasta_ms)
+    else {
+        return entera;
+    };
+
+    let cerca = |cuanto: f32| Camara {
+        x: tramo.x,
+        y: tramo.y,
+        escala: 1.0 + (ajustes.escala - 1.0) * cuanto,
+    };
+
+    if ms < tramo.cerca_ms {
+        // Acercándose.
+        let dentro = (ms - tramo.desde_ms) as f32;
+        let total = (tramo.cerca_ms - tramo.desde_ms).max(1) as f32;
+        cerca(suave(dentro / total))
+    } else if ms <= tramo.fin_cerca_ms + ajustes.quieto_ms {
+        // Quieto encima.
+        cerca(1.0)
+    } else {
+        // Alejándose.
+        let empieza = tramo.fin_cerca_ms + ajustes.quieto_ms;
+        let dentro = (ms - empieza) as f32;
+        let total = (tramo.hasta_ms - empieza).max(1) as f32;
+        cerca(1.0 - suave(dentro / total))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn clic(ms: u64, x: i32, y: i32) -> Clic {
+        Clic { ms, x, y }
+    }
+
+    fn ajustes() -> Ajustes {
+        Ajustes {
+            escala: 2.0,
+            transicion_ms: 400,
+            quieto_ms: 1000,
+        }
+    }
+
+    #[test]
+    fn sin_clics_la_camara_no_se_mueve() {
+        let c = camara(&[], 5000, 1920, 1080, &ajustes());
+        assert_eq!(c.escala, 1.0);
+        assert_eq!(c.recorte(1920, 1080), (0, 0, 1920, 1080));
+    }
+
+    #[test]
+    fn un_clic_abre_un_tramo_que_empieza_antes_de_pulsar() {
+        // Si el zoom empezara al pulsar, llegaria cerca cuando ya ha pasado lo importante.
+        let t = tramos(&[clic(2000, 100, 100)], &ajustes());
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].desde_ms, 1600);
+        assert_eq!(t[0].cerca_ms, 2000);
+        assert_eq!(t[0].hasta_ms, 3400);
+    }
+
+    #[test]
+    fn en_el_momento_del_clic_ya_esta_cerca_del_todo() {
+        let a = ajustes();
+        let t = tramos(&[clic(2000, 100, 100)], &a);
+        assert_eq!(camara(&t, 2000, 1920, 1080, &a).escala, 2.0);
+    }
+
+    #[test]
+    fn antes_del_tramo_y_despues_esta_entera() {
+        let a = ajustes();
+        let t = tramos(&[clic(2000, 100, 100)], &a);
+        assert_eq!(camara(&t, 1000, 1920, 1080, &a).escala, 1.0);
+        assert_eq!(camara(&t, 5000, 1920, 1080, &a).escala, 1.0);
+    }
+
+    #[test]
+    fn a_media_transicion_esta_a_medio_camino() {
+        let a = ajustes();
+        let t = tramos(&[clic(2000, 100, 100)], &a);
+        let mitad = camara(&t, 1800, 1920, 1080, &a).escala;
+        assert!((mitad - 1.5).abs() < 0.01, "ha salido {mitad}");
+    }
+
+    #[test]
+    fn el_movimiento_empieza_y_acaba_parado() {
+        // Con una recta se nota el tiron. La curva tiene que moverse MENOS en los extremos
+        // que en el centro, y eso es lo que se comprueba: no que valga 0,5 en la mitad,
+        // que tambien lo cumple una recta.
+        let a = ajustes();
+        let t = tramos(&[clic(2000, 100, 100)], &a);
+        let en = |ms| camara(&t, ms, 1920, 1080, &a).escala;
+        let arranque = en(1640) - en(1600);
+        let centro = en(1820) - en(1780);
+        assert!(
+            centro > arranque * 2.0,
+            "el arranque ({arranque}) no es mas suave que el centro ({centro})"
+        );
+    }
+
+    #[test]
+    fn dos_clics_seguidos_son_un_solo_tramo() {
+        // Acercarse y alejarse por cada clic de un doble clic marea mas que ayuda.
+        let t = tramos(&[clic(2000, 100, 100), clic(2300, 120, 110)], &ajustes());
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].fin_cerca_ms, 2300);
+    }
+
+    #[test]
+    fn y_se_queda_en_el_sitio_del_primero() {
+        // La media de dos esquinas opuestas cae en el centro, que es donde no ha pasado nada.
+        let t = tramos(&[clic(2000, 100, 100), clic(2300, 1800, 900)], &ajustes());
+        assert_eq!((t[0].x, t[0].y), (100, 100));
+    }
+
+    #[test]
+    fn dos_clics_lejos_en_el_tiempo_son_dos_tramos() {
+        let t = tramos(&[clic(2000, 100, 100), clic(9000, 800, 400)], &ajustes());
+        assert_eq!(t.len(), 2);
+        assert_eq!((t[1].x, t[1].y), (800, 400));
+    }
+
+    #[test]
+    fn entre_dos_tramos_se_vuelve_a_ver_la_pantalla_entera() {
+        let a = ajustes();
+        let t = tramos(&[clic(2000, 100, 100), clic(9000, 800, 400)], &a);
+        assert_eq!(camara(&t, 5500, 1920, 1080, &a).escala, 1.0);
+    }
+
+    #[test]
+    fn el_recorte_al_doble_es_la_cuarta_parte_de_la_imagen() {
+        let c = Camara {
+            x: 960,
+            y: 540,
+            escala: 2.0,
+        };
+        assert_eq!(c.recorte(1920, 1080), (480, 270, 960, 540));
+    }
+
+    #[test]
+    fn un_clic_en_la_esquina_no_saca_la_camara_de_la_imagen() {
+        // Lo correcto es ensennar la esquina de verdad, no un trozo con la mitad en negro.
+        let c = Camara {
+            x: 5,
+            y: 5,
+            escala: 2.0,
+        };
+        assert_eq!(c.recorte(1920, 1080), (0, 0, 960, 540));
+    }
+
+    #[test]
+    fn y_en_la_esquina_de_abajo_a_la_derecha_tampoco() {
+        let c = Camara {
+            x: 1915,
+            y: 1075,
+            escala: 2.0,
+        };
+        let (x, y, w, h) = c.recorte(1920, 1080);
+        assert_eq!((x + w, y + h), (1920, 1080));
+    }
+
+    #[test]
+    fn una_escala_por_debajo_de_uno_no_agranda_la_imagen() {
+        // Pedir menos de 1 seria pedir un recorte mas grande que la imagen.
+        let c = Camara {
+            x: 960,
+            y: 540,
+            escala: 0.5,
+        };
+        assert_eq!(c.recorte(1920, 1080), (0, 0, 1920, 1080));
+    }
+
+    #[test]
+    fn el_zoom_nunca_recorta_a_menos_de_dos_pixeles() {
+        // H.264 no acepta un lado impar, y un lado de cero revienta al codificador.
+        let c = Camara {
+            x: 100,
+            y: 100,
+            escala: 5000.0,
+        };
+        let (_, _, w, h) = c.recorte(1920, 1080);
+        assert!(w >= 2 && h >= 2, "{w}x{h}");
+    }
+
+    #[test]
+    fn los_clics_de_un_arrastre_largo_no_dejan_la_camara_pegada_para_siempre() {
+        // Un tramo se alarga con cada clic, pero termina: sin esto, alguien que hace clic
+        // cada segundo durante un minuto tendria un minuto de zoom fijo sin poder salir.
+        let a = ajustes();
+        let clics: Vec<Clic> = (0..10).map(|i| clic(1000 + i * 500, 200, 200)).collect();
+        let t = tramos(&clics, &a);
+        assert_eq!(t.len(), 1);
+        let ultimo = 1000 + 9 * 500;
+        assert_eq!(t[0].hasta_ms, ultimo + a.quieto_ms + a.transicion_ms);
+        assert_eq!(camara(&t, t[0].hasta_ms + 1, 1920, 1080, &a).escala, 1.0);
+    }
+}
