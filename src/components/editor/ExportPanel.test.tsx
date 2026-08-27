@@ -139,6 +139,14 @@ describe("recortar la imagen", () => {
     expect(loExportado().crop).toEqual(MITAD_DERECHA);
   });
 
+  it("el 50 % es la mitad del trozo, no la mitad de la captura entera", async () => {
+    // Con el recorte puesto, escalar sobre la captura entera estiraria el trozo al doble.
+    pintar({}, MITAD_DERECHA);
+    fireEvent.click(screen.getByText("50%"));
+    expect(screen.getByLabelText("Ancho")).toHaveValue(200);
+    expect(screen.getByLabelText("Alto")).toHaveValue(300);
+  });
+
   it("sin recorte se manda null y salen las medidas de la region grabada", async () => {
     pintar();
     expect(screen.getByLabelText("Ancho")).toHaveValue(800);

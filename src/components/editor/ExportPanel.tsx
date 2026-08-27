@@ -273,8 +273,10 @@ export function ExportPanel({
               key={pct}
               type="button"
               onClick={() => {
-                setWidth(Math.round((session.region.width * pct) / 100));
-                setHeight(Math.round((session.region.height * pct) / 100));
+                // Sobre lo que se va a exportar, no sobre la captura entera: con un
+                // recorte puesto, el 50 % de la captura estiraria el trozo al doble.
+                setWidth(Math.round((fuente.width * pct) / 100));
+                setHeight(Math.round((fuente.height * pct) / 100));
               }}
               className="rounded-md bg-white/5 px-2 py-1 text-[11px] text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
             >

@@ -182,6 +182,17 @@ const OVERLAY = {
   screenCount: 3,
 };
 
+/**
+ * Sin transiciones de CSS.
+ *
+ * El navegador sin ventana avanza el reloj a saltos (`--virtual-time-budget`) y las
+ * transiciones se quedan congeladas a medias: una pestaña recien pulsada sale con el
+ * fondo de la anterior, y parece un fallo de la aplicacion que en el DOM no existe.
+ * Costo un rato la primera vez. Las animaciones de framer-motion no se tocan: esas van
+ * por JavaScript y se resuelven solas.
+ */
+const SIN_TRANSICIONES = `<style>*,*::before,*::after{transition:none !important}</style>`;
+
 const MOCK = `<script>
 window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
@@ -385,7 +396,7 @@ const server = createServer(async (req, res) => {
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
-    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + MOCK + RATON + SELECCION + RECORTE + TECLA + SECCION + PASO + TOUR);
+    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + SIN_TRANSICIONES + MOCK + RATON + SELECCION + RECORTE + TECLA + SECCION + PASO + TOUR);
     res.writeHead(200, { "Content-Type": TIPOS[extname(archivo)] ?? "application/octet-stream" });
     res.end(cuerpo);
   } catch {
