@@ -117,6 +117,12 @@ pub struct SessionData {
     /// del tamanno que tenga Windows puesto.
     #[serde(default)]
     pub cursor: Vec<(u64, i32, i32)>,
+    /// Si el cursor de Windows quedo dentro de los fotogramas.
+    ///
+    /// Lo necesita el editor para avisar: con el cursor cocido, encender el dibujado deja
+    /// DOS punteros en el video, y eso parece un fallo del programa.
+    #[serde(default)]
+    pub cursor_capturado: bool,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -493,6 +499,7 @@ mod tests {
             clics: Vec::new(),
             teclas: Vec::new(),
             cursor: Vec::new(),
+            cursor_capturado: false,
             frames,
         }
     }

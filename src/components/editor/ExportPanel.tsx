@@ -341,8 +341,14 @@ export function ExportPanel({
             onChange={setCursor}
           />
           {cursor > 0 && (
-            <p className="text-[11px] leading-snug text-neutral-500">
-              {t("Es la flecha estándar, no la que tengas puesta. Graba sin cursor para no ver dos.")}
+            <p
+              className={`text-[11px] leading-snug ${
+                session.cursorBaked ? "text-amber-400/90" : "text-neutral-500"
+              }`}
+            >
+              {session.cursorBaked
+                ? t("Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.")
+                : t("Es la flecha estándar, no la que tengas puesta.")}
             </p>
           )}
           <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />

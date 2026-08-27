@@ -94,6 +94,8 @@ export interface SessionInfo {
   hasAudio: boolean;
   /** Si se pulsó algo mientras se grababa. Sin clics no hay zoom que ofrecer. */
   hasClicks: boolean;
+  /** Si el cursor de Windows quedó dentro de los fotogramas. */
+  cursorBaked: boolean;
   format: SessionFormat;
   /** MP4 escrito en streaming durante la grabacion, si lo hubo. */
   mp4Path: string | null;

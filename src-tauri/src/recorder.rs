@@ -56,6 +56,8 @@ pub struct SessionInfo {
     /// Si se pulso algo durante la grabacion. Sin clics no hay nada a lo que acercarse, y
     /// ofrecer el zoom en el editor seria ofrecer un interruptor que no hace nada.
     pub has_clicks: bool,
+    /// Si el cursor de Windows quedo dentro de los fotogramas.
+    pub cursor_baked: bool,
     pub format: String,
     pub mp4_path: Option<String>,
 }
@@ -70,6 +72,7 @@ impl From<&SessionData> for SessionInfo {
             duration_ms: data.duration_ms(),
             has_audio: data.has_audio,
             has_clicks: !data.clics.is_empty(),
+            cursor_baked: data.cursor_capturado,
             format: data.format.clone(),
             mp4_path: data
                 .mp4_path
@@ -155,6 +158,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         clics: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
+        cursor_capturado: options.capture_cursor,
         frames: Vec::new(),
     };
 
@@ -427,6 +431,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         has_audio: false,
         // Todavia no se ha pulsado nada: esto es lo que se devuelve al EMPEZAR a grabar.
         has_clicks: false,
+        cursor_baked: options.capture_cursor,
         format: options.format,
         mp4_path: None,
     };
@@ -638,6 +643,7 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         audio: None,
         // Una captura fija no tiene clics que anotar: no hay tiempo dentro.
         clics: Vec::new(),
+        cursor_capturado: false,
         teclas: Vec::new(),
         cursor: Vec::new(),
         width: image.width(),

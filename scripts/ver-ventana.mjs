@@ -145,6 +145,7 @@ const SESION = {
   durationMs: 1333,
   hasAudio: true,
   hasClicks: true,
+  cursorBaked: false,
   format: "video",
   mp4Path: null,
 };

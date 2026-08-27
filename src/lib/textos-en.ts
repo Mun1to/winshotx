@@ -310,8 +310,10 @@ export const EN: Record<string, string> = {
   // El puntero dibujado
   "Puntero dibujado": "Drawn pointer",
   // «el de Windows» ya está arriba, en el idioma: la clave es la frase, así que sirve.
-  "Es la flecha estándar, no la que tengas puesta. Graba sin cursor para no ver dos.":
-    "It is the standard arrow, not the one you have set. Record without the cursor to avoid seeing two.",
+  "Es la flecha estándar, no la que tengas puesta.":
+    "It is the standard arrow, not the one you have set.",
+  "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
+    "This recording already has the Windows cursor baked in: you will see two.",
 
   // Recortar la imagen
   Recortar: "Crop",

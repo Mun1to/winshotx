@@ -675,6 +675,7 @@ mod tests {
             clics: Vec::new(),
             teclas: Vec::new(),
             cursor: Vec::new(),
+            cursor_capturado: false,
             frames,
         }
     }
@@ -928,6 +929,7 @@ mod la_camara_del_exportador {
             clics,
             teclas: Vec::new(),
             cursor: Vec::new(),
+            cursor_capturado: false,
             frames: Vec::new(),
         }
     }

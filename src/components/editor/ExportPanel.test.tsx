@@ -21,6 +21,7 @@ const GRABACION: SessionInfo = {
   durationMs: 3000,
   hasAudio: true,
   hasClicks: true,
+  cursorBaked: false,
   format: "video",
   mp4Path: null,
 };
