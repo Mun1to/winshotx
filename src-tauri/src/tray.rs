@@ -14,6 +14,7 @@ fn construir_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>> {
     let textos = crate::textos::menu(idioma);
     let capture = MenuItem::with_id(app, "capture", textos.capturar, true, None::<&str>)?;
     let record = MenuItem::with_id(app, "record", textos.grabar, true, None::<&str>)?;
+    let folder = MenuItem::with_id(app, "folder", textos.carpeta, true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", textos.ajustes, true, None::<&str>)?;
     let update = MenuItem::with_id(app, "update", textos.actualizaciones, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", textos.salir, true, None::<&str>)?;
@@ -23,6 +24,7 @@ fn construir_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>> {
             &capture,
             &record,
             &PredefinedMenuItem::separator(app)?,
+            &folder,
             &settings,
             &update,
             &PredefinedMenuItem::separator(app)?,
@@ -60,6 +62,13 @@ pub fn build(app: &AppHandle) -> Result<()> {
                 } else {
                     let _ = windows_mgr::open_overlays(app, OverlayIntent::Record);
                 }
+            }
+            // Donde acaban las capturas guardadas. Sin esto habia que abrir los ajustes
+            // para llegar a una carpeta que se visita todos los dias.
+            "folder" => {
+                let carpeta = app.state::<AppState>().settings.read().save_directory.clone();
+                let _ = std::fs::create_dir_all(&carpeta);
+                let _ = crate::platform::open_folder(&std::path::PathBuf::from(carpeta));
             }
             "settings" => {
                 let _ = windows_mgr::show_settings(app);

@@ -10,6 +10,7 @@ use crate::settings::Language;
 pub struct Menu {
     pub capturar: &'static str,
     pub grabar: &'static str,
+    pub carpeta: &'static str,
     pub ajustes: &'static str,
     pub actualizaciones: &'static str,
     pub salir: &'static str,
@@ -20,6 +21,7 @@ pub fn menu(idioma: Language) -> Menu {
         Language::En => Menu {
             capturar: "Capture a region",
             grabar: "Record a region",
+            carpeta: "Open the shots folder",
             ajustes: "Settings…",
             actualizaciones: "Check for updates…",
             salir: "Quit",
@@ -29,6 +31,7 @@ pub fn menu(idioma: Language) -> Menu {
         _ => Menu {
             capturar: "Capturar región",
             grabar: "Grabar región",
+            carpeta: "Abrir la carpeta de capturas",
             ajustes: "Ajustes…",
             actualizaciones: "Buscar actualizaciones…",
             salir: "Salir",
@@ -87,6 +90,7 @@ mod tests {
         let es = menu(Language::Es);
         assert_ne!(en.capturar, es.capturar);
         assert_ne!(en.grabar, es.grabar);
+        assert_ne!(en.carpeta, es.carpeta);
         assert_ne!(en.ajustes, es.ajustes);
         assert_ne!(en.actualizaciones, es.actualizaciones);
         assert_ne!(en.salir, es.salir);
