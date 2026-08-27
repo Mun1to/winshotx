@@ -90,6 +90,14 @@ export function ExportPanel({
    * anotados al grabar, así que encenderlo aquí no obliga a repetir nada.
    */
   const [zoom, setZoom] = useState(1);
+  /**
+   * Los aros de los clics y la pastilla de los atajos.
+   *
+   * Se dibujan al exportar, así que se deciden aquí. Antes se pintaban sobre los fotogramas
+   * mientras se grababa y quedaban cocidos: había que acertar antes de empezar.
+   */
+  const [aros, setAros] = useState(false);
+  const [teclas, setTeclas] = useState(false);
   /** Aire alrededor de la captura. Cero significa sin marco, que es lo de siempre. */
   const [margen, setMargen] = useState(0);
   const [fondo, setFondo] = useState<Background>("blanco");
@@ -175,6 +183,10 @@ export function ExportPanel({
         audio: audio && format === "mp4",
         // Una foto no tiene zoom: la cámara solo se mueve con el tiempo pasando.
         zoom: esUnaFoto(format) ? 1 : zoom,
+        // Una foto no tiene ni aros ni pastilla: los dos duran un rato y aquí no pasa
+        // el tiempo.
+        clicks: !esUnaFoto(format) && aros,
+        keys: !esUnaFoto(format) && teclas,
         loop,
         margin: margen,
         background: fondo,
@@ -296,10 +308,11 @@ export function ExportPanel({
         </div>
       </div>
 
-      {/* El zoom solo sale con vídeo y solo si hubo clics: un interruptor que no puede
-          hacer nada es peor que no tenerlo. */}
+      {/* Todo el estudio junto, y solo con vídeo: los tres se deciden aquí porque los tres
+          se dibujan al exportar. Sin un solo clic no sale nada, que un interruptor que no
+          puede hacer nada es peor que no tenerlo. */}
       {!esUnaFoto(format) && session.hasClicks && (
-        <div className="border-t border-white/8 pt-3">
+        <div className="space-y-2 border-t border-white/8 pt-3">
           <Slider
             label={t("Acercarse a los clics")}
             hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
@@ -309,8 +322,17 @@ export function ExportPanel({
             value={zoom}
             onChange={setZoom}
           />
-          <p className="mt-1 text-[11px] leading-snug text-neutral-500">
-            {t("La cámara se acerca sola a donde pulsaste y vuelve. Se decide aquí, no al grabar.")}
+          <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
+          <Toggle
+            checked={teclas}
+            onChange={setTeclas}
+            label={t("Enseñar los atajos")}
+            // Este aviso viaja con el interruptor: es la regla que impide que una
+            // contraseña tecleada mientras se grababa acabe dentro del vídeo.
+            hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
+          />
+          <p className="text-[11px] leading-snug text-neutral-500">
+            {t("Todo esto se dibuja al exportar, así que se puede cambiar sin volver a grabar.")}
           </p>
         </div>
       )}

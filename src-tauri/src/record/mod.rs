@@ -99,6 +99,17 @@ pub struct SessionData {
     /// va a querer que la camara se acerque. Son doce bytes por clic.
     #[serde(default)]
     pub clics: Vec<crate::encode::zoom::Clic>,
+    /// Los atajos que se pulsaron, con su texto ya escrito para leerse.
+    ///
+    /// Se anotan igual que los clics y por lo mismo: la pastilla se dibuja **al exportar**,
+    /// asi que quien graba no tiene que decidir antes si va a querer ensennarlos.
+    ///
+    /// **Solo atajos con modificador, nunca una tecla suelta.** Es la regla de seguridad de
+    /// `teclas.rs`, y aqui pesa mas todavia: esto se ESCRIBE EN UN ARCHIVO. Una contrasenna
+    /// tecleada durante la grabacion no puede acabar en el disco, y no puede porque una
+    /// contrasenna no lleva Ctrl delante.
+    #[serde(default)]
+    pub teclas: Vec<teclas::Atajo>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -473,6 +484,7 @@ mod tests {
             mp4_path: None,
             audio: None,
             clics: Vec::new(),
+            teclas: Vec::new(),
             frames,
         }
     }

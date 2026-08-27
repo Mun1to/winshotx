@@ -15,7 +15,6 @@ import {
   Languages,
   Mic,
   MousePointer2,
-  MousePointerClick,
   Palette,
   Power,
   Scissors,
@@ -457,35 +456,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   />
                 </Section>
 
-                {/* Los dos realces van juntos y aparte: no cambian CÓMO se graba, cambian
-                    lo que se entiende al verlo después. */}
-                <Section title={t("Para que se entienda")}>
-                  <Row
-                    icon={<MousePointerClick className="size-4" />}
-                    label={t("Marcar los clics")}
-                    hint={t("un aro donde pulsas al grabar")}
-                    control={
-                      <Switch
-                        checked={settings.highlightClicks}
-                        onChange={(v) => patch({ highlightClicks: v })}
-                        label={t("Marcar los clics")}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<Keyboard className="size-4" />}
-                    label={t("Enseñar los atajos")}
-                    hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
-                    control={
-                      <Switch
-                        checked={settings.highlightKeys}
-                        onChange={(v) => patch({ highlightKeys: v })}
-                        label={t("Enseñar los atajos")}
-                      />
-                    }
-                  />
-                </Section>
-                <Section title={t("Al terminar")}>
+                {/* Debajo del sonido y no en la otra columna: con tres bloques, la
+                    rejilla mandaria este a la izquierda y dejaria la derecha a medias. */}
+                <Section title={t("Al terminar")} className="col-start-2">
                   <Row
                     icon={<SquarePen className="size-4" />}
                     label={t("Abrir el editor al terminar")}

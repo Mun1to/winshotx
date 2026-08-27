@@ -143,6 +143,10 @@ export interface ExportRequest {
   crop: Recorte | null;
   /** Cuánto se acerca la cámara a cada clic. 1 es no acercarse. */
   zoom: number;
+  /** Un aro donde se pulsó. */
+  clicks: boolean;
+  /** La pastilla de abajo con el atajo que se acaba de pulsar. */
+  keys: boolean;
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;

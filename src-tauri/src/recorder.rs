@@ -153,6 +153,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         mp4_path: Some(dir.join("preview.mp4")),
         audio: None,
         clics: Vec::new(),
+        teclas: Vec::new(),
         frames: Vec::new(),
     };
 
@@ -210,6 +211,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // Los que se guardan en la sesion, en coordenadas de la region y para siempre.
         // Los de arriba son los que todavia se estan dibujando y se olvidan enseguida.
         let mut anotados: Vec<crate::encode::zoom::Clic> = Vec::new();
+        let mut atajos: Vec<crate::record::teclas::Atajo> = Vec::new();
         let mut teclado = crate::record::teclas::Vigilante::default();
         let mut atajo: Option<crate::record::teclas::Atajo> = None;
         let mut pastillas = crate::record::pastilla::Cache::default();
@@ -272,6 +274,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                     ms: clic.ms,
                     x: clic.x - region.x,
                     y: clic.y - region.y,
+                    derecho: clic.derecho,
                 });
                 if marcar_clics {
                     clics.push(clic);
@@ -280,8 +283,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             if marcar_clics {
                 crate::record::realce::olvidar_viejos(&mut clics, frame.ts_ms);
             }
-            if marcar_teclas {
-                if let Some(nuevo) = teclado.mirar(frame.ts_ms) {
+            // Las teclas tambien se anotan siempre: la pastilla se dibuja al exportar.
+            if let Some(nuevo) = teclado.mirar(frame.ts_ms) {
+                atajos.push(nuevo.clone());
+                if marcar_teclas {
                     atajo = Some(nuevo);
                 }
             }
@@ -363,6 +368,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
 
         session.frames = cache.finish(last_ts, session.fps)?;
         session.clics = anotados;
+        session.teclas = atajos;
         record::generate_thumbnails(&mut session)?;
         session.persist()?;
         Ok(session)
@@ -618,6 +624,7 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         audio: None,
         // Una captura fija no tiene clics que anotar: no hay tiempo dentro.
         clics: Vec::new(),
+        teclas: Vec::new(),
         width: image.width(),
         height: image.height(),
         mp4_path: None,

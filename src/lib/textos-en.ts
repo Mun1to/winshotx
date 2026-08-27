@@ -304,8 +304,8 @@ export const EN: Record<string, string> = {
   // El zoom que se acerca a los clics
   "Acercarse a los clics": "Zoom in on clicks",
   "sin zoom": "no zoom",
-  "La cámara se acerca sola a donde pulsaste y vuelve. Se decide aquí, no al grabar.":
-    "The camera moves in on where you clicked and comes back. Decided here, not while recording.",
+  "Todo esto se dibuja al exportar, así que se puede cambiar sin volver a grabar.":
+    "All of this is drawn when exporting, so it can be changed without recording again.",
 
   // Recortar la imagen
   Recortar: "Crop",
@@ -330,7 +330,6 @@ export const EN: Record<string, string> = {
 
   // Marcar los clics
   "Marcar los clics": "Mark the clicks",
-  "un aro donde pulsas al grabar": "a ring where you click while recording",
 
   // Ensennar los atajos
   "Enseñar los atajos": "Show the shortcuts",
@@ -348,5 +347,4 @@ export const EN: Record<string, string> = {
 
   // Los bloques de «Grabar»
   "El sonido": "The sound",
-  "Para que se entienda": "So it can be followed",
 };

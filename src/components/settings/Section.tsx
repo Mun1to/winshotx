@@ -5,6 +5,14 @@ interface SectionProps {
   children: ReactNode;
   /** Enganche para que el tour guiado pueda iluminar este bloque. */
   tour?: string;
+  /**
+   * Para colocar el bloque en la rejilla cuando el orden natural no cuadra.
+   *
+   * La rejilla reparte los bloques uno a cada lado por turnos, y con tres eso deja dos
+   * a la izquierda y uno a la derecha. Un `col-start-2` manda el tercero abajo del
+   * segundo, que es donde hay sitio.
+   */
+  className?: string;
 }
 
 /**
@@ -16,11 +24,11 @@ interface SectionProps {
  * seguidos la pantalla se leia como una lista de cajas sueltas en vez de como una pagina.
  * Es el mismo patron que usa VoCript, que es de donde viene esta forma.
  */
-export function Section({ title, children, tour }: SectionProps) {
+export function Section({ title, children, tour, className = "" }: SectionProps) {
   return (
     <section
       data-tour={tour}
-      className="mb-3 w-full rounded-xl border border-linea bg-tarjeta"
+      className={`mb-3 w-full rounded-xl border border-linea bg-tarjeta ${className}`}
     >
       {title && (
         <h2 className="border-b border-linea px-4 py-3 text-[14.5px] font-semibold text-marca">

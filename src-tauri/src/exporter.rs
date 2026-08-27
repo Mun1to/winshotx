@@ -4,7 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::encode::{anotacion, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte, zoom};
+use crate::encode::{anotacion, estudio, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte, zoom};
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
 use crate::state::AppState;
@@ -50,6 +50,12 @@ pub struct ExportRequest {
     /// subir el zoom, bajarlo o quitarlo no obliga a volver a grabar nada.
     #[serde(default)]
     pub zoom: f32,
+    /// Un aro donde se pulso. Tambien se decide aqui, y por lo mismo.
+    #[serde(default)]
+    pub clicks: bool,
+    /// La pastilla de abajo con el atajo que se acaba de pulsar.
+    #[serde(default)]
+    pub keys: bool,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -196,7 +202,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             let image = record::read_frame(&session, request.from)?;
             // Una foto no tiene zoom: la camara solo tiene sentido con el tiempo pasando.
             let recortes: Vec<Recorte> = request.crop.into_iter().collect();
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes);
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
             png::save(&image, &path, ancho_final, alto_final)?;
             path
         }
@@ -207,7 +213,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             emit("reading", 0, 1);
             let image = record::read_frame(&session, request.from)?;
             let recortes: Vec<Recorte> = request.crop.into_iter().collect();
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes);
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
             jpg::save(&image, &path, ancho_final, alto_final, request.quality)?;
             path
         }
@@ -221,11 +227,23 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 ffmpeg::gif_from_video(&temporary, &path, request.fps, ancho_final, request.quality)?;
                 let _ = std::fs::remove_file(&temporary);
             } else {
+                let mut vestir = estudio_de(&session, &request);
                 let mut loader = |index: usize| {
                     let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
                     let recortes = recortes_de!(ms);
+                    if let Some(e) = vestir.as_mut() {
+                        e.ms = ms;
+                    }
                     record::read_frame(&session, index).map(|imagen| {
-                        enmarcar_y_anotar(imagen, width, height, marco, &request.annotations, &recortes)
+                        enmarcar_y_anotar(
+                            imagen,
+                            width,
+                            height,
+                            marco,
+                            &request.annotations,
+                            &recortes,
+                            vestir.as_mut(),
+                        )
                     })
                 };
                 gif::encode(
@@ -300,6 +318,52 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
 /// Las marcas se dibujan sobre la vista previa entera, asi que al recortar hay que volver
 /// a medirlas sobre el trozo: una flecha en el centro de la captura no esta en el centro
 /// del recorte.
+/// Lo que hay que saber para dibujar el estudio sobre un fotograma concreto.
+///
+/// Lleva la cache de pastillas dentro porque dibujar el texto de un atajo con GDI cuesta, y
+/// a treinta fotogramas por segundo el mismo atajo se dibuja una y otra vez.
+struct Estudio<'a> {
+    clics: &'a [zoom::Clic],
+    teclas: &'a [crate::record::teclas::Atajo],
+    origen: (u32, u32),
+    ajustes: estudio::Ajustes,
+    ms: u64,
+    pastillas: crate::record::pastilla::Cache,
+}
+
+impl Estudio<'_> {
+    fn pintar(&mut self, imagen: &mut image::RgbaImage, recortes: &[Recorte]) {
+        estudio::pintar(
+            imagen,
+            self.ms,
+            self.clics,
+            self.teclas,
+            self.origen,
+            recortes,
+            &self.ajustes,
+            &mut self.pastillas,
+        );
+    }
+}
+
+fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<Estudio<'a>> {
+    let ajustes = estudio::Ajustes {
+        clics: request.clicks,
+        teclas: request.keys,
+    };
+    if !ajustes.hay_algo() {
+        return None;
+    }
+    Some(Estudio {
+        clics: &session.clics,
+        teclas: &session.teclas,
+        origen: (session.width.max(1), session.height.max(1)),
+        ajustes,
+        ms: 0,
+        pastillas: crate::record::pastilla::Cache::default(),
+    })
+}
+
 /// La camara del zoom, lista para preguntarle por cualquier fotograma.
 ///
 /// Se prepara una vez por exportacion: agrupar los clics en tramos cuesta lo mismo para uno
@@ -337,6 +401,7 @@ impl Camara {
                 ms: c.ms,
                 x: c.x - dx,
                 y: c.y - dy,
+                derecho: c.derecho,
             })
             .filter(|c| c.x >= 0 && c.y >= 0 && c.x < ancho as i32 && c.y < alto as i32)
             .collect();
@@ -369,6 +434,7 @@ impl EnElInstante for Option<Camara> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn enmarcar_y_anotar(
     imagen: image::RgbaImage,
     ancho: u32,
@@ -376,6 +442,7 @@ fn enmarcar_y_anotar(
     marco: marco::Marco,
     anotaciones: &[anotacion::Anotacion],
     recortes: &[Recorte],
+    estudio: Option<&mut Estudio<'_>>,
 ) -> image::RgbaImage {
     // Los recortes se encadenan, y cada uno se mide sobre lo que dejo el anterior. Son
     // dos: el que puso el usuario en el editor y el que pide la camara del zoom, que
@@ -398,6 +465,11 @@ fn enmarcar_y_anotar(
             image::imageops::FilterType::Lanczos3,
         )
     };
+    // El estudio va ANTES que las anotaciones: los aros y la pastilla son parte de la
+    // grabacion, y lo que dibuja el usuario encima manda sobre ellos.
+    if let Some(e) = estudio {
+        e.pintar(&mut escalada, &usados);
+    }
     if !anotaciones.is_empty() {
         // Cada recorte vuelve a medir las marcas, en el mismo orden en que se aplicaron.
         // Lo que caiga fuera se sale de [0, 1] y lo recorta quien pinta.
@@ -430,14 +502,27 @@ where
     };
     let (ancho_final, alto_final) = marco.medida(ancho, alto);
     let camara = Camara::preparar(session, request);
+    let mut vestir = estudio_de(session, request);
     let mut loader = |index: usize| {
         let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
         let mut recortes: Vec<Recorte> = request.crop.into_iter().collect();
         if let Some(r) = camara.en(ms) {
             recortes.push(r);
         }
-        record::read_frame(session, index)
-            .map(|imagen| enmarcar_y_anotar(imagen, ancho, alto, marco, &request.annotations, &recortes))
+        if let Some(e) = vestir.as_mut() {
+            e.ms = ms;
+        }
+        record::read_frame(session, index).map(|imagen| {
+            enmarcar_y_anotar(
+                imagen,
+                ancho,
+                alto,
+                marco,
+                &request.annotations,
+                &recortes,
+                vestir.as_mut(),
+            )
+        })
     };
     mp4::encode(
         indices,
@@ -557,6 +642,7 @@ mod tests {
             mp4_path: None,
             audio: None,
             clics: Vec::new(),
+            teclas: Vec::new(),
             frames,
         }
     }
@@ -631,6 +717,7 @@ mod el_orden_de_exportar {
             sin_marco(),
             &[],
             &[mitad_derecha()],
+            None,
         );
         assert_eq!(salida.dimensions(), (200, 300));
         assert_eq!(*salida.get_pixel(4, 150), AZUL);
@@ -648,6 +735,7 @@ mod el_orden_de_exportar {
             sin_marco(),
             &[],
             &[mitad_derecha()],
+            None,
         );
         assert_eq!(salida.dimensions(), (400, 300));
         assert_eq!(*salida.get_pixel(10, 150), AZUL, "ha entrado parte de la mitad roja");
@@ -655,7 +743,7 @@ mod el_orden_de_exportar {
 
     #[test]
     fn sin_recorte_sale_la_captura_entera() {
-        let salida = enmarcar_y_anotar(dos_mitades(400, 300), 400, 300, sin_marco(), &[], &[]);
+        let salida = enmarcar_y_anotar(dos_mitades(400, 300), 400, 300, sin_marco(), &[], &[], None);
         assert_eq!(*salida.get_pixel(10, 150), ROJO);
         assert_eq!(*salida.get_pixel(390, 150), AZUL);
     }
@@ -681,6 +769,7 @@ mod el_orden_de_exportar {
             sin_marco(),
             std::slice::from_ref(&marca),
             &[mitad_derecha()],
+            None,
         );
         let negro = |x: u32| {
             (0..300).any(|y| {
@@ -705,6 +794,7 @@ mod el_orden_de_exportar {
             },
             &[],
             &[mitad_derecha()],
+            None,
         );
         assert_eq!(salida.dimensions(), (240, 340));
         assert_eq!(*salida.get_pixel(2, 2), image::Rgba([255, 255, 255, 255]));
@@ -729,6 +819,7 @@ mod el_orden_de_exportar {
             sin_marco(),
             &[],
             &[mitad_derecha(), zoom_izquierda],
+            None,
         );
         assert_eq!(salida.dimensions(), (100, 300));
         assert_eq!(*salida.get_pixel(50, 150), AZUL);
@@ -760,6 +851,7 @@ mod el_orden_de_exportar {
             sin_marco(),
             std::slice::from_ref(&marca),
             &[entero],
+            None,
         );
         let sin = enmarcar_y_anotar(
             dos_mitades(400, 300),
@@ -768,6 +860,7 @@ mod el_orden_de_exportar {
             sin_marco(),
             std::slice::from_ref(&marca),
             &[],
+            None,
         );
         assert_eq!(con.as_raw(), sin.as_raw());
     }
@@ -801,6 +894,7 @@ mod la_camara_del_exportador {
             mp4_path: None,
             audio: None,
             clics,
+            teclas: Vec::new(),
             frames: Vec::new(),
         }
     }
@@ -824,6 +918,8 @@ mod la_camara_del_exportador {
             annotations: Vec::new(),
             crop,
             zoom,
+            clicks: false,
+            keys: false,
             destination: None,
             copy_to_clipboard: false,
         }
@@ -831,7 +927,7 @@ mod la_camara_del_exportador {
 
     #[test]
     fn sin_zoom_pedido_no_hay_camara() {
-        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100 }]);
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100, derecho: false }]);
         assert!(Camara::preparar(&sesion, &peticion(1.0, None)).en(1000).is_none());
     }
 
@@ -844,7 +940,7 @@ mod la_camara_del_exportador {
 
     #[test]
     fn con_zoom_y_un_clic_la_camara_recorta_en_el_momento_del_clic() {
-        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100 }]);
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100, derecho: false }]);
         let camara = Camara::preparar(&sesion, &peticion(2.0, None));
         let r = camara.en(1000).expect("tendria que estar acercada");
         let (x, y, w, h) = r.en_pixeles(400, 300);
@@ -855,7 +951,7 @@ mod la_camara_del_exportador {
 
     #[test]
     fn y_lejos_del_clic_vuelve_a_la_imagen_entera() {
-        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100 }]);
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100, derecho: false }]);
         let camara = Camara::preparar(&sesion, &peticion(2.0, None));
         assert!(camara.en(20_000).is_none());
     }
@@ -864,7 +960,7 @@ mod la_camara_del_exportador {
     fn con_un_recorte_del_usuario_el_clic_se_traslada_a_ese_trozo() {
         // El clic esta en (300, 150) de la captura. Recortando la mitad derecha, ese punto
         // es el (100, 150) del trozo. Sin trasladarlo, la camara se iria a otro sitio.
-        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 300, y: 150 }]);
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 300, y: 150, derecho: false }]);
         let mitad_derecha = Recorte {
             x1: 0.5,
             y1: 0.0,
@@ -882,7 +978,7 @@ mod la_camara_del_exportador {
     #[test]
     fn un_clic_que_se_quedo_fuera_del_recorte_no_mueve_la_camara() {
         // Acercarse a un clic que ya no se ve seria acercarse a nada.
-        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 20, y: 20 }]);
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 20, y: 20, derecho: false }]);
         let mitad_derecha = Recorte {
             x1: 0.5,
             y1: 0.0,
@@ -898,7 +994,7 @@ mod la_camara_del_exportador {
         // El de arriba cae a la IZQUIERDA del trozo y lo descarta el «mayor que cero».
         // Este cae a la derecha, y hace falta la otra mitad de la comprobacion: sin ella,
         // la camara se iria a un punto que no existe dentro del recorte.
-        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 350, y: 150 }]);
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 350, y: 150, derecho: false }]);
         let mitad_izquierda = Recorte {
             x1: 0.0,
             y1: 0.0,
@@ -912,7 +1008,7 @@ mod la_camara_del_exportador {
     #[test]
     fn un_zoom_disparatado_se_queda_en_cuatro() {
         // El numero llega del frontend. A 50x, un fotograma seria un pixel estirado.
-        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 200, y: 150 }]);
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 200, y: 150, derecho: false }]);
         let camara = Camara::preparar(&sesion, &peticion(50.0, None));
         let (_, _, w, _) = camara.en(1000).unwrap().en_pixeles(400, 300);
         assert_eq!(w, 100);

@@ -18,11 +18,18 @@
 use serde::{Deserialize, Serialize};
 
 /// Un clic, en píxeles de la región grabada y milisegundos desde el principio.
+///
+/// Es lo único que se anota mientras se graba, y de aquí sale todo el estudio: el zoom se
+/// acerca a estos puntos y los aros se dibujan encima de ellos. Doce bytes y un booleano.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Clic {
     pub ms: u64,
     pub x: i32,
     pub y: i32,
+    /// El botón derecho va de otro color: abrir un menú no es pulsar un botón. Al zoom le
+    /// da igual cuál fue, pero el aro que se dibuja después sí lo necesita.
+    #[serde(default)]
+    pub derecho: bool,
 }
 
 /// Cómo se comporta el zoom. Lo elige quien exporta, no quien graba.
@@ -188,7 +195,12 @@ mod tests {
     use super::*;
 
     fn clic(ms: u64, x: i32, y: i32) -> Clic {
-        Clic { ms, x, y }
+        Clic {
+            ms,
+            x,
+            y,
+            derecho: false,
+        }
     }
 
     fn ajustes() -> Ajustes {

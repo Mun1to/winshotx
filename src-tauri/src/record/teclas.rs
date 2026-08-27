@@ -20,7 +20,7 @@
 pub const DURACION_MS: u64 = 1_100;
 
 /// Un atajo que se está viendo.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Atajo {
     /// Ya escrito para leerse: «Ctrl + Mayús + P».
     pub texto: String,
