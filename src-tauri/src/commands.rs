@@ -335,6 +335,48 @@ pub async fn pinned_text(app: AppHandle, path: String) -> Result<()> {
     Ok(())
 }
 
+/// Copia un color al portapapeles, en `#rrggbb`.
+///
+/// La lupa de la seleccion ya ensenna el color que hay debajo del cursor; esto es lo que
+/// faltaba para poder llevarselo. Se comprueba el formato aqui y no solo en la interfaz:
+/// un comando que acepta cualquier cadena es un comando para escribir cualquier cosa en
+/// el portapapeles de quien tenga winshotx abierto.
+#[tauri::command]
+pub async fn copy_color(color: String) -> Result<()> {
+    if !es_un_color(&color) {
+        return Err(AppError::Msg("eso no es un color".into()));
+    }
+    crate::platform::clipboard::copy_text(&color)?;
+    Ok(())
+}
+
+/// Un `#rrggbb` y nada mas: almohadilla y seis digitos hexadecimales.
+fn es_un_color(texto: &str) -> bool {
+    texto.len() == 7
+        && texto.starts_with('#')
+        && texto[1..].bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+#[cfg(test)]
+mod pruebas_de_color {
+    use super::es_un_color;
+
+    #[test]
+    fn un_color_de_verdad_pasa() {
+        assert!(es_un_color("#0a9bff"));
+        assert!(es_un_color("#FFFFFF"));
+    }
+
+    #[test]
+    fn cualquier_otra_cosa_no() {
+        // Es lo unico que separa este comando de uno que escribe lo que sea en el
+        // portapapeles de quien tenga la aplicacion abierta.
+        for malo in ["0a9bff", "#0a9bf", "#0a9bfff", "", "#zzzzzz", "rm -rf /"] {
+            assert!(!es_un_color(malo), "{malo} no tendria que pasar");
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn cancel_capture(app: AppHandle) {
     windows_mgr::close_overlays(&app);

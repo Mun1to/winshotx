@@ -69,6 +69,11 @@ export function Magnifier({ source, px, py, left, top, hex }: Props) {
             style={{ backgroundColor: hex }}
           />
           {hex}
+          {/* La tecla, al lado del color. Una tecla que no se ve no la usa nadie, y el
+              hueco ya estaba aqui: el color sin forma de llevarselo servia de poco. */}
+          <kbd className="rounded border border-white/15 bg-white/10 px-1 text-[9px] text-neutral-400">
+            C
+          </kbd>
         </span>
       </div>
     </div>

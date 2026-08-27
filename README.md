@@ -50,10 +50,10 @@ signature is checked before anything is installed, so a tampered file is rejecte
 
 |  |  |
 |---|---|
-| 📸 **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex and snapping to system windows: one click takes the whole window. |
+| 📸 **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex, copied with `C` and snapping to system windows: one click takes the whole window. |
 | 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. |
-| ✂️ **Frame by frame editor** | Thumbnail strip, A/B trimming, looped playback, scaling with locked aspect ratio and a quality control. |
-| 💾 **Export** | GIF, MP4 or PNG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
+| ✂️ **Frame by frame editor** | Thumbnail strip, A/B trimming, looped playback, cropping the image, scaling with locked aspect ratio and a quality control. |
+| 💾 **Export** | GIF, MP4, PNG or JPG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
 | 🔊 **System audio** | What comes out of your speakers goes into the MP4, captured straight from the default output. No extra driver, and you keep hearing it while it records. |
 | ⏱️ **Shoot on a timer** | Wait 3 or 5 seconds before the screen freezes, with the countdown in the middle of the screen. It is the only way to photograph an open menu, because pressing the shortcut closes it. |
 | 🌓 **Light and dark** | It follows the Windows theme and changes with it, or you pin the one you want. |
@@ -108,15 +108,19 @@ has the nineteen rows, including the six the Snipping Tool wins.
 | `E` | Open the selection in the editor |
 | `A` | Pin the selection: it floats on top of everything, where it was |
 | `T` | Copy the text inside the selection, read by Windows' own OCR |
+| `C` | Copy the colour under the cursor, the one the loupe is showing |
 | `G` / `V` | Record the selection as GIF / video |
 | `Ctrl+A` | Select the whole monitor |
 | `←↑→↓` | Move the selection · `Shift` for steps of 10 · `Alt` resizes |
 | `Esc` | Cancel |
 
-In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `←` `→` step through
-frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
+In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `C` crops the image,
+`←` `→` step through frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
 
 In the editor, to annotate: `1` arrow, `2` box, `3` text, `4` highlight and `5` hide details. `Ctrl+Z` undoes the last one.
+
+On a pinned shot: `Ctrl+C` copies it, `Ctrl+S` saves it to the shots folder, `T` copies its text
+and `Esc` closes it.
 
 Both global shortcuts can be changed in the settings by clicking the field and typing the new
 combination. If another application already holds it, the field turns red and says so.

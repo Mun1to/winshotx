@@ -33,6 +33,9 @@ export const freezeBytes = (monitorId: number) =>
 
 export const cancelCapture = () => invoke<void>("cancel_capture");
 
+/** Copia al portapapeles el color que hay bajo el cursor, en `#rrggbb`. */
+export const copyColor = (color: string) => invoke<void>("copy_color", { color });
+
 /** Copia al portapapeles la imagen de una captura anclada. */
 export const copyPinned = (path: string) => invoke<void>("copy_pinned", { path });
 

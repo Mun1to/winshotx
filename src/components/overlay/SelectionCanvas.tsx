@@ -7,6 +7,7 @@ import {
   cancelCapture,
   captureAllScreens,
   captureStill,
+  copyColor,
   freezeBytes,
   overlayBootstrap,
   startRecording,
@@ -107,6 +108,17 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const [hex, setHex] = useState("#000000");
+  // El manejador de teclas se registra una vez, asi que lee el color por referencia: con
+  // el valor del cierre copiaria siempre el negro con el que arranca.
+  const hexRef = useRef(hex);
+  hexRef.current = hex;
+  /** El ultimo color copiado, para poder decirlo. Se borra solo. */
+  const [colorCopiado, setColorCopiado] = useState<string | null>(null);
+  useEffect(() => {
+    if (!colorCopiado) return;
+    const id = setTimeout(() => setColorCopiado(null), 1600);
+    return () => clearTimeout(id);
+  }, [colorCopiado]);
   /** Qué se hará con el recorte. Lo elige la barra de arriba, antes de recortar. */
   const [modo, setModo] = useState<CaptureMode>("still");
   /** Coger la pantalla entera de un clic, sin arrastrar. */
@@ -439,6 +451,15 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       } else if (key === "t") {
         // El texto de la captura al portapapeles, leido por el motor de Windows.
         void runStill("text");
+      } else if (key === "c") {
+        // El color que hay debajo del cursor. La lupa ya lo ensennaba y no habia forma de
+        // llevarselo; asi el cuentagotas no es una herramienta mas, es una tecla.
+        //
+        // No cierra la seleccion: quien esta cogiendo un color suele coger varios, y
+        // cerrar despues del primero obligaria a volver a lanzar el atajo cada vez.
+        void copyColor(hexRef.current)
+          .then(() => setColorCopiado(hexRef.current))
+          .catch((err) => setError(String(err)));
       } else if (key === "p") {
         difundir({ fullScreen: !pantallaRef.current });
       } else if (key === "f") {
@@ -753,6 +774,23 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           />
         )}
       </AnimatePresence>
+
+      {/*
+        El color copiado. Va donde los errores y con la misma forma, porque es lo mismo:
+        algo que acaba de pasar y que hay que contar sin tapar la pantalla.
+      */}
+      {colorCopiado && !error && (
+        <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
+          <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-neutral-900/90 px-4 py-2.5 text-xs text-neutral-200 shadow-2xl backdrop-blur-md">
+            <span
+              className="size-3 rounded-[4px] border border-white/25"
+              style={{ backgroundColor: colorCopiado }}
+            />
+            <span className="font-mono uppercase">{colorCopiado}</span>
+            <span className="text-neutral-400">{t("copiado")}</span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">

@@ -298,6 +298,9 @@ export const EN: Record<string, string> = {
   "Copiar el texto": "Copy the text",
   "No he encontrado texto en esa captura.": "I found no text in that shot.",
 
+  // El color bajo el cursor
+  copiado: "copied",
+
   // Recortar la imagen
   Recortar: "Crop",
   "Recortar la imagen (C)": "Crop the image (C)",
