@@ -123,10 +123,19 @@ export interface ExportRequest {
   quality: number;
   audio: boolean;
   loop: boolean;
+  /** Píxeles de aire alrededor de la captura. 0 es sin marco. */
+  margin: number;
+  /** El fondo de ese aire: blanco, negro, gris, atardecer o menta. */
+  background: Background;
+  /** Si la captura lleva sombra sobre el fondo. */
+  shadow: boolean;
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;
 }
+
+/** Los fondos del marco. Unos pocos elegidos, no una rueda de color entera. */
+export type Background = "blanco" | "negro" | "gris" | "atardecer" | "menta";
 
 export interface ExportResult {
   path: string;

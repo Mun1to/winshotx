@@ -295,4 +295,14 @@ export const EN: Record<string, string> = {
   // Copiar el texto de una captura
   "Copiar el texto": "Copy the text",
   "No he encontrado texto en esa captura.": "I found no text in that shot.",
+
+  // El marco al exportar
+  "Aire alrededor": "Space around it",
+  "sin marco": "no frame",
+  Sombra: "Shadow",
+  Blanco: "White",
+  Negro: "Black",
+  Gris: "Grey",
+  Atardecer: "Sunset",
+  Menta: "Mint",
 };

@@ -6,6 +6,7 @@ import { formatBytes } from "../../lib/format";
 import {
   EVENTS,
   type ExportFormat,
+  type Background,
   type ExportProgress,
   type ExportResult,
   type SessionInfo,
@@ -14,6 +15,21 @@ import { NumberField } from "../ui/NumberField";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { useT } from "../../lib/i18n";
+
+/**
+ * Los fondos del marco, con el color con el que se pintan en el propio botón.
+ *
+ * Son cinco y no una rueda de color: con dieciséis millones a elegir, la pregunta deja de
+ * ser «cuál de estos» y pasa a ser «cuál de todos», que es justo lo que hace que alguien
+ * cierre el panel sin exportar nada.
+ */
+const FONDOS: { id: Background; label: string; muestra: string }[] = [
+  { id: "blanco", label: "Blanco", muestra: "#ffffff" },
+  { id: "negro", label: "Negro", muestra: "#121214" },
+  { id: "gris", label: "Gris", muestra: "#e8e8ea" },
+  { id: "atardecer", label: "Atardecer", muestra: "linear-gradient(135deg,#5874f5,#a855d9)" },
+  { id: "menta", label: "Menta", muestra: "linear-gradient(135deg,#22c598,#3884e8)" },
+];
 
 const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: "gif", label: "GIF", hint: "bucle, sin audio" },
@@ -54,6 +70,10 @@ export function ExportPanel({
   const [height, setHeight] = useState(session.region.height);
   const [locked, setLocked] = useState(true);
   const [audio, setAudio] = useState(session.hasAudio);
+  /** Aire alrededor de la captura. Cero significa sin marco, que es lo de siempre. */
+  const [margen, setMargen] = useState(0);
+  const [fondo, setFondo] = useState<Background>("blanco");
+  const [sombra, setSombra] = useState(true);
   const [loop, setLoop] = useState(true);
   const [directory, setDirectory] = useState(saveDirectory);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
@@ -77,11 +97,14 @@ export function ExportPanel({
   const estimate = useMemo(() => {
     const frames = Math.max(1, outIndex - inIndex + 1);
     const seconds = frames / Math.max(1, session.fps);
-    if (format === "png") return width * height * 3 * 0.35;
-    if (format === "gif") return width * height * (quality / 100) * 0.12 * fps * seconds;
+    // El marco crece por fuera, así que el archivo también: la estimación cuenta con él.
+    const w = width + margen * 2;
+    const h = height + margen * 2;
+    if (format === "png") return w * h * 3 * 0.35;
+    if (format === "gif") return w * h * (quality / 100) * 0.12 * fps * seconds;
     const bitrate = 1_000_000 + (quality / 100) * 11_000_000;
     return (bitrate / 8) * seconds;
-  }, [format, width, height, quality, fps, inIndex, outIndex, session.fps]);
+  }, [format, width, height, margen, quality, fps, inIndex, outIndex, session.fps]);
 
   const run = async (copyToClipboard: boolean) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
@@ -102,6 +125,9 @@ export function ExportPanel({
         quality,
         audio: audio && format === "mp4",
         loop,
+        margin: margen,
+        background: fondo,
+        shadow: sombra,
         destination: directory || null,
         copyToClipboard,
       });
@@ -211,6 +237,42 @@ export function ExportPanel({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="border-t border-white/8 pt-3">
+        <Slider
+          label={t("Aire alrededor")}
+          hint={margen === 0 ? t("sin marco") : `${margen} px`}
+          min={0}
+          max={160}
+          value={margen}
+          onChange={setMargen}
+        />
+        {/* Los fondos solo aparecen cuando hay aire que pintar: cinco botones de color
+            para elegir el fondo de un marco que no existe son cinco botones de ruido. */}
+        {margen > 0 && (
+          <>
+            <div className="mt-2 flex gap-1.5">
+              {FONDOS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFondo(f.id)}
+                  title={t(f.label)}
+                  aria-label={t(f.label)}
+                  aria-pressed={fondo === f.id}
+                  style={{ background: f.muestra }}
+                  className={`size-7 rounded-lg border-2 transition-colors ${
+                    fondo === f.id ? "border-blue-500" : "border-white/15 hover:border-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+            <div className="mt-1.5">
+              <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />
+            </div>
+          </>
+        )}
       </div>
 
       <div className="space-y-0.5 border-t border-white/8 pt-3">

@@ -4,7 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::encode::{ffmpeg, gif, mp4, png};
+use crate::encode::{ffmpeg, gif, marco, mp4, png};
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
 use crate::state::AppState;
@@ -29,6 +29,15 @@ pub struct ExportRequest {
     pub audio: bool,
     #[serde(rename = "loop")]
     pub loop_forever: bool,
+    /// Pixeles de aire alrededor de la captura. Cero es sin marco, que es lo de siempre.
+    #[serde(default)]
+    pub margin: u32,
+    /// El nombre del fondo que eligio el panel: blanco, negro, gris, atardecer o menta.
+    #[serde(default)]
+    pub background: String,
+    /// Si la captura lleva sombra sobre ese fondo.
+    #[serde(default)]
+    pub shadow: bool,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -130,6 +139,16 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     let width = request.width.max(1);
     let height = request.height.max(1);
 
+    // El marco crece por fuera de lo que se pidio en «Dimensiones»: quien elige 800 de
+    // ancho y 40 de aire quiere la captura a 800, no a 720 con bordes. Asi que el tamanno
+    // que se le pide al codificador es el de despues de enmarcar.
+    let marco = marco::Marco {
+        margen: request.margin.min(400),
+        fondo: marco::Fondo::desde(&request.background),
+        sombra: request.shadow,
+    };
+    let (ancho_final, alto_final) = marco.medida(width, height);
+
     let emit = |stage: &str, done: usize, total: usize| {
         let _ = app.emit(
             EVENT_PROGRESS,
@@ -146,7 +165,8 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             let path = destination_path(app, &request, "png")?;
             emit("reading", 0, 1);
             let image = record::read_frame(&session, request.from)?;
-            png::save(&image, &path, width, height)?;
+            let image = marco::enmarcar(image, width, height, marco);
+            png::save(&image, &path, ancho_final, alto_final)?;
             path
         }
         "gif" => {
@@ -156,18 +176,21 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 let temporary = session.dir.join("export-source.mp4");
                 encode_mp4(&session, &indices, &delays, &temporary, &request, &emit)?;
                 emit("encoding", 0, 1);
-                ffmpeg::gif_from_video(&temporary, &path, request.fps, width, request.quality)?;
+                ffmpeg::gif_from_video(&temporary, &path, request.fps, ancho_final, request.quality)?;
                 let _ = std::fs::remove_file(&temporary);
             } else {
-                let mut loader = |index: usize| record::read_frame(&session, index);
+                let mut loader = |index: usize| {
+                    record::read_frame(&session, index)
+                        .map(|imagen| marco::enmarcar(imagen, width, height, marco))
+                };
                 gif::encode(
                     &indices,
                     &delays,
                     &mut loader,
                     &path,
                     &gif::GifOptions {
-                        width,
-                        height,
+                        width: ancho_final,
+                        height: alto_final,
                         quality: request.quality,
                         loop_forever: request.loop_forever,
                     },
@@ -187,8 +210,8 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                     &temporary,
                     &path,
                     request.fps,
-                    width,
-                    height,
+                    ancho_final,
+                    alto_final,
                     request.quality,
                 )?;
                 let _ = std::fs::remove_file(&temporary);
@@ -228,15 +251,25 @@ fn encode_mp4<F>(
 where
     F: Fn(&str, usize, usize),
 {
-    let mut loader = |index: usize| record::read_frame(session, index);
+    let ancho = request.width.max(1);
+    let alto = request.height.max(1);
+    let marco = marco::Marco {
+        margen: request.margin.min(400),
+        fondo: marco::Fondo::desde(&request.background),
+        sombra: request.shadow,
+    };
+    let (ancho_final, alto_final) = marco.medida(ancho, alto);
+    let mut loader = |index: usize| {
+        record::read_frame(session, index).map(|imagen| marco::enmarcar(imagen, ancho, alto, marco))
+    };
     mp4::encode(
         indices,
         delays,
         &mut loader,
         path,
         &mp4::Mp4Options {
-            width: request.width.max(1),
-            height: request.height.max(1),
+            width: ancho_final,
+            height: alto_final,
             fps: request.fps.max(1),
             quality: request.quality,
         },
