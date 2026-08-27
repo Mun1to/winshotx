@@ -116,6 +116,8 @@ has the nineteen rows, including the six the Snipping Tool wins.
 In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `←` `→` step through
 frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
 
+In the editor, to annotate: `1` arrow, `2` box, `3` text, `4` highlight and `5` hide details. `Ctrl+Z` undoes the last one.
+
 Both global shortcuts can be changed in the settings by clicking the field and typing the new
 combination. If another application already holds it, the field turns red and says so.
 

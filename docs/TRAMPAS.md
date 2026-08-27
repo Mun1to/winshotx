@@ -278,3 +278,32 @@ en **BGRA**, no en RGBA.
 Y una del crate `windows` 0.62: para esperar a una operacion de WinRT el metodo es **`.join()`**, no
 `.get()`. Es un metodo inherente de `IAsyncOperation`, asi que no hace falta importar ningun trait
 (el trait `Async` que sugiere el compilador es privado y no se puede importar).
+
+## 14. Contar pixeles tocados no es medir un trazo
+
+Las anotaciones del editor salieron con el trazo de **un pixel de ancho** y trece pruebas en
+verde. Ninguna lo vio porque todas contaban lo mismo: cuantos pixeles habia dejado de ser
+blancos. Un rectangulo de un pixel de grosor toca cientos de pixeles, asi que la cuenta salia
+alta y la prueba pasaba.
+
+La causa estaba en el suavizado del disco con el que se engorda el trazo:
+
+```rust
+// Mal: a distancia = radio, el borde vale exactamente 0 y no se pinta nada.
+let borde = (radio as f32 - distancia).min(1.0);
+
+// Bien: se mide hasta medio pixel POR FUERA del radio.
+let borde = (radio + 0.5 - distancia).clamp(0.0, 1.0);
+```
+
+Con la version mala, un disco de radio 1 pintaba **un solo pixel**: el del centro. Y los radios
+son medios pixeles (un trazo de 3 tiene radio 1,5), asi que guardarlos en enteros redondeaba
+hacia abajo y empeoraba el problema.
+
+**Lo que lo caza:** una prueba que cuente filas SEGUIDAS pintadas en el borde y las compare con
+el grosor que dice tener. Y, sobre todo, una prueba `--ignored` que deje un PNG para mirar. En la
+imagen se veia a la primera; en los numeros, no.
+
+Es la misma leccion que el audio y que los textos sin traducir, dicha de otra forma: **una
+prueba que mide una consecuencia no mide la cosa.** Pixeles tocados es una consecuencia del
+grosor, no el grosor.
