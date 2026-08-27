@@ -88,8 +88,27 @@ pub fn copy_files(paths: &[&Path]) -> Result<()> {
     Ok(())
 }
 
+/// Copia texto plano, que es lo que deja el lector de texto de una captura.
+#[cfg(windows)]
+pub fn copy_text(texto: &str) -> Result<()> {
+    use clipboard_win::{Clipboard, Setter, formats};
+
+    let _guard = Clipboard::new_attempts(10)
+        .map_err(|e| crate::error::AppError::Msg(format!("portapapeles ocupado: {e}")))?;
+    clipboard_win::raw::empty().map_err(|e| crate::error::AppError::Msg(e.to_string()))?;
+    formats::Unicode
+        .write_clipboard(&texto)
+        .map_err(|e| crate::error::AppError::Msg(e.to_string()))?;
+    Ok(())
+}
+
 #[cfg(not(windows))]
 pub fn copy_image(_image: &RgbaImage, _png_bytes: &[u8]) -> Result<()> {
+    Err(crate::error::AppError::Unsupported)
+}
+
+#[cfg(not(windows))]
+pub fn copy_text(_texto: &str) -> Result<()> {
     Err(crate::error::AppError::Unsupported)
 }
 

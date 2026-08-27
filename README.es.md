@@ -107,6 +107,7 @@ incluidas las seis que gana la de Windows.
 | `Ctrl+S` | Guardar la selección |
 | `E` | Abrir la selección en el editor |
 | `A` | Anclar la selección: se queda flotando encima de todo, en su sitio |
+| `T` | Copiar el texto de la selección, leído por el lector de Windows |
 | `G` / `V` | Grabar la selección como GIF / vídeo |
 | `Ctrl+A` | Seleccionar el monitor entero |
 | `←↑→↓` | Mover la selección · con `Shift` de 10 en 10 · con `Alt` redimensiona |

@@ -74,22 +74,33 @@ describe("de donde sale el idioma", () => {
 });
 
 /**
- * Todos los .ts y .tsx de src/, menos las propias pruebas y el catalogo.
+ * Todo el codigo de winshotx: la interfaz y tambien Rust.
  *
- * Se leen con `import.meta.glob` de Vite y no con `node:fs` a proposito: el codigo de
+ * Rust entra porque los mensajes de error nacen alli, escritos en espannol, y el frontend
+ * los pasa por `t` al pintarlos. Sin mirar `src-tauri/`, la prueba de claves huerfanas
+ * daria por muerta cada traduccion de un error del backend.
+ *
+ * Se lee con `import.meta.glob` de Vite y no con `node:fs` a proposito: el codigo de
  * `src/` corre dentro de una ventana, donde no hay sistema de archivos, y el tsconfig lo
  * prohibe justamente para que nadie importe medio Node ahi sin darse cuenta.
  */
 function codigoDeLaApp(): string {
-  const archivos = import.meta.glob("/src/**/*.{ts,tsx}", {
+  const interfaz = import.meta.glob("/src/**/*.{ts,tsx}", {
     query: "?raw",
     import: "default",
     eager: true,
   }) as Record<string, string>;
-  return Object.entries(archivos)
-    .filter(([ruta]) => !/\.test\.tsx?$/.test(ruta) && !ruta.includes("textos-en"))
-    .map(([, texto]) => texto)
-    .join("\n");
+  const backend = import.meta.glob("/src-tauri/src/**/*.rs", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>;
+  return [
+    ...Object.entries(interfaz)
+      .filter(([ruta]) => !/\.test\.tsx?$/.test(ruta) && !ruta.includes("textos-en"))
+      .map(([, texto]) => texto),
+    ...Object.values(backend),
+  ].join("\n");
 }
 
 describe("la salud del catalogo ingles", () => {

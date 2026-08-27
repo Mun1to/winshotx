@@ -58,7 +58,7 @@ export interface OverlayPayload {
   lastRegion: Rect | null;
 }
 
-export type StillAction = "copy" | "save" | "edit" | "pin";
+export type StillAction = "copy" | "save" | "edit" | "pin" | "text";
 
 export interface StillResult {
   path: string | null;

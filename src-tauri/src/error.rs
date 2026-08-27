@@ -25,6 +25,10 @@ pub enum AppError {
     Gif(#[from] gif::EncodingError),
     #[error("error de QOI: {0}")]
     Qoi(#[from] qoi::Error),
+    /// Lo que devuelven las APIs modernas de Windows (WinRT), como el lector de texto.
+    #[cfg(windows)]
+    #[error("error de Windows: {0}")]
+    Windows(#[from] windows::core::Error),
 }
 
 impl Serialize for AppError {

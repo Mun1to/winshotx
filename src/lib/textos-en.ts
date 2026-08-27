@@ -292,4 +292,8 @@ export const EN: Record<string, string> = {
   Anclar: "Pin",
   Copiada: "Copied",
   "Arrastra para moverla · Esc para cerrarla": "Drag to move it · Esc to close it",
+
+  // Copiar el texto de una captura
+  "Copiar el texto": "Copy the text",
+  "No he encontrado texto en esa captura.": "I found no text in that shot.",
 };

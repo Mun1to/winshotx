@@ -12,6 +12,7 @@ import {
   startRecording,
 } from "../../lib/ipc";
 import { clamp } from "../../lib/format";
+import { useT } from "../../lib/i18n";
 import {
   aPantalla,
   aVirtual,
@@ -100,6 +101,7 @@ async function loadFreeze(path: string, monitorId: number): Promise<Blob> {
 }
 
 export function SelectionCanvas({ monitorId }: { monitorId: number }) {
+  const t = useT();
   const [payload, setPayload] = useState<OverlayPayload | null>(null);
   const [selection, setSelection] = useState<Rect | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
@@ -429,6 +431,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         // Anclar. `Ctrl+A` de aqui arriba es otra cosa (toda la pantalla), y no chocan:
         // la letra sola actua sobre el recorte y con Ctrl cambia lo que se recorta.
         void runStill("pin");
+      } else if (key === "t") {
+        // El texto de la captura al portapapeles, leido por el motor de Windows.
+        void runStill("text");
       } else if (key === "p") {
         difundir({ fullScreen: !pantallaRef.current });
       } else if (key === "f") {
@@ -735,6 +740,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             onSave={() => void runStill("save")}
             onEdit={() => void runStill("edit")}
             onPin={() => void runStill("pin")}
+            onText={() => void runStill("text")}
             onRecord={() => {
               if (selection && modo !== "still") void grabarRegion(selection, modo);
             }}
@@ -746,7 +752,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       {error && (
         <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
           <div className="max-w-xl rounded-xl border border-red-500/30 bg-red-950/90 px-4 py-2.5 text-xs text-red-200 shadow-2xl backdrop-blur-md">
-            {error}
+            {/* Los errores llegan de Rust escritos en espannol. Como la clave del
+                diccionario ES la frase espannola, pasarlos por `t` traduce los que
+                alguien ha traducido y deja el resto tal cual, que es mejor que verlos
+                todos en castellano con la aplicacion en ingles. */}
+            {t(error)}
           </div>
         </div>
       )}

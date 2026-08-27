@@ -174,6 +174,19 @@ fn entregar(
             windows_mgr::open_editor(app, &session.id)?;
             return Ok(result);
         }
+        // Copiar el TEXTO en vez de la imagen. Se lee con el motor que trae Windows, asi
+        // que no engorda el instalador ni sale de la maquina.
+        "text" => {
+            let bytes = png::to_bytes(&image)?;
+            let texto = crate::platform::ocr::leer_texto(&bytes)?;
+            if texto.is_empty() {
+                return Err(AppError::Msg(
+                    "No he encontrado texto en esa captura.".into(),
+                ));
+            }
+            crate::platform::clipboard::copy_text(&texto)?;
+            result.copied = true;
+        }
         // Dejar la captura flotando encima de todo. El PNG va a la carpeta temporal y no
         // a la de capturas del usuario: anclar es mirar algo un rato, no guardarlo, y
         // llenarle la carpeta de recortes que no ha pedido seria un mal negocio.
