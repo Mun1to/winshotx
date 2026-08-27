@@ -211,3 +211,31 @@ se ve ningun error, solo una pantalla que no reacciona.
 Al anadir la cuenta atras del temporizador (etiqueta `countdown`) hubo que meterla en esa lista.
 **Es lo primero que hay que mirar cuando una ventana nueva no recibe sus eventos**, antes de
 sospechar de la trampa 8.
+
+## 11. El audio del sistema: cuatro trampas seguidas
+
+Sacar el sonido de los altavoces y meterlo en el MP4 tiene cuatro sitios donde se falla sin que
+nadie avise. Los cuatro salieron el 27 de agosto de 2026 al cerrar la META 2.
+
+**El crate `windows` esconde `IMMDevice::Activate` detras de features que no se llaman como
+esperas.** Con `Win32_Media_Audio` y `Win32_System_Com` puestas, el metodo sigue sin existir y el
+compilador solo dice `no method named Activate found`. Hacen falta ademas
+`Win32_System_Com_StructuredStorage` y `Win32_System_Variant`, porque el parametro de activacion es
+un `PROPVARIANT`. Cuando falte un metodo de COM, mirar en el codigo del crate el `#[cfg(all(feature
+= ...))]` que lo envuelve, en vez de adivinar.
+
+**`WAVEFORMATEX` viene empaquetada y no deja coger referencias a sus campos.** Un `assert_eq!` sobre
+dos campos suyos no compila: `error[E0793]: reference to field of packed struct is unaligned`. Se
+copian a variables sueltas primero. No es un aviso, es un error, y aparece en el sitio mas tonto.
+
+**Windows entrega el sonido en coma flotante de 32 bits y el codificador AAC quiere enteros de
+16.** Nadie se queja: `send_audio_buffer` acepta los bytes igual y el MP4 sale mudo o con un
+chirrido. La conversion esta en `record::audio::a_pcm16`, y recorta a [-1, 1] antes de escalar
+porque una muestra por encima de uno da la vuelta al convertirla y suena a chasquido.
+
+**Y `send_audio_buffer` IGNORA la marca de tiempo que se le pasa.** Lo dice su propio codigo
+(`_timestamp: i64, // ignored to guarantee monotonic audio timing`): coloca el sonido contando las
+muestras que ha recibido. Consecuencia practica: **un trozo de sonido que se pierda por el camino
+no deja un hueco, desplaza todo lo que viene detras.** Por eso los buferes que Windows marca como
+`SILENT` (que llegan vacios a proposito) hay que rellenarlos de ceros a mano y enviarlos igual, en
+vez de saltarselos.
