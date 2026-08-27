@@ -79,6 +79,8 @@ export interface RecordOptions {
   audio: boolean;
   /** La voz por el micrófono. Con el audio del sistema puesto, van mezclados. */
   microphone: boolean;
+  /** Marcar cada clic con un aro dentro del vídeo. */
+  highlightClicks: boolean;
 }
 
 export interface SessionInfo {
@@ -166,6 +168,8 @@ export interface Settings {
   recordAudio: boolean;
   /** Grabar también la voz por el micrófono. */
   recordMicrophone: boolean;
+  /** Marcar cada clic con un aro dentro del vídeo. */
+  highlightClicks: boolean;
   fps: number;
   playSound: boolean;
   showMagnifier: boolean;

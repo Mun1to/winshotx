@@ -24,6 +24,7 @@ const AJUSTES: Settings = {
   captureCursor: false,
   recordAudio: true,
   recordMicrophone: false,
+  highlightClicks: false,
   fps: 30,
   playSound: true,
   showMagnifier: true,

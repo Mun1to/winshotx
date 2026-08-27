@@ -75,6 +75,9 @@ pub struct Settings {
     /// Grabar tambien la voz por el microfono. Con el del sistema puesto, van mezclados.
     #[serde(default)]
     pub record_microphone: bool,
+    /// Marcar cada clic con un aro, para que una grabacion se entienda como tutorial.
+    #[serde(default)]
+    pub highlight_clicks: bool,
     pub fps: u32,
     pub play_sound: bool,
     pub show_magnifier: bool,
@@ -125,6 +128,7 @@ impl Default for Settings {
             capture_cursor: true,
             record_audio: false,
             record_microphone: false,
+            highlight_clicks: false,
             fps: 30,
             play_sound: false,
             show_magnifier: true,

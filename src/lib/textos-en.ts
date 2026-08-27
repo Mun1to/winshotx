@@ -310,4 +310,9 @@ export const EN: Record<string, string> = {
   Micrófono: "Microphone",
   "tu voz, mezclada con el sonido del sistema": "your voice, mixed with the system sound",
   "tu voz, para narrar lo que se está grabando": "your voice, to narrate what you record",
+
+  // Marcar los clics
+  "Marcar los clics": "Mark the clicks",
+  "un aro donde pulsas, para que se siga lo que haces":
+    "a ring where you click, so people can follow what you do",
 };

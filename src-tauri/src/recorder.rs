@@ -26,6 +26,9 @@ pub struct RecordOptions {
     /// Y la voz de quien graba. Los dos a la vez se mezclan en una sola pista.
     #[serde(default)]
     pub microphone: bool,
+    /// Marcar cada clic con un aro, para que se vea donde se esta pulsando.
+    #[serde(default)]
+    pub highlight_clicks: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -174,6 +177,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let writer_frames = frames_counter.clone();
     let writer_bytes = bytes_counter.clone();
     let writer_stop = stop.clone();
+    let marcar_clics = options.highlight_clicks;
     let writer = std::thread::spawn(move || -> Result<SessionData> {
         let mut session = session_seed;
         session.has_audio = audio.is_some();
@@ -188,6 +192,12 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // una pieza, y a un archivo en crudo, que es lo que se recorta al exportar. Sin el
         // archivo, el video que guarda el usuario sale mudo, porque la exportacion vuelve
         // a codificar desde los fotogramas y ahi no hay sonido ninguno.
+        // Los clics que todavia se ven. El vigilante mira los botones en cada fotograma,
+        // que es mucho mas barato y mucho menos peligroso que engancharse al raton del
+        // sistema: un enganche mal hecho le deja el escritorio a tirones a quien lo tenga.
+        let mut vigilante = crate::record::raton::Vigilante::default();
+        let mut clics: Vec<crate::record::realce::Clic> = Vec::new();
+
         let mut audio_file = audio.as_ref().and_then(|_| {
             std::fs::File::create(session.audio_path())
                 .ok()
@@ -233,7 +243,32 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             };
             last_ts = frame.ts_ms;
-            let rgba = bgra_to_rgba(&frame.bgra);
+            let mut rgba = bgra_to_rgba(&frame.bgra);
+
+            // El aro se pinta en el fotograma que se guarda, no en la pantalla: pintarlo
+            // encima del escritorio seria otra ventana transparente, que ademas se colaria
+            // en cualquier otra captura.
+            if marcar_clics {
+                if let Some(clic) = vigilante.mirar(frame.ts_ms) {
+                    clics.push(clic);
+                }
+                crate::record::realce::olvidar_viejos(&mut clics, frame.ts_ms);
+                if !clics.is_empty() {
+                    if let Some(mut imagen) =
+                        image::RgbaImage::from_raw(width, height, rgba.clone())
+                    {
+                        crate::record::realce::pintar(
+                            &mut imagen,
+                            &clics,
+                            region.x,
+                            region.y,
+                            frame.ts_ms,
+                        );
+                        rgba = imagen.into_raw();
+                    }
+                }
+            }
+
             if cache.push_rgba(&rgba, width, height, frame.ts_ms)? {
                 writer_frames.store(cache.frame_count() as u64, Ordering::Relaxed);
                 writer_bytes.store(cache.bytes_written(), Ordering::Relaxed);

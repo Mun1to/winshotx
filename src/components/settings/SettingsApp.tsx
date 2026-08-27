@@ -15,6 +15,7 @@ import {
   Languages,
   Mic,
   MousePointer2,
+  MousePointerClick,
   Palette,
   Power,
   Scissors,
@@ -445,6 +446,18 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                         checked={settings.recordMicrophone}
                         onChange={(v) => patch({ recordMicrophone: v })}
                         label={t("Micrófono")}
+                      />
+                    }
+                  />
+                  <Row
+                    icon={<MousePointerClick className="size-4" />}
+                    label={t("Marcar los clics")}
+                    hint={t("un aro donde pulsas, para que se siga lo que haces")}
+                    control={
+                      <Switch
+                        checked={settings.highlightClicks}
+                        onChange={(v) => patch({ highlightClicks: v })}
+                        label={t("Marcar los clics")}
                       />
                     }
                   />
