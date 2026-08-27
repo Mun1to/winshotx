@@ -307,3 +307,59 @@ imagen se veia a la primera; en los numeros, no.
 Es la misma leccion que el audio y que los textos sin traducir, dicha de otra forma: **una
 prueba que mide una consecuencia no mide la cosa.** Pixeles tocados es una consecuencia del
 grosor, no el grosor.
+
+## 15. `object-contain` deja franjas, y una capa encima no las conoce
+
+La vista previa del editor se ajusta con `object-contain`: se hace todo lo grande que puede
+sin deformarse y deja franjas a los lados o arriba y abajo. Encima van las capas de anotar
+y de recortar, con sus coordenadas **de 0 a 1 sobre la captura**.
+
+Esas capas iban estiradas al hueco entero (`absolute inset-0 size-full`), asi que sus
+coordenadas contaban las franjas como si fueran parte de la captura. Una flecha puesta en el
+borde de la imagen se guardaba un poco mas alla, y al exportar salia desplazada. **Con una
+captura vertical en una ventana ancha el desplazamiento era de media pantalla.**
+
+Costo un rato encontrarlo porque en el caso normal (una captura horizontal en una ventana
+horizontal) el error es de un dos por ciento y no se nota mirando.
+
+**Lo que no funciona:** poner `aspect-ratio` en la caja y confiar en que el navegador la
+ajuste. Dentro de un contenedor con contenido propio, esa propiedad se resuelve de maneras
+distintas segun el tipo de contenedor: en `flex` el hijo toma el tamanno de su contenido y
+la cuenta se vuelve circular, en `grid` con `place-items-center` tampoco salio.
+
+**Lo que si:** medir el hueco con un `ResizeObserver` y calcular la caja a mano
+(`src/lib/contener.ts`), que ademas se prueba sin ventana. La regla general: **si una capa
+tiene que caer encima de una imagen contenida, se mide; no se negocia con el CSS.**
+
+## 16. Un manejador de teclas con dependencias incompletas cierra la ventana
+
+En el editor, `Escape` tiene que soltar primero lo que se este haciendo (el marco de
+recorte, la herramienta de dibujar) y solo cerrar si no hay nada puesto. Cerrar el editor
+**tira los fotogramas del disco**, asi que un Escape sin querer no puede llevarse por
+delante una grabacion de tres minutos.
+
+El manejador vive en un `useEffect` y lee ese estado. Con las dependencias sin actualizar,
+el cierre se queda con la foto vieja: cree que no hay nada puesto y cierra igual. El codigo
+se lee perfecto y hace lo contrario de lo que dice.
+
+Y hay una segunda mitad: al meter una funcion (`cerrar`) en las dependencias hay que
+comprobar que ya este declarada mas arriba, o el render entero revienta con «Cannot access
+before initialization», que en React se ve como una pantalla en blanco.
+
+Lo caza una prueba de las de verdad: pulsar `c`, pulsar `Escape`, y comprobar que la ventana
+**no** se ha cerrado. Esta en `EditorApp.test.tsx`.
+
+## 17. `starts_with` sobre una ruta no impide salirse de la carpeta
+
+Una ventana anclada le manda a Rust la ruta de su PNG para copiarlo, guardarlo o leerlo. Se
+comprobaba que empezara por la carpeta de ancladas, que parece suficiente y no lo es:
+
+```
+C:\...\Temp\winshotx\pins\..\..\..\.ssh\id_rsa
+```
+
+empieza por la carpeta buena y acaba donde quiera. La comprobacion tiene que **rechazar
+cualquier componente `..`**, no solo mirar el principio. `canonicalize` tambien valdria pero
+exige que el archivo ya exista, que aqui no siempre pasa.
+
+En `commands.rs`, con una prueba que se pone roja contra el codigo de antes.
