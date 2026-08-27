@@ -11,6 +11,7 @@ import { ExportPanel } from "./ExportPanel";
 import { aplicarIdioma } from "../../lib/i18n";
 import { llamadas } from "../../test/preparar";
 import type { SessionInfo } from "../../lib/types";
+import type { Recorte } from "../../lib/recorte";
 
 const GRABACION: SessionInfo = {
   id: "s1",
@@ -23,10 +24,11 @@ const GRABACION: SessionInfo = {
   mp4Path: null,
 };
 
-function pintar(session: Partial<SessionInfo> = {}) {
+function pintar(session: Partial<SessionInfo> = {}, recorte: Recorte | null = null) {
   return render(
     <ExportPanel
       anotaciones={[]}
+      recorte={recorte}
       session={{ ...GRABACION, ...session }}
       inIndex={10}
       outIndex={80}
@@ -116,5 +118,32 @@ describe("lo que no debe colarse en una foto", () => {
     fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
     await screen.findByText(/Guardar/);
     expect(loExportado().audio).toBe(true);
+  });
+});
+
+describe("recortar la imagen", () => {
+  const MITAD_DERECHA: Recorte = { x1: 0.5, y1: 0, x2: 1, y2: 1 };
+
+  it("las dimensiones salen del trozo, no de la captura entera", () => {
+    // Ensennar 800 x 600 despues de recortar la mitad seria ensennar el tamanno de algo
+    // que ya no se va a exportar.
+    pintar({}, MITAD_DERECHA);
+    expect(screen.getByLabelText("Ancho")).toHaveValue(400);
+    expect(screen.getByLabelText("Alto")).toHaveValue(600);
+  });
+
+  it("y el recorte viaja a Rust tal cual, en tanto por uno", async () => {
+    pintar({}, MITAD_DERECHA);
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
+    await screen.findByText(/Guardar/);
+    expect(loExportado().crop).toEqual(MITAD_DERECHA);
+  });
+
+  it("sin recorte se manda null y salen las medidas de la region grabada", async () => {
+    pintar();
+    expect(screen.getByLabelText("Ancho")).toHaveValue(800);
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
+    await screen.findByText(/Guardar/);
+    expect(loExportado().crop).toBeNull();
   });
 });

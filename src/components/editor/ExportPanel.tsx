@@ -15,6 +15,7 @@ import { NumberField } from "../ui/NumberField";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { useT } from "../../lib/i18n";
+import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import type { Anotacion } from "../../lib/anotaciones";
 
 /**
@@ -45,6 +46,8 @@ const esUnaFoto = (formato: ExportFormat) => formato === "png" || formato === "j
 interface Props {
   /** Lo dibujado encima en el editor, que Rust pinta sobre cada fotograma. */
   anotaciones: Anotacion[];
+  /** El trozo que se exporta, de 0 a 1. Sin marco puesto sale la captura entera. */
+  recorte: Recorte | null;
   session: SessionInfo;
   inIndex: number;
   outIndex: number;
@@ -56,6 +59,7 @@ interface Props {
 
 export function ExportPanel({
   anotaciones,
+  recorte,
   session,
   inIndex,
   outIndex,
@@ -88,7 +92,33 @@ export function ExportPanel({
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const aspect = session.region.width / session.region.height;
+  /**
+   * Lo que mide de verdad lo que se va a exportar, con el recorte ya aplicado.
+   *
+   * Todo lo de este panel se mide sobre esto y no sobre la region grabada: quien recorta
+   * un trozo y ve «1920 x 1200» en las dimensiones ve el tamanno de algo que ya no existe.
+   */
+  const fuente = useMemo(
+    () =>
+      recorte
+        ? medidaDelRecorte(recorte, session.region.width, session.region.height)
+        : { width: session.region.width, height: session.region.height },
+    [recorte, session.region.width, session.region.height],
+  );
+
+  const aspect = fuente.width / fuente.height;
+
+  /**
+   * Poner o quitar el recorte devuelve las dimensiones al tamanno nuevo.
+   *
+   * Es lo que espera cualquiera, y ademas evita el caso raro: conservar el ancho anterior
+   * dejaria un trozo pequenno estirado al tamanno de la captura entera sin que nadie lo
+   * haya pedido.
+   */
+  useEffect(() => {
+    setWidth(fuente.width);
+    setHeight(fuente.height);
+  }, [fuente.width, fuente.height]);
 
   useEffect(() => {
     const unlisten = listen<ExportProgress>(EVENTS.exportProgress, (e) => {
@@ -140,6 +170,7 @@ export function ExportPanel({
         background: fondo,
         shadow: sombra,
         annotations: anotaciones,
+        crop: recorte,
         destination: directory || null,
         copyToClipboard,
       });

@@ -137,12 +137,15 @@ export interface ExportRequest {
   shadow: boolean;
   /** Las marcas dibujadas encima, en coordenadas de 0 a 1. */
   annotations: Anotacion[];
+  /** El trozo que se queda, de 0 a 1. null = la captura entera. */
+  crop: Recorte | null;
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;
 }
 
 import type { Anotacion } from "./anotaciones";
+import type { Recorte } from "./recorte";
 
 /** Los fondos del marco. Unos pocos elegidos, no una rueda de color entera. */
 export type Background = "blanco" | "negro" | "gris" | "atardecer" | "menta";

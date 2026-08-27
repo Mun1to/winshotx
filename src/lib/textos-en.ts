@@ -298,6 +298,12 @@ export const EN: Record<string, string> = {
   "Copiar el texto": "Copy the text",
   "No he encontrado texto en esa captura.": "I found no text in that shot.",
 
+  // Recortar la imagen
+  Recortar: "Crop",
+  "Recortar la imagen (C)": "Crop the image (C)",
+  "Quitar el recorte": "Remove the crop",
+  "Lo que se va a exportar": "What is going to be exported",
+
   // El marco al exportar
   "Aire alrededor": "Space around it",
   "sin marco": "no frame",

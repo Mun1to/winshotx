@@ -4,7 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::encode::{anotacion, ffmpeg, gif, jpg, marco, mp4, png};
+use crate::encode::{anotacion, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte};
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
 use crate::state::AppState;
@@ -41,6 +41,9 @@ pub struct ExportRequest {
     /// Las marcas dibujadas encima, en coordenadas de 0 a 1 sobre la imagen.
     #[serde(default)]
     pub annotations: Vec<anotacion::Anotacion>,
+    /// El trozo que se queda, de 0 a 1. Sin esto se exporta la captura entera.
+    #[serde(default)]
+    pub crop: Option<Recorte>,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -168,7 +171,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             let path = destination_path(app, &request, "png")?;
             emit("reading", 0, 1);
             let image = record::read_frame(&session, request.from)?;
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations);
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, request.crop.as_ref());
             png::save(&image, &path, ancho_final, alto_final)?;
             path
         }
@@ -178,7 +181,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             let path = destination_path(app, &request, "jpg")?;
             emit("reading", 0, 1);
             let image = record::read_frame(&session, request.from)?;
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations);
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, request.crop.as_ref());
             jpg::save(&image, &path, ancho_final, alto_final, request.quality)?;
             path
         }
@@ -194,7 +197,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             } else {
                 let mut loader = |index: usize| {
                     record::read_frame(&session, index).map(|imagen| {
-                        enmarcar_y_anotar(imagen, width, height, marco, &request.annotations)
+                        enmarcar_y_anotar(imagen, width, height, marco, &request.annotations, request.crop.as_ref())
                     })
                 };
                 gif::encode(
@@ -254,26 +257,53 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     })
 }
 
-/// Escala, dibuja las marcas encima y despues pone el marco.
+/// Recorta, escala, dibuja las marcas encima y despues pone el marco.
 ///
-/// **Ese orden y no otro.** Las marcas van sobre la captura, no sobre el fondo: una flecha
-/// dibujada en el 90 % del ancho apunta al 90 % de la CAPTURA, y si se enmarcara antes,
-/// ese 90 % caeria dentro del aire de la derecha. Y se escala primero para que las
-/// coordenadas, que van de 0 a 1, se apliquen sobre la imagen del tamanno final.
+/// **Ese orden y no otro.**
+///
+/// El recorte va primero porque todo lo demas se mide sobre lo que queda: quien recorta un
+/// trozo y pide 800 de ancho quiere ESE trozo a 800.
+///
+/// Las marcas van sobre la captura y no sobre el fondo: una flecha dibujada en el 90 % del
+/// ancho apunta al 90 % de la CAPTURA, y si se enmarcara antes, ese 90 % caeria dentro del
+/// aire de la derecha. Y se escala antes de pintarlas para que las coordenadas, que van de
+/// 0 a 1, se apliquen sobre la imagen del tamanno final.
+///
+/// Las marcas se dibujan sobre la vista previa entera, asi que al recortar hay que volver
+/// a medirlas sobre el trozo: una flecha en el centro de la captura no esta en el centro
+/// del recorte.
 fn enmarcar_y_anotar(
     imagen: image::RgbaImage,
     ancho: u32,
     alto: u32,
     marco: marco::Marco,
     anotaciones: &[anotacion::Anotacion],
+    recorte: Option<&Recorte>,
 ) -> image::RgbaImage {
-    let mut escalada = if imagen.dimensions() == (ancho, alto) {
-        imagen
+    let recortada = match recorte {
+        Some(r) if r.recorta_algo(imagen.width(), imagen.height()) => r.aplicar(&imagen),
+        _ => imagen,
+    };
+    let mut escalada = if recortada.dimensions() == (ancho, alto) {
+        recortada
     } else {
-        image::imageops::resize(&imagen, ancho, alto, image::imageops::FilterType::Lanczos3)
+        image::imageops::resize(
+            &recortada,
+            ancho,
+            alto,
+            image::imageops::FilterType::Lanczos3,
+        )
     };
     if !anotaciones.is_empty() {
-        anotacion::pintar(&mut escalada, anotaciones);
+        let reencuadradas: Vec<anotacion::Anotacion>;
+        let marcas = match recorte {
+            Some(r) => {
+                reencuadradas = anotaciones.iter().map(|a| r.reencuadrar(a)).collect();
+                &reencuadradas[..]
+            }
+            None => anotaciones,
+        };
+        anotacion::pintar(&mut escalada, marcas);
     }
     marco::poner(&escalada, marco)
 }
@@ -299,7 +329,7 @@ where
     let (ancho_final, alto_final) = marco.medida(ancho, alto);
     let mut loader = |index: usize| {
         record::read_frame(session, index)
-            .map(|imagen| enmarcar_y_anotar(imagen, ancho, alto, marco, &request.annotations))
+            .map(|imagen| enmarcar_y_anotar(imagen, ancho, alto, marco, &request.annotations, request.crop.as_ref()))
     };
     mp4::encode(
         indices,
@@ -445,5 +475,130 @@ mod tests {
         let session = session_with(&[50; 8]);
         let (indices, _) = resample(&session, 2, 4, 20);
         assert!(indices.iter().all(|i| (2..=4).contains(i)));
+    }
+}
+
+/// El orden entero de exportar una imagen: recortar, escalar, anotar y enmarcar.
+///
+/// Cada paso por separado ya tiene sus pruebas. Esto comprueba lo unico que ninguna de
+/// ellas puede ver: que van en ese orden. Un recorte despues de escalar da el mismo trozo
+/// a otro tamanno, y una marca sin reencuadrar apunta a otro sitio, y las dos cosas dejan
+/// todas las pruebas de abajo en verde.
+#[cfg(test)]
+mod el_orden_de_exportar {
+    use super::*;
+
+    const ROJO: image::Rgba<u8> = image::Rgba([255, 0, 0, 255]);
+    const AZUL: image::Rgba<u8> = image::Rgba([0, 0, 255, 255]);
+
+    /// Mitad izquierda roja, mitad derecha azul: asi se sabe que trozo ha salido.
+    fn dos_mitades(ancho: u32, alto: u32) -> image::RgbaImage {
+        image::RgbaImage::from_fn(ancho, alto, |x, _| if x < ancho / 2 { ROJO } else { AZUL })
+    }
+
+    fn sin_marco() -> marco::Marco {
+        marco::Marco {
+            margen: 0,
+            fondo: marco::Fondo::desde("blanco"),
+            sombra: false,
+        }
+    }
+
+    fn mitad_derecha() -> Recorte {
+        Recorte {
+            x1: 0.5,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+        }
+    }
+
+    #[test]
+    fn recortar_la_mitad_derecha_deja_solo_la_mitad_derecha() {
+        let salida = enmarcar_y_anotar(
+            dos_mitades(400, 300),
+            200,
+            300,
+            sin_marco(),
+            &[],
+            Some(&mitad_derecha()),
+        );
+        assert_eq!(salida.dimensions(), (200, 300));
+        assert_eq!(*salida.get_pixel(4, 150), AZUL);
+        assert_eq!(*salida.get_pixel(195, 150), AZUL);
+    }
+
+    #[test]
+    fn se_recorta_antes_de_escalar_y_no_al_reves() {
+        // Recortar despues de escalar daria el mismo trozo, pero de 200 de ancho en vez
+        // de los 400 que se pidieron. La medida es lo unico que separa los dos ordenes.
+        let salida = enmarcar_y_anotar(
+            dos_mitades(400, 300),
+            400,
+            300,
+            sin_marco(),
+            &[],
+            Some(&mitad_derecha()),
+        );
+        assert_eq!(salida.dimensions(), (400, 300));
+        assert_eq!(*salida.get_pixel(10, 150), AZUL, "ha entrado parte de la mitad roja");
+    }
+
+    #[test]
+    fn sin_recorte_sale_la_captura_entera() {
+        let salida = enmarcar_y_anotar(dos_mitades(400, 300), 400, 300, sin_marco(), &[], None);
+        assert_eq!(*salida.get_pixel(10, 150), ROJO);
+        assert_eq!(*salida.get_pixel(390, 150), AZUL);
+    }
+
+    #[test]
+    fn una_marca_se_vuelve_a_medir_sobre_el_trozo() {
+        // La marca ocupa el cuarto izquierdo de la MITAD DERECHA de la captura, o sea de
+        // 0,5 a 0,625. Dentro del recorte eso es su cuarto izquierdo: de 0 a 0,25. Sin
+        // reencuadrar, ese 0,5 caeria en el centro del trozo.
+        let marca = anotacion::Anotacion {
+            kind: "box".into(),
+            x1: 0.5,
+            y1: 0.1,
+            x2: 0.625,
+            y2: 0.9,
+            color: "#000000".into(),
+            text: String::new(),
+        };
+        let salida = enmarcar_y_anotar(
+            dos_mitades(400, 300),
+            200,
+            300,
+            sin_marco(),
+            std::slice::from_ref(&marca),
+            Some(&mitad_derecha()),
+        );
+        let negro = |x: u32| {
+            (0..300).any(|y| {
+                let p = salida.get_pixel(x, y).0;
+                p[0] < 60 && p[1] < 60 && p[2] < 60
+            })
+        };
+        assert!(negro(2), "el borde izquierdo del rectangulo no esta donde tocaba");
+        assert!(!negro(150), "el rectangulo ha aparecido en el centro, sin reencuadrar");
+    }
+
+    #[test]
+    fn el_marco_se_pone_despues_del_recorte_y_crece_por_fuera() {
+        let salida = enmarcar_y_anotar(
+            dos_mitades(400, 300),
+            200,
+            300,
+            marco::Marco {
+                margen: 20,
+                fondo: marco::Fondo::desde("blanco"),
+                sombra: false,
+            },
+            &[],
+            Some(&mitad_derecha()),
+        );
+        assert_eq!(salida.dimensions(), (240, 340));
+        assert_eq!(*salida.get_pixel(2, 2), image::Rgba([255, 255, 255, 255]));
+        assert_eq!(*salida.get_pixel(120, 170), AZUL);
     }
 }

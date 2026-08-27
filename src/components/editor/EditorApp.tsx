@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Pause, Play, Scissors } from "lucide-react";
+import { Crop, Pause, Play, Scissors } from "lucide-react";
 import {
   discardSession,
   ffmpegAvailable,
@@ -14,10 +14,13 @@ import { clamp, formatTimecode } from "../../lib/format";
 import type { FrameMeta, SessionInfo, Settings } from "../../lib/types";
 import { BarraAnotar } from "./BarraAnotar";
 import { CapaAnotaciones } from "./CapaAnotaciones";
+import { CapaRecorte } from "./CapaRecorte";
 import { COLORES, COLOR_RESALTADO, type Anotacion, type Herramienta } from "../../lib/anotaciones";
 import { ExportPanel } from "./ExportPanel";
 import { FrameStrip } from "./FrameStrip";
 import { PreviewCanvas } from "./PreviewCanvas";
+import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
+import { contener } from "../../lib/contener";
 import { useT } from "../../lib/i18n";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
@@ -37,6 +40,19 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
   const [colorMarca, setColorMarca] = useState(COLORES[0]);
   const [textoMarca, setTextoMarca] = useState("");
+  /** El trozo que se exporta, de 0 a 1. Sin marco puesto sale la captura entera. */
+  const [recorte, setRecorte] = useState<Recorte | null>(null);
+  const [recortando, setRecortando] = useState(false);
+  /**
+   * El hueco donde vive la vista previa, medido de verdad.
+   *
+   * Las capas de dibujar y de recortar tienen que caer EXACTAMENTE encima de la imagen, y
+   * la imagen se contiene dentro del hueco dejando franjas. Se mide con un observador en
+   * vez de dejárselo a `aspect-ratio` porque esa propiedad, en una caja que ademas tiene
+   * contenido, se resuelve de maneras distintas segun el contenedor.
+   */
+  const hueco = useRef<HTMLDivElement>(null);
+  const [medidaDelHueco, setMedidaDelHueco] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     if (!sessionId) {
@@ -90,39 +106,33 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     });
   }, [currentIndex, outIndex, inIndex, frames]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      const key = e.key.toLowerCase();
-      if (e.key === " ") {
-        e.preventDefault();
-        togglePlay();
-      } else if (key === "i") {
-        markIn(currentIndex);
-      } else if (key === "z" && (e.ctrlKey || e.metaKey)) {
-        // Deshacer la última marca. Va antes que las teclas sueltas para que `Ctrl+Z` no
-        // caiga en ninguna otra rama.
-        e.preventDefault();
-        setAnotaciones((previas) => previas.slice(0, -1));
-      } else if (key >= "1" && key <= "5" && !e.ctrlKey) {
-        // Las cinco herramientas de anotar, en el orden en que están en la barra.
-        const cual = (["arrow", "box", "text", "highlight", "blur"] as Herramienta[])[
-          Number(key) - 1
-        ];
-        setHerramienta((puesta) => (puesta === cual ? null : cual));
-      } else if (key === "o") {
-        markOut(currentIndex);
-      } else if (e.key === "ArrowLeft") {
-        scrub(Math.max(0, currentIndex - 1));
-      } else if (e.key === "ArrowRight") {
-        scrub(Math.min(frames.length - 1, currentIndex + 1));
-      } else if (e.key === "Escape") {
-        void cerrar();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [currentIndex, frames.length, togglePlay, scrub, markIn, markOut]);
+
+  /**
+   * Lo que mide el trozo recortado, para ensennarlo en el boton.
+   *
+   * Sale del tamanno de la region grabada, no del de la vista previa: la vista previa
+   * cambia con la ventana y el archivo no.
+   */
+  const recorteEnPixeles = useMemo(() => {
+    if (!recorte || !session) return "";
+    const { width, height } = medidaDelRecorte(recorte, session.region.width, session.region.height);
+    return `${width} × ${height}`;
+  }, [recorte, session]);
+
+  /** Lo que ocupa la imagen dentro del hueco, sin deformarse y sin salirse. */
+  const cajaDeLaVista = useMemo(
+    () =>
+      session
+        ? contener(
+            // El `p-4` del hueco son 16 px por lado que no puede ocupar la imagen.
+            medidaDelHueco.width - 32,
+            medidaDelHueco.height - 32,
+            session.region.width,
+            session.region.height,
+          )
+        : { width: 0, height: 0 },
+    [medidaDelHueco, session],
+  );
 
   /** Lo que dura el recorte de A a B, que es lo unico que se ensenna del tiempo. */
   const keptMs =
@@ -163,6 +173,52 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     };
   }, [cerrar]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      const key = e.key.toLowerCase();
+      if (e.key === " ") {
+        e.preventDefault();
+        togglePlay();
+      } else if (key === "i") {
+        markIn(currentIndex);
+      } else if (key === "z" && (e.ctrlKey || e.metaKey)) {
+        // Deshacer la última marca. Va antes que las teclas sueltas para que `Ctrl+Z` no
+        // caiga en ninguna otra rama.
+        e.preventDefault();
+        setAnotaciones((previas) => previas.slice(0, -1));
+      } else if (key >= "1" && key <= "5" && !e.ctrlKey) {
+        // Las cinco herramientas de anotar, en el orden en que están en la barra.
+        const cual = (["arrow", "box", "text", "highlight", "blur"] as Herramienta[])[
+          Number(key) - 1
+        ];
+        setHerramienta((puesta) => (puesta === cual ? null : cual));
+      } else if (key === "c" && !e.ctrlKey && !e.metaKey) {
+        // La otra mitad de recortar: A y B recortan el tiempo, esto recorta el espacio.
+        setRecortando((puesto) => !puesto);
+        setHerramienta(null);
+      } else if (key === "o") {
+        markOut(currentIndex);
+      } else if (e.key === "ArrowLeft") {
+        scrub(Math.max(0, currentIndex - 1));
+      } else if (e.key === "ArrowRight") {
+        scrub(Math.min(frames.length - 1, currentIndex + 1));
+      } else if (e.key === "Escape") {
+        // Escape sale primero de lo que se este haciendo. Cerrar el editor tira los
+        // fotogramas, asi que no puede ser lo que pase al pulsar Escape sin querer
+        // mientras se coloca un marco de recorte.
+        if (recortando) setRecortando(false);
+        else if (herramienta) setHerramienta(null);
+        else void cerrar();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // `recortando` y `herramienta` entran aqui porque Escape los mira: sin ellos el
+  // manejador se queda con la foto vieja del estado y cierra el editor, tirando los
+  // fotogramas, en vez de soltar lo que se estuviera haciendo.
+  }, [currentIndex, frames.length, togglePlay, scrub, markIn, markOut, recortando, herramienta, cerrar]);
+
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
     [session],
@@ -187,6 +243,19 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     if (stillPath) return convertFileSrc(stillPath);
     return frames[currentIndex] ? convertFileSrc(frames[currentIndex].thumbPath) : null;
   }, [stillPath, frames, currentIndex]);
+
+  useLayoutEffect(() => {
+    const el = hueco.current;
+    if (!el) return;
+    const medir = () => {
+      const caja = el.getBoundingClientRect();
+      setMedidaDelHueco({ width: caja.width, height: caja.height });
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, [session]);
 
   const onTime = useCallback(
     (ms: number) => {
@@ -219,28 +288,55 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="relative flex min-h-0 flex-1 items-center justify-center bg-[repeating-conic-gradient(#1c1c1c_0%_25%,#242424_0%_50%)] bg-[length:20px_20px] p-4">
-            <PreviewCanvas
-              videoUrl={videoUrl}
-              posterUrl={posterUrl}
-              conSonido={session?.hasAudio ?? false}
-              inMs={frames[inIndex]?.timestampMs ?? 0}
-              outMs={(frames[outIndex]?.timestampMs ?? 0) + (frames[outIndex]?.durationMs ?? 0)}
-              playing={playing}
-              seekMs={seekMs}
-              onTime={onTime}
-              onEnded={() => setCurrentIndex(inIndex)}
-            />
-            {/* La capa va sobre la vista previa y ocupa lo mismo: las coordenadas se
-                guardan en tanto por uno, así que da igual a qué tamaño se esté viendo. */}
-            <CapaAnotaciones
-              herramienta={herramienta}
-              // El resaltado es un marcador, y un marcador es amarillo: no se elige.
-              color={herramienta === "highlight" ? COLOR_RESALTADO : colorMarca}
-              anotaciones={anotaciones}
-              onAnadir={(marca) => setAnotaciones((previas) => [...previas, marca])}
-              texto={textoMarca}
-            />
+          <div
+            ref={hueco}
+            className="relative grid min-h-0 flex-1 place-items-center bg-[repeating-conic-gradient(#1c1c1c_0%_25%,#242424_0%_50%)] bg-[length:20px_20px] p-4"
+          >
+            {/*
+              La caja mide EXACTAMENTE lo que la imagen, no lo que el hueco.
+
+              La vista previa se ajusta con `object-contain`, así que en un hueco de otra
+              proporción deja franjas a los lados o arriba y abajo. Las capas iban
+              estiradas al hueco entero, y sus coordenadas de 0 a 1 contaban esas franjas
+              como parte de la captura: una flecha puesta en el borde de la imagen se
+              guardaba un poco más allá, y al exportar aparecía desplazada. Con un vídeo
+              vertical en una ventana ancha, el desplazamiento era de media pantalla.
+
+              Dándole aquí la proporción de la captura, la imagen llena la caja y las capas
+              caen encima con exactitud, sin que nadie tenga que medir nada.
+            */}
+            <div
+              className="relative"
+              style={{
+                aspectRatio: `${session.region.width} / ${session.region.height}`,
+                // El `aspect-ratio` de arriba es el respaldo mientras no se ha medido nada.
+                // Lo que manda son estos dos numeros, calculados sobre el hueco de verdad.
+                ...(cajaDeLaVista.width
+                  ? { width: cajaDeLaVista.width, height: cajaDeLaVista.height }
+                  : { maxWidth: "100%", maxHeight: "100%" }),
+              }}
+            >
+              <PreviewCanvas
+                videoUrl={videoUrl}
+                posterUrl={posterUrl}
+                conSonido={session?.hasAudio ?? false}
+                inMs={frames[inIndex]?.timestampMs ?? 0}
+                outMs={(frames[outIndex]?.timestampMs ?? 0) + (frames[outIndex]?.durationMs ?? 0)}
+                playing={playing}
+                seekMs={seekMs}
+                onTime={onTime}
+                onEnded={() => setCurrentIndex(inIndex)}
+              />
+              <CapaAnotaciones
+                herramienta={herramienta}
+                // El resaltado es un marcador, y un marcador es amarillo: no se elige.
+                color={herramienta === "highlight" ? COLOR_RESALTADO : colorMarca}
+                anotaciones={anotaciones}
+                onAnadir={(marca) => setAnotaciones((previas) => [...previas, marca])}
+                texto={textoMarca}
+              />
+              <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
+            </div>
             <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-neutral-900/85 px-2 py-1.5 shadow-xl backdrop-blur-md">
               <button
                 type="button"
@@ -270,6 +366,37 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               >
                 <Scissors className="size-3 -scale-x-100" /> B
               </button>
+              <span className="h-4 w-px bg-white/10" />
+              <button
+                type="button"
+                onClick={() => {
+                  setRecortando((puesto) => !puesto);
+                  setHerramienta(null);
+                }}
+                aria-pressed={recortando}
+                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors ${
+                  recortando || recorte
+                    ? "bg-blue-500 text-white"
+                    : "text-neutral-300 hover:bg-white/10 hover:text-white"
+                }`}
+                title={t("Recortar la imagen (C)")}
+              >
+                <Crop className="size-3" />
+                {recorte ? recorteEnPixeles : t("Recortar")}
+              </button>
+              {recorte && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecorte(null);
+                    setRecortando(false);
+                  }}
+                  className="rounded-full px-1.5 py-0.5 text-[11px] text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
+                  title={t("Quitar el recorte")}
+                >
+                  ×
+                </button>
+              )}
             </div>
           </div>
 
@@ -297,6 +424,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         </main>
 
         <ExportPanel
+          recorte={recorte}
           anotaciones={anotaciones}
           session={session}
           inIndex={inIndex}
