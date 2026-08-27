@@ -47,7 +47,8 @@ export const EN: Record<string, string> = {
   "el mismo atajo la termina": "the same shortcut ends it",
   "Fotogramas por segundo": "Frames per second",
   "Audio del sistema": "System audio",
-  "todavía no disponible": "not available yet",
+  "lo que suene por los altavoces, dentro del vídeo":
+    "whatever comes out of the speakers, inside the video",
   "Al terminar": "When it ends",
   "Abrir el editor al terminar": "Open the editor when it ends",
 

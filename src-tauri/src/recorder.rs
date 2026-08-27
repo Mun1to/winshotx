@@ -134,11 +134,27 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         region,
         fps,
         format: options.format.clone(),
-        has_audio: false, // el audio del sistema llega en una segunda tanda
+        has_audio: false, // se pone a cierto abajo, si el altavoz llega a abrirse
         width: region.width,
         height: region.height,
         mp4_path: Some(dir.join("preview.mp4")),
         frames: Vec::new(),
+    };
+
+    // El altavoz se abre ANTES de arrancar el hilo que escribe: hay que saber a que
+    // frecuencia y con cuantos canales suena para configurar el codificador, y eso no se
+    // puede cambiar a mitad del MP4. Si no se puede abrir, se graba sin sonido y se dice:
+    // quedarse sin grabacion por no tener altavoz seria mucho peor.
+    let audio = if options.audio {
+        match crate::record::audio::empezar() {
+            Ok(captura) => Some(captura),
+            Err(error) => {
+                eprintln!("[winshotx] sin audio del sistema: {error}");
+                None
+            }
+        }
+    } else {
+        None
     };
 
     let (sender, receiver) = channel::<win::CapturedFrame>();
@@ -153,11 +169,32 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let writer_stop = stop.clone();
     let writer = std::thread::spawn(move || -> Result<SessionData> {
         let mut session = session_seed;
+        session.has_audio = audio.is_some();
         let width = session.width;
         let height = session.height;
         let mut cache = FrameCache::new(&session.dir)?;
-        let mut encoder = build_preview_encoder(&session);
+        let formato_audio = audio.as_ref().map(|a| a.formato);
+        let mut encoder = build_preview_encoder(&session, formato_audio);
         let mut last_ts = 0u64;
+
+        // Lo que llega del altavoz se vuelca en el codificador segun va entrando. Si se
+        // dejara para el final habria que guardarlo entero en memoria, y cinco minutos de
+        // sonido son cientos de megas.
+        let mut volcar_audio = |enc: &mut Option<windows_capture::encoder::VideoEncoder>| {
+            let Some(captura) = audio.as_ref() else { return };
+            while let Ok(trozo) = captura.trozos.try_recv() {
+                let Some(codificador) = enc.as_mut() else { return };
+                let pcm = crate::record::audio::a_pcm16(&trozo.datos);
+                if codificador
+                    .send_audio_buffer(&pcm, trozo.desde_el_inicio)
+                    .is_err()
+                {
+                    // El sonido se queda por el camino, pero la imagen sigue: el cache de
+                    // fotogramas es la fuente de verdad y no depende del codificador.
+                    return;
+                }
+            }
+        };
 
         // El fin de la grabacion no puede depender de que el canal se cierre: si la
         // pantalla esta quieta no llegan fotogramas y el hilo se quedaria esperando.
@@ -188,6 +225,13 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                     encoder = None;
                 }
             }
+            volcar_audio(&mut encoder);
+        }
+
+        // Lo ultimo que quedo sonando, ya con la captura parada.
+        volcar_audio(&mut encoder);
+        if let Some(captura) = audio {
+            captura.parar();
         }
 
         if let Some(enc) = encoder.take() {
@@ -259,7 +303,10 @@ pub fn start(_app: &AppHandle, _region: Rect, _options: RecordOptions) -> Result
 }
 
 #[cfg(windows)]
-fn build_preview_encoder(session: &SessionData) -> Option<windows_capture::encoder::VideoEncoder> {
+fn build_preview_encoder(
+    session: &SessionData,
+    audio: Option<crate::record::audio::Formato>,
+) -> Option<windows_capture::encoder::VideoEncoder> {
     use windows_capture::encoder::{
         AudioSettingsBuilder, ContainerSettingsBuilder, VideoEncoder, VideoSettingsBuilder,
         VideoSettingsSubType,
@@ -277,7 +324,16 @@ fn build_preview_encoder(session: &SessionData) -> Option<windows_capture::encod
             .sub_type(VideoSettingsSubType::H264)
             .frame_rate(session.fps)
             .bitrate(options.bitrate()),
-        AudioSettingsBuilder::default().disabled(true),
+        match audio {
+            // El codificador recibe enteros de 16 bits, no la coma flotante que da el
+            // mezclador: la conversion la hace `audio::a_pcm16` antes de entregarlo.
+            Some(formato) => AudioSettingsBuilder::default()
+                .channel_count(u32::from(formato.canales))
+                .sample_rate(formato.muestras_por_segundo)
+                .bit_per_sample(16)
+                .disabled(false),
+            None => AudioSettingsBuilder::default().disabled(true),
+        },
         ContainerSettingsBuilder::default(),
         path,
     )
@@ -446,4 +502,71 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
     session.persist()?;
     state.sessions.write().insert(id, session.clone());
     Ok(session)
+}
+
+#[cfg(all(test, windows))]
+mod pruebas_de_audio {
+    /// Fabrica un MP4 pequenno con imagen y sonido usando el mismo camino que la
+    /// grabacion de verdad, y comprueba que el archivo sale con pista de sonido dentro.
+    ///
+    /// No corre sola porque usa el codificador por hardware de Windows:
+    /// `cargo test --lib el_mp4_sale_con_pista -- --ignored --nocapture`.
+    ///
+    /// Comprueba lo unico que no se puede saber leyendo el codigo: que Media Foundation
+    /// acepta ese formato de audio. Si lo rechaza, el MP4 sale mudo y no se entera nadie
+    /// hasta que alguien reproduce el video.
+    #[test]
+    #[ignore]
+    fn el_mp4_sale_con_pista_de_sonido() {
+        use windows_capture::encoder::{
+            AudioSettingsBuilder, ContainerSettingsBuilder, VideoEncoder, VideoSettingsBuilder,
+            VideoSettingsSubType,
+        };
+
+        let (ancho, alto, fps) = (320u32, 240u32, 30u32);
+        let unico = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let destino = std::env::temp_dir().join(format!("winshotx-audio-{unico}.mp4"));
+
+        let mut encoder = VideoEncoder::new(
+            VideoSettingsBuilder::new(ancho, alto)
+                .sub_type(VideoSettingsSubType::H264)
+                .frame_rate(fps)
+                .bitrate(2_000_000),
+            AudioSettingsBuilder::default()
+                .channel_count(2)
+                .sample_rate(48_000)
+                .bit_per_sample(16)
+                .disabled(false),
+            ContainerSettingsBuilder::default(),
+            &destino,
+        )
+        .expect("no se ha podido crear el codificador");
+
+        // Un segundo: treinta fotogramas y el sonido que les corresponde.
+        let bgra = vec![90u8; (ancho * alto) as usize * 4];
+        // 48.000 instantes por segundo entre 30 fotogramas, dos canales de dos bytes.
+        let por_fotograma = vec![0u8; (48_000 / 30) * 2 * 2];
+        for i in 0..fps {
+            encoder
+                .send_frame_buffer(&bgra, i as i64 * (10_000_000 / fps as i64))
+                .expect("no se ha podido enviar el fotograma");
+            encoder
+                .send_audio_buffer(&por_fotograma, 0)
+                .expect("no se ha podido enviar el sonido");
+        }
+        encoder.finish().expect("no se ha podido cerrar el MP4");
+
+        let bytes = std::fs::read(&destino).expect("no se ha escrito el MP4");
+        let _ = std::fs::remove_file(&destino);
+        println!("MP4 de un segundo con sonido: {} bytes", bytes.len());
+
+        // `mp4a` es como se llama la pista de audio dentro del archivo. Si no está, el
+        // vídeo salió mudo por mucho que el codificador no se quejara.
+        let tiene_pista = bytes.windows(4).any(|v| v == b"mp4a");
+        assert!(tiene_pista, "el MP4 ha salido sin pista de sonido");
+        assert!(bytes.len() > 5_000, "el MP4 ha salido demasiado pequeño");
+    }
 }

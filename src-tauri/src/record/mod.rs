@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use crate::capture::Rect;
 use crate::error::{AppError, Result};
 
+#[cfg(windows)]
+pub mod audio;
 pub mod delta;
 #[cfg(windows)]
 pub mod win;

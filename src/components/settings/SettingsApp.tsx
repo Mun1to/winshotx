@@ -423,12 +423,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Mic className="size-4" />}
                     label={t("Audio del sistema")}
-                    hint={t("todavía no disponible")}
+                    hint={t("lo que suene por los altavoces, dentro del vídeo")}
                     control={
                       <Switch
-                        checked={false}
-                        disabled
-                        onChange={() => undefined}
+                        checked={settings.recordAudio}
+                        onChange={(v) => patch({ recordAudio: v })}
                         label={t("Audio del sistema")}
                       />
                     }
