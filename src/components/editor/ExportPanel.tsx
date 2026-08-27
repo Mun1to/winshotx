@@ -15,6 +15,7 @@ import { NumberField } from "../ui/NumberField";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { useT } from "../../lib/i18n";
+import type { Anotacion } from "../../lib/anotaciones";
 
 /**
  * Los fondos del marco, con el color con el que se pintan en el propio botón.
@@ -38,6 +39,8 @@ const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
 ];
 
 interface Props {
+  /** Lo dibujado encima en el editor, que Rust pinta sobre cada fotograma. */
+  anotaciones: Anotacion[];
   session: SessionInfo;
   inIndex: number;
   outIndex: number;
@@ -48,6 +51,7 @@ interface Props {
 }
 
 export function ExportPanel({
+  anotaciones,
   session,
   inIndex,
   outIndex,
@@ -128,6 +132,7 @@ export function ExportPanel({
         margin: margen,
         background: fondo,
         shadow: sombra,
+        annotations: anotaciones,
         destination: directory || null,
         copyToClipboard,
       });

@@ -320,4 +320,14 @@ export const EN: Record<string, string> = {
   "Enseñar los atajos": "Show the shortcuts",
   "solo los que llevan Ctrl, Alt o Win: lo que escribes no sale":
     "only the ones with Ctrl, Alt or Win: what you type never shows",
+
+  // Anotar sobre la captura
+  Flecha: "Arrow",
+  Rectángulo: "Box",
+  Texto: "Text",
+  Resaltar: "Highlight",
+  "Tapar datos": "Hide details",
+  "Escribe y pulsa en la imagen": "Type, then click on the image",
+  "Deshacer la última (Ctrl+Z)": "Undo the last one (Ctrl+Z)",
+  "Quitar todas": "Remove them all",
 };

@@ -4,7 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::encode::{ffmpeg, gif, marco, mp4, png};
+use crate::encode::{anotacion, ffmpeg, gif, marco, mp4, png};
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
 use crate::state::AppState;
@@ -38,6 +38,9 @@ pub struct ExportRequest {
     /// Si la captura lleva sombra sobre ese fondo.
     #[serde(default)]
     pub shadow: bool,
+    /// Las marcas dibujadas encima, en coordenadas de 0 a 1 sobre la imagen.
+    #[serde(default)]
+    pub annotations: Vec<anotacion::Anotacion>,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -165,7 +168,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             let path = destination_path(app, &request, "png")?;
             emit("reading", 0, 1);
             let image = record::read_frame(&session, request.from)?;
-            let image = marco::enmarcar(image, width, height, marco);
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations);
             png::save(&image, &path, ancho_final, alto_final)?;
             path
         }
@@ -180,8 +183,9 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 let _ = std::fs::remove_file(&temporary);
             } else {
                 let mut loader = |index: usize| {
-                    record::read_frame(&session, index)
-                        .map(|imagen| marco::enmarcar(imagen, width, height, marco))
+                    record::read_frame(&session, index).map(|imagen| {
+                        enmarcar_y_anotar(imagen, width, height, marco, &request.annotations)
+                    })
                 };
                 gif::encode(
                     &indices,
@@ -240,6 +244,30 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     })
 }
 
+/// Escala, dibuja las marcas encima y despues pone el marco.
+///
+/// **Ese orden y no otro.** Las marcas van sobre la captura, no sobre el fondo: una flecha
+/// dibujada en el 90 % del ancho apunta al 90 % de la CAPTURA, y si se enmarcara antes,
+/// ese 90 % caeria dentro del aire de la derecha. Y se escala primero para que las
+/// coordenadas, que van de 0 a 1, se apliquen sobre la imagen del tamanno final.
+fn enmarcar_y_anotar(
+    imagen: image::RgbaImage,
+    ancho: u32,
+    alto: u32,
+    marco: marco::Marco,
+    anotaciones: &[anotacion::Anotacion],
+) -> image::RgbaImage {
+    let mut escalada = if imagen.dimensions() == (ancho, alto) {
+        imagen
+    } else {
+        image::imageops::resize(&imagen, ancho, alto, image::imageops::FilterType::Lanczos3)
+    };
+    if !anotaciones.is_empty() {
+        anotacion::pintar(&mut escalada, anotaciones);
+    }
+    marco::poner(&escalada, marco)
+}
+
 fn encode_mp4<F>(
     session: &SessionData,
     indices: &[usize],
@@ -260,7 +288,8 @@ where
     };
     let (ancho_final, alto_final) = marco.medida(ancho, alto);
     let mut loader = |index: usize| {
-        record::read_frame(session, index).map(|imagen| marco::enmarcar(imagen, ancho, alto, marco))
+        record::read_frame(session, index)
+            .map(|imagen| enmarcar_y_anotar(imagen, ancho, alto, marco, &request.annotations))
     };
     mp4::encode(
         indices,

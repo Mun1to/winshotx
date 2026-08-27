@@ -135,10 +135,14 @@ export interface ExportRequest {
   background: Background;
   /** Si la captura lleva sombra sobre el fondo. */
   shadow: boolean;
+  /** Las marcas dibujadas encima, en coordenadas de 0 a 1. */
+  annotations: Anotacion[];
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;
 }
+
+import type { Anotacion } from "./anotaciones";
 
 /** Los fondos del marco. Unos pocos elegidos, no una rueda de color entera. */
 export type Background = "blanco" | "negro" | "gris" | "atardecer" | "menta";

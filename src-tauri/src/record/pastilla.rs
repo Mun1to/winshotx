@@ -83,8 +83,21 @@ pub fn opacidad(edad_ms: u64, duracion_ms: u64) -> f32 {
     }
 }
 
+/// Escribe un texto suelto, sin pastilla detrás, del alto y el color que se pida.
+///
+/// Lo usa la anotación de texto del editor. Comparte con la pastilla todo el trabajo con
+/// GDI, que es la parte que cuesta: abrir el contexto, elegir la fuente y medir.
+pub fn escribir(texto: &str, alto_letra: i32, color: [u8; 3]) -> Option<RgbaImage> {
+    pintar_texto(texto, alto_letra, Some(color))
+}
+
 /// Dibuja la pastilla: fondo oscuro redondeado y el texto en blanco encima.
 fn dibujar(texto: &str) -> Option<RgbaImage> {
+    pintar_texto(texto, LETRA, None)
+}
+
+/// El trabajo de verdad. Con `color` puesto sale el texto suelto, y sin él, la pastilla.
+fn pintar_texto(texto: &str, alto_letra: i32, color: Option<[u8; 3]>) -> Option<RgbaImage> {
     use windows::Win32::Foundation::{COLORREF, RECT, SIZE};
     use windows::Win32::Graphics::Gdi::*;
     use windows::core::HSTRING;
@@ -95,7 +108,7 @@ fn dibujar(texto: &str) -> Option<RgbaImage> {
     unsafe {
         let dc = CreateCompatibleDC(None);
         let fuente = CreateFontW(
-            LETRA,
+            alto_letra,
             0,
             0,
             0,
@@ -116,8 +129,10 @@ fn dibujar(texto: &str) -> Option<RgbaImage> {
         let utf16: Vec<u16> = texto.encode_utf16().collect();
         let mut medida = SIZE::default();
         let _ = GetTextExtentPoint32W(dc, &utf16, &mut medida);
-        let ancho = (medida.cx + AIRE_X * 2).max(1);
-        let alto = (medida.cy + AIRE_Y * 2).max(1);
+        // El texto suelto va sin aire: lo pega quien lo pide, donde lo pida.
+        let (aire_x, aire_y) = if color.is_some() { (2, 2) } else { (AIRE_X, AIRE_Y) };
+        let ancho = (medida.cx + aire_x * 2).max(1);
+        let alto = (medida.cy + aire_y * 2).max(1);
 
         let mut info = BITMAPINFO::default();
         info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
@@ -144,7 +159,7 @@ fn dibujar(texto: &str) -> Option<RgbaImage> {
         FillRect(dc, &todo, pincel);
         SetBkMode(dc, TRANSPARENT);
         SetTextColor(dc, COLORREF(0x00FF_FFFF));
-        let _ = TextOutW(dc, AIRE_X, AIRE_Y, &utf16);
+        let _ = TextOutW(dc, aire_x, aire_y, &utf16);
 
         let total = (ancho * alto) as usize;
         let crudo = std::slice::from_raw_parts(pixeles as *const u8, total * 4);
@@ -154,6 +169,15 @@ fn dibujar(texto: &str) -> Option<RgbaImage> {
             let x = (i as i32) % ancho;
             let y = (i as i32) / ancho;
             let claro = crudo[i * 4 + 2].max(crudo[i * 4 + 1]).max(crudo[i * 4]);
+            // Texto suelto: solo la letra, del color que se pidió, y el resto transparente.
+            if let Some(rgb) = color {
+                *pixel = if claro > 0x33 {
+                    Rgba([rgb[0], rgb[1], rgb[2], claro])
+                } else {
+                    Rgba([0, 0, 0, 0])
+                };
+                continue;
+            }
             if !dentro_de_la_pastilla(x, y, ancho, alto, radio) {
                 *pixel = Rgba([0, 0, 0, 0]);
             } else if claro > 0x33 {

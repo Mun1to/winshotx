@@ -12,6 +12,9 @@ import {
 } from "../../lib/ipc";
 import { clamp, formatTimecode } from "../../lib/format";
 import type { FrameMeta, SessionInfo, Settings } from "../../lib/types";
+import { BarraAnotar } from "./BarraAnotar";
+import { CapaAnotaciones } from "./CapaAnotaciones";
+import { COLORES, COLOR_RESALTADO, type Anotacion, type Herramienta } from "../../lib/anotaciones";
 import { ExportPanel } from "./ExportPanel";
 import { FrameStrip } from "./FrameStrip";
 import { PreviewCanvas } from "./PreviewCanvas";
@@ -29,6 +32,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [playing, setPlaying] = useState(false);
   const [seekMs, setSeekMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  /** Lo dibujado encima, en el orden en que se hizo. */
+  const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
+  const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
+  const [colorMarca, setColorMarca] = useState(COLORES[0]);
+  const [textoMarca, setTextoMarca] = useState("");
 
   useEffect(() => {
     if (!sessionId) {
@@ -91,6 +99,17 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         togglePlay();
       } else if (key === "i") {
         markIn(currentIndex);
+      } else if (key === "z" && (e.ctrlKey || e.metaKey)) {
+        // Deshacer la última marca. Va antes que las teclas sueltas para que `Ctrl+Z` no
+        // caiga en ninguna otra rama.
+        e.preventDefault();
+        setAnotaciones((previas) => previas.slice(0, -1));
+      } else if (key >= "1" && key <= "5" && !e.ctrlKey) {
+        // Las cinco herramientas de anotar, en el orden en que están en la barra.
+        const cual = (["arrow", "box", "text", "highlight", "blur"] as Herramienta[])[
+          Number(key) - 1
+        ];
+        setHerramienta((puesta) => (puesta === cual ? null : cual));
       } else if (key === "o") {
         markOut(currentIndex);
       } else if (e.key === "ArrowLeft") {
@@ -212,6 +231,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               onTime={onTime}
               onEnded={() => setCurrentIndex(inIndex)}
             />
+            {/* La capa va sobre la vista previa y ocupa lo mismo: las coordenadas se
+                guardan en tanto por uno, así que da igual a qué tamaño se esté viendo. */}
+            <CapaAnotaciones
+              herramienta={herramienta}
+              // El resaltado es un marcador, y un marcador es amarillo: no se elige.
+              color={herramienta === "highlight" ? COLOR_RESALTADO : colorMarca}
+              anotaciones={anotaciones}
+              onAnadir={(marca) => setAnotaciones((previas) => [...previas, marca])}
+              texto={textoMarca}
+            />
             <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-neutral-900/85 px-2 py-1.5 shadow-xl backdrop-blur-md">
               <button
                 type="button"
@@ -244,6 +273,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             </div>
           </div>
 
+          <BarraAnotar
+            activa={herramienta}
+            onElegir={setHerramienta}
+            color={colorMarca}
+            onColor={setColorMarca}
+            texto={textoMarca}
+            onTexto={setTextoMarca}
+            cuantas={anotaciones.length}
+            onDeshacer={() => setAnotaciones((previas) => previas.slice(0, -1))}
+            onBorrarTodo={() => setAnotaciones([])}
+          />
+
           <FrameStrip
             frames={frames}
             inIndex={inIndex}
@@ -256,6 +297,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         </main>
 
         <ExportPanel
+          anotaciones={anotaciones}
           session={session}
           inIndex={inIndex}
           outIndex={outIndex}
