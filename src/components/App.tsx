@@ -41,9 +41,14 @@ export function App() {
     );
     // Cada pantalla pide el alto que necesita. La bienvenida es un texto largo y necesita
     // 640; los ajustes, con la navegacion arriba y los bloques en dos columnas, caben en
-    // 470. Dejar la ventana siempre en el alto de la mas alta le pone a los ajustes un
+    // 510. Dejar la ventana siempre en el alto de la mas alta le pone a los ajustes un
     // palmo de hueco debajo, y es la que se abre todos los dias.
-    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 470));
+    //
+    // Subio de 470 a 510 el 27 de agosto de 2026, al entrar el microfono y los dos realces
+    // en «Grabar»: con cuatro bloques por seccion, 470 cortaba la ultima fila. Ninguna
+    // pantalla de ajustes lleva rueda, esa es la regla; si el contenido no cabe, se
+    // agranda la ventana o se compacta el contenido, y aqui se han hecho las dos cosas.
+    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 510));
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-lienzo" />;

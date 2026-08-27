@@ -421,8 +421,14 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                </Section>
+
+                {/* El sonido, en su bloque. Estaba dentro de «Cómo se graba» y con el
+                    micrófono al lado eran seis filas en una columna, que ya no cabían: la
+                    sección salía con rueda y la columna de al lado, vacía. */}
+                <Section title={t("El sonido")}>
                   <Row
-                    icon={<Mic className="size-4" />}
+                    icon={<Volume2 className="size-4" />}
                     label={t("Audio del sistema")}
                     hint={t("lo que suene por los altavoces, dentro del vídeo")}
                     control={
@@ -449,10 +455,15 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                </Section>
+
+                {/* Los dos realces van juntos y aparte: no cambian CÓMO se graba, cambian
+                    lo que se entiende al verlo después. */}
+                <Section title={t("Para que se entienda")}>
                   <Row
                     icon={<MousePointerClick className="size-4" />}
                     label={t("Marcar los clics")}
-                    hint={t("un aro donde pulsas, para que se siga lo que haces")}
+                    hint={t("un aro donde pulsas al grabar")}
                     control={
                       <Switch
                         checked={settings.highlightClicks}
@@ -464,7 +475,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Keyboard className="size-4" />}
                     label={t("Enseñar los atajos")}
-                    hint={t("solo los que llevan Ctrl, Alt o Win: lo que escribes no sale")}
+                    hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
                     control={
                       <Switch
                         checked={settings.highlightKeys}

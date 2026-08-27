@@ -47,8 +47,7 @@ export const EN: Record<string, string> = {
   "el mismo atajo la termina": "the same shortcut ends it",
   "Fotogramas por segundo": "Frames per second",
   "Audio del sistema": "System audio",
-  "lo que suene por los altavoces, dentro del vídeo":
-    "whatever comes out of the speakers, inside the video",
+  "lo que suene por los altavoces, dentro del vídeo": "whatever the speakers play, in the video",
   "Al terminar": "When it ends",
   "Abrir el editor al terminar": "Open the editor when it ends",
 
@@ -313,13 +312,11 @@ export const EN: Record<string, string> = {
 
   // Marcar los clics
   "Marcar los clics": "Mark the clicks",
-  "un aro donde pulsas, para que se siga lo que haces":
-    "a ring where you click, so people can follow what you do",
+  "un aro donde pulsas al grabar": "a ring where you click while recording",
 
   // Ensennar los atajos
   "Enseñar los atajos": "Show the shortcuts",
-  "solo los que llevan Ctrl, Alt o Win: lo que escribes no sale":
-    "only the ones with Ctrl, Alt or Win: what you type never shows",
+  "solo con Ctrl, Alt o Win: lo que escribes no sale": "only Ctrl, Alt or Win: typing never shows",
 
   // Anotar sobre la captura
   Flecha: "Arrow",
@@ -330,4 +327,8 @@ export const EN: Record<string, string> = {
   "Escribe y pulsa en la imagen": "Type, then click on the image",
   "Deshacer la última (Ctrl+Z)": "Undo the last one (Ctrl+Z)",
   "Quitar todas": "Remove them all",
+
+  // Los bloques de «Grabar»
+  "El sonido": "The sound",
+  "Para que se entienda": "So it can be followed",
 };
