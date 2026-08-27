@@ -273,6 +273,7 @@ mod tests {
                     thumb_path: String::new(),
                     offset: 0,
                     len: 0,
+                    patch: None,
                 };
                 timestamp += *duration as u64;
                 entry
