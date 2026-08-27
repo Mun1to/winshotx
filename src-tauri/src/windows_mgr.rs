@@ -389,13 +389,90 @@ pub fn open_recorder(app: &AppHandle, region: Rect) -> Result<()> {
         .build()?;
     crate::platform::window_style::rounded_corners(&window);
 
-    let scale = window.scale_factor().unwrap_or(1.0);
-    let width_px = (360.0 * scale) as i32;
-    let x = region.x + (region.width as i32 - width_px) / 2;
-    let y = region.y + region.height as i32 + (12.0 * scale) as i32;
-    window.set_position(PhysicalPosition::new(x.max(0), y.max(0)))?;
+    colocar_barra(&window, region);
     window.show()?;
     Ok(())
+}
+
+/// Pone la barra debajo de la region, y dentro de la pantalla donde esta esa region.
+///
+/// Antes se usaba `x.max(0)`, y eso mandaba la barra a la pantalla principal siempre que
+/// se grababa en un monitor colocado a la izquierda o encima del principal: ahi las
+/// coordenadas del escritorio son NEGATIVAS, y recortarlas a cero es literalmente saltar
+/// de pantalla. Y el escalado se le preguntaba a la ventana, que acaba de nacer y todavia
+/// esta en la pantalla equivocada.
+fn colocar_barra(window: &tauri::WebviewWindow, region: Rect) {
+    let centro = (
+        region.x + region.width as i32 / 2,
+        region.y + region.height as i32 / 2,
+    );
+    let (x, y) = sitio_de_la_barra(region, monitor_de(centro.0, centro.1));
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+}
+
+/// La cuenta de donde va la barra, aparte del resto para poder probarla sin pantallas.
+///
+/// Si no se sabe en que monitor cae, se coloca debajo de la region y se deja estar: es
+/// preferible una barra un poco fuera de sitio que una barra en otra pantalla.
+fn sitio_de_la_barra(region: Rect, monitor: Option<MonitorSitio>) -> (i32, i32) {
+    let escala = monitor.map(|m| m.escala).unwrap_or(1.0);
+    let ancho_px = (BARRA_ANCHO * escala) as i32;
+    let alto_px = (BARRA_ALTO * escala) as i32;
+    let hueco = (12.0 * escala) as i32;
+
+    let mut x = region.x + (region.width as i32 - ancho_px) / 2;
+    let mut y = region.y + region.height as i32 + hueco;
+
+    if let Some(m) = monitor {
+        let margen = (8.0 * escala) as i32;
+        let izquierda = m.x + margen;
+        let derecha = (m.x + m.ancho - ancho_px - margen).max(izquierda);
+        x = x.clamp(izquierda, derecha);
+        // Si la region llega al borde de abajo, la barra se sube encima en vez de quedarse
+        // colgando fuera de la pantalla o saltando a la de al lado.
+        let tope = m.y + m.alto - alto_px - margen;
+        if y > tope {
+            y = (region.y - alto_px - hueco).max(m.y + margen);
+        }
+    }
+    (x, y)
+}
+
+/// Ancho y alto de la barra de grabacion, en pixeles logicos. Los mismos que pide el
+/// constructor de la ventana: si se separan, la barra deja de quedar centrada.
+const BARRA_ANCHO: f64 = 360.0;
+const BARRA_ALTO: f64 = 52.0;
+
+/// Los datos de un monitor que hacen falta para colocar una ventana encima.
+#[derive(Debug, Clone, Copy)]
+struct MonitorSitio {
+    x: i32,
+    y: i32,
+    ancho: i32,
+    alto: i32,
+    escala: f64,
+}
+
+/// El monitor que contiene ese punto del escritorio, o el principal si el punto se ha
+/// quedado en tierra de nadie (pasa entre monitores desalineados).
+fn monitor_de(x: i32, y: i32) -> Option<MonitorSitio> {
+    let monitores = xcap::Monitor::all().ok()?;
+    let leer = |m: &xcap::Monitor| -> Option<MonitorSitio> {
+        Some(MonitorSitio {
+            x: m.x().ok()?,
+            y: m.y().ok()?,
+            ancho: m.width().ok()? as i32,
+            alto: m.height().ok()? as i32,
+            escala: f64::from(m.scale_factor().ok()?),
+        })
+    };
+    let dentro = |s: &MonitorSitio| x >= s.x && x < s.x + s.ancho && y >= s.y && y < s.y + s.alto;
+
+    monitores
+        .iter()
+        .filter_map(leer)
+        .find(dentro)
+        .or_else(|| monitores.iter().filter_map(leer).next())
 }
 
 pub fn close_recorder(app: &AppHandle) {
@@ -465,5 +542,72 @@ fn force_foreground(window: &tauri::WebviewWindow) {
         let hwnd = HWND(handle.0 as *mut std::ffi::c_void);
         let _ = ShowWindow(hwnd, SW_SHOW);
         let _ = SetForegroundWindow(hwnd);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn monitor(x: i32, y: i32, ancho: i32, alto: i32) -> MonitorSitio {
+        MonitorSitio {
+            x,
+            y,
+            ancho,
+            alto,
+            escala: 1.0,
+        }
+    }
+
+    fn region(x: i32, y: i32, width: u32, height: u32) -> Rect {
+        Rect {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    /// El fallo que Munir vio el 27 de agosto de 2026: grabo en el monitor vertical de la
+    /// izquierda y la barra aparecio en otro. Ese monitor tiene coordenadas NEGATIVAS en
+    /// el escritorio, y el codigo hacia `x.max(0)`, que es literalmente "salta a la
+    /// pantalla principal".
+    #[test]
+    fn la_barra_se_queda_en_el_monitor_de_la_izquierda() {
+        let izquierdo = monitor(-1080, 0, 1080, 1920);
+        let (x, y) = sitio_de_la_barra(region(-900, 200, 600, 400), Some(izquierdo));
+        assert!(
+            x < 0,
+            "la barra se ha ido a la pantalla principal: x = {x}, y el monitor acaba en 0"
+        );
+        assert!(x >= izquierdo.x, "y tampoco puede salirse por la izquierda");
+        assert_eq!(y, 612, "debajo de la región, doce píxeles más abajo");
+    }
+
+    /// Debajo de la region es lo normal, y centrada con ella.
+    #[test]
+    fn la_barra_va_centrada_debajo_de_la_region() {
+        let principal = monitor(0, 0, 1920, 1080);
+        let (x, y) = sitio_de_la_barra(region(500, 100, 400, 300), Some(principal));
+        assert_eq!(x, 500 + (400 - 360) / 2, "centrada con la región");
+        assert_eq!(y, 100 + 300 + 12);
+    }
+
+    /// Y si la region llega abajo del todo, la barra se sube encima en vez de salirse.
+    #[test]
+    fn si_no_cabe_debajo_la_barra_se_pone_encima() {
+        let principal = monitor(0, 0, 1920, 1080);
+        let (_, y) = sitio_de_la_barra(region(300, 700, 800, 370), Some(principal));
+        assert!(y < 700, "tenía que subirse encima de la región y está en {y}");
+        assert!(y >= 8, "y sin salirse por arriba");
+    }
+
+    /// Una region ancha en un monitor estrecho: la barra se pega al borde, pero dentro.
+    #[test]
+    fn la_barra_nunca_se_sale_por_los_lados() {
+        let estrecho = monitor(1920, 0, 400, 800);
+        let (x, _) = sitio_de_la_barra(region(1930, 10, 380, 200), Some(estrecho));
+        assert!(x >= 1928, "se sale por la izquierda: {x}");
+        assert!(x + 360 <= 1920 + 400 - 8, "se sale por la derecha: {x}");
     }
 }
