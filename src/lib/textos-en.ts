@@ -301,6 +301,12 @@ export const EN: Record<string, string> = {
   // El color bajo el cursor
   copiado: "copied",
 
+  // El zoom que se acerca a los clics
+  "Acercarse a los clics": "Zoom in on clicks",
+  "sin zoom": "no zoom",
+  "La cámara se acerca sola a donde pulsaste y vuelve. Se decide aquí, no al grabar.":
+    "The camera moves in on where you clicked and comes back. Decided here, not while recording.",
+
   // Recortar la imagen
   Recortar: "Crop",
   "Recortar la imagen (C)": "Crop the image (C)",

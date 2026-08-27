@@ -53,6 +53,9 @@ pub struct SessionInfo {
     pub frame_count: u32,
     pub duration_ms: u64,
     pub has_audio: bool,
+    /// Si se pulso algo durante la grabacion. Sin clics no hay nada a lo que acercarse, y
+    /// ofrecer el zoom en el editor seria ofrecer un interruptor que no hace nada.
+    pub has_clicks: bool,
     pub format: String,
     pub mp4_path: Option<String>,
 }
@@ -66,6 +69,7 @@ impl From<&SessionData> for SessionInfo {
             frame_count: data.frames.len() as u32,
             duration_ms: data.duration_ms(),
             has_audio: data.has_audio,
+            has_clicks: !data.clics.is_empty(),
             format: data.format.clone(),
             mp4_path: data
                 .mp4_path
@@ -148,6 +152,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         height: region.height,
         mp4_path: Some(dir.join("preview.mp4")),
         audio: None,
+        clics: Vec::new(),
         frames: Vec::new(),
     };
 
@@ -202,6 +207,9 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // sistema: un enganche mal hecho le deja el escritorio a tirones a quien lo tenga.
         let mut vigilante = crate::record::raton::Vigilante::default();
         let mut clics: Vec<crate::record::realce::Clic> = Vec::new();
+        // Los que se guardan en la sesion, en coordenadas de la region y para siempre.
+        // Los de arriba son los que todavia se estan dibujando y se olvidan enseguida.
+        let mut anotados: Vec<crate::encode::zoom::Clic> = Vec::new();
         let mut teclado = crate::record::teclas::Vigilante::default();
         let mut atajo: Option<crate::record::teclas::Atajo> = None;
         let mut pastillas = crate::record::pastilla::Cache::default();
@@ -256,10 +264,20 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             // El aro se pinta en el fotograma que se guarda, no en la pantalla: pintarlo
             // encima del escritorio seria otra ventana transparente, que ademas se colaria
             // en cualquier otra captura.
-            if marcar_clics {
-                if let Some(clic) = vigilante.mirar(frame.ts_ms) {
+            // Los clics se anotan SIEMPRE, aunque no se hayan pedido los aros: de ahi
+            // sale el zoom, y el zoom se decide al exportar. Quien graba no tiene que
+            // adivinar antes de empezar si despues va a querer que la camara se acerque.
+            if let Some(clic) = vigilante.mirar(frame.ts_ms) {
+                anotados.push(crate::encode::zoom::Clic {
+                    ms: clic.ms,
+                    x: clic.x - region.x,
+                    y: clic.y - region.y,
+                });
+                if marcar_clics {
                     clics.push(clic);
                 }
+            }
+            if marcar_clics {
                 crate::record::realce::olvidar_viejos(&mut clics, frame.ts_ms);
             }
             if marcar_teclas {
@@ -344,6 +362,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         }
 
         session.frames = cache.finish(last_ts, session.fps)?;
+        session.clics = anotados;
         record::generate_thumbnails(&mut session)?;
         session.persist()?;
         Ok(session)
@@ -386,6 +405,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         frame_count: 0,
         duration_ms: 0,
         has_audio: false,
+        // Todavia no se ha pulsado nada: esto es lo que se devuelve al EMPEZAR a grabar.
+        has_clicks: false,
         format: options.format,
         mp4_path: None,
     };
@@ -595,6 +616,8 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         format: "still".into(),
         has_audio: false,
         audio: None,
+        // Una captura fija no tiene clics que anotar: no hay tiempo dentro.
+        clics: Vec::new(),
         width: image.width(),
         height: image.height(),
         mp4_path: None,

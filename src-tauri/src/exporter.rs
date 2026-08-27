@@ -4,7 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::encode::{anotacion, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte};
+use crate::encode::{anotacion, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte, zoom};
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
 use crate::state::AppState;
@@ -44,6 +44,12 @@ pub struct ExportRequest {
     /// El trozo que se queda, de 0 a 1. Sin esto se exporta la captura entera.
     #[serde(default)]
     pub crop: Option<Recorte>,
+    /// Cuanto se acerca la camara a cada clic. 0 o 1 es no acercarse.
+    ///
+    /// Se decide AQUI y no al grabar: los clics quedaron anotados en la sesion, asi que
+    /// subir el zoom, bajarlo o quitarlo no obliga a volver a grabar nada.
+    #[serde(default)]
+    pub zoom: f32,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -161,12 +167,36 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
         );
     };
 
+    // El zoom, si se ha pedido. Los tramos se calculan una vez para toda la exportacion,
+    // y despues cada fotograma solo pregunta donde mira la camara en su milisegundo.
+    //
+    // Los clics estan en pixeles de la region grabada. Si el usuario recorto, hay que
+    // trasladarlos a ese trozo, que es sobre el que se va a acercar la camara.
+    let camara = Camara::preparar(&session, &request);
+
+    /// Los recortes que le tocan a un fotograma: el del usuario primero y el de la camara
+    /// despues, porque la camara se mueve DENTRO de lo que el usuario dejo.
+    macro_rules! recortes_de {
+        ($ms:expr) => {{
+            let mut v: Vec<Recorte> = Vec::new();
+            if let Some(r) = request.crop {
+                v.push(r);
+            }
+            if let Some(r) = camara.en($ms) {
+                v.push(r);
+            }
+            v
+        }};
+    }
+
     let path = match request.format.as_str() {
         "png" => {
             let path = destination_path(app, &request, "png")?;
             emit("reading", 0, 1);
             let image = record::read_frame(&session, request.from)?;
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, request.crop.as_ref());
+            // Una foto no tiene zoom: la camara solo tiene sentido con el tiempo pasando.
+            let recortes: Vec<Recorte> = request.crop.into_iter().collect();
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes);
             png::save(&image, &path, ancho_final, alto_final)?;
             path
         }
@@ -176,7 +206,8 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             let path = destination_path(app, &request, "jpg")?;
             emit("reading", 0, 1);
             let image = record::read_frame(&session, request.from)?;
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, request.crop.as_ref());
+            let recortes: Vec<Recorte> = request.crop.into_iter().collect();
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes);
             jpg::save(&image, &path, ancho_final, alto_final, request.quality)?;
             path
         }
@@ -191,8 +222,10 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 let _ = std::fs::remove_file(&temporary);
             } else {
                 let mut loader = |index: usize| {
+                    let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
+                    let recortes = recortes_de!(ms);
                     record::read_frame(&session, index).map(|imagen| {
-                        enmarcar_y_anotar(imagen, width, height, marco, &request.annotations, request.crop.as_ref())
+                        enmarcar_y_anotar(imagen, width, height, marco, &request.annotations, &recortes)
                     })
                 };
                 gif::encode(
@@ -267,18 +300,94 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
 /// Las marcas se dibujan sobre la vista previa entera, asi que al recortar hay que volver
 /// a medirlas sobre el trozo: una flecha en el centro de la captura no esta en el centro
 /// del recorte.
+/// La camara del zoom, lista para preguntarle por cualquier fotograma.
+///
+/// Se prepara una vez por exportacion: agrupar los clics en tramos cuesta lo mismo para uno
+/// que para trescientos fotogramas, y hacerlo dentro del bucle seria repetirlo trescientas
+/// veces para obtener siempre lo mismo.
+struct Camara {
+    tramos: Vec<zoom::Tramo>,
+    ajustes: zoom::Ajustes,
+    /// El tamanno sobre el que se mide, que es el de la imagen YA recortada por el usuario.
+    ancho: u32,
+    alto: u32,
+}
+
+impl Camara {
+    fn preparar(session: &SessionData, request: &ExportRequest) -> Option<Self> {
+        // Menos de 1,05 no se ve y solo cuesta trabajo: es apagado, dicho con un numero.
+        if request.zoom < 1.05 || session.clics.is_empty() {
+            return None;
+        }
+        let (ancho, alto) = (session.width.max(1), session.height.max(1));
+        // Los clics estan en pixeles de la region grabada. Si el usuario recorto, la camara
+        // se mueve dentro de ESE trozo, asi que hay que trasladarlos y descartar los que
+        // se quedaron fuera: acercarse a un clic que ya no se ve seria acercarse a nada.
+        let (dx, dy, ancho, alto) = match request.crop {
+            Some(r) => {
+                let (x, y, w, h) = r.en_pixeles(ancho, alto);
+                (x as i32, y as i32, w, h)
+            }
+            None => (0, 0, ancho, alto),
+        };
+        let clics: Vec<zoom::Clic> = session
+            .clics
+            .iter()
+            .map(|c| zoom::Clic {
+                ms: c.ms,
+                x: c.x - dx,
+                y: c.y - dy,
+            })
+            .filter(|c| c.x >= 0 && c.y >= 0 && c.x < ancho as i32 && c.y < alto as i32)
+            .collect();
+        if clics.is_empty() {
+            return None;
+        }
+        let ajustes = zoom::Ajustes {
+            escala: request.zoom.min(4.0),
+            ..zoom::Ajustes::default()
+        };
+        Some(Self {
+            tramos: zoom::tramos(&clics, &ajustes),
+            ajustes,
+            ancho,
+            alto,
+        })
+    }
+}
+
+/// Un `Option<Camara>` sabe contestar igual que una: sin zoom, no recorta nada.
+trait EnElInstante {
+    fn en(&self, ms: u64) -> Option<Recorte>;
+}
+
+impl EnElInstante for Option<Camara> {
+    fn en(&self, ms: u64) -> Option<Recorte> {
+        let c = self.as_ref()?;
+        let mirando = zoom::camara(&c.tramos, ms, c.ancho, c.alto, &c.ajustes);
+        (mirando.escala > 1.001).then(|| mirando.como_recorte(c.ancho, c.alto))
+    }
+}
+
 fn enmarcar_y_anotar(
     imagen: image::RgbaImage,
     ancho: u32,
     alto: u32,
     marco: marco::Marco,
     anotaciones: &[anotacion::Anotacion],
-    recorte: Option<&Recorte>,
+    recortes: &[Recorte],
 ) -> image::RgbaImage {
-    let recortada = match recorte {
-        Some(r) if r.recorta_algo(imagen.width(), imagen.height()) => r.aplicar(&imagen),
-        _ => imagen,
-    };
+    // Los recortes se encadenan, y cada uno se mide sobre lo que dejo el anterior. Son
+    // dos: el que puso el usuario en el editor y el que pide la camara del zoom, que
+    // cambia en cada fotograma. Los dos hacen lo mismo, asi que hacen lo mismo.
+    let mut recortada = imagen;
+    let mut usados: Vec<Recorte> = Vec::new();
+    for r in recortes {
+        if r.recorta_algo(recortada.width(), recortada.height()) {
+            recortada = r.aplicar(&recortada);
+            usados.push(*r);
+        }
+    }
     let mut escalada = if recortada.dimensions() == (ancho, alto) {
         recortada
     } else {
@@ -290,15 +399,13 @@ fn enmarcar_y_anotar(
         )
     };
     if !anotaciones.is_empty() {
-        let reencuadradas: Vec<anotacion::Anotacion>;
-        let marcas = match recorte {
-            Some(r) => {
-                reencuadradas = anotaciones.iter().map(|a| r.reencuadrar(a)).collect();
-                &reencuadradas[..]
-            }
-            None => anotaciones,
-        };
-        anotacion::pintar(&mut escalada, marcas);
+        // Cada recorte vuelve a medir las marcas, en el mismo orden en que se aplicaron.
+        // Lo que caiga fuera se sale de [0, 1] y lo recorta quien pinta.
+        let mut marcas: Vec<anotacion::Anotacion> = anotaciones.to_vec();
+        for r in &usados {
+            marcas = marcas.iter().map(|a| r.reencuadrar(a)).collect();
+        }
+        anotacion::pintar(&mut escalada, &marcas);
     }
     marco::poner(&escalada, marco)
 }
@@ -322,9 +429,15 @@ where
         sombra: request.shadow,
     };
     let (ancho_final, alto_final) = marco.medida(ancho, alto);
+    let camara = Camara::preparar(session, request);
     let mut loader = |index: usize| {
+        let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
+        let mut recortes: Vec<Recorte> = request.crop.into_iter().collect();
+        if let Some(r) = camara.en(ms) {
+            recortes.push(r);
+        }
         record::read_frame(session, index)
-            .map(|imagen| enmarcar_y_anotar(imagen, ancho, alto, marco, &request.annotations, request.crop.as_ref()))
+            .map(|imagen| enmarcar_y_anotar(imagen, ancho, alto, marco, &request.annotations, &recortes))
     };
     mp4::encode(
         indices,
@@ -443,6 +556,7 @@ mod tests {
             height: 10,
             mp4_path: None,
             audio: None,
+            clics: Vec::new(),
             frames,
         }
     }
@@ -516,7 +630,7 @@ mod el_orden_de_exportar {
             300,
             sin_marco(),
             &[],
-            Some(&mitad_derecha()),
+            &[mitad_derecha()],
         );
         assert_eq!(salida.dimensions(), (200, 300));
         assert_eq!(*salida.get_pixel(4, 150), AZUL);
@@ -533,7 +647,7 @@ mod el_orden_de_exportar {
             300,
             sin_marco(),
             &[],
-            Some(&mitad_derecha()),
+            &[mitad_derecha()],
         );
         assert_eq!(salida.dimensions(), (400, 300));
         assert_eq!(*salida.get_pixel(10, 150), AZUL, "ha entrado parte de la mitad roja");
@@ -541,7 +655,7 @@ mod el_orden_de_exportar {
 
     #[test]
     fn sin_recorte_sale_la_captura_entera() {
-        let salida = enmarcar_y_anotar(dos_mitades(400, 300), 400, 300, sin_marco(), &[], None);
+        let salida = enmarcar_y_anotar(dos_mitades(400, 300), 400, 300, sin_marco(), &[], &[]);
         assert_eq!(*salida.get_pixel(10, 150), ROJO);
         assert_eq!(*salida.get_pixel(390, 150), AZUL);
     }
@@ -566,7 +680,7 @@ mod el_orden_de_exportar {
             300,
             sin_marco(),
             std::slice::from_ref(&marca),
-            Some(&mitad_derecha()),
+            &[mitad_derecha()],
         );
         let negro = |x: u32| {
             (0..300).any(|y| {
@@ -590,10 +704,217 @@ mod el_orden_de_exportar {
                 sombra: false,
             },
             &[],
-            Some(&mitad_derecha()),
+            &[mitad_derecha()],
         );
         assert_eq!(salida.dimensions(), (240, 340));
         assert_eq!(*salida.get_pixel(2, 2), image::Rgba([255, 255, 255, 255]));
         assert_eq!(*salida.get_pixel(120, 170), AZUL);
+    }
+
+    #[test]
+    fn el_recorte_del_usuario_y_el_del_zoom_se_encadenan() {
+        // La camara se mueve DENTRO de lo que el usuario dejo, no sobre la captura entera.
+        // Recortar la mitad derecha (azul) y despues acercarse a su mitad izquierda tiene
+        // que seguir dando azul, y del tamanno que se pidio.
+        let zoom_izquierda = Recorte {
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.5,
+            y2: 1.0,
+        };
+        let salida = enmarcar_y_anotar(
+            dos_mitades(400, 300),
+            100,
+            300,
+            sin_marco(),
+            &[],
+            &[mitad_derecha(), zoom_izquierda],
+        );
+        assert_eq!(salida.dimensions(), (100, 300));
+        assert_eq!(*salida.get_pixel(50, 150), AZUL);
+    }
+
+    #[test]
+    fn un_recorte_que_no_recorta_nada_no_descoloca_las_marcas() {
+        // La camara devuelve la imagen entera mientras no hay zoom, y eso pasa por aqui en
+        // cada fotograma. Si contara como recorte, volveria a medir las marcas sin motivo.
+        let marca = anotacion::Anotacion {
+            kind: "box".into(),
+            x1: 0.5,
+            y1: 0.1,
+            x2: 0.6,
+            y2: 0.9,
+            color: "#000000".into(),
+            text: String::new(),
+        };
+        let entero = Recorte {
+            x1: 0.0,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+        };
+        let con = enmarcar_y_anotar(
+            dos_mitades(400, 300),
+            400,
+            300,
+            sin_marco(),
+            std::slice::from_ref(&marca),
+            &[entero],
+        );
+        let sin = enmarcar_y_anotar(
+            dos_mitades(400, 300),
+            400,
+            300,
+            sin_marco(),
+            std::slice::from_ref(&marca),
+            &[],
+        );
+        assert_eq!(con.as_raw(), sin.as_raw());
+    }
+}
+
+/// La cámara, montada como la monta la exportación de verdad.
+///
+/// `zoom.rs` ya prueba la aritmética. Aquí se prueba lo que solo pasa al pegar las piezas:
+/// que los clics, que están en píxeles de la región grabada, se trasladen al trozo que el
+/// usuario recortó. Es donde este proyecto se ha equivocado antes.
+#[cfg(test)]
+mod la_camara_del_exportador {
+    use super::*;
+    use crate::capture::Rect;
+
+    fn sesion_con_clics(clics: Vec<zoom::Clic>) -> SessionData {
+        SessionData {
+            id: "z".into(),
+            dir: PathBuf::from("."),
+            region: Rect {
+                x: 0,
+                y: 0,
+                width: 400,
+                height: 300,
+            },
+            fps: 30,
+            format: "video".into(),
+            has_audio: false,
+            width: 400,
+            height: 300,
+            mp4_path: None,
+            audio: None,
+            clics,
+            frames: Vec::new(),
+        }
+    }
+
+    fn peticion(zoom: f32, crop: Option<Recorte>) -> ExportRequest {
+        ExportRequest {
+            session_id: "z".into(),
+            format: "mp4".into(),
+            engine: "native".into(),
+            from: 0,
+            to: 0,
+            width: 400,
+            height: 300,
+            fps: 30,
+            quality: 80,
+            audio: false,
+            loop_forever: false,
+            margin: 0,
+            background: String::new(),
+            shadow: false,
+            annotations: Vec::new(),
+            crop,
+            zoom,
+            destination: None,
+            copy_to_clipboard: false,
+        }
+    }
+
+    #[test]
+    fn sin_zoom_pedido_no_hay_camara() {
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100 }]);
+        assert!(Camara::preparar(&sesion, &peticion(1.0, None)).en(1000).is_none());
+    }
+
+    #[test]
+    fn sin_clics_tampoco() {
+        // Una grabacion en la que nadie pulso nada no tiene a donde acercarse.
+        let sesion = sesion_con_clics(vec![]);
+        assert!(Camara::preparar(&sesion, &peticion(2.0, None)).en(1000).is_none());
+    }
+
+    #[test]
+    fn con_zoom_y_un_clic_la_camara_recorta_en_el_momento_del_clic() {
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100 }]);
+        let camara = Camara::preparar(&sesion, &peticion(2.0, None));
+        let r = camara.en(1000).expect("tendria que estar acercada");
+        let (x, y, w, h) = r.en_pixeles(400, 300);
+        assert_eq!((w, h), (200, 150));
+        // Centrada en el clic, no en el medio de la pantalla.
+        assert_eq!((x + w / 2, y + h / 2), (100, 100));
+    }
+
+    #[test]
+    fn y_lejos_del_clic_vuelve_a_la_imagen_entera() {
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 100, y: 100 }]);
+        let camara = Camara::preparar(&sesion, &peticion(2.0, None));
+        assert!(camara.en(20_000).is_none());
+    }
+
+    #[test]
+    fn con_un_recorte_del_usuario_el_clic_se_traslada_a_ese_trozo() {
+        // El clic esta en (300, 150) de la captura. Recortando la mitad derecha, ese punto
+        // es el (100, 150) del trozo. Sin trasladarlo, la camara se iria a otro sitio.
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 300, y: 150 }]);
+        let mitad_derecha = Recorte {
+            x1: 0.5,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+        };
+        let camara = Camara::preparar(&sesion, &peticion(2.0, Some(mitad_derecha)));
+        let r = camara.en(1000).expect("tendria que estar acercada");
+        // El recorte de la camara se mide sobre el trozo, que son 200 x 300.
+        let (x, y, w, h) = r.en_pixeles(200, 300);
+        assert_eq!((w, h), (100, 150));
+        assert_eq!((x + w / 2, y + h / 2), (100, 150));
+    }
+
+    #[test]
+    fn un_clic_que_se_quedo_fuera_del_recorte_no_mueve_la_camara() {
+        // Acercarse a un clic que ya no se ve seria acercarse a nada.
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 20, y: 20 }]);
+        let mitad_derecha = Recorte {
+            x1: 0.5,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+        };
+        let camara = Camara::preparar(&sesion, &peticion(2.0, Some(mitad_derecha)));
+        assert!(camara.en(1000).is_none());
+    }
+
+    #[test]
+    fn ni_uno_que_se_quedo_por_el_otro_lado() {
+        // El de arriba cae a la IZQUIERDA del trozo y lo descarta el «mayor que cero».
+        // Este cae a la derecha, y hace falta la otra mitad de la comprobacion: sin ella,
+        // la camara se iria a un punto que no existe dentro del recorte.
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 350, y: 150 }]);
+        let mitad_izquierda = Recorte {
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.5,
+            y2: 1.0,
+        };
+        let camara = Camara::preparar(&sesion, &peticion(2.0, Some(mitad_izquierda)));
+        assert!(camara.en(1000).is_none());
+    }
+
+    #[test]
+    fn un_zoom_disparatado_se_queda_en_cuatro() {
+        // El numero llega del frontend. A 50x, un fotograma seria un pixel estirado.
+        let sesion = sesion_con_clics(vec![zoom::Clic { ms: 1000, x: 200, y: 150 }]);
+        let camara = Camara::preparar(&sesion, &peticion(50.0, None));
+        let (_, _, w, _) = camara.en(1000).unwrap().en_pixeles(400, 300);
+        assert_eq!(w, 100);
     }
 }

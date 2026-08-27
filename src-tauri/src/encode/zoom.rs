@@ -96,6 +96,21 @@ impl Camara {
         let y = (self.y - h as i32 / 2).clamp(0, (alto - h) as i32) as u32;
         (x, y, w, h)
     }
+
+    /// Lo mismo, pero como recorte de 0 a 1.
+    ///
+    /// Asi el zoom entra por el camino que ya existe: recortar la imagen, volver a medir
+    /// las anotaciones sobre el trozo y escalar. Una flecha dibujada encima entra y sale
+    /// de cuadro con la camara, que es lo que tiene que pasar.
+    pub fn como_recorte(&self, ancho: u32, alto: u32) -> super::recorte::Recorte {
+        let (x, y, w, h) = self.recorte(ancho, alto);
+        super::recorte::Recorte {
+            x1: x as f32 / ancho as f32,
+            y1: y as f32 / alto as f32,
+            x2: (x + w) as f32 / ancho as f32,
+            y2: (y + h) as f32 / alto as f32,
+        }
+    }
 }
 
 /// Agrupa los clics en tramos de zoom.
@@ -310,6 +325,25 @@ mod tests {
             escala: 0.5,
         };
         assert_eq!(c.recorte(1920, 1080), (0, 0, 1920, 1080));
+    }
+
+    #[test]
+    fn el_recorte_de_0_a_1_dice_lo_mismo_que_el_de_pixeles() {
+        // El zoom entra por el mismo camino que el recorte del usuario, asi que los dos
+        // tienen que decir exactamente lo mismo o la imagen saltaria al pasar de uno a otro.
+        let c = Camara {
+            x: 960,
+            y: 540,
+            escala: 2.0,
+        };
+        let r = c.como_recorte(1920, 1080);
+        assert_eq!(r.en_pixeles(1920, 1080), c.recorte(1920, 1080));
+    }
+
+    #[test]
+    fn sin_zoom_el_recorte_es_la_imagen_entera() {
+        let r = Camara::entera(1920, 1080).como_recorte(1920, 1080);
+        assert!(!r.recorta_algo(1920, 1080));
     }
 
     #[test]

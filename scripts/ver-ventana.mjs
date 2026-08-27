@@ -144,6 +144,7 @@ const SESION = {
   frameCount: 40,
   durationMs: 1333,
   hasAudio: true,
+  hasClicks: true,
   format: "video",
   mp4Path: null,
 };

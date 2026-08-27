@@ -92,6 +92,13 @@ pub struct SessionData {
     pub mp4_path: Option<PathBuf>,
     #[serde(default)]
     pub audio: Option<AudioInfo>,
+    /// Donde y cuando se pulso, en pixeles de la region grabada.
+    ///
+    /// Se anota SIEMPRE, se haya pedido marcar los clics o no, porque de aqui sale el zoom
+    /// que se calcula **al exportar**: quien graba no tiene que decidir antes de grabar si
+    /// va a querer que la camara se acerque. Son doce bytes por clic.
+    #[serde(default)]
+    pub clics: Vec<crate::encode::zoom::Clic>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -465,6 +472,7 @@ mod tests {
             height,
             mp4_path: None,
             audio: None,
+            clics: Vec::new(),
             frames,
         }
     }

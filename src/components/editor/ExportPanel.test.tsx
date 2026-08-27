@@ -20,6 +20,7 @@ const GRABACION: SessionInfo = {
   frameCount: 90,
   durationMs: 3000,
   hasAudio: true,
+  hasClicks: true,
   format: "video",
   mp4Path: null,
 };
@@ -153,5 +154,50 @@ describe("recortar la imagen", () => {
     fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
     await screen.findByText(/Guardar/);
     expect(loExportado().crop).toBeNull();
+  });
+});
+
+describe("el zoom que se acerca a los clics", () => {
+  it("sale con vídeo, apagado de fábrica", () => {
+    // Encendido de fábrica sorprende: el vídeo se movería solo sin que nadie lo pida.
+    pintar();
+    expect(screen.getByText("Acercarse a los clics")).toBeInTheDocument();
+    expect(screen.getByText("sin zoom")).toBeInTheDocument();
+  });
+
+  it("no sale en una foto, que no tiene tiempo dentro", () => {
+    pintar();
+    fireEvent.click(screen.getByText("JPG"));
+    expect(screen.queryByText("Acercarse a los clics")).toBeNull();
+  });
+
+  it("ni cuando la grabación no tuvo un solo clic", () => {
+    // Un interruptor que no puede hacer nada es peor que no tenerlo.
+    pintar({ hasClicks: false });
+    expect(screen.queryByText("Acercarse a los clics")).toBeNull();
+  });
+
+  it("apagado se manda 1, que en Rust significa no acercarse", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
+    await screen.findByText(/Guardar/);
+    expect(loExportado().zoom).toBe(1);
+  });
+
+  it("y en una foto se manda 1 aunque estuviera puesto", async () => {
+    pintar();
+    fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
+    fireEvent.click(screen.getByText("PNG"));
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
+    await screen.findByText(/Guardar/);
+    expect(loExportado().zoom).toBe(1);
+  });
+
+  it("puesto a 2 se manda 2", async () => {
+    pintar();
+    fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
+    await screen.findByText(/Guardar/);
+    expect(loExportado().zoom).toBe(2);
   });
 });

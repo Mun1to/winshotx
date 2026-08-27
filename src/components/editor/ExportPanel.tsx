@@ -82,6 +82,14 @@ export function ExportPanel({
   const [height, setHeight] = useState(session.region.height);
   const [locked, setLocked] = useState(true);
   const [audio, setAudio] = useState(session.hasAudio);
+  /**
+   * Cuánto se acerca la cámara a cada clic. 1 es no acercarse.
+   *
+   * **Apagado de fábrica y a propósito.** Grabando una ventana pequeña no hace falta y
+   * marea, y quien no lo espere se encuentra un vídeo que se mueve solo. Los clics quedaron
+   * anotados al grabar, así que encenderlo aquí no obliga a repetir nada.
+   */
+  const [zoom, setZoom] = useState(1);
   /** Aire alrededor de la captura. Cero significa sin marco, que es lo de siempre. */
   const [margen, setMargen] = useState(0);
   const [fondo, setFondo] = useState<Background>("blanco");
@@ -165,6 +173,8 @@ export function ExportPanel({
         fps,
         quality,
         audio: audio && format === "mp4",
+        // Una foto no tiene zoom: la cámara solo se mueve con el tiempo pasando.
+        zoom: esUnaFoto(format) ? 1 : zoom,
         loop,
         margin: margen,
         background: fondo,
@@ -285,6 +295,25 @@ export function ExportPanel({
           ))}
         </div>
       </div>
+
+      {/* El zoom solo sale con vídeo y solo si hubo clics: un interruptor que no puede
+          hacer nada es peor que no tenerlo. */}
+      {!esUnaFoto(format) && session.hasClicks && (
+        <div className="border-t border-white/8 pt-3">
+          <Slider
+            label={t("Acercarse a los clics")}
+            hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
+            min={1}
+            max={3}
+            step={0.1}
+            value={zoom}
+            onChange={setZoom}
+          />
+          <p className="mt-1 text-[11px] leading-snug text-neutral-500">
+            {t("La cámara se acerca sola a donde pulsaste y vuelve. Se decide aquí, no al grabar.")}
+          </p>
+        </div>
+      )}
 
       <div className="border-t border-white/8 pt-3">
         <Slider

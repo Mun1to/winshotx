@@ -30,6 +30,9 @@ export function Slider({
       )}
       <input
         type="range"
+        // La etiqueta esta al lado, dentro del mismo `label`, pero el lector de pantalla
+        // llega antes al control que al texto: sin esto anuncia «control deslizante» y ya.
+        aria-label={label}
         min={min}
         max={max}
         step={step}

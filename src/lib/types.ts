@@ -92,6 +92,8 @@ export interface SessionInfo {
   frameCount: number;
   durationMs: number;
   hasAudio: boolean;
+  /** Si se pulsó algo mientras se grababa. Sin clics no hay zoom que ofrecer. */
+  hasClicks: boolean;
   format: SessionFormat;
   /** MP4 escrito en streaming durante la grabacion, si lo hubo. */
   mp4Path: string | null;
@@ -139,6 +141,8 @@ export interface ExportRequest {
   annotations: Anotacion[];
   /** El trozo que se queda, de 0 a 1. null = la captura entera. */
   crop: Recorte | null;
+  /** Cuánto se acerca la cámara a cada clic. 1 es no acercarse. */
+  zoom: number;
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;
