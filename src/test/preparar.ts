@@ -17,14 +17,30 @@ const respuestas = new Map<string, unknown>();
 /** Los comandos que se han llamado, en orden, para comprobar que se llamo lo que tocaba. */
 export const llamadas: { comando: string; args: unknown }[] = [];
 
+/** Los comandos que van a fallar, con el mensaje que devuelven. Se rellena con `falla`. */
+const fallos = new Map<string, string>();
+
 /** Pone lo que devolvera un comando de Rust durante la prueba. */
 export function responde(comando: string, valor: unknown) {
   respuestas.set(comando, valor);
 }
 
+/**
+ * Hace que un comando de Rust falle con ese mensaje.
+ *
+ * Un `invoke` que falla llega al frontend como una promesa rechazada con el texto del
+ * error, no con un `Error`, y sin esto no habia forma de probar lo que se le ensenna a
+ * alguien cuando algo sale mal, que es justo lo que nadie mira hasta que pasa.
+ */
+export function falla(comando: string, mensaje: string) {
+  fallos.set(comando, mensaje);
+}
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (comando: string, args: unknown) => {
     llamadas.push({ comando, args });
+    const fallo = fallos.get(comando);
+    if (fallo !== undefined) return Promise.reject(fallo);
     return Promise.resolve(respuestas.get(comando) ?? null);
   },
   // Las miniaturas y los congelados se piden por este protocolo, no por `invoke`.
@@ -49,6 +65,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 afterEach(() => {
   cleanup();
   respuestas.clear();
+  fallos.clear();
   llamadas.length = 0;
   localStorage.clear();
 });

@@ -36,6 +36,12 @@ export const cancelCapture = () => invoke<void>("cancel_capture");
 /** Copia al portapapeles la imagen de una captura anclada. */
 export const copyPinned = (path: string) => invoke<void>("copy_pinned", { path });
 
+/** Guarda en la carpeta de capturas una que estaba anclada. Devuelve dónde la ha dejado. */
+export const savePinned = (path: string) => invoke<string>("save_pinned", { path });
+
+/** Copia al portapapeles el texto que haya dentro de una captura anclada. */
+export const pinnedText = (path: string) => invoke<void>("pinned_text", { path });
+
 export const startRecording = (region: Rect, options: RecordOptions) =>
   invoke<SessionInfo>("start_recording", { region, options });
 

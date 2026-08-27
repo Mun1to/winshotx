@@ -165,6 +165,8 @@ pub fn run() {
             commands::capture_all_screens,
             commands::cancel_capture,
             commands::copy_pinned,
+            commands::save_pinned,
+            commands::pinned_text,
             commands::start_recording,
             commands::stop_recording,
             commands::pause_recording,

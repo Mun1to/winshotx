@@ -210,22 +210,128 @@ fn entregar(
     Ok(result)
 }
 
+/// Comprueba que una ruta cae de verdad dentro de la carpeta de ancladas.
+///
+/// Se limita a esa carpeta a proposito: sin esto, cualquier ventana podria pedir que se
+/// copiara, se guardara o se leyera un archivo cualquiera del disco.
+///
+/// **Y no basta con mirar el principio de la ruta.** `...\pins\..\..\otra\cosa.png`
+/// empieza por la carpeta buena y acaba en cualquier sitio, asi que un `..` en medio se
+/// rechaza entero. No se llama a `canonicalize`, que ademas exigiria que el archivo ya
+/// existiera: un `..` en una ruta que la propia aplicacion acaba de escribir solo puede
+/// venir de alguien intentandolo.
+fn dentro_de_las_ancladas(path: &std::path::Path, pins: &std::path::Path) -> bool {
+    !path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+        && path.starts_with(pins)
+}
+
+/// La ruta que manda una ventana anclada, comprobada.
+fn ruta_de_anclada(app: &AppHandle, path: String) -> Result<PathBuf> {
+    let path = PathBuf::from(path);
+    let pins = app.state::<AppState>().temp_root.join("pins");
+    if !dentro_de_las_ancladas(&path, &pins) {
+        return Err(AppError::Msg("esa imagen no es una captura anclada".into()));
+    }
+    Ok(path)
+}
+
+#[cfg(test)]
+mod pruebas_de_ancladas {
+    use super::dentro_de_las_ancladas;
+    use std::path::Path;
+
+    const PINS: &str = r"C:\Users\a\AppData\Local\Temp\winshotx\pins";
+
+    #[test]
+    fn una_anclada_de_verdad_pasa() {
+        assert!(dentro_de_las_ancladas(
+            Path::new(&format!(r"{PINS}\pin-20260827-101500123.png")),
+            Path::new(PINS)
+        ));
+    }
+
+    #[test]
+    fn un_archivo_de_otra_carpeta_no() {
+        assert!(!dentro_de_las_ancladas(
+            Path::new(r"C:\Users\a\Documents\privado.png"),
+            Path::new(PINS)
+        ));
+    }
+
+    #[test]
+    fn y_tampoco_uno_que_se_sale_con_dos_puntos() {
+        // Empieza por la carpeta buena y acaba fuera: es el caso que `starts_with` a
+        // secas no ve, y por el que se mira componente a componente.
+        assert!(!dentro_de_las_ancladas(
+            Path::new(&format!(r"{PINS}\..\..\..\.ssh\id_rsa")),
+            Path::new(PINS)
+        ));
+    }
+
+    #[test]
+    fn una_carpeta_que_solo_empieza_igual_no_cuela() {
+        // `pins-viejos` empieza por `pins` como texto, pero es otra carpeta. Se compara
+        // por componentes y no por letras, asi que este caso sale bien solo.
+        assert!(!dentro_de_las_ancladas(
+            Path::new(&format!(r"{PINS}-viejos\pin-1.png")),
+            Path::new(PINS)
+        ));
+    }
+}
+
 /// Copia al portapapeles la imagen de una captura anclada.
 ///
 /// La ventana anclada tiene la imagen delante, pero solo como pixeles pintados: para
 /// llevarla al portapapeles en PNG y en DIB hay que volver a leer el archivo, que es lo
-/// que hace esto. Se limita a la carpeta de ancladas a proposito, para que una ventana no
-/// pueda pedir que se copie un archivo cualquiera del disco.
+/// que hace esto.
 #[tauri::command]
 pub async fn copy_pinned(app: AppHandle, path: String) -> Result<()> {
-    let path = PathBuf::from(path);
-    let pins = app.state::<AppState>().temp_root.join("pins");
-    if !path.starts_with(&pins) {
-        return Err(AppError::Msg("esa imagen no es una captura anclada".into()));
-    }
+    let path = ruta_de_anclada(&app, path)?;
     let image = image::open(&path)?.to_rgba8();
     let bytes = std::fs::read(&path)?;
     crate::platform::clipboard::copy_image(&image, &bytes)?;
+    Ok(())
+}
+
+/// Guarda en la carpeta de capturas una que estaba anclada.
+///
+/// El PNG de una anclada vive en el temporal y se borra al arrancar, porque anclar es
+/// mirar algo un rato. Pero a veces, mirandola, resulta que se queria guardar: sin esto
+/// habia que copiarla y pegarla en otro programa para conservarla.
+///
+/// Se copia el archivo tal cual en vez de recodificarlo: es el mismo PNG que se acaba de
+/// escribir, y volver a comprimirlo solo gastaria tiempo para dar el mismo resultado.
+#[tauri::command]
+pub async fn save_pinned(app: AppHandle, path: String) -> Result<String> {
+    let origen = ruta_de_anclada(&app, path)?;
+    let directory = PathBuf::from(app.state::<AppState>().settings.read().save_directory.clone());
+    std::fs::create_dir_all(&directory)?;
+    let destino = directory.join(format!(
+        "winshotx-{}.png",
+        chrono::Local::now().format("%Y%m%d-%H%M%S")
+    ));
+    std::fs::copy(&origen, &destino)?;
+    Ok(destino.to_string_lossy().to_string())
+}
+
+/// Copia al portapapeles el texto de una captura anclada, con el motor de Windows.
+///
+/// Es la misma tecla `T` de la barra de captura: la razon para anclar algo suele ser
+/// tener delante un dato que hay que escribir en otro sitio, y ese es justo el caso en el
+/// que copiarlo a mano se equivoca.
+#[tauri::command]
+pub async fn pinned_text(app: AppHandle, path: String) -> Result<()> {
+    let path = ruta_de_anclada(&app, path)?;
+    let bytes = std::fs::read(&path)?;
+    let texto = crate::platform::ocr::leer_texto(&bytes)?;
+    if texto.is_empty() {
+        return Err(AppError::Msg(
+            "No he encontrado texto en esa captura.".into(),
+        ));
+    }
+    crate::platform::clipboard::copy_text(&texto)?;
     Ok(())
 }
 
