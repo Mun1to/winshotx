@@ -12,6 +12,7 @@ use crate::error::{AppError, Result};
 #[cfg(windows)]
 pub mod audio;
 pub mod delta;
+pub mod mezcla;
 #[cfg(windows)]
 pub mod win;
 

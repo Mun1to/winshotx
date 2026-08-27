@@ -23,6 +23,7 @@ const AJUSTES: Settings = {
   openEditorAfterRecording: true,
   captureCursor: false,
   recordAudio: true,
+  recordMicrophone: false,
   fps: 30,
   playSound: true,
   showMagnifier: true,

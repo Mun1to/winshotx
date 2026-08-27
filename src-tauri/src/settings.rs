@@ -72,6 +72,9 @@ pub struct Settings {
     pub open_editor_after_recording: bool,
     pub capture_cursor: bool,
     pub record_audio: bool,
+    /// Grabar tambien la voz por el microfono. Con el del sistema puesto, van mezclados.
+    #[serde(default)]
+    pub record_microphone: bool,
     pub fps: u32,
     pub play_sound: bool,
     pub show_magnifier: bool,
@@ -121,6 +124,7 @@ impl Default for Settings {
             open_editor_after_recording: true,
             capture_cursor: true,
             record_audio: false,
+            record_microphone: false,
             fps: 30,
             play_sound: false,
             show_magnifier: true,

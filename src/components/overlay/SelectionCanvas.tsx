@@ -356,6 +356,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           // El interruptor de audio del overlay se fue con la barra vieja: mientras el
           // ajuste diga "todavia no disponible", esto es siempre false.
           audio: payload.settings.recordAudio && format === "video",
+          // El GIF no lleva sonido, asi que el microfono tampoco tiene sentido ahi.
+          microphone: payload.settings.recordMicrophone && format === "video",
         });
       } catch (e) {
         setError(String(e));

@@ -305,4 +305,9 @@ export const EN: Record<string, string> = {
   Gris: "Grey",
   Atardecer: "Sunset",
   Menta: "Mint",
+
+  // El microfono
+  Micrófono: "Microphone",
+  "tu voz, mezclada con el sonido del sistema": "your voice, mixed with the system sound",
+  "tu voz, para narrar lo que se está grabando": "your voice, to narrate what you record",
 };

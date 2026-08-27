@@ -77,6 +77,8 @@ export interface RecordOptions {
   fps: number;
   captureCursor: boolean;
   audio: boolean;
+  /** La voz por el micrófono. Con el audio del sistema puesto, van mezclados. */
+  microphone: boolean;
 }
 
 export interface SessionInfo {
@@ -162,6 +164,8 @@ export interface Settings {
   openEditorAfterRecording: boolean;
   captureCursor: boolean;
   recordAudio: boolean;
+  /** Grabar también la voz por el micrófono. */
+  recordMicrophone: boolean;
   fps: number;
   playSound: boolean;
   showMagnifier: boolean;

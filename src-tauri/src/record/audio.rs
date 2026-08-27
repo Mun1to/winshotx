@@ -14,8 +14,8 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 
 use windows::Win32::Media::Audio::{
-    eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator, MMDeviceEnumerator,
-    AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, WAVEFORMATEX,
+    eCapture, eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator,
+    MMDeviceEnumerator, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, WAVEFORMATEX,
 };
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
@@ -23,6 +23,21 @@ use windows::Win32::System::Com::{
 };
 
 use crate::error::{AppError, Result};
+
+/// De donde sale el sonido que se graba.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Fuentes {
+    /// Lo que suena por los altavoces.
+    pub sistema: bool,
+    /// Lo que entra por el microfono.
+    pub microfono: bool,
+}
+
+impl Fuentes {
+    pub fn ninguna(&self) -> bool {
+        !self.sistema && !self.microfono
+    }
+}
 
 /// Como viene el sonido: hace falta para decirle al codificador que esta recibiendo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,7 +108,7 @@ const COLCHON_100NS: i64 = 2_000_000;
 ///
 /// Devuelve el formato antes de arrancar el hilo a proposito: quien codifica necesita
 /// saber cuantos canales y a que frecuencia ANTES de que llegue el primer trozo.
-pub fn empezar() -> Result<Captura> {
+pub fn empezar(fuentes: Fuentes) -> Result<Captura> {
     let (formato_tx, formato_rx) = mpsc::channel::<Result<Formato>>();
     let (tx, rx) = mpsc::channel::<Trozo>();
     let parar = Arc::new(AtomicBool::new(false));
@@ -102,7 +117,7 @@ pub fn empezar() -> Result<Captura> {
     // Todo el trabajo de COM vive en su propio hilo, del principio al fin: los objetos de
     // audio pertenecen al hilo que los crea y no se pueden pasear por otros.
     let hilo = std::thread::spawn(move || {
-        let resultado = capturar(&formato_tx, &tx, &bandera);
+        let resultado = capturar(fuentes, &formato_tx, &tx, &bandera);
         if let Err(error) = resultado {
             // Si falla despues de haber dado el formato, ya no hay a quien contarselo por
             // el canal: se deja escrito y la grabacion sigue, muda.
@@ -123,6 +138,7 @@ pub fn empezar() -> Result<Captura> {
 }
 
 fn capturar(
+    fuentes: Fuentes,
     formato_tx: &Sender<Result<Formato>>,
     tx: &Sender<Trozo>,
     parar: &AtomicBool,
@@ -131,10 +147,52 @@ fn capturar(
     // hilo con COM inicializado y la siguiente grabacion se encuentra el estropicio.
     let _com = Com::inicializar()?;
 
-    let (cliente, captura, formato) = unsafe { abrir_altavoz() }?;
+    // El maestro es el que marca el ritmo y el formato del MP4: el sistema si esta, y si
+    // no, el microfono. Solo el maestro decide cuando sale un trozo; lo del otro se le
+    // suma encima. Con dos relojes independientes marcando el compas, el sonido se
+    // desalinearia sin remedio a los pocos segundos.
+    let maestro = if fuentes.sistema {
+        Dispositivo::Altavoz
+    } else {
+        Dispositivo::Microfono
+    };
+    let (cliente, captura, formato) = match unsafe { abrir(maestro) } {
+        Ok(abierto) => abierto,
+        Err(error) => {
+            let _ = formato_tx.send(Err(error));
+            return Ok(());
+        }
+    };
     if formato_tx.send(Ok(formato)).is_err() {
         return Ok(());
     }
+
+    // El acompannante, si se han pedido los dos. Que falle no para la grabacion: es peor
+    // quedarse sin video por no tener microfono que grabar sin voz.
+    let mut acompannante = if fuentes.sistema && fuentes.microfono {
+        match unsafe { abrir(Dispositivo::Microfono) } {
+            Ok((cliente_mic, captura_mic, formato_mic)) => {
+                match unsafe { cliente_mic.Start() } {
+                    Ok(()) => Some(Acompannante {
+                        cliente: cliente_mic,
+                        captura: captura_mic,
+                        formato: formato_mic,
+                        pendiente: Vec::new(),
+                    }),
+                    Err(error) => {
+                        eprintln!("[winshotx] el microfono no arranca: {error}");
+                        None
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("[winshotx] sin microfono: {error}");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     unsafe { cliente.Start() }.map_err(|e| AppError::Msg(format!("no arranca el audio: {e}")))?;
 
@@ -168,6 +226,14 @@ fn capturar(
             unsafe { captura.ReleaseBuffer(instantes) }
                 .map_err(|e| AppError::Msg(format!("no se puede soltar el audio: {e}")))?;
 
+            // Y encima, la voz. `mezclar_encima` coge del microfono justo lo que dura
+            // este trozo; si el microfono va con retraso, lo que falte se queda en
+            // silencio y el sistema se sigue oyendo entero.
+            let trozo = match acompannante.as_mut() {
+                Some(mic) => mezclar_encima(trozo, formato, mic),
+                None => trozo,
+            };
+
             let desde_el_inicio = formato.duracion_de(escritos);
             escritos += trozo.len();
             if tx
@@ -184,23 +250,95 @@ fn capturar(
     }
 
     let _ = unsafe { cliente.Stop() };
+    if let Some(mic) = acompannante.as_ref() {
+        let _ = unsafe { mic.cliente.Stop() };
+    }
     Ok(())
 }
 
-/// Abre el dispositivo de salida por defecto en modo loopback y devuelve con que formato
-/// esta trabajando.
-unsafe fn abrir_altavoz() -> Result<(IAudioClient, IAudioCaptureClient, Formato)> {
+/// El microfono cuando acompanna al sistema, con lo que le sobro de la ultima vuelta.
+struct Acompannante {
+    cliente: IAudioClient,
+    captura: IAudioCaptureClient,
+    formato: Formato,
+    /// Muestras ya adaptadas al formato del maestro y todavia sin gastar.
+    pendiente: Vec<f32>,
+}
+
+/// Suma sobre el trozo del maestro lo que haya llegado del microfono.
+///
+/// El microfono se lee entero cada vez y se guarda en `pendiente`, ya convertido al
+/// formato del maestro. De ahi se gasta exactamente lo que dura este trozo: ni mas, para
+/// no adelantar la voz, ni menos, para no irla acumulando.
+fn mezclar_encima(trozo: Vec<u8>, formato: Formato, mic: &mut Acompannante) -> Vec<u8> {
+    if let Some(nuevas) = unsafe { leer_todo(&mic.captura, mic.formato) } {
+        mic.pendiente
+            .extend(super::mezcla::adaptar(&nuevas, mic.formato, formato));
+    }
+    let mut muestras = super::mezcla::como_flotantes(&trozo);
+    let cuantas = muestras.len().min(mic.pendiente.len());
+    if cuantas == 0 {
+        return trozo;
+    }
+    super::mezcla::sumar(&mut muestras, &mic.pendiente[..cuantas]);
+    mic.pendiente.drain(..cuantas);
+    super::mezcla::como_bytes(&muestras)
+}
+
+/// Vacia el bufer de un dispositivo y devuelve sus muestras, o `None` si no habia nada.
+unsafe fn leer_todo(captura: &IAudioCaptureClient, formato: Formato) -> Option<Vec<f32>> {
+    let mut todo: Vec<f32> = Vec::new();
+    loop {
+        let disponible = unsafe { captura.GetNextPacketSize() }.ok()?;
+        if disponible == 0 {
+            break;
+        }
+        let mut datos = std::ptr::null_mut();
+        let mut instantes = 0u32;
+        let mut banderas = 0u32;
+        unsafe { captura.GetBuffer(&mut datos, &mut instantes, &mut banderas, None, None) }.ok()?;
+        let bytes = instantes as usize * formato.bytes_por_instante() as usize;
+        if banderas & 0x2 != 0 || datos.is_null() {
+            todo.extend(std::iter::repeat_n(
+                0.0,
+                bytes / std::mem::size_of::<f32>(),
+            ));
+        } else {
+            let crudo = unsafe { std::slice::from_raw_parts(datos, bytes) };
+            todo.extend(super::mezcla::como_flotantes(crudo));
+        }
+        let _ = unsafe { captura.ReleaseBuffer(instantes) };
+    }
+    (!todo.is_empty()).then_some(todo)
+}
+
+/// Que aparato se abre.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Dispositivo {
+    /// Los altavoces, en modo loopback: se graba lo que ESTA SONANDO.
+    Altavoz,
+    /// El microfono, que se graba como cualquier entrada, sin loopback.
+    Microfono,
+}
+
+/// Abre el aparato que se le pida y devuelve con que formato esta trabajando.
+unsafe fn abrir(que: Dispositivo) -> Result<(IAudioClient, IAudioCaptureClient, Formato)> {
     let enumerador: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
         .map_err(|e| AppError::Msg(format!("no se encuentran los dispositivos de sonido: {e}")))?;
-    // `eRender` es la salida (los altavoces) y `eConsole` el uso normal, no el de
-    // comunicaciones: es el que sigue al altavoz que el usuario tiene puesto.
+    // `eRender` es la salida (los altavoces) y `eCapture` la entrada (el microfono).
+    // `eConsole` es el uso normal, no el de comunicaciones: es el que sigue al aparato que
+    // el usuario tiene puesto en Windows.
+    let (flujo, nombre) = match que {
+        Dispositivo::Altavoz => (eRender, "altavoz"),
+        Dispositivo::Microfono => (eCapture, "micrófono"),
+    };
     let dispositivo = enumerador
-        .GetDefaultAudioEndpoint(eRender, eConsole)
-        .map_err(|e| AppError::Msg(format!("no hay altavoz por defecto: {e}")))?;
+        .GetDefaultAudioEndpoint(flujo, eConsole)
+        .map_err(|e| AppError::Msg(format!("no hay {nombre} por defecto: {e}")))?;
 
     let cliente: IAudioClient = dispositivo
         .Activate(CLSCTX_ALL, None)
-        .map_err(|e| AppError::Msg(format!("no se puede abrir el altavoz: {e}")))?;
+        .map_err(|e| AppError::Msg(format!("no se puede abrir el {nombre}: {e}")))?;
 
     let formato_ptr = cliente
         .GetMixFormat()
@@ -213,20 +351,26 @@ unsafe fn abrir_altavoz() -> Result<(IAudioClient, IAudioCaptureClient, Formato)
         bits_por_muestra: (*formato_ptr).wBitsPerSample,
     };
 
+    // El loopback ("dame lo que esta sonando") solo existe para una salida. Pedirselo a
+    // un microfono lo rechaza: una entrada ya se graba de por si.
+    let banderas = match que {
+        Dispositivo::Altavoz => AUDCLNT_STREAMFLAGS_LOOPBACK,
+        Dispositivo::Microfono => 0,
+    };
     let inicio = cliente.Initialize(
         AUDCLNT_SHAREMODE_SHARED,
-        AUDCLNT_STREAMFLAGS_LOOPBACK,
+        banderas,
         COLCHON_100NS,
         0,
         formato_ptr,
         None,
     );
     CoTaskMemFree(Some(formato_ptr as *const _));
-    inicio.map_err(|e| AppError::Msg(format!("no se puede escuchar el altavoz: {e}")))?;
+    inicio.map_err(|e| AppError::Msg(format!("no se puede escuchar el {nombre}: {e}")))?;
 
     let captura: IAudioCaptureClient = cliente
         .GetService()
-        .map_err(|e| AppError::Msg(format!("no se puede leer del altavoz: {e}")))?;
+        .map_err(|e| AppError::Msg(format!("no se puede leer del {nombre}: {e}")))?;
 
     Ok((cliente, captura, formato))
 }
@@ -346,6 +490,80 @@ mod tests {
         assert_eq!(pcm.len(), bytes.len() / 2, "ocupa la mitad, que es el objetivo");
     }
 
+    /// Abre el microfono de verdad y comprueba que entrega sonido.
+    ///
+    /// Va con `--ignored` porque necesita un microfono conectado:
+    /// `cargo test --lib escuchar_el_microfono -- --ignored --nocapture`
+    ///
+    /// Lo que comprueba y no se puede saber leyendo el codigo: que una ENTRADA se abre sin
+    /// la bandera de loopback. Con ella puesta, Windows rechaza el dispositivo y el
+    /// microfono no graba nada, sin mas explicacion que un codigo de error.
+    #[test]
+    #[ignore]
+    fn escuchar_el_microfono() {
+        let captura = empezar(Fuentes {
+            sistema: false,
+            microfono: true,
+        })
+        .expect("abrir el micrófono");
+        println!(
+            "el micrófono da {} canales a {} Hz y {} bits",
+            captura.formato.canales,
+            captura.formato.muestras_por_segundo,
+            captura.formato.bits_por_muestra
+        );
+        std::thread::sleep(std::time::Duration::from_millis(600));
+
+        let mut trozos = 0;
+        let mut bytes = 0usize;
+        while let Ok(trozo) = captura.trozos.try_recv() {
+            trozos += 1;
+            bytes += trozo.datos.len();
+        }
+        captura.parar();
+        println!(
+            "{trozos} trozos, {bytes} bytes, {:.2} s de sonido",
+            bytes as f64 / (48_000.0 * 8.0)
+        );
+        assert!(trozos > 0, "el micrófono no ha entregado ni un trozo");
+    }
+
+    /// Los dos a la vez, que es el caso de un tutorial narrado.
+    ///
+    /// Comprueba lo unico que aqui puede salir mal de verdad: que el trozo mezclado sigue
+    /// midiendo lo que medía. Si la mezcla alargara o acortara los trozos, el sonido se
+    /// iria desplazando poco a poco y a los dos minutos ya no cuadraria con la imagen.
+    #[test]
+    #[ignore]
+    fn el_sistema_y_el_microfono_a_la_vez_no_cambian_la_duracion() {
+        let captura = empezar(Fuentes {
+            sistema: true,
+            microfono: true,
+        })
+        .expect("abrir los dos");
+        let formato = captura.formato;
+        std::thread::sleep(std::time::Duration::from_millis(600));
+
+        let mut bytes = 0usize;
+        let mut ultimo_inicio = 0i64;
+        while let Ok(trozo) = captura.trozos.try_recv() {
+            // Cada trozo empieza justo donde acababa el anterior: la marca de tiempo se
+            // calcula contando bytes, así que si la mezcla cambiara el tamaño, aquí se
+            // vería un salto.
+            assert_eq!(
+                trozo.desde_el_inicio,
+                formato.duracion_de(bytes),
+                "el trozo mezclado no empieza donde acababa el anterior"
+            );
+            assert!(trozo.desde_el_inicio >= ultimo_inicio, "el tiempo va hacia atrás");
+            ultimo_inicio = trozo.desde_el_inicio;
+            bytes += trozo.datos.len();
+        }
+        captura.parar();
+        println!("{bytes} bytes mezclados, {:.2} s", bytes as f64 / (48_000.0 * 8.0));
+        assert!(bytes > 0, "no ha llegado sonido de ninguna de las dos fuentes");
+    }
+
     /// La estructura que se le pasa a Windows tiene que ser coherente consigo misma, o el
     /// codificador la rechaza sin decir por que.
     #[test]
@@ -378,7 +596,11 @@ mod prueba_de_verdad {
     #[test]
     #[ignore]
     fn escuchar_el_altavoz_de_verdad() {
-        let captura = empezar().expect("no se ha podido abrir el altavoz");
+        let captura = empezar(Fuentes {
+            sistema: true,
+            microfono: false,
+        })
+        .expect("no se ha podido abrir el altavoz");
         println!(
             "altavoz: {} canales a {} Hz, {} bits",
             captura.formato.canales,

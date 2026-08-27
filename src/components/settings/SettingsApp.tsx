@@ -432,6 +432,22 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                  <Row
+                    icon={<Mic className="size-4" />}
+                    label={t("Micrófono")}
+                    hint={
+                      settings.recordAudio
+                        ? t("tu voz, mezclada con el sonido del sistema")
+                        : t("tu voz, para narrar lo que se está grabando")
+                    }
+                    control={
+                      <Switch
+                        checked={settings.recordMicrophone}
+                        onChange={(v) => patch({ recordMicrophone: v })}
+                        label={t("Micrófono")}
+                      />
+                    }
+                  />
                 </Section>
                 <Section title={t("Al terminar")}>
                   <Row

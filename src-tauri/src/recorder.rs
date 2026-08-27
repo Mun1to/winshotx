@@ -21,9 +21,11 @@ pub struct RecordOptions {
     pub format: String,
     pub fps: u32,
     pub capture_cursor: bool,
-    /// Reservado: el audio del sistema necesita WASAPI en modo loopback.
-    #[allow(dead_code)]
+    /// Lo que suena por los altavoces.
     pub audio: bool,
+    /// Y la voz de quien graba. Los dos a la vez se mezclan en una sola pista.
+    #[serde(default)]
+    pub microphone: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -146,16 +148,20 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     // frecuencia y con cuantos canales suena para configurar el codificador, y eso no se
     // puede cambiar a mitad del MP4. Si no se puede abrir, se graba sin sonido y se dice:
     // quedarse sin grabacion por no tener altavoz seria mucho peor.
-    let audio = if options.audio {
-        match crate::record::audio::empezar() {
+    let fuentes = crate::record::audio::Fuentes {
+        sistema: options.audio,
+        microfono: options.microphone,
+    };
+    let audio = if fuentes.ninguna() {
+        None
+    } else {
+        match crate::record::audio::empezar(fuentes) {
             Ok(captura) => Some(captura),
             Err(error) => {
-                eprintln!("[winshotx] sin audio del sistema: {error}");
+                eprintln!("[winshotx] sin sonido: {error}");
                 None
             }
         }
-    } else {
-        None
     };
 
     let (sender, receiver) = channel::<win::CapturedFrame>();
