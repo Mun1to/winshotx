@@ -112,7 +112,7 @@ export interface RecordingTick {
   paused: boolean;
 }
 
-export type ExportFormat = "gif" | "mp4" | "png";
+export type ExportFormat = "gif" | "mp4" | "png" | "jpg";
 export type ExportEngine = "native" | "ffmpeg";
 
 export interface ExportRequest {

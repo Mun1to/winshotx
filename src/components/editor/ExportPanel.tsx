@@ -35,8 +35,12 @@ const FONDOS: { id: Background; label: string; muestra: string }[] = [
 const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: "gif", label: "GIF", hint: "bucle, sin audio" },
   { id: "mp4", label: "MP4", hint: "H.264 por hardware" },
-  { id: "png", label: "PNG", hint: "el fotograma actual" },
+  { id: "png", label: "PNG", hint: "el fotograma actual, sin perder nada" },
+  { id: "jpg", label: "JPG", hint: "el fotograma actual, mucho más ligero" },
 ];
+
+/** Los dos formatos que sacan UN fotograma, no un trozo de grabación. */
+const esUnaFoto = (formato: ExportFormat) => formato === "png" || formato === "jpg";
 
 interface Props {
   /** Lo dibujado encima en el editor, que Rust pinta sobre cada fotograma. */
@@ -105,6 +109,9 @@ export function ExportPanel({
     const w = width + margen * 2;
     const h = height + margen * 2;
     if (format === "png") return w * h * 3 * 0.35;
+    // Medido sobre capturas de verdad: un JPEG de calidad 85 se queda en torno a
+    // 0,13 bytes por pixel, que es donde sale este factor.
+    if (format === "jpg") return w * h * (quality / 100) * 0.15;
     if (format === "gif") return w * h * (quality / 100) * 0.12 * fps * seconds;
     const bitrate = 1_000_000 + (quality / 100) * 11_000_000;
     return (bitrate / 8) * seconds;
@@ -121,8 +128,8 @@ export function ExportPanel({
         sessionId: session.id,
         format,
         engine: useFfmpeg && hasFfmpeg ? "ffmpeg" : "native",
-        from: format === "png" ? currentIndex : inIndex,
-        to: format === "png" ? currentIndex : outIndex,
+        from: esUnaFoto(format) ? currentIndex : inIndex,
+        to: esUnaFoto(format) ? currentIndex : outIndex,
         width: Math.round(width),
         height: Math.round(height),
         fps,
@@ -171,7 +178,7 @@ export function ExportPanel({
     <aside className="flex w-[292px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-white/8 bg-black/20 p-4">
       <div>
         <span className="mb-2 block text-xs font-semibold text-neutral-300">{t("Formato")}</span>
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-black/40 p-1">
+        <div className="grid grid-cols-4 gap-1 rounded-lg bg-black/40 p-1">
           {FORMATS.map((f) => (
             <button
               key={f.id}
@@ -191,24 +198,26 @@ export function ExportPanel({
       </div>
 
       {format !== "png" && (
-        <>
-          <Slider
-            label={t("Calidad")}
-            hint={`${quality}%`}
-            min={10}
-            max={100}
-            value={quality}
-            onChange={setQuality}
-          />
-          <Slider
-            label={t("Fotogramas por segundo")}
-            hint={`${fps} fps`}
-            min={5}
-            max={fpsMax}
-            value={fps}
-            onChange={setFps}
-          />
-        </>
+        <Slider
+          label={t("Calidad")}
+          hint={`${quality}%`}
+          min={10}
+          max={100}
+          value={quality}
+          onChange={setQuality}
+        />
+      )}
+
+      {/* Una foto no tiene fotogramas por segundo. */}
+      {!esUnaFoto(format) && (
+        <Slider
+          label={t("Fotogramas por segundo")}
+          hint={`${fps} fps`}
+          min={5}
+          max={fpsMax}
+          value={fps}
+          onChange={setFps}
+        />
       )}
 
       <div>
@@ -290,7 +299,7 @@ export function ExportPanel({
           />
         )}
         {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}
-        {hasFfmpeg && format !== "png" && (
+        {hasFfmpeg && !esUnaFoto(format) && (
           <Toggle
             checked={useFfmpeg}
             onChange={setUseFfmpeg}

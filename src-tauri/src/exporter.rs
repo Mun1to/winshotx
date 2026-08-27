@@ -4,7 +4,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::encode::{anotacion, ffmpeg, gif, marco, mp4, png};
+use crate::encode::{anotacion, ffmpeg, gif, jpg, marco, mp4, png};
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
 use crate::state::AppState;
@@ -170,6 +170,16 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             let image = record::read_frame(&session, request.from)?;
             let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations);
             png::save(&image, &path, ancho_final, alto_final)?;
+            path
+        }
+        // El mismo fotograma, pero pesando cinco o diez veces menos. Es lo que hace falta
+        // para mandar una captura por correo o por un chat que la recomprime igual.
+        "jpg" => {
+            let path = destination_path(app, &request, "jpg")?;
+            emit("reading", 0, 1);
+            let image = record::read_frame(&session, request.from)?;
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations);
+            jpg::save(&image, &path, ancho_final, alto_final, request.quality)?;
             path
         }
         "gif" => {

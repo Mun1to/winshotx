@@ -258,7 +258,8 @@ export const EN: Record<string, string> = {
   // El panel de exportar del editor
   "bucle, sin audio": "loops, no sound",
   "H.264 por hardware": "H.264 on the graphics card",
-  "el fotograma actual": "the frame you are on",
+  "el fotograma actual, sin perder nada": "the frame you are on, losing nothing",
+  "el fotograma actual, mucho más ligero": "the frame you are on, far lighter",
   "calidad máxima, más lento": "top quality, slower",
   "esta grabación se hizo sin audio": "this recording was made without sound",
 
