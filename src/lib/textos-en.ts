@@ -287,4 +287,9 @@ export const EN: Record<string, string> = {
   // Sueltos de la bienvenida
   "o prueba": "or try",
   "Dejarla como está": "Leave it alone",
+
+  // La captura anclada
+  Anclar: "Pin",
+  Copiada: "Copied",
+  "Arrastra para moverla · Esc para cerrarla": "Drag to move it · Esc to close it",
 };

@@ -1,4 +1,4 @@
-import { Check, Circle, Copy, Download, Pencil, X } from "lucide-react";
+import { Check, Circle, Copy, Download, Pencil, Pin, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { GlassPanel } from "../ui/GlassPanel";
 import { IconButton } from "../ui/IconButton";
@@ -15,6 +15,8 @@ interface Props {
   onCopy: () => void;
   onSave: () => void;
   onEdit: () => void;
+  /** Deja la captura flotando encima de todo, en su sitio, hasta que se cierre. */
+  onPin: () => void;
   onRecord: () => void;
   onCancel: () => void;
 }
@@ -35,6 +37,7 @@ export function FloatingToolbar({
   onCopy,
   onSave,
   onEdit,
+  onPin,
   onRecord,
   onCancel,
 }: Props) {
@@ -67,6 +70,13 @@ export function FloatingToolbar({
               label={t("Editar")}
               shortcut="E"
               onClick={onEdit}
+              disabled={busy}
+            />
+            <IconButton
+              icon={Pin}
+              label={t("Anclar")}
+              shortcut="A"
+              onClick={onPin}
               disabled={busy}
             />
           </>

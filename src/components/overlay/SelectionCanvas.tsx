@@ -425,6 +425,10 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         else void capturarRegion(todo, "copy");
       } else if (key === "e") {
         void runStill("edit");
+      } else if (key === "a") {
+        // Anclar. `Ctrl+A` de aqui arriba es otra cosa (toda la pantalla), y no chocan:
+        // la letra sola actua sobre el recorte y con Ctrl cambia lo que se recorta.
+        void runStill("pin");
       } else if (key === "p") {
         difundir({ fullScreen: !pantallaRef.current });
       } else if (key === "f") {
@@ -730,6 +734,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             onCopy={() => void runStill("copy")}
             onSave={() => void runStill("save")}
             onEdit={() => void runStill("edit")}
+            onPin={() => void runStill("pin")}
             onRecord={() => {
               if (selection && modo !== "still") void grabarRegion(selection, modo);
             }}

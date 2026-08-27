@@ -106,6 +106,7 @@ has the nineteen rows, including the six the Snipping Tool wins.
 | `Enter` | Copy the selection to the clipboard |
 | `Ctrl+S` | Save the selection |
 | `E` | Open the selection in the editor |
+| `A` | Pin the selection: it floats on top of everything, where it was |
 | `G` / `V` | Record the selection as GIF / video |
 | `Ctrl+A` | Select the whole monitor |
 | `←↑→↓` | Move the selection · `Shift` for steps of 10 · `Alt` resizes |

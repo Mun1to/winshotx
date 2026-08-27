@@ -15,6 +15,8 @@ pub const OVERLAY_PREFIX: &str = "overlay-";
 
 static OVERLAY_SEQUENCE: AtomicU32 = AtomicU32::new(0);
 pub const RECORDER_PREFIX: &str = "recorder-";
+/// Las capturas ancladas. Puede haber varias a la vez, cada una con su numero.
+pub const PIN_PREFIX: &str = "pin-";
 pub const EDITOR_LABEL: &str = "editor";
 /// La ventanita de la cuenta atras del temporizador. Solo hay una, en la pantalla donde
 /// este el raton, y como los overlays se esconde en vez de cerrarse.
@@ -511,6 +513,87 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     Ok(())
 }
 
+/// Deja la captura flotando encima de todo, para tenerla a la vista mientras se trabaja.
+///
+/// La ventana sale **del tamanno exacto del recorte y justo encima de donde estaba**, asi
+/// que al aparecer no se mueve nada: parece que el trozo de pantalla se ha quedado quieto
+/// mientras lo de debajo sigue. Despues se arrastra a donde se quiera.
+///
+/// Se pueden anclar varias: cada una es su propia ventana y se cierra por su cuenta. Por
+/// eso el numero en la etiqueta, igual que en los overlays.
+pub fn open_pin(app: &AppHandle, region: Rect, imagen: &std::path::Path) -> Result<()> {
+    let label = format!(
+        "{PIN_PREFIX}{}",
+        OVERLAY_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    );
+    // La ruta viaja en la URL porque la ventana nace sabiendo que imagen lleva y no
+    // cambia nunca: pedirsela despues por un comando seria un viaje de ida y vuelta para
+    // ensennar algo que ya estaba decidido.
+    let url = WebviewUrl::App(
+        format!(
+            "pin.html?imagen={}",
+            para_url(&imagen.to_string_lossy())
+        )
+        .into(),
+    );
+    let window = WebviewWindowBuilder::new(app, &label, url)
+        .title("winshotx")
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .shadow(true)
+        .visible(false)
+        .build()?;
+    crate::platform::window_style::rounded_corners(&window);
+
+    // El tamanno y el sitio van en pixeles FISICOS, que es lo que trae la region: los
+    // logicos dependen del zoom de cada pantalla y sobre un monitor al 150 % el ancla
+    // habria salido una vez y media mas grande que el recorte.
+    let (x, y) = sitio_del_ancla(region, monitor_de(region.x, region.y));
+    let _ = window.set_size(PhysicalSize::new(region.width, region.height));
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+    window.show()?;
+    Ok(())
+}
+
+/// Lo minimo para que una ruta de Windows quepa dentro de una URL sin romperla.
+///
+/// `C:\Users\Muni\...` lleva dos puntos y barras invertidas, y una carpeta con espacios o
+/// con una almohadilla partiria la direccion por la mitad. Se escapa todo lo que no sea
+/// una letra, un numero o los cuatro simbolos que las URL dejan pasar tal cual. Son seis
+/// lineas y evitan traerse una caja entera solo para esto.
+fn para_url(texto: &str) -> String {
+    texto
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            otro => format!("%{otro:02X}"),
+        })
+        .collect()
+}
+
+/// Donde cae la captura anclada, aparte para poder probarla sin tener las pantallas.
+///
+/// Encima de su recorte, y si de ahi se sale del monitor (porque el recorte tocaba el
+/// borde y la sombra pide un par de pixeles), se empuja hacia dentro. **Nunca se recorta
+/// a cero**: en un escritorio con el monitor a la izquierda del principal, las
+/// coordenadas son negativas y un `max(0)` manda el ancla a otra pantalla.
+fn sitio_del_ancla(region: Rect, monitor: Option<MonitorSitio>) -> (i32, i32) {
+    let Some(m) = monitor else {
+        return (region.x, region.y);
+    };
+    let ancho = region.width as i32;
+    let alto = region.height as i32;
+    // El limite de arriba manda sobre el de abajo: con un recorte mas grande que la
+    // pantalla, preferimos ver la esquina de arriba a la izquierda que la de abajo.
+    let x = (region.x).min(m.x + m.ancho - ancho).max(m.x);
+    let y = (region.y).min(m.y + m.alto - alto).max(m.y);
+    (x, y)
+}
+
 /// La ventana de ajustes no se destruye al cerrarla, solo se esconde, asi que su
 /// interfaz sigue montada con los datos del arranque. Al volver a mostrarla hay que
 /// decirselo para que refresque el tamanno de la cache y mire si hay version nueva.
@@ -609,5 +692,60 @@ mod tests {
         let (x, _) = sitio_de_la_barra(region(1930, 10, 380, 200), Some(estrecho));
         assert!(x >= 1928, "se sale por la izquierda: {x}");
         assert!(x + 360 <= 1920 + 400 - 8, "se sale por la derecha: {x}");
+    }
+
+    /// Lo que hace que anclar se entienda sin explicarlo: la captura aparece EXACTAMENTE
+    /// donde estaba el recorte, asi que al pulsar la tecla no se mueve nada en pantalla.
+    #[test]
+    fn el_ancla_nace_justo_encima_de_su_recorte() {
+        let principal = monitor(0, 0, 1920, 1080);
+        let (x, y) = sitio_del_ancla(region(400, 250, 600, 400), Some(principal));
+        assert_eq!((x, y), (400, 250));
+    }
+
+    /// Y la trampa de siempre: el monitor de la izquierda empieza en negativo, asi que
+    /// recortar a cero mandaria el ancla a la pantalla principal.
+    #[test]
+    fn el_ancla_se_queda_en_el_monitor_de_coordenadas_negativas() {
+        let izquierdo = monitor(-1080, 0, 1080, 1920);
+        let (x, y) = sitio_del_ancla(region(-900, 200, 600, 400), Some(izquierdo));
+        assert_eq!((x, y), (-900, 200), "el ancla tiene que quedarse donde estaba");
+    }
+
+    /// Un recorte pegado al borde de abajo a la derecha: la ventana se empuja hacia dentro
+    /// para que no quede media fuera de la pantalla.
+    #[test]
+    fn el_ancla_se_mete_dentro_si_el_recorte_tocaba_el_borde() {
+        let principal = monitor(0, 0, 1920, 1080);
+        let (x, y) = sitio_del_ancla(region(1900, 1060, 300, 200), Some(principal));
+        assert_eq!(x, 1920 - 300, "empujada hacia dentro por la derecha");
+        assert_eq!(y, 1080 - 200, "y por abajo");
+    }
+
+    /// Con un recorte mas grande que la pantalla manda el borde de ARRIBA: se ve la
+    /// esquina de arriba a la izquierda, que es donde se mira primero.
+    #[test]
+    fn un_ancla_mas_grande_que_la_pantalla_ensenna_la_esquina_de_arriba() {
+        let principal = monitor(0, 0, 1920, 1080);
+        let (x, y) = sitio_del_ancla(region(0, 0, 3000, 2000), Some(principal));
+        assert_eq!((x, y), (0, 0));
+    }
+
+    /// Sin saber en que monitor cae, se deja donde estaba el recorte: es lo unico honrado.
+    #[test]
+    fn sin_monitor_el_ancla_se_queda_donde_el_recorte() {
+        let (x, y) = sitio_del_ancla(region(-500, 300, 200, 100), None);
+        assert_eq!((x, y), (-500, 300));
+    }
+
+    /// La ruta de la imagen viaja dentro de una URL, y las de Windows llevan dos puntos,
+    /// barras invertidas y a veces espacios: sin escapar, la direccion se parte por ahi.
+    #[test]
+    fn la_ruta_del_ancla_sobrevive_a_ir_en_una_url() {
+        let escapada = para_url(r"C:\Users\Mi Carpeta\pin-1.png");
+        assert!(!escapada.contains('\\'), "la barra invertida rompe la URL");
+        assert!(!escapada.contains(' '), "el espacio corta la direccion");
+        assert!(!escapada.contains(':'), "los dos puntos tambien");
+        assert!(escapada.contains("pin-1.png"), "el nombre se sigue leyendo: {escapada}");
     }
 }

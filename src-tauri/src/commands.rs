@@ -174,11 +174,46 @@ fn entregar(
             windows_mgr::open_editor(app, &session.id)?;
             return Ok(result);
         }
+        // Dejar la captura flotando encima de todo. El PNG va a la carpeta temporal y no
+        // a la de capturas del usuario: anclar es mirar algo un rato, no guardarlo, y
+        // llenarle la carpeta de recortes que no ha pedido seria un mal negocio.
+        "pin" => {
+            let dir = state.temp_root.join("pins");
+            std::fs::create_dir_all(&dir)?;
+            let path = dir.join(format!(
+                "pin-{}.png",
+                chrono::Local::now().format("%Y%m%d-%H%M%S%3f")
+            ));
+            png::save(&image, &path, width, height)?;
+            windows_mgr::close_overlays(app);
+            windows_mgr::open_pin(app, region, &path)?;
+            result.path = Some(path.to_string_lossy().to_string());
+            return Ok(result);
+        }
         other => return Err(AppError::Msg(format!("acción desconocida: {other}"))),
     }
 
     windows_mgr::close_overlays(app);
     Ok(result)
+}
+
+/// Copia al portapapeles la imagen de una captura anclada.
+///
+/// La ventana anclada tiene la imagen delante, pero solo como pixeles pintados: para
+/// llevarla al portapapeles en PNG y en DIB hay que volver a leer el archivo, que es lo
+/// que hace esto. Se limita a la carpeta de ancladas a proposito, para que una ventana no
+/// pueda pedir que se copie un archivo cualquiera del disco.
+#[tauri::command]
+pub async fn copy_pinned(app: AppHandle, path: String) -> Result<()> {
+    let path = PathBuf::from(path);
+    let pins = app.state::<AppState>().temp_root.join("pins");
+    if !path.starts_with(&pins) {
+        return Err(AppError::Msg("esa imagen no es una captura anclada".into()));
+    }
+    let image = image::open(&path)?.to_rgba8();
+    let bytes = std::fs::read(&path)?;
+    crate::platform::clipboard::copy_image(&image, &bytes)?;
+    Ok(())
 }
 
 #[tauri::command]

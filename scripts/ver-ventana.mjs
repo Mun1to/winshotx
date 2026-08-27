@@ -13,6 +13,7 @@
  * usuario, con su CSS y su React reales, y no hay que lanzarle la app a nadie por encima
  * de lo que esté haciendo.
  *
+ *   node scripts/ver-ventana.mjs anclada.png --anclada=recorte.png --ancho=520 --alto=340
  *   node scripts/ver-ventana.mjs overlay.png --overlay=escritorio.png
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --raton=300,260 --grabar
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --seleccion=200,180,600,380
@@ -72,6 +73,8 @@ const tema = bandera("tema", "oscuro");
 const idioma = bandera("idioma", "es");
 // Los segundos de la cuenta atrás del temporizador; si viene, se fotografía esa ventanita.
 const cuenta = bandera("cuenta", null);
+// Un PNG que hará de captura anclada; si viene, se fotografía esa ventana flotante.
+const anclada = bandera("anclada", null);
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
 // para lo que se mueve solo: la cuenta atrás llega a cero en tres segundos de reloj, así
 // que con el valor de siempre se fotografía sola el final y nunca un número.
@@ -133,7 +136,7 @@ const OVERLAY = {
 const MOCK = `<script>
 window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
-  convertFileSrc: (p) => p,
+  convertFileSrc: (p) => (${anclada !== null} ? "/anclada.png" : p),
   transformCallback: (cb) => { const id = Math.floor(Math.random() * 1e9); window["_" + id] = cb; return id; },
   // Los eventos de Tauri, de mentira pero funcionando: la app los usa para hablar entre
   // sus ventanas, y sin esto un botón que emite un evento no hace absolutamente nada aquí.
@@ -164,7 +167,15 @@ const RATON = raton
 addEventListener("load", () => {
   const [x, y] = ${JSON.stringify(raton)}.split(",").map(Number);
   setTimeout(() => {
-    document.elementFromPoint(x, y)?.dispatchEvent(
+    const bajo = document.elementFromPoint(x, y);
+    // El "entra" va antes del "se mueve" y NO burbujea, igual que en un raton de verdad:
+    // se manda a cada antepasado por separado. Sin esto no se ven los controles que solo
+    // aparecen al pasar por encima, como los de la captura anclada.
+    for (let el = bajo; el; el = el.parentElement) {
+      el.dispatchEvent(new PointerEvent("pointerenter", { clientX: x, clientY: y }));
+      el.dispatchEvent(new PointerEvent("pointerover", { clientX: x, clientY: y, bubbles: true }));
+    }
+    bajo?.dispatchEvent(
       new PointerEvent("pointermove", { clientX: x, clientY: y, bubbles: true }),
     );
   }, 600);
@@ -285,6 +296,12 @@ const server = createServer(async (req, res) => {
     res.end(await readFile(resolve(overlay)));
     return;
   }
+  // Y la ventana anclada pide su imagen por el mismo camino.
+  if (ruta === "/anclada.png" && anclada) {
+    res.writeHead(200, { "Content-Type": "image/png" });
+    res.end(await readFile(resolve(anclada)));
+    return;
+  }
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
@@ -319,6 +336,10 @@ server.listen(0, () => {
   if (cuenta !== null) {
     pagina = `cuenta.html?segundos=${cuenta}`;
     [w, h] = ["500", "500"];
+  }
+  if (anclada !== null) {
+    // La ventana anclada sale del tamaño del recorte, así que aquí manda --ancho/--alto.
+    pagina = `pin.html?imagen=${encodeURIComponent(resolve(anclada))}`;
   }
   const url = `http://127.0.0.1:${server.address().port}/${pagina}`;
   const hijo = spawn(navegador, [

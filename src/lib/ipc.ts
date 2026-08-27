@@ -33,6 +33,9 @@ export const freezeBytes = (monitorId: number) =>
 
 export const cancelCapture = () => invoke<void>("cancel_capture");
 
+/** Copia al portapapeles la imagen de una captura anclada. */
+export const copyPinned = (path: string) => invoke<void>("copy_pinned", { path });
+
 export const startRecording = (region: Rect, options: RecordOptions) =>
   invoke<SessionInfo>("start_recording", { region, options });
 

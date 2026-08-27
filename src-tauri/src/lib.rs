@@ -36,6 +36,15 @@ pub const EVENT_OVERLAY_SHOW: &str = "winshotx://overlay-show";
 /// partida y avisa con un cero cuando se acabo.
 pub const EVENT_COUNTDOWN: &str = "winshotx://countdown";
 
+/// Las capturas ancladas viven en ventanas, y las ventanas no sobreviven a cerrar la app.
+///
+/// Sus PNG si sobrevivirian, uno por cada vez que alguien ancla algo, hasta llenar el
+/// disco de recortes que ya nadie puede volver a ver. Se vacia la carpeta entera al
+/// arrancar, que es el unico momento en el que se sabe seguro que ninguno esta en uso.
+fn purge_pins(root: &std::path::Path) {
+    let _ = std::fs::remove_dir_all(root.join("pins"));
+}
+
 /// Las sesiones son cache: si llevan un dia en el disco, ya no le importan a nadie.
 fn purge_old_sessions(root: &std::path::Path) {
     let Ok(entries) = std::fs::read_dir(root.join("sessions")) else {
@@ -97,6 +106,7 @@ pub fn run() {
             let temp_root = std::env::temp_dir().join("winshotx");
             std::fs::create_dir_all(temp_root.join("sessions"))?;
             purge_old_sessions(&temp_root);
+            purge_pins(&temp_root);
 
             app.manage(AppState::new(config.clone(), temp_root, recien_actualizado));
 
@@ -154,6 +164,7 @@ pub fn run() {
             commands::capture_still,
             commands::capture_all_screens,
             commands::cancel_capture,
+            commands::copy_pinned,
             commands::start_recording,
             commands::stop_recording,
             commands::pause_recording,
