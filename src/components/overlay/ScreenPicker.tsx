@@ -1,4 +1,5 @@
 import type { CaptureMode } from "../../lib/types";
+import { useT } from "../../lib/i18n";
 
 interface Props {
   /** Qué número de pantalla es esta, empezando por 1. */
@@ -24,6 +25,7 @@ const QUE_HACE: Record<CaptureMode, string> = {
  * y se sabe cuál se va a llevar antes de pulsar.
  */
 export function ScreenPicker({ numero, total, modo, ancho, alto }: Props) {
+  const t = useT();
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
       {/* Un marco por dentro del borde: por fuera se sale de la pantalla y no se ve. */}
@@ -43,10 +45,10 @@ export function ScreenPicker({ numero, total, modo, ancho, alto }: Props) {
               <kbd className="rounded-[5px] border border-white/15 bg-white/10 px-1.5 py-0.5 text-[11px] leading-none font-medium">
                 {numero}
               </kbd>
-              <span className="text-neutral-500">o clic para</span>
+              <span className="text-neutral-500">{t("o clic para")}</span>
             </>
           )}
-          {total === 1 && <span>Clic para</span>}
+          {total === 1 && <span>{t("Clic para")}</span>}
           <span>{QUE_HACE[modo]}</span>
           <span className="text-neutral-500 tabular-nums">
             {ancho} × {alto}

@@ -484,6 +484,12 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     if previous.start_with_windows != settings.start_with_windows {
         crate::platform::autostart::set(settings.start_with_windows)?;
     }
+    // El menu de la bandeja lo escribe Rust y no se entera de que la interfaz ha cambiado
+    // de idioma. Sin esto, la aplicacion se queda en ingles con su menu en espannol hasta
+    // el siguiente arranque, que es justo lo que nadie relaciona con haber tocado nada.
+    if previous.language != settings.language {
+        crate::tray::rehacer_menu(&app)?;
+    }
     Ok(settings)
 }
 

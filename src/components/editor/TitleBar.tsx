@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, X } from "lucide-react";
+import { useT } from "../../lib/i18n";
 
 interface Props {
   title: string;
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function TitleBar({ title, subtitle, onClose }: Props) {
+  const t = useT();
   return (
     <header
       data-tauri-drag-region
@@ -24,7 +26,7 @@ export function TitleBar({ title, subtitle, onClose }: Props) {
       <span className="flex items-center gap-1">
         <button
           type="button"
-          aria-label="Minimizar"
+          aria-label={t("Minimizar")}
           onClick={() => void getCurrentWindow().minimize()}
           className="flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
         >
@@ -32,7 +34,7 @@ export function TitleBar({ title, subtitle, onClose }: Props) {
         </button>
         <button
           type="button"
-          aria-label="Cerrar"
+          aria-label={t("Cerrar")}
           onClick={onClose}
           className="flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-red-500 hover:text-white"
         >

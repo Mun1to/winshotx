@@ -1,5 +1,6 @@
 import { Camera, Monitor, Video, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
+import { useT } from "../../lib/i18n";
 
 interface Props {
   value: CaptureMode;
@@ -31,6 +32,7 @@ export function ModeBar({
   onCancel,
   dimmed,
 }: Props) {
+  const t = useT();
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
@@ -84,8 +86,8 @@ export function ModeBar({
         <button
           type="button"
           onClick={onCancel}
-          title="Salir sin capturar · Esc"
-          aria-label="Salir sin capturar"
+          title={t("Salir sin capturar · Esc")}
+          aria-label={t("Salir sin capturar")}
           className="flex size-9 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
         >
           <X className="size-[19px]" />

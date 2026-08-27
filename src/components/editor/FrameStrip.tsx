@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { clamp, formatTimecode, plural } from "../../lib/format";
 import type { FrameMeta } from "../../lib/types";
+import { useT } from "../../lib/i18n";
 
 const THUMB_W = 56;
 const THUMB_H = 40;
@@ -171,6 +172,7 @@ function Handle({
   left: number;
   onGrab: () => void;
 }) {
+  const t = useT();
   return (
     <div
       onPointerDown={(e) => {
@@ -181,7 +183,7 @@ function Handle({
       className={`absolute inset-y-0 z-10 w-2.5 cursor-ew-resize bg-blue-500 ${
         side === "in" ? "-translate-x-full rounded-l-md" : "rounded-r-md"
       }`}
-      title={side === "in" ? "Marca A (tecla I)" : "Marca B (tecla O)"}
+      title={side === "in" ? t("Marca A (tecla I)") : t("Marca B (tecla O)")}
     >
       <span className="absolute top-1/2 left-1/2 h-4 w-px -translate-x-1/2 -translate-y-1/2 bg-white/70" />
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useT } from "../../lib/i18n";
 
 interface Props {
   videoUrl: string | null;
@@ -23,6 +24,7 @@ export function PreviewCanvas({
   onTime,
   onEnded,
 }: Props) {
+  const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function PreviewCanvas({
         {posterUrl ? (
           <img src={posterUrl} alt="" className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-xs text-neutral-500">Sin vista previa</span>
+          <span className="text-xs text-neutral-500">{t("Sin vista previa")}</span>
         )}
       </div>
     );

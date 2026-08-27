@@ -23,6 +23,7 @@ import { partesDeAtajo } from "../../lib/teclas";
 import { ShortcutField } from "../settings/ShortcutField";
 import { Marca } from "../ui/Marca";
 import { Switch } from "../ui/Switch";
+import { useT } from "../../lib/i18n";
 
 /**
  * La bienvenida, una sola vez. Se abre sola tras instalar porque winshotx vive en la
@@ -44,6 +45,7 @@ const SUGERIDOS_CAPTURA = ["CmdOrCtrl+Shift+Digit2", "CmdOrCtrl+Alt+KeyA", "Alt+
 const SUGERIDOS_GRABACION = ["CmdOrCtrl+Shift+Digit5", "CmdOrCtrl+Alt+KeyR", "Alt+KeyV"];
 
 export function WelcomeApp({ onDone }: { onDone: () => void }) {
+  const t = useT();
   const [paso, setPaso] = useState(0);
   const [ajustes, setAjustes] = useState<Settings | null>(null);
   const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
@@ -163,7 +165,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
             />
           ))}
           <span className="ml-2 text-[11px] text-tenue">
-            Paso {paso + 1} de {PASOS.length}
+            {t("Paso {n} de {total}", { n: paso + 1, total: PASOS.length })}
           </span>
         </span>
 
@@ -174,7 +176,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
               onClick={() => setPaso((p) => p - 1)}
               className="rounded-lg px-3 py-1.5 text-xs text-apagado transition-colors hover:bg-realce hover:text-titulo"
             >
-              Atrás
+              {t("Atrás")}
             </button>
           )}
           {paso < PASOS.length - 1 ? (
@@ -183,7 +185,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
               onClick={() => setPaso((p) => p + 1)}
               className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500"
             >
-              {paso === 0 ? "Empezar" : "Siguiente"}
+              {paso === 0 ? t("Empezar") : t("Siguiente")}
             </button>
           ) : (
             <button
@@ -191,7 +193,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
               onClick={terminar}
               className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500"
             >
-              Todo listo
+              {t("Todo listo")}
             </button>
           )}
         </span>
@@ -284,24 +286,24 @@ function Hola({
   onCaptura: (valor: string) => void;
   onGrabacion: (valor: string) => void;
 }) {
+  const t = useT();
   return (
     <div>
       <Marca className="mb-4 size-12" />
       <Titulo
-        texto="winshotx ya está en marcha"
-        sub="Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece."
+        texto={t("winshotx ya está en marcha")}
+        sub={t("Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.")}
       />
 
       <p className="mt-4 text-[12px] text-apagado">
-        Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que
-        quieras si prefieres otras.
+        {t("Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que quieras si prefieres otras.")}
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-linea bg-tarjeta p-4">
           <span className="flex items-center gap-2 text-[13px] font-medium text-texto">
             <Camera className="size-4 text-tenue" />
-            Capturar una región
+            {t("Capturar una región")}
           </span>
           <span className="mt-2.5 flex">
             <ShortcutField
@@ -320,7 +322,7 @@ function Hola({
         <div className="rounded-xl border border-linea bg-tarjeta p-4">
           <span className="flex items-center gap-2 text-[13px] font-medium text-texto">
             <Video className="size-4 text-tenue" />
-            Grabar en GIF o vídeo
+            {t("Grabar en GIF o vídeo")}
           </span>
           <span className="mt-2.5 flex">
             <ShortcutField
@@ -339,7 +341,7 @@ function Hola({
       </div>
 
       <p className="mt-3 text-[12px] text-tenue">
-        Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.
+        {t("Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.")}
       </p>
     </div>
   );
@@ -400,40 +402,41 @@ function TarjetaEstilo({ elegido, onClick, titulo, resumen, pasos, nota }: Tarje
 }
 
 function Estilo({ valor, onChange }: { valor: CaptureFlow; onChange: (v: CaptureFlow) => void }) {
+  const t = useT();
   return (
     <div>
       <Titulo
-        texto="¿Cómo prefieres capturar?"
-        sub="Las dos formas usan el mismo atajo y la misma selección. Lo que cambia es lo que pasa al soltar el ratón, y se puede cambiar cuando quieras desde los ajustes."
+        texto={t("¿Cómo prefieres capturar?")}
+        sub={t("Las dos formas usan el mismo atajo y la misma selección. Lo que cambia es lo que pasa al soltar el ratón, y se puede cambiar cuando quieras desde los ajustes.")}
       />
 
       <div className="mt-5 grid grid-cols-2 gap-3">
         <TarjetaEstilo
           elegido={valor === "toolbar"}
           onClick={() => onChange("toolbar")}
-          titulo="Con barra"
-          resumen="Seleccionas y eliges qué hacer."
+          titulo={t("Con barra")}
+          resumen={t("Seleccionas y eliges qué hacer.")}
           pasos={[
-            { icono: <Keyboard className="size-3.5" />, texto: "Pulsas el atajo" },
-            { icono: <MousePointer2 className="size-3.5" />, texto: "Arrastras la región" },
+            { icono: <Keyboard className="size-3.5" />, texto: t("Pulsas el atajo") },
+            { icono: <MousePointer2 className="size-3.5" />, texto: t("Arrastras la región") },
             {
               icono: <MousePointerClick className="size-3.5" />,
-              texto: "Copiar, guardar, editar o grabar",
+              texto: t("Copiar, guardar, editar o grabar"),
             },
           ]}
-          nota="La opción completa: de esa barra salen el editor, el GIF y el vídeo."
+          nota={t("La opción completa: de esa barra salen el editor, el GIF y el vídeo.")}
         />
         <TarjetaEstilo
           elegido={valor === "instant"}
           onClick={() => onChange("instant")}
-          titulo="Al vuelo"
-          resumen="Seleccionas y se copia sola."
+          titulo={t("Al vuelo")}
+          resumen={t("Seleccionas y se copia sola.")}
           pasos={[
-            { icono: <Keyboard className="size-3.5" />, texto: "Pulsas el atajo" },
-            { icono: <MousePointer2 className="size-3.5" />, texto: "Arrastras la región" },
-            { icono: <Clipboard className="size-3.5" />, texto: "Ya está en el portapapeles" },
+            { icono: <Keyboard className="size-3.5" />, texto: t("Pulsas el atajo") },
+            { icono: <MousePointer2 className="size-3.5" />, texto: t("Arrastras la región") },
+            { icono: <Clipboard className="size-3.5" />, texto: t("Ya está en el portapapeles") },
           ]}
-          nota="Para pegar en un chat sin pensar. El atajo de grabar sigue sacando la barra."
+          nota={t("Para pegar en un chat sin pensar. El atajo de grabar sigue sacando la barra.")}
         />
       </div>
     </div>
@@ -449,11 +452,12 @@ function TeclaImprPant({
   ocupado: boolean;
   onElegir: (quiere: boolean) => void;
 }) {
+  const t = useT();
   return (
     <div>
       <Titulo
-        texto="¿Le quitamos la tecla a la Herramienta de Recortes?"
-        sub="En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo."
+        texto={t("¿Le quitamos la tecla a la Herramienta de Recortes?")}
+        sub={t("En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo.")}
       />
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -476,8 +480,7 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-titulo">winshotx</span>
           </span>
           <span className="mt-2 block text-[12px] text-apagado">
-            Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la
-            pasa a winshotx. No te quita nada más.
+            {t("Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la pasa a winshotx. No te quita nada más.")}
           </span>
         </button>
 
@@ -497,7 +500,7 @@ function TeclaImprPant({
             <span className="text-[13px] font-semibold text-titulo">Dejarla como está</span>
           </span>
           <span className="mt-2 block text-[12px] text-apagado">
-            La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.
+            {t("La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.")}
           </span>
         </button>
       </div>
@@ -507,27 +510,29 @@ function TeclaImprPant({
           <ul className="space-y-1">
             <li className={estado.active ? "text-emerald-400" : "text-amber-300"}>
               {estado.active
-                ? "Impr Pant abre winshotx."
-                : "Impr Pant no ha caído: hay otro programa que la tiene cogida."}
+                ? t("Impr Pant abre winshotx.")
+                : t("Impr Pant no ha caído: hay otro programa que la tiene cogida.")}
             </li>
             <li className="text-tenue">
-              Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y
-              vuelve a entrar.
+              {t("Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y vuelve a entrar.")}
             </li>
           </ul>
         )}
         {estado !== null && !estado.enabled && (
           <p className="text-tenue">
-            Sin cambios. Puedes activarlo más adelante en Ajustes, en “Atajos globales”.
+            {t("Sin cambios. Puedes activarlo más adelante en Ajustes, en “Atajos globales”.")}
           </p>
         )}
       </div>
 
       <p className="mt-1 text-[11px] leading-relaxed text-tenue">
-        <b className="font-medium text-apagado">Win + Mayús + S es otra historia.</b> Esa la
-        atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus
-        atajos, lo que apaga también <b>Win + S</b>, la búsqueda. Por eso va aparte, en{" "}
-        <b>Ajustes → Atajos globales</b>, y no entra aquí de propina.
+        {/* Las negritas de dentro de la frase se han quitado a proposito: dejarlas obliga
+            a partir el parrafo en cinco cachos, y una frase cosida a trozos solo se puede
+            traducir bien por casualidad, porque el orden de las palabras cambia. */}
+        <b className="font-medium text-apagado">{t("Win + Mayús + S es otra historia.")}</b>{" "}
+        {t(
+          "Esa la atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus atajos, lo que apaga también Win + S, la búsqueda. Por eso va aparte, en Ajustes → Atajos globales, y no entra aquí de propina.",
+        )}
       </p>
     </div>
   );
@@ -542,14 +547,15 @@ function Final({
   imprPant: PrintScreenState | null;
   onArranque: (valor: boolean) => void;
 }) {
+  const t = useT();
   return (
     <div>
       <span className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400">
         <Check className="size-5" />
       </span>
       <Titulo
-        texto="Listo, ya puedes capturar"
-        sub="Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja."
+        texto={t("Listo, ya puedes capturar")}
+        sub={t("Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja.")}
       />
 
       <div className="mt-5 divide-y divide-linea-tenue overflow-hidden rounded-xl border border-linea bg-tarjeta">
@@ -569,8 +575,8 @@ function Final({
           <span className="text-[13px] text-suave">Al soltar el ratón</span>
           <span className="text-[12px] text-apagado">
             {ajustes.captureFlow === "instant"
-              ? "se copia al portapapeles"
-              : "sale la barra para elegir"}
+              ? t("se copia al portapapeles")
+              : t("sale la barra para elegir")}
           </span>
         </div>
         <div className="flex items-center justify-between px-4 py-2.5">
@@ -579,21 +585,20 @@ function Final({
             <span>
               <span className="block text-[13px] text-suave">Arrancar con Windows</span>
               <span className="block text-[11px] text-tenue">
-                se abre en la bandeja, sin ventana
+                {t("se abre en la bandeja, sin ventana")}
               </span>
             </span>
           </span>
           <Switch
             checked={ajustes.startWithWindows}
             onChange={onArranque}
-            label="Arrancar con Windows"
+            label={t("Arrancar con Windows")}
           />
         </div>
       </div>
 
       <p className="mt-4 text-[12px] text-tenue">
-        Pulsa el atajo cuando quieras. Con el botón derecho en el icono de la bandeja se abren los
-        ajustes.
+        {t("Pulsa el atajo cuando quieras. Con el botón derecho en el icono de la bandeja se abren los ajustes.")}
       </p>
     </div>
   );

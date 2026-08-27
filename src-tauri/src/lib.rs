@@ -9,6 +9,7 @@ pub mod record;
 mod recorder;
 mod settings;
 mod state;
+mod textos;
 mod tray;
 mod windows_mgr;
 

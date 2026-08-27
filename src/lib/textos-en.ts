@@ -152,4 +152,108 @@ export const EN: Record<string, string> = {
   "Y aquí acaba todo": "And here it ends",
   "La carpeta donde caen las capturas y los vídeos. Ya está: el resto se aprende usándolo.":
     "The folder where the shots and the videos land. That is it: the rest you learn by using it.",
+
+  // La bienvenida
+  "winshotx ya está en marcha": "winshotx is up and running",
+  "Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.":
+    "It lives in the system tray, next to the clock. There is no window to leave open: you call it with a key, it does its job and it is gone.",
+  "Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que quieras si prefieres otras.":
+    "These are the two keys that call it. Click the field and type any combination you prefer.",
+  "Capturar una región": "Capture a region",
+  "Grabar en GIF o vídeo": "Record to GIF or video",
+  "Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.":
+    "Everything stays on your computer: no account, no cloud, nothing uploaded.",
+  "Esta la tiene otra aplicación. Prueba con otra.": "Another app has this one. Try a different one.",
+
+  "¿Cómo prefieres capturar?": "How do you like to capture?",
+  "Las dos formas usan el mismo atajo y la misma selección. Lo que cambia es lo que pasa al soltar el ratón, y se puede cambiar cuando quieras desde los ajustes.":
+    "Both ways use the same shortcut and the same selection. What changes is what happens when you let go, and you can switch whenever you like in the settings.",
+  "Con barra": "With a bar",
+  "Seleccionas y eliges qué hacer.": "Select, then choose what to do.",
+  "La opción completa: de esa barra salen el editor, el GIF y el vídeo.":
+    "The full option: the editor, the GIF and the video all come out of that bar.",
+  "Al vuelo": "On the fly",
+  "Seleccionas y se copia sola.": "Select and it copies itself.",
+  "Para pegar en un chat sin pensar. El atajo de grabar sigue sacando la barra.":
+    "To paste into a chat without thinking. The recording shortcut still brings up the bar.",
+  "Pulsas el atajo": "You press the shortcut",
+  "Arrastras la región": "You drag the region",
+  "Copiar, guardar, editar o grabar": "Copy, save, edit or record",
+  "Ya está en el portapapeles": "It is already in the clipboard",
+
+  "¿Le quitamos la tecla a la Herramienta de Recortes?": "Shall we take the key off the Snipping Tool?",
+  "En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo.":
+    "On Windows, the Print Screen key opens the Snipping Tool. If you want, winshotx takes it and answers to that same finger, with no new shortcut to learn.",
+  "Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la pasa a winshotx. No te quita nada más.":
+    "It turns off the Windows setting that gives that key to the Snipping Tool and hands it to winshotx. It takes nothing else from you.",
+  "La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.":
+    "The Snipping Tool keeps Print Screen and winshotx answers to its own shortcut.",
+  "Impr Pant abre winshotx.": "Print Screen opens winshotx.",
+  "Impr Pant no ha caído: hay otro programa que la tiene cogida.":
+    "Print Screen did not come across: another program is holding it.",
+  "Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y vuelve a entrar.":
+    "If Windows keeps opening the Snipping Tool with Print Screen, sign out and back in.",
+  "Sin cambios. Puedes activarlo más adelante en Ajustes, en “Atajos globales”.":
+    "Nothing changed. You can turn it on later in Settings, under “Global shortcuts”.",
+  "Win + Mayús + S es otra historia.": "Win + Shift + S is another story.",
+  "Esa la atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus atajos, lo que apaga también Win + S, la búsqueda. Por eso va aparte, en Ajustes → Atajos globales, y no entra aquí de propina.":
+    "Windows answers that one before any program, and the only way to take it is to switch off the S in its own shortcuts, which also switches off Win + S, the search. That is why it sits apart, in Settings → Global shortcuts, and does not come along for the ride here.",
+
+  "Listo, ya puedes capturar": "That is it, you can start capturing",
+  "Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja.":
+    "This is how it is set up. You can change all of it later from the tray icon.",
+  "se copia al portapapeles": "it copies to the clipboard",
+  "sale la barra para elegir": "a bar appears so you can choose",
+  "se abre en la bandeja, sin ventana": "it opens in the tray, with no window",
+  "Pulsa el atajo cuando quieras. Con el botón derecho en el icono de la bandeja se abren los ajustes.":
+    "Press the shortcut whenever you like. Right-click the tray icon to open the settings.",
+  "Paso {n} de {total}": "Step {n} of {total}",
+  "Todo listo": "All set",
+  Estilo: "Style",
+  Hola: "Hello",
+
+  // La barra de captura, la de grabacion y el editor
+  "Salir sin capturar": "Leave without capturing",
+  "Salir sin capturar · Esc": "Leave without capturing · Esc",
+  "No se ha podido preparar la captura": "The capture could not be prepared",
+  "Cerrar (Esc)": "Close (Esc)",
+  "Preparando la captura… · Esc para salir": "Getting the capture ready… · Esc to leave",
+  "Clic para": "Click to",
+  "o clic para": "or click to",
+  Copiar: "Copy",
+  Guardar: "Save",
+  Editar: "Edit",
+  "Grabar GIF": "Record GIF",
+  "Grabar vídeo": "Record video",
+  "Procesando…": "Working…",
+  Descartar: "Discard",
+  Cancelar: "Cancel",
+  Pausar: "Pause",
+  Reanudar: "Resume",
+  Reproducir: "Play",
+  Parar: "Stop",
+  "Guardando…": "Saving…",
+
+  Editor: "Editor",
+  Minimizar: "Minimise",
+  Cerrar: "Close",
+  "Preparando la sesión…": "Getting the session ready…",
+  "Sin vista previa": "No preview",
+  Formato: "Format",
+  Dimensiones: "Size",
+  Ancho: "Width",
+  Alto: "Height",
+  "Proporción bloqueada": "Proportions locked",
+  "Proporción libre": "Proportions free",
+  Calidad: "Quality",
+  "Bucle infinito": "Loop forever",
+  "Motor FFmpeg": "FFmpeg engine",
+  "Marcar inicio (I)": "Mark the start (I)",
+  "Marcar final (O)": "Mark the end (O)",
+  "Marca A (tecla I)": "Mark A (key I)",
+  "Marca B (tecla O)": "Mark B (key O)",
+  "Exportar a la carpeta elegida (Ctrl+S)": "Export to the chosen folder (Ctrl+S)",
+  "Exportar y copiar al portapapeles": "Export and copy to the clipboard",
+  "abrir carpeta": "open folder",
+  "copiado · ": "copied · ",
 };

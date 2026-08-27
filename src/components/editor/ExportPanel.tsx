@@ -13,6 +13,7 @@ import {
 import { NumberField } from "../ui/NumberField";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
+import { useT } from "../../lib/i18n";
 
 const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: "gif", label: "GIF", hint: "bucle, sin audio" },
@@ -39,6 +40,7 @@ export function ExportPanel({
   hasFfmpeg,
   saveDirectory,
 }: Props) {
+  const t = useT();
   const [format, setFormat] = useState<ExportFormat>(() => {
     if (session.format === "gif") return "gif";
     // Una sesion de un solo fotograma es una imagen: exportarla a MP4 no tiene sentido.
@@ -137,7 +139,7 @@ export function ExportPanel({
   return (
     <aside className="flex w-[292px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-white/8 bg-black/20 p-4">
       <div>
-        <span className="mb-2 block text-xs font-semibold text-neutral-300">Formato</span>
+        <span className="mb-2 block text-xs font-semibold text-neutral-300">{t("Formato")}</span>
         <div className="grid grid-cols-3 gap-1 rounded-lg bg-black/40 p-1">
           {FORMATS.map((f) => (
             <button
@@ -160,7 +162,7 @@ export function ExportPanel({
       {format !== "png" && (
         <>
           <Slider
-            label="Calidad"
+            label={t("Calidad")}
             hint={`${quality}%`}
             min={10}
             max={100}
@@ -168,7 +170,7 @@ export function ExportPanel({
             onChange={setQuality}
           />
           <Slider
-            label="Fotogramas por segundo"
+            label={t("Fotogramas por segundo")}
             hint={`${fps} fps`}
             min={5}
             max={fpsMax}
@@ -179,20 +181,20 @@ export function ExportPanel({
       )}
 
       <div>
-        <span className="mb-2 block text-xs font-semibold text-neutral-300">Dimensiones</span>
+        <span className="mb-2 block text-xs font-semibold text-neutral-300">{t("Dimensiones")}</span>
         <div className="flex items-end gap-2">
-          <NumberField label="Ancho" value={width} onChange={setW} suffix="px" />
+          <NumberField label={t("Ancho")} value={width} onChange={setW} suffix="px" />
           <button
             type="button"
             onClick={() => setLocked((l) => !l)}
-            title={locked ? "Proporción bloqueada" : "Proporción libre"}
+            title={locked ? t("Proporción bloqueada") : t("Proporción libre")}
             className={`mb-1.5 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors ${
               locked ? "bg-white/10 text-blue-400" : "text-neutral-500 hover:text-white"
             }`}
           >
             {locked ? <Link2 className="size-4" /> : <Unlink2 className="size-4" />}
           </button>
-          <NumberField label="Alto" value={height} onChange={setH} suffix="px" />
+          <NumberField label={t("Alto")} value={height} onChange={setH} suffix="px" />
         </div>
         <div className="mt-1.5 flex gap-1">
           {[100, 75, 50].map((pct) => (
@@ -216,16 +218,16 @@ export function ExportPanel({
           <Toggle
             checked={audio}
             onChange={setAudio}
-            label="Audio del sistema"
+            label={t("Audio del sistema")}
             hint={session.hasAudio ? undefined : "esta grabación se hizo sin audio"}
           />
         )}
-        {format === "gif" && <Toggle checked={loop} onChange={setLoop} label="Bucle infinito" />}
+        {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}
         {hasFfmpeg && format !== "png" && (
           <Toggle
             checked={useFfmpeg}
             onChange={setUseFfmpeg}
-            label="Motor FFmpeg"
+            label={t("Motor FFmpeg")}
             hint="calidad máxima, más lento"
           />
         )}
@@ -271,7 +273,7 @@ export function ExportPanel({
             type="button"
             disabled={progress !== null}
             onClick={() => void run(false)}
-            title="Exportar a la carpeta elegida (Ctrl+S)"
+            title={t("Exportar a la carpeta elegida (Ctrl+S)")}
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-blue-400 disabled:opacity-50"
           >
             <Save className="size-4" /> Guardar
@@ -280,7 +282,7 @@ export function ExportPanel({
             type="button"
             disabled={progress !== null}
             onClick={() => void run(true)}
-            title="Exportar y copiar al portapapeles"
+            title={t("Exportar y copiar al portapapeles")}
             className="flex h-9 items-center justify-center rounded-lg border border-white/10 px-3 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
             <Clipboard className="size-4" />
@@ -295,7 +297,8 @@ export function ExportPanel({
           >
             <Sparkles className="size-3.5 shrink-0" />
             <span className="truncate">
-              {formatBytes(result.bytes)} · {result.copied ? "copiado · " : ""}abrir carpeta
+              {formatBytes(result.bytes)} · {result.copied ? t("copiado · ") : ""}
+              {t("abrir carpeta")}
             </span>
           </button>
         )}

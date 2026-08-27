@@ -16,8 +16,10 @@ import { ExportPanel } from "./ExportPanel";
 import { FrameStrip } from "./FrameStrip";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { TitleBar } from "./TitleBar";
+import { useT } from "../../lib/i18n";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
+  const t = useT();
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [frames, setFrames] = useState<FrameMeta[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -151,7 +153,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   if (!session || !settings || frames.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-neutral-500">
-        Preparando la sesión…
+        {t("Preparando la sesión…")}
       </div>
     );
   }
@@ -164,7 +166,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
       <TitleBar
-        title="Editor"
+        title={t("Editor")}
         subtitle={`${session.region.width} × ${session.region.height} · ${formatTimecode(keptMs)}`}
         onClose={() => {
           void discardSession(session.id);
@@ -189,7 +191,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               <button
                 type="button"
                 onClick={togglePlay}
-                aria-label={playing ? "Pausar" : "Reproducir"}
+                aria-label={playing ? t("Pausar") : t("Reproducir")}
                 className="flex size-7 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
               >
                 {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5 pl-px" />}
@@ -202,7 +204,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 type="button"
                 onClick={() => markIn(currentIndex)}
                 className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                title="Marcar inicio (I)"
+                title={t("Marcar inicio (I)")}
               >
                 <Scissors className="size-3" /> A
               </button>
@@ -210,7 +212,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 type="button"
                 onClick={() => markOut(currentIndex)}
                 className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                title="Marcar final (O)"
+                title={t("Marcar final (O)")}
               >
                 <Scissors className="size-3 -scale-x-100" /> B
               </button>

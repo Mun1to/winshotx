@@ -5,12 +5,14 @@ import { cancelRecording, pauseRecording, stopRecording } from "../../lib/ipc";
 import { formatBytes, formatDuration } from "../../lib/format";
 import { EVENTS, type RecordingTick } from "../../lib/types";
 import { IconButton } from "../ui/IconButton";
+import { useT } from "../../lib/i18n";
 
 /** A partir de aqui el cache de fotogramas empieza a comerse el disco de verdad. */
 const CACHE_AVISO = 1_000_000_000;
 
 /** Barra minima que acompanna a la grabacion: tiempo, tamanno y los tres botones. */
 export function RecorderBar() {
+  const t = useT();
   const [tick, setTick] = useState<RecordingTick>({
     elapsedMs: 0,
     frames: 0,
@@ -70,13 +72,13 @@ export function RecorderBar() {
       <span className="ml-auto flex items-center gap-1">
         <IconButton
           icon={tick.paused ? Play : Pause}
-          label={tick.paused ? "Reanudar" : "Pausar"}
+          label={tick.paused ? t("Reanudar") : t("Pausar")}
           onClick={() => void pauseRecording(!tick.paused)}
           disabled={stopping}
         />
         <IconButton
           icon={Square}
-          label={stopping ? "Guardando…" : "Parar"}
+          label={stopping ? t("Guardando…") : t("Parar")}
           accent
           showLabel
           disabled={stopping}
@@ -87,7 +89,7 @@ export function RecorderBar() {
         />
         <IconButton
           icon={Trash2}
-          label="Descartar"
+          label={t("Descartar")}
           shortcut="Esc"
           danger
           disabled={stopping}
