@@ -391,9 +391,12 @@ repartidas con rayon.
 
 Y dos cosas mas que salieron de la misma medicion:
 
-1. **`opt-level = "s"`** compila el binario entero para ocupar poco, que es de lo que vive
-   este proyecto. Pero deja los bucles de pixeles sin vectorizar. Ahora `image` y el propio
-   `winshotx` se compilan con `opt-level = 3` y el resto sigue en `"s"`.
+1. **`opt-level = 3` NO hacia falta, y se probo.** El primer intento fue compilar `image` y
+   `winshotx` a toda velocidad en vez de para ocupar poco. Ganaba de 91 a 62 ms, pero el
+   instalador subia de 2,31 a **2,66 MB**: 360 KB por un tercio de mejora. Con el escalado
+   propio, el mismo codigo corre a **2 ms con `opt-level = "s"`**, o sea que la velocidad
+   venia del algoritmo y no del compilador. Se quito, y el instalador se queda como estaba.
+   La leccion: **medir las dos cosas antes de pagar tamanno por velocidad.**
 2. **En debug el factor no es 20, es hasta 85.** Un video de un minuto con zoom habria
    tardado cuarenta minutos en `tauri dev` y dos en la version instalada. Al probar
    rendimiento, la version instalada; `dev` solo para ver si algo funciona.

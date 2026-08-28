@@ -44,16 +44,6 @@ windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gd
 clipboard-win = "5"
 
 # El binario tiene que caber en unos pocos MB: nada de simbolos ni unidades sueltas.
-# El binario entero se compila para OCUPAR POCO, que es de lo que vive este proyecto: un
-# instalador de 2,3 MB. Pero eso deja los bucles de pixeles sin vectorizar, y ahi si se
-# paga: escalar un fotograma costaba 91 ms, o sea casi tres minutos por un video de un
-# minuto. Los dos crates que tocan pixeles se compilan a toda velocidad y el resto no.
-[profile.release.package.image]
-opt-level = 3
-
-[profile.release.package.winshotx]
-opt-level = 3
-
 [profile.release]
 opt-level = "s"
 lto = true
