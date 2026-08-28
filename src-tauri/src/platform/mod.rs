@@ -1,3 +1,12 @@
+//! Lo que solo sabe hacer cada sistema: abrir el explorador, tocar el portapapeles,
+//! esconder los iconos del escritorio.
+//!
+//! **Los `return` explicitos dentro de los bloques `cfg` se quedan**, aunque clippy los vea
+//! de mas. Cada funcion de aqui tiene dos cuerpos, uno por sistema, y sin el `return` el que
+//! se compila funciona solo porque resulta ser el ultimo: basta con que alguien anada una
+//! linea detras para que la funcion devuelva otra cosa sin que nadie lo note.
+#![allow(clippy::needless_return)]
+
 pub mod autostart;
 pub mod clipboard;
 pub mod desktop_icons;
