@@ -53,6 +53,7 @@ signature is checked before anything is installed, so a tampered file is rejecte
 | 📸 **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex, copied with `C` and snapping to system windows: one click takes the whole window. |
 | 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. |
 | ✂️ **Frame by frame editor** | Thumbnail strip, A/B trimming, looped playback, cropping the image, scaling with locked aspect ratio and a quality control. |
+| 🔍 **Recording studio** | The camera moves in on every click and shortcut and follows the mouse while it is there, the pointer can be drawn as large as you want without pixelating, and clicks get a ring. **All of it decided when exporting**, over frames already on disk: change your mind without recording again. |
 | 💾 **Export** | GIF, MP4, PNG or JPG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
 | 🔊 **System audio** | What comes out of your speakers goes into the MP4, captured straight from the default output. No extra driver, and you keep hearing it while it records. |
 | ⏱️ **Shoot on a timer** | Wait 3 or 5 seconds before the screen freezes, with the countdown in the middle of the screen. It is the only way to photograph an open menu, because pressing the shortcut closes it. |
@@ -115,7 +116,8 @@ has the nineteen rows, including the six the Snipping Tool wins.
 | `Esc` | Cancel |
 
 In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `C` crops the image,
-`←` `→` step through frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes.
+`←` `→` step through frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes —
+letting go of the crop frame or the drawing tool first, since closing throws the frames away.
 
 In the editor, to annotate: `1` arrow, `2` box, `3` text, `4` highlight and `5` hide details. `Ctrl+Z` undoes the last one.
 
