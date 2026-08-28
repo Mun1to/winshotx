@@ -10,52 +10,43 @@ use crate::error::Result;
 /// no pregunta nada. Cualquier otra cosa se puede montar encima de estas dos.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub enum CaptureFlow {
     /// Sale la barra flotante y el usuario elige: copiar, guardar, editar o grabar.
+    #[default]
     Toolbar,
     /// La imagen se copia al portapapeles sola y el overlay se cierra. Cero clics.
     Instant,
 }
 
-impl Default for CaptureFlow {
-    fn default() -> Self {
-        Self::Toolbar
-    }
-}
 
 /// En que idioma habla la aplicacion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub enum Language {
     /// El de Windows, si winshotx lo habla; si no, ingles. Es el de fabrica.
+    #[default]
     Sistema,
     Es,
     En,
 }
 
-impl Default for Language {
-    fn default() -> Self {
-        Self::Sistema
-    }
-}
 
 /// De que color se pinta la aplicacion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub enum Theme {
     /// El que tenga puesto Windows, y cambiando con el sin reiniciar nada. Es el de
     /// fabrica: una aplicacion que vive en la bandeja no puede ser la unica ventana
     /// blanca de un escritorio oscuro, ni al reves.
+    #[default]
     Sistema,
     Claro,
     Oscuro,
 }
 
-impl Default for Theme {
-    fn default() -> Self {
-        Self::Sistema
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]

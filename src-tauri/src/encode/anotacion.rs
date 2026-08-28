@@ -109,8 +109,8 @@ fn punto(imagen: &mut RgbaImage, x: i32, y: i32, color: [u8; 3], alfa: f32) {
         return;
     }
     let pixel = imagen.get_pixel_mut(x as u32, y as u32);
-    for i in 0..3 {
-        pixel.0[i] = (pixel.0[i] as f32 * (1.0 - alfa) + color[i] as f32 * alfa).round() as u8;
+    for (canal, nuevo) in pixel.0.iter_mut().zip(color).take(3) {
+        *canal = (*canal as f32 * (1.0 - alfa) + nuevo as f32 * alfa).round() as u8;
     }
     pixel.0[3] = 255;
 }
@@ -211,6 +211,10 @@ fn difuminar(imagen: &mut RgbaImage, x1: i32, y1: i32, x2: i32, y2: i32) {
                     cuantos += 1;
                 }
             }
+            // Clippy pide `checked_div`, pero este `if` protege las TRES divisiones a la
+            // vez y ademas envuelve el bucle que las usa. Con `checked_div` serian tres
+            // comprobaciones para decir lo mismo.
+            #[allow(clippy::manual_checked_ops)]
             if cuantos > 0 {
                 let medio = Rgba([
                     (r / cuantos) as u8,
@@ -457,7 +461,7 @@ mod tests {
         for fila in 0..7 {
             let y0 = 90 + fila * 34;
             for y in y0..y0 + 12 {
-                for x in 220..(240 + (fila as u32 * 61) % 380) {
+                for x in 220..(240 + (fila * 61) % 380) {
                     imagen.put_pixel(x, y, Rgba([60, 64, 72, 255]));
                 }
             }

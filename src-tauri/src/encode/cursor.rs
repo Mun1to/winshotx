@@ -71,8 +71,8 @@ fn mezclar(imagen: &mut RgbaImage, x: i32, y: i32, color: [u8; 3], alfa: f32) {
     }
     let p = imagen.get_pixel_mut(x as u32, y as u32);
     let a = alfa.clamp(0.0, 1.0);
-    for i in 0..3 {
-        p.0[i] = (p.0[i] as f32 * (1.0 - a) + color[i] as f32 * a).round() as u8;
+    for (canal, nuevo) in p.0.iter_mut().zip(color).take(3) {
+        *canal = (*canal as f32 * (1.0 - a) + nuevo as f32 * a).round() as u8;
     }
 }
 

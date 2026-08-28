@@ -126,9 +126,7 @@ pub fn pintar(
     if ajustes.teclas {
         // El último atajo que sigue vivo. Dos a la vez se taparían el uno al otro.
         if let Some(a) = atajos
-            .iter()
-            .filter(|a| ms >= a.ms && ms - a.ms < teclas_duracion())
-            .next_back()
+            .iter().rfind(|a| ms >= a.ms && ms - a.ms < teclas_duracion())
         {
             let opaca = pastilla::opacidad(ms - a.ms, teclas_duracion());
             if opaca > 0.0 {

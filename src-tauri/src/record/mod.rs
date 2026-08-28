@@ -202,7 +202,7 @@ impl FrameCache {
 
         let (encoded, guardado) = match parche {
             Some(p) => (
-                qoi::encode_to_vec(&delta::recortar(rgba, width, p), p.width, p.height)?,
+                qoi::encode_to_vec(delta::recortar(rgba, width, p), p.width, p.height)?,
                 Some(p),
             ),
             None => (qoi::encode_to_vec(rgba, width, height)?, None),
@@ -243,7 +243,7 @@ impl FrameCache {
     /// Cierra el fichero y calcula la duracion real de cada fotograma.
     pub fn finish(mut self, total_ms: u64, fallback_fps: u32) -> Result<Vec<FrameEntry>> {
         self.file.flush()?;
-        let fallback = (1000 / fallback_fps.max(1)) as u32;
+        let fallback = 1000 / fallback_fps.max(1);
         let count = self.entries.len();
         for i in 0..count {
             let next_ts = if i + 1 < count {

@@ -10,7 +10,7 @@ pub fn rounded_corners(window: &tauri::WebviewWindow) {
 
     let Ok(handle) = window.hwnd() else { return };
     unsafe {
-        let hwnd = HWND(handle.0 as *mut std::ffi::c_void);
+        let hwnd = HWND(handle.0);
         let preference = DWMWCP_ROUND;
         // En Windows 10 este atributo no existe: el error se ignora sin más.
         let _ = DwmSetWindowAttribute(
@@ -42,7 +42,7 @@ pub fn never_focus(window: &tauri::WebviewWindow) {
 
     let Ok(handle) = window.hwnd() else { return };
     unsafe {
-        let hwnd = HWND(handle.0 as *mut std::ffi::c_void);
+        let hwnd = HWND(handle.0);
         let actual = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
         let nuevo = actual | (WS_EX_NOACTIVATE.0 as isize) | (WS_EX_TOOLWINDOW.0 as isize);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, nuevo);

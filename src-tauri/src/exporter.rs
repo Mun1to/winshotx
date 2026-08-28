@@ -27,7 +27,6 @@ pub struct ExportRequest {
     pub quality: u8,
     /// Si el video exportado lleva el sonido que se grabo. Lo decide el interruptor del
     /// editor, y solo tiene efecto si la grabacion llego a capturar audio.
-    #[allow(dead_code)]
     pub audio: bool,
     #[serde(rename = "loop")]
     pub loop_forever: bool,

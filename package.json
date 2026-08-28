@@ -21,8 +21,7 @@
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.544.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "zustand": "^5.0.8"
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",

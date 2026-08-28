@@ -628,7 +628,7 @@ fn force_foreground(window: &tauri::WebviewWindow) {
 
     let Ok(handle) = window.hwnd() else { return };
     unsafe {
-        let hwnd = HWND(handle.0 as *mut std::ffi::c_void);
+        let hwnd = HWND(handle.0);
         let _ = ShowWindow(hwnd, SW_SHOW);
         let _ = SetForegroundWindow(hwnd);
     }

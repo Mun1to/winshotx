@@ -16,10 +16,6 @@ use tauri_plugin_global_shortcut::Shortcut;
 
 /// Todo lo que hay que compartir con el hilo de captura mientras se graba.
 pub struct RecordingState {
-    #[allow(dead_code)]
-    pub session_id: String,
-    #[allow(dead_code)]
-    pub region: Rect,
     pub started: Instant,
     pub stop: Arc<AtomicBool>,
     pub pause: Arc<AtomicBool>,
@@ -27,8 +23,6 @@ pub struct RecordingState {
     pub pause_started: Mutex<Option<Instant>>,
     pub frames: Arc<AtomicU64>,
     pub bytes: Arc<AtomicU64>,
-    #[allow(dead_code)]
-    pub cancelled: Arc<AtomicBool>,
     #[cfg(windows)]
     pub control: Option<crate::record::win::Control>,
     pub writer: Option<JoinHandle<Result<SessionData>>>,

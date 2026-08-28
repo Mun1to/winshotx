@@ -408,8 +408,6 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     )?;
 
     let recording = RecordingState {
-        session_id: id.clone(),
-        region,
         started: Instant::now(),
         stop: stop.clone(),
         pause: pause.clone(),
@@ -417,7 +415,6 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         pause_started: parking_lot::Mutex::new(None),
         frames: frames_counter,
         bytes: bytes_counter,
-        cancelled: Arc::new(AtomicBool::new(false)),
         control: Some(control),
         writer: Some(writer),
     };

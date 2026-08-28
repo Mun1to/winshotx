@@ -108,12 +108,14 @@ where
         };
         carry_delay = 0;
 
-        let mut gif_frame = gif::Frame::default();
-        gif_frame.left = left as u16;
-        gif_frame.top = top as u16;
-        gif_frame.width = w as u16;
-        gif_frame.height = h as u16;
-        gif_frame.buffer = Cow::Owned(buffer);
+        let mut gif_frame = gif::Frame {
+            left: left as u16,
+            top: top as u16,
+            width: w as u16,
+            height: h as u16,
+            buffer: Cow::Owned(buffer),
+            ..Default::default()
+        };
         gif_frame.delay = ((delay_ms + 5) / 10).clamp(2, 65_535) as u16;
         gif_frame.dispose = gif::DisposalMethod::Keep;
         gif_frame.transparent = if first { None } else { Some(TRANSPARENT) };

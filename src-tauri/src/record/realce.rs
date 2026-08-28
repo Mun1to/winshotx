@@ -115,9 +115,8 @@ fn aro(imagen: &mut RgbaImage, cx: i32, cy: i32, radio: f32, opacidad: f32, dere
             }
             let alfa = cerca * opacidad;
             let pixel = imagen.get_pixel_mut(x, y);
-            for i in 0..3 {
-                pixel.0[i] =
-                    (pixel.0[i] as f32 * (1.0 - alfa) + color[i] as f32 * alfa).round() as u8;
+            for (canal, nuevo) in pixel.0.iter_mut().zip(color).take(3) {
+                *canal = (*canal as f32 * (1.0 - alfa) + nuevo as f32 * alfa).round() as u8;
             }
         }
     }
