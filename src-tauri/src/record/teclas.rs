@@ -48,12 +48,28 @@ pub struct Vigilante {
 impl Vigilante {
     /// Mira el teclado y devuelve el atajo si acaba de empezar uno.
     pub fn mirar(&mut self, ms: u64) -> Option<Atajo> {
-        let modificadores = modificadores_pulsados();
+        self.decidir(modificadores_pulsados(), tecla_principal(), ms)
+    }
+
+    /// La regla, separada de la lectura del teclado.
+    ///
+    /// **Se parte en dos a proposito.** Esta es la regla que impide que una contrasenna
+    /// tecleada durante la grabacion acabe dentro del video, y su prueba leia el teclado de
+    /// verdad: fallaba si al correrla habia una tecla pulsada, y **no podia comprobar lo que
+    /// de verdad importa**, porque desde una prueba no se puede pulsar Ctrl. Lo unico que
+    /// llegaba a comprobar era el caso en el que no hay nada pulsado.
+    ///
+    /// Asi la regla se prueba entera y sin depender de lo que tenga nadie en las manos.
+    fn decidir(
+        &mut self,
+        modificadores: Vec<String>,
+        principal: Option<u16>,
+        ms: u64,
+    ) -> Option<Atajo> {
         if modificadores.is_empty() {
             self.ultima = None;
             return None;
         }
-        let principal = tecla_principal();
         match principal {
             None => {
                 // Solo modificadores: todavía no es un atajo, es un dedo esperando.
@@ -196,15 +212,68 @@ mod tests {
         assert!(vigilante.mirar(33).is_none());
     }
 
-    /// Que no se pueda pulsar una tecla desde una prueba no impide comprobar la regla
-    /// central: sin modificador no hay atajo, y por tanto una contraseña escrita durante
-    /// la grabación no puede acabar dentro del vídeo.
+    /// La letra A, que es lo que alguien teclearia escribiendo una contrasenna.
+    const A: u16 = 0x41;
+    const B: u16 = 0x42;
+
+    fn ctrl() -> Vec<String> {
+        vec!["Ctrl".to_string()]
+    }
+
     #[test]
     fn una_tecla_sola_nunca_es_un_atajo() {
-        // Con los modificadores sueltos (que es como está el teclado en una prueba), el
-        // vigilante devuelve None pase lo que pase con las demás teclas.
-        assert!(modificadores_pulsados().is_empty());
+        // **La regla de seguridad del proyecto.** Sin modificador no hay atajo, y por eso
+        // una contrasenna escrita durante la grabacion no puede acabar dentro del video:
+        // una contrasenna no lleva Ctrl delante.
         let mut vigilante = Vigilante::default();
-        assert!(vigilante.mirar(0).is_none());
+        assert!(vigilante.decidir(Vec::new(), Some(A), 0).is_none());
+    }
+
+    #[test]
+    fn ni_aunque_se_teclee_una_palabra_entera() {
+        // Letra a letra, que es como se escribe una contrasenna de verdad.
+        let mut vigilante = Vigilante::default();
+        for tecla in [0x68, 0x6F, 0x6C, 0x61, 0x31, 0x32, 0x33] {
+            assert!(
+                vigilante.decidir(Vec::new(), Some(tecla), 0).is_none(),
+                "la tecla {tecla:#x} ha salido en el video"
+            );
+        }
+    }
+
+    #[test]
+    fn con_modificador_si_es_un_atajo() {
+        let mut vigilante = Vigilante::default();
+        let atajo = vigilante.decidir(ctrl(), Some(A), 500).expect("tendria que salir");
+        assert_eq!(atajo.texto, "Ctrl + A");
+        assert_eq!(atajo.ms, 500);
+    }
+
+    #[test]
+    fn los_modificadores_solos_no_bastan() {
+        // Un dedo esperando encima de Ctrl no es un atajo todavia.
+        let mut vigilante = Vigilante::default();
+        assert!(vigilante.decidir(ctrl(), None, 0).is_none());
+    }
+
+    #[test]
+    fn mantener_la_tecla_no_repite_el_atajo_en_cada_fotograma() {
+        // A treinta fotogramas por segundo, medio segundo con el dedo encima serian quince
+        // pastillas encima de la anterior.
+        let mut vigilante = Vigilante::default();
+        assert!(vigilante.decidir(ctrl(), Some(A), 0).is_some());
+        assert!(vigilante.decidir(ctrl(), Some(A), 33).is_none());
+        assert!(vigilante.decidir(ctrl(), Some(A), 66).is_none());
+        // Otra tecla si abre uno nuevo.
+        assert!(vigilante.decidir(ctrl(), Some(B), 99).is_some());
+    }
+
+    #[test]
+    fn soltar_los_modificadores_permite_repetir_el_mismo_atajo() {
+        // Pulsar Ctrl+C dos veces seguidas tiene que ensennarse dos veces.
+        let mut vigilante = Vigilante::default();
+        assert!(vigilante.decidir(ctrl(), Some(A), 0).is_some());
+        assert!(vigilante.decidir(Vec::new(), None, 100).is_none());
+        assert!(vigilante.decidir(ctrl(), Some(A), 200).is_some());
     }
 }
