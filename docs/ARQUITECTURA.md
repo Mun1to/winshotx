@@ -163,14 +163,24 @@ src-tauri/src/encode/webp.rs    nuevo (H5)
 src-tauri/src/exporter.rs       carpeta por tipo (I6) + nombre con plantilla (H10)
 ```
 
-**Hecho el 27 de agosto de 2026, además de lo que decía este plano:**
+**Hecho el 27 y 28 de agosto de 2026, además de lo que decía este plano:**
 
 ```
 src-tauri/src/encode/recorte.rs    el trozo que se exporta, de 0 a 1
 src/lib/recorte.ts                 las mismas cuentas en la interfaz
 src/components/editor/CapaRecorte.tsx
 src/lib/contener.ts                dónde cae la imagen dentro de su hueco
+src-tauri/src/encode/zoom.rs       dónde mira la cámara y cuánto se acerca
+src-tauri/src/encode/estudio.rs    aros, pastilla y puntero, al exportar
+src-tauri/src/encode/cursor.rs     la flecha, dibujada a cualquier tamaño
+src-tauri/src/encode/escalar.rs    estirar un fotograma sin que cueste 66 ms
+src-tauri/src/archivos.rs          dónde cae cada archivo y cómo se llama
 ```
+
+El bloque F del plano (**el estudio**) está hecho, y con la decisión que decía: al grabar solo se
+anota, todo se dibuja al exportar. La única diferencia es que no hizo falta una carpeta
+`src-tauri/src/estudio/`: la parte de anotar cabía en `SessionData` y la de pintar, en `encode/`,
+que es donde vive todo lo que toca píxeles.
 
 `contener.ts` no estaba previsto y salió de un fallo: las capas de dibujar iban estiradas al
 hueco entero mientras la imagen se contenía dentro dejando franjas, así que **todo lo dibujado
@@ -266,6 +276,9 @@ Lo que cubre y por qué esas cuatro cosas y no otras:
 | `src/lib/contener.test.ts` | Dónde cae la imagen dentro de su hueco, que es lo que decide si lo dibujado encima acaba en su sitio dentro del archivo. |
 | `src/lib/recorte.test.ts` | Las cuentas del recorte: esquinas al revés, arrastres de nada y marcos que se salen. |
 | `src/components/editor/EditorApp.test.tsx` | Que las capas caigan **encima de la imagen** y que `Escape` no cierre el editor, que tira los fotogramas, mientras se está haciendo algo. |
+| `src-tauri/src/encode/zoom.rs` | Que la cámara se acerque a tiempo, no maree y no se salga de la imagen. Incluida una que mueve el ratón en vaivén y exige que la cámara se quede quieta. |
+| `src-tauri/src/record/teclas.rs` | **La regla que impide que una contraseña acabe en el vídeo.** Su prueba leía el teclado de verdad, así que fallaba por azar y no podía comprobar lo que importa; ahora la regla recibe las teclas como argumento. |
+| `ver_una_grabacion_de_verdad` | Abre una grabación real y deja PNG para mirarlos. Si el zoom se acerca a donde toca no lo dice ningún `assert`. |
 
 La regla que salió de montarlo: **una prueba que nunca se ha visto roja no ha probado nada.**
 Las dos de idioma se estrenaron rompiendo la traducción a mano y comprobando que mordían.
