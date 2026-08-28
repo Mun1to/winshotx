@@ -471,4 +471,104 @@ mod tests {
             con.as_secs_f64() * 1000.0 / fotogramas as f64
         );
     }
+
+    /// Exporta unos fotogramas de una grabacion DE VERDAD, con el zoom y el estudio puestos.
+    ///
+    /// Todo lo demas prueba piezas con imagenes inventadas. Esto abre una sesion que dejo
+    /// una grabacion real, le aplica lo mismo que aplicaria el exportador, y deja los PNG
+    /// en el temporal para mirarlos. Es la unica forma de ver si el zoom se acerca a donde
+    /// tiene que acercarse, porque eso no lo dice ningun `assert`.
+    ///
+    /// Se le pasa la carpeta de la sesion por variable de entorno:
+    ///
+    /// ```text
+    /// SESION=<carpeta> cargo test --release --lib ver_una_grabacion_de_verdad -- --ignored
+    /// ```
+    #[test]
+    #[ignore]
+    fn ver_una_grabacion_de_verdad() {
+        use crate::encode::{escalar, zoom};
+        use crate::record::{self, SessionData};
+
+        let Ok(carpeta) = std::env::var("SESION") else {
+            eprintln!("[ver] falta SESION=<carpeta de la sesion>");
+            return;
+        };
+        let carpeta = std::path::PathBuf::from(carpeta);
+        let crudo = std::fs::read_to_string(carpeta.join("session.json")).unwrap();
+        let mut sesion: SessionData = serde_json::from_str(&crudo).unwrap();
+        // El json guarda la carpeta de donde se grabo; aqui manda donde esta ahora.
+        sesion.dir = carpeta.clone();
+
+        eprintln!(
+            "[ver] {} fotogramas, {} clics, {} teclas, {} posiciones de raton, region {}x{}",
+            sesion.frames.len(),
+            sesion.clics.len(),
+            sesion.teclas.len(),
+            sesion.cursor.len(),
+            sesion.width,
+            sesion.height
+        );
+
+        let za = zoom::Ajustes {
+            escala: 2.0,
+            ..zoom::Ajustes::default()
+        };
+        let tramos = zoom::tramos(&sesion.clics, &za);
+        eprintln!("[ver] tramos de zoom: {tramos:?}");
+
+        let ajustes = Ajustes {
+            clics: true,
+            teclas: true,
+            cursor: 44.0,
+        };
+        let mut cache = pastilla::Cache::default();
+        let destino = std::env::temp_dir().join("winshotx-ver-zoom");
+        let _ = std::fs::remove_dir_all(&destino);
+        std::fs::create_dir_all(&destino).unwrap();
+
+        // Seis momentos repartidos por el primer tramo de zoom, para ver el acercamiento.
+        let momentos: Vec<u64> = match tramos.first() {
+            Some(t) => (0..6)
+                .map(|i| t.desde_ms + (t.hasta_ms - t.desde_ms) * i / 5)
+                .collect(),
+            None => (0..6).map(|i| i * 1000).collect(),
+        };
+
+        for (n, ms) in momentos.iter().enumerate() {
+            // El fotograma que toca en ese instante.
+            let indice = sesion
+                .frames
+                .iter()
+                .position(|f| f.timestamp_ms >= *ms)
+                .unwrap_or(0);
+            let imagen = record::read_frame(&sesion, indice).unwrap();
+            let camara = zoom::siguiendo(&tramos, &sesion.cursor, *ms, sesion.width, sesion.height, &za);
+            let recortes: Vec<Recorte> = if camara.escala > 1.001 {
+                vec![camara.como_recorte(sesion.width, sesion.height)]
+            } else {
+                Vec::new()
+            };
+            let trozo = match recortes.first() {
+                Some(r) => r.aplicar(&imagen),
+                None => imagen,
+            };
+            let mut salida = escalar::ampliar(&trozo, sesion.width, sesion.height);
+            pintar(
+                &mut salida,
+                *ms,
+                &sesion.clics,
+                &sesion.teclas,
+                &sesion.cursor,
+                (sesion.width, sesion.height),
+                &recortes,
+                &ajustes,
+                &mut cache,
+            );
+            let ruta = destino.join(format!("{n}-{ms}ms-x{:.2}.png", camara.escala));
+            salida.save(&ruta).unwrap();
+            eprintln!("[ver] {ms} ms, escala {:.2} -> {}", camara.escala, ruta.display());
+        }
+        eprintln!("[ver] mira la carpeta {}", destino.display());
+    }
 }
