@@ -166,6 +166,8 @@ export interface ExportResult {
   path: string;
   bytes: number;
   copied: boolean;
+  /** Por qué no se pudo copiar, si se pidió copiar y no salió. */
+  copyError: string | null;
   elapsedMs: number;
 }
 

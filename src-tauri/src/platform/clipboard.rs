@@ -116,3 +116,57 @@ pub fn copy_text(_texto: &str) -> Result<()> {
 pub fn copy_files(_paths: &[&Path]) -> Result<()> {
     Err(crate::error::AppError::Unsupported)
 }
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    /// Que copiar un archivo lo deje de verdad en el portapapeles, y que Windows lo
+    /// devuelva como archivo.
+    ///
+    /// Munir, el 28 de agosto de 2026: *«le das a copiar al portapapeles y no pasa
+    /// absolutamente nada»*. Copiar un video se hacia a ciegas: el resultado se guardaba
+    /// con un `.is_ok()` que se tragaba el error, asi que si el portapapeles estaba
+    /// ocupado por otro programa no se enteraba nadie.
+    ///
+    /// Va con `--ignored` porque **le pisa el portapapeles a quien lo corra**.
+    #[test]
+    #[ignore]
+    fn copiar_un_archivo_lo_deja_en_el_portapapeles() {
+        use clipboard_win::{formats, Getter};
+
+        let dir = std::env::temp_dir().join("winshotx-test-portapapeles");
+        std::fs::create_dir_all(&dir).unwrap();
+        let archivo = dir.join("video.mp4");
+        std::fs::write(&archivo, b"no es un mp4 de verdad, da igual").unwrap();
+
+        copy_files(&[&archivo]).expect("no se ha podido copiar");
+
+        let _guard = clipboard_win::Clipboard::new_attempts(10).unwrap();
+        let mut leidos: Vec<String> = Vec::new();
+        formats::FileList
+            .read_clipboard(&mut leidos)
+            .expect("el portapapeles no devuelve una lista de archivos");
+
+        assert_eq!(leidos.len(), 1, "ha dejado {} archivos", leidos.len());
+        assert!(
+            leidos[0].ends_with("video.mp4"),
+            "ha dejado otra cosa: {}",
+            leidos[0]
+        );
+        eprintln!("[portapapeles] dentro hay: {}", leidos[0]);
+    }
+
+    /// Y que el texto siga funcionando, que es lo que usa la tecla T.
+    #[test]
+    #[ignore]
+    fn copiar_texto_lo_deja_en_el_portapapeles() {
+        use clipboard_win::{formats, Getter};
+
+        copy_text("winshotx lee texto").expect("no se ha podido copiar");
+        let _guard = clipboard_win::Clipboard::new_attempts(10).unwrap();
+        let mut leido = String::new();
+        formats::Unicode.read_clipboard(&mut leido).unwrap();
+        assert_eq!(leido, "winshotx lee texto");
+    }
+}

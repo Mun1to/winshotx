@@ -479,17 +479,33 @@ export function ExportPanel({
         </div>
 
         {result && (
-          <button
-            type="button"
-            onClick={() => void revealInExplorer(result.path)}
-            className="flex w-full items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-2 text-left text-[11px] text-emerald-300 transition-colors hover:bg-emerald-500/20"
-          >
-            <Sparkles className="size-3.5 shrink-0" />
-            <span className="truncate">
-              {formatBytes(result.bytes)} · {result.copied ? t("copiado · ") : ""}
-              {t("abrir carpeta")}
-            </span>
-          </button>
+          <>
+            {/* Copiar es lo que más se usa para mandarle el vídeo a alguien, así que se
+                dice en su propia línea y no escondido entre el tamaño y la carpeta. */}
+            {result.copied && (
+              <p className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-2 text-[12px] font-medium text-emerald-300">
+                <Clipboard className="size-3.5 shrink-0" />
+                {t("Copiado: ya se puede pegar")}
+              </p>
+            )}
+            {/* Y si no se pudo, se dice por qué. Antes el fallo se tragaba y pulsar copiar
+                parecía no hacer absolutamente nada. */}
+            {result.copyError && (
+              <p className="rounded-lg bg-red-500/10 px-2.5 py-2 text-[11px] text-red-300">
+                {t("No se ha podido copiar")}: {t(result.copyError)}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => void revealInExplorer(result.path)}
+              className="flex w-full items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-2 text-left text-[11px] text-neutral-300 transition-colors hover:bg-white/10"
+            >
+              <Sparkles className="size-3.5 shrink-0" />
+              <span className="truncate">
+                {formatBytes(result.bytes)} · {t("abrir carpeta")}
+              </span>
+            </button>
+          </>
         )}
 
         {error && (

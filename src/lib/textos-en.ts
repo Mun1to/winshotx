@@ -253,7 +253,6 @@ export const EN: Record<string, string> = {
   "Exportar a la carpeta elegida (Ctrl+S)": "Export to the chosen folder (Ctrl+S)",
   "Exportar y copiar al portapapeles": "Export and copy to the clipboard",
   "abrir carpeta": "open folder",
-  "copiado · ": "copied · ",
 
   // El panel de exportar del editor
   "bucle, sin audio": "loops, no sound",
@@ -314,6 +313,10 @@ export const EN: Record<string, string> = {
     "It is the standard arrow, not the one you have set.",
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "This recording already has the Windows cursor baked in: you will see two.",
+
+  // Al copiar el resultado de exportar
+  "Copiado: ya se puede pegar": "Copied: ready to paste",
+  "No se ha podido copiar": "It could not be copied",
 
   // Recortar la imagen
   Recortar: "Crop",

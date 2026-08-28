@@ -71,6 +71,8 @@ pub struct ExportResult {
     pub path: String,
     pub bytes: u64,
     pub copied: bool,
+    /// Por que no se pudo copiar, si se pidio copiar y no salio.
+    pub copy_error: Option<String>,
     pub elapsed_ms: u64,
 }
 
@@ -294,16 +296,23 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     emit("done", 1, 1);
 
     let bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-    let copied = if request.copy_to_clipboard {
-        copy_result(&path, &session, &request).is_ok()
-    } else {
-        false
+    // Si el portapapeles falla NO se cae la exportacion: el archivo ya esta escrito y
+    // perderlo por eso seria mucho peor. Pero el motivo sube hasta la pantalla en vez de
+    // tragarse con un `.is_ok()`, que es lo que hacia que pulsar copiar pareciera no hacer
+    // absolutamente nada.
+    let (copied, copy_error) = match request.copy_to_clipboard {
+        false => (false, None),
+        true => match copy_result(&path, &session, &request) {
+            Ok(()) => (true, None),
+            Err(e) => (false, Some(e.to_string())),
+        },
     };
 
     Ok(ExportResult {
         path: path.to_string_lossy().to_string(),
         bytes,
         copied,
+        copy_error,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
 }
