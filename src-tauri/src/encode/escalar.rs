@@ -217,3 +217,160 @@ mod tests {
         eprintln!("[escalar] 640x400 -> 1280x800: esto {mio:.1} ms, image/Lanczos3 {suyo:.1} ms");
     }
 }
+
+/// Reduce la imagen promediando, para cuando el destino es MÁS PEQUEÑO que el origen.
+///
+/// `ampliar` interpola entre dos píxeles, que es lo correcto al estirar y lo incorrecto al
+/// encoger: al reducir a la mitad se mira uno de cada dos y el resultado sale con dientes
+/// de sierra. Aquí cada píxel de salida es la media de todos los de su rectángulo, que es
+/// lo mismo que hace un filtro de caja.
+///
+/// Existe porque el anillo de los últimos segundos puede grabar a 720p desde una pantalla
+/// de 1080p, y eso son quince reducciones por segundo durante horas: `image::imageops`
+/// tarda 53 ms en una de estas y aquí no se puede pagar eso ni una vez.
+pub fn reducir(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
+    let (ow, oh) = origen.dimensions();
+    if (ow, oh) == (ancho, alto) || ancho == 0 || alto == 0 || ow == 0 || oh == 0 {
+        return origen.clone();
+    }
+    // Los límites de cada píxel de salida sobre el origen, calculados una vez por eje.
+    let corte = |destino: u32, origen: u32| -> Vec<(u32, u32)> {
+        (0..destino)
+            .map(|i| {
+                let a = (u64::from(i) * u64::from(origen) / u64::from(destino)) as u32;
+                let b = (u64::from(i + 1) * u64::from(origen) / u64::from(destino)) as u32;
+                (a, b.max(a + 1).min(origen))
+            })
+            .collect()
+    };
+    let columnas = corte(ancho, ow);
+    let filas = corte(alto, oh);
+    let entrada = origen.as_raw();
+
+    let mut salida = vec![0u8; (ancho as usize) * (alto as usize) * 4];
+    salida
+        .par_chunks_mut(ancho as usize * 4)
+        .zip(filas.par_iter())
+        .for_each(|(destino, &(y0, y1))| {
+            for (x, &(x0, x1)) in columnas.iter().enumerate() {
+                let mut suma = [0u32; 4];
+                let mut cuantos = 0u32;
+                for y in y0..y1 {
+                    let base = (y as usize * ow as usize) * 4;
+                    for xx in x0..x1 {
+                        let p = base + xx as usize * 4;
+                        suma[0] += u32::from(entrada[p]);
+                        suma[1] += u32::from(entrada[p + 1]);
+                        suma[2] += u32::from(entrada[p + 2]);
+                        suma[3] += u32::from(entrada[p + 3]);
+                        cuantos += 1;
+                    }
+                }
+                let n = cuantos.max(1);
+                let d = x * 4;
+                for canal in 0..4 {
+                    destino[d + canal] = (suma[canal] / n) as u8;
+                }
+            }
+        });
+    RgbaImage::from_raw(ancho, alto, salida).unwrap_or_else(|| RgbaImage::new(ancho, alto))
+}
+
+/// El tamaño al que se graba, dado el alto que se pidió.
+///
+/// Devuelve `None` cuando no hay que tocar nada: el alto pedido es cero (nativo) o la
+/// pantalla ya mide eso o menos. Los dos lados salen PARES porque H.264 no acepta un lado
+/// impar, y enterarse de eso en el codificador es enterarse tarde.
+pub fn medida_para(ancho: u32, alto: u32, alto_pedido: u32) -> Option<(u32, u32)> {
+    if alto_pedido == 0 || alto == 0 || alto_pedido >= alto {
+        return None;
+    }
+    let nuevo_ancho = ((u64::from(ancho) * u64::from(alto_pedido) / u64::from(alto)) as u32).max(2);
+    Some((nuevo_ancho / 2 * 2, alto_pedido / 2 * 2))
+}
+
+#[cfg(test)]
+mod reducir_tests {
+    use super::*;
+
+    /// Un color plano reducido sigue siendo ese color: si el promedio estuviera mal, se
+    /// vería aquí antes que en ningún sitio.
+    #[test]
+    fn un_color_plano_sobrevive_a_la_reduccion() {
+        let origen = RgbaImage::from_pixel(1920, 1080, image::Rgba([40, 90, 200, 255]));
+        let pequenna = reducir(&origen, 1280, 720);
+        assert_eq!(pequenna.dimensions(), (1280, 720));
+        assert_eq!(pequenna.get_pixel(640, 360).0, [40, 90, 200, 255]);
+        assert_eq!(pequenna.get_pixel(0, 0).0, [40, 90, 200, 255]);
+    }
+
+    /// Y lo que de verdad separa promediar de saltarse píxeles: un tablero de ajedrez de
+    /// un píxel reducido a la mitad tiene que salir GRIS, no blanco ni negro.
+    #[test]
+    fn promedia_de_verdad_en_vez_de_saltarse_pixeles() {
+        let mut origen = RgbaImage::new(200, 200);
+        for (x, y, pixel) in origen.enumerate_pixels_mut() {
+            let claro = (x + y) % 2 == 0;
+            *pixel = image::Rgba(if claro { [255, 255, 255, 255] } else { [0, 0, 0, 255] });
+        }
+        let media = reducir(&origen, 100, 100);
+        let centro = media.get_pixel(50, 50).0;
+        assert!(
+            (120..=135).contains(&centro[0]),
+            "un ajedrez reducido tiene que salir gris, y salió {centro:?}"
+        );
+    }
+
+    #[test]
+    fn la_medida_sale_par_y_respeta_la_proporcion() {
+        assert_eq!(medida_para(1920, 1080, 720), Some((1280, 720)));
+        // 2560x1440 a 720 son 1280x720 justos; 1366x768 a 720 sale impar y se corta.
+        assert_eq!(medida_para(1366, 768, 720), Some((1280, 720)));
+        // Nada que hacer: se pidió lo nativo, o la pantalla ya es más pequeña.
+        assert_eq!(medida_para(1920, 1080, 0), None);
+        assert_eq!(medida_para(1280, 720, 1080), None);
+    }
+}
+
+#[cfg(test)]
+mod medir_reduccion {
+    use super::*;
+    use std::time::Instant;
+
+    /// Lo que cuesta bajar una pantalla de 1080p a 720p, que es lo que hace el anillo de
+    /// los ultimos segundos quince veces por segundo durante horas.
+    ///
+    /// `cargo test --release --lib medir_reducir -- --ignored --nocapture`
+    #[test]
+    #[ignore = "es una medicion, no una comprobacion"]
+    fn medir_reducir() {
+        let ruta = std::env::temp_dir().join("winshotx-replay-pantalla/ultimo.png");
+        let origen = match image::open(&ruta) {
+            Ok(imagen) => imagen.to_rgba8(),
+            Err(_) => RgbaImage::from_pixel(1920, 1080, image::Rgba([90, 120, 200, 255])),
+        };
+        println!("desde {}x{}", origen.width(), origen.height());
+
+        for alto in [1080u32, 720] {
+            let Some((w, h)) = medida_para(origen.width(), origen.height(), alto) else {
+                println!("{alto}p: nada que hacer, ya mide eso o menos");
+                continue;
+            };
+            let ahora = Instant::now();
+            let pequenna = reducir(&origen, w, h);
+            let propio = ahora.elapsed().as_micros();
+
+            let ahora = Instant::now();
+            let _ = image::imageops::resize(&origen, w, h, image::imageops::FilterType::Triangle);
+            let del_crate = ahora.elapsed().as_micros();
+
+            let qoi = qoi::encode_to_vec(pequenna.as_raw(), w, h).unwrap();
+            println!(
+                "{alto}p ({w}x{h}): esto {} ms · image {} ms · el fotograma ocupa {} KB",
+                propio / 1000,
+                del_crate / 1000,
+                qoi.len() / 1024
+            );
+        }
+    }
+}
