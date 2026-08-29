@@ -53,6 +53,7 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
 | 🎬 **Grabación de la región** | A 15, 30 o 60 fps con Windows Graphics Capture, sin que se cuelen overlays en el vídeo. |
 | ✂️ **Editor fotograma a fotograma** | Tira de miniaturas, recorte A/B, reproducción en bucle, escala con proporción bloqueada y control de calidad. |
 | 💾 **Exportación** | GIF, MP4 o PNG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como **archivo** en Slack, Discord o el Explorador. |
+| ⏪ **Los últimos segundos** | Graba siempre, tira lo viejo, y con una tecla se queda con los últimos 15, 30 o 60 segundos. Lo bueno de una pantalla casi siempre pasa **antes** de que a nadie se le ocurra grabarla. |
 | 🔊 **Audio del sistema** | Lo que suena por tus altavoces entra en el MP4, cogido de la salida por defecto. Sin instalar nada, y lo sigues oyendo mientras se graba. |
 | ⏱️ **Capturar con espera** | 3 o 5 segundos antes de que se congele la pantalla, con la cuenta atrás en el centro. Es la única forma de fotografiar un menú abierto, porque al pulsar el atajo se cierra. |
 | 🌓 **Claro y oscuro** | Sigue el tema de Windows y cambia con él, o fijas el que quieras. |
@@ -102,6 +103,7 @@ incluidas las seis que gana la de Windows.
 |---|---|
 | `Ctrl+Shift+2` | Capturar región |
 | `Ctrl+Shift+5` | Grabar región · púlsalo otra vez para terminar |
+| `Ctrl+Shift+6` | Quedarte con lo último que pasó · mientras «los últimos segundos» esté encendido |
 | `Impr Pant` | Capturar región · si le quitas la tecla a la Herramienta de Recortes |
 | `Enter` | Copiar la selección al portapapeles |
 | `Ctrl+S` | Guardar la selección |
