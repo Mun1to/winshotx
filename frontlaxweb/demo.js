@@ -63,6 +63,30 @@ document.querySelectorAll(".pestana").forEach((boton) => {
     });
   });
 });
+// Las cuatro pestannas de dentro de ajustes: capturar, grabar, teclas y la app. Son las
+// mismas que tiene la ventana de verdad, asi que se pasa de una a otra igual que alli.
+document.querySelectorAll(".pes-set button").forEach((boton) => {
+  boton.addEventListener("click", () => {
+    document.querySelectorAll(".pes-set button").forEach((otro) => {
+      const activo = otro === boton;
+      otro.classList.toggle("viva", activo);
+      document.getElementById(otro.dataset.set).hidden = !activo;
+    });
+  });
+});
+
+// Los segmentados (fotogramas, calidad, tema, idioma...) y la barra de abajo: al pulsar
+// uno, se enciende ese y se apagan sus hermanos. Sin esto la demo se ve pero no responde.
+document.querySelectorAll(".segmentado, .mini-seg").forEach((grupo) => {
+  grupo.querySelectorAll("button").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      grupo.querySelectorAll("button").forEach((otro) => {
+        otro.classList.toggle("viva", otro === boton);
+      });
+    });
+  });
+});
+
 document.querySelectorAll(".palanca").forEach((p) => {
   p.addEventListener("click", () => {
     p.dataset.on = p.dataset.on === "1" ? "0" : "1";
@@ -580,6 +604,7 @@ function estimar() {
   const f = Number(fpsRango.value);
   let bytes;
   if (formato === "png") bytes = w * h * 3 * 0.35;
+  else if (formato === "jpg") bytes = w * h * (q / 100) * 0.15;
   else if (formato === "gif") bytes = w * h * (q / 100) * 0.12 * f * segundos;
   else bytes = ((1_000_000 + (q / 100) * 11_000_000) / 8) * segundos;
   document.getElementById("v-peso").textContent = `≈ ${formatBytes(Math.round(bytes))}`;
@@ -592,7 +617,9 @@ formatos.addEventListener("click", (e) => {
   if (!b) return;
   formato = b.dataset.formato;
   [...formatos.children].forEach((otro) => otro.classList.toggle("viva", otro === b));
-  document.querySelectorAll("[data-solo-video]").forEach((c) => (c.hidden = formato === "png"));
+  // PNG y JPG sacan UN fotograma, asi que lo que va por segundos no pinta nada ahi.
+  const esUnaFoto = formato === "png" || formato === "jpg";
+  document.querySelectorAll("[data-solo-video]").forEach((c) => (c.hidden = esUnaFoto));
   document.getElementById("fila-bucle").hidden = formato !== "gif";
   document.getElementById("fila-audio").hidden = formato !== "mp4";
   estimar();

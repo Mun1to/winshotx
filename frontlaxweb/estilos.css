@@ -578,17 +578,18 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   display: grid; grid-template-columns: 1fr 1fr; align-content: start; align-items: start;
   column-gap: 16px; row-gap: 12px; padding: 16px; background: #161618;
 }
-.ajustes .columna { display: grid; align-content: start; gap: 12px; }
+.ajustes .columna { display: grid; align-content: start; gap: 12px; min-width: 0; }
 .ajustes .a-lo-ancho { grid-column: span 2; }
 @media (max-width: 780px) {
   .ajustes { grid-template-columns: 1fr; }
   .ajustes .a-lo-ancho { grid-column: span 1; }
 }
-.grupo h3 {
-  font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
-  color: #737373; margin: 0 0 4px 4px; font-weight: 600;
-}
 .tarjeta { border: 1px solid #ffffff14; border-radius: 12px; background: #ffffff08; overflow: hidden; }
+/* El nombre del grupo va dentro de su tarjeta y en azul, que es como se ve en la app. */
+.tarjeta h3 {
+  margin: 0; padding: 12px 14px 11px; border-bottom: 1px solid #ffffff0f;
+  font-size: 13px; font-weight: 600; color: var(--app-azul);
+}
 .fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; }
 .fila + .fila { border-top: 1px solid #ffffff0f; }
 .fila .txt { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 13px; color: #e5e5e5; }
@@ -615,15 +616,75 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .botoncitos button:disabled { opacity: .4; cursor: default; }
 .botoncitos svg { width: 12px; height: 12px; }
 .segmentado.fps { grid-template-columns: repeat(3, 1fr); }
-.pie-ajustes {
-  display: flex; align-items: center; justify-content: space-between;
-  border-top: 1px solid var(--borde); padding: 8px 16px; font-size: 11px; color: #737373;
+.segmentado.dos { grid-template-columns: repeat(2, 1fr); }
+.segmentado.cuatro { grid-template-columns: repeat(4, 1fr); }
+/* La barra de las seis marcas, entre la vista previa y la tira de fotogramas. */
+.edi-marcas {
+  display: flex; align-items: center; gap: 4px; padding: 6px 10px;
+  border-top: 1px solid var(--borde); background: #131315;
 }
-.pie-ajustes .salir {
-  border: 0; border-radius: 6px; padding: 4px 8px; background: transparent;
-  color: #a3a3a3; font-size: 11px; cursor: pointer; transition: background .12s, color .12s;
+.edi-marcas > button {
+  display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px;
+  background: transparent; color: #a3a3a3; cursor: pointer; transition: background .12s, color .12s;
 }
-.pie-ajustes .salir:hover { background: #ef444426; color: #fca5a5; }
+.edi-marcas > button:hover { background: #ffffff14; color: #fff; }
+.edi-marcas > button.viva { background: #ffffff1f; color: #fff; }
+.edi-marcas svg { width: 16px; height: 16px; }
+.edi-marcas .raya { width: 1px; height: 18px; margin: 0 4px; background: #ffffff1a; }
+.colores { display: flex; gap: 6px; }
+.color {
+  width: 18px; height: 18px; padding: 0; border: 2px solid transparent; border-radius: 50%;
+  background: var(--c); cursor: pointer;
+}
+.color.viva { border-color: #fff; }
+.edi-nota { margin: 8px 0 0; font-size: 10.5px; line-height: 1.45; color: #737373; }
+.campo-cab .apagado { color: #737373; }
+/* La cabecera: version a la izquierda, pestannas en el centro y salir a la derecha. */
+.cab-set {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  height: 48px; padding: 0 14px; border-bottom: 1px solid var(--borde);
+}
+.ver-set { font-size: 11px; color: #737373; flex: 1; }
+.pes-set { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: #ffffff0a; }
+.pes-set button {
+  border: 0; border-radius: 7px; padding: 5px 10px; background: transparent;
+  color: #a3a3a3; font-size: 12px; cursor: pointer; transition: background .12s, color .12s;
+}
+.pes-set button:hover { color: #fff; }
+.pes-set button.viva { background: #ffffff1f; color: #fff; }
+.cab-set .salir {
+  flex: 1; text-align: right; border: 0; background: transparent;
+  color: #a3a3a3; font-size: 11px; cursor: pointer; transition: color .12s;
+}
+.cab-set .salir:hover { color: #fca5a5; }
+
+/* La barra de abajo, siempre a la vista: lo que se toca a menudo. */
+.barra-set {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border-top: 1px solid var(--borde); padding: 8px 12px; background: #131315;
+}
+.mini-seg { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff0a; }
+.mini-seg button {
+  display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 6px;
+  padding: 4px 8px; background: transparent; color: #a3a3a3; font-size: 11px;
+  cursor: pointer; transition: background .12s, color .12s;
+}
+.mini-seg button:hover { color: #fff; }
+.mini-seg button.viva { background: #ffffff1f; color: #fff; }
+.mini-seg svg { width: 14px; height: 14px; }
+.mini-seg.tema button { padding: 4px 7px; }
+.mini-etiqueta { font-size: 11px; color: #737373; }
+.mini-boton {
+  display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 7px;
+  padding: 5px 9px; background: transparent; color: #a3a3a3; font-size: 11px;
+  cursor: pointer; transition: background .12s, color .12s;
+}
+.mini-boton:hover { background: #ffffff14; color: #fff; }
+.mini-boton svg { width: 14px; height: 14px; }
+/* Estando al dia no hay nada que contar: un tick verde y ya, que ademas es el boton. */
+.al-dia { display: grid; place-items: center; width: 26px; height: 26px; margin-left: auto; border-radius: 8px; color: #34d399; }
+.al-dia svg { width: 15px; height: 15px; }
+.aviso-fila { color: #fbbf24 !important; }
 /* el Switch de la app: 40 x 22 con la bolita de 18 */
 .palanca {
   width: 40px; height: 22px; border-radius: 99px; background: #ffffff26; border: 0;
@@ -818,6 +879,9 @@ nav .enlaces a.aqui { color: var(--texto); background: #ffffff14; }
    texto, para que la fila entera quepa en una linea. Es lo que hace que la seccion de los
    ultimos segundos, con sus cinco filas, no obligue a bajar con la rueda. */
 .segmentado.ajustado {
+  /* Flex y no la rejilla de tres: «Qué pantalla» puede tener cuatro botones (ratón y tres
+     monitores) y con tres columnas el cuarto se caía a una segunda fila. */
+  display: flex;
   flex: 0 0 auto;
   margin-left: auto;
 }
