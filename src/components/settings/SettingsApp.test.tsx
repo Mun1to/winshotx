@@ -13,6 +13,10 @@ import { aplicarIdioma } from "../../lib/i18n";
 import { llamadas, responde } from "../../test/preparar";
 import type { ReplayStatus, Settings } from "../../lib/types";
 
+vi.mock("@tauri-apps/plugin-updater", () => ({
+  check: () => Promise.resolve(null),
+}));
+
 /** El anillo apagado, que es como viene winshotx de fabrica. */
 const PARADO: ReplayStatus = {
   running: false,
@@ -257,10 +261,28 @@ describe("la barra de abajo", () => {
 
   it("lo de actualizar está aquí y ya no dentro de una sección", async () => {
     await abrirAjustes();
-    // El botón de buscar versión nueva vive en la barra, a la vista desde cualquier sitio.
-    expect(within(barra()).getByRole("button", { name: /Buscar/ })).toBeInTheDocument();
+    // Lo de actualizar vive en la barra, a la vista desde cualquier sitio, aunque estando
+    // al día sea solo un tick.
+    await waitFor(() =>
+      expect(
+        within(barra()).getByRole("button", { name: "estás en la última versión" }),
+      ).toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "La app" }));
     expect(screen.queryByText("Actualizaciones")).toBeNull();
+  });
+
+  it("estando al día no gasta sitio en decirlo: solo un tick", async () => {
+    // «Estás en la última versión» es la respuesta casi todos los días, y se llevaba un
+    // cuarto de la barra para no contar nada. La frase vuelve cuando hay algo que decir.
+    await abrirAjustes();
+    await waitFor(() =>
+      expect(
+        within(barra()).getByRole("button", { name: "estás en la última versión" }),
+      ).toBeInTheDocument(),
+    );
+    expect(within(barra()).queryByText("estás en la última versión")).toBeNull();
+    expect(within(barra()).queryByRole("button", { name: /Buscar/ })).toBeNull();
   });
 
   it("cambiar lo que pasa al soltar el ratón viaja hasta Rust", async () => {

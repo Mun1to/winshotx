@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { Download, RefreshCw, RotateCcw } from "lucide-react";
+import { Check, Download, RefreshCw, RotateCcw } from "lucide-react";
 import { EVENTS } from "../../lib/types";
 import { useT } from "../../lib/i18n";
 
@@ -113,6 +113,68 @@ export function useActualizacion(version: string, recienActualizado = false) {
   const alDia = fase.tipo === "aldia" || fase.tipo === "acabadeactualizarse";
 
   return { fase, mirar, instalar, texto: texto(), alDia };
+}
+
+/**
+ * Lo de actualizar en la barra de abajo, que casi siempre no tiene nada que decir.
+ *
+ * **Estando al día es solo un tick**, sin la frase ni el botón: «estás en la última
+ * versión» es la respuesta el 99 % de los días y se llevaba un cuarto de la barra para no
+ * contar nada. El tick es además el botón: pulsarlo vuelve a mirar.
+ *
+ * Cuando SÍ hay algo que decir (hay versión nueva, se está bajando, falta reiniciar, ha
+ * fallado), vuelven la frase y el botón entero: eso es justo lo que no puede pasar
+ * desapercibido.
+ */
+export function EstadoActualizacion({
+  fase,
+  texto,
+  alDia,
+  instalar,
+  mirar,
+}: {
+  fase: Fase;
+  texto: string;
+  alDia: boolean;
+  instalar: (update: Update) => void;
+  mirar: () => void;
+}) {
+  const t = useT();
+  const callado = alDia || fase.tipo === "quieto" || fase.tipo === "mirando";
+
+  if (callado) {
+    return (
+      <button
+        type="button"
+        onClick={mirar}
+        disabled={fase.tipo === "mirando"}
+        title={texto || t("Buscar")}
+        aria-label={texto || t("Buscar")}
+        className="flex size-7 items-center justify-center rounded-lg transition-colors hover:bg-realce"
+      >
+        {alDia ? (
+          <Check className="size-4 text-emerald-400" />
+        ) : (
+          <RefreshCw
+            className={`size-3.5 text-apagado ${fase.tipo === "mirando" ? "animate-spin" : ""}`}
+          />
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span
+        className={`truncate text-[11.5px] ${
+          fase.tipo === "error" ? "text-red-400/90" : "text-apagado"
+        }`}
+      >
+        {texto}
+      </span>
+      <BotonActualizar fase={fase} instalar={instalar} mirar={mirar} />
+    </span>
+  );
 }
 
 /**

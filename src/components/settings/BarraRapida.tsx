@@ -1,9 +1,9 @@
-import { Check, Compass, Monitor, Moon, Sun } from "lucide-react";
+import { Compass, Monitor, Moon, Sun } from "lucide-react";
 import { Segmented } from "../ui/Segmented";
 import { aplicarIdioma, useT } from "../../lib/i18n";
 import { aplicarTema } from "../../lib/tema";
 import type { CaptureFlow, Language, Settings, Theme } from "../../lib/types";
-import { BotonActualizar, useActualizacion } from "./Actualizacion";
+import { EstadoActualizacion, useActualizacion } from "./Actualizacion";
 
 interface Props {
   settings: Settings;
@@ -101,16 +101,14 @@ export function BarraRapida({ settings, patch, version, recienActualizado, onTou
 
       {/* Lo de actualizar vive aquí y ya no en la sección «La app»: es un estado que hay
           que poder mirar de un vistazo, no un ajuste que se va a buscar. */}
-      <span className="ms-auto flex min-w-0 items-center gap-2">
-        {alDia && <Check className="size-3.5 shrink-0 text-emerald-400" />}
-        <span
-          className={`truncate text-[11.5px] ${
-            fase.tipo === "error" ? "text-red-400/90" : alDia ? "text-emerald-400/90" : "text-apagado"
-          }`}
-        >
-          {texto}
-        </span>
-        <BotonActualizar fase={fase} instalar={instalar} mirar={() => void mirar(true)} />
+      <span className="ms-auto flex min-w-0 items-center">
+        <EstadoActualizacion
+          fase={fase}
+          texto={texto}
+          alDia={alDia}
+          instalar={instalar}
+          mirar={() => void mirar(true)}
+        />
       </span>
     </footer>
   );
