@@ -274,6 +274,7 @@ export const EN: Record<string, string> = {
   "Motor FFmpeg": "FFmpeg engine",
   "preparando la reproducción…": "getting playback ready…",
   "Preparando la reproducción…": "Getting playback ready…",
+  "una captura no se reproduce": "a screenshot does not play",
   "No se ha podido preparar la reproducción": "Playback could not be prepared",
   "No se ha podido reproducir": "It cannot play",
   "el vídeo de vista previa no se ha podido abrir": "the preview video would not open",

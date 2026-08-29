@@ -83,6 +83,9 @@ const cuenta = bandera("cuenta", null);
 const anclada = bandera("anclada", null);
 // Y otro que hará de fotograma del editor, con una sesión de mentira alrededor.
 const editor = bandera("editor", null);
+// El editor de una CAPTURA, que es un solo fotograma y no se reproduce: sale sin tira de
+// miniaturas y sin nada que prometa un vídeo. Es otra pantalla y hay que poder mirarla.
+const fija = args.includes("--fija");
 // Un marco de recorte ya colocado dentro del editor: "x,y,ancho,alto" en píxeles de la foto.
 const recorte = bandera("recorte", null);
 // En vez de una foto, escupe el DOM ya montado. Para cuando lo que falla no se ve mirando:
@@ -150,16 +153,16 @@ const SESION = {
   id: "vista",
   region: { x: 0, y: 0, ...REGION },
   fps: 30,
-  frameCount: 40,
-  durationMs: 1333,
+  frameCount: fija ? 1 : 40,
+  durationMs: fija ? 0 : 1333,
   hasAudio: true,
   hasClicks: true,
   cursorBaked: false,
-  format: "video",
+  format: fija ? "still" : "video",
   mp4Path: null,
 };
 
-const FOTOGRAMAS = Array.from({ length: 40 }, (_, i) => ({
+const FOTOGRAMAS = Array.from({ length: fija ? 1 : 40 }, (_, i) => ({
   index: i,
   timestampMs: Math.round((i * 1000) / 30),
   durationMs: 33,

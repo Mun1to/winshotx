@@ -410,7 +410,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               explicación es indistinguible de un botón roto: es literalmente lo que pasó
               el 29 de agosto de 2026, «sigue sin dejarme darle al play».
             */}
-            {!videoUrl && (
+            {!videoUrl && session.format !== "still" && (
               <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2">
                 <span className="rounded-full bg-black/75 px-3 py-1 text-[11px] text-neutral-300 backdrop-blur-md">
                   {previaFallida
@@ -433,7 +433,13 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 type="button"
                 onClick={togglePlay}
                 disabled={!videoUrl}
-                title={videoUrl ? undefined : t("preparando la reproducción…")}
+                title={
+                  videoUrl
+                    ? undefined
+                    : session.format === "still"
+                      ? t("una captura no se reproduce")
+                      : t("preparando la reproducción…")
+                }
                 aria-label={playing ? t("Pausar") : t("Reproducir")}
                 className="flex size-7 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white/10"
               >

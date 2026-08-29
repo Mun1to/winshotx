@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 /** Una captura vertical, que es donde el desajuste de las capas se veía a simple vista. */
 const VERTICAL = { x: 0, y: 0, width: 600, height: 1000 };
 
-function preparar(region = VERTICAL, mp4Path: string | null = null) {
+function preparar(region = VERTICAL, mp4Path: string | null = null, format = "still") {
   responde("session_info", {
     id: "s1",
     region,
@@ -30,7 +30,7 @@ function preparar(region = VERTICAL, mp4Path: string | null = null) {
     frameCount: 3,
     durationMs: 100,
     hasAudio: false,
-    format: "still",
+    format,
     mp4Path,
   });
   responde("session_frames", [
@@ -45,6 +45,14 @@ function preparar(region = VERTICAL, mp4Path: string | null = null) {
 /** El editor carga por `invoke`, así que hay que esperar a que deje de decir «preparando». */
 async function abrir(region = VERTICAL) {
   preparar(region);
+  const vista = render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+  return vista;
+}
+
+/** Lo mismo, pero con lo rescatado del anillo: una grabación a la que le falta el vídeo. */
+async function abrirRescatada() {
+  preparar(VERTICAL, null, "mp4");
   const vista = render(<EditorApp sessionId="s1" />);
   await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
   return vista;
@@ -146,7 +154,7 @@ describe("el botón de reproducir", () => {
   const play = () => screen.getByRole("button", { name: /Reproducir|Play/ });
 
   it("sin vídeo todavía, no promete lo que no puede hacer", async () => {
-    await abrir();
+    await abrirRescatada();
     expect(play()).toBeDisabled();
     expect(play()).toHaveAttribute("title", "preparando la reproducción…");
   });
@@ -161,12 +169,12 @@ describe("el botón de reproducir", () => {
   it("mientras no está, se dice que está en camino", async () => {
     // Un botón apagado y callado es indistinguible de uno roto. Esta frase es toda la
     // diferencia entre «espera unos segundos» y «esto no funciona».
-    await abrir();
+    await abrirRescatada();
     expect(screen.getByText("Preparando la reproducción…")).toBeInTheDocument();
   });
 
   it("cuando avisan de que ya está, se enciende solo", async () => {
-    await abrir();
+    await abrirRescatada();
     expect(play()).toBeDisabled();
 
     responde("session_info", {
@@ -186,13 +194,13 @@ describe("el botón de reproducir", () => {
   });
 
   it("el aviso de otra sesión no lo toca", async () => {
-    await abrir();
+    await abrirRescatada();
     emite("winshotx://session-preview", { sessionId: "otra", porCiento: 100, listo: true, fallida: false });
     expect(play()).toBeDisabled();
   });
 
   it("y si la vista previa no sale, lo dice en vez de esperar para siempre", async () => {
-    await abrir();
+    await abrirRescatada();
     emite("winshotx://session-preview", { sessionId: "s1", porCiento: 0, listo: false, fallida: true });
     await waitFor(() =>
       expect(screen.getByText("No se ha podido preparar la reproducción")).toBeInTheDocument(),
@@ -200,12 +208,21 @@ describe("el botón de reproducir", () => {
   });
 
   it("y mientras se escribe, dice por dónde va", async () => {
-    await abrir();
+    await abrirRescatada();
     emite("winshotx://session-preview", { sessionId: "s1", porCiento: 45, listo: false, fallida: false });
     await waitFor(() =>
       expect(screen.getByText("Preparando la reproducción… 45%")).toBeInTheDocument(),
     );
     expect(play()).toBeDisabled();
+  });
+
+  it("una captura fija no promete ninguna reproducción", async () => {
+    // Una captura es un fotograma y ya: ahí no viene ningún vídeo por detrás, así que
+    // decir «preparando la reproducción» sería esperar algo que no existe.
+    await abrir();
+    expect(screen.queryByText("Preparando la reproducción…")).toBeNull();
+    expect(play()).toBeDisabled();
+    expect(play()).toHaveAttribute("title", "una captura no se reproduce");
   });
 
   it("pulsarlo le habla al vídeo, en el mismo clic", async () => {
