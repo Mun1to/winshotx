@@ -111,6 +111,8 @@ where
     // Media Foundation cuenta el tiempo en unidades de 100 nanosegundos.
     let mut timestamp: i64 = 0;
     let mut enviado: usize = 0;
+    // El ultimo que se mando, para poder mandarlo otra vez al final. Ver abajo.
+    let mut ultimo: Option<Vec<u8>> = None;
     for (position, index) in indices.iter().enumerate() {
         progress("encoding", position, total);
         let frame = loader(*index)?;
@@ -130,6 +132,7 @@ where
             .map_err(|e| AppError::Msg(e.to_string()))?;
         let dura = delays_ms.get(position).copied().unwrap_or(33);
         timestamp += dura as i64 * 10_000;
+        ultimo = Some(buffer);
 
         // El sonido va detras de cada fotograma, en el trozo que le toca por duracion. De
         // una tacada al final tambien valdria (el codificador coloca el audio contando
@@ -143,6 +146,24 @@ where
                 enviado = hasta;
             }
         }
+    }
+
+    // El ultimo fotograma se manda DOS veces, la segunda en el instante en que acaba.
+    //
+    // Media Foundation solo sabe cuando empieza cada fotograma; el ultimo lo termina donde
+    // manda la velocidad declarada, o sea a los 33 milisegundos, sin importar lo que
+    // durara de verdad. Con mil fotogramas eso se pierde en el redondeo, pero una pantalla
+    // quieta se guarda en UN fotograma que dura tres segundos: el video salia de 66
+    // milisegundos, o sea vacio. Se ve al rescatar los ultimos segundos de algo parado, y
+    // tambien al exportar una grabacion en la que no se movio nada.
+    //
+    // Mandarlo otra vez en `timestamp` (que ya ha avanzado su duracion) le da a Media
+    // Foundation el final de verdad. Es un fotograma identico al anterior, asi que al
+    // comprimirlo no ocupa practicamente nada.
+    if let Some(buffer) = ultimo {
+        encoder
+            .send_frame_buffer(&buffer, timestamp)
+            .map_err(|e| AppError::Msg(e.to_string()))?;
     }
 
     // Y lo que quede sonando cuando ya no hay mas fotogramas.
