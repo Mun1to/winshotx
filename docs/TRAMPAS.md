@@ -548,3 +548,42 @@ encontrado el elemento`, y con las dos pruebas del portapapeles corriendo a la v
 **El arreglo:** `raw::set_file_list` y despues `raw::set_string_with(&ruta,
 options::NoClear)`. Comprobado desde OTRO proceso, que es la unica forma de saber que el
 portapapeles quedo bien: `FileDrop, FileNameW, FileName, UnicodeText, Text`.
+
+## 25. Chrome no fotografia una ventana de menos de 500 px, y no lo dice
+
+El menu de la bandeja mide **284 px** de ancho (`tray_menu::MENU_ANCHO`). Al fotografiarlo con
+`pnpm ver --menu --ancho=284`, la foto salia con la mitad derecha vacia: sin la version, sin el
+interruptor del anillo y sin los atajos. Parecia un fallo de la ventana.
+
+No lo era. **Chrome tiene un ancho minimo de ventana de unos 500 px**, asi que a
+`--window-size=284,420` pinta la pagina a 500 y despues recorta la imagen a 284. Todo lo que
+estaba a la derecha existia, pero se quedaba fuera del recorte. Se comprobo con `--dump-dom`:
+el HTML llevaba la version, el atajo y el `role="switch"` en su sitio.
+
+**Como se fotografia una ventana estrecha:** `--escala=2` le pide a Chrome 568 px fisicos, que
+si respeta, con `--force-device-scale-factor=2` para que la pagina se pinte a 284 CSS. La foto
+sale al doble de resolucion y representa la ventana de verdad.
+
+**Lo que casi pasa:** estuve a punto de "arreglar" el menu anadiendo `min-w-0` a unas clases
+que no tenian ningun problema. El cambio se revirtio. **Antes de arreglar lo que se ve mal en
+una captura, hay que comprobar que la captura esta bien hecha**, y el DOM es la forma barata de
+saberlo: si el dato esta en el HTML, el fallo es de como se mira.
+
+## 26. Un ajuste que no lee nadie es una mentira que pasa las pruebas
+
+`play_sound` llevaba versiones en la pantalla de ajustes: se guardaba, se leia al arrancar, se
+sincronizaba entre ventanas y tenia su interruptor. Lo unico que no hacia era sonar, porque
+**ninguna linea del proyecto lo consultaba**. Munir, el 30 de agosto de 2026: *«y no suena
+ningun sonido xd»*.
+
+Nada lo detectaba: las pruebas comprobaban que el ajuste se guardaba y se leia, que es
+exactamente lo que hacia bien.
+
+**Como se caza:** `grep` de cada nombre de ajuste en todo el arbol y mirar cuantos sitios lo
+usan **aparte** de la pantalla que lo pinta y del archivo que lo guarda. Si son cero, ese
+interruptor no hace nada. Se auditaron los 31 y solo fallaba este.
+
+**El arreglo, para la proxima:** `platform/sonido.rs` toca un WAV incrustado con `include_bytes!`
+usando `PlaySoundW`, que ya viene con Windows. Cero dependencias nuevas y 12 KB de instalador.
+Y una prueba comprueba la cabecera del WAV, porque `PlaySoundW` **solo sabe PCM**: un mp3
+renombrado a `.wav` no sonaria y no daria ningun error.
