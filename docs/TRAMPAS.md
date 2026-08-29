@@ -404,3 +404,53 @@ Y dos cosas mas que salieron de la misma medicion:
 Bilineal y no Lanczos3 **a proposito**: Lanczos3 sirve para REDUCIR, donde hay que promediar
 muchos pixeles en uno. Ampliando, sus lobulos negativos dejan halos en los bordes con
 contraste. Reduciendo se sigue usando el de `image`.
+
+## 19. Media Foundation acaba el video en el ULTIMO fotograma, no cuando acaba
+
+Rescatar treinta segundos de una pantalla quieta daba un video de **66 milisegundos**. No
+era el anillo (la sesion decia 3000 ms, correctos, y los fotogramas estaban), ni el
+reproductor: era el codificador.
+
+`VideoEncoder::send_frame_buffer(buffer, timestamp)` dice cuando **empieza** cada
+fotograma, y nada mas. Media Foundation termina el archivo un `1/fps` despues del ultimo
+que reciba. Con mil fotogramas eso son 33 milisegundos perdidos al final, invisibles. Con
+una pantalla quieta, que el cache guarda en UN fotograma que dura tres segundos, se pierde
+el video entero.
+
+**El arreglo:** mandar el ultimo fotograma **dos veces**, la segunda en el instante en que
+deberia acabar. Es identico al anterior, asi que al comprimirlo no ocupa nada.
+
+**Como se encontro:** con el test `el_anillo_traga_la_pantalla_de_verdad`, que captura la
+pantalla de verdad y lee la duracion de la cabecera `mvhd` del MP4 escrito. Ninguna prueba
+sintetica lo habria visto, porque todas mandaban fotogramas de 33 ms. La que lo vio fue la
+que se encontro un escritorio parado.
+
+Afecta igual a exportar: una grabacion en la que no se movio nada salia corta.
+
+## 20. Un boton apagado que no lo parece es un boton roto
+
+Lo rescatado del anillo abre el editor **antes** de tener el video de vista previa, que se
+escribe por detras. El boton de reproducir se ponia `disabled` mientras tanto, con un
+`title` que lo explicaba. Y aun asi, Munir lo pulso, no paso nada, y lo dio por roto: el
+`title` hay que descubrirlo dejando el raton quieto encima, y la clase del boton no tenia
+ningun `disabled:` que lo apagara. Se veia **exactamente igual** que uno que funciona.
+
+Tres cosas salieron de ahi, y las tres valen para cualquier boton de la app:
+
+1. **Un `disabled` sin estilo `disabled:` no existe.** Los botones de deshacer de la barra
+   de anotar ya llevaban `disabled:opacity-30`; este no.
+2. **Un `title` no es un aviso**, es una nota al pie. Lo que hay que esperar se dice en
+   pantalla, y si se sabe cuanto falta, con el numero.
+3. **Un aviso que solo se manda cuando algo sale bien deja el fallo invisible.** El evento
+   de «ya esta la vista previa» ahora se manda tambien cuando no ha salido.
+
+Y una cuarta, del mismo dia: **`video.play()` se pide desde el clic, no desde un efecto.**
+Lanzado desde un `useEffect` que corre despues, llega fuera del gesto de la persona y el
+navegador puede rechazarlo; encima devuelve una promesa que se estaba tragando un
+`.catch(() => undefined)`. Ahora sale del propio manejador del boton y el motivo se ensenna.
+
+**Como se investigo, para la proxima vez que algo «no responde» dentro de una webview:**
+el arbol de accesibilidad de Windows (UI Automation) lee el estado real de los controles de
+una ventana de Tauri **sin tocarla**: `AutomationElement` filtrando por `ProcessId`, y cada
+boton dice su `Name` y su `IsEnabled`. Asi se supo, sin preguntar y sin abrir nada, que en
+ese momento el boton ya estaba habilitado y que el fallo habia sido la espera de antes.
