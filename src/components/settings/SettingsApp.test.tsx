@@ -11,13 +11,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { responde } from "../../test/preparar";
-import type { Settings } from "../../lib/types";
+import type { ReplayStatus, Settings } from "../../lib/types";
+
+/** El anillo apagado, que es como viene winshotx de fabrica. */
+const PARADO: ReplayStatus = {
+  running: false,
+  seconds: 0,
+  screen: 0,
+  screenLabel: "",
+  bytes: 0,
+  bufferedMs: 0,
+};
 
 const AJUSTES: Settings = {
   captureShortcut: "Ctrl+Shift+2",
   theme: "sistema",
   language: "sistema",
   recordShortcut: "Ctrl+Shift+5",
+  replayShortcut: "Ctrl+Shift+6",
   saveDirectory: "C:\\Users\\prueba\\Pictures\\winshotx",
   copyAfterCapture: true,
   openEditorAfterRecording: true,
@@ -27,6 +38,8 @@ const AJUSTES: Settings = {
   highlightClicks: false,
   highlightKeys: false,
   fps: 30,
+  replayEnabled: false,
+  replaySeconds: 30,
   playSound: true,
   showMagnifier: true,
   startWithWindows: false,
@@ -41,17 +54,19 @@ const AJUSTES: Settings = {
 };
 
 /** Monta los ajustes con Rust contestando datos de mentira, y espera a que carguen. */
-async function abrirAjustes() {
+async function abrirAjustes(replay?: ReplayStatus) {
   responde("get_settings", AJUSTES);
   responde("shortcut_status", {
     capture: true,
     record: true,
+    replay: true,
     printScreen: false,
     winShiftS: false,
   });
   responde("cache_stats", { bytes: 12_345_678, sessions: 3 });
   responde("print_screen_state", { enabled: false, active: false });
   responde("just_updated", false);
+  responde("replay_status", replay ?? PARADO);
   render(<SettingsApp onVerBienvenida={vi.fn()} />);
   // La pantalla se pinta vacia y se rellena cuando contesta Rust.
   await waitFor(() => expect(screen.getByRole("button", { name: /Capturar|Capture/ })).toBeInTheDocument());
@@ -137,5 +152,67 @@ describe("lo que ensenna de la maquina, en «La app»", () => {
   it("y el numero de version, que es lo primero que se mira al reportar un fallo", async () => {
     await irALaApp();
     expect(screen.getByText(/^Versión \d+\.\d+\.\d+$/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Los ultimos segundos es la unica funcion que trabaja sin que nadie se lo haya pedido en
+ * ese momento, asi que lo que se comprueba aqui es que la pantalla lo CUENTE: que esta
+ * encendido, sobre que pantalla y con cuanto guardado. Un interruptor mudo seria peor que
+ * no tener la funcion.
+ */
+describe("los ultimos segundos, en «Grabar»", () => {
+  async function irAGrabar(replay?: ReplayStatus) {
+    await abrirAjustes(replay);
+    // El nombre del boton cambia con el idioma, y una de estas pruebas va en ingles.
+    fireEvent.click(screen.getByRole("button", { name: /^(Grabar|Record)$/ }));
+  }
+
+  const CORRIENDO: ReplayStatus = {
+    running: true,
+    seconds: 30,
+    screen: 2,
+    screenLabel: "DELL U2723QE",
+    bytes: 48_234_496,
+    bufferedMs: 30_000,
+  };
+
+  it("apagado, explica lo que va a hacer antes de que nadie lo encienda", async () => {
+    await irAGrabar();
+    expect(screen.getByText("Los últimos segundos")).toBeInTheDocument();
+    expect(screen.getByText(/graba sin parar y tira lo viejo/)).toBeInTheDocument();
+  });
+
+  it("encendido, dice que pantalla vigila y cuanto esta ocupando", async () => {
+    await irAGrabar(CORRIENDO);
+    expect(screen.getByText(/DELL U2723QE/)).toBeInTheDocument();
+    expect(screen.getByText(/46[,.]0 MB/)).toBeInTheDocument();
+  });
+
+  it("si hay menos de lo que promete el ajuste, dice cuanto hay de verdad", async () => {
+    // Pasa mientras se llena, y pasa para siempre en una pantalla que cambia tanto que el
+    // tope de disco tira lo viejo antes de tiempo. Prometer treinta y dar ocho seria
+    // mentir justo cuando alguien va a pulsar la tecla.
+    await irAGrabar({ ...CORRIENDO, bufferedMs: 8_400 });
+    expect(screen.getByText(/ahora mismo hay 8 s guardados/)).toBeInTheDocument();
+  });
+
+  it("apagado, la tecla no promete nada que no vaya a pasar", async () => {
+    await irAGrabar();
+    expect(screen.getByText("primero hay que encenderlo aquí arriba")).toBeInTheDocument();
+  });
+
+  it("en ingles no se cuela ni una palabra en castellano", async () => {
+    aplicarIdioma("en");
+    await irAGrabar(CORRIENDO);
+    const pantalla = document.body.textContent ?? "";
+    const coladas = [
+      "Los últimos segundos",
+      "Grabar siempre",
+      "Cuánto se guarda",
+      "Quedarme con",
+      "vigilando",
+    ].filter((frase) => pantalla.includes(frase));
+    expect(coladas).toEqual([]);
   });
 });

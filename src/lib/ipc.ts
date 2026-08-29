@@ -7,6 +7,7 @@ import type {
   OverlayPayload,
   Rect,
   RecordOptions,
+  ReplayStatus,
   SessionInfo,
   PrintScreenState,
   Settings,
@@ -89,6 +90,12 @@ export const justUpdated = () => invoke<boolean>("just_updated");
 export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
 
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
+
+/** Cómo va el anillo de los últimos segundos. */
+export const replayStatus = () => invoke<ReplayStatus>("replay_status");
+
+/** Quedarse con lo último que pasó. Lo mismo que hace la tecla. */
+export const replaySave = () => invoke<void>("replay_save");
 
 /** Le quita la tecla Impr Pant a la Herramienta de Recortes, o se la devuelve. */
 export const usePrintScreen = (enabled: boolean) =>

@@ -52,6 +52,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   const [atajos, setAtajos] = useState<ShortcutStatus>({
     capture: true,
     record: true,
+    replay: false,
     printScreen: false,
     winShiftS: false,
   });

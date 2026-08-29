@@ -11,6 +11,7 @@ import {
   FolderOpen,
   Gauge,
   HardDrive,
+  History,
   Keyboard,
   Languages,
   Mic,
@@ -36,6 +37,7 @@ import {
   useWinShiftS,
   printScreenState,
   quitApp,
+  replayStatus,
   restartShell,
   setSettings,
   shortcutStatus,
@@ -49,6 +51,7 @@ import {
   type CacheStats,
   type CaptureFlow,
   type PrintScreenState,
+  type ReplayStatus,
   type Settings,
   type Theme,
   type Language,
@@ -69,6 +72,18 @@ const FPS_OPTIONS = [
   { value: 15, label: "15 fps" },
   { value: 30, label: "30 fps" },
   { value: 60, label: "60 fps" },
+];
+
+/**
+ * Cuanto guarda hacia atras el anillo.
+ *
+ * Tres valores y no una casilla donde escribir un numero: aqui no se elige un numero, se
+ * elige entre «lo que acaba de pasar», «la jugada entera» y «el minuto malo».
+ */
+const SEGUNDOS_ATRAS = [
+  { value: 15, label: "15 s" },
+  { value: 30, label: "30 s" },
+  { value: 60, label: "60 s" },
 ];
 
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
@@ -123,8 +138,17 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const [shortcuts, setShortcuts] = useState<ShortcutStatus>({
     capture: true,
     record: true,
+    replay: false,
     printScreen: false,
     winShiftS: false,
+  });
+  const [replay, setReplay] = useState<ReplayStatus>({
+    running: false,
+    seconds: 0,
+    screen: 0,
+    screenLabel: "",
+    bytes: 0,
+    bufferedMs: 0,
   });
   const [cache, setCache] = useState<CacheStats>({ bytes: 0, sessions: 0 });
   const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
@@ -140,6 +164,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     void shortcutStatus().then(setShortcuts);
     void cacheStats().then(setCache);
     void printScreenState().then(setImprPant);
+    void replayStatus()
+      .then((estado) => estado && setReplay(estado))
+      .catch(() => {
+        // Una compilacion sin este comando: la fila sale como si estuviera apagado.
+      });
   }, []);
 
   // Cerrar los ajustes solo esconde la ventana, nunca la destruye, asi que esto se
@@ -163,8 +192,13 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
       refrescar();
       setError(null);
     });
+    // El anillo cambia por su cuenta: se enciende al arrancar la app, va llenandose y
+    // guarda cuando alguien pulsa la tecla. Preguntando solo al abrir la ventana, la
+    // fila se quedaria contando lo de hace un rato.
+    const unReplay = listen<ReplayStatus>(EVENTS.replay, (evento) => setReplay(evento.payload));
     return () => {
       void unlisten.then((fn) => fn());
+      void unReplay.then((fn) => fn());
     };
   }, [refrescar]);
 
@@ -187,7 +221,18 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
         window.setTimeout(() => setSaved(false), 1200);
         return shortcutStatus().then(setShortcuts);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => {
+        setError(String(e));
+        // Rust puede haber rechazado parte del cambio (encender el anillo y no poder).
+        // Sin releer, el interruptor se quedaria en «si» sobre algo que no esta pasando.
+        void getSettings().then((frescos) => {
+          ultimo.current = frescos;
+          setLocal(frescos);
+        });
+        void replayStatus()
+          .then((estado) => estado && setReplay(estado))
+          .catch(() => {});
+      });
   }, []);
 
   const cambiarImprPant = useCallback(async (quiere: boolean) => {
@@ -451,6 +496,70 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                         checked={settings.recordMicrophone}
                         onChange={(v) => patch({ recordMicrophone: v })}
                         label={t("Micrófono")}
+                      />
+                    }
+                  />
+                </Section>
+
+
+                {/* Los ultimos segundos. Es la unica funcion de winshotx que trabaja sin
+                    que nadie se lo haya pedido en ese momento, asi que la fila dice
+                    siempre que esta haciendo, que pantalla mira y cuanto ocupa. Un
+                    interruptor que solo dijera «si» no seria honesto. */}
+                <Section title={t("Los últimos segundos")}>
+                  <Row
+                    icon={<History className="size-4" />}
+                    label={t("Grabar siempre lo último")}
+                    hint={
+                      replay.running
+                        ? t("vigilando {pantalla} · {tamaño} en disco", {
+                            pantalla: replay.screenLabel || t("la pantalla {n}", { n: replay.screen }),
+                            "tamaño": formatBytes(replay.bytes),
+                          })
+                        : t("graba sin parar y tira lo viejo, para poder rescatar lo último")
+                    }
+                    tone={replay.running ? "ok" : "normal"}
+                    control={
+                      <Switch
+                        checked={settings.replayEnabled}
+                        onChange={(v) => patch({ replayEnabled: v })}
+                        label={t("Grabar siempre lo último")}
+                      />
+                    }
+                  />
+                  <Row
+                    icon={<Timer className="size-4" />}
+                    label={t("Cuánto se guarda")}
+                    hint={t("a 15 fotogramas por segundo, para no comerse el disco")}
+                    stacked
+                    control={
+                      <Segmented
+                        value={settings.replaySeconds}
+                        options={SEGUNDOS_ATRAS}
+                        onChange={(v) => patch({ replaySeconds: v })}
+                      />
+                    }
+                  />
+                  <Row
+                    icon={<Video className="size-4" />}
+                    label={t("Quedarme con lo último")}
+                    hint={
+                      !replay.running
+                        ? t("primero hay que encenderlo aquí arriba")
+                        : replay.bufferedMs < settings.replaySeconds * 1000
+                          ? t("ahora mismo hay {n} s guardados", {
+                              n: Math.floor(replay.bufferedMs / 1000),
+                            })
+                          : shortcuts.replay
+                            ? t("abre el editor con lo último, sin dejar de grabar")
+                            : t("esa combinación está ocupada")
+                    }
+                    tone={replay.running && !shortcuts.replay ? "warn" : "normal"}
+                    control={
+                      <ShortcutField
+                        value={settings.replayShortcut}
+                        active={shortcuts.replay}
+                        onChange={(v) => patch({ replayShortcut: v })}
                       />
                     }
                   />

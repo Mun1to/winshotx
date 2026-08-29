@@ -51,6 +51,22 @@ export const EN: Record<string, string> = {
   "Al terminar": "When it ends",
   "Abrir el editor al terminar": "Open the editor when it ends",
 
+  // Los ultimos segundos
+  "Los últimos segundos": "The last few seconds",
+  "Grabar siempre lo último": "Always be recording",
+  "graba sin parar y tira lo viejo, para poder rescatar lo último":
+    "records non-stop and drops the old, so you can rescue what just happened",
+  "vigilando {pantalla} · {tamaño} en disco": "watching {pantalla} · {tamaño} on disk",
+  "la pantalla {n}": "screen {n}",
+  "Cuánto se guarda": "How much it keeps",
+  "Quedarme con lo último": "Keep what just happened",
+  "primero hay que encenderlo aquí arriba": "turn it on above first",
+  "ahora mismo hay {n} s guardados": "{n} s kept right now",
+  "a 15 fotogramas por segundo, para no comerse el disco":
+    "at 15 frames per second, so it does not eat your disk",
+  "abre el editor con lo último, sin dejar de grabar":
+    "opens the editor with the last bit, and keeps recording",
+
   // Teclas de Windows
   "Las teclas de captura de Windows": "Windows' own capture keys",
   "Impr Pant": "Print Screen",

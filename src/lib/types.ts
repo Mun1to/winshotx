@@ -184,6 +184,8 @@ export interface Settings {
   /** Español, inglés, o el idioma de Windows. */
   language: Language;
   recordShortcut: string;
+  /** La tecla que se queda con lo que ACABA de pasar. */
+  replayShortcut: string;
   saveDirectory: string;
   copyAfterCapture: boolean;
   openEditorAfterRecording: boolean;
@@ -196,6 +198,10 @@ export interface Settings {
   /** Enseñar los atajos que se pulsan. Solo atajos, nunca una tecla suelta. */
   highlightKeys: boolean;
   fps: number;
+  /** Grabar siempre la pantalla en un anillo, para poder quedarse con lo último. */
+  replayEnabled: boolean;
+  /** Cuántos segundos guarda ese anillo hacia atrás. */
+  replaySeconds: number;
   playSound: boolean;
   showMagnifier: boolean;
   startWithWindows: boolean;
@@ -216,9 +222,27 @@ export interface Settings {
 export interface ShortcutStatus {
   capture: boolean;
   record: boolean;
+  /** La de los últimos segundos. Solo se pide mientras el anillo está encendido. */
+  replay: boolean;
   printScreen: boolean;
   /** Si el escritorio ha soltado ya Win+Mayús+S. Se puede pedir y no conseguir. */
   winShiftS: boolean;
+}
+
+/** Cómo va el anillo de los últimos segundos. */
+export interface ReplayStatus {
+  running: boolean;
+  seconds: number;
+  /** Qué pantalla vigila, empezando por 1, y cómo se llama. */
+  screen: number;
+  screenLabel: string;
+  /** Lo que ocupa ahora mismo en disco. */
+  bytes: number;
+  /**
+   * Cuánto lleva grabado. Hasta que no llega a la ventana entera, lo que se guarde durará
+   * menos de lo que pone el ajuste, y quien lo pulse tiene derecho a saberlo antes.
+   */
+  bufferedMs: number;
 }
 
 export interface PrintScreenState {
@@ -247,6 +271,8 @@ export const EVENTS = {
   checkUpdate: "winshotx://check-update",
   /** La ventana de ajustes vuelve a estar a la vista: toca refrescar lo de dentro. */
   settingsShown: "winshotx://settings-shown",
+  /** El anillo de los últimos segundos se ha encendido, apagado o ha guardado algo. */
+  replay: "winshotx://replay",
   /**
    * Lo que hay elegido en la barra del overlay.
    *
