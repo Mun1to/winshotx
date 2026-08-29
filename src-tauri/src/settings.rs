@@ -53,6 +53,11 @@ pub enum Theme {
 pub struct Settings {
     pub capture_shortcut: String,
     pub record_shortcut: String,
+    /// La tecla que se queda con lo que ACABA de pasar. Va aparte del atajo de grabar
+    /// porque hace lo contrario: aquel decide que se empieza a grabar, y este se lleva algo
+    /// que ya se grabo.
+    #[serde(default = "atajo_de_repeticion")]
+    pub replay_shortcut: String,
     pub save_directory: String,
     pub capture_flow: CaptureFlow,
     /// Claro, oscuro, o lo que diga Windows.
@@ -73,6 +78,15 @@ pub struct Settings {
     #[serde(default)]
     pub highlight_keys: bool,
     pub fps: u32,
+    /// Grabar siempre la pantalla en un anillo, para poder quedarse con lo ultimo que paso.
+    ///
+    /// Cuesta disco y maquina todo el rato, asi que viene apagado y se enciende a mano:
+    /// es la unica funcion de winshotx que trabaja cuando nadie se lo ha pedido.
+    #[serde(default)]
+    pub replay_enabled: bool,
+    /// Cuantos segundos guarda el anillo hacia atras.
+    #[serde(default = "segundos_de_repeticion")]
+    pub replay_seconds: u32,
     pub play_sound: bool,
     pub show_magnifier: bool,
     pub start_with_windows: bool,
@@ -113,6 +127,7 @@ impl Default for Settings {
         Self {
             capture_shortcut: "CmdOrCtrl+Shift+2".into(),
             record_shortcut: "CmdOrCtrl+Shift+5".into(),
+            replay_shortcut: atajo_de_repeticion(),
             save_directory: default_save_dir(),
             capture_flow: CaptureFlow::Toolbar,
             theme: Theme::Sistema,
@@ -125,6 +140,8 @@ impl Default for Settings {
             highlight_clicks: false,
             highlight_keys: false,
             fps: 30,
+            replay_enabled: false,
+            replay_seconds: segundos_de_repeticion(),
             play_sound: false,
             show_magnifier: true,
             start_with_windows: false,
@@ -138,6 +155,18 @@ impl Default for Settings {
             disabled_hotkeys_restore: None,
         }
     }
+}
+
+/// Treinta segundos: es lo que dura lo que alguien quiere volver a ver. Menos no llega a
+/// coger lo que acaba de pasar, porque quien lo ve tarda unos segundos en reaccionar, y
+/// mucho mas es tener el disco dando vueltas para nada.
+fn segundos_de_repeticion() -> u32 {
+    30
+}
+
+/// Sigue la serie de las otras dos: capturar es la 2, grabar la 5.
+fn atajo_de_repeticion() -> String {
+    "CmdOrCtrl+Shift+6".into()
 }
 
 fn default_save_dir() -> String {

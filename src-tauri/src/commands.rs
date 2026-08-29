@@ -515,6 +515,19 @@ pub async fn shortcut_status(state: State<'_, AppState>) -> Result<crate::hotkey
     Ok(*state.shortcuts.read())
 }
 
+/// Como va el anillo de los ultimos segundos: si corre, que pantalla vigila y cuanto lleva
+/// grabado. La interfaz lo pregunta al abrirse; despues se entera por el evento.
+#[tauri::command]
+pub async fn replay_status(app: AppHandle) -> Result<crate::replay::ReplayStatus> {
+    Ok(crate::replay::status(&app))
+}
+
+/// Quedarse con lo ultimo que paso. Es lo mismo que hace la tecla.
+#[tauri::command]
+pub async fn replay_save(app: AppHandle) -> Result<()> {
+    crate::replay::save(&app)
+}
+
 /// Lleva al usuario a la lista de aplicaciones de Windows, que es donde se quita la
 /// Herramienta de Recortes si quiere que Win+Mayus+S deje de abrirla.
 #[tauri::command]
@@ -666,6 +679,27 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     let previous = state.settings.read().clone();
     *state.settings.write() = settings.clone();
     crate::settings::save(&app, &settings)?;
+
+    // El anillo de los ultimos segundos se reengancha aqui. Cambiar los segundos tambien
+    // lo reinicia: la ventana se fija al abrirlo y no se puede estirar sobre la marcha sin
+    // tirar lo que ya hay dentro, que es justo lo que nadie quiere que pase.
+    let mut settings = settings;
+    if previous.replay_enabled != settings.replay_enabled
+        || (settings.replay_enabled && previous.replay_seconds != settings.replay_seconds)
+    {
+        crate::replay::stop(&app)?;
+        if settings.replay_enabled {
+            if let Err(error) = crate::replay::start(&app) {
+                // Si no se ha podido encender, el ajuste no puede quedarse diciendo que si:
+                // el interruptor tiene que contar lo que esta pasando de verdad.
+                settings.replay_enabled = false;
+                state.settings.write().replay_enabled = false;
+                crate::settings::save(&app, &settings)?;
+                crate::hotkeys::register(&app, &settings);
+                return Err(error);
+            }
+        }
+    }
 
     // Se registra siempre, aunque la combinacion no haya cambiado: es la unica forma
     // de reintentar cuando el atajo estaba cogido por otra aplicacion y ya se ha

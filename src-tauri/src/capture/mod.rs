@@ -81,22 +81,43 @@ pub struct Freeze {
 /// que cada imagen ya esta en memoria, guardarla a disco no comparte nada entre monitores
 /// (cada uno escribe su propio archivo), asi que eso si se reparte en hilos: mientras se
 /// captura el monitor 2, el monitor 1 ya se puede estar escribiendo en paralelo.
+/// Como es un monitor: donde esta, cuanto mide y como se llama.
+fn describir(index: usize, monitor: &xcap::Monitor) -> Result<MonitorInfo> {
+    Ok(MonitorInfo {
+        id: index as u32,
+        label: monitor
+            .name()
+            .unwrap_or_else(|_| format!("Monitor {}", index + 1)),
+        x: monitor.x().map_err(|e| AppError::Msg(e.to_string()))?,
+        y: monitor.y().map_err(|e| AppError::Msg(e.to_string()))?,
+        width: monitor.width().map_err(|e| AppError::Msg(e.to_string()))?,
+        height: monitor.height().map_err(|e| AppError::Msg(e.to_string()))?,
+        scale: monitor.scale_factor().unwrap_or(1.0),
+        is_primary: monitor.is_primary().unwrap_or(false),
+    })
+}
+
+/// Las pantallas que hay, sin fotografiarlas.
+///
+/// `freeze_all` tambien las enumera, pero de paso captura cada una, que es lo caro. Quien
+/// solo quiere saber donde estan (el anillo de los ultimos segundos, para elegir cual
+/// vigila) no tiene por que pagar eso.
+pub fn monitors() -> Result<Vec<MonitorInfo>> {
+    xcap::Monitor::all()
+        .map_err(|e| AppError::Msg(e.to_string()))?
+        .iter()
+        .enumerate()
+        .map(|(index, monitor)| describir(index, monitor))
+        .collect()
+}
+
 pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
     std::fs::create_dir_all(dir)?;
     let monitors = xcap::Monitor::all().map_err(|e| AppError::Msg(e.to_string()))?;
 
     let mut capturas = Vec::with_capacity(monitors.len());
     for (index, monitor) in monitors.iter().enumerate() {
-        let info = MonitorInfo {
-            id: index as u32,
-            label: monitor.name().unwrap_or_else(|_| format!("Monitor {}", index + 1)),
-            x: monitor.x().map_err(|e| AppError::Msg(e.to_string()))?,
-            y: monitor.y().map_err(|e| AppError::Msg(e.to_string()))?,
-            width: monitor.width().map_err(|e| AppError::Msg(e.to_string()))?,
-            height: monitor.height().map_err(|e| AppError::Msg(e.to_string()))?,
-            scale: monitor.scale_factor().unwrap_or(1.0),
-            is_primary: monitor.is_primary().unwrap_or(false),
-        };
+        let info = describir(index, monitor)?;
         let image = monitor
             .capture_image()
             .map_err(|e| AppError::Msg(e.to_string()))?;

@@ -10,6 +10,8 @@ use crate::settings::Language;
 pub struct Menu {
     pub capturar: &'static str,
     pub grabar: &'static str,
+    /// Solo sale si el anillo de los ultimos segundos esta encendido.
+    pub ultimos: &'static str,
     pub carpeta: &'static str,
     pub ajustes: &'static str,
     pub actualizaciones: &'static str,
@@ -21,6 +23,7 @@ pub fn menu(idioma: Language) -> Menu {
         Language::En => Menu {
             capturar: "Capture a region",
             grabar: "Record a region",
+            ultimos: "Keep the last few seconds",
             carpeta: "Open the shots folder",
             ajustes: "Settings…",
             actualizaciones: "Check for updates…",
@@ -31,6 +34,7 @@ pub fn menu(idioma: Language) -> Menu {
         _ => Menu {
             capturar: "Capturar región",
             grabar: "Grabar región",
+            ultimos: "Quedarme con lo último",
             carpeta: "Abrir la carpeta de capturas",
             ajustes: "Ajustes…",
             actualizaciones: "Buscar actualizaciones…",
@@ -90,6 +94,7 @@ mod tests {
         let es = menu(Language::Es);
         assert_ne!(en.capturar, es.capturar);
         assert_ne!(en.grabar, es.grabar);
+        assert_ne!(en.ultimos, es.ultimos);
         assert_ne!(en.carpeta, es.carpeta);
         assert_ne!(en.ajustes, es.ajustes);
         assert_ne!(en.actualizaciones, es.actualizaciones);

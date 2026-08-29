@@ -20,6 +20,10 @@ pub const WIN_SHIFT_S: &str = "Super+Shift+KeyS";
 pub struct ShortcutStatus {
     pub capture: bool,
     pub record: bool,
+    /// La tecla que se queda con los ultimos segundos. Solo se pide cuando el anillo esta
+    /// encendido: quitarle una combinacion a alguien que no usa la funcion seria cobrarle
+    /// por algo que no ha pedido.
+    pub replay: bool,
     pub print_screen: bool,
     /// Si el shell ha soltado ya `Win+Mayus+S`. Puede estar pedida en los ajustes y no
     /// conseguida: la lista de teclas apagadas no vale hasta que el escritorio la relee.
@@ -117,6 +121,32 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
             } else {
                 status.record = true;
                 puestos.push(shortcut);
+            }
+        }
+    }
+
+    // La tecla de los ultimos segundos solo existe mientras el anillo esta encendido.
+    if settings.replay_enabled {
+        match settings.replay_shortcut.parse::<Shortcut>() {
+            Err(error) => eprintln!("atajo de los ultimos segundos invalido: {error}"),
+            Ok(shortcut) => {
+                let resultado = manager.on_shortcut(shortcut, |app, _shortcut, event| {
+                    if event.state() != ShortcutState::Pressed {
+                        return;
+                    }
+                    if let Err(error) = crate::replay::save(app) {
+                        eprintln!("no se han podido guardar los ultimos segundos: {error}");
+                    }
+                });
+                if let Err(error) = resultado {
+                    eprintln!(
+                        "el atajo de los ultimos segundos {} no se ha podido registrar: {error}",
+                        settings.replay_shortcut
+                    );
+                } else {
+                    status.replay = true;
+                    puestos.push(shortcut);
+                }
             }
         }
     }

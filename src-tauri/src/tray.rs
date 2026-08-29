@@ -18,20 +18,32 @@ fn construir_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>> {
     let settings = MenuItem::with_id(app, "settings", textos.ajustes, true, None::<&str>)?;
     let update = MenuItem::with_id(app, "update", textos.actualizaciones, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", textos.salir, true, None::<&str>)?;
-    Menu::with_items(
-        app,
-        &[
-            &capture,
-            &record,
-            &PredefinedMenuItem::separator(app)?,
-            &folder,
-            &settings,
-            &update,
-            &PredefinedMenuItem::separator(app)?,
-            &quit,
-        ],
-    )
-    .map_err(Into::into)
+
+    // Lo de los ultimos segundos solo aparece mientras el anillo esta encendido: una
+    // entrada permanente que casi siempre diria «no hay nada guardado» seria una entrada
+    // que estorba a todo el mundo para servir a quien la tiene puesta.
+    let ultimos = app
+        .state::<AppState>()
+        .replay
+        .lock()
+        .is_some()
+        .then(|| MenuItem::with_id(app, "replay", textos.ultimos, true, None::<&str>))
+        .transpose()?;
+
+    let separador = PredefinedMenuItem::separator(app)?;
+    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&capture, &record];
+    if let Some(item) = ultimos.as_ref() {
+        items.push(item);
+    }
+    items.extend([
+        &separador as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
+        &folder,
+        &settings,
+        &update,
+        &separador,
+        &quit,
+    ]);
+    Menu::with_items(app, &items).map_err(Into::into)
 }
 
 /// Vuelve a poner el menu, ya en el idioma nuevo. Lo llama el cambio de ajustes: sin esto
@@ -61,6 +73,11 @@ pub fn build(app: &AppHandle) -> Result<()> {
                     let _ = crate::recorder::stop(app);
                 } else {
                     let _ = windows_mgr::open_overlays(app, OverlayIntent::Record);
+                }
+            }
+            "replay" => {
+                if let Err(error) = crate::replay::save(app) {
+                    eprintln!("no se han podido guardar los ultimos segundos: {error}");
                 }
             }
             // Donde acaban las capturas guardadas. Sin esto habia que abrir los ajustes

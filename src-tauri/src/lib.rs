@@ -8,6 +8,7 @@ mod hotkeys;
 mod platform;
 pub mod record;
 mod recorder;
+mod replay;
 mod settings;
 mod state;
 mod textos;
@@ -44,6 +45,15 @@ pub const EVENT_COUNTDOWN: &str = "winshotx://countdown";
 /// arrancar, que es el unico momento en el que se sabe seguro que ninguno esta en uso.
 fn purge_pins(root: &std::path::Path) {
     let _ = std::fs::remove_dir_all(root.join("pins"));
+}
+
+/// Y lo que dejo el anillo de los ultimos segundos, que puede ser mucho.
+///
+/// Se borra al arrancar y no al salir a proposito: si la app se cierra a lo bruto o se
+/// cuelga, nadie llega a limpiar, y ahi dentro hay cientos de megabytes que ya no sirven
+/// para nada. El arranque es el unico momento en el que se sabe que no los usa nadie.
+fn purge_replay(root: &std::path::Path) {
+    let _ = std::fs::remove_dir_all(root.join("replay"));
 }
 
 /// Las sesiones son cache: si llevan un dia en el disco, ya no le importan a nadie.
@@ -108,6 +118,7 @@ pub fn run() {
             std::fs::create_dir_all(temp_root.join("sessions"))?;
             purge_old_sessions(&temp_root);
             purge_pins(&temp_root);
+            purge_replay(&temp_root);
 
             app.manage(AppState::new(config.clone(), temp_root, recien_actualizado));
 
@@ -134,6 +145,15 @@ pub fn run() {
 
             hotkeys::register(&handle, &config);
             tray::build(&handle)?;
+
+            // El anillo de los ultimos segundos vuelve solo si se dejo encendido: es un
+            // ajuste que se pone una vez y se espera encontrar puesto. Si no arranca, se
+            // dice por consola y la app sigue: quedarse sin winshotx por esto seria peor.
+            if config.replay_enabled {
+                if let Err(error) = replay::start(&handle) {
+                    eprintln!("[replay] no se ha podido encender al arrancar: {error}");
+                }
+            }
             // No hay ninguna ventana visible esperando en este momento (la app arranca
             // en la bandeja), asi que crear las ventanas overlay ahora, ocultas, no lo
             // nota nadie: la primera captura del dia encuentra el pool ya listo.
@@ -187,6 +207,8 @@ pub fn run() {
             commands::cache_stats,
             commands::clear_cache,
             commands::shortcut_status,
+            commands::replay_status,
+            commands::replay_save,
             commands::print_screen_state,
             commands::use_print_screen,
             commands::use_win_shift_s,

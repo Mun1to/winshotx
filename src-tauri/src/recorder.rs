@@ -83,7 +83,8 @@ impl From<&SessionData> for SessionInfo {
     }
 }
 
-fn bgra_to_rgba(input: &[u8]) -> Vec<u8> {
+/// La captura de Windows entrega los colores al reves de como los quiere `image`.
+pub(crate) fn bgra_a_rgba(input: &[u8]) -> Vec<u8> {
     let mut out = input.to_vec();
     for pixel in out.chunks_exact_mut(4) {
         pixel.swap(0, 2);
@@ -269,7 +270,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             };
             last_ts = frame.ts_ms;
-            let mut rgba = bgra_to_rgba(&frame.bgra);
+            let mut rgba = bgra_a_rgba(&frame.bgra);
 
             // El aro se pinta en el fotograma que se guarda, no en la pantalla: pintarlo
             // encima del escritorio seria otra ventana transparente, que ademas se colaria
