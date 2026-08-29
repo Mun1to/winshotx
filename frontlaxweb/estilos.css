@@ -618,6 +618,13 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .segmentado.fps { grid-template-columns: repeat(3, 1fr); }
 .segmentado.dos { grid-template-columns: repeat(2, 1fr); }
 .segmentado.cuatro { grid-template-columns: repeat(4, 1fr); }
+/* La otra forma de instalarlo, para quien vive en la terminal. */
+.por-terminal { margin: 10px 0 0; font-size: 12.5px; color: var(--apagado); }
+.por-terminal code {
+  padding: 3px 8px; border: 1px solid var(--borde); border-radius: 7px;
+  background: #ffffff0a; color: var(--suave);
+  font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 /* La barra de las seis marcas, entre la vista previa y la tira de fotogramas. */
 .edi-marcas {
   display: flex; align-items: center; gap: 4px; padding: 6px 10px;

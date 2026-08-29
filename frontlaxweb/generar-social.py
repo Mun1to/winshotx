@@ -93,19 +93,19 @@ def tarjeta(destino, titulo1, titulo2, bajada, datos):
 tarjeta(
     "social.png",
     "Recorta la pantalla", "antes de que parpadees",
-    "Captura y grabación de pantalla para Windows · 2,48 MB · código abierto",
+    "Captura y grabación de pantalla para Windows · 2,49 MB · código abierto",
     [("28 ms", "en abrir", "Recortes: 920 ms"),
      ("33 MB", "capturando", "Recortes: 253 MB"),
      ("31 MB", "en reposo", "Recortes: 98 MB"),
-     ("2,48 MB", "instalador", "sin dependencias")],
+     ("2,49 MB", "instalador", "sin dependencias")],
 )
 
 tarjeta(
     "social-en.png",
     "Crop the screen", "before you blink",
-    "Screenshots and screen recording for Windows · 2.48 MB · open source",
+    "Screenshots and screen recording for Windows · 2.49 MB · open source",
     [("28 ms", "to open", "Snipping Tool: 920 ms"),
      ("33 MB", "capturing", "Snipping Tool: 253 MB"),
      ("31 MB", "idle", "Snipping Tool: 98 MB"),
-     ("2.48 MB", "installer", "nothing bundled")],
+     ("2.49 MB", "installer", "nothing bundled")],
 )
