@@ -1,6 +1,14 @@
+import type { ReactNode } from "react";
+
 interface Props<T extends string | number> {
   value: T;
-  options: { value: T; label: string }[];
+  /**
+   * `icono` dibuja el boton con esa figura y deja el texto como nombre accesible.
+   *
+   * Lo usa la barra de abajo, donde no caben tres palabras por opcion pero el lector de
+   * pantalla y el globo del raton tienen que seguir diciendo cual es cual.
+   */
+  options: { value: T; label: string; icono?: ReactNode }[];
   onChange: (value: T) => void;
   /**
    * Cada botón tan ancho como su texto, en vez de todos iguales.
@@ -18,6 +26,8 @@ interface Props<T extends string | number> {
    * en la misma pantalla, los de grabar y los del anillo, que solo se distinguen así.
    */
   etiqueta?: string;
+  /** Mas apretado, para la barra de abajo. */
+  compacto?: boolean;
 }
 
 /** Selector de pocas opciones: más claro que un slider cuando los valores son fijos. */
@@ -27,10 +37,11 @@ export function Segmented<T extends string | number>({
   onChange,
   ajustado = false,
   etiqueta,
+  compacto = false,
 }: Props<T>) {
   return (
     <div
-      className="flex gap-1 rounded-lg bg-hueco p-1"
+      className={`flex gap-1 rounded-lg bg-hueco ${compacto ? "p-0.5" : "p-1"}`}
       role={etiqueta ? "group" : undefined}
       aria-label={etiqueta}
     >
@@ -42,15 +53,19 @@ export function Segmented<T extends string | number>({
           // Cuál está elegido se veía solo por el color. Un lector de pantalla no ve
           // colores, y una prueba tampoco: esto lo dice en voz alta.
           aria-pressed={option.value === value}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
-            ajustado ? "" : "flex-1"
-          } ${
+          // Con icono, el texto no se ve pero sigue estando: es el nombre para quien lo
+          // oye y el globo para quien deja el raton encima.
+          aria-label={option.icono ? option.label : undefined}
+          title={option.icono ? option.label : undefined}
+          className={`flex items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors ${
+            compacto ? "px-2 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+          } ${ajustado ? "" : "flex-1"} ${
             option.value === value
               ? "bg-pastilla text-titulo shadow-sm"
               : "text-apagado hover:text-titulo"
           }`}
         >
-          {option.label}
+          {option.icono ?? option.label}
         </button>
       ))}
     </div>

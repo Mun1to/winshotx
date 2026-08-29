@@ -2,15 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { Check, Download, RefreshCw, RotateCcw } from "lucide-react";
+import { Download, RefreshCw, RotateCcw } from "lucide-react";
 import { EVENTS } from "../../lib/types";
 import { useT } from "../../lib/i18n";
-import { Row } from "./Section";
 
 /** Cada cuánto se mira solo, mientras la ventana de ajustes siga abierta. */
 const CADA_MS = 6 * 60 * 60 * 1000;
 
-type Fase =
+export type Fase =
   | { tipo: "quieto" }
   | { tipo: "mirando" }
   | { tipo: "aldia" }
@@ -26,14 +25,11 @@ type Fase =
  *
  * En una compilación de desarrollo no hay endpoint y `check()` falla; ahí se
  * queda callado, porque avisar de eso sería ruido en cada arranque.
+ *
+ * Va como gancho y no como fila porque esto vive ahora en la barra de abajo, que está
+ * siempre a la vista: lo que hay que compartir es el estado, no una manera de pintarlo.
  */
-export function UpdateRow({
-  version,
-  recienActualizado = false,
-}: {
-  version: string;
-  recienActualizado?: boolean;
-}) {
+export function useActualizacion(version: string, recienActualizado = false) {
   const t = useT();
   const [fase, setFase] = useState<Fase>(
     recienActualizado ? { tipo: "acabadeactualizarse" } : { tipo: "quieto" },
@@ -72,7 +68,7 @@ export function UpdateRow({
     };
   }, [mirar, recienActualizado]);
 
-  const instalar = (update: Update) => {
+  const instalar = useCallback((update: Update) => {
     setFase({ tipo: "bajando", version: update.version, pct: 0 });
     let total = 0;
     let hechos = 0;
@@ -91,9 +87,9 @@ export function UpdateRow({
       })
       .then(() => setFase({ tipo: "listo", version: update.version }))
       .catch((e) => setFase({ tipo: "error", mensaje: String(e) }));
-  };
+  }, []);
 
-  const hint = () => {
+  const texto = () => {
     switch (fase.tipo) {
       case "mirando":
         return t("mirando si hay versión nueva…");
@@ -110,34 +106,19 @@ export function UpdateRow({
       case "error":
         return fase.mensaje;
       default:
-        return `winshotx ${version}`;
+        return "";
     }
   };
 
-  return (
-    <Row
-      icon={
-        fase.tipo === "aldia" || fase.tipo === "acabadeactualizarse" ? (
-          <Check className="size-4 text-emerald-400" />
-        ) : (
-          <Download className="size-4" />
-        )
-      }
-      label={t("Actualizaciones")}
-      hint={hint()}
-      tone={
-        fase.tipo === "aldia" || fase.tipo === "acabadeactualizarse"
-          ? "ok"
-          : fase.tipo === "error"
-            ? "error"
-            : "normal"
-      }
-      control={<Boton fase={fase} instalar={instalar} mirar={() => void mirar(true)} />}
-    />
-  );
+  const alDia = fase.tipo === "aldia" || fase.tipo === "acabadeactualizarse";
+
+  return { fase, mirar, instalar, texto: texto(), alDia };
 }
 
-function Boton({
+/**
+ * El botón, que cambia con la fase: buscar, actualizar, la barra de descarga y reiniciar.
+ */
+export function BotonActualizar({
   fase,
   instalar,
   mirar,

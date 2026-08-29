@@ -179,6 +179,12 @@ export const EN: Record<string, string> = {
   "Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.": "Walks this screen stopping at every block and saying what it is for. It is the quick way to see what is here without opening things to find out.",
   "winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "winshotx opens on its own when you turn the computer on and sits in the tray, with no window. Without this you have to open it by hand every time, and the capture keys do nothing while it is closed.",
 
+  // La barra de abajo
+  "Al soltar": "When you let go",
+  Barra: "Bar",
+  Copia: "Copy",
+  Tour: "Tour",
+
   // El campo de los atajos
   "Clic para cambiar el atajo": "Click to change the shortcut",
   "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí":

@@ -235,6 +235,59 @@ describe("los ultimos segundos, en «Grabar»", () => {
   });
 });
 
+/**
+ * La barra de abajo.
+ *
+ * Lo que la justifica es que esté SIEMPRE, así que lo que hay que comprobar no es que
+ * exista, sino que siga ahí al cambiar de sección y que sus atajos cambien el ajuste de
+ * verdad, y no solo se pinten.
+ */
+describe("la barra de abajo", () => {
+  const barra = () => screen.getByRole("contentinfo");
+
+  it("está en las cuatro secciones, no solo en la primera", async () => {
+    await abrirAjustes();
+    expect(within(barra()).getByText("Al soltar")).toBeInTheDocument();
+
+    for (const nombre of ["Grabar", "Teclas de Windows", "La app"]) {
+      fireEvent.click(screen.getByRole("button", { name: nombre }));
+      expect(within(barra()).getByRole("group", { name: "Tema" })).toBeInTheDocument();
+    }
+  });
+
+  it("lo de actualizar está aquí y ya no dentro de una sección", async () => {
+    await abrirAjustes();
+    // El botón de buscar versión nueva vive en la barra, a la vista desde cualquier sitio.
+    expect(within(barra()).getByRole("button", { name: /Buscar/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "La app" }));
+    expect(screen.queryByText("Actualizaciones")).toBeNull();
+  });
+
+  it("cambiar lo que pasa al soltar el ratón viaja hasta Rust", async () => {
+    await abrirAjustes();
+    fireEvent.click(within(barra()).getByRole("button", { name: "Copia" }));
+
+    await waitFor(() => {
+      const guardados = llamadas.filter((l) => l.comando === "set_settings");
+      expect(guardados.at(-1)?.args).toMatchObject({
+        settings: expect.objectContaining({ captureFlow: "instant" }),
+      });
+    });
+  });
+
+  it("y el idioma, que además se cambia en el acto", async () => {
+    await abrirAjustes();
+    fireEvent.click(within(barra()).getByRole("button", { name: "EN" }));
+
+    // Sin recargar nada: la propia barra ya está en inglés.
+    await waitFor(() => expect(within(barra()).getByText("When you let go")).toBeInTheDocument());
+    const guardados = llamadas.filter((l) => l.comando === "set_settings");
+    expect(guardados.at(-1)?.args).toMatchObject({
+      settings: expect.objectContaining({ language: "en" }),
+    });
+  });
+});
+
 /** Tres monitores como los de Munir, con el principal marcado. */
 const TRES_PANTALLAS = [
   { id: 0, label: "\\.\DISPLAY1", x: 0, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: true },

@@ -66,7 +66,7 @@ import { Switch } from "../ui/Switch";
 import { Row, RowButton, Section } from "./Section";
 import { SettingsHeader, type SeccionId } from "./SettingsHeader";
 import { GuidedTour } from "./GuidedTour";
-import { UpdateRow } from "./UpdateRow";
+import { BarraRapida } from "./BarraRapida";
 import { ShortcutField } from "./ShortcutField";
 
 /** La inyecta Vite desde package.json: escribirla a mano acababa en cuatro copias. */
@@ -966,7 +966,6 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                 </Section>
                 </div>
                 <Section title={t("winshotx")}>
-                  <UpdateRow version={VERSION} recienActualizado={recienActualizado} />
                   <Row
                     icon={<BookOpen className="size-4" />}
                     label={t("Bienvenida")}
@@ -997,6 +996,14 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
             )}
         </div>
       </div>
+
+      <BarraRapida
+        settings={settings}
+        patch={patch}
+        version={VERSION}
+        recienActualizado={recienActualizado}
+        onTour={() => setTour(true)}
+      />
 
       {tour && <GuidedTour onNavegar={setSeccion} onCerrar={() => setTour(false)} />}
 
