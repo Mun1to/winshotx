@@ -20,6 +20,9 @@ const PARADO: ReplayStatus = {
   screen: 0,
   screenLabel: "",
   bytes: 0,
+  bytesPerSecond: 0,
+  width: 0,
+  height: 0,
   bufferedMs: 0,
 };
 
@@ -42,6 +45,7 @@ const AJUSTES: Settings = {
   replaySeconds: 30,
   replayScreen: null,
   replayFps: 15,
+  replayHeight: 0,
   playSound: true,
   showMagnifier: true,
   startWithWindows: false,
@@ -177,6 +181,9 @@ describe("los ultimos segundos, en «Grabar»", () => {
     screen: 2,
     screenLabel: "DELL U2723QE",
     bytes: 48_234_496,
+    bytesPerSecond: 3_400_000,
+    width: 1280,
+    height: 720,
     bufferedMs: 30_000,
   };
 
@@ -186,12 +193,18 @@ describe("los ultimos segundos, en «Grabar»", () => {
     expect(screen.getByText(/graba sin parar y tira lo viejo/)).toBeInTheDocument();
   });
 
-  it("encendido, dice que pantalla vigila y cuanto esta ocupando", async () => {
+  /**
+   * Lo que de verdad cuesta tenerlo puesto no son los megabytes guardados, que se quedan
+   * quietos en cuanto el anillo se llena: es lo que le escribe al disco cada segundo, que
+   * sigue pasando toda la tarde. Por eso la fila enseña las dos cosas y el tamaño real.
+   */
+  it("encendido, dice de dónde graba, a qué tamaño y lo que le cuesta al disco", async () => {
     await irAGrabar(CORRIENDO);
     // El número de pantalla, no el nombre que le pone Windows: «\.\DISPLAY3» no le
     // dice nada a nadie, y el número es el mismo que sale al elegirla para capturar.
-    expect(screen.getByText(/vigilando la pantalla 2/)).toBeInTheDocument();
-    expect(screen.getByText(/46[,.]0 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/pantalla 2/)).toBeInTheDocument();
+    expect(screen.getByText(/1280 × 720/)).toBeInTheDocument();
+    expect(screen.getByText(/3[,.]2 MB\/s/)).toBeInTheDocument();
   });
 
   it("si hay menos de lo que promete el ajuste, dice cuanto hay de verdad", async () => {
@@ -243,7 +256,7 @@ describe("elegir pantalla y calidad", () => {
   it("con tres, se elige, y de fábrica va donde esté el ratón", async () => {
     await irAGrabar();
     expect(screen.getByText("Qué pantalla")).toBeInTheDocument();
-    const elegida = screen.getByRole("button", { name: "La del ratón" });
+    const elegida = screen.getByRole("button", { name: "Ratón" });
     expect(elegida).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -266,12 +279,44 @@ describe("elegir pantalla y calidad", () => {
     expect(screen.getByText(/hasta 98[0-9][,.]\d MB en disco/)).toBeInTheDocument();
   });
 
-  it("y ese número sube al subir los fotogramas", async () => {
+  /**
+   * «La pantalla 2» no dice nada si no sabes cuál es la 2. Enseñar el número EN esa
+   * pantalla es la única forma que no admite duda, y es lo que pidió Munir al verlo.
+   */
+  it("al elegir una pantalla, la enseña en la propia pantalla", async () => {
+    await irAGrabar();
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    const aviso = [...llamadas].reverse().find((l) => l.comando === "show_screen_number");
+    expect(aviso?.args).toEqual({ screen: 1 });
+  });
+
+  it("y con «Ratón» no enseña nada, porque no hay ninguna que señalar", async () => {
+    await irAGrabar();
+    fireEvent.click(screen.getByRole("button", { name: "Ratón" }));
+    expect(llamadas.filter((l) => l.comando === "show_screen_number")).toEqual([]);
+  });
+
+  /** Es el ajuste que más disco ahorra: 720p deja el fotograma en menos de la mitad. */
+  it("la calidad se elige por tamaño, no por un número suelto", async () => {
+    await irAGrabar();
+    const grupo = screen.getByRole("group", { name: "Calidad" });
+    expect(within(grupo).getByRole("button", { name: "Nativa" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(within(grupo).getByRole("button", { name: "720p" }));
+    const ultima = [...llamadas].reverse().find((l) => l.comando === "set_settings");
+    expect((ultima?.args as { settings: Record<string, unknown> }).settings).toMatchObject({
+      replayHeight: 720,
+    });
+  });
+
+  it("y ese número sube al subir la fluidez", async () => {
     await irAGrabar();
     // «60 fps» sale dos veces, los de grabar y los del anillo: por eso el grupo tiene
     // nombre, que además es lo que oye quien usa un lector de pantalla.
-    const grupo = screen.getByRole("group", { name: "Calidad" });
-    fireEvent.click(within(grupo).getByRole("button", { name: "60 fps" }));
+    const grupo = screen.getByRole("group", { name: "Fluidez" });
+    fireEvent.click(within(grupo).getByRole("button", { name: "60" }));
     const ultima = [...llamadas].reverse().find((l) => l.comando === "set_settings");
     expect((ultima?.args as { settings: Record<string, unknown> }).settings).toMatchObject({
       replayFps: 60,

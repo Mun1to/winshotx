@@ -63,18 +63,17 @@ export const EN: Record<string, string> = {
   "Grabar siempre lo último": "Always be recording",
   "graba sin parar y tira lo viejo, para poder rescatar lo último":
     "records non-stop and drops the old, so you can rescue what just happened",
-  "vigilando la pantalla {n} · {tamaño} en disco": "watching screen {n} · {tamaño} on disk",
   "Cuánto se guarda": "How much it keeps",
   "Quedarme con lo último": "Keep what just happened",
   "primero hay que encenderlo aquí arriba": "turn it on above first",
   "ahora mismo hay {n} s guardados": "{n} s kept right now",
-  "hacia atrás, desde que pulses la tecla": "backwards, from the moment you press the key",
   "Qué pantalla": "Which screen",
-  "La del ratón": "The mouse's one",
-  "no puede cambiar de pantalla sin tirar lo que lleva grabado":
-    "it cannot switch screens without dropping what it has recorded",
-  "hasta {tamaño} en disco si la pantalla cambia entera":
-    "up to {tamaño} on disk if the whole screen keeps changing",
+  "Ratón": "Mouse",
+  "pantalla {n} · {ancho} × {alto} · {ritmo}/s": "screen {n} · {ancho} × {alto} · {ritmo}/s",
+  "{ancho} × {alto} · hasta {tamaño} en disco": "{ancho} × {alto} · up to {tamaño} on disk",
+  Fluidez: "Smoothness",
+  "fotogramas por segundo": "frames per second",
+  Nativa: "Native",
   "abre el editor con lo último, sin dejar de grabar":
     "opens the editor with the last bit, and keeps recording",
 

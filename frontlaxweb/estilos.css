@@ -746,3 +746,15 @@ nav .enlaces a.aqui { color: var(--texto); background: #ffffff14; }
   text-transform: none; letter-spacing: normal; color: var(--texto);
   white-space: nowrap; vertical-align: top;
 }
+
+/* El segmentado que va al lado de su nombre y no debajo: cada boton ocupa lo que ocupa su
+   texto, para que la fila entera quepa en una linea. Es lo que hace que la seccion de los
+   ultimos segundos, con sus cinco filas, no obligue a bajar con la rueda. */
+.segmentado.ajustado {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.segmentado.ajustado button {
+  flex: 0 0 auto;
+  padding-inline: 0.7rem;
+}

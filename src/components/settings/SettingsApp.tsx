@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   AppWindow,
@@ -40,6 +40,7 @@ import {
   printScreenState,
   quitApp,
   replayStatus,
+  showScreenNumber,
   restartShell,
   setSettings,
   shortcutStatus,
@@ -97,23 +98,39 @@ const SEGUNDOS_ATRAS = [
  * cuánto disco puede llegar a ocupar, en vez de dejar que se descubra solo.
  */
 const FPS_ANILLO = [
-  { value: 15, label: "15 fps" },
-  { value: 30, label: "30 fps" },
-  { value: 60, label: "60 fps" },
+  { value: 15, label: "15" },
+  { value: 30, label: "30" },
+  { value: 60, label: "60" },
+];
+
+/**
+ * A qué tamaño guarda el anillo.
+ *
+ * Es el ajuste que más disco ahorra de los tres: bajar una pantalla de 1080p a 720p deja
+ * el fotograma en menos de la mitad, y para «ver qué acaba de pasar» 720p se ve
+ * perfectamente. El cero es el tamaño de la pantalla, sin tocar nada.
+ */
+const ALTO_ANILLO = [
+  { value: 720, label: "720p" },
+  { value: 1080, label: "1080p" },
+  { value: 0, label: "Nativa" },
 ];
 
 /**
  * Lo que puede llegar a ocupar el anillo, en bytes.
  *
- * Sale de lo mismo que el tope de Rust (`buffer::bytes_max`): 2,3 MB por fotograma, que es
- * lo que mide uno de pantalla completa cuando la pantalla cambia entera, medido sobre una
- * partida a 1920 × 1080. Un escritorio de trabajo gasta una décima parte, así que este es
- * el techo y no lo normal.
+ * Sale de lo mismo que el tope de Rust (`buffer::bytes_max`), y tiene que dar el mismo
+ * número: 2,3 MB por cada dos millones de píxeles, que es lo que mide un fotograma cuando
+ * la pantalla cambia entera, medido sobre una partida a 1920 × 1080. Un escritorio de
+ * trabajo gasta una décima parte, así que esto es el techo y no lo normal.
+ *
+ * Cuenta con la resolución además de con los fotogramas: grabar a 720p desde una pantalla
+ * de 1080p ocupa menos de la mitad, y decir lo contrario sería asustar de más.
  */
-const PEOR_FOTOGRAMA = 2_300_000;
+const PEOR_POR_PIXEL = 2_300_000 / (1920 * 1080);
 const TECHO = 4 * 1024 * 1024 * 1024;
-const loQuePuedeOcupar = (segundos: number, fps: number) =>
-  Math.min(segundos * fps * PEOR_FOTOGRAMA, TECHO);
+const loQuePuedeOcupar = (segundos: number, fps: number, ancho: number, alto: number) =>
+  Math.min(ancho * alto * PEOR_POR_PIXEL * fps * segundos, TECHO);
 
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
   { value: "toolbar", label: "Sale la barra" },
@@ -178,6 +195,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     screen: 0,
     screenLabel: "",
     bytes: 0,
+    bytesPerSecond: 0,
+    width: 0,
+    height: 0,
     bufferedMs: 0,
   });
   const [cache, setCache] = useState<CacheStats>({ bytes: 0, sessions: 0 });
@@ -240,6 +260,26 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // El ultimo valor conocido, para poder guardar fuera del updater de useState.
   const ultimo = useRef<Settings | null>(null);
   ultimo.current = settings;
+
+  /**
+   * A qué tamaño va a grabar el anillo con lo que hay elegido.
+   *
+   * Se calcula aquí y no se espera a que Rust lo diga porque hay que enseñarlo **antes** de
+   * encenderlo: es la mitad de la respuesta a «cuánto me va a costar esto».
+   */
+  const medidaGrabada = useMemo(() => {
+    const pantalla =
+      pantallas.find((p) => p.id === settings?.replayScreen) ??
+      pantallas.find((p) => p.isPrimary) ??
+      pantallas[0];
+    const nativo = { ancho: pantalla?.width ?? 1920, alto: pantalla?.height ?? 1080 };
+    const pedido = settings?.replayHeight ?? 0;
+    if (pedido === 0 || pedido >= nativo.alto) return nativo;
+    return {
+      ancho: Math.round((nativo.ancho * pedido) / nativo.alto / 2) * 2,
+      alto: Math.floor(pedido / 2) * 2,
+    };
+  }, [pantallas, settings?.replayScreen, settings?.replayHeight]);
 
   const patch = useCallback((partial: Partial<Settings>) => {
     const prev = ultimo.current;
@@ -537,22 +577,25 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                 </Section>
 
 
-                {/* Los ultimos segundos. Es la unica funcion de winshotx que trabaja sin
-                    que nadie se lo haya pedido en ese momento, asi que la fila dice
-                    siempre que esta haciendo, que pantalla mira y cuanto ocupa. Un
-                    interruptor que solo dijera «si» no seria honesto. */}
+                {/* Los ultimos segundos.
+
+                    Cinco filas en vez de tres y aun asi mas corta que antes: los controles
+                    van AL LADO de su nombre y no debajo, que era lo que obligaba a bajar
+                    con la rueda para ver la seccion entera. */}
                 <Section title={t("Los últimos segundos")}>
                   <Row
                     icon={<History className="size-4" />}
                     label={t("Grabar siempre lo último")}
                     hint={
                       replay.running
-                        ? // El número y no el nombre del monitor: Windows los llama
-                          // «\.\DISPLAY3», que no le dice nada a nadie. El número es el
-                          // mismo que sale en la pantalla al elegirla para capturar.
-                          t("vigilando la pantalla {n} · {tamaño} en disco", {
+                        ? // Lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño
+                          // y cuánto le escribe al disco cada segundo. Los megabytes
+                          // guardados se quedan quietos al llenarse el anillo; esto no.
+                          t("pantalla {n} · {ancho} × {alto} · {ritmo}/s", {
                             n: replay.screen,
-                            "tamaño": formatBytes(replay.bytes),
+                            ancho: replay.width,
+                            alto: replay.height,
+                            ritmo: formatBytes(replay.bytesPerSecond),
                           })
                         : t("graba sin parar y tira lo viejo, para poder rescatar lo último")
                     }
@@ -568,10 +611,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Timer className="size-4" />}
                     label={t("Cuánto se guarda")}
-                    hint={t("hacia atrás, desde que pulses la tecla")}
-                    stacked
                     control={
                       <Segmented
+                        ajustado
+                        etiqueta={t("Cuánto se guarda")}
                         value={settings.replaySeconds}
                         options={SEGUNDOS_ATRAS}
                         onChange={(v) => patch({ replaySeconds: v })}
@@ -583,39 +626,64 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     <Row
                       icon={<Monitor className="size-4" />}
                       label={t("Qué pantalla")}
-                      hint={t("no puede cambiar de pantalla sin tirar lo que lleva grabado")}
-                      stacked
                       control={
                         <Segmented
+                          ajustado
                           etiqueta={t("Qué pantalla")}
                           value={settings.replayScreen ?? -1}
                           options={[
-                            { value: -1, label: t("La del ratón") },
+                            { value: -1, label: t("Ratón") },
                             ...pantallas.map((p) => ({
                               value: p.id,
                               label: `${p.id + 1}${p.isPrimary ? " ★" : ""}`,
                             })),
                           ]}
-                          onChange={(v) => patch({ replayScreen: v === -1 ? null : v })}
+                          onChange={(v) => {
+                            patch({ replayScreen: v === -1 ? null : v });
+                            // «La 2» no dice nada si no sabes cuál es la 2: se enseña el
+                            // número EN esa pantalla, que es la única forma sin dudas.
+                            if (v >= 0) void showScreenNumber(v).catch(() => {});
+                          }}
                         />
                       }
                     />
                   )}
                   <Row
-                    icon={<Gauge className="size-4" />}
+                    icon={<ZoomIn className="size-4" />}
                     label={t("Calidad")}
-                    hint={t("hasta {tamaño} en disco si la pantalla cambia entera", {
+                    hint={t("{ancho} × {alto} · hasta {tamaño} en disco", {
+                      ancho: medidaGrabada.ancho,
+                      alto: medidaGrabada.alto,
                       "tamaño": formatBytes(
-                        loQuePuedeOcupar(settings.replaySeconds, settings.replayFps),
+                        loQuePuedeOcupar(
+                          settings.replaySeconds,
+                          settings.replayFps,
+                          medidaGrabada.ancho,
+                          medidaGrabada.alto,
+                        ),
                       ),
                     })}
-                    stacked
                     control={
                       <Segmented
+                        ajustado
+                        etiqueta={t("Calidad")}
+                        value={settings.replayHeight}
+                        options={ALTO_ANILLO}
+                        onChange={(v) => patch({ replayHeight: v })}
+                      />
+                    }
+                  />
+                  <Row
+                    icon={<Gauge className="size-4" />}
+                    label={t("Fluidez")}
+                    hint={t("fotogramas por segundo")}
+                    control={
+                      <Segmented
+                        ajustado
+                        etiqueta={t("Fluidez")}
                         value={settings.replayFps}
                         options={FPS_ANILLO}
                         onChange={(v) => patch({ replayFps: v })}
-                        etiqueta={t("Calidad")}
                       />
                     }
                   />

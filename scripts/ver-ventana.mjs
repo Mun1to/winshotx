@@ -6,6 +6,7 @@
  *   node scripts/ver-ventana.mjs bienvenida.png --bienvenida
  *   node scripts/ver-ventana.mjs estrecho.png --ancho=780
  *   node scripts/ver-ventana.mjs pendiente.png --tecla-pendiente
+ *   node scripts/ver-ventana.mjs grabar.png --seccion=grabar --anillo
  *
  * Sirve el bundle DE VERDAD de `dist/` y le cuela un `__TAURI_INTERNALS__` de mentira en
  * el <head>, antes del script de la app, para que los `invoke` contesten datos fijos.
@@ -49,6 +50,8 @@ const alto = bandera("alto", "640");
 const bienvenida = args.includes("--bienvenida");
 // Win+Mayús+S pedida pero todavía no conseguida, que es cuando sale el botón de aplicar.
 const teclaPendiente = args.includes("--tecla-pendiente");
+// El anillo de los últimos segundos, encendido: con él apagado la sección no cuenta nada.
+const anillo = args.includes("--anillo");
 // Ruta de un PNG que hará de pantalla congelada; si viene, se fotografía el overlay.
 const overlay = bandera("overlay", null);
 // Dónde dejar el puntero, para ver lo que solo aparece al pasar por encima.
@@ -98,6 +101,12 @@ if (!existsSync(join(DIST, "index.html"))) {
 const AJUSTES = {
   captureShortcut: "CmdOrCtrl+Shift+KeyS",
   recordShortcut: "CmdOrCtrl+Shift+KeyA",
+  replayShortcut: "CmdOrCtrl+Shift+Digit6",
+  replayEnabled: anillo,
+  replaySeconds: 30,
+  replayScreen: null,
+  replayFps: 15,
+  replayHeight: 720,
   saveDirectory: "C:\\Users\\yo\\Pictures\\winshotx",
   copyAfterCapture: true,
   openEditorAfterRecording: true,
@@ -160,7 +169,25 @@ const FOTOGRAMAS = Array.from({ length: 40 }, (_, i) => ({
 const RESPUESTAS = {
   get_settings: AJUSTES,
   set_settings: AJUSTES,
-  shortcut_status: { capture: true, record: true, printScreen: false, winShiftS: false },
+  shortcut_status: { capture: true, record: true, replay: true, printScreen: false, winShiftS: false },
+  // El anillo de los últimos segundos, encendido y con tres pantallas: es la única forma
+  // de mirar esa sección entera, porque sus filas dependen de lo que conteste Rust.
+  replay_status: {
+    running: anillo,
+    seconds: 30,
+    screen: 2,
+    screenLabel: "\\.\DISPLAY2",
+    bytes: 214_000_000,
+    bytesPerSecond: 3_400_000,
+    width: 1280,
+    height: 720,
+    bufferedMs: 30_000,
+  },
+  list_screens: [
+    { id: 0, label: "1", x: 0, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: true },
+    { id: 1, label: "2", x: 1920, y: 0, width: 1080, height: 1920, scale: 1, isPrimary: false },
+    { id: 2, label: "3", x: -1920, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: false },
+  ],
   cache_stats: { bytes: 0, sessions: 0 },
   print_screen_state: { enabled: false, active: false, takenByWindows: true },
   just_updated: actualizado,
