@@ -550,6 +550,11 @@ fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
     let info = SessionInfo::from(&session);
     state.sessions.write().insert(id.clone(), session);
 
+    // El editor se abre SIEMPRE, aunque el ajuste de «abrir el editor al terminar» esté
+    // apagado. Ahí se decide qué pasa al parar una grabación, que deja un archivo hecho;
+    // aquí no hay archivo ninguno todavía, así que no abrirlo sería quedarse con lo último
+    // que pasó en un sitio al que nadie puede llegar. Y es además el único aviso de que la
+    // tecla ha hecho algo.
     let handle = app.clone();
     std::thread::spawn(move || {
         if let Err(error) = windows_mgr::open_editor(&handle, &id) {
