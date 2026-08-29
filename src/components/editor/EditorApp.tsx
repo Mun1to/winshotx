@@ -12,7 +12,13 @@ import {
   sessionInfo,
 } from "../../lib/ipc";
 import { clamp, formatTimecode } from "../../lib/format";
-import { EVENTS, type FrameMeta, type SessionInfo, type Settings } from "../../lib/types";
+import {
+  EVENTS,
+  type AvisoVistaPrevia,
+  type FrameMeta,
+  type SessionInfo,
+  type Settings,
+} from "../../lib/types";
 import { BarraAnotar } from "./BarraAnotar";
 import { CapaAnotaciones } from "./CapaAnotaciones";
 import { CapaRecorte } from "./CapaRecorte";
@@ -36,6 +42,19 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [playing, setPlaying] = useState(false);
   const [seekMs, setSeekMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * El vídeo de la vista previa, para poder llamarlo desde el propio clic del botón.
+   *
+   * Vive aquí y no dentro de `PreviewCanvas` porque quien decide reproducir es el botón:
+   * un `play()` disparado desde un efecto llega ya fuera del gesto de la persona.
+   */
+  const videoRef = useRef<HTMLVideoElement>(null);
+  /** Lo que impide reproducir, si algo lo impide. Antes esto no se contaba a nadie. */
+  const [falloDeVideo, setFalloDeVideo] = useState<string | null>(null);
+  /** La vista previa se estaba escribiendo por detrás y no ha salido. */
+  const [previaFallida, setPreviaFallida] = useState(false);
+  /** Y lo que lleva escrito, mientras la escriben. */
+  const [porCiento, setPorCiento] = useState(0);
   /** Lo dibujado encima, en el orden en que se hizo. */
   const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
@@ -92,19 +111,34 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     (index: number) => {
       setCurrentIndex(index);
       setSeekMs(frames[index]?.timestampMs ?? 0);
-      setPlaying(false);
+      videoRef.current?.pause();
     },
     [frames],
   );
 
+  /**
+   * Reproducir o parar, hablándole al vídeo directamente.
+   *
+   * El `play()` se lanza aquí dentro, en el mismo clic (o la misma tecla) que lo pide.
+   * Antes salía de un efecto que corría después, y eso son dos problemas: la promesa que
+   * devuelve se perdía en un `catch` vacío, así que un rechazo dejaba el botón mudo y sin
+   * explicación. Ahora, si el navegador dice que no, se ve por qué.
+   */
   const togglePlay = useCallback(() => {
-    setPlaying((p) => {
-      if (!p && currentIndex >= outIndex) {
-        setCurrentIndex(inIndex);
-        setSeekMs(frames[inIndex]?.timestampMs ?? 0);
-      }
-      return !p;
-    });
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.paused) {
+      video.pause();
+      return;
+    }
+    if (currentIndex >= outIndex) {
+      const vuelta = frames[inIndex]?.timestampMs ?? 0;
+      setCurrentIndex(inIndex);
+      setSeekMs(vuelta);
+      video.currentTime = vuelta / 1000;
+    }
+    setFalloDeVideo(null);
+    void video.play().catch((fallo: unknown) => setFalloDeVideo(String(fallo)));
   }, [currentIndex, outIndex, inIndex, frames]);
 
 
@@ -234,8 +268,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * empieza a funcionar sin que nadie tenga que cerrar y volver a abrir nada.
    */
   useEffect(() => {
-    const unlisten = listen<string>(EVENTS.sessionPreview, (e) => {
-      if (e.payload !== sessionId) return;
+    const unlisten = listen<AvisoVistaPrevia>(EVENTS.sessionPreview, (e) => {
+      if (e.payload.sessionId !== sessionId) return;
+      // El aviso llega también cuando ha ido mal, para poder decirlo. Un botón apagado
+      // esperando a algo que no viene es exactamente lo que parece una app rota.
+      if (e.payload.fallida) {
+        setPreviaFallida(true);
+        return;
+      }
+      if (!e.payload.listo) {
+        setPorCiento(e.payload.porCiento);
+        return;
+      }
       void sessionInfo(sessionId).then(setSession).catch(() => undefined);
     });
     return () => {
@@ -336,15 +380,17 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               }}
             >
               <PreviewCanvas
+                videoRef={videoRef}
                 videoUrl={videoUrl}
                 posterUrl={posterUrl}
                 conSonido={session?.hasAudio ?? false}
                 inMs={frames[inIndex]?.timestampMs ?? 0}
                 outMs={(frames[outIndex]?.timestampMs ?? 0) + (frames[outIndex]?.durationMs ?? 0)}
-                playing={playing}
                 seekMs={seekMs}
                 onTime={onTime}
                 onEnded={() => setCurrentIndex(inIndex)}
+                onPlaying={setPlaying}
+                onFallo={setFalloDeVideo}
               />
               <CapaAnotaciones
                 herramienta={herramienta}
@@ -356,6 +402,32 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               />
               <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
             </div>
+            {/*
+              Mientras el vídeo no está, se DICE.
+
+              Lo que se rescata del anillo abre el editor antes de tener vídeo, así que
+              durante unos segundos el play no puede hacer nada. Un botón apagado sin
+              explicación es indistinguible de un botón roto: es literalmente lo que pasó
+              el 29 de agosto de 2026, «sigue sin dejarme darle al play».
+            */}
+            {!videoUrl && (
+              <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2">
+                <span className="rounded-full bg-black/75 px-3 py-1 text-[11px] text-neutral-300 backdrop-blur-md">
+                  {previaFallida
+                    ? t("No se ha podido preparar la reproducción")
+                    : porCiento > 0
+                      ? `${t("Preparando la reproducción…")} ${porCiento}%`
+                      : t("Preparando la reproducción…")}
+                </span>
+              </div>
+            )}
+            {videoUrl && falloDeVideo && (
+              <div className="pointer-events-none absolute bottom-14 left-1/2 max-w-[80%] -translate-x-1/2">
+                <span className="block truncate rounded-full bg-red-950/80 px-3 py-1 text-[11px] text-red-200 backdrop-blur-md">
+                  {t("No se ha podido reproducir")} · {falloDeVideo}
+                </span>
+              </div>
+            )}
             <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-neutral-900/85 px-2 py-1.5 shadow-xl backdrop-blur-md">
               <button
                 type="button"
@@ -363,7 +435,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 disabled={!videoUrl}
                 title={videoUrl ? undefined : t("preparando la reproducción…")}
                 aria-label={playing ? t("Pausar") : t("Reproducir")}
-                className="flex size-7 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                className="flex size-7 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-white/10"
               >
                 {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5 pl-px" />}
               </button>

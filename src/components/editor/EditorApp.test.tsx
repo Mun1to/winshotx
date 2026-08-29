@@ -8,7 +8,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorApp } from "./EditorApp";
 import { aplicarIdioma } from "../../lib/i18n";
-import { llamadas, responde } from "../../test/preparar";
+import { emite, llamadas, responde } from "../../test/preparar";
 
 const destruir = vi.fn();
 vi.mock("@tauri-apps/api/window", () => ({
@@ -156,5 +156,81 @@ describe("el botón de reproducir", () => {
     render(<EditorApp sessionId="s1" />);
     await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
     expect(play()).toBeEnabled();
+  });
+
+  it("mientras no está, se dice que está en camino", async () => {
+    // Un botón apagado y callado es indistinguible de uno roto. Esta frase es toda la
+    // diferencia entre «espera unos segundos» y «esto no funciona».
+    await abrir();
+    expect(screen.getByText("Preparando la reproducción…")).toBeInTheDocument();
+  });
+
+  it("cuando avisan de que ya está, se enciende solo", async () => {
+    await abrir();
+    expect(play()).toBeDisabled();
+
+    responde("session_info", {
+      id: "s1",
+      region: VERTICAL,
+      fps: 30,
+      frameCount: 3,
+      durationMs: 100,
+      hasAudio: false,
+      format: "mp4",
+      mp4Path: "C:\\t\\preview.mp4",
+    });
+    emite("winshotx://session-preview", { sessionId: "s1", porCiento: 100, listo: true, fallida: false });
+
+    await waitFor(() => expect(play()).toBeEnabled());
+    expect(screen.queryByText("Preparando la reproducción…")).toBeNull();
+  });
+
+  it("el aviso de otra sesión no lo toca", async () => {
+    await abrir();
+    emite("winshotx://session-preview", { sessionId: "otra", porCiento: 100, listo: true, fallida: false });
+    expect(play()).toBeDisabled();
+  });
+
+  it("y si la vista previa no sale, lo dice en vez de esperar para siempre", async () => {
+    await abrir();
+    emite("winshotx://session-preview", { sessionId: "s1", porCiento: 0, listo: false, fallida: true });
+    await waitFor(() =>
+      expect(screen.getByText("No se ha podido preparar la reproducción")).toBeInTheDocument(),
+    );
+  });
+
+  it("y mientras se escribe, dice por dónde va", async () => {
+    await abrir();
+    emite("winshotx://session-preview", { sessionId: "s1", porCiento: 45, listo: false, fallida: false });
+    await waitFor(() =>
+      expect(screen.getByText("Preparando la reproducción… 45%")).toBeInTheDocument(),
+    );
+    expect(play()).toBeDisabled();
+  });
+
+  it("pulsarlo le habla al vídeo, en el mismo clic", async () => {
+    // El `play()` tiene que salir del clic: lanzado desde un efecto de después llega ya
+    // fuera del gesto de la persona, y ahí un navegador puede rechazarlo sin más.
+    const suena = vi.spyOn(window.HTMLMediaElement.prototype, "play").mockResolvedValue();
+    preparar(VERTICAL, "C:\\t\\preview.mp4");
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+
+    fireEvent.click(play());
+    expect(suena).toHaveBeenCalled();
+    suena.mockRestore();
+  });
+
+  it("y si el vídeo se niega, se cuenta el motivo", async () => {
+    const suena = vi
+      .spyOn(window.HTMLMediaElement.prototype, "play")
+      .mockRejectedValue("NotAllowedError");
+    preparar(VERTICAL, "C:\\t\\preview.mp4");
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+
+    fireEvent.click(play());
+    await waitFor(() => expect(screen.getByText(/NotAllowedError/)).toBeInTheDocument());
+    suena.mockRestore();
   });
 });

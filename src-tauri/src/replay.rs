@@ -684,6 +684,9 @@ fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
 /// Media Foundation tarda unos 26 ms por fotograma a 1080p, asi que treinta segundos son
 /// doce segundos de espera mirando una ventana que no llega. Se abre el editor con lo que
 /// ya esta (que se ve, se recorta y se exporta igual) y cuando el video esta listo se avisa.
+///
+/// El aviso sale **pase lo que pase**, tambien cuando falla: un editor esperando para
+/// siempre a algo que no viene es peor que un editor que dice que no va a venir.
 fn preparar_vista_previa(app: &AppHandle, id: String) {
     let app = app.clone();
     std::thread::spawn(move || {
@@ -691,16 +694,74 @@ fn preparar_vista_previa(app: &AppHandle, id: String) {
         let Some(mut session) = state.sessions.read().get(&id).cloned() else {
             return;
         };
-        if let Err(error) = escribir_vista_previa(&mut session) {
+        // El porcentaje se manda cada cinco, no en cada fotograma: son novecientos, y
+        // novecientos avisos para mover un numero de sitio es trabajo tirado.
+        let mut ultimo = 0;
+        let avisador = |hechos: usize, total: usize| {
+            let ahora = (hechos * 100 / total.max(1)) as u32;
+            if ahora >= ultimo + 5 {
+                ultimo = ahora;
+                let _ = app.emit(crate::EVENT_SESSION_PREVIEW, AvisoVistaPrevia::yendo(&id, ahora));
+            }
+        };
+        if let Err(error) = escribir_vista_previa(&mut session, avisador) {
             // Sin vista previa la sesion sigue siendo buena: se ve y se exporta igual, solo
             // que sin reproducir. Mucho mejor eso que perder lo que se acaba de rescatar.
             eprintln!("[replay] sin vista previa: {error}");
+            let _ = app.emit(crate::EVENT_SESSION_PREVIEW, AvisoVistaPrevia::fallida(&id));
             return;
         }
         let _ = session.persist();
         state.sessions.write().insert(id.clone(), session);
-        let _ = app.emit(crate::EVENT_SESSION_PREVIEW, id);
+        let _ = app.emit(crate::EVENT_SESSION_PREVIEW, AvisoVistaPrevia::lista(&id));
     });
+}
+
+/// Como va la vista previa que se esta escribiendo por detras.
+///
+/// Lleva el resultado dentro a proposito: el editor tiene un boton apagado esperando este
+/// aviso, y si solo se avisara al ir bien, un fallo lo dejaria apagado y callado para
+/// siempre. Esa fue justo la queja de Munir el 29 de agosto de 2026.
+///
+/// Y lleva el porcentaje porque la espera existe: once segundos para medio minuto de
+/// anillo. Once segundos con un numero subiendo se aguantan; once segundos mirando un
+/// boton que no responde, no.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AvisoVistaPrevia {
+    pub session_id: String,
+    pub por_ciento: u32,
+    pub listo: bool,
+    pub fallida: bool,
+}
+
+impl AvisoVistaPrevia {
+    fn yendo(id: &str, por_ciento: u32) -> Self {
+        Self {
+            session_id: id.to_string(),
+            por_ciento,
+            listo: false,
+            fallida: false,
+        }
+    }
+
+    fn lista(id: &str) -> Self {
+        Self {
+            session_id: id.to_string(),
+            por_ciento: 100,
+            listo: true,
+            fallida: false,
+        }
+    }
+
+    fn fallida(id: &str) -> Self {
+        Self {
+            session_id: id.to_string(),
+            por_ciento: 0,
+            listo: false,
+            fallida: true,
+        }
+    }
 }
 
 /// Todo el trabajo de convertir el anillo en una sesion: coser los fotogramas, cortar el
@@ -767,15 +828,69 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
     Ok(session)
 }
 
+/// Lo alto que se escribe la vista previa, como mucho.
+///
+/// Se ve en un hueco de unos 750 px de ancho dentro de una ventana; escribirla a 1080
+/// era escribir cuatro veces mas pixeles de los que se llegan a mirar.
+const ALTO_VISTA_PREVIA: u32 = 720;
+
+/// Y a cuantos fotogramas por segundo, como mucho.
+const FPS_VISTA_PREVIA: u32 = 30;
+
+/// Los fotogramas que entran en la vista previa, a un ritmo de como mucho `fps`.
+///
+/// Lo que se salta no se pierde: su duracion se le suma al fotograma que se queda, asi que
+/// el video dura exactamente lo mismo y los relojes del editor siguen cuadrando.
+///
+/// Va aparte y sin tocar nada para poder probarlo: lo unico que hay que comprobar de esto
+/// es que la suma de las duraciones no cambie, y eso no necesita ni pantalla ni codificador.
+fn a_ritmo(duraciones_origen: &[u32], fps: u32) -> (Vec<usize>, Vec<u32>) {
+    let paso = (1000 / fps.max(1)).max(1);
+    let mut indices: Vec<usize> = Vec::new();
+    let mut duraciones: Vec<u32> = Vec::new();
+    // El reloj de lo grabado y el instante en que toca guardar el siguiente. El objetivo
+    // avanza de paso en paso y NO se recoloca sobre el reloj: asi el reparto no se va
+    // acumulando el sobrante y de sesenta por segundo salen treinta, no veinte.
+    let mut reloj: u32 = 0;
+    let mut objetivo: u32 = 0;
+    for (i, dura) in duraciones_origen.iter().copied().enumerate() {
+        match duraciones.last_mut() {
+            // Lo que cae entre dos pasos no se codifica: su tiempo se le suma al ultimo
+            // que si entro, que es lo que mantiene la duracion del video clavada.
+            Some(ultima) if reloj < objetivo => *ultima += dura,
+            _ => {
+                indices.push(i);
+                duraciones.push(dura);
+                objetivo += paso;
+            }
+        }
+        reloj += dura;
+    }
+    (indices, duraciones)
+}
+
 /// Escribe el `preview.mp4` de la sesion, con su sonido si lo hay.
 ///
 /// Va por el mismo camino que exportar un MP4: los fotogramas se leen del cache cosido y
 /// los escribe Media Foundation por hardware.
+///
+/// **Pero no a tamanno completo.** Esto no es lo que se lleva nadie (exportar vuelve al
+/// cache y codifica de cero, a la calidad que se pida): es lo que se mira en la ventana
+/// mientras se recorta. Treinta segundos de un anillo a 1080p y 60 por segundo salian 72 MB
+/// y tardaban veintiun segundos en escribirse, veintiun segundos con el boton de play
+/// apagado. A 720p y 30 por segundo se ve igual de bien en el hueco del editor y esta listo
+/// en un tercio del tiempo.
 #[cfg(windows)]
-fn escribir_vista_previa(session: &mut SessionData) -> Result<()> {
+fn escribir_vista_previa(
+    session: &mut SessionData,
+    mut avisar: impl FnMut(usize, usize),
+) -> Result<()> {
     let ruta = session.dir.join("preview.mp4");
-    let indices: Vec<usize> = (0..session.frames.len()).collect();
-    let retardos: Vec<u32> = session.frames.iter().map(|f| f.duration_ms).collect();
+    let duraciones: Vec<u32> = session.frames.iter().map(|f| f.duration_ms).collect();
+    let (indices, retardos) = a_ritmo(&duraciones, FPS_VISTA_PREVIA);
+    let (ancho, alto) =
+        crate::encode::escalar::medida_para(session.width, session.height, ALTO_VISTA_PREVIA)
+            .unwrap_or((session.width, session.height));
 
     let sonido = session.audio.and_then(|info| {
         std::fs::read(session.audio_path()).ok().map(|datos| crate::encode::mp4::Pista {
@@ -786,32 +901,44 @@ fn escribir_vista_previa(session: &mut SessionData) -> Result<()> {
     });
 
     // En orden y sin volver a empezar: los fotogramas se piden del primero al ultimo, que
-    // es justo el caso para el que existe `LectorEnOrden`.
+    // es justo el caso para el que existe `LectorEnOrden`. El encogido va aqui y no dentro
+    // del codificador porque el suyo es un Lanczos que cuesta 46 ms por fotograma, diez
+    // veces mas que el filtro de caja de `reducir`.
     let copia = session.clone();
     let mut lector = record::LectorEnOrden::nuevo(&copia)?;
-    let mut cargar = |indice: usize| lector.en(indice);
+    let mut cargar = |indice: usize| {
+        let fotograma = lector.en(indice)?;
+        Ok(if fotograma.dimensions() == (ancho, alto) {
+            fotograma
+        } else {
+            crate::encode::escalar::reducir(&fotograma, ancho, alto)
+        })
+    };
     crate::encode::mp4::encode(
         &indices,
         &retardos,
         &mut cargar,
         &ruta,
         &crate::encode::mp4::Mp4Options {
-            width: session.width,
-            height: session.height,
-            fps: session.fps.max(1),
+            width: ancho,
+            height: alto,
+            fps: session.fps.min(FPS_VISTA_PREVIA).max(1),
             // La vista previa no es el archivo que se lleva nadie: se mira y se recorta.
             // Setenta y cinco es lo mismo que usa la grabacion normal para lo suyo.
             quality: 75,
         },
         sonido,
-        |_, _, _| {},
+        |_, hechos, total| avisar(hechos, total),
     )?;
     session.mp4_path = Some(ruta);
     Ok(())
 }
 
 #[cfg(not(windows))]
-fn escribir_vista_previa(_session: &mut SessionData) -> Result<()> {
+fn escribir_vista_previa(
+    _session: &mut SessionData,
+    _avisar: impl FnMut(usize, usize),
+) -> Result<()> {
     Err(AppError::Unsupported)
 }
 
@@ -1096,7 +1223,7 @@ mod pruebas_con_pantalla {
         // se comprueba a mano lo que en la app pasa en otro hilo.
         let antes = Instant::now();
         let mut con_video = session.clone();
-        escribir_vista_previa(&mut con_video).expect("no se ha podido escribir la vista previa");
+        escribir_vista_previa(&mut con_video, |_, _| {}).expect("no se ha podido escribir la vista previa");
         let ruta = con_video.mp4_path.as_ref().expect("no ha quedado ruta de vídeo");
         println!(
             "vista previa: {} KB en {} ms ({} ms por fotograma)",
@@ -1141,5 +1268,42 @@ mod pruebas_con_pantalla {
         println!("para mirarlo con los ojos: {}", copia.display());
 
         anillo.limpiar();
+    }
+
+    /// Bajar el ritmo de la vista previa no puede acortar el vídeo.
+    ///
+    /// Es lo único que hay que comprobar de `a_ritmo`, y es justo lo que rompería los
+    /// relojes del editor: los fotogramas que se saltan tienen que dejarle su tiempo al
+    /// que se queda, no llevárselo.
+    #[test]
+    fn saltarse_fotogramas_no_acorta_el_video() {
+        // Un segundo grabado a sesenta por segundo.
+        let sesenta: Vec<u32> = std::iter::repeat(16).take(60).collect();
+        let (indices, retardos) = a_ritmo(&sesenta, 30);
+
+        assert_eq!(
+            retardos.iter().sum::<u32>(),
+            sesenta.iter().sum::<u32>(),
+            "el vídeo ha cambiado de duración al bajar el ritmo"
+        );
+        assert_eq!(indices.len(), retardos.len());
+        assert!(
+            (28..=32).contains(&indices.len()),
+            "de 60 fotogramas a 30 por segundo tienen que quedar unos 30, no {}",
+            indices.len()
+        );
+        // Y en orden y sin repetir, que es lo que espera el lector del caché.
+        assert!(indices.windows(2).all(|par| par[0] < par[1]));
+    }
+
+    /// Lo que ya va lento se queda como está: pedir 30 a algo grabado a 15 no puede tirar
+    /// uno de cada dos y dejar la vista previa a trompicones.
+    #[test]
+    fn a_quince_por_segundo_no_se_tira_ninguno() {
+        let quince: Vec<u32> = std::iter::repeat(66).take(15).collect();
+        let (indices, retardos) = a_ritmo(&quince, 30);
+
+        assert_eq!(indices.len(), 15, "no había nada que saltarse");
+        assert_eq!(retardos, quince);
     }
 }

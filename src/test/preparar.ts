@@ -20,6 +20,9 @@ export const llamadas: { comando: string; args: unknown }[] = [];
 /** Los comandos que van a fallar, con el mensaje que devuelven. Se rellena con `falla`. */
 const fallos = new Map<string, string>();
 
+/** Quien esta escuchando cada evento de Tauri. Se rellena solo, con cada `listen`. */
+const oyentes = new Map<string, ((evento: { payload: unknown }) => void)[]>();
+
 /** Pone lo que devolvera un comando de Rust durante la prueba. */
 export function responde(comando: string, valor: unknown) {
   respuestas.set(comando, valor);
@@ -47,8 +50,24 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (ruta: string) => `asset://${ruta}`,
 }));
 
+/**
+ * Manda un evento de Tauri a quien lo este escuchando, como lo mandaria Rust.
+ *
+ * Sin esto no se podia probar nada de lo que la app se cuenta entre ventanas, que es
+ * justo donde estan los fallos que no se ven: un aviso que no llega deja un boton apagado
+ * y sin explicacion, y las pruebas siguen todas en verde.
+ */
+export function emite(evento: string, payload: unknown) {
+  for (const oyente of oyentes.get(evento) ?? []) oyente({ payload });
+}
+
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: () => Promise.resolve(() => {}),
+  listen: (evento: string, oyente: (e: { payload: unknown }) => void) => {
+    oyentes.set(evento, [...(oyentes.get(evento) ?? []), oyente]);
+    return Promise.resolve(() => {
+      oyentes.set(evento, (oyentes.get(evento) ?? []).filter((cual) => cual !== oyente));
+    });
+  },
   emit: () => Promise.resolve(),
 }));
 
@@ -66,6 +85,7 @@ afterEach(() => {
   cleanup();
   respuestas.clear();
   fallos.clear();
+  oyentes.clear();
   llamadas.length = 0;
   localStorage.clear();
 });

@@ -101,6 +101,23 @@ export interface SessionInfo {
   mp4Path: string | null;
 }
 
+/**
+ * El aviso de que la vista previa de una sesión ha dejado de estar en camino.
+ *
+ * Lo rescatado de «los últimos segundos» abre el editor sin vídeo y se escribe por detrás,
+ * así que el play tarda unos segundos en encenderse. `listo` viene dentro a propósito: sin
+ * él, un fallo al escribirlo dejaría el botón apagado para siempre y sin decir por qué.
+ */
+export interface AvisoVistaPrevia {
+  sessionId: string;
+  /** Lo que lleva escrito, de 0 a 100. La espera son unos diez segundos. */
+  porCiento: number;
+  /** Ya se puede reproducir. */
+  listo: boolean;
+  /** Y esto, que ya no va a venir. */
+  fallida: boolean;
+}
+
 export interface FrameMeta {
   index: number;
   timestampMs: number;
