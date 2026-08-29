@@ -46,25 +46,31 @@ pub const SEGMENTO_MS: u64 = 5_000;
 /// fabrica manda que el portatil de nadie sufra por una funcion que corre sola.
 pub const FPS_ANILLO: u32 = 15;
 
-/// Lo que ocupa un fotograma de pantalla completa en el PEOR caso.
+/// Lo que ocupa un fotograma en el PEOR caso, por pixel.
 ///
-/// Medido el 29 de agosto de 2026 sobre una partida a 1920x1080: 2,3 MB en QOI, porque la
-/// pantalla cambia entera y el recorte de `delta` no ahorra nada. Un escritorio de trabajo
-/// gasta una decima parte de esto.
-const PEOR_FOTOGRAMA: u64 = 2_300_000;
+/// Medido el 29 de agosto de 2026 sobre una partida a 1920x1080: 2,3 MB en QOI para
+/// 2.073.600 pixeles, porque la pantalla cambia entera y el recorte de `delta` no ahorra
+/// nada. Un escritorio de trabajo gasta una decima parte de esto.
+///
+/// Va por pixel y no por fotograma porque el anillo puede grabar a 720p desde una pantalla
+/// de 1080p, y entonces cada fotograma ocupa menos de la mitad.
+const PEOR_POR_PIXEL: f64 = 2_300_000.0 / (1920.0 * 1080.0);
 
 /// Y el techo duro, se pida lo que se pida. Sesenta segundos a sesenta fotogramas serian
 /// ocho gigabytes dando vueltas, y eso ya no es una funcion, es un problema.
 const TECHO: u64 = 4 * 1_024 * 1_024 * 1_024;
 
-/// Cuanto disco puede llegar a ocupar el anillo con esos segundos y ese ritmo.
+/// Cuanto disco puede llegar a ocupar el anillo asi configurado.
 ///
 /// Es a la vez el tope que se aplica y **el numero que se le ensenna a quien lo enciende**:
 /// los segundos no dicen nada de lo que cuestan, porque una partida escribe diez veces mas
-/// que un escritorio. Si la pantalla cambia poco no se llega ni de lejos, y si cambia mucho
-/// se poda antes de tiempo y la interfaz cuenta los segundos que hay de verdad.
-pub fn bytes_max(segundos: u32, fps: u32) -> u64 {
-    (u64::from(segundos) * u64::from(fps) * PEOR_FOTOGRAMA).min(TECHO)
+/// que un escritorio y 720p ocupa menos de la mitad que 1080p. Si la pantalla cambia poco
+/// no se llega ni de lejos, y si cambia mucho se poda antes de tiempo y la interfaz cuenta
+/// los segundos que hay de verdad.
+pub fn bytes_max(segundos: u32, fps: u32, ancho: u32, alto: u32) -> u64 {
+    let pixeles = f64::from(ancho) * f64::from(alto);
+    let por_segundo = pixeles * PEOR_POR_PIXEL * f64::from(fps);
+    ((por_segundo * f64::from(segundos)) as u64).min(TECHO)
 }
 
 /// Un trozo del anillo: su archivo y lo que hay dentro.
@@ -206,6 +212,8 @@ pub struct Anillo {
     por_borrar: Vec<PathBuf>,
     copiando: Arc<AtomicUsize>,
     bytes_cerrados: u64,
+    /// Lo mismo pero sin restar nunca: la poda baja `bytes_cerrados` y este sigue subiendo.
+    escritos_totales: u64,
     bytes_max: u64,
 }
 
@@ -225,6 +233,7 @@ impl Anillo {
             por_borrar: Vec::new(),
             copiando: Arc::new(AtomicUsize::new(0)),
             bytes_cerrados: 0,
+            escritos_totales: 0,
             bytes_max,
         })
     }
@@ -250,6 +259,7 @@ impl Anillo {
     fn rotar(&mut self, ts_ms: u64) -> Result<()> {
         if let Some(cache) = self.cache.take() {
             self.bytes_cerrados += cache.bytes_written();
+            self.escritos_totales += cache.bytes_written();
             let frames = cache.finish(ts_ms, self.fps)?;
             if frames.is_empty() {
                 // Un trozo sin un solo fotograma es una pantalla que no se movio en cinco
@@ -309,6 +319,12 @@ impl Anillo {
         let segmentos = self.segmentos.iter().cloned().collect();
         self.podar(ahora_ms);
         Ok((segmentos, corte, copia))
+    }
+
+    /// Todo lo que se ha escrito desde que se abrio el anillo, sin restar lo que se ha
+    /// tirado por el camino. Dividido por el tiempo, es el ritmo al que se le da al disco.
+    pub fn escritos(&self) -> u64 {
+        self.escritos_totales + self.cache.as_ref().map_or(0, |c| c.bytes_written())
     }
 
     /// Lo que ocupa en disco lo que hay guardado ahora mismo.
@@ -488,7 +504,7 @@ mod tests {
     fn lo_cosido_se_vuelve_a_dibujar_igual() {
         let (ancho, alto) = (64u32, 32u32);
         let dir = temporal("cose");
-        let mut anillo = Anillo::nuevo(&dir.join("anillo"), 10_000, 30, bytes_max(10, 30)).unwrap();
+        let mut anillo = Anillo::nuevo(&dir.join("anillo"), 10_000, 30, bytes_max(10, 30, 1920, 1080)).unwrap();
 
         // Veinte segundos a un fotograma cada 250 ms: cuatro trozos de cinco segundos.
         let mut ultimo = Vec::new();
@@ -541,7 +557,7 @@ mod tests {
     fn los_trozos_viejos_se_tiran() {
         let (ancho, alto) = (32u32, 16u32);
         let dir = temporal("poda");
-        let mut anillo = Anillo::nuevo(&dir, 10_000, 30, bytes_max(10, 30)).unwrap();
+        let mut anillo = Anillo::nuevo(&dir, 10_000, 30, bytes_max(10, 30, 1920, 1080)).unwrap();
         for paso in 0..400u32 {
             let frame = pantalla(ancho, alto, paso);
             anillo.empujar(&frame, ancho, alto, u64::from(paso) * 250).unwrap();

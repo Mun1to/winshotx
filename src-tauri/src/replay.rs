@@ -51,6 +51,13 @@ pub struct ReplayStatus {
     pub screen_label: String,
     /// Lo que ocupa ahora mismo el anillo en disco.
     pub bytes: u64,
+    /// Y lo que le escribe al disco por segundo, que es lo que de verdad cuesta tenerlo
+    /// puesto: los megabytes guardados se quedan igual una vez lleno el anillo, pero esto
+    /// sigue pasando toda la tarde.
+    pub bytes_per_second: u64,
+    /// A que tamanno esta grabando, ya con la calidad elegida aplicada.
+    pub width: u32,
+    pub height: u32,
     /// Cuanto lleva grabado. Hasta que no llega a la ventana entera, lo que se guarde
     /// durara menos de lo que pone el ajuste, y la gente tiene derecho a saberlo.
     pub buffered_ms: u64,
@@ -64,6 +71,9 @@ impl ReplayStatus {
             screen: 0,
             screen_label: String::new(),
             bytes: 0,
+            bytes_per_second: 0,
+            width: 0,
+            height: 0,
             buffered_ms: 0,
         }
     }
@@ -79,9 +89,15 @@ enum Orden {
 pub struct ReplayState {
     pub seconds: u32,
     pub monitor: MonitorInfo,
+    /// A que tamanno se esta guardando, con la calidad ya aplicada.
+    pub medida: (u32, u32),
     stop: Arc<AtomicBool>,
     ordenes: Sender<Orden>,
     bytes: Arc<AtomicU64>,
+    /// Todo lo que se ha escrito desde que arranco, sin restar lo podado: dividido por el
+    /// tiempo, es el ritmo al que le esta dando al disco.
+    escritos: Arc<AtomicU64>,
+    arranque: Instant,
     grabado_ms: Arc<AtomicU64>,
     #[cfg(windows)]
     control: Option<crate::record::win::Control>,
@@ -96,6 +112,18 @@ impl ReplayState {
             screen: self.monitor.id + 1,
             screen_label: self.monitor.label.clone(),
             bytes: self.bytes.load(Ordering::Relaxed),
+            bytes_per_second: {
+                // Con menos de dos segundos de vida el numero baila muchisimo, y ensennar
+                // «180 MB/s» el primer segundo asustaria sin motivo.
+                let vivo = self.arranque.elapsed().as_secs();
+                if vivo < 2 {
+                    0
+                } else {
+                    self.escritos.load(Ordering::Relaxed) / vivo
+                }
+            },
+            width: self.medida.0,
+            height: self.medida.1,
             buffered_ms: self.grabado_ms.load(Ordering::Relaxed),
         }
     }
@@ -161,13 +189,14 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         return Ok(status(app));
     }
 
-    let (segundos, fps, pedida, quiere_audio, quiere_micro, con_cursor) = {
+    let (segundos, fps, alto_pedido, pedida, quiere_audio, quiere_micro, con_cursor) = {
         let settings = state.settings.read();
         (
             settings.replay_seconds.clamp(SEGUNDOS_MIN, SEGUNDOS_MAX),
             // El ritmo del anillo va aparte del de la grabacion normal: aqui se graba todo
             // el rato, asi que lo que cuesta cada fotograma se paga toda la tarde.
             settings.replay_fps.clamp(5, 60),
+            settings.replay_height,
             settings.replay_screen,
             settings.record_audio,
             settings.record_microphone,
@@ -182,6 +211,17 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         height: monitor.height,
     }
     .to_even();
+    // A que tamanno se guarda. `None` es tal cual sale de la pantalla.
+    let destino = crate::encode::escalar::medida_para(region.width, region.height, alto_pedido);
+    // Lo que va a medir de verdad lo guardado. Es lo que ve el editor, asi que el resto de
+    // la sesion (los clics, el raton, el video exportado) se mide contra esto y no contra
+    // la pantalla.
+    let (ancho_guardado, alto_guardado) = destino.unwrap_or((region.width, region.height));
+    let region_guardada = Rect {
+        width: ancho_guardado,
+        height: alto_guardado,
+        ..region
+    };
 
     // El anillo vive en su propia carpeta y se borra entera al apagarlo. No va dentro de
     // `sessions`: eso son grabaciones que alguien puede querer, y esto es material que se
@@ -218,12 +258,14 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     let (ordenes, buzon) = channel::<Orden>();
     let stop = Arc::new(AtomicBool::new(false));
     let bytes = Arc::new(AtomicU64::new(0));
+    let escritos = Arc::new(AtomicU64::new(0));
     let grabado_ms = Arc::new(AtomicU64::new(0));
 
     let hilo = {
         let app = app.clone();
         let stop = stop.clone();
         let bytes = bytes.clone();
+        let escritos = escritos.clone();
         let grabado_ms = grabado_ms.clone();
         std::thread::spawn(move || {
             let ventana_ms = u64::from(segundos) * 1000;
@@ -231,7 +273,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 &dir,
                 ventana_ms,
                 fps,
-                crate::record::buffer::bytes_max(segundos, fps),
+                crate::record::buffer::bytes_max(segundos, fps, ancho_guardado, alto_guardado),
             ) {
                 Ok(anillo) => anillo,
                 Err(error) => {
@@ -255,12 +297,14 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 vigilante: record::raton::Vigilante::default(),
                 teclado: record::teclas::Vigilante::default(),
                 region,
+                region_guardada,
+                destino,
                 fps,
                 ventana_ms,
                 con_cursor,
                 desde_la_limpieza: 0,
             };
-            cocina.trabajar(&receiver, &buzon, &stop, &bytes, &grabado_ms, audio.as_ref());
+            cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado_ms, audio.as_ref());
             if let Some(captura) = audio {
                 captura.parar();
             }
@@ -288,9 +332,12 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     *state.replay.lock() = Some(ReplayState {
         seconds: segundos,
         monitor,
+        medida: (ancho_guardado, alto_guardado),
         stop,
         ordenes,
         bytes,
+        escritos,
+        arranque: Instant::now(),
         grabado_ms,
         control: Some(control),
         hilo: Some(hilo),
@@ -354,6 +401,10 @@ struct Cocina {
     vigilante: record::raton::Vigilante,
     teclado: record::teclas::Vigilante,
     region: Rect,
+    /// La misma region pero con el tamanno al que se guarda, que es el que ve el editor.
+    region_guardada: Rect,
+    /// A que tamanno se guarda cada fotograma, si no es el de la pantalla.
+    destino: Option<(u32, u32)>,
     fps: u32,
     ventana_ms: u64,
     con_cursor: bool,
@@ -368,6 +419,7 @@ impl Cocina {
         buzon: &Receiver<Orden>,
         stop: &Arc<AtomicBool>,
         bytes: &Arc<AtomicU64>,
+        escritos: &Arc<AtomicU64>,
         grabado_ms: &Arc<AtomicU64>,
         audio: Option<&record::audio::Captura>,
     ) {
@@ -416,7 +468,12 @@ impl Cocina {
                     }
                     perdidos += u64::from(tirados);
                     ultimo_ts = frame.ts_ms;
+                    let antes = self.anillo.escritos();
                     self.tragar(frame);
+                    escritos.fetch_add(
+                        self.anillo.escritos().saturating_sub(antes),
+                        Ordering::Relaxed,
+                    );
                     bytes.store(self.anillo.bytes(), Ordering::Relaxed);
                     grabado_ms.store(self.anillo.guardado_ms(ultimo_ts), Ordering::Relaxed);
                 }
@@ -443,6 +500,7 @@ impl Cocina {
         _buzon: &Receiver<Orden>,
         _stop: &Arc<AtomicBool>,
         _bytes: &Arc<AtomicU64>,
+        _escritos: &Arc<AtomicU64>,
         _grabado_ms: &Arc<AtomicU64>,
         _audio: Option<&()>,
     ) {
@@ -451,33 +509,49 @@ impl Cocina {
     #[cfg(windows)]
     fn tragar(&mut self, frame: crate::record::win::CapturedFrame) {
         let rgba = crate::recorder::bgra_a_rgba(&frame.bgra);
+        // Todo lo que se anota va YA en la escala a la que se guarda. Guardar a 720p desde
+        // una pantalla de 1080p y anotar el clic en coordenadas de 1080 dejaria la camara
+        // acercandose a un sitio que no es, y el puntero dibujado fuera de la pantalla.
+        let (x_en, y_en) = self.escalar_punto();
+
         // Se anota lo mismo que en una grabacion normal (donde se pulso, que atajo y donde
         // estaba el raton) para que el editor pueda acercar la camara y dibujar el puntero
         // despues. Son doce bytes por clic: no se decide antes lo que se va a querer luego.
         if let Some((cx, cy)) = record::raton::cursor() {
             self.cursor
-                .push((frame.ts_ms, cx - self.region.x, cy - self.region.y));
+                .push((frame.ts_ms, x_en(cx - self.region.x), y_en(cy - self.region.y)));
         }
         if let Some(clic) = self.vigilante.mirar(frame.ts_ms) {
             self.clics.push(crate::encode::zoom::Clic {
                 ms: clic.ms,
-                x: clic.x - self.region.x,
-                y: clic.y - self.region.y,
+                x: x_en(clic.x - self.region.x),
+                y: y_en(clic.y - self.region.y),
                 derecho: clic.derecho,
             });
         }
         if let Some(atajo) = self.teclado.mirar(frame.ts_ms) {
             self.teclas.push(record::teclas::Atajo {
-                x: atajo.x - self.region.x,
-                y: atajo.y - self.region.y,
+                x: x_en(atajo.x - self.region.x),
+                y: y_en(atajo.y - self.region.y),
                 ..atajo
             });
         }
 
-        if let Err(error) = self
-            .anillo
-            .empujar(&rgba, self.region.width, self.region.height, frame.ts_ms)
-        {
+        let (ancho, alto) = self.destino.unwrap_or((self.region.width, self.region.height));
+        let guardado = match self.destino {
+            None => rgba,
+            Some((w, h)) => {
+                let Some(imagen) =
+                    image::RgbaImage::from_raw(self.region.width, self.region.height, rgba)
+                else {
+                    eprintln!("[replay] fotograma con un tamaño que no cuadra");
+                    return;
+                };
+                crate::encode::escalar::reducir(&imagen, w, h).into_raw()
+            }
+        };
+
+        if let Err(error) = self.anillo.empujar(&guardado, ancho, alto, frame.ts_ms) {
             eprintln!("[replay] fotograma perdido: {error}");
         }
 
@@ -493,6 +567,21 @@ impl Cocina {
             self.clics.retain(|clic| clic.ms >= corte);
             self.teclas.retain(|atajo| atajo.ms >= corte);
         }
+    }
+
+    /// Las dos funciones que llevan un punto de la pantalla a la escala guardada.
+    fn escalar_punto(&self) -> (impl Fn(i32) -> i32 + use<>, impl Fn(i32) -> i32 + use<>) {
+        let (fx, fy) = match self.destino {
+            None => (1.0f32, 1.0f32),
+            Some((w, h)) => (
+                w as f32 / self.region.width.max(1) as f32,
+                h as f32 / self.region.height.max(1) as f32,
+            ),
+        };
+        (
+            move |x: i32| (x as f32 * fx).round() as i32,
+            move |y: i32| (y as f32 * fy).round() as i32,
+        )
     }
 
     #[cfg(windows)]
@@ -522,7 +611,7 @@ impl Cocina {
             clics: self.clics.clone(),
             teclas: self.teclas.clone(),
             cursor: self.cursor.clone(),
-            region: self.region,
+            region: self.region_guardada,
             fps: self.fps,
             con_cursor: self.con_cursor,
         };
@@ -702,7 +791,7 @@ mod tests {
         let raiz = std::env::temp_dir().join("winshotx-replay-camino");
         let _ = std::fs::remove_dir_all(&raiz);
         let mut anillo =
-            Anillo::nuevo(&raiz.join("anillo"), 10_000, 30, crate::record::buffer::bytes_max(10, 30))
+            Anillo::nuevo(&raiz.join("anillo"), 10_000, 30, crate::record::buffer::bytes_max(10, 30, 1920, 1080))
                 .unwrap();
 
         // Veinte segundos grabando, con un clic por el medio y el raton paseando.
@@ -818,7 +907,7 @@ mod pruebas_con_pantalla {
             &raiz.join("anillo"),
             3_000,
             fps,
-            crate::record::buffer::bytes_max(3, fps),
+            crate::record::buffer::bytes_max(3, fps, region.width, region.height),
         )
         .unwrap();
 

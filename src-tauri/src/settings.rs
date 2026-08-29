@@ -97,6 +97,13 @@ pub struct Settings {
     /// graba algo que se mueve de verdad y tiene disco de sobra.
     #[serde(default = "fps_de_repeticion")]
     pub replay_fps: u32,
+    /// A que alto se guarda lo que graba el anillo. Cero es el de la pantalla, tal cual.
+    ///
+    /// Bajar de 1080p a 720p deja el fotograma en menos de la mitad por cuatro milisegundos
+    /// de trabajo, y para «ver que acaba de pasar» 720p se ve perfectamente. Es el ajuste
+    /// que mas disco ahorra de los tres.
+    #[serde(default)]
+    pub replay_height: u32,
     pub play_sound: bool,
     pub show_magnifier: bool,
     pub start_with_windows: bool,
@@ -154,6 +161,7 @@ impl Default for Settings {
             replay_seconds: segundos_de_repeticion(),
             replay_screen: None,
             replay_fps: fps_de_repeticion(),
+            replay_height: 0,
             play_sound: false,
             show_magnifier: true,
             start_with_windows: false,
