@@ -16,7 +16,10 @@ export function formatTimecode(ms: number): string {
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  // Los gigas hacen falta desde que el anillo de los últimos segundos dice lo que puede
+  // llegar a ocupar: «4096,0 MB» es un número que nadie lee como cuatro gigas.
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 export function clamp(value: number, min: number, max: number): number {
