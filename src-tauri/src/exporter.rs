@@ -355,7 +355,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     // absolutamente nada.
     let (copied, copy_error) = match request.copy_to_clipboard {
         false => (false, None),
-        true => match copy_result(&path, &session, &request) {
+        true => match copy_result(&path, &request) {
             Ok(()) => (true, None),
             Err(e) => (false, Some(e.to_string())),
         },
@@ -698,14 +698,51 @@ fn leer_lo_que_haya(archivo: &mut std::fs::File, destino: &mut [u8]) -> usize {
 }
 
 /// Una imagen se pega como imagen; un GIF o un MP4 se pegan como archivo.
-fn copy_result(path: &Path, session: &SessionData, request: &ExportRequest) -> Result<()> {
-    if request.format == "png" {
-        let image = record::read_frame(session, request.from)?;
-        let bytes = png::to_bytes(&image)?;
-        crate::platform::clipboard::copy_image(&image, &bytes)
-    } else {
-        crate::platform::clipboard::copy_files(&[path])
+///
+/// Lo que se pega es **el archivo que se acaba de escribir**, no el fotograma del cache.
+/// Leerlo del cache dejaba fuera todo lo que hace exportar: las marcas dibujadas encima,
+/// el recorte, el marco, el escalado y el zoom. Munir lo vio el 29 de agosto de 2026
+/// copiando una captura con una flecha roja: el archivo la tenia, y lo pegado no.
+fn copy_result(path: &Path, request: &ExportRequest) -> Result<()> {
+    match que_se_pega(path, request)? {
+        ComoSePega::Imagen(image, bytes) => {
+            crate::platform::clipboard::copy_image(&image, &bytes)
+        }
+        ComoSePega::Archivo(ruta) => crate::platform::clipboard::copy_files(&[&ruta]),
     }
+}
+
+/// Que se le va a dar al portapapeles.
+enum ComoSePega {
+    /// Los pixeles y los bytes PNG de lo exportado, para pegarlo como imagen.
+    Imagen(image::RgbaImage, Vec<u8>),
+    /// El archivo tal cual, para lo que no cabe en el portapapeles como imagen.
+    Archivo(PathBuf),
+}
+
+/// La decision, separada de la ejecucion para poder probarla.
+///
+/// Aqui es donde estaba el fallo, y por eso esto no recibe la sesion: si algun dia alguien
+/// vuelve a sacar los pixeles del cache en vez del archivo, esta funcion necesitara la
+/// sesion otra vez y la prueba dejara de compilar.
+fn que_se_pega(path: &Path, request: &ExportRequest) -> Result<ComoSePega> {
+    if request.format == "png" {
+        let (image, bytes) = imagen_escrita(path)?;
+        Ok(ComoSePega::Imagen(image, bytes))
+    } else {
+        Ok(ComoSePega::Archivo(path.to_path_buf()))
+    }
+}
+
+/// Lo que quedo en el archivo, en las dos formas que quiere el portapapeles de Windows:
+/// los pixeles para el mapa de bits y los bytes tal cual para el formato PNG.
+///
+/// Va aparte de `copy_result` para poder probarlo: comprobar que lo copiado lleva la
+/// flecha no puede depender de tocarle el portapapeles a nadie.
+fn imagen_escrita(path: &Path) -> Result<(image::RgbaImage, Vec<u8>)> {
+    let bytes = std::fs::read(path)?;
+    let image = image::load_from_memory(&bytes)?.to_rgba8();
+    Ok((image, bytes))
 }
 
 #[cfg(test)]
@@ -896,6 +933,35 @@ mod el_orden_de_exportar {
         image::RgbaImage::from_fn(ancho, alto, |x, _| if x < ancho / 2 { ROJO } else { AZUL })
     }
 
+    /// Una peticion de exportar PNG, la de siempre, para las pruebas que la necesitan.
+    fn peticion_png() -> ExportRequest {
+        ExportRequest {
+            session_id: "s".into(),
+            format: "png".into(),
+            engine: "native".into(),
+            from: 0,
+            to: 0,
+            width: 200,
+            height: 200,
+            fps: 30,
+            quality: 90,
+            audio: false,
+            loop_forever: false,
+            margin: 0,
+            background: String::new(),
+            shadow: false,
+            annotations: Vec::new(),
+            crop: None,
+            zoom: 0.0,
+            clicks: false,
+            keys: false,
+            cursor: 0.0,
+            speed: 1.0,
+            destination: None,
+            copy_to_clipboard: true,
+        }
+    }
+
     fn sin_marco() -> marco::Marco {
         marco::Marco {
             margen: 0,
@@ -944,6 +1010,79 @@ mod el_orden_de_exportar {
         );
         assert_eq!(salida.dimensions(), (400, 300));
         assert_eq!(*salida.get_pixel(10, 150), AZUL, "ha entrado parte de la mitad roja");
+    }
+
+    /// Lo que se pega tiene que ser lo que se exporto, con las marcas dentro.
+    ///
+    /// El fallo, que vio Munir el 29 de agosto de 2026: copiar leia el fotograma del
+    /// CACHE, asi que una captura con una flecha se guardaba con flecha y se pegaba sin
+    /// ella. Y sin ella se pegaban tambien el recorte, el marco, la escala y el zoom.
+    ///
+    /// Aqui se escribe un PNG ya anotado y se comprueba lo que sale para el portapapeles.
+    /// No se toca el portapapeles de verdad a proposito: es de quien este delante.
+    #[test]
+    fn lo_que_se_copia_lleva_las_marcas_dibujadas() {
+        let marca = anotacion::Anotacion {
+            kind: "box".into(),
+            x1: 0.25,
+            y1: 0.25,
+            x2: 0.75,
+            y2: 0.75,
+            color: "#00ff00".into(),
+            text: String::new(),
+        };
+        let anotada = enmarcar_y_anotar(
+            image::RgbaImage::from_pixel(200, 200, AZUL),
+            200,
+            200,
+            sin_marco(),
+            std::slice::from_ref(&marca),
+            &[],
+            None,
+        );
+        let unico = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let destino = std::env::temp_dir().join(format!("winshotx-copiar-{unico}.png"));
+        png::save(&anotada, &destino, 200, 200).expect("no se ha escrito el PNG");
+
+        // Por el mismo camino que sigue el boton de copiar, no por un atajo.
+        let peticion = peticion_png();
+        let ComoSePega::Imagen(imagen, bytes) =
+            que_se_pega(&destino, &peticion).expect("no se ha podido leer lo escrito")
+        else {
+            panic!("una captura tiene que pegarse como imagen, no como archivo");
+        };
+
+        assert_eq!(imagen.dimensions(), (200, 200));
+        let verde = imagen
+            .pixels()
+            .any(|p| p.0[1] > 200 && p.0[0] < 80 && p.0[2] < 80);
+        assert!(verde, "lo que se copia no lleva la marca que el archivo si tiene");
+        assert_eq!(
+            bytes,
+            std::fs::read(&destino).unwrap(),
+            "los bytes del portapapeles no son los del archivo escrito"
+        );
+        let _ = std::fs::remove_file(&destino);
+    }
+
+    #[test]
+    fn un_video_se_pega_como_archivo() {
+        // Un MP4 no cabe en el portapapeles como imagen: se pega el archivo, que es lo
+        // que entienden el Explorador, Slack o Discord.
+        let peticion = ExportRequest {
+            format: "mp4".into(),
+            ..peticion_png()
+        };
+        let ruta = std::env::temp_dir().join("winshotx-no-existe.mp4");
+        let ComoSePega::Archivo(pegado) =
+            que_se_pega(&ruta, &peticion).expect("decidir no puede fallar")
+        else {
+            panic!("un vídeo no se pega como imagen");
+        };
+        assert_eq!(pegado, ruta);
     }
 
     #[test]
