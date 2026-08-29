@@ -28,7 +28,7 @@
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../estilos.css?v=95980cb9">
+<link rel="stylesheet" href="../estilos.css?v=5dfe4e9d">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -58,7 +58,7 @@
       "name": "¿Es una alternativa libre a la Herramienta de Recortes?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección en 28 ms contra 920 ms, y gasta 33 MB contra 253 MB. La de Windows sigue ganando en anotar, en leer el texto de una imagen y en el audio del sistema, y la comparativa de la portada lo dice."
+        "text": "Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección en 28 ms contra 920 ms, y gasta 33 MB contra 253 MB. La de Windows sigue ganando en venir puesta, en tapar datos personales sola y en hablar todos los idiomas de Windows, y la comparativa de la portada lo dice, punto por punto."
       }
     },
     {
@@ -82,7 +82,7 @@
       "name": "¿Puedo capturar con la tecla Impr Pant?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Sí. En Ajustes → Atajos globales hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. Win + Mayús + S es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está."
+        "text": "Sí. En Ajustes → Teclas de Windows hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. Win + Mayús + S es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está."
       }
     },
     {
@@ -90,7 +90,7 @@
       "name": "¿Cómo hago que Win+Mayús+S deje de abrir la Herramienta de Recortes?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Con el interruptor Quedarme con Win+Mayús+S , en Ajustes → Atajos globales . Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante Win+S , la búsqueda. No surte efecto hasta que cierras sesión y vuelves a entrar, y al desactivarlo vuelve todo. Está separado a propósito: liberar Impr Pant no cuesta nada, y nadie debería perder su búsqueda de propina por eso."
+        "text": "Con el interruptor Quedarme con Win+Mayús+S , en Ajustes → Teclas de Windows . Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante Win+S , la búsqueda. No surte efecto hasta que cierras sesión y vuelves a entrar, y al desactivarlo vuelve todo. Está separado a propósito: liberar Impr Pant no cuesta nada, y nadie debería perder su búsqueda de propina por eso."
       }
     },
     {
@@ -98,7 +98,7 @@
       "name": "¿Cómo pego un GIF en Slack o en Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Usa Copiar en el panel de exportación. Una imagen va al portapapeles como imagen, y un GIF o un MP4 van como archivo, así que se pegan directamente en Slack, Discord o el Explorador."
+        "text": "Usa Copiar en el panel de exportación. Una imagen va al portapapeles como imagen, y un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta."
       }
     },
     {
@@ -176,8 +176,8 @@
 
   <section id="instalar">
     <h2 data-en="Install">Instalar</h2>
-    <p data-en="Download the installer and run it. It weighs 2.35 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.">
-      Descarga el instalador y ábrelo. Pesa 2,35 MB, se instala solo para tu usuario y nunca sale la ventana de permisos de administrador. Necesita Windows 10 versión 1903 o superior.
+    <p data-en="Download the installer and run it. It weighs 2.48 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.">
+      Descarga el instalador y ábrelo. Pesa 2,48 MB, se instala solo para tu usuario y nunca sale la ventana de permisos de administrador. Necesita Windows 10 versión 1903 o superior.
     </p>
     <div class="botones">
       <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
@@ -226,8 +226,11 @@
     <p data-en="It records through Windows Graphics Capture at 15, 30 or 60 fps, so no overlay leaks into the video and the cost to the processor is close to nothing. Every frame is written to a lossless cache on disk, which is what makes the frame by frame editing possible afterwards.">
       Graba con Windows Graphics Capture a 15, 30 o 60 fps, así que no se cuela ningún overlay en el vídeo y el coste para el procesador es casi cero. Cada fotograma se escribe en un caché sin pérdida en el disco, que es lo que permite editar después fotograma a fotograma.
     </p>
-    <p class="nota" data-en="System audio is not recorded yet. The switch is in the interface, disabled and saying so: it needs WASAPI in loopback mode to feed the encoder.">
-      El audio del sistema todavía no se graba. El interruptor está en la interfaz, desactivado y diciéndolo: necesita WASAPI en modo loopback para alimentar al codificador.
+    <p data-en="It records sound too: the system audio (whatever the speakers are playing) and your microphone, mixed into the same track. Each has its own switch in Settings and either can go alone. Exporting at a speed other than 1× comes out silent, and the panel says so beforehand: stretching a track without touching its pitch is another problem entirely.">
+      También graba sonido: el audio del sistema (lo que suene por los altavoces) y tu micrófono, mezclados en la misma pista. Cada uno tiene su interruptor en Ajustes y cualquiera de los dos puede ir solo. Exportar a una velocidad distinta de 1× sale mudo, y el panel lo dice antes: estirar una pista sin tocarle el tono es otro problema entero.
+    </p>
+    <p class="nota" data-en="&lt;b&gt;The last few seconds.&lt;/b&gt; With the ring on, winshotx records all the time and drops the old, so &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;6&lt;/kbd&gt; keeps the last 15, 30 or 60 seconds without having pressed record beforehand. You pick the screen, the quality and the smoothness, and it tells you up front how much disk it can take. Saving does not stop the recording." data-html>
+      <b>Los últimos segundos.</b> Con el anillo encendido, winshotx graba todo el rato y va tirando lo viejo, así que <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> se queda con los últimos 15, 30 o 60 segundos sin haber dado a grabar antes. Eliges pantalla, calidad y fluidez, y te dice de antemano cuánto disco puede ocupar. Guardar no interrumpe la grabación.
     </p>
   </section>
 
@@ -241,13 +244,18 @@
       <li data-en="&lt;b&gt;A and B trim.&lt;/b&gt; &lt;kbd&gt;I&lt;/kbd&gt; marks the start and &lt;kbd&gt;O&lt;/kbd&gt; marks the end. What falls outside is dimmed and does not reach the file." data-html><b>Recorte A y B.</b> <kbd>I</kbd> marca el principio y <kbd>O</kbd> el final. Lo que queda fuera se atenúa y no llega al archivo.</li>
       <li data-en="&lt;b&gt;Looped playback.&lt;/b&gt; &lt;kbd&gt;Space&lt;/kbd&gt; plays and pauses; the arrows step one frame at a time." data-html><b>Reproducción en bucle.</b> <kbd>Espacio</kbd> reproduce y pausa; las flechas avanzan de fotograma en fotograma.</li>
       <li data-en="&lt;b&gt;Scale.&lt;/b&gt; Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons." data-html><b>Escala.</b> El ancho y el alto van encadenados por defecto, así que la proporción no se rompe. Hay botones de 100, 75 y 50 por ciento.</li>
+      <li data-en="&lt;b&gt;Zoom on every click.&lt;/b&gt; The camera moves in on each click of the recording, and how much you decide &lt;em&gt;after&lt;/em&gt; recording: the clicks were written down while it recorded, so raising it, lowering it or dropping it never means recording again." data-html><b>Zoom a cada clic.</b> La cámara se acerca a cada clic de la grabación, y cuánto lo decides <em>después</em> de grabar: los clics quedaron anotados, así que subirlo, bajarlo o quitarlo no obliga a volver a grabar.</li>
+      <li data-en="&lt;b&gt;Rings, keys and cursor.&lt;/b&gt; A ring where you pressed, a badge with the shortcut you just typed (only shortcuts with a modifier, never a lone key: a password has no Ctrl in front) and the pointer drawn at the size you ask for." data-html><b>Aros, teclas y cursor.</b> Un aro donde pulsaste, una pastilla con el atajo que acabas de teclear (solo atajos con modificador, nunca una tecla suelta: una contraseña no lleva Ctrl delante) y el puntero dibujado del tamaño que pidas.</li>
+      <li data-en="&lt;b&gt;Frame and background.&lt;/b&gt; Air around the capture, with a shadow and a background to choose, for when the shot goes into a slide or a post." data-html><b>Marco y fondo.</b> Aire alrededor de la captura, con sombra y un fondo a elegir, para cuando la captura va a una diapositiva o a un post.</li>
+      <li data-en="&lt;b&gt;Speed.&lt;/b&gt; 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens." data-html><b>Velocidad.</b> 0,5×, 2× o 4× sobre lo grabado. Un tutorial tiene tramos en los que no pasa nada.</li>
+      <li data-en="&lt;b&gt;Six marks to annotate.&lt;/b&gt; Arrow, rectangle, text, highlight, numbered step and a mosaic that destroys private data. They go on the video too, not only on a still." data-html><b>Seis marcas para anotar.</b> Flecha, rectángulo, texto, resaltado, paso numerado y mosaico que destruye los datos privados. Van también sobre el vídeo, no solo sobre una foto.</li>
     </ul>
   </section>
 
   <section id="exportar">
     <h2 data-en="Export">Exportar</h2>
-    <p data-en="Three formats: PNG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.">
-      Tres formatos: PNG para una imagen, GIF para algo que haga bucle en un chat, y MP4 para lo que dure más. El panel enseña el tamaño estimado antes de escribir nada.
+    <p data-en="Four formats: PNG and JPG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.">
+      Cuatro formatos: PNG y JPG para una imagen, GIF para algo que haga bucle en un chat, y MP4 para lo que dure más. El panel enseña el tamaño estimado antes de escribir nada.
     </p>
     <table class="tabla-guia">
       <thead><tr>
@@ -262,6 +270,11 @@
           <td data-en="A still, a bug report, a colour.">Una imagen, un informe de fallo, un color.</td>
         </tr>
         <tr>
+          <th scope="row"><b>JPG</b></th>
+          <td data-en="The same still, with the quality slider deciding how much it weighs.">La misma imagen, con el mando de calidad decidiendo cuánto pesa.</td>
+          <td data-en="A screenshot for a chat or a form that will not take megabytes.">Una captura para un chat o un formulario que no admite megas.</td>
+        </tr>
+        <tr>
           <th scope="row"><b>GIF</b></th>
           <td data-en="Pure Rust: global palette, Floyd-Steinberg dithering and only the rectangle that changed between frames.">Rust puro: paleta global, dithering Floyd-Steinberg y solo el rectángulo que cambia entre fotogramas.</td>
           <td data-en="Short interface clips. It loops everywhere with no player.">Clips cortos de interfaz. Hace bucle en todas partes sin reproductor.</td>
@@ -273,8 +286,8 @@
         </tr>
       </tbody>
     </table>
-    <p data-en="&lt;b&gt;Save&lt;/b&gt; writes the file to disk. &lt;b&gt;Copy&lt;/b&gt; puts it on the clipboard: a still goes as an image, and a GIF or an MP4 goes as a &lt;b&gt;file&lt;/b&gt;, so it pastes straight into Slack, Discord or File Explorer." data-html>
-      <b>Guardar</b> escribe el archivo en el disco. <b>Copiar</b> lo deja en el portapapeles: una imagen va como imagen, y un GIF o un MP4 van como <b>archivo</b>, así que se pegan directamente en Slack, Discord o el Explorador.
+    <p data-en="&lt;b&gt;Save&lt;/b&gt; writes the file to disk. &lt;b&gt;Copy&lt;/b&gt; puts it on the clipboard: a still goes as an image, and a GIF or an MP4 go &lt;b&gt;two ways at once, as a file and as their written path&lt;/b&gt;. Where files can be dropped (Slack, Discord, File Explorer) the video is pasted; in any text box, its path." data-html>
+      <b>Guardar</b> escribe el archivo en el disco. <b>Copiar</b> lo deja en el portapapeles: una imagen va como imagen, y un GIF o un MP4 van <b>de dos maneras a la vez, como archivo y como su ruta escrita</b>. Donde se pueden soltar archivos (Slack, Discord, el Explorador) se pega el vídeo; en cualquier caja de texto, su ruta.
     </p>
     <p data-en="If you happen to have &lt;code&gt;ffmpeg&lt;/code&gt; on your &lt;code&gt;PATH&lt;/code&gt;, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.">
       Si resulta que tienes <code>ffmpeg</code> en el <code>PATH</code>, el panel ofrece además un motor de máxima calidad. Nunca se descarga ni se distribuye: sin él, todo lo de arriba funciona igual.
@@ -335,14 +348,23 @@
 
   <section id="ajustes">
     <h2 data-en="Settings">Ajustes</h2>
-    <p data-en="Right click the tray icon and choose &lt;b&gt;Ajustes&lt;/b&gt;. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.">
-      Pincha con el botón derecho en el icono de la bandeja y elige <b>Ajustes</b>. Los dos atajos globales se cambian pulsando el campo y tecleando la combinación nueva; si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
+    <p data-en="Right click the tray icon: winshotx draws its own menu there, with the ring switch and every shortcut written next to what it does. From there, &lt;b&gt;Settings&lt;/b&gt;. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so." data-html>
+      Pincha con el botón derecho en el icono de la bandeja: ahí winshotx dibuja su propio menú, con el interruptor del anillo y cada atajo escrito al lado de lo que hace. Desde ahí, <b>Ajustes</b>. Los dos atajos globales se cambian pulsando el campo y tecleando la combinación nueva; si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
     </p>
     <p data-en="Under them there is a switch that hands the &lt;kbd&gt;Impr Pant&lt;/kbd&gt; key over from the Snipping Tool, and it says whether Windows actually let go of it." data-html>
       Debajo hay un interruptor que le quita la tecla <kbd>Impr Pant</kbd> a la Herramienta de Recortes, y dice si Windows la ha soltado de verdad.
     </p>
-    <p data-en="The rest is short on purpose: what happens when you let go of the mouse, whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.">
-      El resto es corto a propósito: qué pasa al soltar el ratón, si copiar al portapapeles al guardar, si incluir el cursor, la lupa, el sonido de obturador, los fotogramas por segundo, la carpeta de destino, arrancar con Windows y buscar actualizaciones.
+    <p data-en="It is four tabs, with nothing hidden three levels deep:">
+      Son cuatro pestañas, y nada escondido tres niveles hacia dentro:
+    </p>
+    <ul role="list">
+      <li data-en="&lt;b&gt;Capture.&lt;/b&gt; The shortcut, how long it waits before capturing (none, 3 or 5 seconds), hiding the desktop icons while the shot lasts, the cursor, the magnifier, what happens when you let go of the mouse, and whether saving also copies." data-html><b>Capturar.</b> El atajo, cuánto espera antes de capturar (nada, 3 o 5 segundos), ocultar los iconos del escritorio mientras dura el disparo, el cursor, la lupa, qué pasa al soltar el ratón y si guardar copia además.</li>
+      <li data-en="&lt;b&gt;Record.&lt;/b&gt; The shortcut, the frame rate, system audio and microphone, opening the editor when it ends, and the whole &lt;em&gt;last few seconds&lt;/em&gt; ring: how much it keeps, which screen, quality and smoothness." data-html><b>Grabar.</b> El atajo, los fotogramas por segundo, el audio del sistema y el micrófono, abrir el editor al terminar, y todo el anillo de <em>los últimos segundos</em>: cuánto se guarda, qué pantalla, calidad y fluidez.</li>
+      <li data-en="&lt;b&gt;Windows keys.&lt;/b&gt; Taking &lt;kbd&gt;Impr Pant&lt;/kbd&gt; and &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;S&lt;/kbd&gt; away from the Snipping Tool, and removing the Snipping Tool if you want it gone for good." data-html><b>Teclas de Windows.</b> Quitarle <kbd>Impr Pant</kbd> y <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> a la Herramienta de Recortes, y desinstalarla si la quieres fuera del todo.</li>
+      <li data-en="&lt;b&gt;The app.&lt;/b&gt; Destination folder, recording cache, theme (automatic, light or dark), language (automatic, Spanish or English), the welcome screen, a six stop tour of the settings, and starting with Windows." data-html><b>La app.</b> Carpeta de destino, caché de grabaciones, tema (automático, claro u oscuro), idioma (automático, español o inglés), la bienvenida, un tour de seis paradas por los ajustes y arrancar con Windows.</li>
+    </ul>
+    <p data-en="Every row explains itself: leave the pointer on the icon beside its name and a bubble says what it does and when it is worth turning on. And a bar at the bottom, there in all four tabs, holds what gets touched often: theme, language, what happens on release, the tour, and updates, which when you are up to date is a green tick and nothing more.">
+      Cada fila se explica sola: deja el puntero en el icono de su nombre y sale un globo con lo que hace y cuándo merece la pena encenderlo. Y abajo hay una barra, en las cuatro pestañas, con lo que se toca a menudo: tema, idioma, qué pasa al soltar, el tour y las actualizaciones, que estando al día son un tick verde y nada más.
     </p>
     <p><a href="../#demo" data-en="You can click through all of it in the demo on the home page, without installing anything.">Puedes tocarlo todo en la demo de la portada, sin instalar nada.</a></p>
   </section>
@@ -356,8 +378,8 @@
     </p>
 
     <h3 data-en="Is this a free alternative to the Snipping Tool?">¿Es una alternativa libre a la Herramienta de Recortes?</h3>
-    <p data-en="Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at annotating, at reading the text out of an image and at system audio, and the comparison on the home page says so.">
-      Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección en 28 ms contra 920 ms, y gasta 33 MB contra 253 MB. La de Windows sigue ganando en anotar, en leer el texto de una imagen y en el audio del sistema, y la comparativa de la portada lo dice.
+    <p data-en="Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at coming preinstalled, at blurring personal data on its own and at speaking every language Windows speaks, and the comparison on the home page says so, point by point.">
+      Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección en 28 ms contra 920 ms, y gasta 33 MB contra 253 MB. La de Windows sigue ganando en venir puesta, en tapar datos personales sola y en hablar todos los idiomas de Windows, y la comparativa de la portada lo dice, punto por punto.
     </p>
 
     <h3 data-en="Does it upload my screenshots anywhere?">¿Sube mis capturas a algún sitio?</h3>
@@ -371,18 +393,18 @@
     </p>
 
     <h3 data-en="Can I capture with the Print Screen key?">¿Puedo capturar con la tecla Impr Pant?</h3>
-    <p data-en="Yes. In &lt;b&gt;Ajustes → Atajos globales&lt;/b&gt; a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is." data-html>
-      Sí. En <b>Ajustes → Atajos globales</b> hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está.
+    <p data-en="Yes. In &lt;b&gt;Settings → Windows keys&lt;/b&gt; a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is." data-html>
+      Sí. En <b>Ajustes → Teclas de Windows</b> hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está.
     </p>
 
     <h3 data-en="How do I stop Win+Shift+S from opening the Snipping Tool?">¿Cómo hago que Win+Mayús+S deje de abrir la Herramienta de Recortes?</h3>
-    <p data-en="With the &lt;b&gt;Quedarme con Win+Mayús+S&lt;/b&gt; switch, in &lt;b&gt;Ajustes → Atajos globales&lt;/b&gt;. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes &lt;b&gt;Win+S&lt;/b&gt;, the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing &lt;kbd&gt;Impr Pant&lt;/kbd&gt; costs nothing, and nobody should lose their search as a side effect of that." data-html>
-      Con el interruptor <b>Quedarme con Win+Mayús+S</b>, en <b>Ajustes → Atajos globales</b>. Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante <b>Win+S</b>, la búsqueda. No surte efecto hasta que cierras sesión y vuelves a entrar, y al desactivarlo vuelve todo. Está separado a propósito: liberar <kbd>Impr Pant</kbd> no cuesta nada, y nadie debería perder su búsqueda de propina por eso.
+    <p data-en="With the &lt;b&gt;Quedarme con Win+Mayús+S&lt;/b&gt; switch, in &lt;b&gt;Settings → Windows keys&lt;/b&gt;. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes &lt;b&gt;Win+S&lt;/b&gt;, the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing &lt;kbd&gt;Impr Pant&lt;/kbd&gt; costs nothing, and nobody should lose their search as a side effect of that." data-html>
+      Con el interruptor <b>Quedarme con Win+Mayús+S</b>, en <b>Ajustes → Teclas de Windows</b>. Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante <b>Win+S</b>, la búsqueda. No surte efecto hasta que cierras sesión y vuelves a entrar, y al desactivarlo vuelve todo. Está separado a propósito: liberar <kbd>Impr Pant</kbd> no cuesta nada, y nadie debería perder su búsqueda de propina por eso.
     </p>
 
     <h3 data-en="How do I paste a GIF into Slack or Discord?">¿Cómo pego un GIF en Slack o en Discord?</h3>
-    <p data-en="Use &lt;b&gt;Copiar&lt;/b&gt; in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.">
-      Usa <b>Copiar</b> en el panel de exportación. Una imagen va al portapapeles como imagen, y un GIF o un MP4 van como archivo, así que se pegan directamente en Slack, Discord o el Explorador.
+    <p data-en="Use &lt;b&gt;Copy&lt;/b&gt; in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead.">
+      Usa <b>Copiar</b> en el panel de exportación. Una imagen va al portapapeles como imagen, y un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta.
     </p>
 
     <h3 data-en="Does it need administrator rights?">¿Hace falta ser administrador?</h3>

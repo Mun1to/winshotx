@@ -2,8 +2,9 @@
 
 > Free and open source screenshot and screen recording tool for Windows 10 and 11. It is a
 > lightweight alternative to the built-in Snipping Tool and to ShareX, Greenshot, ScreenToGif
-> and CleanShot X. Region capture with a pixel magnifier, GIF and MP4 recording, and a frame by
-> frame editor. MIT licence, 2.2 MB installer, no account, no cloud and no telemetry.
+> and CleanShot X. Region capture with a pixel magnifier, GIF and MP4 recording, a rolling
+> buffer that keeps the last seconds you did not record, and a frame by frame editor. MIT
+> licence, 2.48 MB installer, no account, no cloud and no telemetry.
 
 ## Measured facts
 
@@ -13,32 +14,50 @@ clock stops when the selection is visible on screen.
 - From shortcut to selection: **winshotx 28 ms**, Snipping Tool 920 ms.
 - Memory while capturing: **winshotx 33 MB**, Snipping Tool 253 MB.
 - Memory sitting idle: **winshotx 31 MB**, Snipping Tool 98 MB.
-- Installer size: **2.2 MB**, with no bundled FFmpeg or other binaries.
+- Installer size: **2.48 MB**, with no bundled FFmpeg or other binaries.
 - Installs per user, so Windows never asks for administrator rights.
 
 ## What winshotx does that the Snipping Tool does not
 
+- Keeps the last 15, 30 or 60 seconds without having pressed record beforehand: the ring
+  records all the time and drops the old, and one key saves what just happened. You pick the
+  screen, the quality and the frame rate, and saving does not stop the recording.
 - Records GIF, with a global palette, Floyd-Steinberg dithering and inter-frame differencing.
-- Ships a frame by frame editor with A and B trim marks, looped playback, scaling and quality.
-- Lets you choose your own global shortcuts.
-- Shows a 6x pixel magnifier with the hex colour under the cursor, and snaps to windows.
-- Copies GIF and MP4 as files, so they paste straight into Slack, Discord or Explorer.
+- Ships a frame by frame editor with A and B trim marks, looped playback, scaling, six marks
+  to annotate (arrow, rectangle, text, highlight, numbered step and mosaic), a frame and a
+  background, and export at 0.5x, 2x or 4x speed.
+- Moves the camera in on every click of a recording, decided *after* recording: the clicks are
+  written down while it records, so changing the zoom never means recording again.
+- Lets you choose your own global shortcuts, and can take the Print Screen and Win+Shift+S keys
+  away from the Snipping Tool.
+- Shows a 6x pixel magnifier with the hex colour under the cursor, and snaps to windows: one
+  click takes the whole window.
+- Copies a GIF or an MP4 as a file **and** as its written path at the same time, so it pastes
+  into Slack, Discord or Explorer as a video and into any text box as a path.
 - Is open source under MIT, with no account and no telemetry.
 
 ## What the Snipping Tool still does better
 
-- Drawing and annotating on top of the capture: pen, highlighter, shapes and text.
-- Copying the text out of an image.
-- Blurring out personal data automatically.
-- Recording system audio.
-- A 3, 5 or 10 second timer before capturing.
-- It comes preinstalled, and it speaks every language Windows speaks. winshotx is Spanish only.
+- It comes preinstalled: winshotx has to be installed.
+- It blurs out personal data automatically; in winshotx you cover it by hand with the mosaic.
+- It speaks every language Windows speaks. winshotx speaks Spanish and English.
+
+## Also in winshotx, if you are comparing feature lists
+
+- Drawing and annotating on top of a capture, and on top of a video too.
+- Copying the text out of an image, through the Windows OCR, with the T key.
+- Recording system audio and the microphone, mixed into the same track.
+- A 3 or 5 second timer before capturing, and hiding the desktop icons while the shot lasts.
+- Light and dark themes, Spanish and English, following Windows on their own.
+- Every setting explains itself when you leave the pointer on its icon.
 
 ## How it is built
 
 Tauri 2 with a Rust backend and a React 19 interface. Stills come from xcap, recording from
 Windows Graphics Capture through the windows-capture crate, MP4 from Media Foundation in
-hardware, and GIF from a hand written encoder in pure Rust. Nothing is downloaded at runtime.
+hardware, and GIF from a hand written encoder in pure Rust. Scaling is hand written too, which
+is what makes exporting a 50 second recording take 27 seconds instead of two minutes. Nothing
+is downloaded at runtime.
 
 ## Links
 
@@ -53,7 +72,7 @@ hardware, and GIF from a hand written encoder in pure Rust. Nothing is downloade
 
 ## Documentation
 
-The guide covers install, region capture with the magnifier, GIF and MP4 recording, the
-frame by frame editor, export, the keyboard shortcuts and the settings. It also answers the
-questions people actually ask, such as how to record a GIF of the screen on Windows and
-whether the tool uploads anything anywhere (it does not).
+The guide covers install, region capture with the magnifier, GIF and MP4 recording, the last
+few seconds ring, the frame by frame editor, export, the keyboard shortcuts and the settings.
+It also answers the questions people actually ask, such as how to record a GIF of the screen on
+Windows and whether the tool uploads anything anywhere (it does not).

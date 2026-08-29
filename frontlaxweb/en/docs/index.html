@@ -28,7 +28,7 @@
 <link rel="icon" href="../../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../../estilos.css?v=95980cb9">
+<link rel="stylesheet" href="../../estilos.css?v=5dfe4e9d">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -58,7 +58,7 @@
       "name": "Is this a free alternative to the Snipping Tool?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at annotating, at reading the text out of an image and at system audio, and the comparison on the home page says so."
+        "text": "Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at coming preinstalled, at blurring personal data on its own and at speaking every language Windows speaks, and the comparison on the home page says so, point by point."
       }
     },
     {
@@ -82,7 +82,7 @@
       "name": "Can I capture with the Print Screen key?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. In Ajustes → Atajos globales a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is."
+        "text": "Yes. In Settings → Windows keys a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is."
       }
     },
     {
@@ -90,7 +90,7 @@
       "name": "How do I stop Win+Shift+S from opening the Snipping Tool?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "With the Quedarme con Win+Mayús+S switch, in Ajustes → Atajos globales . That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes Win+S , the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing Impr Pant costs nothing, and nobody should lose their search as a side effect of that."
+        "text": "With the Quedarme con Win+Mayús+S switch, in Settings → Windows keys . That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes Win+S , the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing Impr Pant costs nothing, and nobody should lose their search as a side effect of that."
       }
     },
     {
@@ -98,7 +98,7 @@
       "name": "How do I paste a GIF into Slack or Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Use Copiar in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer."
+        "text": "Use Copy in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead."
       }
     },
     {
@@ -174,7 +174,7 @@
 
   <section id="instalar">
     <h2>Install</h2>
-    <p>Download the installer and run it. It weighs 2.35 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.</p>
+    <p>Download the installer and run it. It weighs 2.48 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.</p>
     <div class="botones">
       <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
         <span>Download for Windows</span></a>
@@ -206,7 +206,8 @@
     <h2>Record</h2>
     <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, drag over the area and press the same shortcut again to stop. While it records you see a thin frame around the region and a small bar with the timer.</p>
     <p>It records through Windows Graphics Capture at 15, 30 or 60 fps, so no overlay leaks into the video and the cost to the processor is close to nothing. Every frame is written to a lossless cache on disk, which is what makes the frame by frame editing possible afterwards.</p>
-    <p class="nota">System audio is not recorded yet. The switch is in the interface, disabled and saying so: it needs WASAPI in loopback mode to feed the encoder.</p>
+    <p>It records sound too: the system audio (whatever the speakers are playing) and your microphone, mixed into the same track. Each has its own switch in Settings and either can go alone. Exporting at a speed other than 1× comes out silent, and the panel says so beforehand: stretching a track without touching its pitch is another problem entirely.</p>
+    <p class="nota"><b>The last few seconds.</b> With the ring on, winshotx records all the time and drops the old, so <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> keeps the last 15, 30 or 60 seconds without having pressed record beforehand. You pick the screen, the quality and the smoothness, and it tells you up front how much disk it can take. Saving does not stop the recording.</p>
   </section>
 
   <section id="editor">
@@ -217,12 +218,17 @@
       <li><b>A and B trim.</b> <kbd>I</kbd> marks the start and <kbd>O</kbd> marks the end. What falls outside is dimmed and does not reach the file.</li>
       <li><b>Looped playback.</b> <kbd>Space</kbd> plays and pauses; the arrows step one frame at a time.</li>
       <li><b>Scale.</b> Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons.</li>
+      <li><b>Zoom on every click.</b> The camera moves in on each click of the recording, and how much you decide <em>after</em> recording: the clicks were written down while it recorded, so raising it, lowering it or dropping it never means recording again.</li>
+      <li><b>Rings, keys and cursor.</b> A ring where you pressed, a badge with the shortcut you just typed (only shortcuts with a modifier, never a lone key: a password has no Ctrl in front) and the pointer drawn at the size you ask for.</li>
+      <li><b>Frame and background.</b> Air around the capture, with a shadow and a background to choose, for when the shot goes into a slide or a post.</li>
+      <li><b>Speed.</b> 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens.</li>
+      <li><b>Six marks to annotate.</b> Arrow, rectangle, text, highlight, numbered step and a mosaic that destroys private data. They go on the video too, not only on a still.</li>
     </ul>
   </section>
 
   <section id="exportar">
     <h2>Export</h2>
-    <p>Three formats: PNG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.</p>
+    <p>Four formats: PNG and JPG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.</p>
     <table class="tabla-guia">
       <thead><tr>
         <th>Format</th>
@@ -236,6 +242,11 @@
           <td>A still, a bug report, a colour.</td>
         </tr>
         <tr>
+          <th scope="row"><b>JPG</b></th>
+          <td>The same still, with the quality slider deciding how much it weighs.</td>
+          <td>A screenshot for a chat or a form that will not take megabytes.</td>
+        </tr>
+        <tr>
           <th scope="row"><b>GIF</b></th>
           <td>Pure Rust: global palette, Floyd-Steinberg dithering and only the rectangle that changed between frames.</td>
           <td>Short interface clips. It loops everywhere with no player.</td>
@@ -247,7 +258,7 @@
         </tr>
       </tbody>
     </table>
-    <p><b>Save</b> writes the file to disk. <b>Copy</b> puts it on the clipboard: a still goes as an image, and a GIF or an MP4 goes as a <b>file</b>, so it pastes straight into Slack, Discord or File Explorer.</p>
+    <p><b>Save</b> writes the file to disk. <b>Copy</b> puts it on the clipboard: a still goes as an image, and a GIF or an MP4 go <b>two ways at once, as a file and as their written path</b>. Where files can be dropped (Slack, Discord, File Explorer) the video is pasted; in any text box, its path.</p>
     <p>If you happen to have <code>ffmpeg</code> on your <code>PATH</code>, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.</p>
   </section>
 
@@ -301,9 +312,16 @@
 
   <section id="ajustes">
     <h2>Settings</h2>
-    <p>Right click the tray icon and choose <b>Ajustes</b>. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
+    <p>Right click the tray icon: winshotx draws its own menu there, with the ring switch and every shortcut written next to what it does. From there, <b>Settings</b>. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
     <p>Under them there is a switch that hands the <kbd>Impr Pant</kbd> key over from the Snipping Tool, and it says whether Windows actually let go of it.</p>
-    <p>The rest is short on purpose: what happens when you let go of the mouse, whether to copy to the clipboard when saving, whether to include the cursor, the magnifier, the shutter sound, the frame rate, the destination folder, starting with Windows and checking for updates.</p>
+    <p>It is four tabs, with nothing hidden three levels deep:</p>
+    <ul role="list">
+      <li><b>Capture.</b> The shortcut, how long it waits before capturing (none, 3 or 5 seconds), hiding the desktop icons while the shot lasts, the cursor, the magnifier, what happens when you let go of the mouse, and whether saving also copies.</li>
+      <li><b>Record.</b> The shortcut, the frame rate, system audio and microphone, opening the editor when it ends, and the whole <em>last few seconds</em> ring: how much it keeps, which screen, quality and smoothness.</li>
+      <li><b>Windows keys.</b> Taking <kbd>Impr Pant</kbd> and <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> away from the Snipping Tool, and removing the Snipping Tool if you want it gone for good.</li>
+      <li><b>The app.</b> Destination folder, recording cache, theme (automatic, light or dark), language (automatic, Spanish or English), the welcome screen, a six stop tour of the settings, and starting with Windows.</li>
+    </ul>
+    <p>Every row explains itself: leave the pointer on the icon beside its name and a bubble says what it does and when it is worth turning on. And a bar at the bottom, there in all four tabs, holds what gets touched often: theme, language, what happens on release, the tour, and updates, which when you are up to date is a green tick and nothing more.</p>
     <p><a href="../#demo">You can click through all of it in the demo on the home page, without installing anything.</a></p>
   </section>
 
@@ -314,7 +332,7 @@
     <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.</p>
 
     <h3>Is this a free alternative to the Snipping Tool?</h3>
-    <p>Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at annotating, at reading the text out of an image and at system audio, and the comparison on the home page says so.</p>
+    <p>Yes, MIT licensed and open source. Measured on the same machine it shows the selection in 28 ms against 920 ms, and uses 33 MB against 253 MB. The Windows one still wins at coming preinstalled, at blurring personal data on its own and at speaking every language Windows speaks, and the comparison on the home page says so, point by point.</p>
 
     <h3>Does it upload my screenshots anywhere?</h3>
     <p>No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off.</p>
@@ -323,13 +341,13 @@
     <p>Yes, in <b>Ajustes</b>. Click the field and press the combination you want.</p>
 
     <h3>Can I capture with the Print Screen key?</h3>
-    <p>Yes. In <b>Ajustes → Atajos globales</b> a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is.</p>
+    <p>Yes. In <b>Settings → Windows keys</b> a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is.</p>
 
     <h3>How do I stop Win+Shift+S from opening the Snipping Tool?</h3>
-    <p>With the <b>Quedarme con Win+Mayús+S</b> switch, in <b>Ajustes → Atajos globales</b>. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes <b>Win+S</b>, the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing <kbd>Impr Pant</kbd> costs nothing, and nobody should lose their search as a side effect of that.</p>
+    <p>With the <b>Quedarme con Win+Mayús+S</b> switch, in <b>Settings → Windows keys</b>. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes <b>Win+S</b>, the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing <kbd>Impr Pant</kbd> costs nothing, and nobody should lose their search as a side effect of that.</p>
 
     <h3>How do I paste a GIF into Slack or Discord?</h3>
-    <p>Use <b>Copiar</b> in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 goes as a file, so it pastes straight into Slack, Discord or File Explorer.</p>
+    <p>Use <b>Copy</b> in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead.</p>
 
     <h3>Does it need administrator rights?</h3>
     <p>No. It installs for your user only, so the administrator prompt never shows up.</p>
