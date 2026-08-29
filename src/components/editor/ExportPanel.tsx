@@ -539,7 +539,13 @@ export function ExportPanel({
             {result.copied && (
               <p className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-2 text-[12px] font-medium text-emerald-300">
                 <Clipboard className="size-3.5 shrink-0" />
-                {t("Copiado: ya se puede pegar")}
+                {/* Un vídeo no se pega como imagen: va como archivo (para el explorador y
+                    los chats) y como su ruta escrita (para cualquier caja de texto). Se
+                    dice, porque «ya se puede pegar» y luego no ver nada al pegar en un
+                    sitio que no admite archivos parece que la app haya mentido. */}
+                {format === "png"
+                  ? t("Copiado: ya se puede pegar")
+                  : t("Copiado: el archivo y su ruta")}
               </p>
             )}
             {/* Y si no se pudo, se dice por qué. Antes el fallo se tragaba y pulsar copiar

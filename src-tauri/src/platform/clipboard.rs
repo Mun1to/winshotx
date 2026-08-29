@@ -69,21 +69,35 @@ pub fn copy_image(image: &RgbaImage, png_bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// Copia el archivo como tal (CF_HDROP) para poder pegarlo en Slack, Discord
-/// o el explorador: un GIF o un MP4 no caben en el portapapeles como imagen.
+/// Copia el archivo de dos maneras a la vez: **como archivo y como su ruta escrita**.
+///
+/// Un GIF o un MP4 no caben en el portapapeles como imagen, asi que se pega el archivo
+/// (CF_HDROP), que es lo que entienden el explorador, Slack, Discord o WhatsApp. Pero un
+/// campo de texto no sabe nada de archivos y ahi no aparecia NADA: Munir, el 29 de agosto
+/// de 2026, *«sigue sin copiarse el video o la direccion del video al portapapeles»*,
+/// con la app diciendo «Copiado» al mismo tiempo, porque copiar habia ido bien.
+///
+/// Con los dos formatos puestos, cada sitio coge el que sabe usar: donde se pueden soltar
+/// archivos se pega el video, y en cualquier caja de texto se pega su ruta. Windows los
+/// ofrece en el orden en que se ponen, y el archivo va primero a proposito.
 #[cfg(windows)]
 pub fn copy_files(paths: &[&Path]) -> Result<()> {
-    use clipboard_win::{formats, Setter};
+    use clipboard_win::{options, raw};
 
     let list: Vec<String> = paths
         .iter()
         .map(|p| p.to_string_lossy().to_string())
         .collect();
+    let rutas = list.join("\r\n");
     let _guard = clipboard_win::Clipboard::new_attempts(10)
         .map_err(|e| crate::error::AppError::Msg(format!("portapapeles ocupado: {e}")))?;
-    clipboard_win::raw::empty().map_err(|e| crate::error::AppError::Msg(e.to_string()))?;
-    formats::FileList
-        .write_clipboard(&list)
+    raw::empty().map_err(|e| crate::error::AppError::Msg(e.to_string()))?;
+    raw::set_file_list(&list).map_err(|e| crate::error::AppError::Msg(e.to_string()))?;
+    // **`NoClear` y no la version normal.** `set_string` a secas vacia el portapapeles
+    // antes de escribir, asi que borraba el archivo que se acababa de poner y volviamos a
+    // tener un solo formato. Se ve en el codigo de `clipboard_win`: `set_file_list` usa
+    // `NoClear` y `set_string` usa `DoClear`.
+    raw::set_string_with(&rutas, options::NoClear)
         .map_err(|e| crate::error::AppError::Msg(e.to_string()))?;
     Ok(())
 }
@@ -154,7 +168,15 @@ mod tests {
             "ha dejado otra cosa: {}",
             leidos[0]
         );
-        eprintln!("[portapapeles] dentro hay: {}", leidos[0]);
+
+        // Y la ruta como texto, que es lo unico que entiende una caja de texto. Sin esto,
+        // pegar un video fuera del explorador o de un chat no hacia absolutamente nada.
+        let mut texto = String::new();
+        formats::Unicode
+            .read_clipboard(&mut texto)
+            .expect("el portapapeles tendria que llevar tambien la ruta escrita");
+        assert_eq!(texto, leidos[0], "el texto no es la ruta del archivo");
+        eprintln!("[portapapeles] dentro hay: {} y su ruta escrita", leidos[0]);
     }
 
     /// Y que el texto siga funcionando, que es lo que usa la tecla T.

@@ -389,6 +389,7 @@ export const EN: Record<string, string> = {
 
   // Al copiar el resultado de exportar
   "Copiado: ya se puede pegar": "Copied: ready to paste",
+  "Copiado: el archivo y su ruta": "Copied: the file and its path",
   "No se ha podido copiar": "It could not be copied",
 
   // Recortar la imagen
