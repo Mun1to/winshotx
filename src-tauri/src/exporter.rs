@@ -60,6 +60,13 @@ pub struct ExportRequest {
     /// El alto del puntero dibujado, en pixeles del fotograma. Cero es no dibujarlo.
     #[serde(default)]
     pub cursor: f32,
+    /// A que velocidad se reproduce lo exportado. 1 es la de verdad, 2 el doble de rapido.
+    ///
+    /// Un tutorial tiene tramos en los que no pasa nada (algo que carga, un formulario que
+    /// se rellena) y esos tramos se ven a 2x sin perder nada. Se decide aqui y no al
+    /// grabar, como todo lo demas del estudio.
+    #[serde(default = "velocidad_normal")]
+    pub speed: f32,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -85,11 +92,24 @@ struct ExportProgress {
 
 /// Elige los fotogramas que tocan para el fps pedido y calcula sus retardos.
 /// Bajar de 60 a 20 fps no puede consistir en tirar fotogramas al tuntun.
-fn resample(session: &SessionData, from: usize, to: usize, fps: u32) -> (Vec<usize>, Vec<u32>) {
+///
+/// `velocidad` es a que ritmo se reproduce: a 2x se avanza el doble por la grabacion
+/// original y cada fotograma elegido sigue durando lo que dura uno a los fps pedidos. Asi
+/// el resultado tiene los fps que se pidieron y la mitad de duracion, en vez de un video
+/// con retardos imposibles de cinco milisegundos que ningun GIF sabe representar.
+fn resample(
+    session: &SessionData,
+    from: usize,
+    to: usize,
+    fps: u32,
+    velocidad: f32,
+) -> (Vec<usize>, Vec<u32>) {
     let from = from.min(session.frames.len().saturating_sub(1));
     let to = to.min(session.frames.len().saturating_sub(1)).max(from);
     let slice = &session.frames[from..=to];
     let step_ms = (1000.0 / fps.max(1) as f32).round() as u64;
+    // Lo que se avanza por la grabacion en cada paso. A 1x es el mismo paso de siempre.
+    let paso_origen = ((step_ms as f32 * velocidad).round() as u64).max(1);
     let start_ms = slice.first().map(|f| f.timestamp_ms).unwrap_or(0);
     let end_ms = slice
         .last()
@@ -104,8 +124,14 @@ fn resample(session: &SessionData, from: usize, to: usize, fps: u32) -> (Vec<usi
         while cursor + 1 < slice.len() && slice[cursor + 1].timestamp_ms <= t {
             cursor += 1;
         }
-        // El ultimo paso se recorta: el clip exportado dura lo que dura el recorte.
-        let slot = step_ms.min(end_ms - t) as u32;
+        // El ultimo paso se recorta: el clip exportado dura lo que dura el recorte, y a
+        // velocidad distinta de 1 lo que sobra tambien se mide en el tiempo del resultado.
+        let queda = end_ms - t;
+        let slot = if queda >= paso_origen {
+            step_ms
+        } else {
+            ((queda as f32 / velocidad).round() as u64).max(1)
+        } as u32;
         let picked = from + cursor;
         if indices.last() != Some(&picked) {
             indices.push(picked);
@@ -114,7 +140,7 @@ fn resample(session: &SessionData, from: usize, to: usize, fps: u32) -> (Vec<usi
             // El mismo fotograma se queda en pantalla mas tiempo en vez de repetirse.
             *last += slot;
         }
-        t += step_ms;
+        t += paso_origen;
     }
 
     if indices.is_empty() {
@@ -122,6 +148,22 @@ fn resample(session: &SessionData, from: usize, to: usize, fps: u32) -> (Vec<usi
         delays.push(step_ms.max(20) as u32);
     }
     (indices, delays)
+}
+
+/// La velocidad, ya acotada. Fuera de este rango deja de ser un video: a 0,2 son
+/// fotogramas sueltos y a 10 no se ve nada.
+impl ExportRequest {
+    pub fn velocidad(&self) -> f32 {
+        if self.speed.is_finite() && self.speed > 0.0 {
+            self.speed.clamp(0.25, 4.0)
+        } else {
+            1.0
+        }
+    }
+}
+
+fn velocidad_normal() -> f32 {
+    1.0
 }
 
 fn destination_path(
@@ -224,7 +266,13 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             path
         }
         "gif" => {
-            let (indices, delays) = resample(&session, request.from, request.to, request.fps);
+            let (indices, delays) = resample(
+                &session,
+                request.from,
+                request.to,
+                request.fps,
+                request.velocidad(),
+            );
             let path = destination_path(app, &request, "gif")?;
             if request.engine == "ffmpeg" && ffmpeg::available() {
                 let temporary = session.dir.join("export-source.mp4");
@@ -269,7 +317,13 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             path
         }
         "mp4" => {
-            let (indices, delays) = resample(&session, request.from, request.to, request.fps);
+            let (indices, delays) = resample(
+                &session,
+                request.from,
+                request.to,
+                request.fps,
+                request.velocidad(),
+            );
             let path = destination_path(app, &request, "mp4")?;
             if request.engine == "ffmpeg" && ffmpeg::available() {
                 let temporary = session.dir.join("export-source.mp4");
@@ -584,8 +638,13 @@ where
             fps: request.fps.max(1),
             quality: request.quality,
         },
-        // El interruptor del editor manda: alguien puede querer el vídeo mudo.
-        request.audio.then(|| pista_de_audio(session, indices)).flatten(),
+        // El interruptor del editor manda: alguien puede querer el vídeo mudo. Y a
+        // velocidad distinta de la real no hay sonido que valga: acelerar la pista sin
+        // tocar el tono es otro problema entero, y dejarla tal cual la despegaria de la
+        // imagen desde el primer segundo. El panel lo dice antes de exportar.
+        (request.audio && (request.velocidad() - 1.0).abs() < f32::EPSILON)
+            .then(|| pista_de_audio(session, indices))
+            .flatten(),
         |stage, done, total| emit(stage, done, total),
     )
 }
@@ -702,16 +761,111 @@ mod tests {
     fn bajar_los_fps_reparte_el_tiempo_sin_perderlo() {
         // 10 fotogramas de 20 ms = 200 ms de clip, exportados a 25 fps (40 ms).
         let session = session_with(&[20; 10]);
-        let (indices, delays) = resample(&session, 0, 9, 25);
+        let (indices, delays) = resample(&session, 0, 9, 25, 1.0);
         assert_eq!(indices.len(), 5);
         assert_eq!(delays.iter().sum::<u32>(), 200);
+    }
+
+    /// Acelerar es coger un fotograma de cada dos, no meterles retardos de cinco
+    /// milisegundos: asi el resultado sigue teniendo los fps que se pidieron.
+    #[test]
+    fn al_doble_de_velocidad_dura_la_mitad() {
+        // 40 fotogramas de 25 ms = un segundo, exportado a 20 fps.
+        let session = session_with(&[25; 40]);
+        let (normal, retardos_normales) = resample(&session, 0, 39, 20, 1.0);
+        let (rapido, retardos_rapidos) = resample(&session, 0, 39, 20, 2.0);
+
+        assert_eq!(retardos_normales.iter().sum::<u32>(), 1_000);
+        assert_eq!(retardos_rapidos.iter().sum::<u32>(), 500, "a 2x tiene que durar la mitad");
+        assert!(
+            rapido.len() < normal.len(),
+            "a 2x entran menos fotogramas: {} contra {}",
+            rapido.len(),
+            normal.len()
+        );
+        // Y cada fotograma sigue durando lo que dura uno a 20 fps.
+        assert!(retardos_rapidos.iter().all(|d| (45..=55).contains(d)));
+    }
+
+    /// **Y que llegue al archivo.** Los retardos que salen de `resample` son una lista de
+    /// numeros; lo que hay que ver es que el GIF que se abre en un navegador dure la mitad.
+    /// Es la leccion del audio: las piezas verdes no son la funcion hecha.
+    #[test]
+    fn el_gif_exportado_a_2x_dura_de_verdad_la_mitad() {
+        let dir = std::env::temp_dir().join("winshotx-velocidad");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Un segundo de grabacion: 40 fotogramas de 25 ms, cada uno de otro color.
+        let (ancho, alto) = (16u32, 16u32);
+        let mut lienzos = Vec::new();
+        for paso in 0..40u32 {
+            let mut rgba = vec![255u8; (ancho * alto) as usize * 4];
+            for (i, byte) in rgba.iter_mut().enumerate() {
+                if i % 4 == 0 {
+                    *byte = (paso * 6) as u8;
+                }
+            }
+            lienzos.push(rgba);
+        }
+
+        let duracion_de = |velocidad: f32| -> u64 {
+            let session = session_with(&[25; 40]);
+            let (indices, delays) = resample(&session, 0, 39, 20, velocidad);
+            let salida = dir.join(format!("v{velocidad}.gif"));
+            let mut loader = |index: usize| {
+                Ok(image::RgbaImage::from_raw(ancho, alto, lienzos[index].clone()).unwrap())
+            };
+            crate::encode::gif::encode(
+                &indices,
+                &delays,
+                &mut loader,
+                &salida,
+                &crate::encode::gif::GifOptions {
+                    width: ancho,
+                    height: alto,
+                    quality: 80,
+                    loop_forever: true,
+                },
+                |_, _, _| {},
+            )
+            .unwrap();
+
+            // Se relee del disco, y a mano: cada fotograma de un GIF lleva delante un
+            // bloque `21 F9 04` con su retardo en centesimas de segundo. Ese redondeo a
+            // centesimas solo se ve mirando el archivo, que es justo lo que hay que mirar.
+            let bytes = std::fs::read(&salida).unwrap();
+            bytes
+                .windows(6)
+                .filter(|v| v[0] == 0x21 && v[1] == 0xF9 && v[2] == 0x04)
+                .map(|v| (u64::from(v[4]) | (u64::from(v[5]) << 8)) * 10)
+                .sum()
+        };
+
+        let normal = duracion_de(1.0);
+        let rapido = duracion_de(2.0);
+        let lento = duracion_de(0.5);
+        println!("1x: {normal} ms · 2x: {rapido} ms · 0,5x: {lento} ms");
+
+        assert!((950..=1_050).contains(&normal), "a 1x salen {normal} ms de un segundo");
+        assert!((450..=550).contains(&rapido), "a 2x salen {rapido} ms");
+        assert!((1_900..=2_100).contains(&lento), "a 0,5x salen {lento} ms");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_camara_lenta_dura_el_doble() {
+        let session = session_with(&[25; 40]);
+        let (_, retardos) = resample(&session, 0, 39, 20, 0.5);
+        assert_eq!(retardos.iter().sum::<u32>(), 2_000);
     }
 
     #[test]
     fn los_fotogramas_repetidos_alargan_el_retardo() {
         // Un solo fotograma que dura 500 ms no debe repetirse 12 veces a 25 fps.
         let session = session_with(&[500]);
-        let (indices, delays) = resample(&session, 0, 0, 25);
+        let (indices, delays) = resample(&session, 0, 0, 25, 1.0);
         assert_eq!(indices, vec![0]);
         assert_eq!(delays, vec![500]);
     }
@@ -719,7 +873,7 @@ mod tests {
     #[test]
     fn el_rango_recortado_manda() {
         let session = session_with(&[50; 8]);
-        let (indices, _) = resample(&session, 2, 4, 20);
+        let (indices, _) = resample(&session, 2, 4, 20, 1.0);
         assert!(indices.iter().all(|i| (2..=4).contains(i)));
     }
 }
@@ -974,9 +1128,23 @@ mod la_camara_del_exportador {
             clicks: false,
             keys: false,
             cursor: 0.0,
+            speed: 1.0,
             destination: None,
             copy_to_clipboard: false,
         }
+    }
+
+    /// Una velocidad que no es un numero, o que es cero, no puede dejar la exportacion
+    /// dividiendo por cero ni el video congelado: se queda en la de siempre.
+    #[test]
+    fn una_velocidad_imposible_se_queda_en_la_normal() {
+        let mut pedido = peticion(1.0, None);
+        for disparate in [0.0, -3.0, f32::NAN, f32::INFINITY] {
+            pedido.speed = disparate;
+            assert_eq!(pedido.velocidad(), 1.0, "con {disparate}");
+        }
+        pedido.speed = 99.0;
+        assert_eq!(pedido.velocidad(), 4.0, "por arriba se corta en 4x");
     }
 
     #[test]

@@ -48,6 +48,11 @@ export const EN: Record<string, string> = {
   "Fotogramas por segundo": "Frames per second",
   "Audio del sistema": "System audio",
   "lo que suene por los altavoces, dentro del vídeo": "whatever the speakers play, in the video",
+  Velocidad: "Speed",
+  "dura {n} veces menos, y sale sin sonido": "{n} times shorter, and it comes out silent",
+  "dura el doble, y sale sin sonido": "twice as long, and it comes out silent",
+  "a otra velocidad el vídeo sale mudo": "at any other speed the video comes out silent",
+
   "Al terminar": "When it ends",
   "Abrir el editor al terminar": "Open the editor when it ends",
 

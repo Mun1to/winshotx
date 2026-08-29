@@ -40,6 +40,16 @@ const FORMATS: { id: ExportFormat; label: string; hint: string }[] = [
   { id: "jpg", label: "JPG", hint: "el fotograma actual, mucho más ligero" },
 ];
 
+/**
+ * A qué velocidad se reproduce lo exportado.
+ *
+ * Cuatro pasos y no un deslizador: acelerar un tutorial es elegir entre «como fue», «sin
+ * los tramos muertos» y «el resumen», no afinar un número. Y a cualquier velocidad que no
+ * sea la de verdad el vídeo sale mudo, así que cuantas menos formas de acabar ahí sin
+ * querer, mejor.
+ */
+const VELOCIDADES = [0.5, 1, 2, 4];
+
 /** Los dos formatos que sacan UN fotograma, no un trozo de grabación. */
 const esUnaFoto = (formato: ExportFormat) => formato === "png" || formato === "jpg";
 
@@ -82,6 +92,7 @@ export function ExportPanel({
   const [height, setHeight] = useState(session.region.height);
   const [locked, setLocked] = useState(true);
   const [audio, setAudio] = useState(session.hasAudio);
+  const [velocidad, setVelocidad] = useState(1);
   /**
    * Cuánto se acerca la cámara a cada clic. 1 es no acercarse.
    *
@@ -158,7 +169,8 @@ export function ExportPanel({
 
   const estimate = useMemo(() => {
     const frames = Math.max(1, outIndex - inIndex + 1);
-    const seconds = frames / Math.max(1, session.fps);
+    // A 2x el vídeo dura la mitad, así que también pesa la mitad.
+    const seconds = frames / Math.max(1, session.fps) / velocidad;
     // El marco crece por fuera, así que el archivo también: la estimación cuenta con él.
     const w = width + margen * 2;
     const h = height + margen * 2;
@@ -169,7 +181,7 @@ export function ExportPanel({
     if (format === "gif") return w * h * (quality / 100) * 0.12 * fps * seconds;
     const bitrate = 1_000_000 + (quality / 100) * 11_000_000;
     return (bitrate / 8) * seconds;
-  }, [format, width, height, margen, quality, fps, inIndex, outIndex, session.fps]);
+  }, [format, width, height, margen, quality, fps, inIndex, outIndex, session.fps, velocidad]);
 
   const run = async (copyToClipboard: boolean) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
@@ -188,7 +200,10 @@ export function ExportPanel({
         height: Math.round(height),
         fps,
         quality,
-        audio: audio && format === "mp4",
+        // A otra velocidad no hay sonido: acelerar la pista sin cambiarle el tono es otro
+        // problema entero, y dejarla tal cual la despegaría de la imagen enseguida.
+        audio: audio && format === "mp4" && velocidad === 1,
+        speed: esUnaFoto(format) ? 1 : velocidad,
         // Una foto no tiene zoom: la cámara solo se mueve con el tiempo pasando.
         zoom: esUnaFoto(format) ? 1 : zoom,
         // Una foto no tiene ni aros ni pastilla: los dos duran un rato y aquí no pasa
@@ -280,6 +295,39 @@ export function ExportPanel({
           value={fps}
           onChange={setFps}
         />
+      )}
+
+      {/* Debajo de los fps a propósito: los dos hablan del ritmo, y así se leen juntos. */}
+      {!esUnaFoto(format) && (
+        <div>
+          <span className="mb-2 block text-xs font-semibold text-neutral-300">
+            {t("Velocidad")}
+          </span>
+          <div className="flex gap-1">
+            {VELOCIDADES.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVelocidad(v)}
+                aria-pressed={velocidad === v}
+                className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition ${
+                  velocidad === v
+                    ? "bg-blue-500 text-white"
+                    : "bg-white/5 text-neutral-300 hover:bg-white/10"
+                }`}
+              >
+                {v}×
+              </button>
+            ))}
+          </div>
+          {velocidad !== 1 && (
+            <p className="mt-1.5 text-[11px] text-neutral-400">
+              {velocidad > 1
+                ? t("dura {n} veces menos, y sale sin sonido", { n: velocidad })
+                : t("dura el doble, y sale sin sonido")}
+            </p>
+          )}
+        </div>
       )}
 
       <div>
@@ -408,7 +456,13 @@ export function ExportPanel({
             checked={audio}
             onChange={setAudio}
             label={t("Audio del sistema")}
-            hint={session.hasAudio ? undefined : t("esta grabación se hizo sin audio")}
+            hint={
+              !session.hasAudio
+                ? t("esta grabación se hizo sin audio")
+                : velocidad !== 1
+                  ? t("a otra velocidad el vídeo sale mudo")
+                  : undefined
+            }
           />
         )}
         {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}

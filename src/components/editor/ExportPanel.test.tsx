@@ -202,3 +202,34 @@ describe("el zoom que se acerca a los clics", () => {
     expect(loExportado().zoom).toBe(2);
   });
 });
+
+describe("la velocidad", () => {
+  /** El botón de cada velocidad, que se lee «2×». */
+  const boton = (v: string) => screen.getByRole("button", { name: `${v}×` });
+
+  it("empieza en 1x, que es como se grabo", () => {
+    pintar();
+    expect(boton("1")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("no sale en una foto, que no tiene tiempo dentro", () => {
+    pintar({ format: "still", frameCount: 1 });
+    expect(screen.queryByText("Velocidad")).not.toBeInTheDocument();
+  });
+
+  it("a 2x viaja a Rust, y el video se queda sin sonido", async () => {
+    pintar();
+    fireEvent.click(boton("2"));
+    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
+    await screen.findByRole("button", { name: /Guardar/ });
+    // Acelerar la pista sin cambiarle el tono es otro problema entero, y dejarla tal cual
+    // la despegaría de la imagen desde el primer segundo. Se dice y se quita.
+    expect(loExportado()).toMatchObject({ speed: 2, audio: false });
+  });
+
+  it("y lo avisa antes de exportar, no despues", () => {
+    pintar();
+    fireEvent.click(boton("2"));
+    expect(screen.getByText(/sale sin sonido/)).toBeInTheDocument();
+  });
+});

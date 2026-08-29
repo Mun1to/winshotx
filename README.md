@@ -54,6 +54,7 @@ signature is checked before anything is installed, so a tampered file is rejecte
 | 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. |
 | ✂️ **Frame by frame editor** | Thumbnail strip, A/B trimming, looped playback, cropping the image, scaling with locked aspect ratio and a quality control. |
 | 🔍 **Recording studio** | The camera moves in on every click and shortcut and follows the mouse while it is there, the pointer can be drawn as large as you want without pixelating, and clicks get a ring. **All of it decided when exporting**, over frames already on disk: change your mind without recording again. |
+| ⏩ **Speed on export** | 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens, and those play at 2× without losing a thing. |
 | 💾 **Export** | GIF, MP4, PNG or JPG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
 | ⏪ **The last few seconds** | It records all the time, drops the old, and one key keeps the last 15, 30 or 60 seconds. The good part of a screen almost always happens **before** anyone thinks of recording it. |
 | 🔊 **System audio** | What comes out of your speakers goes into the MP4, captured straight from the default output. No extra driver, and you keep hearing it while it records. |

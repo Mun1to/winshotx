@@ -151,6 +151,8 @@ export interface ExportRequest {
   keys: boolean;
   /** Alto del puntero dibujado, en píxeles. 0 deja el que capturó Windows. */
   cursor: number;
+  /** A qué velocidad se reproduce lo exportado. 1 es la de verdad. */
+  speed: number;
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;
