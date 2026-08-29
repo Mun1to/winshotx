@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Ayuda } from "./Ayuda";
+
 interface SectionProps {
   title?: string;
   children: ReactNode;
@@ -57,18 +59,38 @@ interface RowProps {
   label: string;
   hint?: ReactNode;
   icon?: ReactNode;
+  /**
+   * La explicación larga del ajuste, la que sale al dejar el ratón sobre el icono.
+   *
+   * En la fila caben un nombre y una línea; el porqué no cabe, y es justo lo que hace
+   * falta para decidir. Va colgada del icono porque es el único sitio de la fila que no
+   * hace nada: el nombre no se pulsa y el control sí.
+   */
+  explicacion?: string;
   control: ReactNode;
   /** Pone el control debajo, a lo ancho, para sliders o selectores. */
   stacked?: boolean;
   tone?: RowTone;
 }
 
-export function Row({ label, hint, icon, control, stacked = false, tone = "normal" }: RowProps) {
+export function Row({
+  label,
+  hint,
+  icon,
+  explicacion,
+  control,
+  stacked = false,
+  tone = "normal",
+}: RowProps) {
   // El hueco del icono se reserva siempre, tenga icono o no: sin eso, una fila sin
   // icono dejaba su texto cuatro pixeles a la izquierda y la columna salía torcida.
   const texto = (
     <span className="flex min-w-0 items-center gap-3">
-      <span className="flex w-4 shrink-0 justify-center text-tenue">{icon}</span>
+      {explicacion ? (
+        <Ayuda texto={explicacion}>{icon}</Ayuda>
+      ) : (
+        <span className="flex w-4 shrink-0 justify-center text-tenue">{icon}</span>
+      )}
       <span className="min-w-0">
         <span className="block truncate text-[14px] font-medium text-titulo">{label}</span>
         {/* Dos lineas, no una: en una columna de 390 px la explicacion se cortaba a la

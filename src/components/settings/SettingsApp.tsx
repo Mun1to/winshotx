@@ -402,6 +402,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Camera className="size-4" />}
                     label={t("Capturar región")}
+                    explicacion={t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.")}
                     hint={shortcuts.capture ? undefined : t("esa combinación está ocupada")}
                     tone="warn"
                     control={
@@ -415,6 +416,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Timer className="size-4" />}
                     label={t("Esperar antes de capturar")}
+                    explicacion={t("La pantalla se congela justo al pulsar el atajo, así que un menú abierto se cierra antes de que dé tiempo a fotografiarlo. Con 3 o 5 segundos, pulsas primero, abres el menú y la foto se toma sola cuando ya está delante.")}
                     hint={
                       settings.captureDelaySeconds === 0
                         ? t("la pantalla se congela al pulsar el atajo")
@@ -432,6 +434,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<EyeOff className="size-4" />}
                     label={t("Ocultar iconos del escritorio")}
+                    explicacion={t("Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.")}
                     hint={t("solo mientras dura el disparo")}
                     control={
                       <Switch
@@ -448,6 +451,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<MousePointer2 className="size-4" />}
                     label={t("Incluir el cursor")}
+                    explicacion={t("Si el puntero del ratón sale dentro de la imagen. Para señalar un botón viene bien; para una captura limpia sobra, y hay que acordarse antes de disparar porque después ya no se puede quitar.")}
                     control={
                       <Switch
                         checked={settings.captureCursor}
@@ -459,6 +463,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<ZoomIn className="size-4" />}
                     label={t("Lupa de píxel")}
+                    explicacion={t("Mientras arrastras, una lupa de 6 aumentos con retícula te enseña el píxel exacto que hay bajo el cursor y su color en hexadecimal. Con la tecla C te llevas ese color al portapapeles sin capturar nada.")}
                     control={
                       <Switch
                         checked={settings.showMagnifier}
@@ -470,6 +475,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Crop className="size-4" />}
                     label={t("Al soltar el ratón")}
+                    explicacion={t("Con la barra sales a decidir: copiar, guardar, editar, anclar encima de todo o leer el texto. Sin ella el recorte se va directo al portapapeles y el overlay desaparece, que es un clic menos cuando siempre haces lo mismo.")}
                     hint={
                       settings.captureFlow === "instant"
                         ? t("va directa al portapapeles")
@@ -487,6 +493,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Clipboard className="size-4" />}
                     label={t("Copiar al guardar")}
+                    explicacion={t("Guardar deja el archivo en tu carpeta, y con esto además lo deja pegable. Es para cuando quieres las dos cosas a la vez: el archivo para luego y la imagen para pegarla ahora mismo en un chat.")}
                     control={
                       <Switch
                         checked={settings.copyAfterCapture}
@@ -516,6 +523,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Video className="size-4" />}
                     label={t("Grabar región")}
+                    explicacion={t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. El mismo atajo lo termina, así que no hace falta ir a buscar ningún botón mientras grabas.")}
                     hint={
                       shortcuts.record ? t("el mismo atajo la termina") : t("esa combinación está ocupada")
                     }
@@ -531,6 +539,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Gauge className="size-4" />}
                     label={t("Fotogramas por segundo")}
+                    explicacion={t("Cuántas veces por segundo se mira la pantalla. 30 vale para casi todo; 60 es para movimiento rápido y cuesta el doble de disco y de máquina. El editor puede bajarlo después, pero lo que no se grabó no se inventa.")}
                     stacked
                     control={
                       <Segmented
@@ -549,6 +558,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Volume2 className="size-4" />}
                     label={t("Audio del sistema")}
+                    explicacion={t("Graba lo que suena por los altavoces, dentro del mismo vídeo: la voz de una llamada, el audio de un vídeo, la alerta de un programa. No graba tu micrófono, eso es la fila de abajo.")}
                     hint={t("lo que suene por los altavoces, dentro del vídeo")}
                     control={
                       <Switch
@@ -561,6 +571,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Mic className="size-4" />}
                     label={t("Micrófono")}
+                    explicacion={t("Tu voz, mezclada con el sonido del sistema en la misma pista. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.")}
                     hint={
                       settings.recordAudio
                         ? t("tu voz, mezclada con el sonido del sistema")
@@ -586,6 +597,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<History className="size-4" />}
                     label={t("Grabar siempre lo último")}
+                    explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Cuesta disco y algo de máquina mientras está encendido: el número que se ve arriba es lo que le escribe al disco cada segundo.")}
                     hint={
                       replay.running
                         ? // Lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño
@@ -611,6 +623,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Timer className="size-4" />}
                     label={t("Cuánto se guarda")}
+                    explicacion={t("Cuánto tiempo hacia atrás se puede rescatar. Más segundos es más memoria y más disco dando vueltas, y hasta que no pase ese tiempo desde que lo encendiste, lo que guardes durará menos de lo que pone aquí.")}
                     control={
                       <Segmented
                         ajustado
@@ -626,6 +639,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     <Row
                       icon={<Monitor className="size-4" />}
                       label={t("Qué pantalla")}
+                      explicacion={t("El anillo vigila UNA pantalla y no puede cambiar a mitad, porque mudarse se llevaría por delante lo grabado. Al elegir una, su número aparece un par de segundos en esa misma pantalla para que sepas cuál es.")}
                       control={
                         <Segmented
                           ajustado
@@ -651,6 +665,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<ZoomIn className="size-4" />}
                     label={t("Calidad")}
+                    explicacion={t("A qué tamaño se guarda lo que va entrando. Bajarlo de la resolución nativa ocupa mucho menos y se nota poco en pantalla, y aquí abajo tienes lo que puede llegar a ocupar en disco con lo que hayas elegido.")}
                     hint={t("{ancho} × {alto} · hasta {tamaño} en disco", {
                       ancho: medidaGrabada.ancho,
                       alto: medidaGrabada.alto,
@@ -676,6 +691,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Gauge className="size-4" />}
                     label={t("Fluidez")}
+                    explicacion={t("Los fotogramas por segundo del anillo. 15 es suficiente para ver qué pasó y es el que menos molesta al ordenador; 60 se ve suave pero escribe cuatro veces más, y esto está corriendo toda la tarde.")}
                     hint={t("fotogramas por segundo")}
                     control={
                       <Segmented
@@ -690,6 +706,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Video className="size-4" />}
                     label={t("Quedarme con lo último")}
+                    explicacion={t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato.")}
                     hint={
                       !replay.running
                         ? t("primero hay que encenderlo aquí arriba")
@@ -721,6 +738,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<SquarePen className="size-4" />}
                     label={t("Abrir el editor al terminar")}
+                    explicacion={t("Al parar una grabación, abrirla para recortarla y exportarla, o dejarla guardada y seguir a lo tuyo. Lo que rescatas de los últimos segundos abre el editor igualmente: ahí todavía no hay ningún archivo hecho.")}
                     control={
                       <Switch
                         checked={settings.openEditorAfterRecording}
@@ -739,6 +757,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Keyboard className="size-4" />}
                     label={t("Impr Pant")}
+                    explicacion={t("Windows le tiene asignada la Herramienta de Recortes, y esto se la quita para dársela a winshotx. Si la tecla no responde, hay que cerrar sesión una vez para que Windows la suelte del todo.")}
                     hint={
                       imprPant?.enabled
                         ? imprPant.active
@@ -758,6 +777,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<AppWindow className="size-4" />}
                     label={t("Win + Mayús + S")}
+                    explicacion={t("La otra tecla de captura de Windows. Cogerla cuesta Win+S, la búsqueda, porque las dos se registran juntas; y si el Explorador sigue abriendo lo suyo, con Aplicar se reinicia y la suelta.")}
                     hint={
                       !settings.takeWinShiftS
                         ? t("cuesta Win+S, la búsqueda")
@@ -803,6 +823,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Scissors className="size-4" />}
                     label={t("Herramienta de Recortes")}
+                    explicacion={t("Desactivar sus teclas no la calla del todo: sigue saliendo desde el menú de inicio y desde otras teclas. Quitarla es lo único definitivo, y se puede volver a instalar desde la Microsoft Store cuando quieras.")}
                     hint={
                       recortes === "confirmar"
                         ? t("vuelve desde la Microsoft Store")
@@ -858,6 +879,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<FolderOpen className="size-4" />}
                     label={t("Carpeta de destino")}
+                    explicacion={t("Donde caen las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y si ya existiera uno igual no lo pisa nunca.")}
                     hint={settings.saveDirectory}
                     control={
                       <span className="flex gap-1.5">
@@ -877,6 +899,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<HardDrive className="size-4" />}
                     label={t("Caché de grabaciones")}
+                    explicacion={t("Los fotogramas en crudo de lo que has grabado, que es lo que permite volver a exportar sin perder calidad. Vaciarlo no toca ni una captura guardada: solo tira lo que quedó a medias en el editor.")}
                     hint={
                       cache.sessions === 0
                         ? t("vacía")
@@ -904,6 +927,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Palette className="size-4" />}
                     label={t("Tema")}
+                    explicacion={t("Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")}
                     hint={settings.theme === "sistema" ? t("sigue a Windows") : undefined}
                     control={
                       <Segmented
@@ -922,6 +946,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Languages className="size-4" />}
                     label={t("Idioma")}
+                    explicacion={t("Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")}
                     hint={settings.language === "sistema" ? t("el de Windows") : undefined}
                     control={
                       <Segmented
@@ -945,17 +970,20 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<BookOpen className="size-4" />}
                     label={t("Bienvenida")}
+                    explicacion={t("Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.")}
                     control={<RowButton onClick={onVerBienvenida}>{t("Ver otra vez")}</RowButton>}
                   />
                   <Row
                     icon={<Compass className="size-4" />}
                     label={t("Tour de los ajustes")}
+                    explicacion={t("Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.")}
                     hint={t("seis paradas, una por sección")}
                     control={<RowButton onClick={() => setTour(true)}>{t("Empezar")}</RowButton>}
                   />
                   <Row
                     icon={<Power className="size-4" />}
                     label={t("Arrancar con Windows")}
+                    explicacion={t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")}
                     control={
                       <Switch
                         checked={settings.startWithWindows}
