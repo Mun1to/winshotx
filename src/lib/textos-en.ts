@@ -183,7 +183,6 @@ export const EN: Record<string, string> = {
   "Al soltar": "When you let go",
   Barra: "Bar",
   Copia: "Copy",
-  Tour: "Tour",
 
   // El campo de los atajos
   "Clic para cambiar el atajo": "Click to change the shortcut",
