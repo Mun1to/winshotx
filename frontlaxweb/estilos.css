@@ -219,23 +219,24 @@ h1 em { font-style: normal; color: var(--azul); }
   text-align: left;
 }
 .pilar {
-  padding: 24px 22px 22px;
+  padding: 18px 18px 16px;
   border: 1px solid var(--borde);
   border-radius: var(--radio);
   background: var(--panel);
 }
+/* El icono al lado del titulo y no encima: la tarjeta es un rotulo con tres funciones
+   debajo, y apilarlos le sumaba tres lineas de alto a cada una para no decir nada mas. */
+.cabeza-pilar { display: flex; align-items: center; gap: 11px; }
 .pilar h2 {
-  font-size: 19px;
+  font-size: 17px;
   letter-spacing: -0.01em;
-  margin: 14px 0 8px;
+  margin: 0;
   text-transform: uppercase;
 }
-.pilar > p { color: var(--suave); font-size: 14.5px; line-height: 1.55; margin: 0; }
 .pilar ul {
   margin: 14px 0 0;
-  padding: 14px 0 0;
+  padding: 0;
   list-style: none;
-  border-top: 1px solid var(--borde);
   display: grid;
   gap: 7px;
 }
@@ -262,13 +263,14 @@ h1 em { font-style: normal; color: var(--azul); }
 .ico-pilar {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   background: #0a9bff1f;
   color: var(--azul);
 }
-.ico-pilar svg { width: 20px; height: 20px; }
+.ico-pilar svg { width: 17px; height: 17px; }
 @media (max-width: 900px) {
   .pilares { grid-template-columns: 1fr; gap: 14px; margin-top: 40px; }
 }
