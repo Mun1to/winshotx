@@ -373,11 +373,20 @@ impl Cocina {
             // Las ordenes se atienden ANTES de esperar fotograma: con la pantalla quieta
             // no llega ninguno, y quien pulsa la tecla no puede quedarse esperando a que
             // algo se mueva para que le guarden lo que ya paso.
+            // Varias pulsaciones seguidas son UNA cosecha, no cinco editores abiertos: el
+            // buzon se vacia entero y despues se guarda una vez.
+            let mut piden = false;
             while let Ok(Orden::Cosechar) = buzon.try_recv() {
+                piden = true;
+            }
+            if piden {
                 let ahora = arranque.elapsed().as_millis() as u64;
                 if let Err(error) = self.cosechar(ahora.max(ultimo_ts)) {
+                    // Aqui NO se dice que el anillo se ha parado, porque no se ha parado:
+                    // sigue grabando y la siguiente pulsacion puede ir bien. Lo que falla
+                    // casi siempre es pulsar en los dos primeros segundos, cuando todavia
+                    // no hay nada dentro, y eso la fila de ajustes ya lo cuenta.
                     eprintln!("[replay] no se ha podido guardar: {error}");
-                    let _ = self.app.emit(EVENT_REPLAY, ReplayStatus::parado());
                 }
             }
             if stop.load(Ordering::Relaxed) {
