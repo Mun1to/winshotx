@@ -478,3 +478,73 @@ dejara de compilar.
 
 **La leccion general:** cuando una funcion tiene delante el resultado ya hecho (un archivo
 recien escrito) y ademas la manera de rehacerlo, la que rehace es la que se equivoca.
+
+## 22. Arreglar el escalado en UN sitio no arregla el escalado
+
+La trampa 18 dejo escrito que `image::imageops::resize` cuesta 60 ms por fotograma y que la
+culpa no es del filtro sino del camino generico del crate. Se escribio `escalar::ampliar` y
+se puso donde dolia. Once dias despues, exportar una grabacion de 50 segundos tardaba **dos
+minutos**, y el reparto medido sobre el caso de Munir (1890x1052, 1320 fotogramas) era este:
+
+| paso | por fotograma |
+|---|---:|
+| sacar el fotograma del cache | 7 ms |
+| **escalar a 1280 con `image`** | **64 ms** |
+| codificar y escribir | 17 ms |
+
+O sea que el 68 % del tiempo seguia yendose por la misma linea de siempre, porque
+`escalar::ampliar` solo cubria AMPLIAR y quedaban **cuatro** sitios reduciendo con
+`image`: `exporter::enmarcar_y_anotar`, `mp4::encode`, `gif::scaled` y `marco::enmarcar`.
+Cada uno con su `if` y su comentario explicando por que ahi si tocaba Lanczos3.
+
+**El arreglo:** una sola puerta, `escalar::a_medida`, que decide entre ampliar, reducir o
+los dos, y que es la unica que se llama desde los cuatro sitios. Exportar paso de **95,6 ms
+a 20,4 ms** por fotograma: los dos minutos de Munir son ahora 27 segundos.
+
+**La leccion:** cuando la solucion a un problema medido es una funcion nueva, el trabajo no
+acaba al escribirla. Acaba cuando `grep` de la funcion vieja no devuelve nada en el camino
+caliente. Un `if` que elige entre lo rapido y lo lento acaba eligiendo lo lento.
+
+## 23. Reducir con los limites en numeros enteros adelgaza las letras
+
+Al bajar de 1890 a 1280, cada pixel de salida cubre 1,477 de entrada. Si los limites se
+calculan con division entera, unas veces se promedian **dos** pixeles y otras **uno**:
+
+```rust
+let a = (i * origen / destino) as u32;      // 0, 1, 2, 4, 5, 7, 8...
+let b = ((i + 1) * origen / destino) as u32;
+```
+
+Un color plano sobrevive y un ajedrez sale gris, que era justo lo que comprobaban las dos
+pruebas que habia. Pero **el texto de una captura sale con unas letras mas finas que otras**,
+porque cada trazo cae en un reparto distinto. Una reja de un pixel se iba 128 del gris.
+
+**El arreglo:** reparto por area, con pesos fraccionarios. Cada pixel de entrada entra por
+la parte que solapa, y los pesos de cada eje suman exactamente uno (el redondeo se lo lleva
+el peso mas gordo, si no la imagen se va aclarando). La diferencia contra Lanczos3 sobre una
+captura de verdad bajo de 1,40 a **0,41** de 255, y el peor pixel de 201 a 56.
+
+**La prueba que lo ve:** una reja de un pixel reducida de 1890 a 1280 tiene que quedarse a
+menos de 50 del gris. Con limites enteros daba 128 exactos.
+
+## 24. `set_string` de `clipboard_win` VACIA el portapapeles antes de escribir
+
+Copiar un video dejaba el archivo (CF_HDROP), que es lo que entienden el explorador y los
+chats. Pero al pegar en una caja de texto no aparecia nada, porque un archivo no es texto, y
+la app decia «Copiado» al mismo tiempo: copiar habia ido bien.
+
+Poner tambien la ruta como texto parecia una linea:
+
+```rust
+formats::FileList.write_clipboard(&list)?;
+formats::Unicode.write_clipboard(&ruta)?;   // y aqui desaparece el archivo
+```
+
+`FileList` usa `NoClear` por dentro y `Unicode` usa `DoClear`, asi que la segunda llamada
+vacia el portapapeles y borra la primera. Leerlo despues devolvia `OSError 1168, no se ha
+encontrado el elemento`, y con las dos pruebas del portapapeles corriendo a la vez, un
+`STATUS_HEAP_CORRUPTION`.
+
+**El arreglo:** `raw::set_file_list` y despues `raw::set_string_with(&ruta,
+options::NoClear)`. Comprobado desde OTRO proceso, que es la unica forma de saber que el
+portapapeles quedo bien: `FileDrop, FileNameW, FileName, UnicodeText, Text`.
