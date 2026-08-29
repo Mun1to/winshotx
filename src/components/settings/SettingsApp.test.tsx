@@ -10,7 +10,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
-import { responde } from "../../test/preparar";
+import { llamadas, responde } from "../../test/preparar";
 import type { ReplayStatus, Settings } from "../../lib/types";
 
 /** El anillo apagado, que es como viene winshotx de fabrica. */
@@ -40,6 +40,8 @@ const AJUSTES: Settings = {
   fps: 30,
   replayEnabled: false,
   replaySeconds: 30,
+  replayScreen: null,
+  replayFps: 15,
   playSound: true,
   showMagnifier: true,
   startWithWindows: false,
@@ -54,7 +56,7 @@ const AJUSTES: Settings = {
 };
 
 /** Monta los ajustes con Rust contestando datos de mentira, y espera a que carguen. */
-async function abrirAjustes(replay?: ReplayStatus) {
+async function abrirAjustes(replay?: ReplayStatus, pantallas?: unknown[]) {
   responde("get_settings", AJUSTES);
   responde("shortcut_status", {
     capture: true,
@@ -67,6 +69,7 @@ async function abrirAjustes(replay?: ReplayStatus) {
   responde("print_screen_state", { enabled: false, active: false });
   responde("just_updated", false);
   responde("replay_status", replay ?? PARADO);
+  responde("list_screens", pantallas ?? []);
   render(<SettingsApp onVerBienvenida={vi.fn()} />);
   // La pantalla se pinta vacia y se rellena cuando contesta Rust.
   await waitFor(() => expect(screen.getByRole("button", { name: /Capturar|Capture/ })).toBeInTheDocument());
@@ -162,8 +165,8 @@ describe("lo que ensenna de la maquina, en «La app»", () => {
  * no tener la funcion.
  */
 describe("los ultimos segundos, en «Grabar»", () => {
-  async function irAGrabar(replay?: ReplayStatus) {
-    await abrirAjustes(replay);
+  async function irAGrabar(replay?: ReplayStatus, pantallas?: unknown[]) {
+    await abrirAjustes(replay, pantallas);
     // El nombre del boton cambia con el idioma, y una de estas pruebas va en ingles.
     fireEvent.click(screen.getByRole("button", { name: /^(Grabar|Record)$/ }));
   }
@@ -216,5 +219,62 @@ describe("los ultimos segundos, en «Grabar»", () => {
       "vigilando",
     ].filter((frase) => pantalla.includes(frase));
     expect(coladas).toEqual([]);
+  });
+});
+
+/** Tres monitores como los de Munir, con el principal marcado. */
+const TRES_PANTALLAS = [
+  { id: 0, label: "\\.\DISPLAY1", x: 0, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: true },
+  { id: 1, label: "\\.\DISPLAY2", x: 1920, y: 0, width: 1080, height: 1920, scale: 1, isPrimary: false },
+  { id: 2, label: "\\.\DISPLAY3", x: -1920, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: false },
+];
+
+describe("elegir pantalla y calidad", () => {
+  async function irAGrabar(pantallas: unknown[] = TRES_PANTALLAS) {
+    await abrirAjustes(undefined, pantallas);
+    fireEvent.click(screen.getByRole("button", { name: /^(Grabar|Record)$/ }));
+  }
+
+  it("con una sola pantalla no pregunta cuál: elegir entre una es ruido", async () => {
+    await irAGrabar([TRES_PANTALLAS[0]]);
+    expect(screen.queryByText("Qué pantalla")).not.toBeInTheDocument();
+  });
+
+  it("con tres, se elige, y de fábrica va donde esté el ratón", async () => {
+    await irAGrabar();
+    expect(screen.getByText("Qué pantalla")).toBeInTheDocument();
+    const elegida = screen.getByRole("button", { name: "La del ratón" });
+    expect(elegida).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("al elegir la segunda, viaja a Rust por su número interno", async () => {
+    await irAGrabar();
+    fireEvent.click(screen.getByRole("button", { name: "2" }));
+    const ultima = [...llamadas].reverse().find((l) => l.comando === "set_settings");
+    expect((ultima?.args as { settings: Record<string, unknown> }).settings).toMatchObject({
+      replayScreen: 1,
+    });
+  });
+
+  /**
+   * Los segundos no dicen nada de lo que cuestan: una partida escribe diez veces más que un
+   * escritorio. Este es el número que decide si alguien deja esto puesto o no.
+   */
+  it("la calidad dice cuánto disco puede llegar a comerse", async () => {
+    await irAGrabar();
+    // 30 s a 15 fps por 2,3 MB son unos 987 MB.
+    expect(screen.getByText(/hasta 98[0-9][,.]\d MB en disco/)).toBeInTheDocument();
+  });
+
+  it("y ese número sube al subir los fotogramas", async () => {
+    await irAGrabar();
+    // «60 fps» sale dos veces, los de grabar y los del anillo: por eso el grupo tiene
+    // nombre, que además es lo que oye quien usa un lector de pantalla.
+    const grupo = screen.getByRole("group", { name: "Calidad" });
+    fireEvent.click(within(grupo).getByRole("button", { name: "60 fps" }));
+    const ultima = [...llamadas].reverse().find((l) => l.comando === "set_settings");
+    expect((ultima?.args as { settings: Record<string, unknown> }).settings).toMatchObject({
+      replayFps: 60,
+    });
   });
 });

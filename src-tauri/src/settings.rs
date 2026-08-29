@@ -87,6 +87,16 @@ pub struct Settings {
     /// Cuantos segundos guarda el anillo hacia atras.
     #[serde(default = "segundos_de_repeticion")]
     pub replay_seconds: u32,
+    /// Que pantalla vigila, por su numero empezando en cero. `None` es la que tenga el
+    /// raton al encenderlo, que es lo de fabrica: quien tiene una sola pantalla no tiene
+    /// nada que elegir, y quien tiene tres suele querer la de delante.
+    #[serde(default)]
+    pub replay_screen: Option<u32>,
+    /// A cuantos fotogramas por segundo graba el anillo. Quince es lo de fabrica y es lo
+    /// que se ve bien gastando la mitad de disco; treinta y sesenta existen para quien
+    /// graba algo que se mueve de verdad y tiene disco de sobra.
+    #[serde(default = "fps_de_repeticion")]
+    pub replay_fps: u32,
     pub play_sound: bool,
     pub show_magnifier: bool,
     pub start_with_windows: bool,
@@ -142,6 +152,8 @@ impl Default for Settings {
             fps: 30,
             replay_enabled: false,
             replay_seconds: segundos_de_repeticion(),
+            replay_screen: None,
+            replay_fps: fps_de_repeticion(),
             play_sound: false,
             show_magnifier: true,
             start_with_windows: false,
@@ -162,6 +174,12 @@ impl Default for Settings {
 /// mucho mas es tener el disco dando vueltas para nada.
 fn segundos_de_repeticion() -> u32 {
     30
+}
+
+/// Quince se ven perfectamente para entender que acaba de pasar, y son la mitad de disco y
+/// la mitad de maquina que treinta. El porque, con su medicion, esta en `FPS_ANILLO`.
+fn fps_de_repeticion() -> u32 {
+    crate::record::buffer::FPS_ANILLO
 }
 
 /// Sigue la serie de las otras dos: capturar es la 2, grabar la 5.

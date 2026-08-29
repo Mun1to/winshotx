@@ -8,6 +8,7 @@ import type {
   Rect,
   RecordOptions,
   ReplayStatus,
+  Screen,
   SessionInfo,
   PrintScreenState,
   Settings,
@@ -90,6 +91,9 @@ export const justUpdated = () => invoke<boolean>("just_updated");
 export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
 
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
+
+/** Las pantallas que hay, para elegir cuál vigila el anillo. No captura nada. */
+export const listScreens = () => invoke<Screen[]>("list_screens");
 
 /** Cómo va el anillo de los últimos segundos. */
 export const replayStatus = () => invoke<ReplayStatus>("replay_status");

@@ -515,6 +515,14 @@ pub async fn shortcut_status(state: State<'_, AppState>) -> Result<crate::hotkey
     Ok(*state.shortcuts.read())
 }
 
+/// Las pantallas que hay, para poder elegir cual vigila el anillo.
+///
+/// No captura nada: solo dice cuantas son, como se llaman y cual es la principal.
+#[tauri::command]
+pub async fn list_screens() -> Result<Vec<crate::capture::MonitorInfo>> {
+    crate::capture::monitors()
+}
+
 /// Como va el anillo de los ultimos segundos: si corre, que pantalla vigila y cuanto lleva
 /// grabado. La interfaz lo pregunta al abrirse; despues se entera por el evento.
 #[tauri::command]
@@ -684,8 +692,11 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     // lo reinicia: la ventana se fija al abrirlo y no se puede estirar sobre la marcha sin
     // tirar lo que ya hay dentro, que es justo lo que nadie quiere que pase.
     let mut settings = settings;
+    let cambia_como_graba = previous.replay_seconds != settings.replay_seconds
+        || previous.replay_screen != settings.replay_screen
+        || previous.replay_fps != settings.replay_fps;
     if previous.replay_enabled != settings.replay_enabled
-        || (settings.replay_enabled && previous.replay_seconds != settings.replay_seconds)
+        || (settings.replay_enabled && cambia_como_graba)
     {
         crate::replay::stop(&app)?;
         if settings.replay_enabled {

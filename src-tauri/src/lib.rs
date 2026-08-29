@@ -207,6 +207,7 @@ pub fn run() {
             commands::cache_stats,
             commands::clear_cache,
             commands::shortcut_status,
+            commands::list_screens,
             commands::replay_status,
             commands::replay_save,
             commands::print_screen_state,

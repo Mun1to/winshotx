@@ -126,17 +126,24 @@ fn avisar_y_rehacer_menu(app: &AppHandle) {
     }
 }
 
-/// La pantalla donde esta el raton ahora mismo, o la principal si no se sabe.
+/// La pantalla que se haya pedido, y si no la que tenga el raton al encenderlo.
 ///
 /// El anillo vigila UNA pantalla y no puede cambiar de opinion a mitad: mudarse se
-/// llevaria por delante todo lo grabado, que es justo lo que se esta guardando. Asi que se
-/// elige al encender, se dice cual es, y quien quiera otra la enciende desde alli.
+/// llevaria por delante todo lo grabado, que es justo lo que se esta guardando. Por eso se
+/// elige al encender y se dice cual es.
+///
+/// Y si la pantalla pedida ya no esta (se desenchufo el monitor desde la ultima vez), se
+/// coge la del raton en vez de fallar: quedarse sin la funcion por mover un cable seria
+/// una forma tonta de perderla.
 #[cfg(windows)]
-fn pantalla_elegida() -> Result<MonitorInfo> {
+fn pantalla_elegida(pedida: Option<u32>) -> Result<MonitorInfo> {
     let monitores = crate::capture::monitors()?;
-    let raton = record::raton::cursor();
-    let elegida = raton
-        .and_then(|(x, y)| monitores.iter().find(|m| m.contains(x, y)).cloned())
+    let elegida = pedida
+        .and_then(|id| monitores.iter().find(|m| m.id == id).cloned())
+        .or_else(|| {
+            record::raton::cursor()
+                .and_then(|(x, y)| monitores.iter().find(|m| m.contains(x, y)).cloned())
+        })
         .or_else(|| monitores.iter().find(|m| m.is_primary).cloned())
         .or_else(|| monitores.first().cloned());
     elegida.ok_or_else(|| AppError::Msg("no se ha detectado ningún monitor".into()))
@@ -154,19 +161,20 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         return Ok(status(app));
     }
 
-    let (segundos, quiere_audio, quiere_micro, con_cursor) = {
+    let (segundos, fps, pedida, quiere_audio, quiere_micro, con_cursor) = {
         let settings = state.settings.read();
         (
             settings.replay_seconds.clamp(SEGUNDOS_MIN, SEGUNDOS_MAX),
+            // El ritmo del anillo va aparte del de la grabacion normal: aqui se graba todo
+            // el rato, asi que lo que cuesta cada fotograma se paga toda la tarde.
+            settings.replay_fps.clamp(5, 60),
+            settings.replay_screen,
             settings.record_audio,
             settings.record_microphone,
             settings.capture_cursor,
         )
     };
-    // El ritmo del anillo no es el de la grabacion normal y no se pregunta: ver
-    // `FPS_ANILLO`, que lleva la medicion de por que.
-    let fps = crate::record::buffer::FPS_ANILLO;
-    let monitor = pantalla_elegida()?;
+    let monitor = pantalla_elegida(pedida)?;
     let region = Rect {
         x: monitor.x,
         y: monitor.y,
@@ -223,7 +231,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 &dir,
                 ventana_ms,
                 fps,
-                crate::record::buffer::BYTES_MAX,
+                crate::record::buffer::bytes_max(segundos, fps),
             ) {
                 Ok(anillo) => anillo,
                 Err(error) => {
@@ -693,7 +701,9 @@ mod tests {
         let (ancho, alto) = (48u32, 32u32);
         let raiz = std::env::temp_dir().join("winshotx-replay-camino");
         let _ = std::fs::remove_dir_all(&raiz);
-        let mut anillo = Anillo::nuevo(&raiz.join("anillo"), 10_000, 30, crate::record::buffer::BYTES_MAX).unwrap();
+        let mut anillo =
+            Anillo::nuevo(&raiz.join("anillo"), 10_000, 30, crate::record::buffer::bytes_max(10, 30))
+                .unwrap();
 
         // Veinte segundos grabando, con un clic por el medio y el raton paseando.
         for paso in 0..80u32 {
@@ -788,7 +798,7 @@ mod pruebas_con_pantalla {
     #[test]
     #[ignore = "necesita una pantalla de verdad"]
     fn el_anillo_traga_la_pantalla_de_verdad() {
-        let monitor = pantalla_elegida().expect("no hay ninguna pantalla");
+        let monitor = pantalla_elegida(None).expect("no hay ninguna pantalla");
         let region = Rect {
             x: monitor.x,
             y: monitor.y,
@@ -808,7 +818,7 @@ mod pruebas_con_pantalla {
             &raiz.join("anillo"),
             3_000,
             fps,
-            crate::record::buffer::BYTES_MAX,
+            crate::record::buffer::bytes_max(3, fps),
         )
         .unwrap();
 

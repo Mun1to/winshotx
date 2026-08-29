@@ -29,7 +29,7 @@ use crate::error::{AppError, Result};
 /// archivos abiertos y cerrados sin ganar ni un milisegundo de precision.
 pub const SEGMENTO_MS: u64 = 5_000;
 
-/// A cuantos fotogramas por segundo graba el anillo, pase lo que pase.
+/// A cuantos fotogramas por segundo graba el anillo de fabrica.
 ///
 /// **Medido el 29 de agosto de 2026, sobre una partida a pantalla completa a 1920x1080**,
 /// que es el peor caso porque cambia la pantalla entera en cada fotograma y el recorte de
@@ -41,17 +41,31 @@ pub const SEGMENTO_MS: u64 = 5_000;
 /// el rato. La medicion esta en `medir_formatos`.
 ///
 /// Asi que se baja el ritmo: quince fotogramas por segundo se ven perfectamente para
-/// entender que acaba de pasar, y es la mitad de disco y la mitad de maquina. Va fijo y no
-/// como ajuste porque nadie deberia tener que elegir esto para que su portatil no sufra.
+/// entender que acaba de pasar, y es la mitad de disco y la mitad de maquina. Se puede
+/// subir a treinta o sesenta desde los ajustes, con lo que cuesta escrito al lado, pero de
+/// fabrica manda que el portatil de nadie sufra por una funcion que corre sola.
 pub const FPS_ANILLO: u32 = 15;
 
-/// Y lo que no puede pasar de ahi, aunque quepa en la ventana de tiempo.
+/// Lo que ocupa un fotograma de pantalla completa en el PEOR caso.
 ///
-/// Un escritorio de trabajo gasta unos 4 MB por segundo y una partida diez veces mas, asi
-/// que los segundos no dicen nada de lo que ocupan. Con este tope, en un escritorio se
-/// guardan los treinta segundos enteros y en una partida los que quepan, y la interfaz
-/// dice cuantos hay de verdad en vez de prometer los que no hay.
-pub const BYTES_MAX: u64 = 1_024 * 1_024 * 1_024;
+/// Medido el 29 de agosto de 2026 sobre una partida a 1920x1080: 2,3 MB en QOI, porque la
+/// pantalla cambia entera y el recorte de `delta` no ahorra nada. Un escritorio de trabajo
+/// gasta una decima parte de esto.
+const PEOR_FOTOGRAMA: u64 = 2_300_000;
+
+/// Y el techo duro, se pida lo que se pida. Sesenta segundos a sesenta fotogramas serian
+/// ocho gigabytes dando vueltas, y eso ya no es una funcion, es un problema.
+const TECHO: u64 = 4 * 1_024 * 1_024 * 1_024;
+
+/// Cuanto disco puede llegar a ocupar el anillo con esos segundos y ese ritmo.
+///
+/// Es a la vez el tope que se aplica y **el numero que se le ensenna a quien lo enciende**:
+/// los segundos no dicen nada de lo que cuestan, porque una partida escribe diez veces mas
+/// que un escritorio. Si la pantalla cambia poco no se llega ni de lejos, y si cambia mucho
+/// se poda antes de tiempo y la interfaz cuenta los segundos que hay de verdad.
+pub fn bytes_max(segundos: u32, fps: u32) -> u64 {
+    (u64::from(segundos) * u64::from(fps) * PEOR_FOTOGRAMA).min(TECHO)
+}
 
 /// Un trozo del anillo: su archivo y lo que hay dentro.
 ///
@@ -474,7 +488,7 @@ mod tests {
     fn lo_cosido_se_vuelve_a_dibujar_igual() {
         let (ancho, alto) = (64u32, 32u32);
         let dir = temporal("cose");
-        let mut anillo = Anillo::nuevo(&dir.join("anillo"), 10_000, 30, BYTES_MAX).unwrap();
+        let mut anillo = Anillo::nuevo(&dir.join("anillo"), 10_000, 30, bytes_max(10, 30)).unwrap();
 
         // Veinte segundos a un fotograma cada 250 ms: cuatro trozos de cinco segundos.
         let mut ultimo = Vec::new();
@@ -527,7 +541,7 @@ mod tests {
     fn los_trozos_viejos_se_tiran() {
         let (ancho, alto) = (32u32, 16u32);
         let dir = temporal("poda");
-        let mut anillo = Anillo::nuevo(&dir, 10_000, 30, BYTES_MAX).unwrap();
+        let mut anillo = Anillo::nuevo(&dir, 10_000, 30, bytes_max(10, 30)).unwrap();
         for paso in 0..400u32 {
             let frame = pantalla(ancho, alto, paso);
             anillo.empujar(&frame, ancho, alto, u64::from(paso) * 250).unwrap();

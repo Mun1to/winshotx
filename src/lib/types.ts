@@ -204,6 +204,10 @@ export interface Settings {
   replayEnabled: boolean;
   /** Cuántos segundos guarda ese anillo hacia atrás. */
   replaySeconds: number;
+  /** Qué pantalla vigila, por su número empezando en cero. null = la del ratón. */
+  replayScreen: number | null;
+  /** A cuántos fotogramas por segundo graba el anillo. */
+  replayFps: number;
   playSound: boolean;
   showMagnifier: boolean;
   startWithWindows: boolean;
@@ -229,6 +233,18 @@ export interface ShortcutStatus {
   printScreen: boolean;
   /** Si el escritorio ha soltado ya Win+Mayús+S. Se puede pedir y no conseguir. */
   winShiftS: boolean;
+}
+
+/** Una pantalla del sistema, para poder elegir cuál se vigila. */
+export interface Screen {
+  id: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  scale: number;
+  isPrimary: boolean;
 }
 
 /** Cómo va el anillo de los últimos segundos. */

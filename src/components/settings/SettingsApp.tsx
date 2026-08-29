@@ -10,6 +10,7 @@ import {
   EyeOff,
   FolderOpen,
   Gauge,
+  Monitor,
   HardDrive,
   History,
   Keyboard,
@@ -35,6 +36,7 @@ import {
   pickDirectory,
   removeSnippingTool,
   useWinShiftS,
+  listScreens,
   printScreenState,
   quitApp,
   replayStatus,
@@ -52,6 +54,7 @@ import {
   type CaptureFlow,
   type PrintScreenState,
   type ReplayStatus,
+  type Screen,
   type Settings,
   type Theme,
   type Language,
@@ -85,6 +88,32 @@ const SEGUNDOS_ATRAS = [
   { value: 30, label: "30 s" },
   { value: 60, label: "60 s" },
 ];
+
+/**
+ * A cuántos fotogramas graba el anillo.
+ *
+ * Es el ajuste que de verdad decide lo que cuesta tenerlo puesto, porque aquí se graba todo
+ * el rato: lo que vale un fotograma se paga toda la tarde. Por eso la fila enseña al lado
+ * cuánto disco puede llegar a ocupar, en vez de dejar que se descubra solo.
+ */
+const FPS_ANILLO = [
+  { value: 15, label: "15 fps" },
+  { value: 30, label: "30 fps" },
+  { value: 60, label: "60 fps" },
+];
+
+/**
+ * Lo que puede llegar a ocupar el anillo, en bytes.
+ *
+ * Sale de lo mismo que el tope de Rust (`buffer::bytes_max`): 2,3 MB por fotograma, que es
+ * lo que mide uno de pantalla completa cuando la pantalla cambia entera, medido sobre una
+ * partida a 1920 × 1080. Un escritorio de trabajo gasta una décima parte, así que este es
+ * el techo y no lo normal.
+ */
+const PEOR_FOTOGRAMA = 2_300_000;
+const TECHO = 4 * 1024 * 1024 * 1024;
+const loQuePuedeOcupar = (segundos: number, fps: number) =>
+  Math.min(segundos * fps * PEOR_FOTOGRAMA, TECHO);
 
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
   { value: "toolbar", label: "Sale la barra" },
@@ -142,6 +171,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     printScreen: false,
     winShiftS: false,
   });
+  const [pantallas, setPantallas] = useState<Screen[]>([]);
   const [replay, setReplay] = useState<ReplayStatus>({
     running: false,
     seconds: 0,
@@ -169,6 +199,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
       .catch(() => {
         // Una compilacion sin este comando: la fila sale como si estuviera apagado.
       });
+    // Las pantallas se preguntan al abrir los ajustes y no al arrancar la app: enchufar o
+    // quitar un monitor es justo lo que pasa entre una vez y otra.
+    void listScreens()
+      .then((lista) => lista && setPantallas(lista))
+      .catch(() => setPantallas([]));
   }, []);
 
   // Cerrar los ajustes solo esconde la ventana, nunca la destruye, asi que esto se
@@ -533,13 +568,54 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Timer className="size-4" />}
                     label={t("Cuánto se guarda")}
-                    hint={t("a 15 fotogramas por segundo, para no comerse el disco")}
+                    hint={t("hacia atrás, desde que pulses la tecla")}
                     stacked
                     control={
                       <Segmented
                         value={settings.replaySeconds}
                         options={SEGUNDOS_ATRAS}
                         onChange={(v) => patch({ replaySeconds: v })}
+                      />
+                    }
+                  />
+                  {/* Solo con más de una pantalla: elegir entre una es una fila de ruido. */}
+                  {pantallas.length > 1 && (
+                    <Row
+                      icon={<Monitor className="size-4" />}
+                      label={t("Qué pantalla")}
+                      hint={t("no puede cambiar de pantalla sin tirar lo que lleva grabado")}
+                      stacked
+                      control={
+                        <Segmented
+                          etiqueta={t("Qué pantalla")}
+                          value={settings.replayScreen ?? -1}
+                          options={[
+                            { value: -1, label: t("La del ratón") },
+                            ...pantallas.map((p) => ({
+                              value: p.id,
+                              label: `${p.id + 1}${p.isPrimary ? " ★" : ""}`,
+                            })),
+                          ]}
+                          onChange={(v) => patch({ replayScreen: v === -1 ? null : v })}
+                        />
+                      }
+                    />
+                  )}
+                  <Row
+                    icon={<Gauge className="size-4" />}
+                    label={t("Calidad")}
+                    hint={t("hasta {tamaño} en disco si la pantalla cambia entera", {
+                      "tamaño": formatBytes(
+                        loQuePuedeOcupar(settings.replaySeconds, settings.replayFps),
+                      ),
+                    })}
+                    stacked
+                    control={
+                      <Segmented
+                        value={settings.replayFps}
+                        options={FPS_ANILLO}
+                        onChange={(v) => patch({ replayFps: v })}
+                        etiqueta={t("Calidad")}
                       />
                     }
                   />
@@ -561,7 +637,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     control={
                       <ShortcutField
                         value={settings.replayShortcut}
-                        active={shortcuts.replay}
+                        // Con el anillo apagado la tecla NO se pide al sistema, así que
+                        // pintarla en rojo diría que está ocupada cuando solo está sin
+                        // usar. El rojo tiene que significar una sola cosa.
+                        active={shortcuts.replay || !replay.running}
                         onChange={(v) => patch({ replayShortcut: v })}
                       />
                     }
