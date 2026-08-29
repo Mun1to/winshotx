@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 /** Una captura vertical, que es donde el desajuste de las capas se veía a simple vista. */
 const VERTICAL = { x: 0, y: 0, width: 600, height: 1000 };
 
-function preparar(region = VERTICAL) {
+function preparar(region = VERTICAL, mp4Path: string | null = null) {
   responde("session_info", {
     id: "s1",
     region,
@@ -31,7 +31,7 @@ function preparar(region = VERTICAL) {
     durationMs: 100,
     hasAudio: false,
     format: "still",
-    mp4Path: null,
+    mp4Path,
   });
   responde("session_frames", [
     { index: 0, timestampMs: 0, durationMs: 33, thumbPath: "C:\\t\\0.png" },
@@ -131,5 +131,30 @@ describe("Escape sale de lo que se esté haciendo antes de cerrar", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(destruir).toHaveBeenCalled());
     expect(llamadas.some((l) => l.comando === "discard_session")).toBe(true);
+  });
+});
+
+/**
+ * El play.
+ *
+ * Quien mueve los fotogramas al reproducir es el `<video>`, así que sin vídeo el botón no
+ * puede hacer nada. Lo que se rescata de «los últimos segundos» llega sin él (escribirlo
+ * cuesta unos doce segundos para medio minuto y se hace por detrás), y eso el botón lo
+ * tiene que DECIR en vez de quedarse quieto: pulsar y que no pase nada parece una app rota.
+ */
+describe("el botón de reproducir", () => {
+  const play = () => screen.getByRole("button", { name: /Reproducir|Play/ });
+
+  it("sin vídeo todavía, no promete lo que no puede hacer", async () => {
+    await abrir();
+    expect(play()).toBeDisabled();
+    expect(play()).toHaveAttribute("title", "preparando la reproducción…");
+  });
+
+  it("y con el vídeo escrito, se puede pulsar", async () => {
+    preparar(VERTICAL, "C:\\t\\preview.mp4");
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    expect(play()).toBeEnabled();
   });
 });

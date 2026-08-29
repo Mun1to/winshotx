@@ -272,6 +272,7 @@ export const EN: Record<string, string> = {
   Calidad: "Quality",
   "Bucle infinito": "Loop forever",
   "Motor FFmpeg": "FFmpeg engine",
+  "preparando la reproducción…": "getting playback ready…",
   "Marcar inicio (I)": "Mark the start (I)",
   "Marcar final (O)": "Mark the end (O)",
   "Marca A (tecla I)": "Mark A (key I)",

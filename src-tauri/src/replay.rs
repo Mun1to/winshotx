@@ -662,13 +662,45 @@ fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
     // que pasó en un sitio al que nadie puede llegar. Y es además el único aviso de que la
     // tecla ha hecho algo.
     let handle = app.clone();
+    let suyo = id.clone();
     std::thread::spawn(move || {
-        if let Err(error) = windows_mgr::open_editor(&handle, &id) {
+        if let Err(error) = windows_mgr::open_editor(&handle, &suyo) {
             eprintln!("no se ha podido abrir el editor: {error}");
         }
     });
+    preparar_vista_previa(app, id);
     avisar(app);
     Ok(info)
+}
+
+/// Escribe el MP4 de vista previa POR DETRAS, con el editor ya abierto.
+///
+/// Es lo que el editor sabe reproducir: quien mueve los fotogramas al darle al play es el
+/// `<video>`, y sin video el boton no hace absolutamente nada. La grabacion normal lo
+/// escribe mientras graba, en streaming y casi gratis; el anillo no puede, porque hasta que
+/// alguien pulsa la tecla no se sabe donde empieza lo que se va a guardar.
+///
+/// **Y no se puede hacer antes de abrir el editor.** Medido el 29 de agosto de 2026:
+/// Media Foundation tarda unos 26 ms por fotograma a 1080p, asi que treinta segundos son
+/// doce segundos de espera mirando una ventana que no llega. Se abre el editor con lo que
+/// ya esta (que se ve, se recorta y se exporta igual) y cuando el video esta listo se avisa.
+fn preparar_vista_previa(app: &AppHandle, id: String) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let Some(mut session) = state.sessions.read().get(&id).cloned() else {
+            return;
+        };
+        if let Err(error) = escribir_vista_previa(&mut session) {
+            // Sin vista previa la sesion sigue siendo buena: se ve y se exporta igual, solo
+            // que sin reproducir. Mucho mejor eso que perder lo que se acaba de rescatar.
+            eprintln!("[replay] sin vista previa: {error}");
+            return;
+        }
+        let _ = session.persist();
+        state.sessions.write().insert(id.clone(), session);
+        let _ = app.emit(crate::EVENT_SESSION_PREVIEW, id);
+    });
 }
 
 /// Todo el trabajo de convertir el anillo en una sesion: coser los fotogramas, cortar el
@@ -715,8 +747,8 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
         has_audio: audio.is_some(),
         width: encargo.region.width,
         height: encargo.region.height,
-        // El anillo no escribe MP4 de vista previa: seria codificar sin parar durante
-        // horas algo que casi siempre se tira. El editor reproduce por fotogramas.
+        // Se rellena al final, en `escribir_vista_previa`: hasta que no estan cosidos los
+        // fotogramas no hay nada que codificar.
         mp4_path: None,
         audio,
         clics: recortar(encargo.clics, t0, |c| c.ms, |c, ms| c.ms = ms),
@@ -733,6 +765,54 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
     record::generate_thumbnails(&mut session)?;
     session.persist()?;
     Ok(session)
+}
+
+/// Escribe el `preview.mp4` de la sesion, con su sonido si lo hay.
+///
+/// Va por el mismo camino que exportar un MP4: los fotogramas se leen del cache cosido y
+/// los escribe Media Foundation por hardware.
+#[cfg(windows)]
+fn escribir_vista_previa(session: &mut SessionData) -> Result<()> {
+    let ruta = session.dir.join("preview.mp4");
+    let indices: Vec<usize> = (0..session.frames.len()).collect();
+    let retardos: Vec<u32> = session.frames.iter().map(|f| f.duration_ms).collect();
+
+    let sonido = session.audio.and_then(|info| {
+        std::fs::read(session.audio_path()).ok().map(|datos| crate::encode::mp4::Pista {
+            channels: info.channels,
+            sample_rate: info.sample_rate,
+            datos,
+        })
+    });
+
+    // En orden y sin volver a empezar: los fotogramas se piden del primero al ultimo, que
+    // es justo el caso para el que existe `LectorEnOrden`.
+    let copia = session.clone();
+    let mut lector = record::LectorEnOrden::nuevo(&copia)?;
+    let mut cargar = |indice: usize| lector.en(indice);
+    crate::encode::mp4::encode(
+        &indices,
+        &retardos,
+        &mut cargar,
+        &ruta,
+        &crate::encode::mp4::Mp4Options {
+            width: session.width,
+            height: session.height,
+            fps: session.fps.max(1),
+            // La vista previa no es el archivo que se lleva nadie: se mira y se recorta.
+            // Setenta y cinco es lo mismo que usa la grabacion normal para lo suyo.
+            quality: 75,
+        },
+        sonido,
+        |_, _, _| {},
+    )?;
+    session.mp4_path = Some(ruta);
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn escribir_vista_previa(_session: &mut SessionData) -> Result<()> {
+    Err(AppError::Unsupported)
 }
 
 /// Se queda con lo que cae dentro de lo guardado y le pone el reloj a cero.
@@ -884,6 +964,28 @@ mod pruebas_con_pantalla {
     use crate::record::win::{self, CaptureFlags};
     use std::time::Duration;
 
+    /// Cuánto dice durar un MP4, leído de su cabecera `mvhd`.
+    ///
+    /// A mano y no con una biblioteca: son doce bytes en un sitio fijo, y meter un lector
+    /// de MP4 entero en el instalador para leer un número sería pagar de más.
+    fn duracion_del_mp4(ruta: &std::path::Path) -> Option<u64> {
+        let bytes = std::fs::read(ruta).ok()?;
+        let pos = bytes.windows(4).position(|v| v == b"mvhd")?;
+        // Detrás de «mvhd»: versión (1), banderas (3), creación (4), modificación (4),
+        // escala de tiempo (4) y duración (4). Solo se lee la versión 0, que es la que
+        // escribe Media Foundation.
+        let leer = |desde: usize| -> Option<u64> {
+            let trozo = bytes.get(desde..desde + 4)?;
+            Some(u64::from(u32::from_be_bytes(trozo.try_into().ok()?)))
+        };
+        if bytes.get(pos + 4)? != &0 {
+            return None;
+        }
+        let escala = leer(pos + 16)?;
+        let duracion = leer(pos + 20)?;
+        (escala > 0).then(|| duracion * 1000 / escala)
+    }
+
     #[test]
     #[ignore = "necesita una pantalla de verdad"]
     fn el_anillo_traga_la_pantalla_de_verdad() {
@@ -962,6 +1064,7 @@ mod pruebas_con_pantalla {
 
         let ahora = arranque.elapsed().as_millis() as u64;
         let (segmentos, corte, copia) = anillo.instantanea(ahora.max(ultimo_ts)).unwrap();
+        let empezo = Instant::now();
         let session = montar(
             raiz.join("sesion"),
             "pantalla".into(),
@@ -981,9 +1084,35 @@ mod pruebas_con_pantalla {
         )
         .expect("no se ha podido montar la sesión");
 
+        // El numero que decide si esto se puede hacer antes de abrir el editor o hay que
+        // hacerlo por detras: cuanto se queda esperando quien acaba de pulsar la tecla.
         println!(
-            "guardados {} fotogramas, {} ms",
+            "guardados {} fotogramas, {} ms de video · cosechar tardo {} ms",
             session.frames.len(),
+            session.duration_ms(),
+            empezo.elapsed().as_millis()
+        );
+        // La vista previa se escribe por detrás, con el editor ya abierto, así que aquí
+        // se comprueba a mano lo que en la app pasa en otro hilo.
+        let antes = Instant::now();
+        let mut con_video = session.clone();
+        escribir_vista_previa(&mut con_video).expect("no se ha podido escribir la vista previa");
+        let ruta = con_video.mp4_path.as_ref().expect("no ha quedado ruta de vídeo");
+        println!(
+            "vista previa: {} KB en {} ms ({} ms por fotograma)",
+            std::fs::metadata(ruta).map(|m| m.len() / 1024).unwrap_or(0),
+            antes.elapsed().as_millis(),
+            antes.elapsed().as_millis() / session.frames.len().max(1) as u128
+        );
+        assert!(ruta.exists(), "el vídeo de vista previa no llegó al disco");
+        // Y que dure lo que dura la sesión, leído del propio archivo. Un MP4 de cero
+        // segundos existe, pesa y no reproduce nada: es justo el fallo que se está
+        // arreglando aquí, y comprobar que el archivo está no lo vería.
+        let dentro = duracion_del_mp4(ruta).expect("el MP4 no dice cuánto dura");
+        println!("el vídeo dice durar {dentro} ms");
+        assert!(
+            dentro.abs_diff(session.duration_ms()) < 500,
+            "el vídeo dura {dentro} ms y la sesión {} ms",
             session.duration_ms()
         );
         // Aqui NO se exige un monton de fotogramas: si nadie toca el escritorio mientras

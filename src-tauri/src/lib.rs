@@ -38,6 +38,13 @@ pub const EVENT_OVERLAY_SHOW: &str = "winshotx://overlay-show";
 /// partida y avisa con un cero cuando se acabo.
 pub const EVENT_COUNTDOWN: &str = "winshotx://countdown";
 
+/// El video de vista previa de una sesion ya esta escrito, y con el llega el play.
+///
+/// Lo manda el anillo de los ultimos segundos, que abre el editor antes de tener el video
+/// para no hacer esperar doce segundos a quien acaba de pulsar la tecla. Lleva el id de la
+/// sesion: el editor mira si es la suya y la vuelve a pedir.
+pub const EVENT_SESSION_PREVIEW: &str = "winshotx://session-preview";
+
 /// El numero de una pantalla, ensennado en esa pantalla un par de segundos.
 ///
 /// Lo usa el ajuste que elige que pantalla vigila el anillo: «la 2» no dice nada si no se

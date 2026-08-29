@@ -300,6 +300,8 @@ export const EVENTS = {
   replay: "winshotx://replay",
   /** «Esta pantalla es la 2», enseñado en esa pantalla un par de segundos. */
   screenNumber: "winshotx://screen-number",
+  /** El vídeo de vista previa de una sesión ya está escrito, y con él llega el play. */
+  sessionPreview: "winshotx://session-preview",
   /**
    * Lo que hay elegido en la barra del overlay.
    *

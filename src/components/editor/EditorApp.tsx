@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Crop, Pause, Play, Scissors } from "lucide-react";
 import {
@@ -11,7 +12,7 @@ import {
   sessionInfo,
 } from "../../lib/ipc";
 import { clamp, formatTimecode } from "../../lib/format";
-import type { FrameMeta, SessionInfo, Settings } from "../../lib/types";
+import { EVENTS, type FrameMeta, type SessionInfo, type Settings } from "../../lib/types";
 import { BarraAnotar } from "./BarraAnotar";
 import { CapaAnotaciones } from "./CapaAnotaciones";
 import { CapaRecorte } from "./CapaRecorte";
@@ -223,6 +224,24 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
     [session],
   );
+
+  /**
+   * Lo que se rescata de «los últimos segundos» llega sin vídeo de vista previa.
+   *
+   * Escribirlo cuesta unos 26 ms por fotograma, o sea doce segundos para medio minuto, y
+   * hacer esperar todo eso con la ventana en blanco sería peor que abrirla ya. Se escribe
+   * por detrás y cuando está listo llega este aviso: se vuelve a pedir la sesión y el play
+   * empieza a funcionar sin que nadie tenga que cerrar y volver a abrir nada.
+   */
+  useEffect(() => {
+    const unlisten = listen<string>(EVENTS.sessionPreview, (e) => {
+      if (e.payload !== sessionId) return;
+      void sessionInfo(sessionId).then(setSession).catch(() => undefined);
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [sessionId]);
   // Sin MP4 la vista previa es una imagen: la miniatura de 80 px se veria borrosa,
   // asi que se pide el fotograma entero y se sustituye en cuanto llega.
   const [stillPath, setStillPath] = useState<string | null>(null);
@@ -341,6 +360,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               <button
                 type="button"
                 onClick={togglePlay}
+                disabled={!videoUrl}
+                title={videoUrl ? undefined : t("preparando la reproducción…")}
                 aria-label={playing ? t("Pausar") : t("Reproducir")}
                 className="flex size-7 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
               >
