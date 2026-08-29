@@ -253,9 +253,21 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
 /// pantallas, un numero en la esquina de una de ellas se pierde. Tapa lo que haya debajo
 /// durante la cuenta, pero eso no llega a la captura: se esconde antes de congelar.
 fn colocar_cuenta_atras(window: &tauri::WebviewWindow) {
+    colocar_ventanita(window, None)
+}
+
+/// Y la misma colocacion, pero sobre la pantalla que se diga en vez de la del raton.
+fn colocar_ventanita(window: &tauri::WebviewWindow, en: Option<u32>) {
     let Ok(monitores) = xcap::Monitor::all() else {
         return;
     };
+    // Con una pantalla pedida manda esa; si no, la del raton.
+    if let Some(indice) = en {
+        if let Some(monitor) = monitores.get(indice as usize) {
+            poner_en(window, monitor);
+            return;
+        }
+    }
     let cursor = cursor_position();
     let dentro = |m: &xcap::Monitor, x: i32, y: i32| -> bool {
         let (Ok(mx), Ok(my), Ok(mw), Ok(mh)) = (m.x(), m.y(), m.width(), m.height()) else {
@@ -269,6 +281,11 @@ fn colocar_cuenta_atras(window: &tauri::WebviewWindow) {
         .or_else(|| monitores.first());
 
     let Some(monitor) = elegido else { return };
+    poner_en(window, monitor);
+}
+
+/// La deja centrada en ese monitor, con el tamanno que le toca por su escalado.
+fn poner_en(window: &tauri::WebviewWindow, monitor: &xcap::Monitor) {
     let (Ok(x), Ok(y), Ok(width), Ok(height)) = (
         monitor.x(),
         monitor.y(),
@@ -289,6 +306,60 @@ fn colocar_cuenta_atras(window: &tauri::WebviewWindow) {
         x + (width as i32 - lado as i32) / 2,
         y + (height as i32 - lado as i32) / 2,
     ));
+}
+
+/// Ensenna el numero de una pantalla en su centro, un par de segundos.
+///
+/// Elegir «la pantalla 2» en los ajustes no dice nada si no se sabe cual es la 2. Esto lo
+/// dice de la unica forma que no admite duda: ensennando el numero **en esa pantalla**.
+///
+/// Reutiliza la ventanita de la cuenta atras, que ya sabe ponerse centrada en un monitor
+/// concreto y no coge el foco. Va con un numero fijo, no con una cuenta.
+pub fn mostrar_numero_de_pantalla(app: &AppHandle, indice: u32) {
+    let Some(window) = ventanita_de_numero(app, indice) else {
+        return;
+    };
+    let _ = window.emit_to(COUNTDOWN_LABEL, crate::EVENT_SCREEN_NUMBER, indice + 1);
+    colocar_ventanita(&window, Some(indice));
+    let _ = window.show();
+
+    // Dos segundos: lo que se tarda en mirar y reconocer la pantalla. Se esconde desde otro
+    // hilo para no dejar los ajustes esperando a que pase.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(2000));
+        if let Some(window) = app.get_webview_window(COUNTDOWN_LABEL) {
+            let _ = window.hide();
+            // Se deja en cero, que la pagina dibuja como la camara: si la proxima cuenta
+            // atras se ve un fotograma con lo viejo, que no sea un numero de pantalla.
+            let _ = window.emit_to(COUNTDOWN_LABEL, crate::EVENT_SCREEN_NUMBER, 0u32);
+        }
+    });
+}
+
+/// La ventanita, creada si todavia no existe.
+fn ventanita_de_numero(app: &AppHandle, indice: u32) -> Option<tauri::WebviewWindow> {
+    if let Some(existente) = app.get_webview_window(COUNTDOWN_LABEL) {
+        return Some(existente);
+    }
+    let url = WebviewUrl::App(format!("cuenta.html?pantalla={}", indice + 1).into());
+    let construida = WebviewWindowBuilder::new(app, COUNTDOWN_LABEL, url)
+        .title("winshotx")
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .shadow(true)
+        .focused(false)
+        .visible(false)
+        .inner_size(CUENTA_LADO, CUENTA_LADO)
+        .build()
+        .ok()?;
+    crate::platform::window_style::rounded_corners(&construida);
+    crate::platform::window_style::never_focus(&construida);
+    Some(construida)
 }
 
 /// La esconde y la deja en cero, que la pagina dibuja como el icono de la camara y no

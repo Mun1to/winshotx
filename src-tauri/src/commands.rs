@@ -523,6 +523,13 @@ pub async fn list_screens() -> Result<Vec<crate::capture::MonitorInfo>> {
     crate::capture::monitors()
 }
 
+/// Ensenna el numero de esa pantalla, en esa pantalla, un par de segundos.
+#[tauri::command]
+pub async fn show_screen_number(app: AppHandle, screen: u32) -> Result<()> {
+    windows_mgr::mostrar_numero_de_pantalla(&app, screen);
+    Ok(())
+}
+
 /// Como va el anillo de los ultimos segundos: si corre, que pantalla vigila y cuanto lleva
 /// grabado. La interfaz lo pregunta al abrirse; despues se entera por el evento.
 #[tauri::command]

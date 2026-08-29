@@ -38,6 +38,12 @@ pub const EVENT_OVERLAY_SHOW: &str = "winshotx://overlay-show";
 /// partida y avisa con un cero cuando se acabo.
 pub const EVENT_COUNTDOWN: &str = "winshotx://countdown";
 
+/// El numero de una pantalla, ensennado en esa pantalla un par de segundos.
+///
+/// Lo usa el ajuste que elige que pantalla vigila el anillo: «la 2» no dice nada si no se
+/// sabe cual es la 2. Comparte ventana con la cuenta atras, y un cero la apaga.
+pub const EVENT_SCREEN_NUMBER: &str = "winshotx://screen-number";
+
 /// Las capturas ancladas viven en ventanas, y las ventanas no sobreviven a cerrar la app.
 ///
 /// Sus PNG si sobrevivirian, uno por cada vez que alguien ancla algo, hasta llenar el
@@ -208,6 +214,7 @@ pub fn run() {
             commands::clear_cache,
             commands::shortcut_status,
             commands::list_screens,
+            commands::show_screen_number,
             commands::replay_status,
             commands::replay_save,
             commands::print_screen_state,

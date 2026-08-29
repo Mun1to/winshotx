@@ -208,6 +208,8 @@ export interface Settings {
   replayScreen: number | null;
   /** A cuántos fotogramas por segundo graba el anillo. */
   replayFps: number;
+  /** A qué alto guarda lo grabado. 0 es el de la pantalla, tal cual. */
+  replayHeight: number;
   playSound: boolean;
   showMagnifier: boolean;
   startWithWindows: boolean;
@@ -256,6 +258,11 @@ export interface ReplayStatus {
   screenLabel: string;
   /** Lo que ocupa ahora mismo en disco. */
   bytes: number;
+  /** Y lo que le escribe al disco por segundo, que es lo que cuesta tenerlo puesto. */
+  bytesPerSecond: number;
+  /** A qué tamaño está grabando, con la calidad ya aplicada. */
+  width: number;
+  height: number;
   /**
    * Cuánto lleva grabado. Hasta que no llega a la ventana entera, lo que se guarde durará
    * menos de lo que pone el ajuste, y quien lo pulse tiene derecho a saberlo antes.
@@ -291,6 +298,8 @@ export const EVENTS = {
   settingsShown: "winshotx://settings-shown",
   /** El anillo de los últimos segundos se ha encendido, apagado o ha guardado algo. */
   replay: "winshotx://replay",
+  /** «Esta pantalla es la 2», enseñado en esa pantalla un par de segundos. */
+  screenNumber: "winshotx://screen-number",
   /**
    * Lo que hay elegido en la barra del overlay.
    *

@@ -95,6 +95,10 @@ export const printScreenState = () => invoke<PrintScreenState>("print_screen_sta
 /** Las pantallas que hay, para elegir cuál vigila el anillo. No captura nada. */
 export const listScreens = () => invoke<Screen[]>("list_screens");
 
+/** Enseña el número de esa pantalla, en esa pantalla, un par de segundos. */
+export const showScreenNumber = (screen: number) =>
+  invoke<void>("show_screen_number", { screen });
+
 /** Cómo va el anillo de los últimos segundos. */
 export const replayStatus = () => invoke<ReplayStatus>("replay_status");
 
