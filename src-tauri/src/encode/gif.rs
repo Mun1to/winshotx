@@ -131,7 +131,7 @@ fn scaled(image: RgbaImage, width: u32, height: u32) -> RgbaImage {
     if image.width() == width && image.height() == height {
         return image;
     }
-    image::imageops::resize(&image, width, height, image::imageops::FilterType::Lanczos3)
+    super::escalar::a_medida(&image, width, height)
 }
 
 /// Rectangulo del area que ha cambiado: left, top, ancho, alto.

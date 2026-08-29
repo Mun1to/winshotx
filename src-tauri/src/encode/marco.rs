@@ -192,7 +192,7 @@ pub fn enmarcar(imagen: RgbaImage, ancho: u32, alto: u32, marco: Marco) -> RgbaI
     let escalada = if imagen.dimensions() == (ancho, alto) {
         imagen
     } else {
-        image::imageops::resize(&imagen, ancho, alto, image::imageops::FilterType::Lanczos3)
+        super::escalar::a_medida(&imagen, ancho, alto)
     };
     poner(&escalada, marco)
 }

@@ -552,21 +552,12 @@ fn enmarcar_y_anotar(
     }
     // Escalar es lo mas caro de exportar, y con el zoom pasa por aqui CADA fotograma: sin
     // zoom la imagen ya mide lo que se pide y no se toca, con zoom hay que estirar el
-    // trozo. Con `image` eso costaba 60 ms por fotograma, o sea dos minutos por un video
-    // de un minuto; `escalar::ampliar` hace lo mismo en menos de cuatro.
+    // trozo. Con `image` eso costaba 64 ms por fotograma; `escalar::a_medida` hace lo
+    // mismo en dos.
     let mut escalada = if recortada.dimensions() == (ancho, alto) {
         recortada
-    } else if recortada.width() < ancho || recortada.height() < alto {
-        escalar::ampliar(&recortada, ancho, alto)
     } else {
-        // Reduciendo hay que promediar muchos pixeles en uno, y ahi Lanczos3 gana. Ademas
-        // reducir cuesta menos: la imagen de salida es mas pequenna que la de entrada.
-        image::imageops::resize(
-            &recortada,
-            ancho,
-            alto,
-            image::imageops::FilterType::Lanczos3,
-        )
+        escalar::a_medida(&recortada, ancho, alto)
     };
     // El estudio va ANTES que las anotaciones: los aros y la pastilla son parte de la
     // grabacion, y lo que dibuja el usuario encima manda sobre ellos.
@@ -1418,5 +1409,239 @@ mod la_camara_del_exportador {
         let camara = Camara::preparar(&sesion, &peticion(50.0, None));
         let (_, _, w, _) = camara.en(1000).unwrap().en_pixeles(400, 300);
         assert_eq!(w, 100);
+    }
+}
+
+/// Cuanto cuesta cada paso de exportar, medido sobre una grabacion de verdad.
+///
+/// Munir, el 29 de agosto de 2026: *«tarda mucho en procesar el video»*, con una grabacion
+/// de 1890x1052, 50 segundos y 1320 fotogramas. Antes de tocar nada hay que saber DONDE se
+/// va el tiempo, que es la leccion de `docs/TRAMPAS.md`: el filtro nunca es el filtro.
+///
+/// Se corre a mano, en release y apuntando a una carpeta de sesion:
+///
+/// ```text
+/// WINSHOTX_SESION=C:\...\Temp\winshotx\sessions\55483c6bef \
+///   cargo test --release --lib medir::reparto_del_tiempo -- --ignored --nocapture
+/// ```
+#[cfg(all(test, windows))]
+mod medir {
+    use super::*;
+    use std::time::Instant;
+
+    fn sesion() -> Option<SessionData> {
+        let dir = std::env::var("WINSHOTX_SESION").ok()?;
+        let texto = std::fs::read_to_string(std::path::Path::new(&dir).join("session.json")).ok()?;
+        serde_json::from_str(&texto).ok()
+    }
+
+    /// Reducir con lo de casa frente a Lanczos3, para poder mirar las dos y decidir.
+    ///
+    /// `WINSHOTX_IMAGEN=<png> cargo test --release --lib medir::calidad -- --ignored`
+    #[test]
+    #[ignore]
+    fn calidad_de_la_reduccion() {
+        let Ok(ruta) = std::env::var("WINSHOTX_IMAGEN") else {
+            eprintln!("sin WINSHOTX_IMAGEN no hay nada que comparar");
+            return;
+        };
+        let ruta = std::path::PathBuf::from(ruta);
+        let origen = image::open(&ruta).expect("imagen").to_rgba8();
+        let (ancho, alto) = (1280u32, 712u32);
+
+        let lanczos =
+            image::imageops::resize(&origen, ancho, alto, image::imageops::FilterType::Lanczos3);
+        let casero = escalar::reducir(&origen, ancho, alto);
+
+        let padre = ruta.parent().expect("carpeta");
+        lanczos.save(padre.join("reduce-lanczos.png")).expect("guardar");
+        casero.save(padre.join("reduce-casero.png")).expect("guardar");
+
+        // Cuanto se separan, en promedio y en el peor pixel.
+        let (mut suma, mut peor) = (0u64, 0u32);
+        for (a, b) in lanczos.as_raw().iter().zip(casero.as_raw()) {
+            let d = (*a as i32 - *b as i32).unsigned_abs();
+            suma += u64::from(d);
+            peor = peor.max(d);
+        }
+        eprintln!(
+            "diferencia media {:.2} de 255, peor pixel {peor}",
+            suma as f64 / lanczos.as_raw().len() as f64
+        );
+    }
+
+    /// Un video de verdad, escrito con el escalado nuevo, para poder abrirlo y mirarlo.
+    ///
+    /// Contar milisegundos y comparar pixeles no ve un video roto: los dos extremos pueden
+    /// salir verdes y el archivo que se lleva el usuario estar mal. Este deja el mp4 en
+    /// `%TEMP%\winshotx-mirar.mp4` para abrirlo.
+    ///
+    /// `WINSHOTX_IMAGEN=<png> cargo test --release --lib medir::un_video -- --ignored`
+    #[test]
+    #[ignore]
+    fn un_video_de_verdad_para_mirarlo() {
+        let Ok(ruta) = std::env::var("WINSHOTX_IMAGEN") else {
+            eprintln!("sin WINSHOTX_IMAGEN no hay nada que codificar");
+            return;
+        };
+        let origen = image::open(&ruta).expect("imagen").to_rgba8();
+        let (ancho, alto) = (1280u32, 712u32);
+        let cuantos = 60usize;
+
+        // La misma imagen desplazandose, para que el video tenga movimiento de verdad y no
+        // sea un fotograma repetido que el codificador se come sin comprimir nada.
+        let indices: Vec<usize> = (0..cuantos).collect();
+        let delays: Vec<u32> = indices.iter().map(|_| 33).collect();
+        let mut loader = |i: usize| -> Result<image::RgbaImage> {
+            let d = (i as i64 % 20) as i64 - 10;
+            let mut movida = image::RgbaImage::new(origen.width(), origen.height());
+            image::imageops::replace(&mut movida, &origen, d, d / 2);
+            Ok(movida)
+        };
+
+        let destino = std::env::temp_dir().join("winshotx-mirar.mp4");
+        mp4::encode(
+            &indices,
+            &delays,
+            &mut loader,
+            &destino,
+            &mp4::Mp4Options {
+                width: ancho,
+                height: alto,
+                fps: 30,
+                quality: 80,
+            },
+            None,
+            |_, _, _| {},
+        )
+        .expect("codificar");
+        let bytes = std::fs::metadata(&destino).map(|m| m.len()).unwrap_or(0);
+        eprintln!("{} · {} KB", destino.display(), bytes / 1024);
+        assert!(bytes > 10_000, "el video ha salido vacio: {bytes} bytes");
+    }
+
+    #[test]
+    #[ignore]
+    fn reparto_del_tiempo() {
+        let Some(session) = sesion() else {
+            eprintln!("sin WINSHOTX_SESION no hay nada que medir");
+            return;
+        };
+        let cuantos: usize = std::env::var("WINSHOTX_N")
+            .ok()
+            .and_then(|n| n.parse().ok())
+            .unwrap_or(120);
+        let indices: Vec<usize> = (0..session.frames.len().min(cuantos)).collect();
+        eprintln!(
+            "sesion {} · {}x{} · {} fotogramas · midiendo {}",
+            session.id,
+            session.width,
+            session.height,
+            session.frames.len(),
+            indices.len()
+        );
+
+        // 1. Sacar el fotograma del cache, tal y como lo hace hoy el exportador.
+        let t = Instant::now();
+        let mut ultimo = None;
+        for i in &indices {
+            ultimo = Some(record::read_frame(&session, *i).expect("fotograma"));
+        }
+        let leer = t.elapsed();
+        let imagen = ultimo.expect("al menos uno");
+        eprintln!(
+            "leer del cache      {:>7.1} ms/fotograma  ({:.1} s los {})",
+            leer.as_secs_f64() * 1000.0 / indices.len() as f64,
+            leer.as_secs_f64(),
+            indices.len()
+        );
+
+        // 2. Escalar a 1280 de ancho, que es lo que hace el codificador cuando el panel
+        //    pide otra medida.
+        let ancho = 1280u32;
+        let alto = (session.height * ancho / session.width.max(1)) / 2 * 2;
+        let t = Instant::now();
+        for _ in 0..10 {
+            let _ = image::imageops::resize(
+                &imagen,
+                ancho,
+                alto,
+                image::imageops::FilterType::Lanczos3,
+            );
+        }
+        eprintln!(
+            "  image/Lanczos3    {:>7.1} ms/fotograma",
+            t.elapsed().as_secs_f64() * 1000.0 / 10.0
+        );
+
+        let t = Instant::now();
+        for _ in 0..10 {
+            let _ = escalar::reducir(&imagen, ancho, alto);
+        }
+        eprintln!(
+            "  escalar::reducir  {:>7.1} ms/fotograma",
+            t.elapsed().as_secs_f64() * 1000.0 / 10.0
+        );
+
+        // Y el codificador solo, sin escalar nada: es lo que pasa al exportar al tamanno
+        // nativo, que es como viene el panel.
+        let nativo = (session.width / 2 * 2, session.height / 2 * 2);
+        let destino = std::env::temp_dir().join("winshotx-medir-nativo.mp4");
+        let delays: Vec<u32> = indices.iter().map(|_| 33).collect();
+        let t = Instant::now();
+        let mut loader = |index: usize| record::read_frame(&session, index);
+        mp4::encode(
+            &indices,
+            &delays,
+            &mut loader,
+            &destino,
+            &mp4::Mp4Options {
+                width: nativo.0,
+                height: nativo.1,
+                fps: 30,
+                quality: 80,
+            },
+            None,
+            |_, _, _| {},
+        )
+        .expect("codificar");
+        eprintln!(
+            "exportar a lo nativo{:>7.1} ms/fotograma  ({:.1} s los {})",
+            t.elapsed().as_secs_f64() * 1000.0 / indices.len() as f64,
+            t.elapsed().as_secs_f64(),
+            indices.len()
+        );
+        let _ = std::fs::remove_file(&destino);
+
+        // 3. La exportacion entera, con el codificador de Windows por medio.
+        let destino = std::env::temp_dir().join("winshotx-medir.mp4");
+        let delays: Vec<u32> = indices.iter().map(|_| 33).collect();
+        let t = Instant::now();
+        let mut loader = |index: usize| record::read_frame(&session, index);
+        mp4::encode(
+            &indices,
+            &delays,
+            &mut loader,
+            &destino,
+            &mp4::Mp4Options {
+                width: ancho,
+                height: alto,
+                fps: 30,
+                quality: 80,
+            },
+            None,
+            |_, _, _| {},
+        )
+        .expect("codificar");
+        let entero = t.elapsed();
+        eprintln!(
+            "exportar entero     {:>7.1} ms/fotograma  ({:.1} s los {}) -> {:.1} s los {} de Munir",
+            entero.as_secs_f64() * 1000.0 / indices.len() as f64,
+            entero.as_secs_f64(),
+            indices.len(),
+            entero.as_secs_f64() / indices.len() as f64 * session.frames.len() as f64,
+            session.frames.len()
+        );
+        let _ = std::fs::remove_file(&destino);
     }
 }

@@ -233,47 +233,99 @@ pub fn reducir(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
     if (ow, oh) == (ancho, alto) || ancho == 0 || alto == 0 || ow == 0 || oh == 0 {
         return origen.clone();
     }
-    // Los límites de cada píxel de salida sobre el origen, calculados una vez por eje.
-    let corte = |destino: u32, origen: u32| -> Vec<(u32, u32)> {
-        (0..destino)
-            .map(|i| {
-                let a = (u64::from(i) * u64::from(origen) / u64::from(destino)) as u32;
-                let b = (u64::from(i + 1) * u64::from(origen) / u64::from(destino)) as u32;
-                (a, b.max(a + 1).min(origen))
-            })
-            .collect()
-    };
-    let columnas = corte(ancho, ow);
-    let filas = corte(alto, oh);
+    let columnas = reparto(ow, ancho);
+    let filas = reparto(oh, alto);
     let entrada = origen.as_raw();
 
     let mut salida = vec![0u8; (ancho as usize) * (alto as usize) * 4];
     salida
         .par_chunks_mut(ancho as usize * 4)
         .zip(filas.par_iter())
-        .for_each(|(destino, &(y0, y1))| {
-            for (x, &(x0, x1)) in columnas.iter().enumerate() {
-                let mut suma = [0u32; 4];
-                let mut cuantos = 0u32;
-                for y in y0..y1 {
-                    let base = (y as usize * ow as usize) * 4;
-                    for xx in x0..x1 {
-                        let p = base + xx as usize * 4;
-                        suma[0] += u32::from(entrada[p]);
-                        suma[1] += u32::from(entrada[p + 1]);
-                        suma[2] += u32::from(entrada[p + 2]);
-                        suma[3] += u32::from(entrada[p + 3]);
-                        cuantos += 1;
+        .for_each(|(destino, (y0, pesos_y))| {
+            for (x, (x0, pesos_x)) in columnas.iter().enumerate() {
+                let mut suma = [0u64; 4];
+                for (dy, py) in pesos_y.iter().enumerate() {
+                    let fila = ((*y0 as usize + dy) * ow as usize + *x0 as usize) * 4;
+                    for (dx, px) in pesos_x.iter().enumerate() {
+                        let p = fila + dx * 4;
+                        let peso = u64::from(*py) * u64::from(*px);
+                        suma[0] += peso * u64::from(entrada[p]);
+                        suma[1] += peso * u64::from(entrada[p + 1]);
+                        suma[2] += peso * u64::from(entrada[p + 2]);
+                        suma[3] += peso * u64::from(entrada[p + 3]);
                     }
                 }
-                let n = cuantos.max(1);
                 let d = x * 4;
                 for canal in 0..4 {
-                    destino[d + canal] = (suma[canal] / n) as u8;
+                    // Los pesos de cada eje suman UNO, así que el total es UNO al cuadrado.
+                    destino[d + canal] =
+                        (((suma[canal] + (TOTAL / 2)) / TOTAL).min(255)) as u8;
                 }
             }
         });
     RgbaImage::from_raw(ancho, alto, salida).unwrap_or_else(|| RgbaImage::new(ancho, alto))
+}
+
+/// Lo que suman los pesos de los dos ejes juntos.
+const TOTAL: u64 = (UNO as u64) * (UNO as u64);
+
+/// Para cada píxel de salida, desde qué píxel del origen empieza y con cuánto entra cada
+/// uno. Se calcula una vez por eje y vale para todas las filas.
+///
+/// **Los límites son fraccionarios a propósito.** Con límites enteros, bajar de 1890 a 1280
+/// promediaba unas veces un píxel y otras dos, según dónde cayera la división: una reja de
+/// un píxel salía a rayas gordas y el texto de una captura con unas letras más finas que
+/// otras. Aquí cada píxel de entrada entra por la parte que solapa, que es lo que hace un
+/// filtro de área de verdad.
+fn reparto(origen: u32, destino: u32) -> Vec<(u32, Vec<u32>)> {
+    let escala = f64::from(origen) / f64::from(destino.max(1));
+    (0..destino)
+        .map(|i| {
+            let a = f64::from(i) * escala;
+            let b = (a + escala).min(f64::from(origen));
+            let primero = (a.floor() as u32).min(origen.saturating_sub(1));
+            let ultimo = (b.ceil() as u32).clamp(primero + 1, origen);
+            let mut pesos: Vec<u32> = (primero..ultimo)
+                .map(|j| {
+                    let solapa = (b.min(f64::from(j) + 1.0) - a.max(f64::from(j))).max(0.0);
+                    (solapa / (b - a).max(f64::EPSILON) * f64::from(UNO)).round() as u32
+                })
+                .collect();
+            // Que sumen exactamente UNO: el redondeo se lo lleva el peso más gordo, que es
+            // donde menos se nota. Sin esto la imagen se iría aclarando u oscureciendo.
+            let suma: i64 = pesos.iter().map(|w| i64::from(*w)).sum();
+            if let Some(mayor) = pesos.iter_mut().max_by_key(|w| **w) {
+                *mayor = (i64::from(*mayor) + i64::from(UNO) - suma).max(0) as u32;
+            }
+            (primero, pesos)
+        })
+        .collect()
+}
+
+/// Lleva la imagen al tamaño pedido por el camino que toque, sin pasar nunca por `image`.
+///
+/// Es la puerta única de todo lo que escala un fotograma: ampliar interpola, reducir
+/// promedia por área, y si un lado crece mientras el otro encoge se hace en dos pasos.
+///
+/// Existe porque exportar hacía esto mismo con `image::imageops::resize`, que en un
+/// fotograma de 1890x1052 cuesta **64 ms**; aquí son **2 ms**. Munir exportó una grabación
+/// de 50 segundos a 1280 y tardó dos minutos: 64 de esos 92 ms por fotograma eran esta
+/// línea. Medido el 29 de agosto de 2026.
+pub fn a_medida(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
+    let (ow, oh) = origen.dimensions();
+    if (ow, oh) == (ancho, alto) {
+        return origen.clone();
+    }
+    if ancho >= ow && alto >= oh {
+        return ampliar(origen, ancho, alto);
+    }
+    if ancho <= ow && alto <= oh {
+        return reducir(origen, ancho, alto);
+    }
+    // Un lado crece y el otro encoge, que es lo que pasa al cambiar la proporción. Primero
+    // se encoge, que deja menos píxeles que estirar después.
+    let intermedio = reducir(origen, ancho.min(ow), alto.min(oh));
+    ampliar(&intermedio, ancho, alto)
 }
 
 /// El tamaño al que se graba, dado el alto que se pidió.
@@ -319,6 +371,48 @@ mod reducir_tests {
             (120..=135).contains(&centro[0]),
             "un ajedrez reducido tiene que salir gris, y salió {centro:?}"
         );
+    }
+
+    /// Reducir 1890 a 1280 no es quedarse unas veces con un pixel y otras con dos.
+    ///
+    /// Munir grababa a 1890x1052 y exportaba a 1280: con los limites en numeros enteros,
+    /// cada pixel de salida promediaba **uno o dos** de entrada segun donde cayera, asi que
+    /// una reja de un pixel salia a rayas gordas y el texto de la captura con unas letras
+    /// mas finas que otras. Con el reparto por area cada pixel de salida se lleva su parte
+    /// proporcional, y la reja sale gris pareja.
+    ///
+    /// Los numeros: un pixel de salida cubre 1,477 de entrada, asi que como mucho puede
+    /// irse a 172 o a 82, o sea 45 del gris. Antes se iba a 255 y a 0, que son 128.
+    #[test]
+    fn una_reja_fina_no_sale_a_rayas_gordas() {
+        let mut origen = RgbaImage::new(1890, 8);
+        for (x, _y, pixel) in origen.enumerate_pixels_mut() {
+            let v = if x % 2 == 0 { 255 } else { 0 };
+            *pixel = image::Rgba([v, v, v, 255]);
+        }
+        let pequenna = reducir(&origen, 1280, 8);
+        let peor = (0..1280)
+            .map(|x| (i32::from(pequenna.get_pixel(x, 4).0[0]) - 128).abs())
+            .max()
+            .expect("hay columnas");
+        assert!(
+            peor <= 50,
+            "la reja sale a rayas: el pixel mas lejos del gris se va {peor}"
+        );
+    }
+
+    /// El caso raro: un lado crece y el otro encoge. Pasa al cambiar la proporción en el
+    /// panel, y antes lo resolvía `image`; ahora hay que atenderlo aquí.
+    #[test]
+    fn a_medida_atiende_los_tres_caminos() {
+        let origen = RgbaImage::from_pixel(400, 300, image::Rgba([10, 20, 30, 255]));
+        assert_eq!(a_medida(&origen, 400, 300).dimensions(), (400, 300));
+        assert_eq!(a_medida(&origen, 800, 600).dimensions(), (800, 600));
+        assert_eq!(a_medida(&origen, 200, 150).dimensions(), (200, 150));
+        // Ancho abajo, alto arriba: el que se le atragantaba al if de antes.
+        let mixta = a_medida(&origen, 200, 600);
+        assert_eq!(mixta.dimensions(), (200, 600));
+        assert_eq!(mixta.get_pixel(100, 300).0, [10, 20, 30, 255]);
     }
 
     #[test]

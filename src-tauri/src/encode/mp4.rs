@@ -116,15 +116,12 @@ where
     for (position, index) in indices.iter().enumerate() {
         progress("encoding", position, total);
         let frame = loader(*index)?;
+        // Normalmente ya viene del tamanno pedido y esto no hace nada. Cuando no, escala
+        // por el camino de casa: con `image` esta linea sola costaba 64 ms por fotograma.
         let frame = if frame.width() == width && frame.height() == height {
             frame
         } else {
-            image::imageops::resize(
-                &frame,
-                width,
-                height,
-                image::imageops::FilterType::Lanczos3,
-            )
+            crate::encode::escalar::a_medida(&frame, width, height)
         };
         let buffer = rgba_to_bgra_bottom_up(&frame);
         encoder
