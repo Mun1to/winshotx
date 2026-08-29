@@ -208,6 +208,71 @@ h1 em { font-style: normal; color: var(--azul); }
   .dato { border-left: 0; padding-inline: 0; }
 }
 
+/* ---------- los tres pilares, debajo de los numeros ---------- */
+/* Van dentro de la cabecera y no en una seccion aparte a proposito: quien llega tiene que
+   ver de un vistazo que es rapida (los numeros) y para que sirve (esto), sin bajar. */
+.pilares {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 54px;
+  text-align: left;
+}
+.pilar {
+  padding: 24px 22px 22px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--panel);
+}
+.pilar h2 {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  margin: 14px 0 8px;
+  text-transform: uppercase;
+}
+.pilar > p { color: var(--suave); font-size: 14.5px; line-height: 1.55; margin: 0; }
+.pilar ul {
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--borde);
+  display: grid;
+  gap: 7px;
+}
+/* La marca de verificacion se dibuja con el borde de una caja girada: un carácter suelto
+   cambia de forma con la fuente del sistema y aquí hay que verlo igual en todas partes. */
+.pilar li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 13.5px;
+  color: var(--texto);
+  line-height: 1.45;
+}
+.pilar li::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 4px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--azul);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.ico-pilar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #0a9bff1f;
+  color: var(--azul);
+}
+.ico-pilar svg { width: 20px; height: 20px; }
+@media (max-width: 900px) {
+  .pilares { grid-template-columns: 1fr; gap: 14px; margin-top: 40px; }
+}
+
 /* ---------- secciones ---------- */
 /* solo las secciones de la página; dentro de las demos hay <section> propias */
 body > section { padding: 74px 0; }
