@@ -178,8 +178,15 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     // El anillo vive en su propia carpeta y se borra entera al apagarlo. No va dentro de
     // `sessions`: eso son grabaciones que alguien puede querer, y esto es material que se
     // tira solo.
-    let dir = state.temp_root.join("replay");
-    let _ = std::fs::remove_dir_all(&dir);
+    //
+    // Y cada anillo estrena carpeta, con su nombre al azar. Apagar y encender seguido
+    // (que es justo lo que hace cambiar los segundos) deja al hilo viejo terminando de
+    // limpiar mientras el nuevo ya esta escribiendo: con una carpeta fija, el que se iba
+    // le borraba los archivos al que acababa de llegar.
+    let dir = state
+        .temp_root
+        .join("replay")
+        .join(uuid::Uuid::new_v4().simple().to_string()[..8].to_string());
 
     let audio = {
         let fuentes = record::audio::Fuentes {

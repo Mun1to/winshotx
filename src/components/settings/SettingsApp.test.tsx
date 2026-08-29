@@ -185,7 +185,9 @@ describe("los ultimos segundos, en «Grabar»", () => {
 
   it("encendido, dice que pantalla vigila y cuanto esta ocupando", async () => {
     await irAGrabar(CORRIENDO);
-    expect(screen.getByText(/DELL U2723QE/)).toBeInTheDocument();
+    // El número de pantalla, no el nombre que le pone Windows: «\.\DISPLAY3» no le
+    // dice nada a nadie, y el número es el mismo que sale al elegirla para capturar.
+    expect(screen.getByText(/vigilando la pantalla 2/)).toBeInTheDocument();
     expect(screen.getByText(/46[,.]0 MB/)).toBeInTheDocument();
   });
 

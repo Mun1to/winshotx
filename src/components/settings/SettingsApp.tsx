@@ -512,8 +512,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     label={t("Grabar siempre lo último")}
                     hint={
                       replay.running
-                        ? t("vigilando {pantalla} · {tamaño} en disco", {
-                            pantalla: replay.screenLabel || t("la pantalla {n}", { n: replay.screen }),
+                        ? // El número y no el nombre del monitor: Windows los llama
+                          // «\.\DISPLAY3», que no le dice nada a nadie. El número es el
+                          // mismo que sale en la pantalla al elegirla para capturar.
+                          t("vigilando la pantalla {n} · {tamaño} en disco", {
+                            n: replay.screen,
                             "tamaño": formatBytes(replay.bytes),
                           })
                         : t("graba sin parar y tira lo viejo, para poder rescatar lo último")

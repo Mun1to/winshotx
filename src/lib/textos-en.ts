@@ -63,8 +63,7 @@ export const EN: Record<string, string> = {
   "Grabar siempre lo último": "Always be recording",
   "graba sin parar y tira lo viejo, para poder rescatar lo último":
     "records non-stop and drops the old, so you can rescue what just happened",
-  "vigilando {pantalla} · {tamaño} en disco": "watching {pantalla} · {tamaño} on disk",
-  "la pantalla {n}": "screen {n}",
+  "vigilando la pantalla {n} · {tamaño} en disco": "watching screen {n} · {tamaño} on disk",
   "Cuánto se guarda": "How much it keeps",
   "Quedarme con lo último": "Keep what just happened",
   "primero hay que encenderlo aquí arriba": "turn it on above first",
