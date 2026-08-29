@@ -1,9 +1,9 @@
-import { ArrowUpRight, Highlighter, Square, Type, Undo2, X } from "lucide-react";
+import { ArrowUpRight, Circle, Highlighter, Square, Type, Undo2, X } from "lucide-react";
 import { COLORES, type Herramienta } from "../../lib/anotaciones";
 import { useT } from "../../lib/i18n";
 
 /**
- * Las cinco herramientas de anotar, el color y deshacer.
+ * Las seis herramientas de anotar, el color y deshacer.
  *
  * Va debajo de la vista previa, junto a los controles de reproducción, y no en una columna
  * aparte: una barra lateral más se lleva doscientos píxeles de ancho, que es justo lo que
@@ -35,6 +35,8 @@ const HERRAMIENTAS: {
   { id: "box", icono: Square, etiqueta: "Rectángulo", tecla: "2" },
   { id: "text", icono: Type, etiqueta: "Texto", tecla: "3" },
   { id: "highlight", icono: Highlighter, etiqueta: "Resaltar", tecla: "4" },
+  // El paso numerado va con los que señalan: es la marca de «primero esto, luego esto».
+  { id: "step", icono: Circle, etiqueta: "Paso numerado", tecla: "5" },
 ];
 
 export function BarraAnotar({
@@ -66,7 +68,7 @@ export function BarraAnotar({
       {/* Tapar datos va aparte: los otros cuatro señalan, este esconde. */}
       <Boton
         icono={Difuminar}
-        etiqueta={`${t("Tapar datos")} · 5`}
+        etiqueta={`${t("Tapar datos")} · 6`}
         activa={activa === "blur"}
         onClick={() => onElegir(activa === "blur" ? null : "blur")}
       />

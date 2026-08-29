@@ -187,9 +187,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         // caiga en ninguna otra rama.
         e.preventDefault();
         setAnotaciones((previas) => previas.slice(0, -1));
-      } else if (key >= "1" && key <= "5" && !e.ctrlKey) {
-        // Las cinco herramientas de anotar, en el orden en que están en la barra.
-        const cual = (["arrow", "box", "text", "highlight", "blur"] as Herramienta[])[
+      } else if (key >= "1" && key <= "6" && !e.ctrlKey) {
+        // Las seis herramientas de anotar, en el orden en que están en la barra.
+        const cual = (["arrow", "box", "text", "highlight", "step", "blur"] as Herramienta[])[
           Number(key) - 1
         ];
         setHerramienta((puesta) => (puesta === cual ? null : cual));

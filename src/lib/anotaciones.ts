@@ -1,10 +1,10 @@
 /**
- * Las cinco marcas que se pueden dibujar sobre una captura antes de exportarla.
+ * Las seis marcas que se pueden dibujar sobre una captura antes de exportarla.
  *
- * Cinco y ni una más: el editor de imagen no es el producto. Lo que hace falta para
- * señalar algo o para tapar un dato está aquí; lo demás es otro programa.
+ * Seis y ni una más: el editor de imagen no es el producto. Lo que hace falta para señalar
+ * algo, para tapar un dato o para explicar un orden está aquí; lo demás es otro programa.
  */
-export type Herramienta = "arrow" | "box" | "text" | "highlight" | "blur";
+export type Herramienta = "arrow" | "box" | "text" | "highlight" | "blur" | "step";
 
 /**
  * Una marca, con sus dos esquinas **de 0 a 1** sobre el ancho y el alto de la imagen.
@@ -21,7 +21,7 @@ export interface Anotacion {
   y2: number;
   /** En `#rrggbb`. El difuminado lo ignora. */
   color: string;
-  /** Lo que dice, si es un texto. */
+  /** Lo que dice, si es un texto. Y en un paso, su número. */
   text: string;
 }
 

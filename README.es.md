@@ -118,7 +118,9 @@ incluidas las seis que gana la de Windows.
 En el editor: `espacio` reproduce, `I` y `O` marcan inicio y final del recorte, `←` `→` avanzan
 fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel y `Esc` cierra.
 
-En el editor, para anotar: `1` flecha, `2` rectángulo, `3` texto, `4` resaltar y `5` tapar datos. `Ctrl+Z` deshace la última marca.
+En el editor, para anotar: `1` flecha, `2` rectángulo, `3` texto, `4` resaltar, `5` paso numerado
+y `6` tapar datos. `Ctrl+Z` deshace la última marca. Los pasos se numeran solos, así que meter uno
+en medio no deja dos treses en la misma imagen.
 
 Los dos atajos globales se cambian desde Ajustes pulsando el campo y tecleando la combinación
 nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.

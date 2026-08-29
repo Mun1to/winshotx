@@ -147,3 +147,40 @@ describe("lo que ya está dibujado", () => {
     expect(rect.getAttribute("width")).toBe("400");
   });
 });
+
+describe("los pasos numerados", () => {
+  it("se ponen con un clic, sin arrastrar", () => {
+    conTamanno();
+    const { onAnadir, svg } = pintar({ herramienta: "step" });
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    expect(onAnadir).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "step", x1: 0.5, y1: 0.5, text: "1" }),
+    );
+  });
+
+  /**
+   * Numerar a mano es justo lo que se olvida cuando alguien mete un paso en medio, y
+   * entonces hay dos treses en la misma imagen. La cuenta la lleva la capa.
+   */
+  it("el siguiente sigue la cuenta de los que ya hay", () => {
+    conTamanno();
+    const puestos: Anotacion[] = [
+      { kind: "step", x1: 0.1, y1: 0.1, x2: 0.1, y2: 0.1, color: "#ef4444", text: "1" },
+      { kind: "box", x1: 0, y1: 0, x2: 0.5, y2: 0.5, color: "#ef4444", text: "" },
+      { kind: "step", x1: 0.2, y1: 0.2, x2: 0.2, y2: 0.2, color: "#ef4444", text: "2" },
+    ];
+    const { onAnadir, svg } = pintar({ herramienta: "step", anotaciones: puestos });
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    // Tres marcas puestas, pero solo dos son pasos: el que entra es el 3.
+    expect(onAnadir).toHaveBeenCalledWith(expect.objectContaining({ text: "3" }));
+  });
+
+  it("se dibuja con su número dentro para verlo antes de exportar", () => {
+    conTamanno();
+    const puesto: Anotacion[] = [
+      { kind: "step", x1: 0.5, y1: 0.5, x2: 0.5, y2: 0.5, color: "#0a9bff", text: "4" },
+    ];
+    pintar({ herramienta: null, anotaciones: puesto });
+    expect(screen.getByText("4")).toBeInTheDocument();
+  });
+});

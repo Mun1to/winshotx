@@ -18,7 +18,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Anotacion {
-    /// `arrow`, `box`, `text`, `highlight` o `blur`.
+    /// `arrow`, `box`, `text`, `highlight`, `blur` o `step`.
     pub kind: String,
     /// Desde dónde y hasta dónde, de 0 a 1 sobre el ancho y el alto de la imagen.
     pub x1: f32,
@@ -82,7 +82,17 @@ pub fn pintar(imagen: &mut RgbaImage, anotaciones: &[Anotacion]) {
             "arrow" => flecha(imagen, &anotacion.caja_sin_ordenar(ancho, alto), anotacion.rgb()),
             "highlight" => resaltar(imagen, x1, y1, x2, y2, anotacion.rgb()),
             "blur" => difuminar(imagen, x1, y1, x2, y2),
-            "text" => texto(imagen, x1, y1, &anotacion.text, anotacion.rgb()),
+            // El texto y el paso se ponen con un clic, asi que su segunda esquina no
+            // significa nada. Van con las coordenadas SIN ordenar: `caja` se queda con la
+            // menor de las dos, y eso los mandaba a todos al borde de la imagen.
+            "text" => {
+                let (x, y, _, _) = anotacion.caja_sin_ordenar(ancho, alto);
+                texto(imagen, x, y, &anotacion.text, anotacion.rgb());
+            }
+            "step" => {
+                let (x, y, _, _) = anotacion.caja_sin_ordenar(ancho, alto);
+                paso(imagen, x, y, &anotacion.text, anotacion.rgb());
+            }
             _ => {}
         }
     }
@@ -235,7 +245,6 @@ fn difuminar(imagen: &mut RgbaImage, x1: i32, y1: i32, x2: i32, y2: i32) {
 }
 
 /// Texto sobre la captura, dibujado con la fuente del sistema.
-#[cfg(windows)]
 fn texto(imagen: &mut RgbaImage, x: i32, y: i32, texto: &str, color: [u8; 3]) {
     if texto.is_empty() {
         return;
@@ -243,7 +252,13 @@ fn texto(imagen: &mut RgbaImage, x: i32, y: i32, texto: &str, color: [u8; 3]) {
     // El tamaño de la letra sale del ancho de la imagen, igual que el grosor del trazo: un
     // texto de 22 px sobre una captura de 3.000 no se lee.
     let alto_letra = ((imagen.width() as f32 / 42.0).round() as i32).clamp(14, 72);
-    let Some(dibujo) = crate::record::pastilla::escribir(texto, alto_letra, color) else {
+    escribir_en(imagen, x, y, texto, alto_letra, color);
+}
+
+/// Escribe con la fuente del sistema, con la esquina de arriba a la izquierda en (x, y).
+#[cfg(windows)]
+fn escribir_en(imagen: &mut RgbaImage, x: i32, y: i32, que: &str, alto_letra: i32, color: [u8; 3]) {
+    let Some(dibujo) = crate::record::pastilla::escribir(que, alto_letra, color) else {
         return;
     };
     let (ancho, alto) = imagen.dimensions();
@@ -260,8 +275,64 @@ fn texto(imagen: &mut RgbaImage, x: i32, y: i32, texto: &str, color: [u8; 3]) {
     }
 }
 
+/// El tamaño que ocuparía ese texto, para poder centrarlo antes de escribirlo.
+#[cfg(windows)]
+fn medida_del_texto(que: &str, alto_letra: i32) -> (i32, i32) {
+    crate::record::pastilla::escribir(que, alto_letra, [255, 255, 255])
+        .map(|d| (d.width() as i32, d.height() as i32))
+        .unwrap_or((0, 0))
+}
+
+/// Un paso numerado: un disco del color elegido con su número dentro, en blanco.
+///
+/// Es la marca de las instrucciones: «primero esto, luego esto otro». Se pone con un clic y
+/// el número lo lleva la cuenta el editor, porque numerar a mano es justo lo que se olvida
+/// cuando alguien añade un paso en medio.
+///
+/// El disco se mide contra el ancho de la imagen, como el grosor del trazo: uno de 40 px
+/// sobre una captura de 3.000 sería un lunar.
+fn paso(imagen: &mut RgbaImage, cx: i32, cy: i32, numero: &str, color: [u8; 3]) {
+    let radio = (imagen.width() as f32 / 26.0).clamp(15.0, 60.0);
+    // Un aro blanco por debajo, un poco más grande: sobre una captura oscura un disco rojo
+    // sin borde se pierde, y sobre una clara se pierde el número.
+    disco(imagen, cx, cy, radio + grosor(imagen.width()) as f32 * 0.6, [255, 255, 255]);
+    disco(imagen, cx, cy, radio, color);
+    if numero.is_empty() {
+        return;
+    }
+    let alto_letra = (radio * 1.15).round() as i32;
+    let (ancho_texto, alto_texto) = medida_del_texto(numero, alto_letra);
+    escribir_en(
+        imagen,
+        cx - ancho_texto / 2,
+        cy - alto_texto / 2,
+        numero,
+        alto_letra,
+        [255, 255, 255],
+    );
+}
+
 #[cfg(not(windows))]
-fn texto(_imagen: &mut RgbaImage, _x: i32, _y: i32, _texto: &str, _color: [u8; 3]) {}
+fn escribir_en(
+    _imagen: &mut RgbaImage,
+    _x: i32,
+    _y: i32,
+    _que: &str,
+    _alto_letra: i32,
+    _color: [u8; 3],
+) {
+}
+
+#[cfg(not(windows))]
+fn medida_del_texto(_que: &str, _alto_letra: i32) -> (i32, i32) {
+    (0, 0)
+}
+
+#[cfg(not(windows))]
+fn paso(imagen: &mut RgbaImage, cx: i32, cy: i32, _numero: &str, color: [u8; 3]) {
+    let radio = (imagen.width() as f32 / 26.0).clamp(15.0, 60.0);
+    disco(imagen, cx, cy, radio, color);
+}
 
 #[cfg(test)]
 mod tests {
@@ -331,6 +402,70 @@ mod tests {
             "el centro tiene que quedarse limpio: es un marco, no un relleno"
         );
     }
+
+    /// El paso numerado: disco del color, aro blanco alrededor y el número dentro.
+    ///
+    /// No se cuentan píxeles tocados, que es lo que dejó pasar el fallo del trazo de un
+    /// píxel: se mira el color del CENTRO (tiene que ser el disco), el de un punto del
+    /// borde (tiene que ser el aro blanco) y el de fuera (tiene que seguir limpio).
+    #[test]
+    fn un_paso_es_un_disco_con_su_numero_dentro() {
+        // Sobre un fondo oscuro, porque parte de lo que hay que ver es blanca: el aro que
+        // lo separa del fondo y la cifra. Sobre lienzo blanco no se distinguirían.
+        let mut imagen = RgbaImage::from_pixel(400, 400, Rgba([20, 20, 20, 255]));
+        let mut uno = marca("step", 0.5, 0.5, 0.5, 0.5);
+        uno.text = "1".into();
+        pintar(&mut imagen, &[uno]);
+
+        // 400 de ancho entre 26 son unos 15 px de radio, y el aro va justo por fuera.
+        assert_eq!(
+            imagen.get_pixel(210, 200).0,
+            [239, 68, 68, 255],
+            "a diez píxeles del centro tenía que estar el disco del color pedido"
+        );
+        assert_eq!(
+            imagen.get_pixel(200, 184).0,
+            [255, 255, 255, 255],
+            "por fuera del disco va el aro blanco, que es lo que lo separa del fondo"
+        );
+        assert_eq!(
+            imagen.get_pixel(20, 20).0,
+            [20, 20, 20, 255],
+            "fuera del paso no se pinta nada"
+        );
+
+        // Y el número está dentro: en esa banda no llega el aro, así que un píxel blanco
+        // ahí solo puede venir de la cifra.
+        let letra = (190..210)
+            .flat_map(|y| (190..210).map(move |x| (x, y)))
+            .filter(|(x, y)| imagen.get_pixel(*x, *y).0 == [255, 255, 255, 255])
+            .count();
+        assert!(letra > 8, "el número no se ve dentro del disco: {letra} píxeles blancos");
+    }
+
+    /// Y uno que no comprueba nada, para mirarlo con los ojos:
+    /// `cargo test --lib ver_los_pasos -- --ignored --nocapture`
+    #[test]
+    #[ignore = "deja un PNG para mirar, no comprueba nada"]
+    fn ver_los_pasos() {
+        let mut imagen = lienzo(900, 260);
+        let marcas: Vec<Anotacion> = (1..=5)
+            .map(|n| {
+                let x = 0.1 + (n as f32 - 1.0) * 0.2;
+                let mut m = marca("step", x, 0.5, x, 0.5);
+                m.text = n.to_string();
+                m.color = COLORES_DE_PRUEBA[(n as usize - 1) % COLORES_DE_PRUEBA.len()].into();
+                m
+            })
+            .collect();
+        pintar(&mut imagen, &marcas);
+        let ruta = std::env::temp_dir().join("winshotx-pasos.png");
+        imagen.save(&ruta).unwrap();
+        println!("míralo en {}", ruta.display());
+    }
+
+    const COLORES_DE_PRUEBA: [&str; 5] =
+        ["#ef4444", "#0a9bff", "#22c55e", "#fbbf24", "#111827"];
 
     #[test]
     fn el_resaltado_tinne_lo_de_dentro_sin_taparlo() {

@@ -122,7 +122,9 @@ In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `C
 `←` `→` step through frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes —
 letting go of the crop frame or the drawing tool first, since closing throws the frames away.
 
-In the editor, to annotate: `1` arrow, `2` box, `3` text, `4` highlight and `5` hide details. `Ctrl+Z` undoes the last one.
+In the editor, to annotate: `1` arrow, `2` box, `3` text, `4` highlight, `5` numbered step and
+`6` hide details. `Ctrl+Z` undoes the last one. Steps number themselves, so adding one in the
+middle does not leave two threes in the same picture.
 
 On a pinned shot: `Ctrl+C` copies it, `Ctrl+S` saves it to the shots folder, `T` copies its text
 and `Esc` closes it.

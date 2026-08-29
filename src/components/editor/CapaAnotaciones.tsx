@@ -47,6 +47,13 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, tex
       if (texto.trim()) onAnadir({ kind: "text", x1: x, y1: y, x2: x, y2: y, color, text: texto });
       return;
     }
+    // Y el paso tampoco, y además se numera solo. Numerar a mano es justo lo que se olvida
+    // cuando alguien mete un paso en medio, y entonces hay dos treses en la misma imagen.
+    if (herramienta === "step") {
+      const siguiente = anotaciones.filter((a) => a.kind === "step").length + 1;
+      onAnadir({ kind: "step", x1: x, y1: y, x2: x, y2: y, color, text: String(siguiente) });
+      return;
+    }
     setDibujando({ kind: herramienta, x1: x, y1: y, x2: x, y2: y, color, text: "" });
   };
 
@@ -152,6 +159,29 @@ function Marca({ anotacion: a }: { anotacion: Anotacion }) {
         <text x={x1} y={y1} fill={a.color} fontSize={34} fontWeight={600} dominantBaseline="hanging">
           {a.text}
         </text>
+      );
+    case "step":
+      // El disco lleva un aro blanco por fuera, igual que al exportar: sobre una captura
+      // oscura un disco de color sin borde se pierde, y sobre una clara se pierde el
+      // número. El SVG va estirado a 1000 x 1000, así que el círculo se dibuja con dos
+      // radios y sale ovalado si la captura no es cuadrada; al exportar lo pinta Rust
+      // redondo, que es lo que cuenta.
+      return (
+        <g>
+          <ellipse cx={x1} cy={y1} rx={38} ry={38} fill="#ffffff" />
+          <ellipse cx={x1} cy={y1} rx={32} ry={32} fill={a.color} />
+          <text
+            x={x1}
+            y={y1}
+            fill="#ffffff"
+            fontSize={38}
+            fontWeight={700}
+            textAnchor="middle"
+            dominantBaseline="central"
+          >
+            {a.text}
+          </text>
+        </g>
       );
     default:
       return null;

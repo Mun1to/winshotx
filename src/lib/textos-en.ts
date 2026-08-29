@@ -53,6 +53,8 @@ export const EN: Record<string, string> = {
   "dura el doble, y sale sin sonido": "twice as long, and it comes out silent",
   "a otra velocidad el vídeo sale mudo": "at any other speed the video comes out silent",
 
+  "Paso numerado": "Numbered step",
+
   "Al terminar": "When it ends",
   "Abrir el editor al terminar": "Open the editor when it ends",
 
