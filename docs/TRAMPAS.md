@@ -454,3 +454,27 @@ el arbol de accesibilidad de Windows (UI Automation) lee el estado real de los c
 una ventana de Tauri **sin tocarla**: `AutomationElement` filtrando por `ProcessId`, y cada
 boton dice su `Name` y su `IsEnabled`. Asi se supo, sin preguntar y sin abrir nada, que en
 ese momento el boton ya estaba habilitado y que el fallo habia sido la espera de antes.
+
+## 21. Copiar al portapapeles leia del CACHE, no de lo que se acababa de exportar
+
+Munir dibujo una flecha roja sobre una captura, le dio al boton de copiar y la pego: sin
+flecha. El archivo guardado si la tenia.
+
+`copy_result` hacia esto para un PNG:
+
+```rust
+let image = record::read_frame(session, request.from)?;   // el fotograma EN CRUDO
+```
+
+O sea que todo lo que hace exportar se quedaba fuera de lo pegado: las marcas dibujadas
+encima, el recorte, el marco, el escalado y el zoom de los clics. Y no se notaba en las
+pruebas porque las 26 del exportador comprobaban el ARCHIVO, que estaba perfecto.
+
+**El arreglo:** copiar lee el archivo que se acaba de escribir. Y la decision (imagen o
+archivo) esta separada de la llamada al portapapeles, en `que_se_pega`, para poder probarla
+sin tocarle el portapapeles a nadie. Esa funcion **no recibe la sesion a proposito**: si
+alguien vuelve a sacar los pixeles del cache, necesitara la sesion otra vez y la prueba
+dejara de compilar.
+
+**La leccion general:** cuando una funcion tiene delante el resultado ya hecho (un archivo
+recien escrito) y ademas la manera de rehacerlo, la que rehace es la que se equivoca.
