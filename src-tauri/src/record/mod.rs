@@ -11,6 +11,7 @@ use crate::error::{AppError, Result};
 
 #[cfg(windows)]
 pub mod audio;
+pub mod buffer;
 pub mod delta;
 pub mod mezcla;
 pub mod pastilla;
@@ -170,12 +171,25 @@ impl FrameCache {
     pub fn new(dir: &Path) -> Result<Self> {
         std::fs::create_dir_all(dir)?;
         std::fs::create_dir_all(dir.join("thumbs"))?;
+        Self::en_archivo(&dir.join("frames.bin"))
+    }
+
+    /// Un cache que escribe en el archivo que se le diga y no toca nada mas alrededor.
+    ///
+    /// Lo usa el anillo de `buffer`, que trocea lo grabado en muchos archivos pequennos
+    /// para poder tirar los viejos. Cada trozo es un cache suyo, y por eso arranca con un
+    /// fotograma entero: sin nada con que comparar, el primero se guarda completo. Eso es
+    /// justo lo que hace que un trozo se pueda leer sin los de delante.
+    pub fn en_archivo(ruta: &Path) -> Result<Self> {
+        if let Some(padre) = ruta.parent() {
+            std::fs::create_dir_all(padre)?;
+        }
         Ok(Self {
-            file: BufWriter::with_capacity(1 << 20, File::create(dir.join("frames.bin"))?),
+            file: BufWriter::with_capacity(1 << 20, File::create(ruta)?),
             offset: 0,
             entries: Vec::new(),
             last_hash: None,
-            dir: dir.to_path_buf(),
+            dir: ruta.to_path_buf(),
             anterior: None,
             desde_entero: 0,
         })
@@ -243,19 +257,30 @@ impl FrameCache {
     /// Cierra el fichero y calcula la duracion real de cada fotograma.
     pub fn finish(mut self, total_ms: u64, fallback_fps: u32) -> Result<Vec<FrameEntry>> {
         self.file.flush()?;
-        let fallback = 1000 / fallback_fps.max(1);
-        let count = self.entries.len();
-        for i in 0..count {
-            let next_ts = if i + 1 < count {
-                self.entries[i + 1].timestamp_ms
-            } else {
-                total_ms.max(self.entries[i].timestamp_ms + fallback as u64)
-            };
-            let delta = next_ts.saturating_sub(self.entries[i].timestamp_ms) as u32;
-            self.entries[i].duration_ms = delta.clamp(10, 10_000);
-        }
+        calcular_duraciones(&mut self.entries, total_ms, fallback_fps);
         let _ = self.dir;
         Ok(self.entries)
+    }
+}
+
+/// Cuanto dura cada fotograma: lo que tarda en llegar el siguiente. El ultimo no tiene
+/// siguiente, asi que se estira hasta el final de la grabacion, y como minimo lo que dure
+/// un fotograma a los fps pedidos.
+///
+/// Va suelta y no dentro de `finish` porque el anillo de `buffer` junta trozos de varios
+/// archivos y tiene que rehacer las duraciones sobre la lista ya cosida: la del ultimo
+/// fotograma de cada trozo deja de ser la buena en cuanto detras viene otro trozo.
+pub fn calcular_duraciones(entries: &mut [FrameEntry], total_ms: u64, fallback_fps: u32) {
+    let fallback = u64::from(1000 / fallback_fps.max(1));
+    let count = entries.len();
+    for i in 0..count {
+        let next_ts = if i + 1 < count {
+            entries[i + 1].timestamp_ms
+        } else {
+            total_ms.max(entries[i].timestamp_ms + fallback)
+        };
+        let delta = next_ts.saturating_sub(entries[i].timestamp_ms) as u32;
+        entries[i].duration_ms = delta.clamp(10, 10_000);
     }
 }
 
