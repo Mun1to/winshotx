@@ -315,6 +315,8 @@ export const EVENTS = {
   settingsShown: "winshotx://settings-shown",
   /** El anillo de los últimos segundos se ha encendido, apagado o ha guardado algo. */
   replay: "winshotx://replay",
+  /** El menú de la bandeja se acaba de abrir: que vuelva a leer lo que enseña. */
+  trayMenuOpened: "winshotx://tray-menu-opened",
   /** «Esta pantalla es la 2», enseñado en esa pantalla un par de segundos. */
   screenNumber: "winshotx://screen-number",
   /** El vídeo de vista previa de una sesión ya está escrito, y con él llega el play. */
@@ -341,3 +343,28 @@ export interface OverlayModeState {
   mode: CaptureMode;
   fullScreen: boolean;
 }
+
+/**
+ * Lo que el menú de la bandeja pregunta antes de pintarse.
+ *
+ * Se pide cada vez que se abre, no una vez al arrancar: el anillo puede haberse encendido
+ * desde los ajustes, y una grabación puede estar en marcha desde el atajo.
+ */
+export interface TrayMenuState {
+  version: string;
+  recording: boolean;
+  replay: boolean;
+  captureShortcut: string;
+  recordShortcut: string;
+  replayShortcut: string;
+}
+
+/** Las entradas del menú de la bandeja, con los mismos nombres que entiende Rust. */
+export type TrayMenuAction =
+  | "capture"
+  | "record"
+  | "replay"
+  | "folder"
+  | "settings"
+  | "update"
+  | "quit";

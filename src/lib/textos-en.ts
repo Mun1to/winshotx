@@ -184,6 +184,11 @@ export const EN: Record<string, string> = {
   Barra: "Bar",
   Copia: "Copy",
 
+  // El menu de la bandeja
+  "Abrir la carpeta": "Open the shots folder",
+  "Buscar actualizaciones": "Check for updates",
+  Ajustes: "Settings",
+
   // El campo de los atajos
   "Clic para cambiar el atajo": "Click to change the shortcut",
   "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí":

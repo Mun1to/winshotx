@@ -9,9 +9,9 @@ mod platform;
 pub mod record;
 mod recorder;
 mod replay;
+mod tray_menu;
 mod settings;
 mod state;
-mod textos;
 mod tray;
 mod windows_mgr;
 
@@ -44,6 +44,9 @@ pub const EVENT_COUNTDOWN: &str = "winshotx://countdown";
 /// para no hacer esperar doce segundos a quien acaba de pulsar la tecla. Lleva el id de la
 /// sesion: el editor mira si es la suya y la vuelve a pedir.
 pub const EVENT_SESSION_PREVIEW: &str = "winshotx://session-preview";
+
+/// El menú de la bandeja se acaba de abrir: que vuelva a leer el estado.
+pub const EVENT_TRAY_MENU_OPENED: &str = "winshotx://tray-menu-opened";
 
 /// El numero de una pantalla, ensennado en esa pantalla un par de segundos.
 ///
@@ -232,6 +235,9 @@ pub fn run() {
             commands::open_windows_apps,
             commands::remove_snipping_tool,
             commands::quit_app,
+            commands::tray_menu_state,
+            commands::tray_menu_action,
+            commands::resize_tray_menu,
         ])
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")

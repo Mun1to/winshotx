@@ -726,13 +726,58 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     if previous.start_with_windows != settings.start_with_windows {
         crate::platform::autostart::set(settings.start_with_windows)?;
     }
-    // El menu de la bandeja lo escribe Rust y no se entera de que la interfaz ha cambiado
-    // de idioma. Sin esto, la aplicacion se queda en ingles con su menu en espannol hasta
-    // el siguiente arranque, que es justo lo que nadie relaciona con haber tocado nada.
-    if previous.language != settings.language {
-        crate::tray::rehacer_menu(&app)?;
-    }
     Ok(settings)
+}
+
+/// Lo que el menu de la bandeja necesita saber para pintarse.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayMenuState {
+    pub version: String,
+    /// Si hay una grabacion en marcha: entonces la entrada de grabar la para.
+    pub recording: bool,
+    /// Si el anillo de los ultimos segundos esta encendido.
+    pub replay: bool,
+    /// Los tres atajos, para ensennarlos al lado de su entrada como haria un menu bueno.
+    pub capture_shortcut: String,
+    pub record_shortcut: String,
+    pub replay_shortcut: String,
+}
+
+#[tauri::command]
+pub async fn tray_menu_state(app: AppHandle) -> Result<TrayMenuState> {
+    let state = app.state::<AppState>();
+    let settings = state.settings.read().clone();
+    // El guardia del anillo se suelta AQUI y no dentro del `Ok(...)`: dentro seguiria
+    // vivo al acabar el bloque, cuando `state` ya no esta, y eso no compila.
+    let anillo = state.replay.lock().is_some();
+    Ok(TrayMenuState {
+        version: app.package_info().version.to_string(),
+        recording: state.is_recording(),
+        replay: anillo,
+        capture_shortcut: settings.capture_shortcut,
+        record_shortcut: settings.record_shortcut,
+        replay_shortcut: settings.replay_shortcut,
+    })
+}
+
+/// Una entrada del menu, pulsada.
+///
+/// Va al mismo sitio que iban las entradas del menu del sistema: `tray::ejecutar`. El menu
+/// se esconde ANTES de hacer nada, porque casi todo lo que hay dentro abre una ventana o
+/// congela la pantalla, y hacerlo con el menu todavia puesto lo mete en la foto.
+#[tauri::command]
+pub async fn tray_menu_action(app: AppHandle, action: String) -> Result<()> {
+    crate::tray_menu::esconder(&app);
+    crate::tray::ejecutar(&app, &action);
+    Ok(())
+}
+
+/// El alto que ha medido el menu, para que la ventana se ajuste a su contenido.
+#[tauri::command]
+pub async fn resize_tray_menu(app: AppHandle, height: f64) -> Result<()> {
+    crate::tray_menu::redimensionar(&app, height);
+    Ok(())
 }
 
 #[tauri::command]

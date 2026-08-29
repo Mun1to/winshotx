@@ -143,17 +143,6 @@ fn avisar(app: &AppHandle) {
     let _ = app.emit(EVENT_REPLAY, status(app));
 }
 
-/// Lo mismo, mas la entrada de la bandeja, que aparece y desaparece con el anillo.
-///
-/// Va aparte de `avisar` porque rehacer un menu de Windows toca ventanas, y eso solo se
-/// hace desde donde se enciende y se apaga, nunca desde el hilo que esta cosiendo.
-fn avisar_y_rehacer_menu(app: &AppHandle) {
-    avisar(app);
-    if let Err(error) = crate::tray::rehacer_menu(app) {
-        eprintln!("[replay] no se ha podido rehacer el menú de la bandeja: {error}");
-    }
-}
-
 /// La pantalla que se haya pedido, y si no la que tenga el raton al encenderlo.
 ///
 /// El anillo vigila UNA pantalla y no puede cambiar de opinion a mitad: mudarse se
@@ -342,7 +331,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         control: Some(control),
         hilo: Some(hilo),
     });
-    avisar_y_rehacer_menu(app);
+    avisar(app);
     Ok(status(app))
 }
 
@@ -372,7 +361,7 @@ pub fn stop(app: &AppHandle) -> Result<ReplayStatus> {
             let _ = hilo.join();
         });
     }
-    avisar_y_rehacer_menu(app);
+    avisar(app);
     Ok(ReplayStatus::parado())
 }
 

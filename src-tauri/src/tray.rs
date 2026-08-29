@@ -1,4 +1,3 @@
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -6,65 +5,55 @@ use crate::error::Result;
 use crate::state::AppState;
 use crate::windows_mgr::{self, OverlayIntent};
 
-/// El menu del boton derecho, en el idioma que toque. Se arma aparte de `build` porque
-/// hay que volver a montarlo entero al cambiar de idioma: una entrada de menu de Windows
-/// no se puede renombrar, se reemplaza el menu.
-fn construir_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>> {
-    let idioma = app.state::<AppState>().settings.read().language;
-    let textos = crate::textos::menu(idioma);
-    let capture = MenuItem::with_id(app, "capture", textos.capturar, true, None::<&str>)?;
-    let record = MenuItem::with_id(app, "record", textos.grabar, true, None::<&str>)?;
-    let folder = MenuItem::with_id(app, "folder", textos.carpeta, true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", textos.ajustes, true, None::<&str>)?;
-    let update = MenuItem::with_id(app, "update", textos.actualizaciones, true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", textos.salir, true, None::<&str>)?;
+/// La app vive en la bandeja: no hay ventana principal hasta que se piden los ajustes.
+///
+/// **Sin menu del sistema.** El del boton derecho lo dibuja winshotx (`tray_menu.rs`),
+/// porque uno de Windows no sabe ensennar un interruptor, ni el atajo de cada cosa, ni
+/// decir que version esta puesta. Aqui solo se escuchan los clics del icono.
+pub fn build(app: &AppHandle) -> Result<()> {
+    let mut builder = TrayIconBuilder::with_id("winshotx")
+        .tooltip("winshotx")
+        .on_tray_icon_event(|tray, event| {
+            let TrayIconEvent::Click {
+                button,
+                button_state: MouseButtonState::Up,
+                position,
+                ..
+            } = event
+            else {
+                return;
+            };
+            match button {
+                // Izquierdo: lo que se viene a hacer nueve de cada diez veces.
+                MouseButton::Left => {
+                    let _ = windows_mgr::open_overlays(tray.app_handle(), OverlayIntent::Capture);
+                }
+                // Derecho: el menu, anclado justo donde esta el icono.
+                MouseButton::Right => {
+                    crate::tray_menu::alternar(
+                        tray.app_handle(),
+                        (position.x as i32, position.y as i32),
+                    );
+                }
+                MouseButton::Middle => {}
+            }
+        });
 
-    // Lo de los ultimos segundos solo aparece mientras el anillo esta encendido: una
-    // entrada permanente que casi siempre diria «no hay nada guardado» seria una entrada
-    // que estorba a todo el mundo para servir a quien la tiene puesta.
-    let ultimos = app
-        .state::<AppState>()
-        .replay
-        .lock()
-        .is_some()
-        .then(|| MenuItem::with_id(app, "replay", textos.ultimos, true, None::<&str>))
-        .transpose()?;
-
-    let separador = PredefinedMenuItem::separator(app)?;
-    let mut items: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = vec![&capture, &record];
-    if let Some(item) = ultimos.as_ref() {
-        items.push(item);
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
     }
-    items.extend([
-        &separador as &dyn tauri::menu::IsMenuItem<tauri::Wry>,
-        &folder,
-        &settings,
-        &update,
-        &separador,
-        &quit,
-    ]);
-    Menu::with_items(app, &items).map_err(Into::into)
-}
-
-/// Vuelve a poner el menu, ya en el idioma nuevo. Lo llama el cambio de ajustes: sin esto
-/// la aplicacion se queda en ingles y su menu de la bandeja en espannol hasta reiniciar.
-pub fn rehacer_menu(app: &AppHandle) -> Result<()> {
-    let menu = construir_menu(app)?;
-    if let Some(icono) = app.tray_by_id("winshotx") {
-        icono.set_menu(Some(menu))?;
-    }
+    builder.build(app)?;
     Ok(())
 }
 
-/// La app vive en la bandeja: no hay ventana principal hasta que se piden los ajustes.
-pub fn build(app: &AppHandle) -> Result<()> {
-    let menu = construir_menu(app)?;
-
-    let mut builder = TrayIconBuilder::with_id("winshotx")
-        .menu(&menu)
-        .show_menu_on_left_click(false)
-        .tooltip("winshotx")
-        .on_menu_event(|app, event| match event.id.as_ref() {
+/// Lo que hace cada entrada del menu, en un solo sitio.
+///
+/// Lo llaman el menu dibujado (`tray_menu.rs`, por el comando `tray_menu_action`) y el
+/// menu del sistema, que sigue existiendo de reserva. Estaba escrito dentro del manejador
+/// del menu nativo, y dejarlo ahi habria significado dos listas de acciones que se
+/// separarian al primer cambio.
+pub fn ejecutar(app: &AppHandle, id: &str) {
+    match id {
             "capture" => {
                 let _ = windows_mgr::open_overlays(app, OverlayIntent::Capture);
             }
@@ -100,21 +89,5 @@ pub fn build(app: &AppHandle) -> Result<()> {
             }
             "quit" => app.exit(0),
             _ => {}
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                let _ = windows_mgr::open_overlays(tray.app_handle(), OverlayIntent::Capture);
-            }
-        });
-
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
     }
-    builder.build(app)?;
-    Ok(())
 }

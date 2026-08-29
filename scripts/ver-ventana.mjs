@@ -86,6 +86,9 @@ const editor = bandera("editor", null);
 // El editor de una CAPTURA, que es un solo fotograma y no se reproduce: sale sin tira de
 // miniaturas y sin nada que prometa un vídeo. Es otra pantalla y hay que poder mirarla.
 const fija = args.includes("--fija");
+// El menú de la bandeja, que es su propia ventana y no se puede fotografiar de otro modo
+// sin abrirle la app encima a alguien.
+const menu = args.includes("--menu");
 // Un marco de recorte ya colocado dentro del editor: "x,y,ancho,alto" en píxeles de la foto.
 const recorte = bandera("recorte", null);
 // En vez de una foto, escupe el DOM ya montado. Para cuando lo que falla no se ve mirando:
@@ -194,6 +197,14 @@ const RESPUESTAS = {
   cache_stats: { bytes: 0, sessions: 0 },
   print_screen_state: { enabled: false, active: false, takenByWindows: true },
   just_updated: actualizado,
+  tray_menu_state: {
+    version: "0.2.6",
+    recording: false,
+    replay: anillo,
+    captureShortcut: "Ctrl+Shift+2",
+    recordShortcut: "Ctrl+Shift+5",
+    replayShortcut: "Ctrl+Shift+6",
+  },
   session_info: SESION,
   session_frames: FOTOGRAMAS,
   frame_image: "/editor.png",
@@ -464,7 +475,9 @@ server.listen(0, () => {
     // La ventana anclada sale del tamaño del recorte, así que aquí manda --ancho/--alto.
     pagina = `pin.html?imagen=${encodeURIComponent(resolve(anclada))}`;
   }
-  if (editor !== null) {
+  if (menu) {
+    pagina = "tray-menu.html";
+  } else if (editor !== null) {
     pagina = "editor.html?session=vista";
   }
   const url = `http://127.0.0.1:${server.address().port}/${pagina}`;

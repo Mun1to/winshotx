@@ -518,17 +518,17 @@ const BARRA_ALTO: f64 = 52.0;
 
 /// Los datos de un monitor que hacen falta para colocar una ventana encima.
 #[derive(Debug, Clone, Copy)]
-struct MonitorSitio {
-    x: i32,
-    y: i32,
-    ancho: i32,
-    alto: i32,
-    escala: f64,
+pub(crate) struct MonitorSitio {
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) ancho: i32,
+    pub(crate) alto: i32,
+    pub(crate) escala: f64,
 }
 
 /// El monitor que contiene ese punto del escritorio, o el principal si el punto se ha
 /// quedado en tierra de nadie (pasa entre monitores desalineados).
-fn monitor_de(x: i32, y: i32) -> Option<MonitorSitio> {
+pub(crate) fn monitor_de(x: i32, y: i32) -> Option<MonitorSitio> {
     let monitores = xcap::Monitor::all().ok()?;
     let leer = |m: &xcap::Monitor| -> Option<MonitorSitio> {
         Some(MonitorSitio {
