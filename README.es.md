@@ -66,7 +66,7 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
 Mismo equipo con Windows 11, tres pasadas cada una y las dos arrancando desde cero. El cronómetro
 para cuando la selección ya se ve en pantalla. La
 [tabla entera](https://winshotx.com/#frente-a-frente) tiene las diecinueve filas,
-incluidas las seis que gana la de Windows.
+incluidas las cinco que gana la de Windows.
 
 | | winshotx | Herramienta de Recortes |
 |---|---|---|

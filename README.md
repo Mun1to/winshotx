@@ -68,7 +68,7 @@ signature is checked before anything is installed, so a tampered file is rejecte
 
 Same machine with Windows 11, three runs each, both starting from cold. The clock stops when the
 selection is actually on screen. The [full table](https://winshotx.com/en/#frente-a-frente)
-has the nineteen rows, including the six the Snipping Tool wins.
+has the nineteen rows, including the five the Snipping Tool wins.
 
 | | winshotx | Snipping Tool |
 |---|---|---|

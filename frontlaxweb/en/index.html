@@ -248,6 +248,14 @@
     </symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-rewind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 19 2 12l9-7v14Z"/><path d="M22 19l-9-7 9-7v14Z"/></symbol>
+    <symbol id="i-fast-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 19l9-7-9-7v14Z"/><path d="M2 19l9-7-9-7v14Z"/></symbol>
+    <symbol id="i-circle-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><path d="M10.5 9.5 12.5 8v8"/></symbol>
     <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
   </g>
@@ -510,26 +518,6 @@
             </div>
           </section>
           <section class="grupo">
-            <h3>Windows keys</h3>
-            <div class="tarjeta">
-              <div class="fila">
-                <span class="txt"><svg class="ico-fila"><use href="#i-keyboard"/></svg>
-                  <span><span>Impr Pant</span><small>today it opens the Snipping Tool</small></span></span>
-                <button class="palanca" data-on="0"></button></div>
-              <div class="fila">
-                <span class="txt"><svg class="ico-fila"><use href="#i-app-window"/></svg>
-                  <span><span>Win + Mayús + S</span><small class="aviso">it costs Win+S, the search</small></span></span>
-                <button class="palanca" data-on="0"></button></div>
-              <div class="fila">
-                <span class="txt"><svg class="ico-fila"><use href="#i-scissors"/></svg>
-                  <span><span>Snipping Tool</span><small>removing it is the only thing that silences it for good</small></span></span>
-                <span class="botoncitos"><button>See how</button><button>Remove</button></span></div>
-            </div>
-          </section>
-        </div>
-
-        <div class="columna">
-          <section class="grupo">
             <h3>Record</h3>
             <div class="tarjeta">
               <div class="fila">
@@ -545,13 +533,58 @@
                 </div>
               </div>
               <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-volume-2"/></svg>
+                  <span><span>System audio</span><small>whatever the speakers play, in the video</small></span></span>
+                <button class="palanca" data-on="1"></button></div>
+              <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-mic"/></svg>
-                  <span><span>System audio</span><small>not available yet</small></span></span>
-                <button class="palanca" data-on="0" disabled></button></div>
+                  <span><span>Microphone</span><small>your voice, mixed with the system sound</small></span></span>
+                <button class="palanca" data-on="0"></button></div>
               <div class="fila">
                 <span class="txt"><svg class="ico-fila"><use href="#i-square-pen"/></svg>
                   <span><span>Open the editor when it ends</span></span></span>
                 <button class="palanca" data-on="1"></button></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="columna">
+          <section class="grupo">
+            <h3>The last few seconds</h3>
+            <div class="tarjeta">
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-rewind"/></svg>
+                  <span><span>Always be recording</span><small class="bien">watching \.\DISPLAY1 · 214 MB on disk</small></span></span>
+                <button class="palanca" data-on="1"></button></div>
+              <div class="fila apilada">
+                <span class="txt"><svg class="ico-fila"><use href="#i-clock"/></svg>
+                  <span><span>How much it keeps</span><small>at 15 frames per second, so it does not eat your disk</small></span></span>
+                <div class="segmentado">
+                  <button>15 s</button><button class="viva">30 s</button><button>60 s</button>
+                </div>
+              </div>
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg>
+                  <span><span>Keep what just happened</span><small>opens the editor with the last bit, and keeps recording</small></span></span>
+                <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>6</kbd></span>
+              </div>
+            </div>
+          </section>
+          <section class="grupo">
+            <h3>Windows keys</h3>
+            <div class="tarjeta">
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-keyboard"/></svg>
+                  <span><span>Impr Pant</span><small>today it opens the Snipping Tool</small></span></span>
+                <button class="palanca" data-on="0"></button></div>
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-app-window"/></svg>
+                  <span><span>Win + Mayús + S</span><small class="aviso">it costs Win+S, the search</small></span></span>
+                <button class="palanca" data-on="0"></button></div>
+              <div class="fila">
+                <span class="txt"><svg class="ico-fila"><use href="#i-scissors"/></svg>
+                  <span><span>Snipping Tool</span><small>removing it is the only thing that silences it for good</small></span></span>
+                <span class="botoncitos"><button>See how</button><button>Remove</button></span></div>
             </div>
           </section>
           <section class="grupo">
@@ -661,23 +694,28 @@
           </tr>
           <tr>
             <th scope="row">Draw and annotate on top</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>pen, shapes and text</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>Not yet</span></td>
+            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>pen, shapes and text</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>six marks, with numbered steps</span></td>
           </tr>
           <tr>
             <th scope="row">Copy the text out of the image</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
+            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>yes, with the T key</span></td>
           </tr>
           <tr>
             <th scope="row">Blur out personal data</th>
             <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Automatic</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
+            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>by hand, and with a mosaic</span></td>
           </tr>
           <tr>
             <th scope="row">System audio when recording</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>Not yet</span></td>
+            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>yes, and the microphone mixed in</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Save what just happened</th>
+            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>the last 15, 30 or 60 s</span></td>
+            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
           </tr>
           <tr>
             <th scope="row">Timer before capturing</th>
@@ -717,6 +755,15 @@
       <div class="caja"><div class="ico"><svg><use href="#i-monitor"/></svg></div>
         <h3>Three screens, one key</h3>
         <p>Turn on whole screen and every monitor puts up its own number. Press the number and it takes that one entire, wherever the pointer happens to be.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-rewind"/></svg></div>
+        <h3>The last few seconds</h3>
+        <p>It records all the time and drops the old, so one key keeps the last 15, 30 or 60 seconds. The good part of a screen almost always happens before anyone thinks of recording it.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-fast-forward"/></svg></div>
+        <h3>Speed on export</h3>
+        <p>0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens, and those play at 2× without losing a thing.</p></div>
+      <div class="caja"><div class="ico"><svg><use href="#i-circle-1"/></svg></div>
+        <h3>Numbered steps</h3>
+        <p>Click to drop a 1, a 2 and a 3 on the shot. They number themselves, so adding one in the middle does not leave two threes in the same picture.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-film"/></svg></div>
         <h3>GIF and video, not just stills</h3>
         <p>Record the region at 15, 30 or 60 frames and export to GIF or MP4. With no bundled FFmpeg: Windows writes the video in hardware.</p></div>
