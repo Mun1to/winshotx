@@ -400,7 +400,13 @@ impl<'a> LectorEnOrden<'a> {
             return Err(AppError::Msg(format!("fotograma {index} inexistente")));
         }
         let desde = match self.ultimo {
-            Some(anterior) if index > anterior && index - anterior <= 1 => index,
+            // Hacia delante se sigue parcheando encima de lo que ya esta dibujado, y solo
+            // se vuelve al fotograma entero cuando queda mas cerca que el ultimo leido.
+            // Asi tambien sale barato leer uno de cada dos, que es lo que hace la vista
+            // previa desde que se escribe a treinta por segundo.
+            Some(anterior) if index > anterior => {
+                (anterior + 1).max(desde_el_entero(self.session, index))
+            }
             _ => desde_el_entero(self.session, index),
         };
         let mut lector = LectorFotogramas {
