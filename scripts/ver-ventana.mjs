@@ -5,6 +5,7 @@
  *   node scripts/ver-ventana.mjs ajustes.png
  *   node scripts/ver-ventana.mjs bienvenida.png --bienvenida
  *   node scripts/ver-ventana.mjs estrecho.png --ancho=780
+ *   node scripts/ver-ventana.mjs menu.png --menu --ancho=284 --escala=2
  *   node scripts/ver-ventana.mjs pendiente.png --tecla-pendiente
  *   node scripts/ver-ventana.mjs grabar.png --seccion=grabar --anillo
  *
@@ -94,6 +95,11 @@ const recorte = bandera("recorte", null);
 // En vez de una foto, escupe el DOM ya montado. Para cuando lo que falla no se ve mirando:
 // una medida que sale cero, una clase que no llegó, un estilo que el navegador no aplicó.
 const dom = args.includes("--dom");
+// Cuantos pixeles de pantalla por pixel de CSS. Existe porque **Chrome tiene un ancho
+// minimo de ventana de unos 500 px**: al pedirle --window-size=284 pinta la pagina a 500 y
+// recorta la foto a 284, asi que la mitad derecha del menu de bandeja parecia no existir.
+// Con --escala=2 se le piden 568 fisicos, que si respeta, y la pagina se pinta a 284.
+const escala = bandera("escala", null);
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
 // para lo que se mueve solo: la cuenta atrás llega a cero en tres segundos de reloj, así
 // que con el valor de siempre se fotografía sola el final y nunca un número.
@@ -485,7 +491,10 @@ server.listen(0, () => {
     "--headless=new",
     "--disable-gpu",
     "--hide-scrollbars",
-    `--window-size=${w},${h}`,
+    `--window-size=${escala ? Math.round(Number(w) * Number(escala)) : w},${
+      escala ? Math.round(Number(h) * Number(escala)) : h
+    }`,
+    ...(escala ? [`--force-device-scale-factor=${escala}`] : []),
     ...(dom ? ["--dump-dom"] : [`--screenshot=${salida}`]),
     // Sin esto sale la pantalla antes de que React pinte nada.
     `--virtual-time-budget=${tiempo}`,
