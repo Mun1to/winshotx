@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>winshotx</title>
   </head>
-  <body class="overflow-hidden select-none">
+  <!-- El color va ya en el <body>: sin esto, la primera vez que se abre se ve
+       un rectangulo blanco hasta que React pinta. -->
+  <body class="overflow-hidden bg-flotante select-none">
     <div id="root"></div>
     <script type="module" src="/src/tray-menu.tsx"></script>
   </body>

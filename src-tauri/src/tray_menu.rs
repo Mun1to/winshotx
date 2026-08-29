@@ -10,6 +10,8 @@
 //! el dia son decenas de megas en reposo, y la memoria en reposo es medio argumento de
 //! venta de winshotx. Despues se queda escondida, asi que solo la primera vez cuesta.
 
+use std::time::{Duration, Instant};
+
 use parking_lot::Mutex;
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder,
@@ -30,6 +32,18 @@ const MARGEN: f64 = 8.0;
 /// Donde estaba el icono la ultima vez que se abrio, para volver a colocarlo cuando la
 /// interfaz diga cuanto mide: el menu crece hacia ARRIBA, no hacia abajo.
 static ULTIMO_ANCLAJE: Mutex<Option<(i32, i32)>> = Mutex::new(None);
+
+/// Cuando se escondio por perder el foco.
+///
+/// Volver a pulsar el icono de la bandeja tiene que CERRAR el menu, y ahi pasan dos cosas
+/// seguidas: el clic le da el foco a la barra de tareas (y el menu se esconde solo) y
+/// despues llega el evento del clic, que ya lo ve escondido y lo volveria a abrir. Con la
+/// hora del ultimo escondite se distingue «estaba cerrado» de «lo acabo de cerrar yo».
+static ESCONDIDO_EN: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// Lo que tarda el clic en llegar despues de que el menu pierda el foco. Medido a ojo y
+/// generoso: mas de un cuarto de segundo entre las dos cosas ya es otro clic distinto.
+const RECIEN_ESCONDIDO: Duration = Duration::from_millis(300);
 
 /// Donde se pone el menu, dado el punto del icono de la bandeja.
 ///
@@ -103,6 +117,7 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     let suyo = app.clone();
     window.on_window_event(move |evento| {
         if let tauri::WindowEvent::Focused(false) = evento {
+            *ESCONDIDO_EN.lock() = Some(Instant::now());
             esconder(&suyo);
         }
     });
@@ -153,6 +168,12 @@ pub fn alternar(app: &AppHandle, anclaje: (i32, i32)) {
     if esta_a_la_vista(app) {
         esconder(app);
         return;
+    }
+    // Y si acaba de esconderse por el foco, este clic es el que lo estaba cerrando.
+    if let Some(cuando) = *ESCONDIDO_EN.lock() {
+        if cuando.elapsed() < RECIEN_ESCONDIDO {
+            return;
+        }
     }
     if let Err(error) = mostrar(app, anclaje) {
         eprintln!("[bandeja] no se ha podido abrir el menú: {error}");
