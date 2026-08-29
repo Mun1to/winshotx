@@ -40,6 +40,7 @@ export const EN: Record<string, string> = {
   "Se copia sola": "Copy it for me",
   "Copiar al guardar": "Copy when saving",
   "Sonido de obturador": "Shutter sound",
+  "Un clic de cámara al capturar, como el de una réflex. Sirve para saber que la captura ha salido sin mirar la pantalla. Viene apagado: en una reunión o grabando un tutorial, un sonido que no esperas es peor que ninguno.": "A camera click when you capture, like an SLR. It tells you the shot went through without looking at the screen. It comes off: in a meeting or while recording a tutorial, a sound you did not expect is worse than none.",
 
   // Grabar
   "Cómo se graba": "How it records",

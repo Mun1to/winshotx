@@ -505,6 +505,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Volume2 className="size-4" />}
                     label={t("Sonido de obturador")}
+                    explicacion={t("Un clic de cámara al capturar, como el de una réflex. Sirve para saber que la captura ha salido sin mirar la pantalla. Viene apagado: en una reunión o grabando un tutorial, un sonido que no esperas es peor que ninguno.")}
                     control={
                       <Switch
                         checked={settings.playSound}

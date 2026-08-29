@@ -139,7 +139,15 @@ fn entregar(
 ) -> Result<StillResult> {
     let state = app.state::<AppState>();
     let (width, height) = (image.width(), image.height());
-    let copy_after = state.settings.read().copy_after_capture;
+    let (copy_after, con_sonido) = {
+        let ajustes = state.settings.read();
+        (ajustes.copy_after_capture, ajustes.play_sound)
+    };
+    // El clic va aqui y no en cada rama: suena por haber capturado, se haga lo que se haga
+    // despues con la imagen. Y va antes de escribir el archivo para que no lo retrase.
+    if con_sonido {
+        crate::platform::sonido::obturador();
+    }
 
     let mut result = StillResult {
         path: None,
