@@ -101,7 +101,13 @@ const dom = args.includes("--dom");
 // Cuantos pixeles de pantalla por pixel de CSS. Existe porque **Chrome tiene un ancho
 // minimo de ventana de unos 500 px**: al pedirle --window-size=284 pinta la pagina a 500 y
 // recorta la foto a 284, asi que la mitad derecha del menu de bandeja parecia no existir.
-// Con --escala=2 se le piden 568 fisicos, que si respeta, y la pagina se pinta a 284.
+// Con --escala=2 y --force-device-scale-factor=2 la ventana fisica pasa de ese minimo y la
+// pagina se sigue pintando a 284.
+//
+// **--window-size va en pixeles de CSS, no fisicos**, asi que NO se multiplica por la
+// escala. Multiplicarlo pintaba la pagina al doble de ancho: la foto salia con el doble de
+// pixeles, la ventana con el doble de sitio y el contenido en su tamanno de siempre, o sea
+// media foto vacia que en la ventana de verdad no existe.
 const escala = bandera("escala", null);
 // Cuánto tiempo virtual corre antes de la foto. Sube para lo que tarda en aparecer y baja
 // para lo que se mueve solo: la cuenta atrás llega a cero en tres segundos de reloj, así
@@ -244,6 +250,18 @@ const OVERLAY = {
  * por JavaScript y se resuelven solas.
  */
 const SIN_TRANSICIONES = `<style>*,*::before,*::after{transition:none !important}</style>`;
+
+// El idioma y el tema los lee cada ventana de `localStorage` al arrancar, ANTES de
+// preguntarle nada a Rust: es lo que evita que las frases cambien delante del usuario en la
+// primera pintada. Ponerlo solo en los ajustes de mentira no basta, y por eso el editor
+// salia en espannol con --idioma=en sin que nada se quejara: los ajustes son de la ventana
+// principal y el editor ni los pide.
+const IDIOMA = `<script>
+try {
+  localStorage.setItem("winshotx.idioma", ${JSON.stringify(idioma === "sistema" ? "sistema" : idioma)});
+  localStorage.setItem("winshotx.tema", ${JSON.stringify(tema)});
+} catch (e) {}
+</` + `script>`;
 
 const MOCK = `<script>
 window.__TAURI_INTERNALS__ = {
@@ -448,7 +466,7 @@ const server = createServer(async (req, res) => {
   const archivo = join(DIST, ruta === "/" ? "index.html" : ruta);
   try {
     let cuerpo = await readFile(archivo);
-    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + SIN_TRANSICIONES + MOCK + RATON + SELECCION + RECORTE + TECLA + SECCION + PASO + TOUR);
+    if (extname(archivo) === ".html") cuerpo = String(cuerpo).replace("<head>", "<head>" + IDIOMA + SIN_TRANSICIONES + MOCK + RATON + SELECCION + RECORTE + TECLA + SECCION + PASO + TOUR);
     res.writeHead(200, { "Content-Type": TIPOS[extname(archivo)] ?? "application/octet-stream" });
     res.end(cuerpo);
   } catch {
@@ -494,9 +512,7 @@ server.listen(0, () => {
     "--headless=new",
     "--disable-gpu",
     "--hide-scrollbars",
-    `--window-size=${escala ? Math.round(Number(w) * Number(escala)) : w},${
-      escala ? Math.round(Number(h) * Number(escala)) : h
-    }`,
+    `--window-size=${w},${h}`,
     ...(escala ? [`--force-device-scale-factor=${escala}`] : []),
     ...(dom ? ["--dump-dom"] : [`--screenshot=${salida}`]),
     // Sin esto sale la pantalla antes de que React pinte nada.
