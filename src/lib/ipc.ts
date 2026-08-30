@@ -117,6 +117,9 @@ export const clearCache = () => invoke<CacheStats>("clear_cache");
 
 export const openFolder = (path: string) => invoke<void>("open_folder", { path });
 
+/** Abre en el navegador uno de los enlaces de `lib/enlaces.ts`. Rust rechaza los demás. */
+export const openUrl = (url: string) => invoke<void>("open_url", { url });
+
 /** Lleva a la lista de aplicaciones de Windows, donde se quita la Herramienta de Recortes. */
 export const openWindowsApps = () => invoke<void>("open_windows_apps");
 

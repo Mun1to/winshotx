@@ -70,3 +70,25 @@ pub fn open_folder(path: &Path) -> crate::error::Result<()> {
     #[cfg(not(windows))]
     Err(crate::error::AppError::Unsupported)
 }
+
+/// Abre una direccion en el navegador que tenga puesto el usuario.
+///
+/// Va por `explorer` como el resto de este archivo, y no por el plugin de Tauri, para que
+/// la ventana no necesite ningun permiso nuevo: quien decide que direcciones existen es
+/// `crate::enlaces`, en Rust, y no la parte que se pinta.
+pub fn abrir_url(url: &str) -> crate::error::Result<()> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("explorer")
+            .creation_flags(0x0800_0000)
+            .arg(url)
+            .spawn()?;
+        return Ok(());
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = url;
+        Err(crate::error::AppError::Unsupported)
+    }
+}

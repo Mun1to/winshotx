@@ -2,6 +2,7 @@ pub mod archivos;
 pub mod capture;
 pub(crate) mod commands;
 pub mod encode;
+pub mod enlaces;
 pub mod error;
 mod exporter;
 mod hotkeys;
@@ -232,6 +233,7 @@ pub fn run() {
             commands::use_win_shift_s,
             commands::restart_shell,
             commands::open_folder,
+            commands::open_url,
             commands::open_windows_apps,
             commands::remove_snipping_tool,
             commands::quit_app,

@@ -572,6 +572,21 @@ pub async fn open_folder(path: String) -> Result<()> {
     crate::platform::open_folder(&PathBuf::from(path))
 }
 
+/// Abre uno de los cuatro sitios de winshotx en el navegador del usuario.
+///
+/// La direccion llega desde la ventana, asi que se comprueba contra la lista de
+/// `crate::enlaces` antes de tocar nada: es el unico comando que saca a alguien de la
+/// aplicacion, y sin la lista una cadena cualquiera acabaria en `explorer`.
+#[tauri::command]
+pub async fn open_url(url: String) -> Result<()> {
+    if !crate::enlaces::permitido(&url) {
+        return Err(crate::error::AppError::Msg(format!(
+            "esa dirección no es de winshotx: {url}"
+        )));
+    }
+    crate::platform::abrir_url(&url)
+}
+
 #[tauri::command]
 pub async fn quit_app(app: AppHandle) {
     app.exit(0);
