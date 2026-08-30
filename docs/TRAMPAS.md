@@ -587,3 +587,48 @@ interruptor no hace nada. Se auditaron los 31 y solo fallaba este.
 usando `PlaySoundW`, que ya viene con Windows. Cero dependencias nuevas y 12 KB de instalador.
 Y una prueba comprueba la cabecera del WAV, porque `PlaySoundW` **solo sabe PCM**: un mp3
 renombrado a `.wav` no sonaria y no daria ningun error.
+
+## 27. Lo que se busca por su posicion o por su texto entero se rompe sin decir nada
+
+Dos fallos de la misma familia aparecieron el mismo dia, y los dos llevaban tiempo puestos sin
+que nada avisara.
+
+**El primero, en `frontlaxweb/generar-en.mjs`.** Las descripciones de la pagina viven en
+atributos y no pueden llevar `data-en`, asi que se traducen con una tabla, `ATRIBUTOS`, donde la
+clave es **la frase espannola entera**. Cuando el tamanno del instalador paso de 2,2 a 2,49 MB,
+las tres claves dejaron de casar y la pagina inglesa se quedo sirviendo su `description`, su
+`og:description` y su `twitter:description` **en castellano**. Eso es lo que ensenna Google
+debajo del titulo ingles y lo que sale al pegar el enlace en un chat.
+
+**El segundo, en `scripts/ver-ventana.mjs`.** Para fotografiar el tour se abria pinchando *el
+tercer boton del bloque «winshotx»*. Ese bloque cambio de filas y el tercer boton paso a ser el
+interruptor de arrancar con Windows: el tour no se abria, la foto salia de la ventana normal y
+parecia correcta.
+
+**Lo que tienen en comun:** los dos aciertan mientras nadie toca nada, los dos fallan con un
+cambio que no los menciona, y los dos **no producen ningun error**: producen una pagina o una
+foto que parece bien.
+
+**Los dos arreglos, que son el mismo:**
+
+1. Buscar por lo que no cambia. El boton del tour se busca ahora por su nombre, `"Tour"`, que se
+   escribe igual en los dos idiomas y no depende de cuantas filas tenga un bloque.
+2. Y donde no queda mas remedio que comparar texto entero, **una guardia que se plante**:
+   `generar-en.mjs` lleva la cuenta de que claves ha encontrado y sale con codigo 1 nombrando las
+   que ya no aparecen. Se probo rompiendo una a proposito: sin esa prueba, una guardia que no
+   salta es tan muda como el fallo que venia a cazar.
+
+## 28. Chrome sin cabeza tampoco respeta el meta viewport
+
+Hermana de la 25, y la misma leccion por otro lado: **la foto puede estar mal aunque la pagina
+este bien**.
+
+Al fotografiar `frontlaxweb/index.html` con `--window-size=390,640` para ver el pie en un movil,
+la pagina sale pintada a ancho de escritorio y recortada a 390 px: el contenido aparece corrido
+hacia la derecha y los textos cortados. **No es un fallo de la web.** Chrome sin cabeza no aplica
+`<meta name="viewport">` por su cuenta; para eso hace falta emular un dispositivo de verdad, que
+es lo que hacen Playwright o el protocolo de depuracion con
+`Emulation.setDeviceMetricsOverride`.
+
+Asi que, hasta que ese servidor arranque, **lo movil no se da por comprobado con una captura**:
+o se emula el dispositivo, o se dice que no se ha mirado.
