@@ -6,15 +6,18 @@ import {
   Camera,
   Compass,
   Clipboard,
+  Coffee,
   Crop,
   EyeOff,
   FolderOpen,
   Gauge,
+  Github,
   Monitor,
   HardDrive,
   History,
   Keyboard,
   Languages,
+  Info,
   Mic,
   MousePointer2,
   Palette,
@@ -32,6 +35,7 @@ import {
   getSettings,
   justUpdated,
   openFolder,
+  openUrl,
   openWindowsApps,
   pickDirectory,
   removeSnippingTool,
@@ -46,6 +50,7 @@ import {
   shortcutStatus,
   usePrintScreen,
 } from "../../lib/ipc";
+import { CAFE, FALLOS, REPO, WEB, comoSeLee } from "../../lib/enlaces";
 import { formatBytes } from "../../lib/format";
 import { aplicarTema } from "../../lib/tema";
 import { aplicarIdioma, useT } from "../../lib/i18n";
@@ -872,9 +877,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
             {seccion === "app" && (
               <>
-                {/* Esta seccion tiene tres bloques y las demas dos. Sin envolver los dos
-                    de la izquierda, el tercero abre una fila nueva por debajo del bloque
-                    mas alto y la seccion deja de caber sin rueda. */}
+                {/* Cuatro bloques en dos columnas, y cada pareja envuelta en su columna:
+                    en la rejilla, un bloque suelto abre fila nueva en vez de colocarse
+                    debajo del de arriba. El reparto no sigue el orden de lectura sino los
+                    altos, que es lo unico que decide si la seccion cabe sin rueda: los dos
+                    mas altos, "winshotx" y "Acerca de", van uno en cada columna. */}
                 <div className="flex flex-col">
                 <Section title={t("Archivos")} tour="archivos">
                   <Row
@@ -924,6 +931,35 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     }
                   />
                 </Section>
+                <Section title={t("winshotx")}>
+                  <Row
+                    icon={<BookOpen className="size-4" />}
+                    label={t("Bienvenida")}
+                    explicacion={t("Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.")}
+                    control={<RowButton onClick={onVerBienvenida}>{t("Ver otra vez")}</RowButton>}
+                  />
+                  <Row
+                    icon={<Compass className="size-4" />}
+                    label={t("Tour de los ajustes")}
+                    explicacion={t("Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.")}
+                    hint={t("siete paradas, una por sección")}
+                    control={<RowButton onClick={() => setTour(true)}>{t("Empezar")}</RowButton>}
+                  />
+                  <Row
+                    icon={<Power className="size-4" />}
+                    label={t("Arrancar con Windows")}
+                    explicacion={t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")}
+                    control={
+                      <Switch
+                        checked={settings.startWithWindows}
+                        onChange={(v) => patch({ startWithWindows: v })}
+                        label={t("Arrancar con Windows")}
+                      />
+                    }
+                  />
+                </Section>
+                </div>
+                <div className="flex flex-col">
                 <Section title={t("Aspecto")}>
                   <Row
                     icon={<Palette className="size-4" />}
@@ -965,34 +1001,45 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     }
                   />
                 </Section>
-                </div>
-                <Section title={t("winshotx")}>
+                {/* Lo unico que winshotx pide, y va al final del todo a proposito:
+                    primero la herramienta funcionando y solo despues quien la hace.
+                    Debajo de los dos botones que se llevan fuera va la direccion escrita,
+                    porque un boton que abre el navegador tiene que decir a donde antes de
+                    que lo pulsen. En la fila del codigo no cabe con los dos botones al
+                    lado, y ahi la dice el icono de GitHub. */}
+                <Section title={t("Acerca de")} tour="acerca">
                   <Row
-                    icon={<BookOpen className="size-4" />}
-                    label={t("Bienvenida")}
-                    explicacion={t("Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.")}
-                    control={<RowButton onClick={onVerBienvenida}>{t("Ver otra vez")}</RowButton>}
+                    icon={<Info className="size-4" />}
+                    label={t("winshotx {version}", { version: VERSION })}
+                    explicacion={t("Gratis, sin cuentas y sin anuncios, con licencia MIT. Lo hago yo solo, y ni las capturas ni los vídeos salen nunca de tu ordenador: aquí no hay servidor al que mandarlos.")}
+                    hint={comoSeLee(WEB)}
+                    control={<RowButton onClick={() => void openUrl(WEB)}>{t("La web")}</RowButton>}
                   />
                   <Row
-                    icon={<Compass className="size-4" />}
-                    label={t("Tour de los ajustes")}
-                    explicacion={t("Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.")}
-                    hint={t("seis paradas, una por sección")}
-                    control={<RowButton onClick={() => setTour(true)}>{t("Empezar")}</RowButton>}
-                  />
-                  <Row
-                    icon={<Power className="size-4" />}
-                    label={t("Arrancar con Windows")}
-                    explicacion={t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")}
+                    icon={<Coffee className="size-4" />}
+                    label={t("Invítame a un café")}
+                    explicacion={t("Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.")}
+                    hint={comoSeLee(CAFE)}
                     control={
-                      <Switch
-                        checked={settings.startWithWindows}
-                        onChange={(v) => patch({ startWithWindows: v })}
-                        label={t("Arrancar con Windows")}
-                      />
+                      <RowButton onClick={() => void openUrl(CAFE)}>{t("Invitar")}</RowButton>
+                    }
+                  />
+                  <Row
+                    icon={<Github className="size-4" />}
+                    label={t("El código y los fallos")}
+                    explicacion={t("Ayuda igual que un café y es gratis: una estrella hace que lo encuentre más gente, y un fallo contado con lo que estabas haciendo es lo que hace que se arregle.")}
+                    hint={t("abierto, con licencia MIT")}
+                    control={
+                      <span className="flex gap-1.5">
+                        <RowButton onClick={() => void openUrl(REPO)}>{t("El código")}</RowButton>
+                        <RowButton onClick={() => void openUrl(FALLOS)}>
+                          {t("Contar un fallo")}
+                        </RowButton>
+                      </span>
                     }
                   />
                 </Section>
+                </div>
               </>
             )}
         </div>

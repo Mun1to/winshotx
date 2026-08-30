@@ -145,7 +145,7 @@ export const EN: Record<string, string> = {
   Bienvenida: "Welcome",
   "Ver otra vez": "Show it again",
   "Tour de los ajustes": "Tour of the settings",
-  "seis paradas, una por sección": "six stops, one per section",
+  "siete paradas, una por sección": "seven stops, one per section",
   Empezar: "Start",
   "Arrancar con Windows": "Start with Windows",
 
@@ -216,9 +216,12 @@ export const EN: Record<string, string> = {
   "Quitarle las teclas a Windows": "Taking the keys off Windows",
   "Impr Pant es gratis. Win+Mayús+S cuesta perder Win+S, la búsqueda, y la fila te lo dice antes de que pulses nada.":
     "Print Screen is free. Win+Shift+S costs you Win+S, the search, and the row tells you before you press anything.",
-  "Y aquí acaba todo": "And here it ends",
-  "La carpeta donde caen las capturas y los vídeos. Ya está: el resto se aprende usándolo.":
-    "The folder where the shots and the videos land. That is it: the rest you learn by using it.",
+  "Dónde acaba lo que capturas": "Where what you capture ends up",
+  "La carpeta a la que van las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y nunca pisa uno que ya exista.":
+    "The folder the shots and videos you save go to. winshotx names them with the date and the time, and it never overwrites one that is already there.",
+  "Ya está: así puedes ayudar": "That is it, and here is how you can help",
+  "winshotx es gratis, sin cuentas y sin anuncios, y lo hago yo solo. Si te ahorra tiempo, un café es lo que lo mantiene en pie. Y si no, una estrella en GitHub o contar un fallo ayudan igual.":
+    "winshotx is free, with no accounts and no ads, and I build it on my own. If it saves you time, a coffee is what keeps it going. If not, a star on GitHub or a bug report helps just as much.",
 
   // La bienvenida
   "winshotx ya está en marcha": "winshotx is up and running",
@@ -433,4 +436,20 @@ export const EN: Record<string, string> = {
 
   // Los bloques de «Grabar»
   "El sonido": "The sound",
+
+  // Acerca de, y como se ayuda
+  "Acerca de": "About",
+  "Gratis, sin cuentas y sin anuncios, con licencia MIT. Lo hago yo solo, y ni las capturas ni los vídeos salen nunca de tu ordenador: aquí no hay servidor al que mandarlos.":
+    "Free, no accounts, no ads, MIT licensed. I build it on my own, and neither the shots nor the videos ever leave your computer: there is no server here to send them to.",
+  "La web": "The site",
+  "Invítame a un café": "Buy me a coffee",
+  "Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.":
+    "It is the only way to support winshotx: there is no paid version, no ads and no data to sell. You pay once, you choose how much, and no account is needed.",
+  Invitar: "Buy one",
+  "El código y los fallos": "The code and the bugs",
+  "Ayuda igual que un café y es gratis: una estrella hace que lo encuentre más gente, y un fallo contado con lo que estabas haciendo es lo que hace que se arregle.":
+    "It helps as much as a coffee and it costs nothing: a star makes more people find it, and a bug reported with what you were doing is what gets it fixed.",
+  "El código": "The code",
+  "abierto, con licencia MIT": "open, MIT licensed",
+  "Contar un fallo": "Report a bug",
 };

@@ -164,6 +164,75 @@ describe("lo que ensenna de la maquina, en «La app»", () => {
     await irALaApp();
     expect(screen.getByText(/^Versión \d+\.\d+\.\d+$/)).toBeInTheDocument();
   });
+
+  it("dice a donde lleva cada boton que saca de la app, antes de pulsarlo", async () => {
+    // Un boton que abre el navegador y no dice a donde no se pulsa, y con razon. La unica
+    // que no lo lleva escrito es la del codigo, que no tiene sitio con sus dos botones.
+    await irALaApp();
+    expect(screen.getByText("winshotx.com")).toBeInTheDocument();
+    expect(screen.getByText("buymeacoffee.com/munito")).toBeInTheDocument();
+  });
+
+  it("invitar a un cafe abre buymeacoffee, y no otra cosa", async () => {
+    await irALaApp();
+    fireEvent.click(screen.getByRole("button", { name: "Invitar" }));
+    await waitFor(() => {
+      expect(llamadas.some((l) => l.comando === "open_url")).toBe(true);
+    });
+    const abierta = llamadas.filter((l) => l.comando === "open_url").at(-1);
+    expect(abierta?.args).toEqual({ url: "https://buymeacoffee.com/munito" });
+  });
+
+  it("y los otros tres botones llevan a los otros tres sitios", async () => {
+    await irALaApp();
+    for (const [boton, url] of [
+      ["La web", "https://winshotx.com"],
+      ["El código", "https://github.com/Mun1to/winshotx"],
+      ["Contar un fallo", "https://github.com/Mun1to/winshotx/issues/new"],
+    ] as const) {
+      fireEvent.click(screen.getByRole("button", { name: boton }));
+      await waitFor(() => {
+        expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({ url });
+      });
+    }
+  });
+});
+
+/**
+ * El tour se cierra donde se pide ayuda, y esa es la unica parada que tiene un boton que
+ * saca de la aplicacion. Lo que se comprueba es que se llega hasta el final y que ese
+ * boton lleva donde dice: el resto del recorrido se mira en foto, porque es colocacion.
+ */
+describe("el tour de los ajustes", () => {
+  async function hastaElFinal() {
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("button", { name: /Tour/ }));
+    // «Siguiente» hasta que el boton cambia a «Listo», que es como se sabe que es la
+    // ultima. Contar las paradas a mano dejaria la prueba pidiendo un numero cada vez que
+    // se anade una.
+    for (let i = 0; i < 20; i += 1) {
+      const siguiente = screen.queryByRole("button", { name: "Siguiente" });
+      if (!siguiente) break;
+      fireEvent.click(siguiente);
+    }
+    expect(screen.getByRole("button", { name: "Listo" })).toBeInTheDocument();
+  }
+
+  it("acaba contando como se ayuda, y el boton lleva al cafe", async () => {
+    await hastaElFinal();
+    fireEvent.click(screen.getByRole("button", { name: /Invítame a un café/ }));
+    await waitFor(() => {
+      expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
+        url: "https://buymeacoffee.com/munito",
+      });
+    });
+  });
+
+  it("y ninguna otra parada pide nada", async () => {
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("button", { name: /Tour/ }));
+    expect(screen.queryByRole("button", { name: /Invítame a un café/ })).not.toBeInTheDocument();
+  });
 });
 
 /**
