@@ -188,6 +188,11 @@ h1 em { font-style: normal; color: var(--azul); }
 .btn.fantasma { border-color: var(--borde); color: var(--texto); background: #ffffff08; }
 .btn.fantasma:hover { background: #ffffff12; text-decoration: none; }
 .letra-chica { margin-top: 14px; font-size: 13px; color: var(--apagado); }
+/* Mismo motivo que en el pie: el azul de marca sobre el gris de esta linea se queda en 1,22
+   de contraste, muy por debajo del 3 que pide la norma para distinguir un enlace por color.
+   Con subrayado se ve sin depender del color. */
+.letra-chica a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.letra-chica a:hover { color: var(--texto); }
 
 /* ---------- números: sin cajas, solo el dato y una línea que los separa ---------- */
 .numeros { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 62px; }
@@ -814,6 +819,17 @@ footer .env { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; ju
    que aqui va subrayado desde el principio y no solo al pasar el raton. */
 footer a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 footer a:hover { color: var(--texto); }
+
+/* El unico enlace del pie que pide algo, asi que se separa de los otros: sin subrayado y
+   con su icono, para que se lea como un boton pequenno y no como parte de la frase de al
+   lado. En movil el pie se apila y este cae el ultimo, que es donde tiene que estar. */
+footer a.cafe {
+  display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+  padding: 7px 12px; border: 1px solid var(--borde); border-radius: 999px;
+  color: var(--suave); transition: border-color 0.15s ease, color 0.15s ease;
+}
+footer a.cafe:hover { border-color: var(--azul); color: var(--texto); }
+footer a.cafe svg { width: 15px; height: 15px; }
 
 /* ---------- la guia ---------- */
 .guia { max-width: 780px; padding-top: 56px; padding-bottom: 40px; }

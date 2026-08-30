@@ -70,6 +70,9 @@ is downloaded at runtime.
 - [Download](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe): the installer, always the latest release.
 - [Releases](https://github.com/Mun1to/winshotx/releases): version history.
 - [Author](https://munito.dev): Munir Torres.
+- [Support the project](https://buymeacoffee.com/munito): winshotx is free with no paid
+  version, so a coffee is the only way to support it. A star on GitHub or a bug report
+  helps just as much.
 
 ## Documentation
 
