@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Check, Download, RefreshCw, RotateCcw } from "lucide-react";
+import { isStoreBuild } from "../../lib/ipc";
 import { EVENTS } from "../../lib/types";
 import { useT } from "../../lib/i18n";
 
@@ -11,6 +12,8 @@ const CADA_MS = 6 * 60 * 60 * 1000;
 
 export type Fase =
   | { tipo: "quieto" }
+  /** Instalada desde la Microsoft Store: de actualizar se encarga ella. */
+  | { tipo: "tienda" }
   | { tipo: "mirando" }
   | { tipo: "aldia" }
   | { tipo: "acabadeactualizarse" }
@@ -36,11 +39,23 @@ export function useActualizacion(version: string, recienActualizado = false) {
   );
   const mirando = useRef(false);
 
+  /** `null` mientras no se ha preguntado; luego ya no vuelve a cambiar. */
+  const tienda = useRef<boolean | null>(null);
+
   const mirar = useCallback(async (aMano: boolean) => {
     if (mirando.current) return;
     mirando.current = true;
     if (aMano) setFase({ tipo: "mirando" });
     try {
+      // Se pregunta aqui dentro y no en un efecto aparte a proposito: preguntarlo fuera
+      // deja una ventana de unos milisegundos en la que este `mirar` ya ha salido
+      // corriendo sin saber la respuesta, y en la Store acabaria ofreciendo un boton de
+      // actualizar que no puede escribir en su propia carpeta.
+      if (tienda.current === null) tienda.current = await isStoreBuild();
+      if (tienda.current) {
+        setFase({ tipo: "tienda" });
+        return;
+      }
       const update = await check();
       setFase(update ? { tipo: "hay", update } : { tipo: "aldia" });
     } catch (e) {
@@ -56,6 +71,7 @@ export function useActualizacion(version: string, recienActualizado = false) {
     // decir es eso. Buscar version nueva en ese mismo instante no aporta nada y ademas
     // taparia la unica frase que explica por que ha aparecido la ventana.
     if (!recienActualizado) void mirar(false);
+    else void isStoreBuild().then((esTienda) => (tienda.current = esTienda));
     const timer = window.setInterval(() => void mirar(false), CADA_MS);
     const unlisten = listen(EVENTS.checkUpdate, () => void mirar(true));
     // Y al volver a abrir la ventana: si no, una version publicada hace un rato no
@@ -93,6 +109,8 @@ export function useActualizacion(version: string, recienActualizado = false) {
     switch (fase.tipo) {
       case "mirando":
         return t("mirando si hay versión nueva…");
+      case "tienda":
+        return t("la Microsoft Store se encarga de actualizarla");
       case "aldia":
         return t("estás en la última versión");
       case "acabadeactualizarse":
@@ -140,6 +158,10 @@ export function EstadoActualizacion({
   mirar: () => void;
 }) {
   const t = useT();
+  // En la Store no hay ni tick ni boton: no hay ninguna accion detras, y un control que
+  // no hace nada al pulsarlo se lee como que la app esta rota.
+  if (fase.tipo === "tienda") return null;
+
   const callado = alDia || fase.tipo === "quieto" || fase.tipo === "mirando";
 
   if (callado) {

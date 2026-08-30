@@ -89,6 +89,8 @@ export const discardSession = (sessionId: string) =>
 
 /** Cierto una sola vez, si este arranque viene de actualizar. Se consume al leerlo. */
 export const justUpdated = () => invoke<boolean>("just_updated");
+/** Cierto si winshotx viene de la Microsoft Store, que se actualiza sola. */
+export const isStoreBuild = () => invoke<boolean>("is_store_build");
 
 export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
 
