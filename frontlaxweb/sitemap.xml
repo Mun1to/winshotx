@@ -37,4 +37,22 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/docs/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/docs/"/>
   </url>
+  <url>
+    <loc>https://winshotx.com/privacidad/</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/privacidad/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/privacidad/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/privacy/</loc>
+    <lastmod>2026-08-31</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/privacidad/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/privacidad/"/>
+  </url>
 </urlset>

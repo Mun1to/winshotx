@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="winshotx privacy - it collects nothing">Privacidad de winshotx - no recoge nada</title>
+<meta name="description" content="winshotx no recoge nada: ni cuentas, ni telemetría, ni analítica. Aquí están, una por una, las únicas conexiones que hace la aplicación y para qué usa cada permiso de Windows.">
+<link rel="canonical" href="https://winshotx.com/privacidad/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/privacidad/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/privacy/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/privacidad/">
+<meta name="theme-color" content="#0b0b0d">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://winshotx.com/privacidad/">
+<meta property="og:title" content="Privacidad de winshotx">
+<meta property="og:description" content="No recoge nada. Las únicas conexiones que hace la aplicación, una por una.">
+<meta property="og:image" content="https://winshotx.com/social.png?v=2">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx: 28 ms contra 920 ms de la Herramienta de Recortes">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Privacidad de winshotx">
+<meta name="twitter:description" content="No recoge nada. Las únicas conexiones que hace la aplicación, una por una.">
+<meta name="twitter:image" content="https://winshotx.com/social.png?v=2">
+<link rel="icon" href="../favicon.ico?v=2" sizes="any">
+<link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
+<link rel="stylesheet" href="../estilos.css?v=68114ca8">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Privacidad", "item": "https://winshotx.com/privacidad/" }
+  ]
+}
+</script>
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
+      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+    </g>
+    <g stroke="#fff" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
+  </symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
+  </symbol>
+  <symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+</svg>
+
+<nav>
+  <div class="env">
+    <a class="marca solo-logo" href="../" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
+    <span class="enlaces">
+      <a href="../#numeros" data-en="Numbers">Números</a>
+      <a href="../#demo" data-en="Try it">Pruébalo</a>
+      <a href="../#frente-a-frente" data-en="Head to head">Comparativa</a>
+      <a href="../#que-hace" data-en="Features">Qué hace</a>
+      <a href="../#atajos" data-en="Shortcuts">Atajos</a>
+      <a href="../docs/" data-en="Docs">Guía</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
+        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
+      </a>
+      <a class="idioma" id="idioma" href="../en/privacy/" hreflang="en" lang="en">English</a>
+    </span>
+  </div>
+</nav>
+
+<main class="env guia">
+
+<h1 data-en="Privacy">Privacidad</h1>
+
+<p class="entradilla" data-en="winshotx does not collect anything. No accounts, no telemetry, no analytics, no crash reports. What you capture stays on your computer and never leaves it. This page says exactly what the app does connect to, and why, so you do not have to take our word for it.">
+  winshotx no recoge nada. Ni cuentas, ni telemetría, ni analítica, ni informes de fallos. Lo
+  que capturas se queda en tu ordenador y no sale de ahí. Esta página cuenta exactamente a qué
+  se conecta la aplicación y para qué, para que no tengas que fiarte de nuestra palabra.
+</p>
+
+<section>
+<h2 data-en="What stays on your computer">Lo que se queda en tu ordenador</h2>
+<p data-en="Every screenshot, every recording, every frame in the editor and every setting is written to your own disk. Screenshots go where you choose in Settings. Recordings live in a temporary folder while you edit them and are deleted when you discard the session. Nothing is uploaded anywhere.">
+  Cada captura, cada grabación, cada fotograma del editor y cada ajuste se escriben en tu propio
+  disco. Las capturas van donde tú decidas en los Ajustes. Las grabaciones viven en una carpeta
+  temporal mientras las editas y se borran al descartar la sesión. Nada se sube a ninguna parte.
+</p>
+</section>
+
+<section>
+<h2 data-en="The only connections it makes">Las únicas conexiones que hace</h2>
+<p data-en="Two, and both are visible:">Dos, y las dos se ven:</p>
+<ul>
+  <li data-html data-en="&lt;strong&gt;Checking for updates.&lt;/strong&gt; The version installed from GitHub or winget asks &lt;code&gt;github.com&lt;/code&gt; whether there is a newer release. That request carries nothing but your IP address, which is what any web request carries. &lt;strong&gt;The version installed from the Microsoft Store does not do even that&lt;/strong&gt;: the Store updates it."><strong>Buscar actualizaciones.</strong> La versión instalada desde GitHub o con winget le pregunta a <code>github.com</code> si hay una versión nueva. Esa petición no lleva nada más que tu dirección IP, que es lo que lleva cualquier petición web. <strong>La versión instalada desde la Microsoft Store no hace ni eso</strong>: la actualiza la Store.</li>
+  <li data-html data-en="&lt;strong&gt;Opening a link you pressed.&lt;/strong&gt; The About section can open four addresses in your browser: this website, the GitHub repository, the page for reporting a bug, and Buy Me a Coffee. The app can open those four and nothing else, and only when you press the button."><strong>Abrir un enlace que has pulsado.</strong> El apartado «Acerca de» puede abrir cuatro direcciones en tu navegador: esta web, el repositorio de GitHub, la página para contar un fallo y Buy Me a Coffee. La aplicación puede abrir esas cuatro y ninguna más, y solo cuando pulsas el botón.</li>
+</ul>
+</section>
+
+<section>
+<h2 data-en="What Windows lets it do, and what for">Lo que Windows le deja hacer, y para qué</h2>
+<ul>
+  <li data-html data-en="&lt;strong&gt;Read the screen.&lt;/strong&gt; It is a capture tool: without this there is no product. The image goes to the file or to the clipboard, never anywhere else."><strong>Leer la pantalla.</strong> Es una herramienta de captura: sin esto no hay producto. La imagen va al archivo o al portapapeles, nunca a otro sitio.</li>
+  <li data-html data-en="&lt;strong&gt;Listen for its keyboard shortcuts.&lt;/strong&gt; So that a shortcut works while you are inside another program. It watches for its own key combinations and lets everything else straight through: it does not take down what you type."><strong>Escuchar sus atajos de teclado.</strong> Para que un atajo funcione mientras estás en otro programa. Vigila sus propias combinaciones y deja pasar todo lo demás: no apunta lo que escribes.</li>
+  <li data-html data-en="&lt;strong&gt;Record system audio,&lt;/strong&gt; only while a recording is running and only if you left that option on."><strong>Grabar el sonido del sistema,</strong> solo mientras hay una grabación en marcha y solo si dejaste esa opción encendida.</li>
+  <li data-html data-en="&lt;strong&gt;Start with Windows,&lt;/strong&gt; only if you turn it on yourself. You can turn it off from Settings, and from Task Manager as well."><strong>Arrancar con Windows,</strong> solo si lo enciendes tú. Se apaga desde los Ajustes, y desde el Administrador de tareas también.</li>
+</ul>
+</section>
+
+<section>
+<h2 data-en="This website">Esta web</h2>
+<p data-en="No analytics, no cookies, no trackers, no third-party fonts and no embedded videos. Nothing is loaded from another domain. The hosting keeps the ordinary server logs that every server keeps.">
+  Sin analítica, sin cookies, sin rastreadores, sin tipografías de terceros y sin vídeos
+  incrustados. No se carga nada desde otro dominio. El alojamiento guarda los registros normales
+  de cualquier servidor, como los guarda cualquier servidor.
+</p>
+</section>
+
+<section>
+<h2 data-en="Children">Menores</h2>
+<p data-en="winshotx is not aimed at children, and collects no data from anyone, whatever their age.">
+  winshotx no está dirigida a menores y no recoge datos de nadie, tenga la edad que tenga.
+</p>
+</section>
+
+<section>
+<h2 data-en="How to check all of this">Cómo comprobar todo esto</h2>
+<p data-html data-en="The source code is public, under the MIT licence, at &lt;a href=&quot;https://github.com/Mun1to/winshotx&quot; rel=&quot;noopener&quot;&gt;github.com/Mun1to/winshotx&lt;/a&gt;. The list of addresses the app is allowed to open is a file of its own, &lt;code&gt;src-tauri/src/enlaces.rs&lt;/code&gt;, and a test fails if it stops matching the interface.">
+  El código es público, con licencia MIT, en <a href="https://github.com/Mun1to/winshotx" rel="noopener">github.com/Mun1to/winshotx</a>. La lista de direcciones que la aplicación puede abrir es un archivo aparte, <code>src-tauri/src/enlaces.rs</code>, y hay una prueba que falla si deja de coincidir con la interfaz.
+</p>
+</section>
+
+<section>
+<h2 data-en="Changes and contact">Cambios y contacto</h2>
+<p data-html data-en="If any of this ever changes, it changes here first, with the date. Anything you want to ask goes to &lt;a href=&quot;https://github.com/Mun1to/winshotx/issues/new&quot; rel=&quot;noopener&quot;&gt;the repository issues&lt;/a&gt;.">
+  Si algo de esto cambia alguna vez, cambia aquí primero, con la fecha. Lo que quieras preguntar,
+  a <a href="https://github.com/Mun1to/winshotx/issues/new" rel="noopener">las incidencias del repositorio</a>.
+</p>
+
+<p class="letra-chica" data-en="Last updated: 31 August 2026.">Última actualización: 31 de agosto de 2026.</p>
+</section>
+
+</main>
+
+<footer>
+  <div class="env">
+    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
+    <a href="./" data-en="Privacy">Privacidad</a>
+    <span data-html data-en="Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt; · &lt;a href=&quot;https://github.com/Mun1to/winshotx/issues&quot;&gt;report a problem&lt;/a&gt;">Hecho por <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">informar de un problema</a></span>
+    <a class="cafe" href="https://buymeacoffee.com/munito" rel="noopener"><svg class="chico"><use href="#i-coffee"/></svg> <span data-en="Buy me a coffee">Invítame a un café</span></a>
+  </div>
+</footer>
+
+</body>
+</html>

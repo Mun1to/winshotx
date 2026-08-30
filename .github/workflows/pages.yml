@@ -34,9 +34,12 @@ jobs:
             echo "::error::frontlaxweb no esta al dia; corre node frontlaxweb/generar-en.mjs y commitea"
             exit 1
           fi
+      # Con comodin y no con la lista a mano: la lista se quedo sin la pagina de
+      # privacidad el dia que se creo, y una pagina que nadie revisa es justo la que
+      # se publica a medio traducir.
       - name: Ninguna pagina se queda sin traducir
         run: |
-          for f in frontlaxweb/en/index.html frontlaxweb/en/docs/index.html; do
+          for f in frontlaxweb/en/*/index.html frontlaxweb/en/index.html; do
             if grep -q 'data-en=\|data-aria-en=\|data-titulo-en=' "$f"; then
               echo "::error::$f tiene textos sin traducir"
               grep -o 'data-\(en\|aria-en\|titulo-en\)="[^"]*"' "$f" | head -5

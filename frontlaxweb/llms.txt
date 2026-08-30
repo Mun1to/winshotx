@@ -17,6 +17,8 @@ clock stops when the selection is visible on screen.
 - Installer size: **2.50 MB**, with no bundled FFmpeg or other binaries.
 - Installs per user, so Windows never asks for administrator rights.
 - Published in the official winget catalogue: `winget install Mun1to.winshotx`.
+- Also published on the Microsoft Store, where Microsoft signs the package and keeps it
+  updated: https://apps.microsoft.com/detail/9P1NKWNRXD6Z
 
 ## What winshotx does that the Snipping Tool does not
 
@@ -69,6 +71,8 @@ is downloaded at runtime.
 - [Source code](https://github.com/Mun1to/winshotx): GitHub repository, MIT licence.
 - [Download](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe): the installer, always the latest release.
 - [Releases](https://github.com/Mun1to/winshotx/releases): version history.
+- [Privacy](https://winshotx.com/en/privacy/): it collects nothing, and the page lists the
+  only two connections the app makes and what each Windows permission is for.
 - [Author](https://munito.dev): Munir Torres.
 - [Support the project](https://buymeacoffee.com/munito): winshotx is free with no paid
   version, so a coffee is the only way to support it. A star on GitHub or a bug report

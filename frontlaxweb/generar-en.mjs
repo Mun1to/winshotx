@@ -153,6 +153,11 @@ const ATRIBUTOS = {
     'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms and 33 MB. 2.50 MB, open source."',
   'content="winshotx: 28 ms contra 920 ms de la Herramienta de Recortes"':
     'content="winshotx: 28 ms against the Snipping Tool\'s 920 ms"',
+  'content="winshotx no recoge nada: ni cuentas, ni telemetría, ni analítica. Aquí están, una por una, las únicas conexiones que hace la aplicación y para qué usa cada permiso de Windows."':
+    'content="winshotx collects nothing: no accounts, no telemetry, no analytics. Here, one by one, are the only connections the app makes and what it uses each Windows permission for."',
+  'content="No recoge nada. Las únicas conexiones que hace la aplicación, una por una."':
+    'content="It collects nothing. The only connections the app makes, one by one."',
+  'content="Privacidad de winshotx"': 'content="winshotx privacy"',
   'content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, editor fotograma a fotograma, exportación y ajustes."':
     'content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the frame by frame editor, export and settings."',
   'content="Guía de winshotx"': 'content="winshotx documentation"',
@@ -179,6 +184,7 @@ const PAGINAS = [
       'href="apple-touch-icon.png': 'href="../apple-touch-icon.png',
       'href="estilos.css?v=': 'href="../estilos.css?v=',
       'src="demo.js?v=': 'src="../demo.js?v=',
+      '<a href="privacidad/">Privacy</a>': '<a href="privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
     },
@@ -195,8 +201,25 @@ const PAGINAS = [
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>',
+    },
+  },
+  {
+    origen: join("privacidad", "index.html"),
+    destino: ["en", "privacy", "index.html"],
+    propios: {
+      [`<link rel="canonical" href="${BASE}privacidad/">`]: `<link rel="canonical" href="${BASE}en/privacy/">`,
+      [`<meta property="og:url" content="${BASE}privacidad/">`]: `<meta property="og:url" content="${BASE}en/privacy/">`,
+      [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
+      [`"name": "Privacidad", "item": "${BASE}privacidad/" }`]: `"name": "Privacy", "item": "${BASE}en/privacy/" }`,
+      'href="../logo.svg': 'href="../../logo.svg',
+      'href="../favicon.ico': 'href="../../favicon.ico',
+      'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
+      'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      '<a class="idioma" id="idioma" href="../en/privacy/" hreflang="en" lang="en">English</a>':
+        '<a class="idioma" id="idioma" href="../../privacidad/" hreflang="es" lang="es">Español</a>',
     },
   },
 ];

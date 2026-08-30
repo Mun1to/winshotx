@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>winshotx privacy - it collects nothing</title>
+<meta name="description" content="winshotx collects nothing: no accounts, no telemetry, no analytics. Here, one by one, are the only connections the app makes and what it uses each Windows permission for.">
+<link rel="canonical" href="https://winshotx.com/en/privacy/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/privacidad/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/privacy/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/privacidad/">
+<meta name="theme-color" content="#0b0b0d">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:url" content="https://winshotx.com/en/privacy/">
+<meta property="og:title" content="winshotx privacy">
+<meta property="og:description" content="It collects nothing. The only connections the app makes, one by one.">
+<meta property="og:image" content="https://winshotx.com/social-en.png?v=2">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx: 28 ms against the Snipping Tool's 920 ms">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="winshotx privacy">
+<meta name="twitter:description" content="It collects nothing. The only connections the app makes, one by one.">
+<meta name="twitter:image" content="https://winshotx.com/social-en.png?v=2">
+<link rel="icon" href="../../favicon.ico?v=2" sizes="any">
+<link rel="icon" href="../../logo.svg?v=2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png?v=2">
+<link rel="stylesheet" href="../../estilos.css?v=68114ca8">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/en/" },
+    { "@type": "ListItem", "position": 2, "name": "Privacy", "item": "https://winshotx.com/en/privacy/" }
+  ]
+}
+</script>
+</head>
+<body>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
+      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+    </g>
+    <g stroke="#fff" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
+  </symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
+  </symbol>
+  <symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+</svg>
+
+<nav>
+  <div class="env">
+    <a class="marca solo-logo" href="../" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
+    <span class="enlaces">
+      <a href="../#numeros">Numbers</a>
+      <a href="../#demo">Try it</a>
+      <a href="../#frente-a-frente">Head to head</a>
+      <a href="../#que-hace">Features</a>
+      <a href="../#atajos">Shortcuts</a>
+      <a href="../docs/">Docs</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
+        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
+      </a>
+      <a class="idioma" id="idioma" href="../../privacidad/" hreflang="es" lang="es">Español</a>
+    </span>
+  </div>
+</nav>
+
+<main class="env guia">
+
+<h1>Privacy</h1>
+
+<p class="entradilla">winshotx does not collect anything. No accounts, no telemetry, no analytics, no crash reports. What you capture stays on your computer and never leaves it. This page says exactly what the app does connect to, and why, so you do not have to take our word for it.</p>
+
+<section>
+<h2>What stays on your computer</h2>
+<p>Every screenshot, every recording, every frame in the editor and every setting is written to your own disk. Screenshots go where you choose in Settings. Recordings live in a temporary folder while you edit them and are deleted when you discard the session. Nothing is uploaded anywhere.</p>
+</section>
+
+<section>
+<h2>The only connections it makes</h2>
+<p>Two, and both are visible:</p>
+<ul>
+  <li><strong>Checking for updates.</strong> The version installed from GitHub or winget asks <code>github.com</code> whether there is a newer release. That request carries nothing but your IP address, which is what any web request carries. <strong>The version installed from the Microsoft Store does not do even that</strong>: the Store updates it.</li>
+  <li><strong>Opening a link you pressed.</strong> The About section can open four addresses in your browser: this website, the GitHub repository, the page for reporting a bug, and Buy Me a Coffee. The app can open those four and nothing else, and only when you press the button.</li>
+</ul>
+</section>
+
+<section>
+<h2>What Windows lets it do, and what for</h2>
+<ul>
+  <li><strong>Read the screen.</strong> It is a capture tool: without this there is no product. The image goes to the file or to the clipboard, never anywhere else.</li>
+  <li><strong>Listen for its keyboard shortcuts.</strong> So that a shortcut works while you are inside another program. It watches for its own key combinations and lets everything else straight through: it does not take down what you type.</li>
+  <li><strong>Record system audio,</strong> only while a recording is running and only if you left that option on.</li>
+  <li><strong>Start with Windows,</strong> only if you turn it on yourself. You can turn it off from Settings, and from Task Manager as well.</li>
+</ul>
+</section>
+
+<section>
+<h2>This website</h2>
+<p>No analytics, no cookies, no trackers, no third-party fonts and no embedded videos. Nothing is loaded from another domain. The hosting keeps the ordinary server logs that every server keeps.</p>
+</section>
+
+<section>
+<h2>Children</h2>
+<p>winshotx is not aimed at children, and collects no data from anyone, whatever their age.</p>
+</section>
+
+<section>
+<h2>How to check all of this</h2>
+<p>The source code is public, under the MIT licence, at <a href="https://github.com/Mun1to/winshotx" rel="noopener">github.com/Mun1to/winshotx</a>. The list of addresses the app is allowed to open is a file of its own, <code>src-tauri/src/enlaces.rs</code>, and a test fails if it stops matching the interface.</p>
+</section>
+
+<section>
+<h2>Changes and contact</h2>
+<p>If any of this ever changes, it changes here first, with the date. Anything you want to ask goes to <a href="https://github.com/Mun1to/winshotx/issues/new" rel="noopener">the repository issues</a>.</p>
+
+<p class="letra-chica">Last updated: 31 August 2026.</p>
+</section>
+
+</main>
+
+<footer>
+  <div class="env">
+    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
+    <a href="./">Privacy</a>
+    <span>Made by <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">report a problem</a></span>
+    <a class="cafe" href="https://buymeacoffee.com/munito" rel="noopener"><svg class="chico"><use href="#i-coffee"/></svg> <span>Buy me a coffee</span></a>
+  </div>
+</footer>
+
+</body>
+</html>
