@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  El manifiesto del paquete de la Microsoft Store. No se edita a mano: lo rellena
+  `scripts/msix.mjs` con la version del proyecto y con los tres datos de identidad de
+  `store/identidad.json`, que son los que asigna Partner Center.
+
+  Dos decisiones que no se ven a simple vista:
+
+  - `EntryPoint="Windows.FullTrustApplication"` es lo que declara que esto es una app de
+    escritorio de toda la vida metida en un paquete, no una app de la tienda con caja.
+    Sin eso no hay hooks de teclado, ni bandeja, ni captura de pantalla.
+  - `startupTask` va con `Enabled="false"`: nadie arranca con Windows por instalar algo.
+    Se enciende desde los ajustes, y el usuario puede apagarlo desde el Administrador de
+    tareas, que es justo lo que la Store quiere que se pueda hacer.
+
+  No lleva `SplashScreen` a proposito: esa pantalla es de las apps de la tienda con caja,
+  y winshotx arranca en la bandeja sin abrir ninguna ventana. Declararla obliga ademas a
+  una imagen de 620x300, mas grande que el icono que hay.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 rescap">
+
+  <Identity
+    Name="{{IDENTITY_NAME}}"
+    Publisher="{{PUBLISHER}}"
+    Version="{{VERSION}}"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>winshotx</DisplayName>
+    <PublisherDisplayName>{{PUBLISHER_DISPLAY}}</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+    <Resource Language="es-es" />
+  </Resources>
+
+  <Applications>
+    <Application Id="winshotx" Executable="winshotx.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="winshotx"
+        Description="{{DESCRIPTION}}"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          ShortName="winshotx"
+          Square71x71Logo="Assets\SmallTile.png"
+          Square310x310Logo="Assets\LargeTile.png"
+          Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask
+            TaskId="winshotxAutoStart"
+            Enabled="false"
+            DisplayName="winshotx" />
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

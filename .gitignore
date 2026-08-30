@@ -17,3 +17,11 @@ docs/METAS.md
 docs/SEO-ESTADO.md
 docs/investigacion/
 .playwright-mcp/
+
+# El paquete de la Microsoft Store se monta con `node scripts/msix.mjs`: ni el .msix ni
+# los iconos que genera son fuente, y el paquete solo pesa tres megas cada vez.
+packaging/store/paquete/
+packaging/store/*.msix
+
+# Las fotos de `node scripts/ver-web.mjs`, para mirar la web sin abrirla.
+.fotos-web/
