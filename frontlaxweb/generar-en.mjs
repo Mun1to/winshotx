@@ -132,16 +132,25 @@ ${JSON.stringify(bloque, null, 2)}
   );
 }
 
-/** Las descripciones viven en atributos y no pueden llevar data-en. */
+/**
+ * Las descripciones viven en atributos y no pueden llevar data-en, asi que aqui va la
+ * frase espannola ENTERA y su traduccion.
+ *
+ * Eso las hace fragiles: cambiar una coma en el HTML deja la clave sin casar y la pagina
+ * inglesa se queda con la frase en castellano, sin que nada falle. Paso de verdad, con el
+ * tamanno del instalador: la meta description inglesa estuvo en espannol desde que el
+ * numero cambio de 2,2 a 2,49 MB. Por eso, al final del archivo, se comprueba que TODAS
+ * las claves se hayan usado en alguna pagina.
+ */
 const ATRIBUTOS = {
-  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y editor fotograma a fotograma. Abre la selección en 28 ms y gasta 33 MB. Instalador de 2,2 MB, sin cuenta y sin nube."':
-    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and a frame by frame editor. Opens the selection in 28 ms and uses 33 MB. A 2.2 MB installer, no account and no cloud."',
+  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y editor fotograma a fotograma. Abre la selección en 28 ms y gasta 33 MB. Instalador de 2,50 MB, sin cuenta y sin nube."':
+    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and a frame by frame editor. Opens the selection in 28 ms and uses 33 MB. A 2.50 MB installer, no account and no cloud."',
   'content="winshotx · captura y grabación de pantalla para Windows"':
     'content="winshotx · screenshots and screen recording for Windows"',
-  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta tarde 28 ms y gasta 33 MB, graba GIF y trae editor. 2,2 MB, código abierto."':
-    'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms and 33 MB, records GIF and ships an editor. 2.2 MB, open source."',
-  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta tarde 28 ms y gasta 33 MB. 2,2 MB, código abierto."':
-    'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms and 33 MB. 2.2 MB, open source."',
+  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta tarde 28 ms y gasta 33 MB, graba GIF y trae editor. 2,50 MB, código abierto."':
+    'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms and 33 MB, records GIF and ships an editor. 2.50 MB, open source."',
+  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta tarde 28 ms y gasta 33 MB. 2,50 MB, código abierto."':
+    'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms and 33 MB. 2.50 MB, open source."',
   'content="winshotx: 28 ms contra 920 ms de la Herramienta de Recortes"':
     'content="winshotx: 28 ms against the Snipping Tool\'s 920 ms"',
   'content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, editor fotograma a fotograma, exportación y ajustes."':
@@ -192,6 +201,9 @@ const PAGINAS = [
   },
 ];
 
+/** Que claves de ATRIBUTOS ha encontrado de verdad alguna pagina. */
+const usadas = new Set();
+
 for (const pagina of PAGINAS) {
   const rutaOrigen = join(aqui, pagina.origen);
   let original = await readFile(rutaOrigen, "utf8");
@@ -206,7 +218,10 @@ for (const pagina of PAGINAS) {
   }
 
   let html = construirFaq(traducir(original), "en");
-  for (const [es, en] of Object.entries(ATRIBUTOS)) html = html.replaceAll(es, en);
+  for (const [es, en] of Object.entries(ATRIBUTOS)) {
+    if (html.includes(es)) usadas.add(es);
+    html = html.replaceAll(es, en);
+  }
   for (const [de, a] of Object.entries(pagina.propios)) {
     if (!html.includes(de)) throw new Error(`${pagina.origen}: no aparece ${de}`);
     html = html.replaceAll(de, a);
@@ -220,4 +235,14 @@ for (const pagina of PAGINAS) {
   console.log(
     `${pagina.destino.join("/")} generado${pendientes ? ` (quedan ${pendientes} sin traducir)` : ""}`,
   );
+}
+
+// Una clave que no aparece en ninguna pagina es una frase que se ha quedado en espannol al
+// otro lado, y sin esto no se entera nadie: la pagina se genera igual y parece correcta.
+const huerfanas = Object.keys(ATRIBUTOS).filter((es) => !usadas.has(es));
+if (huerfanas.length) {
+  console.error("Estas frases ya no estan en el HTML espannol, asi que su traduccion no se aplica:");
+  for (const es of huerfanas) console.error(`  ${es}`);
+  console.error("Cambia la clave en ATRIBUTOS por el texto que hay ahora, o quitala.");
+  process.exit(1);
 }
