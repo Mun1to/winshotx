@@ -8,6 +8,7 @@
 #![allow(clippy::needless_return)]
 
 pub mod autostart;
+pub mod empaquetado;
 pub mod clipboard;
 pub mod desktop_icons;
 pub mod ocr;

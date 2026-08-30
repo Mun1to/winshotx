@@ -826,6 +826,15 @@ pub async fn just_updated(app: AppHandle) -> bool {
     app.state::<AppState>().consumir_recien_actualizado()
 }
 
+/// Cierto si winshotx viene de la Microsoft Store. Lo pregunta la barra de abajo para
+/// no ponerse a buscar versiones nuevas: dentro de un paquete MSIX la carpeta de la app
+/// es de solo lectura, asi que el boton de actualizar no podria hacer nada aunque
+/// encontrase algo, y de eso ya se encarga la Store sola.
+#[tauri::command]
+pub async fn is_store_build() -> bool {
+    crate::platform::empaquetado::es_msix()
+}
+
 #[tauri::command]
 pub async fn discard_session(app: AppHandle, session_id: String) -> Result<()> {
     let state = app.state::<AppState>();

@@ -221,6 +221,7 @@ pub fn run() {
             commands::reveal_in_explorer,
             commands::discard_session,
             commands::just_updated,
+            commands::is_store_build,
             commands::cache_stats,
             commands::clear_cache,
             commands::shortcut_status,
