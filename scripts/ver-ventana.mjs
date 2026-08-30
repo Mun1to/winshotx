@@ -47,7 +47,10 @@ const bandera = (nombre, pordefecto) => {
 const salida = resolve(args.find((a) => !a.startsWith("--")) ?? "ventana.png");
 const ancho = bandera("ancho", "840");
 // El mismo alto que pide `tauri.conf.json`, para ver lo que de verdad entra sin rueda.
-const alto = bandera("alto", "640");
+// Estuvo en 640 mientras la ventana medía 510, así que las fotos enseñaban 130 px de más
+// y una sección que se salía por abajo parecía caber. Si se cambia el alto de la ventana,
+// se cambia aquí.
+const alto = bandera("alto", "510");
 const bienvenida = args.includes("--bienvenida");
 // Win+Mayús+S pedida pero todavía no conseguida, que es cuando sale el botón de aplicar.
 const teclaPendiente = args.includes("--tecla-pendiente");
@@ -341,14 +344,14 @@ addEventListener("load", () => {
     // cuarta sección, y dentro el botón del tour es el tercero de su bloque.
     document.querySelectorAll("header nav button")[3]?.click();
     setTimeout(() => {
-      // Por el TÍTULO del bloque, no por su contenido: la carpeta de destino también
-      // dice "winshotx" y así se colaba el bloque de Archivos.
-      const bloque = [...document.querySelectorAll("section")].find(
-        (s) => s.querySelector("h2")?.textContent.trim() === "winshotx",
-      );
-      const botones = bloque ? [...bloque.querySelectorAll("button")] : [];
-      // Actualizaciones, Bienvenida, Tour: el tercero.
-      botones[2]?.click();
+      // El botón "Tour" de la barra de abajo, buscado por su texto: se llama igual en los
+      // dos idiomas y no se mueve de sitio al añadir o quitar filas de un bloque. Antes se
+      // cogía el tercer botón del bloque "winshotx", y en cuanto ese bloque cambió de
+      // filas el clic empezó a caer en el interruptor de arrancar con Windows: el tour no
+      // se abría y la foto salía de la ventana normal, sin que nada avisara.
+      [...document.querySelectorAll("footer button")]
+        .find((b) => b.textContent.trim() === "Tour")
+        ?.click();
       let n = ${JSON.stringify(Number(tour))};
       const avanzar = () => {
         if (n-- <= 0) return;
