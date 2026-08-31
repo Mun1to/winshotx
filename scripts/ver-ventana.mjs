@@ -22,6 +22,7 @@
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --raton=300,260 --grabar
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --seleccion=200,180,600,380
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --tecla=p
+ *   node scripts/ver-ventana.mjs --overlay=escritorio.png --servir
  *
  * Cubre la ventana principal (bienvenida y ajustes) y, con --overlay, la de selección: ahí
  * hay que darle un PNG que haga de pantalla congelada, porque el overlay se dibuja encima
@@ -58,8 +59,13 @@ const teclaPendiente = args.includes("--tecla-pendiente");
 const anillo = args.includes("--anillo");
 // Ruta de un PNG que hará de pantalla congelada; si viene, se fotografía el overlay.
 const overlay = bandera("overlay", null);
-// Dónde dejar el puntero, para ver lo que solo aparece al pasar por encima.
+// Dónde dejar el puntero, para ver lo que solo aparece al pasar por encima. Ojo: son
+// eventos de puntero de mentira, así que despiertan lo que decide un componente al
+// recibirlos, y NO el `:hover` de CSS, que solo lo enciende un ratón de verdad.
 const raton = bandera("raton", null);
+// Deja el servidor levantado y escribe la URL en vez de fotografiar, para poder atacar la
+// misma pantalla con Playwright, que sí mueve el ratón de verdad y enciende el hover.
+const servir = args.includes("--servir");
 // Abre como si se hubiera pulsado el atajo de grabar, no el de capturar.
 const grabar = args.includes("--grabar");
 // Un recorte ya hecho, "x,y,ancho,alto", para ver lo que sale despues de soltar.
@@ -292,6 +298,8 @@ window.__TAURI_INTERNALS__ = {
 </script>`;
 
 // Sin ratón no hay hover, y lo que solo se ve al pasar por encima no sale en la foto.
+// Lo que se pinta con `hover:` o `group-hover:` de CSS no lo enciende esto: eso se mira
+// levantando la pantalla con `--servir` y mandando un ratón de verdad con Playwright.
 const RATON = raton
   ? `<script>
 addEventListener("load", () => {
@@ -508,6 +516,11 @@ server.listen(0, () => {
     pagina = "editor.html?session=vista";
   }
   const url = `http://127.0.0.1:${server.address().port}/${pagina}`;
+  // `--servir` no fotografía: deja la pantalla montada y en pie para que la mire otro.
+  if (servir) {
+    console.log(url);
+    return;
+  }
   const hijo = spawn(navegador, [
     "--headless=new",
     "--disable-gpu",

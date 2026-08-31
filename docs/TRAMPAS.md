@@ -703,3 +703,21 @@ texto del propio bloque. El boton de enviar se quedaba apagado, igual que con lo
 la trampa 30, y por el mismo motivo: **el estado de una seccion se calcula en el servidor y no
 se explica en la pantalla donde esta el fallo**.
 
+## 32. Un raton de mentira no enciende el `:hover`, y la foto sale igual que sin el
+
+`scripts/ver-ventana.mjs --raton=x,y` decia, en su propio comentario, «sin raton no hay hover».
+Lo que manda son `PointerEvent` creados a mano, y eso despierta lo que un componente decide al
+recibirlos (un `onPointerEnter` que cambia un estado), pero **no la pseudoclase `:hover` de
+CSS**, que solo la enciende el raton de verdad del navegador. Todo lo que se pinta con `hover:`
+o `group-hover:` de Tailwind sale en la foto **exactamente igual que si nadie estuviera encima**,
+sin un error, sin un aviso y sin diferencia visible con el caso bueno.
+
+Se vio al comprobar que la barra de arriba del overlay se aparta al pasar por encima: la foto
+con `--raton` encima de la barra salia identica a la de sin raton. Era cierto en la foto y falso
+en la app.
+
+La herramienta no puede arreglarlo por dentro: fotografia con Chrome de linea de ordenes
+(`--screenshot`), que no tiene por donde mover un puntero. Asi que se le puso `--servir`, que
+deja la pantalla montada y escribe su URL en vez de fotografiar, y el raton de verdad lo pone
+Playwright desde fuera con `page.mouse.move`. Es el mismo reparto que en la trampa 28: cada
+herramienta hace lo que puede hacer de verdad, y lo que no, se dice.
