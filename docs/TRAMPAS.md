@@ -632,3 +632,49 @@ es lo que hacen Playwright o el protocolo de depuracion con
 
 Asi que, hasta que ese servidor arranque, **lo movil no se da por comprobado con una captura**:
 o se emula el dispositivo, o se dice que no se ha mirado.
+
+## 29. La herramienta de mirar la ventana ensennaba una ventana que no existe
+
+`scripts/ver-ventana.mjs --escala=2` no daba la misma foto mas nitida: daba **otra ventana**.
+Multiplicaba `--window-size` por la escala, y ese parametro va en pixeles de CSS, no fisicos.
+Resultado: la pagina se pintaba a 1680x1020 en vez de a 840x510, el contenido salia en su
+tamanno de siempre y quedaba media foto de espacio vacio. Justo lo contrario del fallo del
+alto de la trampa 27, y con el mismo efecto: creer que sobra sitio donde no sobra.
+
+Se vio al preparar las capturas de la Store, porque una ficha con medio lienzo negro canta.
+Sin ese encargo habria seguido ahi.
+
+**Y en la misma herramienta, el idioma tampoco llegaba entero.** `--idioma=en` solo entraba
+en los ajustes de mentira, que son de la ventana principal. El editor no los pide: lee el
+idioma de `localStorage` antes que nada, para que la primera pintada ya salga bien. Asi que
+`--idioma=en` daba un editor **en espannol** sin que nada avisara. Ahora el idioma y el tema
+se siembran en `localStorage` antes del script de la app, que es donde los busca cada ventana.
+
+## 30. Partner Center: cuatro formas de perder lo que acabas de escribir
+
+Rellenando el envio de la Microsoft Store con Playwright, cuatro cosas que fallan calladas:
+
+1. **El campo de subir capturas acepta un archivo y punto.** Reusar el mismo input reemplaza
+   la anterior en vez de anadir: cinco subidas seguidas dejaban **una** captura. Cada subida
+   crea un hueco nuevo al final, asi que el input que toca es el numero de capturas que ya hay.
+2. **Los campos no tienen etiqueta accesible, y por posicion se cruzan.** Al responder que si
+   a lo de la informacion personal aparece un campo mas y todos los indices se corren: la URL
+   de privacidad acabo dentro del hueco de la web, la web dentro del de soporte y la de
+   soporte dentro del **numero de telefono**. Se localizan por el texto de su bloque.
+3. **`text=Guardar borrador` no encuentra el boton; `text="Guardar borrador"` si.** Con
+   comillas es coincidencia exacta. Y ese boton solo existe mientras haya cambios sin guardar,
+   asi que buscarlo antes de tocar nada da cero y parece que no lo hay.
+4. **El precio no se guarda solo, pero lo parece.** Al elegirlo desaparece el aviso de que
+   falta, y aun asi se pierde al recargar si no se pulsa guardar. El sintoma no es un error:
+   es que «Enviar para certificacion» se queda apagado sin decir cual de las seis secciones
+   le falta.
+
+**Y la peor, que es de las que no se ven:** guardar la pagina de la ficha cuando las filas de
+las caracteristicas todavia no habian terminado de cargar **las borro las once**, en los dos
+idiomas, sin un solo mensaje. La descripcion y las capturas seguian ahi, asi que a ojo la
+pagina parecia bien. Solo se vio al mirar la foto de la ficha entera.
+
+**La leccion, que es la de siempre:** despues de guardar un formulario que no controlas, se
+recarga y se cuenta lo que hay. Que el guardado no de error no significa que haya guardado lo
+que estaba en la pantalla.
+
