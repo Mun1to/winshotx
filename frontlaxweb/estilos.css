@@ -711,7 +711,16 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .palanca:disabled { opacity: .4; cursor: default; }
 
 /* ---------- rejillas y tabla ---------- */
-.rejilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 30px; }
+/* Doce tarjetas en tres columnas: cuatro filas exactas y ningun hueco.
+   Estuvo con once mas una destacada a lo ancho, y la cuarta fila se quedaba con dos
+   tarjetas y un agujero al lado, que es lo primero que se ve al llegar aqui.
+   Cada fila toma el alto de su tarjeta mas larga (lo que hace la rejilla por su cuenta)
+   y no se igualan TODAS entre si: forzar eso dejaba medio cuerpo de aire debajo de los
+   textos cortos, que se ve peor que una fila mas baja que otra. */
+.rejilla {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; margin-top: 30px;
+}
 .caja {
   background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio);
   padding: 24px; transition: border-color .18s, transform .18s, background .18s, box-shadow .18s;
@@ -721,26 +730,26 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   box-shadow: 0 16px 32px -20px #0006;
 }
 .caja .ico {
-  width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; flex: none;
-  background: linear-gradient(155deg, #0a9bff3d, #0a9bff14); color: var(--azul); margin-bottom: 14px;
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none;
+  background: linear-gradient(155deg, #0a9bff3d, #0a9bff14); color: var(--azul);
+  border: 1px solid #0a9bff26; margin-bottom: 16px;
 }
-.caja .ico svg { width: 21px; height: 21px; }
+.caja .ico svg { width: 22px; height: 22px; }
+/* El icono se ilumina con su tarjeta: sin esto el hover mueve la caja entera y el icono
+   se queda igual, que es lo que hace que un hover parezca a medio hacer. */
+.caja:hover .ico { background: linear-gradient(155deg, #0a9bff5c, #0a9bff1f); border-color: #0a9bff45; }
 .caja h3 { font-size: 16.5px; margin-bottom: 7px; letter-spacing: -0.015em; }
-.caja p { font-size: 14px; color: var(--suave); }
+/* `pretty` evita que la ultima linea se quede con una palabra suelta, que con parrafos
+   de tres o cuatro lineas pasa en casi todas y hace que la rejilla se vea sucia. */
+.caja p { font-size: 14px; line-height: 1.62; color: var(--suave); text-wrap: pretty; }
 
-/* la ultima caja rompe la rejilla en vez de dejarla desbalanceada: en 7 tarjetas de 3
-   columnas, la septima se queda sola con dos huecos vacios al lado si no se destaca. */
-.caja-ancha {
-  grid-column: 1 / -1; display: flex; align-items: center; gap: 22px;
-  background: linear-gradient(120deg, #0a9bff14, var(--panel) 45%);
+/* Con dos columnas los pares siguen cuadrando (seis filas), y con una, cada tarjeta se
+   mide sola: ahi igualar alturas solo dejaria huecos debajo del texto corto. */
+@media (max-width: 1000px) {
+  .rejilla { grid-template-columns: repeat(2, 1fr); }
 }
-.caja-ancha .ico { margin-bottom: 0; width: 50px; height: 50px; }
-.caja-ancha .ico svg { width: 24px; height: 24px; }
-.caja-ancha h3 { font-size: 17px; }
-
 @media (max-width: 760px) {
-  .rejilla { grid-template-columns: 1fr; }
-  .caja-ancha { flex-direction: column; align-items: flex-start; text-align: left; }
+  .rejilla { grid-template-columns: 1fr; grid-auto-rows: auto; }
 }
 
 /* ---------- preguntas frecuentes ----------
