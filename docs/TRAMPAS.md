@@ -722,50 +722,34 @@ deja la pantalla montada y escribe su URL en vez de fotografiar, y el raton de v
 Playwright desde fuera con `page.mouse.move`. Es el mismo reparto que en la trampa 28: cada
 herramienta hace lo que puede hacer de verdad, y lo que no, se dice.
 
-## 33. Una ventana escondida no arranca su interfaz, asi que precrearla no adelanta nada
+## 33. CORREGIDA: lo que cuesta despertar una ventana escondida son ~310 ms
 
-El menu de la bandeja se creaba en el primer clic derecho, a proposito, para no tener otra
-webview encendida todo el dia. Munir se quejo de que ese primer clic tardaba, y el arreglo
-parecia evidente: crear la ventana al arrancar y dejarla escondida, como ya se hace con los
-overlays (`windows_mgr::precrear_overlays`).
+**Esta trampa estuvo escrita al reves durante unas horas y hay que contar por que**, porque
+el error de metodo vale mas que el dato.
 
-**No habria servido de nada.** Creada al arrancar y escondida, quince segundos despues la
-ventana seguia sin pedir su estado y sin pintarse: WebView2 no navega ni ejecuta el
-JavaScript de una ventana que no se ha ensennado nunca. Lo unico que ahorra crearla antes
-son los **273 ms** del cascarron; todo lo caro (montar la interfaz, pedir el estado, medirse)
-seguia pasando en el primer clic, que es justo lo que se queria quitar.
+Decia que «una ventana escondida no arranca su interfaz», y de ahi salio un arreglo del menu
+de la bandeja que la ensennaba fuera de las pantallas para «despertarla». **Era falso.** El
+binario con el que se midio estaba compilado con `cargo build --release` a secas, y ese
+binario **no lleva la interfaz dentro**: la busca en el servidor de desarrollo. Con Vite
+apagado, cada ventana ensennaba la pagina de error de Edge («localhost rechazo la conexion»)
+y por eso ningun cronometro del frontend disparaba nunca. Se dio por hecho que la interfaz
+no arrancaba, cuando lo que pasaba es que no existia.
 
-Por eso `tray_menu::precalentar` la ensenna una vez **fuera de todas las pantallas** y la
-esconde en cuanto la interfaz avisa de su alto. Y el aparcadero se calcula con
-`available_monitors`, no con un numero negativo a ojo: con un monitor a la izquierda del
-principal, las coordenadas negativas son pantalla de verdad. Es el mismo fallo que ya mordio
-tres veces al colocar el menu.
+**Lo que hay de verdad, medido con `pnpm tauri build`, que es el que la mete dentro:**
 
-**Y el numero que habia decidido lo contrario estaba mal.** El comentario del modulo decia
-que otra webview encendida son «decenas de megas en reposo». Medido sumando el proceso y
-todos sus hijos de webview: **377,7 MB en reposo y 384-389 MB con el menu preparado**, o sea
-entre 7 y 11 MB. Una frase escrita a ojo mantuvo el fallo meses.
+| Momento | Desde que se pulsa el atajo |
+|---|---|
+| Pantallas congeladas y escritas | 123 ms |
+| Ventanas ensennadas | 296 ms |
+| **El overlay reacciona al aviso** | **606 ms** |
+| Congelado de 8 MB leido | 688 ms |
+| **Imagen pintada, lo que se ve** | **689-717 ms** |
 
-### Y calentar tampoco es gratis: hay que hacerlo cuando no estorbe
-
-La primera version del arreglo calentaba el menu **dentro del arranque**, y Munir lo noto a
-la primera: *«ahora tarda mas que antes en cargar al principio»*, y al preguntarle que era
-exactamente, *«basicamente capturar al principio»*. La ventana del menu se estaba creando y
-cargando su interfaz en el mismo momento en que el pool crea las tres ventanas de overlay,
-asi que le quitaba el sitio justo a lo que si tiene prisa: la primera captura.
-
-Ahora se espera seis segundos, y si en ese momento hay una captura o una grabacion en
-marcha, vuelve a esperar. **Precalentar algo solo sale a cuenta si se hace cuando no hay
-nadie esperando.** El menu de la bandeja no tiene prisa; la captura si.
-
-### Y de propina, dos formas de medir que no median nada
-
-- **En debug, la app carga la interfaz del servidor de Vite** (`devUrl`), no de `dist/`. Sin
-  `pnpm dev` levantado, la ventana se queda vacia para siempre: los cronometros nunca se
-  disparan y parece que el fallo es del codigo. Cualquier medida del frontend hay que
-  tomarla en **release**.
-- **En release no hay consola** (`windows_subsystem = "windows"`), asi que un `println!`
-  para medir no aparece por ningun lado. Se escribe a un archivo o no se ve.
+O sea que el atajo tarda **700 ms**, no los 296 que se creian, y **el trozo mas gordo son los
+310 ms que pasan entre que Rust ensenna la ventana y el navegador de dentro se entera**.
+Windows suspende el navegador de una ventana escondida, y los overlays viven escondidos
+entre captura y captura para poder reutilizarlos: ese es el peaje del pool, y no estaba
+medido. Leer el BMP de 8 MB y pintarlo son 83 ms, que no era el problema.
 
 ## 34. Preguntarle algo a una ventana desde otro hilo espera SIN PLAZO, y cuelga la app
 
@@ -837,3 +821,33 @@ tardaba el doble o la mitad segun el momento.
 y se dice el rango, o se dice con que configuracion se midio. Un numero que solo se cumple
 con un monitor, anunciado sin decirlo, es una cifra que se rompe sola en cuanto alguien
 conecta la segunda.
+
+## 36. `cargo build --release` NO deja una aplicacion que se pueda mirar
+
+Es la trampa que hizo falsa la 33 y que costo una tarde entera. Compilar con:
+
+```
+cargo build --release
+```
+
+deja un `winshotx.exe` que arranca, ensenna sus ventanas y **no tiene la interfaz dentro**:
+cada ventana intenta cargarla de `http://localhost:1421`, el servidor de Vite. Si ese
+servidor no esta levantado, las ventanas ensennan la pagina de error del navegador y la
+aplicacion parece funcionar a medias sin decir por que.
+
+El que sirve para mirar es:
+
+```
+pnpm tauri build
+```
+
+que ejecuta antes `pnpm build` y empaqueta `dist/` dentro del binario.
+
+**Como se ve desde fuera, para reconocerlo la proxima vez:** las ventanas se abren, tienen su
+tamanno, responden, y por dentro estan en blanco o con un mensaje de error del navegador. Y
+cualquier cronometro que dependa del frontend **no dispara nunca**, que es justo lo que
+parece «la interfaz no arranca».
+
+**La regla: todo lo que se mida del frontend se mide sobre un binario hecho con
+`pnpm tauri build`.** Y si un cronometro del frontend no imprime NADA, la primera sospecha
+no es el codigo: es que no hay frontend.
