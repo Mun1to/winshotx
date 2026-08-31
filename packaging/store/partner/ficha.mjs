@@ -26,6 +26,30 @@ await (await campo("Descripción", "textarea")).fill(d.descripcion);
 await (await campo("descripción más breve y pegadiza", "textarea")).fill(d.corta);
 await (await campo("copyright y marca registrada", "input[type=text]")).fill(d.copyright);
 await (await campo("Desarrollado por", "input[type=text]")).fill(d.desarrollado);
+
+// Las palabras clave: son lo que la Store usa para que te encuentren buscando, viven
+// escondidas detras de «Informacion adicional» y se quedaron vacias en el primer envio
+// porque nunca se listaron los campos de la pagina, solo los que ya se iban a rellenar.
+// Se escriben una a una y cada una se cierra con Enter, que es como las toma el control.
+const mas = page.locator('text="Mostrar opciones"');
+for (let i = 0; i < await mas.count(); i++) {
+  await mas.nth(i).click().catch(() => {});
+  await page.waitForTimeout(700);
+}
+const claves = page.locator('input[type=text]').filter({ has: page.locator("xpath=.") });
+const iClaves = await idx("Palabras clave", "input[type=text]");
+if (iClaves >= 0) {
+  const campoClaves = page.locator("input[type=text]").nth(iClaves);
+  for (const palabra of d.palabrasClave ?? []) {
+    await campoClaves.click();
+    await campoClaves.type(palabra, { delay: 25 });
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(700);
+  }
+  console.log("palabras clave:", (d.palabrasClave ?? []).length);
+} else {
+  console.log("AVISO: no encuentro el campo de palabras clave");
+}
 const base = await idx("Agregar más", "input[type=text]");
 await page.locator("input[type=text]").nth(base).fill(d.caracteristicas[0]);
 for (let i = 1; i < d.caracteristicas.length; i++) {
