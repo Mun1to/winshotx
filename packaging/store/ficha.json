@@ -1,0 +1,43 @@
+{
+  "_lee_esto": "El texto de la ficha de la Microsoft Store, en los dos idiomas del paquete. Vive aqui y no solo en Partner Center para que la proxima version se pueda revisar en un diff en vez de a ojo dentro de un formulario.",
+  "en-us": {
+    "descripcion": "winshotx is a screenshot and screen recording tool for Windows that stays out of your way. It lives in the system tray, opens its selection in 28 milliseconds and ships as a 2.5 MB installer. No account, no cloud, no telemetry.\n\nCAPTURE A REGION\nPress the shortcut and the screen freezes. Drag over whatever you want. Until you start the selection, a 6x pixel magnifier follows the cursor with the hex colour of the pixel underneath. Move the cursor without dragging and the window below is highlighted: one click takes it whole, with its real coordinates. The result goes to a PNG file, to the clipboard, or straight into the editor.\n\nRECORD GIF AND MP4\nThe same gesture for video: drag over a region and record it. The MP4 is written by Media Foundation in hardware. The GIF comes from a hand written encoder with a global palette, Floyd-Steinberg dithering and inter-frame differencing, which is what keeps the files small. Nothing is downloaded at runtime and no FFmpeg is bundled.\n\nTHE LAST FEW SECONDS\nTurn the ring on and winshotx records all the time, dropping the old as it goes. When something worth keeping has just happened, one key saves the last 15, 30 or 60 seconds. You choose the screen, the quality and the frame rate, and saving does not stop the recording.\n\nTHE EDITOR\nEvery recording opens in a frame by frame editor: A and B trim marks, looped playback, scaling, and six marks to annotate with, which are an arrow, a rectangle, text, a highlight, a numbered step and a mosaic. It can zoom in on every click of the recording, decided after recording rather than before, and export at 0.5x, 2x or 4x speed.\n\nIT STAYS OUT OF THE WAY\nIt installs per user, so Windows never asks for administrator rights. It uses around 33 MB while capturing. If you want, Print Screen can open winshotx instead of the Snipping Tool, and you can hand the key back whenever you like.\n\nFREE AND OPEN SOURCE\nMIT licensed, with the whole source at github.com/Mun1to/winshotx. It collects nothing: what you capture stays on your computer and never leaves it.",
+    "corta": "Screenshot and screen recording for Windows: region capture with a pixel magnifier, GIF and MP4 recording, a ring that keeps the last seconds you did not record, and a frame by frame editor. 2.5 MB, no account, no cloud, MIT licensed.",
+    "novedades": "",
+    "caracteristicas": [
+      "Opens the selection in 28 ms and uses around 33 MB while capturing",
+      "Region capture with a 6x pixel magnifier and the hex colour under the cursor",
+      "Snap to any window with a single click, at its real coordinates",
+      "Records GIF and MP4 with nothing downloaded at runtime and no FFmpeg bundled",
+      "Keeps the last 15, 30 or 60 seconds without having pressed record beforehand",
+      "Frame by frame editor with A and B trim marks, looped playback and scaling",
+      "Six marks to annotate with: arrow, rectangle, text, highlight, numbered step and mosaic",
+      "Zooms in on every click of a recording, decided after recording",
+      "A 2.5 MB installer that installs per user, so Windows never asks for admin rights",
+      "No account, no cloud and no telemetry: what you capture stays on your computer",
+      "MIT licensed, with the whole source on GitHub"
+    ],
+    "copyright": "© 2026 Munir Torres. MIT licence.",
+    "desarrollado": "Munir Torres"
+  },
+  "es-es": {
+    "descripcion": "winshotx es una herramienta de captura y grabación de pantalla para Windows que no se pone por delante. Vive en la bandeja del sistema, abre su selección en 28 milisegundos y su instalador pesa 2,5 MB. Sin cuentas, sin nube y sin telemetría.\n\nCAPTURAR UNA REGIÓN\nPulsa el atajo y la pantalla se congela. Arrastra sobre lo que quieras. Mientras no empieces la selección, una lupa de 6 aumentos sigue al cursor y enseña el color hexadecimal del píxel de debajo. Mueve el cursor sin arrastrar y la ventana de abajo se resalta: un clic la coge entera, con sus coordenadas reales. Lo que salga va a un archivo PNG, al portapapeles o directamente al editor.\n\nGRABAR EN GIF Y EN MP4\nEl mismo gesto para el vídeo: arrastra sobre una región y grábala. El MP4 lo escribe Media Foundation por hardware. El GIF sale de un codificador escrito a mano, con paleta global, tramado Floyd-Steinberg y diferencia entre fotogramas, que es lo que hace pequeños los archivos. No se descarga nada al usarla y no lleva FFmpeg dentro.\n\nLOS ÚLTIMOS SEGUNDOS\nEnciende el anillo y winshotx graba todo el rato, tirando lo viejo. Cuando acaba de pasar algo que merece la pena, una tecla guarda los últimos 15, 30 o 60 segundos. Eliges la pantalla, la calidad y los fotogramas por segundo, y guardar no para la grabación.\n\nEL EDITOR\nCada grabación se abre en un editor fotograma a fotograma: marcas A y B para recortar, reproducción en bucle, escalado y seis marcas para anotar, que son flecha, rectángulo, texto, resaltado, paso numerado y mosaico. Puede acercarse a cada clic de la grabación, decidido después de grabar y no antes, y exportar a 0,5x, 2x o 4x.\n\nNO ESTORBA\nSe instala solo para tu usuario, así que Windows nunca pide permisos de administrador. Gasta unos 33 MB mientras captura. Si quieres, la tecla Impr Pant abre winshotx en vez de la Herramienta de Recortes, y se la puedes devolver cuando te apetezca.\n\nGRATIS Y CON EL CÓDIGO ABIERTO\nCon licencia MIT y todo el código en github.com/Mun1to/winshotx. No recoge nada: lo que capturas se queda en tu ordenador y no sale de ahí.",
+    "corta": "Captura y grabación de pantalla para Windows: captura de región con lupa de píxel, grabación en GIF y MP4, un anillo que guarda los últimos segundos que no grabaste y un editor fotograma a fotograma. 2,5 MB, sin cuentas, sin nube y con licencia MIT.",
+    "novedades": "",
+    "caracteristicas": [
+      "Abre la selección en 28 ms y gasta unos 33 MB mientras captura",
+      "Captura de región con lupa de 6 aumentos y el color hexadecimal bajo el cursor",
+      "Ajuste a cualquier ventana con un solo clic, con sus coordenadas reales",
+      "Graba GIF y MP4 sin descargar nada al usarla y sin FFmpeg dentro",
+      "Guarda los últimos 15, 30 o 60 segundos sin haber dado a grabar antes",
+      "Editor fotograma a fotograma con marcas A y B, bucle y escalado",
+      "Seis marcas para anotar: flecha, rectángulo, texto, resaltado, paso numerado y mosaico",
+      "Se acerca a cada clic de una grabación, decidido después de grabar",
+      "Instalador de 2,5 MB que se instala por usuario: Windows no pide administrador",
+      "Sin cuentas, sin nube y sin telemetría: lo que capturas se queda en tu ordenador",
+      "Licencia MIT, con todo el código en GitHub"
+    ],
+    "copyright": "© 2026 Munir Torres. Licencia MIT.",
+    "desarrollado": "Munir Torres"
+  }
+}
