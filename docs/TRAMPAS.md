@@ -746,6 +746,18 @@ que otra webview encendida son «decenas de megas en reposo». Medido sumando el
 todos sus hijos de webview: **377,7 MB en reposo y 384-389 MB con el menu preparado**, o sea
 entre 7 y 11 MB. Una frase escrita a ojo mantuvo el fallo meses.
 
+### Y calentar tampoco es gratis: hay que hacerlo cuando no estorbe
+
+La primera version del arreglo calentaba el menu **dentro del arranque**, y Munir lo noto a
+la primera: *«ahora tarda mas que antes en cargar al principio»*, y al preguntarle que era
+exactamente, *«basicamente capturar al principio»*. La ventana del menu se estaba creando y
+cargando su interfaz en el mismo momento en que el pool crea las tres ventanas de overlay,
+asi que le quitaba el sitio justo a lo que si tiene prisa: la primera captura.
+
+Ahora se espera seis segundos, y si en ese momento hay una captura o una grabacion en
+marcha, vuelve a esperar. **Precalentar algo solo sale a cuenta si se hace cuando no hay
+nadie esperando.** El menu de la bandeja no tiene prisa; la captura si.
+
 ### Y de propina, dos formas de medir que no median nada
 
 - **En debug, la app carga la interfaz del servidor de Vite** (`devUrl`), no de `dist/`. Sin
@@ -754,3 +766,41 @@ entre 7 y 11 MB. Una frase escrita a ojo mantuvo el fallo meses.
   tomarla en **release**.
 - **En release no hay consola** (`windows_subsystem = "windows"`), asi que un `println!`
   para medir no aparece por ningun lado. Se escribe a un archivo o no se ve.
+
+## 34. Preguntarle algo a una ventana desde otro hilo espera SIN PLAZO, y cuelga la app
+
+La 0.2.13 se le quedo frita a Munir nada mas instalarla. El proceso estaba vivo, con su
+icono en la bandeja, pero **no respondia a un solo mensaje de Windows** (`Responding=False`)
+y tenia **dos ventanas de captura a 800x600**, que es el tamanno con el que nacen antes de
+que `precrear_overlays` les de el de su monitor: el arranque se habia quedado a medias.
+
+Lo unico que cambiaba respecto a la 0.2.12 era una comprobacion de tres lineas, «¿hay una
+captura en marcha?», hecha **desde un hilo aparte**:
+
+```rust
+app.webview_windows().iter().any(|(etiqueta, ventana)| {
+    etiqueta.starts_with(OVERLAY_PREFIX) && ventana.is_visible().unwrap_or(false)
+})
+```
+
+`is_visible()` parece una consulta inocente y no lo es. En `tauri-runtime-wry`,
+`send_user_message` mira en que hilo estas: si es el principal, atiende el mensaje ahi
+mismo; si no, lo manda al bucle de eventos y espera la respuesta con un **`rx.recv()` sin
+plazo** (macro `getter!`). Basta con que el bucle este ocupado creando ventanas para que ese
+hilo se quede clavado para siempre, y con el, lo que venga detras.
+
+**La regla: todo lo que toca ventanas se hace en el hilo principal.** El hilo de fondo solo
+sirve para dormir; cuando toca trabajar, se manda el trabajo entero con `run_on_main_thread`
+y alli dentro se pregunta y se actua sin canales de por medio.
+
+### Y lo que de verdad fallo fue la comprobacion
+
+Se probo seis veces antes de publicar y las seis salieron bien. Es una carrera: depende del
+momento exacto en que el hilo despierta. **Una pasada en verde de algo que depende del
+tiempo no prueba nada**, y se dio por bueno igual.
+
+De ahi sale `scripts/arranca-bien.mjs`: arranca la aplicacion, espera a que pase el momento
+peligroso y comprueba que responde y que las ventanas se terminaron de crear. Con
+`--vueltas=6 --carga` lo hace seis veces con la maquina saturada, que es cuando estas cosas
+salen. Ninguna prueba de `cargo test` podia ver esto: el fallo no esta en ninguna funcion,
+esta en dos hilos esperandose.

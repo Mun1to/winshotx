@@ -12,7 +12,7 @@
 //! pedir el estado y medirse antes de que se vea nada. Medido, tener el menu preparado
 //! cuesta entre 7 y 11 MB, no las decenas que se temian.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -68,6 +68,9 @@ const ESPERA_ANTES_DE_CALENTAR: Duration = Duration::from_secs(6);
 /// arriba son dos minutos largos: pasados esos, se prepara igual, porque si no la primera
 /// vez que hiciera falta el menu volveria a costar lo de siempre.
 const ESPERAS_MAXIMAS: u32 = 20;
+
+/// Cuantas rondas se han dado ya, para que las esperas no se encadenen para siempre.
+static INTENTOS: AtomicU32 = AtomicU32::new(0);
 
 /// Cuanto se espera a que la interfaz diga que ya se ha pintado antes de esconderla igual.
 ///
@@ -154,42 +157,49 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     Ok(window)
 }
 
-/// Deja el menu hecho y con su interfaz cargada antes de que nadie lo pida.
-///
-/// **Una ventana escondida no arranca su interfaz.** Se comprobo el 31 de agosto de 2026:
-/// creada al arrancar y escondida, quince segundos despues seguia sin pedir su estado ni
-/// pintarse. WebView2 no navega hasta que la ventana se ensenna, asi que crearla y dejarla
-/// escondida solo ahorra los ~270 ms del cascarron y deja lo caro para el primer clic.
-///
-/// Por eso se ensenna una vez **fuera de todas las pantallas**, donde no la ve nadie, y se
-/// esconde en cuanto la interfaz avisa de su alto (`redimensionar`), que es la sennal de
-/// que ya esta pintada. `CALENTAMIENTO_MAXIMO` la esconde igual si esa sennal no llega.
 /// Prepara el menu cuando el arranque ya ha terminado, sin robarle tiempo.
 ///
 /// Vuelve al momento, asi que se puede llamar desde el arranque sin retrasarlo. Ver
 /// `ESPERA_ANTES_DE_CALENTAR` y `precalentar`.
+///
+/// **El hilo de aqui solo duerme.** Todo lo que toca ventanas se hace en el hilo
+/// principal, de una vez, y por una razon muy concreta: preguntarle a una ventana desde
+/// otro hilo si se ve (`is_visible`) manda un mensaje al bucle de eventos y espera la
+/// respuesta **sin plazo** (`getter!` de `tauri-runtime-wry` hace `rx.recv()`), asi que
+/// basta con que el bucle este ocupado creando ventanas para dejar ese hilo colgado. La
+/// 0.2.13 preguntaba desde fuera y a Munir se le quedo la aplicacion frita al arrancar.
 pub fn precalentar_cuando_no_estorbe(app: &AppHandle) {
+    if INTENTOS.load(Ordering::SeqCst) > ESPERAS_MAXIMAS {
+        return;
+    }
     let suyo = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(ESPERA_ANTES_DE_CALENTAR);
-        // Y si justo en ese momento se esta capturando o grabando, se espera. El menu no
-        // corre ninguna prisa; lo que no puede es ponerse por delante de una captura, que
-        // es exactamente lo que se noto al prepararlo dentro del arranque.
-        for _ in 0..ESPERAS_MAXIMAS {
-            if !hay_algo_en_marcha(&suyo) {
-                break;
-            }
-            std::thread::sleep(ESPERA_ANTES_DE_CALENTAR);
-        }
         let copia = suyo.clone();
-        let _ = suyo.run_on_main_thread(move || precalentar(&copia));
+        let _ = suyo.run_on_main_thread(move || cuando_toque(&copia));
     });
+}
+
+/// Ya en el hilo principal: o se prepara el menu, o se deja para mas tarde.
+///
+/// Aqui `is_visible` y compannia se ejecutan en el acto, sin canales ni esperas: el propio
+/// `send_user_message` de Tauri, si ya esta en el hilo principal, atiende el mensaje en vez
+/// de mandarlo al bucle.
+fn cuando_toque(app: &AppHandle) {
+    if hay_algo_en_marcha(app) {
+        // El menu no tiene ninguna prisa y la captura si: otra ronda.
+        INTENTOS.fetch_add(1, Ordering::SeqCst);
+        precalentar_cuando_no_estorbe(app);
+        return;
+    }
+    precalentar(app);
 }
 
 /// Si la aplicacion esta a lo suyo: capturando o grabando.
 ///
 /// La captura se reconoce por el pool de overlays: si alguna de esas ventanas esta a la
-/// vista, hay una seleccion en marcha en alguna pantalla.
+/// vista, hay una seleccion en marcha en alguna pantalla. **Solo se llama desde el hilo
+/// principal**, ver `precalentar_cuando_no_estorbe`.
 fn hay_algo_en_marcha(app: &AppHandle) -> bool {
     if app.state::<crate::state::AppState>().is_recording() {
         return true;
@@ -200,6 +210,16 @@ fn hay_algo_en_marcha(app: &AppHandle) -> bool {
     })
 }
 
+/// Deja el menu hecho y con su interfaz cargada antes de que nadie lo pida.
+///
+/// **Una ventana escondida no arranca su interfaz.** Se comprobo el 31 de agosto de 2026:
+/// creada al arrancar y escondida, quince segundos despues seguia sin pedir su estado ni
+/// pintarse. WebView2 no navega hasta que la ventana se ensenna, asi que crearla y dejarla
+/// escondida solo ahorra los ~270 ms del cascarron y deja lo caro para el primer clic.
+///
+/// Por eso se ensenna una vez **fuera de todas las pantallas**, donde no la ve nadie, y se
+/// esconde en cuanto la interfaz avisa de su alto (`redimensionar`), que es la sennal de
+/// que ya esta pintada. `CALENTAMIENTO_MAXIMO` la esconde igual si esa sennal no llega.
 fn precalentar(app: &AppHandle) {
     let window = match ventana(app) {
         Ok(w) => w,
@@ -217,6 +237,7 @@ fn precalentar(app: &AppHandle) {
         std::thread::sleep(CALENTAMIENTO_MAXIMO);
         if CALENTANDO.swap(false, Ordering::SeqCst) {
             eprintln!("[bandeja] el menú no ha avisado de que estaba listo; lo escondo igual");
+            // Esconder es tocar una ventana: al hilo principal, como todo lo demas.
             let copia = suyo.clone();
             let _ = suyo.run_on_main_thread(move || esconder(&copia));
         }
