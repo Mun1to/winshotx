@@ -14,6 +14,8 @@ src-tauri/gen/
 # Documentos internos del taller: no viajan a un repositorio publico (regla P).
 AGENTS.md
 docs/METAS.md
+# Las incidencias y lo que dice Munir de como se trabaja: interno, como el buzon.
+FEEDBACK.md
 docs/SEO-ESTADO.md
 docs/investigacion/
 .playwright-mcp/
