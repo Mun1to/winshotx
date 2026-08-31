@@ -851,3 +851,25 @@ parece «la interfaz no arranca».
 **La regla: todo lo que se mida del frontend se mide sobre un binario hecho con
 `pnpm tauri build`.** Y si un cronometro del frontend no imprime NADA, la primera sospecha
 no es el codigo: es que no hay frontend.
+
+## 37. Pintar el congelado directo del protocolo asset es MAS lento que copiarlo a memoria
+
+El overlay trae el congelado con `fetch`, lo mete en un blob y de ahi al `<img>`. Parece un
+rodeo tonto: son 8 MB por pantalla que se leen del disco, se copian a JavaScript, se
+envuelven y se decodifican, y ademas `createImageBitmap` los vuelve a decodificar para la
+lupa. Lo evidente es darle la URL del protocolo asset al `<img>` y que el navegador lo cargue
+una sola vez sin pasar por JavaScript.
+
+**Medido, doce capturas: el camino "evidente" tarda casi el doble.**
+
+| | Del atajo a ver la imagen |
+|---|---|
+| Con `fetch` a un blob (lo que hay) | 460-600 ms |
+| Directo del protocolo asset al `<img>` | **777-1477 ms** |
+
+No se investigo mas alla del numero, porque el numero ya decide: **se revirtio**. La sospecha
+es que el manejador del protocolo asset entrega peor a un `<img>` que a un `fetch`, pero eso
+esta sin comprobar y aqui se anota como lo que es, una sospecha.
+
+**Lo que si vale como regla:** en este proyecto, cualquier idea de rendimiento se mide antes
+de quedarsela, aunque parezca de cajon que va a mejorar. Esta parecia de cajon.
