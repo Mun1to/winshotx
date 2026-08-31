@@ -434,11 +434,45 @@ fn cursor_position() -> Option<(i32, i32)> {
 /// Esconde el overlay en vez de cerrarlo: la ventana se reutiliza en la siguiente
 /// captura, ver `open_overlays`.
 pub fn close_overlays(app: &AppHandle) {
+    let aparcadero = aparcadero(app);
     for (label, window) in app.webview_windows() {
         if label.starts_with(OVERLAY_PREFIX) {
-            let _ = window.hide();
+            // **Aparcada fuera de las pantallas, no escondida.**
+            //
+            // Una ventana escondida se queda sin atender: al ensennarla otra vez tardaba
+            // entre 300 y 490 ms en enterarse siquiera del aviso de Rust, y ahi se iba la
+            // mitad de lo que tarda el atajo (medido: de 905 a 623 ms el camino entero,
+            // hasta ver la imagen). Aparcada sigue existiendo para Windows, asi que
+            // reacciona antes, y como esta fuera de todas las pantallas no la ve nadie.
+            //
+            // Se probo el camino "limpio" de decirle al navegador que no duerma las
+            // ventanas ocultas (`additional_browser_args` con los tres interruptores de
+            // Chromium) y **deja el overlay en blanco**: esos argumentos SUSTITUYEN a los
+            // que pone wry, y algo de lo que se pierde por el camino se lleva la interfaz
+            // por delante. Mas rapido y roto no vale.
+            let _ = window.set_position(aparcadero);
         }
     }
+}
+
+/// Un punto fuera de todas las pantallas, donde aparcar un overlay sin que se vea.
+///
+/// No vale un numero grande y negativo a ojo: con un monitor a la izquierda del principal,
+/// las coordenadas negativas son pantalla de verdad. Se busca la esquina de mas arriba y
+/// mas a la izquierda de todo el escritorio y se sale de ahi por el alto de la pantalla mas
+/// alta, que es lo que puede llegar a medir un overlay.
+fn aparcadero(app: &AppHandle) -> PhysicalPosition<i32> {
+    let mut x = 0;
+    let mut y = 0;
+    let mut alto = 1080;
+    if let Ok(monitores) = app.available_monitors() {
+        for m in monitores {
+            x = x.min(m.position().x);
+            y = y.min(m.position().y);
+            alto = alto.max(m.size().height as i32);
+        }
+    }
+    PhysicalPosition::new(x - 200, y - alto - 200)
 }
 
 /// Barra flotante que acompanna a la grabacion, justo debajo de la region.
