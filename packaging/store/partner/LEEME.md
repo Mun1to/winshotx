@@ -26,6 +26,11 @@ que volver a pasar por el. Estos tres guiones lo rellenan con Playwright.
 4. **El precio no se guarda solo.** Aunque el aviso de que falta desaparezca al elegirlo,
    si no se pulsa «Guardar borrador» se pierde al recargar, y «Enviar para certificacion»
    se queda apagado sin decir por que.
+5. **Las palabras clave no son un campo de texto** y no salen al enumerar los `input`: son un
+   `he-select` con `freeform` dentro de `#search-terms`. Se teclean (con `fill` se mezclan con
+   las que recomienda el control), y despues del Enter hace falta un **Tab**: sin sacar el
+   foco la etiqueta se ve puesta, se guarda sin error y al recargar no hay ninguna. Son **7
+   como maximo**, y pasarse deja la ficha en «Incompleto» sin marcar nada en rojo.
 
 ## Lo que NO hacen estos guiones, a proposito
 

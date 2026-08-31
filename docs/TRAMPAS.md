@@ -678,3 +678,28 @@ pagina parecia bien. Solo se vio al mirar la foto de la ficha entera.
 recarga y se cuenta lo que hay. Que el guardado no de error no significa que haya guardado lo
 que estaba en la pantalla.
 
+## 31. Una palabra escrita a mano que se ve puesta y no se guarda
+
+Las palabras clave de la ficha de la Store se quedaron vacias en el primer envio, y hubo que
+cancelar la certificacion para meterlas. Dos fallos encadenados, los dos silenciosos:
+
+**El primero es de bulto: el campo nunca se miro.** Se relleno la ficha buscando los campos
+que ya se habia decidido rellenar, en vez de listar lo que la pagina tenia. Las palabras clave
+viven debajo de «Informacion adicional» y no salen al enumerar los `input[type=text]`, porque
+no son un campo de texto: son un `he-select` multiple con `freeform` dentro de `#search-terms`.
+
+**El segundo es mas fino.** Al teclear una palabra y pulsar Enter, la etiqueta aparece en el
+campo, con su aspa y todo. Se guarda, no da ningun error, y al recargar **no hay ninguna**. Lo
+que falta es sacar el foco: con un **Tab** despues del Enter se confirma y persiste.
+
+La pista de que el problema era el texto escrito a mano fue probar con una de las palabras que
+el propio control recomienda: esa si persistia. Comparar lo que funciona con lo que no vale
+mas que mirar diez veces lo que no funciona.
+
+**Y de propina, un limite que no se ve hasta que estorba:** son 7 palabras clave como maximo.
+Al probar se dejo una de mas, y la ficha se quedo en «Incompleto» sin que la pagina marcase
+nada en rojo. El mensaje, «No puede agregar mas de 7 palabras clave», solo salia leyendo el
+texto del propio bloque. El boton de enviar se quedaba apagado, igual que con lo del precio de
+la trampa 30, y por el mismo motivo: **el estado de una seccion se calcula en el servidor y no
+se explica en la pantalla donde esta el fallo**.
+
