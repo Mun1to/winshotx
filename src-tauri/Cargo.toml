@@ -1,6 +1,6 @@
 [package]
 name = "winshotx"
-version = "0.2.17"
+version = "0.2.18"
 description = "Captura de pantalla y grabación GIF/MP4 local, ligera y open source"
 authors = ["munir"]
 license = "MIT"
