@@ -55,6 +55,20 @@ const RECIEN_ESCONDIDO: Duration = Duration::from_millis(300);
 /// menu que el usuario nunca vio en vez de abrirlo.
 static CALENTANDO: AtomicBool = AtomicBool::new(false);
 
+/// Cuanto se deja pasar desde que arranca la aplicacion antes de preparar el menu.
+///
+/// Preparalo DENTRO del arranque costaba: crear la ventana son unos 270 ms y ademas su
+/// interfaz se pone a cargar compitiendo con las tres ventanas del pool de overlays, que
+/// se crean en ese mismo momento. Munir lo noto a la primera: «ahora tarda mas que antes
+/// en cargar al principio». El menu no lo necesita nadie en los primeros segundos de vida
+/// de la aplicacion, asi que se espera a que no haya nadie esperando.
+const ESPERA_ANTES_DE_CALENTAR: Duration = Duration::from_secs(6);
+
+/// Cuantas veces se vuelve a esperar si la aplicacion esta ocupada. Con la espera de
+/// arriba son dos minutos largos: pasados esos, se prepara igual, porque si no la primera
+/// vez que hiciera falta el menu volveria a costar lo de siempre.
+const ESPERAS_MAXIMAS: u32 = 20;
+
 /// Cuanto se espera a que la interfaz diga que ya se ha pintado antes de esconderla igual.
 ///
 /// La sennal buena es la llamada a `redimensionar`. Este plazo es la red de seguridad para
@@ -150,7 +164,43 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
 /// Por eso se ensenna una vez **fuera de todas las pantallas**, donde no la ve nadie, y se
 /// esconde en cuanto la interfaz avisa de su alto (`redimensionar`), que es la sennal de
 /// que ya esta pintada. `CALENTAMIENTO_MAXIMO` la esconde igual si esa sennal no llega.
-pub fn precalentar(app: &AppHandle) {
+/// Prepara el menu cuando el arranque ya ha terminado, sin robarle tiempo.
+///
+/// Vuelve al momento, asi que se puede llamar desde el arranque sin retrasarlo. Ver
+/// `ESPERA_ANTES_DE_CALENTAR` y `precalentar`.
+pub fn precalentar_cuando_no_estorbe(app: &AppHandle) {
+    let suyo = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(ESPERA_ANTES_DE_CALENTAR);
+        // Y si justo en ese momento se esta capturando o grabando, se espera. El menu no
+        // corre ninguna prisa; lo que no puede es ponerse por delante de una captura, que
+        // es exactamente lo que se noto al prepararlo dentro del arranque.
+        for _ in 0..ESPERAS_MAXIMAS {
+            if !hay_algo_en_marcha(&suyo) {
+                break;
+            }
+            std::thread::sleep(ESPERA_ANTES_DE_CALENTAR);
+        }
+        let copia = suyo.clone();
+        let _ = suyo.run_on_main_thread(move || precalentar(&copia));
+    });
+}
+
+/// Si la aplicacion esta a lo suyo: capturando o grabando.
+///
+/// La captura se reconoce por el pool de overlays: si alguna de esas ventanas esta a la
+/// vista, hay una seleccion en marcha en alguna pantalla.
+fn hay_algo_en_marcha(app: &AppHandle) -> bool {
+    if app.state::<crate::state::AppState>().is_recording() {
+        return true;
+    }
+    app.webview_windows().iter().any(|(etiqueta, ventana)| {
+        etiqueta.starts_with(crate::windows_mgr::OVERLAY_PREFIX)
+            && ventana.is_visible().unwrap_or(false)
+    })
+}
+
+fn precalentar(app: &AppHandle) {
     let window = match ventana(app) {
         Ok(w) => w,
         Err(error) => {

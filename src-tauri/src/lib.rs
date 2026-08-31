@@ -176,8 +176,9 @@ pub fn run() {
             // nota nadie: la primera captura del dia encuentra el pool ya listo.
             windows_mgr::precrear_overlays(&handle);
             // Y el menu de la bandeja, por lo mismo: el primer clic derecho pagaba crear
-            // la ventana, cargar la interfaz y medirse. Ver `tray_menu::precalentar`.
-            tray_menu::precalentar(&handle);
+            // la ventana, cargar la interfaz y medirse. Pero unos segundos DESPUES, no
+            // ahora: hacerlo aqui retrasaba el arranque. Ver `tray_menu::precalentar`.
+            tray_menu::precalentar_cuando_no_estorbe(&handle);
 
             // La primera vez se abre sola con la bienvenida: recien instalada, la app
             // vive en la bandeja y sin esto no habria nada que mirar. Y al actualizar
