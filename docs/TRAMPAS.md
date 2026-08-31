@@ -721,3 +721,36 @@ La herramienta no puede arreglarlo por dentro: fotografia con Chrome de linea de
 deja la pantalla montada y escribe su URL en vez de fotografiar, y el raton de verdad lo pone
 Playwright desde fuera con `page.mouse.move`. Es el mismo reparto que en la trampa 28: cada
 herramienta hace lo que puede hacer de verdad, y lo que no, se dice.
+
+## 33. Una ventana escondida no arranca su interfaz, asi que precrearla no adelanta nada
+
+El menu de la bandeja se creaba en el primer clic derecho, a proposito, para no tener otra
+webview encendida todo el dia. Munir se quejo de que ese primer clic tardaba, y el arreglo
+parecia evidente: crear la ventana al arrancar y dejarla escondida, como ya se hace con los
+overlays (`windows_mgr::precrear_overlays`).
+
+**No habria servido de nada.** Creada al arrancar y escondida, quince segundos despues la
+ventana seguia sin pedir su estado y sin pintarse: WebView2 no navega ni ejecuta el
+JavaScript de una ventana que no se ha ensennado nunca. Lo unico que ahorra crearla antes
+son los **273 ms** del cascarron; todo lo caro (montar la interfaz, pedir el estado, medirse)
+seguia pasando en el primer clic, que es justo lo que se queria quitar.
+
+Por eso `tray_menu::precalentar` la ensenna una vez **fuera de todas las pantallas** y la
+esconde en cuanto la interfaz avisa de su alto. Y el aparcadero se calcula con
+`available_monitors`, no con un numero negativo a ojo: con un monitor a la izquierda del
+principal, las coordenadas negativas son pantalla de verdad. Es el mismo fallo que ya mordio
+tres veces al colocar el menu.
+
+**Y el numero que habia decidido lo contrario estaba mal.** El comentario del modulo decia
+que otra webview encendida son «decenas de megas en reposo». Medido sumando el proceso y
+todos sus hijos de webview: **377,7 MB en reposo y 384-389 MB con el menu preparado**, o sea
+entre 7 y 11 MB. Una frase escrita a ojo mantuvo el fallo meses.
+
+### Y de propina, dos formas de medir que no median nada
+
+- **En debug, la app carga la interfaz del servidor de Vite** (`devUrl`), no de `dist/`. Sin
+  `pnpm dev` levantado, la ventana se queda vacia para siempre: los cronometros nunca se
+  disparan y parece que el fallo es del codigo. Cualquier medida del frontend hay que
+  tomarla en **release**.
+- **En release no hay consola** (`windows_subsystem = "windows"`), asi que un `println!`
+  para medir no aparece por ningun lado. Se escribe a un archivo o no se ve.

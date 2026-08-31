@@ -6,10 +6,13 @@
 //! ademas lo que deja poner ahi el anillo de los ultimos segundos como lo que es, un
 //! interruptor, y no como una entrada que enciende y otra que apaga.
 //!
-//! **Se crea la primera vez que se abre, no al arrancar.** Una webview mas encendida todo
-//! el dia son decenas de megas en reposo, y la memoria en reposo es medio argumento de
-//! venta de winshotx. Despues se queda escondida, asi que solo la primera vez cuesta.
+//! **Se prepara al arrancar, escondida** (ver `precalentar`). Se hizo al reves durante un
+//! tiempo, creandola en el primer clic derecho para no tener otra webview encendida todo
+//! el dia, y ese primer clic se notaba: hay que crear la ventana, cargar la interfaz,
+//! pedir el estado y medirse antes de que se vea nada. Medido, tener el menu preparado
+//! cuesta entre 7 y 11 MB, no las decenas que se temian.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -44,6 +47,19 @@ static ESCONDIDO_EN: Mutex<Option<Instant>> = Mutex::new(None);
 /// Lo que tarda el clic en llegar despues de que el menu pierda el foco. Medido a ojo y
 /// generoso: mas de un cuarto de segundo entre las dos cosas ya es otro clic distinto.
 const RECIEN_ESCONDIDO: Duration = Duration::from_millis(300);
+
+/// Si el menu esta ensennado fuera de las pantallas para que cargue (ver `precalentar`).
+///
+/// Mientras dure, la ventana esta «visible» para Windows pero no la ve nadie, asi que no
+/// cuenta como menu abierto: sin esto, un clic derecho durante el arranque cerraria un
+/// menu que el usuario nunca vio en vez de abrirlo.
+static CALENTANDO: AtomicBool = AtomicBool::new(false);
+
+/// Cuanto se espera a que la interfaz diga que ya se ha pintado antes de esconderla igual.
+///
+/// La sennal buena es la llamada a `redimensionar`. Este plazo es la red de seguridad para
+/// que un fallo del frontend no deje una ventana suelta fuera de la pantalla.
+const CALENTAMIENTO_MAXIMO: Duration = Duration::from_secs(10);
 
 /// Donde se pone el menu, dado el punto del icono de la bandeja.
 ///
@@ -124,6 +140,57 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     Ok(window)
 }
 
+/// Deja el menu hecho y con su interfaz cargada antes de que nadie lo pida.
+///
+/// **Una ventana escondida no arranca su interfaz.** Se comprobo el 31 de agosto de 2026:
+/// creada al arrancar y escondida, quince segundos despues seguia sin pedir su estado ni
+/// pintarse. WebView2 no navega hasta que la ventana se ensenna, asi que crearla y dejarla
+/// escondida solo ahorra los ~270 ms del cascarron y deja lo caro para el primer clic.
+///
+/// Por eso se ensenna una vez **fuera de todas las pantallas**, donde no la ve nadie, y se
+/// esconde en cuanto la interfaz avisa de su alto (`redimensionar`), que es la sennal de
+/// que ya esta pintada. `CALENTAMIENTO_MAXIMO` la esconde igual si esa sennal no llega.
+pub fn precalentar(app: &AppHandle) {
+    let window = match ventana(app) {
+        Ok(w) => w,
+        Err(error) => {
+            eprintln!("[bandeja] no se ha podido preparar el menú: {error}");
+            return;
+        }
+    };
+    CALENTANDO.store(true, Ordering::SeqCst);
+    let _ = window.set_position(aparcadero(app));
+    let _ = window.show();
+
+    let suyo = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(CALENTAMIENTO_MAXIMO);
+        if CALENTANDO.swap(false, Ordering::SeqCst) {
+            eprintln!("[bandeja] el menú no ha avisado de que estaba listo; lo escondo igual");
+            let copia = suyo.clone();
+            let _ = suyo.run_on_main_thread(move || esconder(&copia));
+        }
+    });
+}
+
+/// Un punto fuera de todas las pantallas, para calentar el menu sin que se vea.
+///
+/// No vale un numero grande y negativo a ojo: con un monitor a la izquierda del principal,
+/// las coordenadas negativas son pantalla de verdad. Se busca la esquina de mas arriba y
+/// mas a la izquierda de todo el escritorio y se sale de ahi por el alto del menu.
+fn aparcadero(app: &AppHandle) -> PhysicalPosition<i32> {
+    let mut x = 0;
+    let mut y = 0;
+    if let Ok(monitores) = app.available_monitors() {
+        for m in monitores {
+            x = x.min(m.position().x);
+            y = y.min(m.position().y);
+        }
+    }
+    let alto = (MENU_ALTO_INICIAL * 2.0) as i32;
+    PhysicalPosition::new(x - alto, y - alto)
+}
+
 pub fn esconder(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) {
         let _ = window.hide();
@@ -131,6 +198,9 @@ pub fn esconder(app: &AppHandle) {
 }
 
 fn esta_a_la_vista(app: &AppHandle) -> bool {
+    if CALENTANDO.load(Ordering::SeqCst) {
+        return false;
+    }
     app.get_webview_window(TRAY_MENU_LABEL)
         .and_then(|w| w.is_visible().ok())
         .unwrap_or(false)
@@ -138,6 +208,9 @@ fn esta_a_la_vista(app: &AppHandle) -> bool {
 
 /// Lo coloca sobre el icono de la bandeja y lo ensenna.
 fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
+    // Si se estaba calentando, se acabo: a partir de aqui la ventana es un menu de verdad
+    // y su proximo `redimensionar` tiene que colocarla, no esconderla.
+    CALENTANDO.store(false, Ordering::SeqCst);
     let window = ventana(app)?;
     let escala = window.scale_factor().unwrap_or(1.0);
     let medida = window
@@ -192,6 +265,12 @@ pub fn redimensionar(app: &AppHandle, alto: f64) {
     let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) else {
         return;
     };
+    // Esta es la sennal de que la interfaz ya esta montada y pintada. Si aun se estaba
+    // calentando, el trabajo esta hecho: se esconde y se queda lista para el primer clic.
+    if CALENTANDO.swap(false, Ordering::SeqCst) {
+        let _ = window.hide();
+        return;
+    }
     let escala = window.scale_factor().unwrap_or(1.0);
     let ancho = (MENU_ANCHO * escala) as u32;
     let alto_px = (alto * escala).round().max(80.0) as u32;
