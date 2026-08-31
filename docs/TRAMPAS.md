@@ -804,3 +804,36 @@ peligroso y comprueba que responde y que las ventanas se terminaron de crear. Co
 `--vueltas=6 --carga` lo hace seis veces con la maquina saturada, que es cuando estas cosas
 salen. Ninguna prueba de `cargo test` podia ver esto: el fallo no esta en ninguna funcion,
 esta en dos hilos esperandose.
+
+## 35. Los 28 ms se midieron con UNA pantalla, y con tres son diez veces mas
+
+winshotx anuncia, en el README y en toda la web, **28 ms desde que se pulsa el atajo hasta
+que la seleccion esta en pantalla**, contra los 920 ms de la Herramienta de Recortes. Es la
+cifra que mas se defiende del producto.
+
+En la maquina de Munir, con **tres pantallas** (1920x1080, 1080x1920 y 1536x960), ese mismo
+camino tardaba **270 ms con el anillo apagado y hasta 586 ms con el encendido**. Diez o
+veinte veces la cifra publicada, y nadie lo habia visto porque nunca se midio con mas de una
+pantalla.
+
+**El motivo estaba a la vista en `capture::freeze_all`:** las pantallas se fotografiaban en
+un `for`, una detras de otra. Escribir los archivos si estaba paralelizado con
+`thread::scope` justo debajo, asi que la mitad del trabajo iba en paralelo y la otra mitad
+en fila. Con una pantalla eso no se nota; con tres se paga tres veces.
+
+Puestas a la vez, una por hilo (cada uno se busca su monitor, porque `xcap::Monitor` lleva un
+puntero crudo y no se puede mandar entre hilos):
+
+| Con el anillo encendido | Antes | Ahora |
+|---|---|---|
+| Congelar | 157 / 176 / 392 ms | 116-138 ms |
+| Hasta ensennar la seleccion | 277 / 378 / **586** ms | **234-272 ms** |
+
+No es 3x, porque las capturas comparten la tuberia de video, pero **el peor caso pasa de 586
+a 272** y sobre todo desaparece la irregularidad, que es lo que se nota: antes el mismo atajo
+tardaba el doble o la mitad segun el momento.
+
+**Lo que hay que hacer con la cifra publicada:** o se mide en una maquina de varias pantallas
+y se dice el rango, o se dice con que configuracion se midio. Un numero que solo se cumple
+con un monitor, anunciado sin decirlo, es una cifra que se rompe sola en cuanto alguien
+conecta la segunda.

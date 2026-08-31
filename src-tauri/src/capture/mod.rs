@@ -115,14 +115,43 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
     std::fs::create_dir_all(dir)?;
     let monitors = xcap::Monitor::all().map_err(|e| AppError::Msg(e.to_string()))?;
 
-    let mut capturas = Vec::with_capacity(monitors.len());
-    for (index, monitor) in monitors.iter().enumerate() {
-        let info = describir(index, monitor)?;
-        let image = monitor
-            .capture_image()
-            .map_err(|e| AppError::Msg(e.to_string()))?;
-        capturas.push((index, info, image));
-    }
+    // Las pantallas se fotografian A LA VEZ, una por hilo.
+    //
+    // Estaban en fila, y con una pantalla eso da igual, pero con tres se paga tres veces:
+    // en la maquina de Munir (1920x1080 + 1080x1920 + 1536x960) congelarlas costaba 150 ms
+    // de los 270 que tarda el atajo entero, y el numero que la app anuncia y defiende son
+    // 28 ms desde el atajo hasta ver la seleccion. Escribir los archivos ya se hacia en
+    // paralelo aqui abajo; fotografiar, no.
+    // Cada hilo se busca SU monitor en vez de recibirlo: `xcap::Monitor` lleva un puntero
+    // crudo dentro (el identificador que da Windows), asi que no se puede mandar de un hilo
+    // a otro. Volver a enumerar cuesta microsegundos, que al lado de fotografiar una
+    // pantalla no es nada, y evita tener que prometerle al compilador algo que no se puede
+    // comprobar sobre un tipo de otra biblioteca.
+    let cuantos = monitors.len();
+    let capturas = std::thread::scope(|scope| -> Result<Vec<_>> {
+        let handles: Vec<_> = (0..cuantos)
+            .map(|index| {
+                scope.spawn(move || -> Result<(usize, MonitorInfo, image::RgbaImage)> {
+                    let suyos = xcap::Monitor::all().map_err(|e| AppError::Msg(e.to_string()))?;
+                    let monitor = suyos
+                        .get(index)
+                        .ok_or_else(|| AppError::Msg("una pantalla ha desaparecido".into()))?;
+                    let info = describir(index, monitor)?;
+                    let image = monitor
+                        .capture_image()
+                        .map_err(|e| AppError::Msg(e.to_string()))?;
+                    Ok((index, info, image))
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join()
+                    .map_err(|_| AppError::Msg("una pantalla ha fallado al congelarse".into()))?
+            })
+            .collect()
+    })?;
 
     if capturas.is_empty() {
         return Err(AppError::Msg("no se ha detectado ningún monitor".into()));
