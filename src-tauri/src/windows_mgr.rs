@@ -388,7 +388,7 @@ fn build_overlay_window(app: &AppHandle, label: &str, monitor_id: u32) -> Result
         .build()?)
 }
 
-/// Crea de antemano las ventanas overlay de los monitores actuales, ocultas, sin esperar
+/// Crea de antemano las ventanas overlay de los monitores actuales, aparcadas, sin esperar
 /// a la primera captura del dia. Se llama una vez al arrancar la app: en ese momento no
 /// hay ninguna ventana visible que el usuario este esperando (winshotx arranca en la
 /// bandeja), asi que el coste de montar cada WebView2 no lo nota nadie. Sin esto, la
@@ -411,8 +411,16 @@ pub fn precrear_overlays(app: &AppHandle) {
         let Ok(window) = build_overlay_window(app, &label, index as u32) else {
             continue;
         };
-        let _ = window.set_position(PhysicalPosition::new(x, y));
         let _ = window.set_size(PhysicalSize::new(width, height));
+        // Aparcada fuera de las pantallas y ENSENNADA, no escondida.
+        //
+        // Una ventana que no se ha ensennado nunca no tiene interfaz montada, asi que la
+        // primera captura del dia pagaba entero el arranque de su navegador. Aparcada
+        // fuera se monta ahora, mientras nadie espera nada (la app vive en la bandeja), y
+        // el primer atajo la encuentra despierta. Es lo mismo que hace `close_overlays`
+        // entre captura y captura, y por la misma razon.
+        let _ = window.set_position(aparcadero(app));
+        let _ = window.show();
     }
 }
 
