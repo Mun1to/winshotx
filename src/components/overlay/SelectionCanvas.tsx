@@ -403,8 +403,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       switch (e.key) {
         case "Escape":
           e.preventDefault();
-          if (selectionRef.current) setSelection(null);
-          else void cancelCapture();
+          // Un solo Escape se sale, haya recorte hecho o no. Antes el primero borraba el
+          // recorte y hacia falta otro para cerrar: quien pulsa Escape encima de una
+          // captura quiere irse, y el recorte se rehace arrastrando otra vez, sin tener
+          // que borrarlo antes.
+          void cancelCapture();
           return;
         case "Enter":
           e.preventDefault();
