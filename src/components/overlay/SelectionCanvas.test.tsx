@@ -1,8 +1,9 @@
 /**
  * El overlay de selección entero.
  *
- * Aquí se comprueba lo que ninguna pieza suelta puede ver, porque empieza en un
- * componente y acaba en otro. De momento, salir con Escape.
+ * Aquí se comprueban los dos gestos que ninguna pieza suelta puede ver, porque empiezan
+ * en un componente y acaban en otro: salir con Escape, y empezar a recortar justo donde
+ * está la barra de arriba.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +14,9 @@ import type { OverlayPayload, Settings } from "../../lib/types";
 
 const ANCHO = window.innerWidth;
 const ALTO = window.innerHeight;
+
+/** La barra vive arriba y centrada: este punto cae dentro de ella. */
+const EN_LA_BARRA = { x: Math.round(ANCHO / 2), y: 30 };
 
 const AJUSTES = {
   captureFlow: "toolbar",
@@ -104,5 +108,43 @@ describe("salir de la captura", () => {
     await waitFor(() =>
       expect(llamadas.some((l) => l.comando === "cancel_capture")).toBe(true),
     );
+  });
+});
+
+describe("la barra de arriba no se queda el sitio", () => {
+  it("se puede empezar a recortar encima de ella", async () => {
+    // La barra tapa una franja del centro de arriba, y ahí no había forma de arrastrar:
+    // el botón se quedaba el gesto entero.
+    const lienzo = await abrir();
+    const boton = screen.getByLabelText("Foto");
+    fireEvent.pointerDown(boton, { clientX: EN_LA_BARRA.x, clientY: EN_LA_BARRA.y, buttons: 1 });
+    fireEvent.pointerMove(lienzo, { clientX: EN_LA_BARRA.x + 260, clientY: 190, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: EN_LA_BARRA.x + 260, clientY: 190, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: EN_LA_BARRA.x + 260, clientY: 190 });
+
+    expect(recorte()).toBe("260 × 160");
+  });
+
+  it("pero un clic seco sigue siendo del botón, y no recorta nada", async () => {
+    await abrir();
+    const boton = screen.getByLabelText("GIF");
+    fireEvent.pointerDown(boton, { clientX: EN_LA_BARRA.x, clientY: EN_LA_BARRA.y, buttons: 1 });
+    fireEvent.pointerUp(boton, { clientX: EN_LA_BARRA.x, clientY: EN_LA_BARRA.y });
+    fireEvent.click(boton);
+
+    expect(recorte()).toBeNull();
+    expect(llamadas.some((l) => l.comando === "capture_still")).toBe(false);
+  });
+
+  it("y soltar el botón deja el ratón libre: moverlo después no dibuja solo", async () => {
+    // El gesto queda apuntado hasta que se sepa qué es. Si no se borra al soltar, el
+    // siguiente movimiento del ratón, ya sin botón, se ponía a recortar por su cuenta.
+    const lienzo = await abrir();
+    const boton = screen.getByLabelText("Foto");
+    fireEvent.pointerDown(boton, { clientX: EN_LA_BARRA.x, clientY: EN_LA_BARRA.y, buttons: 1 });
+    fireEvent.pointerUp(boton, { clientX: EN_LA_BARRA.x, clientY: EN_LA_BARRA.y });
+
+    fireEvent.pointerMove(lienzo, { clientX: 700, clientY: 600, buttons: 0 });
+    expect(recorte()).toBeNull();
   });
 });

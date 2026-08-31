@@ -276,6 +276,7 @@ Lo que cubre y por qué esas cuatro cosas y no otras:
 | `src/lib/contener.test.ts` | Dónde cae la imagen dentro de su hueco, que es lo que decide si lo dibujado encima acaba en su sitio dentro del archivo. |
 | `src/lib/recorte.test.ts` | Las cuentas del recorte: esquinas al revés, arrastres de nada y marcos que se salen. |
 | `src/components/editor/EditorApp.test.tsx` | Que las capas caigan **encima de la imagen** y que `Escape` no cierre el editor, que tira los fotogramas, mientras se está haciendo algo. |
+| `src/components/overlay/SelectionCanvas.test.tsx` | Los dos gestos que empiezan en un componente y acaban en otro: que **un solo `Escape`** cierre la captura, y que se pueda empezar a recortar **encima de la barra de arriba** sin que un clic suyo recorte nada. |
 | `src-tauri/src/encode/zoom.rs` | Que la cámara se acerque a tiempo, no maree y no se salga de la imagen. Incluida una que mueve el ratón en vaivén y exige que la cámara se quede quieta. |
 | `src-tauri/src/record/teclas.rs` | **La regla que impide que una contraseña acabe en el vídeo.** Su prueba leía el teclado de verdad, así que fallaba por azar y no podía comprobar lo que importa; ahora la regla recibe las teclas como argumento. |
 | `ver_una_grabacion_de_verdad` | Abre una grabación real y deja PNG para mirarlos. Si el zoom se acerca a donde toca no lo dice ningún `assert`. |

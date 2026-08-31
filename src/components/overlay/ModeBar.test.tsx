@@ -8,7 +8,7 @@
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ModeBar } from "./ModeBar";
+import { ModeBar, SELECTOR_BARRA } from "./ModeBar";
 import { aplicarIdioma } from "../../lib/i18n";
 import type { CaptureMode } from "../../lib/types";
 
@@ -78,12 +78,51 @@ describe("lo que hace la barra", () => {
     expect(onPantallaEntera).toHaveBeenCalledWith(false);
   });
 
-  it("la barra no deja que el clic llegue al lienzo de detras", () => {
-    // Sin esto, pulsar un boton de la barra empezaba a dibujar una seleccion debajo.
-    const { onChange } = pintar();
-    const barra = screen.getByLabelText("Foto").parentElement!.parentElement!;
-    const evento = new Event("pointerdown", { bubbles: true, cancelable: true });
-    barra.dispatchEvent(evento);
-    expect(onChange).not.toHaveBeenCalled();
+  it("deja pasar el arrastre al lienzo de detras", () => {
+    // La barra tapa una franja del centro de arriba y ahi no habia forma de empezar a
+    // recortar: se quedaba ella el gesto. Ahora lo deja pasar, y es el lienzo quien
+    // decide si aquello fue un clic suyo o un arrastre (ver SelectionCanvas.test.tsx).
+    const lienzo = vi.fn();
+    render(
+      <div onPointerDown={lienzo}>
+        <ModeBar
+          value="still"
+          pantallaEntera={false}
+          dimmed={false}
+          onChange={vi.fn()}
+          onPantallaEntera={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </div>,
+    );
+    fireEvent.pointerDown(screen.getByLabelText("Foto"));
+    expect(lienzo).toHaveBeenCalled();
+  });
+
+  it("se marca en el DOM con el mismo selector que busca el lienzo", () => {
+    // La constante es la unica atadura entre las dos mitades: si el atributo se cae, el
+    // lienzo deja de reconocer los gestos de la barra y un clic en un boton se lleva la
+    // ventana de debajo.
+    pintar();
+    const barra = document.querySelector(SELECTOR_BARRA);
+    expect(barra).not.toBeNull();
+    expect(barra!.contains(screen.getByLabelText("Foto"))).toBe(true);
+  });
+
+  it("mientras se arrastra se quita del medio del todo", () => {
+    // Atenuada no basta: lo que se esta recortando suele ser justo lo que hay debajo.
+    render(
+      <ModeBar
+        value="still"
+        pantallaEntera={false}
+        dimmed
+        onChange={vi.fn()}
+        onPantallaEntera={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    const barra = document.querySelector(SELECTOR_BARRA)!;
+    expect(barra).toHaveClass("opacity-0");
+    expect(barra).toHaveClass("pointer-events-none");
   });
 });

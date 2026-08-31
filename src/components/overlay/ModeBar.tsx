@@ -2,6 +2,15 @@ import { Camera, Monitor, Video, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { useT } from "../../lib/i18n";
 
+/**
+ * Como reconoce el lienzo un gesto que nace en la barra.
+ *
+ * La barra ya no se queda los `pointerdown`: se puede empezar a recortar por debajo de
+ * ella. El lienzo necesita distinguir ese gesto para no tratar el clic de un boton como
+ * un clic suyo, y esta constante es la unica atadura entre los dos lados.
+ */
+export const SELECTOR_BARRA = "[data-barra-modos]";
+
 interface Props {
   value: CaptureMode;
   onChange: (mode: CaptureMode) => void;
@@ -35,12 +44,16 @@ export function ModeBar({
   const t = useT();
   return (
     <div
-      onPointerDown={(e) => e.stopPropagation()}
-      className={`pointer-events-auto absolute top-6 left-1/2 z-50 -translate-x-1/2 transition-opacity duration-150 ${
-        dimmed ? "opacity-25" : "opacity-100"
+      data-barra-modos
+      className={`group absolute top-6 left-1/2 z-50 -translate-x-1/2 transition-opacity duration-150 ${
+        dimmed ? "pointer-events-none opacity-0" : "pointer-events-auto opacity-100 hover:opacity-40"
       }`}
     >
-      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-neutral-900/90 p-1.5 shadow-2xl backdrop-blur-xl">
+      {/* Al pasar el raton por encima se aparta: pierde el panel, la sombra y el
+          desenfoque, y se queda en un fantasma. La franja de arriba del centro es sitio
+          de capturar, y un rectangulo negro ahi tapaba justo lo que se iba a recortar.
+          Sigue pulsandose igual, y el arrastre la atraviesa (ver SELECTOR_BARRA). */}
+      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-neutral-900/90 p-1.5 shadow-2xl backdrop-blur-xl transition-[background-color,border-color,box-shadow,backdrop-filter] duration-150 group-hover:border-white/5 group-hover:bg-neutral-900/10 group-hover:shadow-none group-hover:backdrop-blur-none">
         <Boton
           activo={value === "still"}
           onClick={() => onChange("still")}

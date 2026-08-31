@@ -33,7 +33,7 @@ import { BootScreen } from "./BootScreen";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
-import { ModeBar } from "./ModeBar";
+import { ModeBar, SELECTOR_BARRA } from "./ModeBar";
 import { ScreenPicker } from "./ScreenPicker";
 import { SelectionHandles, type HandleId } from "./SelectionHandles";
 
@@ -64,6 +64,11 @@ function applyHandle(base: Rect, handle: HandleId, x: number, y: number): Rect {
   if (handle.startsWith("n")) top = y;
   if (handle.startsWith("s")) bottom = y;
   return normalize(left, top, right, bottom);
+}
+
+/** Si un gesto de puntero nacio dentro de la barra de arriba. */
+function enLaBarra(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(SELECTOR_BARRA) !== null;
 }
 
 function contains(rect: Rect, x: number, y: number): boolean {
@@ -149,6 +154,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   selectionRef.current = selection;
   /** El numero de ESTA pantalla, para saber si una orden por numero va con nosotros. */
   const numeroPantalla = useRef(0);
+
+  /**
+   * Donde se apreto el boton encima de la barra de arriba, mientras no se sepa que es.
+   *
+   * La barra ocupa una franja del centro de arriba y ahi no se podia empezar a recortar:
+   * se quedaba ella el `pointerdown`. Ahora el gesto se decide al moverse, que es la
+   * unica forma de que las dos cosas quepan en el mismo sitio: si el puntero se va, se
+   * recorta por debajo de la barra; si se suelta sin moverse, el clic es del boton.
+   */
+  const origenBarra = useRef<{ x: number; y: number } | null>(null);
 
   /** Pixeles fisicos por pixel CSS: el freeze manda, el webview puede estar escalado por DPI. */
   const scale = useMemo(() => {
@@ -616,6 +631,13 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (busy) return;
+    // Lo que nace encima de la barra todavia no es nada: se apunta donde empezo y se
+    // espera a ver si el puntero se mueve (recorte por debajo) o se suelta (clic del
+    // boton). Ver `origenBarra`.
+    if (enLaBarra(e.target)) {
+      origenBarra.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
     // Con "pantalla entera" puesto no hay nada que arrastrar: donde caiga el clic, esa
     // pantalla se lleva, y se lleva YA. Un clic es un clic, tambien con el perfil de la
     // barra: quien pide la pantalla entera ya ha dicho lo que quiere.
@@ -635,6 +657,30 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    const desdeLaBarra = origenBarra.current;
+    if (desdeLaBarra) {
+      // `buttons` a cero es que ya se solto: aquello era un clic de la barra y este
+      // movimiento no arrastra nada. Sin esta linea, mover el raton despues de pulsar un
+      // boton se ponia a dibujar un recorte solo.
+      if (e.buttons === 0 || pantallaEntera || busy) {
+        origenBarra.current = null;
+      } else if (
+        Math.abs(e.clientX - desdeLaBarra.x) >= MIN_DRAG ||
+        Math.abs(e.clientY - desdeLaBarra.y) >= MIN_DRAG
+      ) {
+        origenBarra.current = null;
+        // Sin candidata: quien arrastra desde la barra quiere SU recorte, no la ventana
+        // que haya debajo.
+        setMode({
+          kind: "drawing",
+          originX: desdeLaBarra.x,
+          originY: desdeLaBarra.y,
+          candidate: null,
+        });
+        setSelection(normalize(desdeLaBarra.x, desdeLaBarra.y, e.clientX, e.clientY));
+        return;
+      }
+    }
     if (mode.kind !== "idle") return;
     setCursor({ x: e.clientX, y: e.clientY });
     readHex(e.clientX, e.clientY);
