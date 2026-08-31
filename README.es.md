@@ -9,7 +9,7 @@
 [![Licencia MIT](https://img.shields.io/badge/licencia-MIT-0a9bff?style=flat-square)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#estado)
 [![Última versión](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=versión)](https://github.com/Mun1to/winshotx/releases/latest)
-[![Instalador 2,35 MB](https://img.shields.io/badge/instalador-2,2%20MB-22c55e?style=flat-square)](#instalación)
+[![Instalador 2,50 MB](https://img.shields.io/badge/instalador-2,50%20MB-22c55e?style=flat-square)](#instalación)
 [![Hecho con Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 
@@ -25,7 +25,7 @@
 
 Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región con lupa de
 píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Abre la selección en 28 ms, gasta
-33 MB de memoria y cabe en un instalador de 2,35 MB. Sin cuenta, sin nube, sin telemetría y sin
+33 MB de memoria y cabe en un instalador de 2,50 MB. Sin cuenta, sin nube, sin telemetría y sin
 FFmpeg empaquetado.
 
 > **La interfaz habla español e inglés**, y arranca en el que tenga puesto Windows. Se puede fijar
@@ -35,7 +35,7 @@ FFmpeg empaquetado.
 ## Instalación
 
 [**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2,35 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
+· 2,50 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
 versiones anteriores están en [Releases](../../releases).
 
 Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo

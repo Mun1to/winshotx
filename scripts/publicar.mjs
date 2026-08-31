@@ -63,6 +63,50 @@ if (nacimientoSig < nacimientoExe - 5000) {
   process.exit(1);
 }
 
+// El tamanno del instalador esta escrito a mano en los dos README y en la web, y ahi se
+// queda cuando cambia: llegaron a convivir cuatro cifras para el mismo archivo (2.3, 2,2,
+// 2,35 y 2,50), y una hasta se contradecia con la imagen de su propia insignia. Nadie mira
+// eso, asi que lo mira esto, que es el unico sitio donde el numero de verdad esta a mano.
+const megas = (statSync(instalador).size / 1e6).toFixed(2);
+const bien = new RegExp(`^${megas.replace(".", "[.,]")}$`);
+
+// No vale con buscar cualquier «N,N MB»: la pagina habla tambien de los 3,2 MB por segundo
+// que escribe el anillo y de los 438,7 MB que llega a ocupar en disco. Solo se miran las
+// cifras que tienen la palabra instalador al lado, que son las que anuncian ESTE archivo.
+const CERCA = 70;
+const ANUNCIAN = [
+  "README.md",
+  "README.es.md",
+  join("frontlaxweb", "index.html"),
+  join("frontlaxweb", "docs", "index.html"),
+  join("frontlaxweb", "llms.txt"),
+];
+const desfasados = [];
+let veces = 0;
+for (const archivo of ANUNCIAN) {
+  const ruta = join(raiz, archivo);
+  if (!existsSync(ruta)) continue;
+  const texto = readFileSync(ruta, "utf8");
+  for (const m of texto.matchAll(/(\d+[.,]\d+)\s*(?:%20)?MB/g)) {
+    const ventana = texto.slice(Math.max(0, m.index - CERCA), m.index + CERCA);
+    if (!/instalador|installer/i.test(ventana)) continue;
+    if (bien.test(m[1])) veces++;
+    else desfasados.push(`${archivo}: «${m[0]}» en «...${ventana.replace(/\s+/g, " ").slice(20, 95)}...»`);
+  }
+}
+if (desfasados.length) {
+  console.error(`El instalador pesa ${megas} MB y esto dice otra cosa:`);
+  for (const d of [...new Set(desfasados)]) console.error(`  ${d}`);
+  console.error("Cambialo antes de publicar, o la version nueva se anuncia con el peso de otra.");
+  process.exit(1);
+}
+if (!veces) {
+  console.error("No he encontrado el tamanno del instalador anunciado en ningun sitio.");
+  console.error("O se ha dejado de anunciar, o la palabra «instalador» ya no esta al lado.");
+  process.exit(1);
+}
+console.log(`Instalador: ${megas} MB, y asi lo dicen los ${veces} sitios que lo anuncian.`);
+
 copyFileSync(instalador, estable);
 
 const latest = {
