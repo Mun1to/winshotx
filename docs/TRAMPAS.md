@@ -922,7 +922,8 @@ se habia mirado varias veces sin leerla.
 
 La primera version de `revisar_ruta` escribia `current_exe()` a secas: «si el arranque no
 apunta a mi, que apunte a mi». Media hora despues, `scripts/arranca-bien.mjs` lanzo el binario
-recien compilado de `C:\ctelease\winshotx.exe` para comprobar que arrancaba bien, ese
+recien compilado de `C:\ct
+elease\winshotx.exe` para comprobar que arrancaba bien, ese
 binario ejecuto el arreglo, y **el arranque de Munir paso a apuntar a un binario de pruebas**.
 O sea: el codigo escrito para que no le arrancara la copia equivocada le dejo apuntando a una
 copia todavia peor, que ni siquiera esta instalada.
@@ -936,3 +937,20 @@ descargada, en un pendrive) no manda sobre el arranque de nadie.
 Se vio porque **despues de tocarle el registro se volvio a leer para comprobarlo**. Sin esa
 segunda lectura se habria publicado tal cual, y el sintoma habria sido el mismo de antes con
 otra ruta.
+
+## 39. CORREGIDA: el `/S` del instalador de Tauri SI instala en silencio
+
+En el buzon estaba escrito que el `/S` del instalador NSIS de Tauri abre el asistente igual y
+que por eso no se le podia actualizar la app a nadie desde fuera. **Es falso**, y por creerlo se
+estuvo dejando que Munir pulsara «Actualizar» a mano version tras version.
+
+Comprobado el 4 de septiembre de 2026, con la app cerrada antes:
+
+    winshotx_0.2.20_x64-setup.exe /S
+
+Termina con **codigo 0**, sin ninguna ventana, y la version instalada en
+`C:\Apps\Random APPS\winshotx` pasa de 0.2.18 a 0.2.20. Los ajustes del usuario (atajos,
+carpeta, idioma, arranque con Windows) siguen intactos despues.
+
+**La regla:** un apunte que dice «esto no se puede» y que nadie ha vuelto a comprobar caduca
+igual que una medicion. Este llevaba dias mandando trabajo manual a Munir.
