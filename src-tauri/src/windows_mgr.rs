@@ -120,6 +120,13 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
 fn congelar_y_abrir(app: &AppHandle, _candado: CandadoCaptura) -> Result<()> {
     let state = app.state::<AppState>();
 
+    // El anillo de los ultimos segundos se aparta mientras dura esto, y vuelve solo al
+    // salir de la funcion, tambien si se sale por el `?` de `freeze_all`. Se come el 86%
+    // de un nucleo a 60 fps y alto nativo, y congelar tres pantallas compitiendo con eso
+    // es lo que hacia que el atajo se notara. Ver `replay::apartar`, que explica por que
+    // esto no deja un agujero en lo grabado.
+    let _anillo = crate::replay::apartar(app);
+
     // Los iconos se esconden solo lo que dura el disparo, no toda la seleccion: el
     // overlay tapa el escritorio de todas formas, asi que tenerlos escondidos mas rato no
     // se ve en la imagen y si aumenta la posibilidad de dejarselos escondidos a alguien.

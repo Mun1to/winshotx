@@ -92,6 +92,11 @@ pub struct ReplayState {
     /// A que tamanno se esta guardando, con la calidad ya aplicada.
     pub medida: (u32, u32),
     stop: Arc<AtomicBool>,
+    /// Puesto, la captura de Windows no entrega ni un fotograma. Ver `apartar`.
+    pause: Arc<AtomicBool>,
+    /// Milisegundos acumulados apartado, para que el reloj no cuente ese tiempo y lo de
+    /// antes y lo de despues queden pegados.
+    paused_ms: Arc<AtomicU64>,
     ordenes: Sender<Orden>,
     bytes: Arc<AtomicU64>,
     /// Todo lo que se ha escrito desde que arranco, sin restar lo podado: dividido por el
@@ -246,6 +251,8 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     let (sender, receiver) = channel::<win::CapturedFrame>();
     let (ordenes, buzon) = channel::<Orden>();
     let stop = Arc::new(AtomicBool::new(false));
+    let pause = Arc::new(AtomicBool::new(false));
+    let paused_ms = Arc::new(AtomicU64::new(0));
     let bytes = Arc::new(AtomicU64::new(0));
     let escritos = Arc::new(AtomicU64::new(0));
     let grabado_ms = Arc::new(AtomicU64::new(0));
@@ -310,10 +317,13 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
             sender,
             crop: (0, 0, 0, 0),
             stop: stop.clone(),
-            // El anillo no se pausa: o graba o esta apagado. Una pausa aqui seria un
-            // agujero en el tiempo justo en el trozo que alguien va a querer.
-            pause: Arc::new(AtomicBool::new(false)),
-            paused_ms: Arc::new(AtomicU64::new(0)),
+            // El anillo no se pausa a peticion de nadie: o graba o esta apagado, porque
+            // una pausa a mano seria un agujero justo en el trozo que alguien va a querer.
+            // Lo unico que lo aparta es abrir una captura (ver `apartar`), y ahi no hay
+            // agujero: el tiempo apartado se descuenta del reloj con `paused_ms`, asi que
+            // lo de antes y lo de despues quedan cosidos.
+            pause: pause.clone(),
+            paused_ms: paused_ms.clone(),
             min_interval_ms: 0,
         },
     )?;
@@ -323,6 +333,8 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         monitor,
         medida: (ancho_guardado, alto_guardado),
         stop,
+        pause,
+        paused_ms,
         ordenes,
         bytes,
         escritos,
@@ -338,6 +350,54 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
 #[cfg(not(windows))]
 pub fn start(_app: &AppHandle) -> Result<ReplayStatus> {
     Err(AppError::Unsupported)
+}
+
+/// El anillo, apartado mientras se abre una captura.
+///
+/// **Por que existe, y esta medido.** El 31 de agosto de 2026, en la maquina de Munir: el
+/// anillo a 60 fps y alto nativo se come el **86% de un nucleo** (2,9% la aplicacion sin
+/// el). Abrir una captura es congelar todas las pantallas a la vez, y hacerlo mientras eso
+/// corre es competir contra uno mismo con la misma maquina. Munir lo dijo asi: «tarda en
+/// cargar al principio cuando le das al shortcut y quieres hacer la captura».
+///
+/// **Y no deja agujero**, que es lo que hasta ahora impedia pausarlo: el tiempo apartado se
+/// descuenta del reloj de la captura (`paused_ms`, ver `record::win`), asi que el fotograma
+/// de antes y el de despues quedan pegados. Quien rescate los ultimos segundos no vera un
+/// salto, vera que la captura no se grabo a si misma, que ademas es lo que quiere.
+///
+/// El tramo es corto a proposito: se aparta justo antes de congelar y vuelve con las
+/// ventanas ya puestas, medio segundo. NO dura lo que el usuario tarde en elegir el
+/// recorte, porque eso si serian minutos de anillo perdidos sin que nadie lo pidiera.
+#[must_use = "el anillo vuelve a grabar cuando se suelta este guardia, no antes"]
+pub struct Apartado(Option<(Arc<AtomicBool>, Arc<AtomicU64>, Instant)>);
+
+impl Drop for Apartado {
+    fn drop(&mut self) {
+        let Some((pause, paused_ms, desde)) = self.0.take() else {
+            return;
+        };
+        // El orden importa: primero se suma lo que ha durado y despues se suelta. Al reves,
+        // un fotograma podria colarse entre las dos lineas leyendo el `paused_ms` viejo, y
+        // su marca de tiempo saltaria hacia adelante justo el rato apartado.
+        paused_ms.fetch_add(desde.elapsed().as_millis() as u64, Ordering::Relaxed);
+        pause.store(false, Ordering::Relaxed);
+    }
+}
+
+/// Aparta el anillo hasta que se suelte lo devuelto. Sin anillo encendido no hace nada,
+/// y el guardia vale igual: asi quien llama no tiene que preguntar si hay anillo.
+pub fn apartar(app: &AppHandle) -> Apartado {
+    let state = app.state::<AppState>();
+    let guard = state.replay.lock();
+    let Some(replay) = guard.as_ref() else {
+        return Apartado(None);
+    };
+    replay.pause.store(true, Ordering::Relaxed);
+    Apartado(Some((
+        replay.pause.clone(),
+        replay.paused_ms.clone(),
+        Instant::now(),
+    )))
 }
 
 /// Apaga el anillo y borra lo que tenia grabado.
@@ -1294,5 +1354,58 @@ mod pruebas_con_pantalla {
 
         assert_eq!(indices.len(), 15, "no había nada que saltarse");
         assert_eq!(retardos, quince);
+    }
+
+    /// Un guardia con los dos relojes a mano, sin necesitar ni anillo ni aplicación.
+    fn apartado_de_prueba(desde: Instant) -> (Apartado, Arc<AtomicBool>, Arc<AtomicU64>) {
+        let pause = Arc::new(AtomicBool::new(true));
+        let paused_ms = Arc::new(AtomicU64::new(0));
+        (
+            Apartado(Some((pause.clone(), paused_ms.clone(), desde))),
+            pause,
+            paused_ms,
+        )
+    }
+
+    #[test]
+    fn apartado_el_anillo_no_captura_y_al_soltarlo_vuelve() {
+        let (guardia, pause, _) = apartado_de_prueba(Instant::now());
+        assert!(pause.load(Ordering::Relaxed), "apartado tiene que estar parado");
+
+        drop(guardia);
+        assert!(
+            !pause.load(Ordering::Relaxed),
+            "soltado el guardia el anillo vuelve a grabar; si no, se queda parado para              siempre y nadie se entera hasta que va a rescatar algo y no hay nada"
+        );
+    }
+
+    /// El agujero que este arreglo NO puede dejar.
+    ///
+    /// La marca de tiempo de cada fotograma es `elapsed - paused_ms` (ver `record::win`).
+    /// Si el rato apartado no se descontara, el fotograma siguiente a una captura saltaría
+    /// hacia adelante justo lo que durase, y quien rescatara los últimos segundos vería un
+    /// tirón. Descontándolo, lo de antes y lo de después quedan pegados.
+    #[test]
+    fn el_rato_apartado_no_cuenta_en_el_reloj_de_lo_grabado() {
+        // Nace con 300 ms de antigüedad: es lo que va a durar la captura.
+        let (guardia, _, paused_ms) =
+            apartado_de_prueba(Instant::now() - std::time::Duration::from_millis(300));
+        let antes = 1_000u64.saturating_sub(paused_ms.load(Ordering::Relaxed));
+
+        drop(guardia);
+
+        // El reloj de la máquina ha seguido corriendo esos 300 ms, y el del anillo no.
+        let despues = 1_300u64.saturating_sub(paused_ms.load(Ordering::Relaxed));
+        assert!(
+            despues.abs_diff(antes) <= 20,
+            "el fotograma de después tiene que caer donde se quedó el de antes ({antes} ms),              y ha caído en {despues}"
+        );
+    }
+
+    #[test]
+    fn sin_anillo_encendido_el_guardia_vale_igual_y_no_revienta() {
+        // `apartar` devuelve esto cuando no hay nada que apartar: quien llama no tiene que
+        // preguntar si el anillo está puesto.
+        drop(Apartado(None));
     }
 }
