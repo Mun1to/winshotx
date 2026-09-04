@@ -97,6 +97,14 @@ fn purge_old_sessions(root: &std::path::Path) {
 }
 
 pub fn run() {
+    // Antes que nada, y antes de crear una sola ventana: sin WebView2 la ventana se abriria
+    // igual y dentro saldria la pagina de error del navegador, que no dice ni que ha pasado
+    // ni que hacer. Es por lo que la Microsoft Store rechazo el envio el 1 de septiembre de
+    // 2026 («Unusable Feature: Display error page at launch»). Ver `platform::webview`.
+    if !platform::webview::hay_con_que_pintar() {
+        return;
+    }
+
     tauri::Builder::default()
         // Tiene que ir la primera: si ya hay un winshotx vivo, esta instancia se
         // cierra y le pasa el testigo, en vez de robarle los atajos globales.

@@ -14,6 +14,7 @@ pub mod desktop_icons;
 pub mod ocr;
 pub mod snipping;
 pub mod sonido;
+pub mod webview;
 pub mod window_style;
 
 use std::path::Path;
