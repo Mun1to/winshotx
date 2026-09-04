@@ -13,6 +13,10 @@ use crate::error::Result;
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 #[cfg(windows)]
 const VALUE_NAME: &str = "winshotx";
+/// Donde el instalador de NSIS deja apuntada la carpeta que eligio el usuario.
+#[cfg(windows)]
+const UNINSTALL_KEY: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\Uninstall\winshotx";
 /// El mismo identificador que lleva `windows.startupTask` en el AppxManifest.
 #[cfg(windows)]
 const TAREA_MSIX: &str = "winshotxAutoStart";
@@ -168,8 +172,12 @@ fn set_registro(enabled: bool) -> Result<()> {
 /// asistente de Tauri deja elegirla) para que esa ruta apunte a un ejecutable que ya no es
 /// el que manda. No hace falta ni tocar el interruptor: no se entera.
 ///
-/// Por eso esto se llama al arrancar y no al pulsar nada. Y por eso corrige tambien cuando
-/// no hay entrada ninguna: si el ajuste dice que arranca sola, tiene que arrancar sola.
+/// **Y solo manda la copia INSTALADA**, que es la segunda mitad del arreglo y salio de
+/// romperlo: la primera version de esto escribia `current_exe()` a secas, asi que el binario
+/// de pruebas de `C:\ct\release` arranco una vez y se quedo el arranque de Munir para el.
+/// Un ejecutable suelto (uno de pruebas, uno recien descargado, uno en un pendrive) no tiene
+/// por que apoderarse del arranque de nadie, asi que aqui solo actua el que vive dentro de
+/// la carpeta que Windows tiene registrada como la instalacion.
 #[cfg(windows)]
 pub fn revisar_ruta() {
     // Dentro de un MSIX el arranque va por `StartupTask` y el registro esta virtualizado:
@@ -180,7 +188,17 @@ pub fn revisar_ruta() {
     let Ok(exe) = std::env::current_exe() else {
         return;
     };
-    if !hay_que_corregir(leer_registro().as_deref(), &exe.to_string_lossy()) {
+    let exe = exe.to_string_lossy().to_string();
+
+    // Sin instalacion registrada (una copia portable, alguien que se bajo el .exe y ya)
+    // esto no tiene ni con que comparar, y quedarse callado es lo correcto.
+    let Some(instalacion) = donde_esta_instalada() else {
+        return;
+    };
+    if !dentro_de(&instalacion, &exe) {
+        return;
+    }
+    if !hay_que_corregir(leer_valor(RUN_KEY, VALUE_NAME).as_deref(), &exe) {
         return;
     }
     if let Err(error) = set_registro(true) {
@@ -191,14 +209,44 @@ pub fn revisar_ruta() {
 #[cfg(not(windows))]
 pub fn revisar_ruta() {}
 
+/// La carpeta que Windows tiene apuntada como la instalacion de winshotx, si la hay.
+///
+/// Es lo que escribe el instalador de NSIS, o sea la carpeta que el usuario eligio en el
+/// asistente. Es la unica fuente que sabe cual de las copias del disco es «la instalada»:
+/// `current_exe()` solo sabe cual se esta ejecutando, que no es lo mismo.
+#[cfg(windows)]
+fn donde_esta_instalada() -> Option<String> {
+    leer_valor(UNINSTALL_KEY, "InstallLocation").filter(|ruta| !ruta.trim().is_empty())
+}
+
+/// Si ese ejecutable vive dentro de esa carpeta.
+///
+/// Aparte y pura para poder probarla con las rutas de verdad que dieron problemas. Las
+/// comillas van y vienen (el `InstallLocation` de Munir las lleva DENTRO del valor), la
+/// barra final sobra, Windows no distingue mayusculas y acepta las dos barras.
+#[cfg(windows)]
+fn dentro_de(carpeta: &str, exe: &str) -> bool {
+    let limpiar = |ruta: &str| {
+        ruta.trim()
+            .trim_matches('"')
+            .trim()
+            .replace('/', "\\")
+            .trim_end_matches('\\')
+            .to_lowercase()
+    };
+    let carpeta = limpiar(carpeta);
+    if carpeta.is_empty() {
+        return false;
+    }
+    // Con la barra pegada a proposito: sin ella, `C:\Apps\winshotx` daria por bueno un
+    // ejecutable de `C:\Apps\winshotx-viejo`, que es otra carpeta entera.
+    limpiar(exe).starts_with(&format!("{carpeta}\\"))
+}
+
 /// Si lo que hay escrito en el arranque no es este ejecutable.
 ///
 /// Aparte para poder probarla: lo de dentro son llamadas al registro de Windows, y lo que
 /// aqui se puede equivocar es la comparacion de rutas, no la lectura.
-///
-/// Las comillas van y vienen (se escriben al guardar, y una entrada puesta a mano puede no
-/// llevarlas) y Windows no distingue mayusculas de minusculas en las rutas, asi que las dos
-/// cosas se normalizan antes de comparar.
 #[cfg(windows)]
 fn hay_que_corregir(registrado: Option<&str>, mio: &str) -> bool {
     let Some(registrado) = registrado else {
@@ -209,17 +257,17 @@ fn hay_que_corregir(registrado: Option<&str>, mio: &str) -> bool {
     limpiar(registrado) != limpiar(mio)
 }
 
-/// Lo que hay escrito ahora mismo en el arranque, o nada si no hay entrada.
+/// Un valor de texto del registro del usuario, o nada si no esta.
 #[cfg(windows)]
-fn leer_registro() -> Option<String> {
+fn leer_valor(subclave: &str, nombre: &str) -> Option<String> {
     use windows::core::PCWSTR;
     use windows::Win32::System::Registry::{
         RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE,
         REG_VALUE_TYPE,
     };
 
-    let key_path = wide(RUN_KEY);
-    let value_name = wide(VALUE_NAME);
+    let key_path = wide(subclave);
+    let value_name = wide(nombre);
     unsafe {
         let mut key = HKEY::default();
         if RegOpenKeyExW(
@@ -281,8 +329,9 @@ pub fn set(_enabled: bool) -> Result<()> {
 
 #[cfg(all(test, windows))]
 mod tests {
-    use super::hay_que_corregir;
+    use super::{dentro_de, hay_que_corregir};
 
+    const INSTALADA: &str = r#""C:\Apps\Random APPS\winshotx""#;
     const MIO: &str = r"C:\Apps\Random APPS\winshotx\winshotx.exe";
 
     /// El caso de Munir, tal cual estaba en su registro el 4 de septiembre de 2026.
@@ -319,5 +368,41 @@ mod tests {
         // El ajuste dice que arranca sola; si no hay entrada, no arranca sola.
         assert!(hay_que_corregir(None, MIO));
     }
-}
 
+    /// El ejecutable instalado es el que manda, y el `InstallLocation` de Munir lleva las
+    /// comillas dentro del propio valor.
+    #[test]
+    fn el_instalado_se_reconoce_con_comillas_y_todo() {
+        assert!(dentro_de(INSTALADA, MIO));
+    }
+
+    /// **El fallo que introdujo la primera version de esto, el mismo dia.** El binario de
+    /// pruebas de `C:\ct\release` arranco una vez y se quedo el arranque de Munir para el:
+    /// se creia el bueno porque solo miraba `current_exe()`. Una copia suelta no manda.
+    #[test]
+    fn un_binario_de_pruebas_no_se_queda_el_arranque() {
+        let pruebas = r"C:\ct\release\winshotx.exe";
+        assert!(
+            !dentro_de(INSTALADA, pruebas),
+            "un ejecutable de fuera de la instalacion no puede tocar el arranque de nadie"
+        );
+    }
+
+    #[test]
+    fn la_barra_final_de_la_carpeta_da_igual() {
+        assert!(dentro_de(r"C:\Apps\Random APPS\winshotx\", MIO));
+    }
+
+    /// Sin la barra pegada al comparar, esta carpeta pasaria por la instalacion.
+    #[test]
+    fn una_carpeta_que_solo_empieza_igual_no_cuela() {
+        let vecina = r"C:\Apps\Random APPS\winshotx-viejo\winshotx.exe";
+        assert!(!dentro_de(INSTALADA, vecina));
+    }
+
+    #[test]
+    fn sin_carpeta_registrada_no_manda_nadie() {
+        assert!(!dentro_de("", MIO));
+        assert!(!dentro_de("\"\"", MIO));
+    }
+}

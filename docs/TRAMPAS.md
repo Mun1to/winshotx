@@ -917,3 +917,22 @@ escribio la mantenga al dia.
 **Y la de metodo:** antes de creerse un informe de rendimiento de alguien, **mirar que
 version tiene puesta**. La respuesta estaba en la esquina de una captura de pantalla que ya
 se habia mirado varias veces sin leerla.
+
+### El arreglo, que la primera vez salio peor que la enfermedad
+
+La primera version de `revisar_ruta` escribia `current_exe()` a secas: «si el arranque no
+apunta a mi, que apunte a mi». Media hora despues, `scripts/arranca-bien.mjs` lanzo el binario
+recien compilado de `C:\ctelease\winshotx.exe` para comprobar que arrancaba bien, ese
+binario ejecuto el arreglo, y **el arranque de Munir paso a apuntar a un binario de pruebas**.
+O sea: el codigo escrito para que no le arrancara la copia equivocada le dejo apuntando a una
+copia todavia peor, que ni siquiera esta instalada.
+
+**La regla que faltaba:** «cual me estoy ejecutando» y «cual esta instalada» son dos preguntas
+distintas, y `current_exe()` solo contesta la primera. La segunda la contesta el
+`InstallLocation` que el instalador deja en la clave de desinstalacion. Ahora solo toca el
+arranque el ejecutable que vive dentro de esa carpeta; una copia suelta (de pruebas, recien
+descargada, en un pendrive) no manda sobre el arranque de nadie.
+
+Se vio porque **despues de tocarle el registro se volvio a leer para comprobarlo**. Sin esa
+segunda lectura se habria publicado tal cual, y el sintoma habria sido el mismo de antes con
+otra ruta.
