@@ -342,6 +342,8 @@ export const EVENTS = {
 export interface OverlayModeState {
   mode: CaptureMode;
   fullScreen: boolean;
+  /** Si al soltar el recorte sale la barra de acciones. Es `captureFlow` en vivo. */
+  withToolbar: boolean;
 }
 
 /**

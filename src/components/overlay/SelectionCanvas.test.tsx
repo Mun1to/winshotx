@@ -9,8 +9,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SelectionCanvas } from "./SelectionCanvas";
 import { aplicarIdioma } from "../../lib/i18n";
-import { llamadas, responde } from "../../test/preparar";
-import type { OverlayPayload, Settings } from "../../lib/types";
+import { emite, llamadas, responde } from "../../test/preparar";
+import { EVENTS, type OverlayPayload, type Settings } from "../../lib/types";
 
 const ANCHO = window.innerWidth;
 const ALTO = window.innerHeight;
@@ -146,5 +146,61 @@ describe("la barra de arriba no se queda el sitio", () => {
 
     fireEvent.pointerMove(lienzo, { clientX: 700, clientY: 600, buttons: 0 });
     expect(recorte()).toBeNull();
+  });
+});
+
+describe("el interruptor de la barra de acciones", () => {
+  it("apagado, soltar el recorte lo copia solo y no saca ninguna barra", async () => {
+    // El camino entero: alguien pulsa el boton (en esta pantalla o en otra), llega el
+    // evento, y la siguiente captura ya no pregunta nada.
+    const lienzo = await abrir();
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: false });
+
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+
+    await waitFor(() =>
+      expect(llamadas.some((l) => l.comando === "capture_still")).toBe(true),
+    );
+    expect(screen.queryByLabelText("Copiar")).toBeNull();
+  });
+
+  it("encendido, soltar el recorte saca la barra y no captura nada todavia", async () => {
+    const lienzo = await abrir();
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: true });
+
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+
+    expect(await screen.findByLabelText("Copiar")).toBeInTheDocument();
+    expect(llamadas.some((l) => l.comando === "capture_still")).toBe(false);
+  });
+
+  it("al tocarlo se guarda en los ajustes, para que la proxima vez nazca asi", async () => {
+    // Y se guarda con `set_capture_flow`, NO con `set_settings`: aquel reengancha los
+    // atajos globales y el anillo, con la captura abierta delante.
+    await abrir();
+    fireEvent.click(screen.getByLabelText("Elegir qué hacer"));
+
+    await waitFor(() => {
+      const guardado = llamadas.find((l) => l.comando === "set_capture_flow");
+      expect(guardado).toBeDefined();
+      expect(guardado!.args).toEqual({ flow: "instant" });
+    });
+    expect(llamadas.some((l) => l.comando === "set_settings")).toBe(false);
+  });
+
+  it("la tecla B hace lo mismo que el boton", async () => {
+    await abrir();
+    fireEvent.keyDown(window, { key: "b" });
+    await waitFor(() =>
+      expect(llamadas.some((l) => l.comando === "set_capture_flow")).toBe(true),
+    );
+  });
+
+  it("y los ajustes se abren desde la barra", async () => {
+    await abrir();
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    await waitFor(() =>
+      expect(llamadas.some((l) => l.comando === "open_settings")).toBe(true),
+    );
   });
 });

@@ -843,3 +843,32 @@ pub async fn discard_session(app: AppHandle, session_id: String) -> Result<()> {
     }
     Ok(())
 }
+
+/// El interruptor de la barra de arriba: si al soltar el recorte sale la barra de
+/// acciones (copiar, guardar, editar, anclar) o la foto se copia sola.
+///
+/// Va aparte de `set_settings` a proposito, aunque escriba en los mismos ajustes. Aquel
+/// desregistra y vuelve a registrar los tres atajos globales, mira si hay que reenganchar
+/// el anillo y toca el arranque con Windows, y esto se pulsa **con el overlay abierto**,
+/// que es el unico momento del dia en el que la maquina tiene prisa de verdad.
+#[tauri::command]
+pub async fn set_capture_flow(app: AppHandle, flow: crate::settings::CaptureFlow) -> Result<()> {
+    let state = app.state::<AppState>();
+    let settings = {
+        let mut guard = state.settings.write();
+        guard.capture_flow = flow;
+        guard.clone()
+    };
+    crate::settings::save(&app, &settings)?;
+    Ok(())
+}
+
+/// Los ajustes, abiertos desde la barra del overlay.
+///
+/// La captura se cierra primero: los ajustes son una ventana normal, y abrirla debajo de
+/// tres overlays a pantalla completa y siempre encima es abrirla donde no se ve.
+#[tauri::command]
+pub async fn open_settings(app: AppHandle) -> Result<()> {
+    windows_mgr::close_overlays(&app);
+    windows_mgr::show_settings(&app)
+}

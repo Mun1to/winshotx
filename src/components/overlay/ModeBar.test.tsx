@@ -12,13 +12,23 @@ import { ModeBar, SELECTOR_BARRA } from "./ModeBar";
 import { aplicarIdioma } from "../../lib/i18n";
 import type { CaptureMode } from "../../lib/types";
 
-function pintar(modo: CaptureMode = "still", pantallaEntera = false) {
+function pintar(modo: CaptureMode = "still", pantallaEntera = false, conBarra = true) {
   const acciones = {
     onChange: vi.fn(),
     onPantallaEntera: vi.fn(),
+    onConBarra: vi.fn(),
+    onAjustes: vi.fn(),
     onCancel: vi.fn(),
   };
-  render(<ModeBar value={modo} pantallaEntera={pantallaEntera} dimmed={false} {...acciones} />);
+  render(
+    <ModeBar
+      value={modo}
+      pantallaEntera={pantallaEntera}
+      conBarra={conBarra}
+      dimmed={false}
+      {...acciones}
+    />,
+  );
   return acciones;
 }
 
@@ -40,8 +50,11 @@ describe("lo que dice la barra", () => {
     expect(screen.getByLabelText("Video")).toBeInTheDocument();
     expect(screen.getByLabelText("Whole screen")).toBeInTheDocument();
     expect(screen.getByLabelText("Leave without capturing")).toBeInTheDocument();
+    expect(screen.getByLabelText("Choose what to do")).toBeInTheDocument();
+    expect(screen.getByLabelText("Settings")).toBeInTheDocument();
     expect(screen.queryByLabelText("Pantalla entera")).toBeNull();
     expect(screen.queryByLabelText("Vídeo")).toBeNull();
+    expect(screen.queryByLabelText("Elegir qué hacer")).toBeNull();
   });
 
   it("los tooltips llevan la tecla que hace lo mismo", () => {
@@ -78,6 +91,40 @@ describe("lo que hace la barra", () => {
     expect(onPantallaEntera).toHaveBeenCalledWith(false);
   });
 
+  it("la barra de acciones tambien es un interruptor, y dice como esta", () => {
+    const { onConBarra } = pintar("still", false, true);
+    const boton = screen.getByLabelText("Elegir qué hacer");
+    expect(boton).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(boton);
+    expect(onConBarra).toHaveBeenCalledWith(false);
+  });
+
+  it("apagada, pulsarla la vuelve a encender", () => {
+    const { onConBarra } = pintar("still", false, false);
+    expect(screen.getByLabelText("Elegir qué hacer")).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByLabelText("Elegir qué hacer"));
+    expect(onConBarra).toHaveBeenCalledWith(true);
+  });
+
+  it("grabando no sale: en video y GIF la barra siempre aparece", () => {
+    // Ahi no es una preferencia, es donde se ajusta el recuadro antes de empezar a
+    // grabar. Un interruptor que no hace nada es peor que no tenerlo.
+    pintar("video");
+    expect(screen.queryByLabelText("Elegir qué hacer")).toBeNull();
+    pintar("gif");
+    expect(screen.queryByLabelText("Elegir qué hacer")).toBeNull();
+  });
+
+  it("los ajustes se abren desde aqui, y ese boton no se queda pulsado", () => {
+    // Desde una captura a pantalla completa no habia forma de llegar a los ajustes sin
+    // cerrarla y buscar el icono de la bandeja.
+    const { onAjustes } = pintar();
+    const boton = screen.getByLabelText("Ajustes");
+    expect(boton).not.toHaveAttribute("aria-pressed");
+    fireEvent.click(boton);
+    expect(onAjustes).toHaveBeenCalled();
+  });
+
   it("deja pasar el arrastre al lienzo de detras", () => {
     // La barra tapa una franja del centro de arriba y ahi no habia forma de empezar a
     // recortar: se quedaba ella el gesto. Ahora lo deja pasar, y es el lienzo quien
@@ -88,9 +135,12 @@ describe("lo que hace la barra", () => {
         <ModeBar
           value="still"
           pantallaEntera={false}
+          conBarra
           dimmed={false}
           onChange={vi.fn()}
           onPantallaEntera={vi.fn()}
+          onConBarra={vi.fn()}
+          onAjustes={vi.fn()}
           onCancel={vi.fn()}
         />
       </div>,
@@ -115,9 +165,12 @@ describe("lo que hace la barra", () => {
       <ModeBar
         value="still"
         pantallaEntera={false}
+        conBarra
         dimmed
         onChange={vi.fn()}
         onPantallaEntera={vi.fn()}
+        onConBarra={vi.fn()}
+        onAjustes={vi.fn()}
         onCancel={vi.fn()}
       />,
     );

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   CacheStats,
+  CaptureFlow,
   ExportRequest,
   ExportResult,
   FrameMeta,
@@ -78,6 +79,18 @@ export const getSettings = () => invoke<Settings>("get_settings");
 
 export const setSettings = (settings: Settings) =>
   invoke<Settings>("set_settings", { settings });
+
+/**
+ * Solo el interruptor de la barra de acciones, guardado desde el overlay.
+ *
+ * No es `setSettings` con un campo cambiado a proposito: aquel reengancha los atajos
+ * globales y el anillo en cada llamada, y esto se pulsa con la captura abierta.
+ */
+export const setCaptureFlow = (flow: CaptureFlow) =>
+  invoke<void>("set_capture_flow", { flow });
+
+/** Cierra la captura y abre la ventana de ajustes. */
+export const openSettings = () => invoke<void>("open_settings");
 
 export const pickDirectory = () => invoke<string | null>("pick_directory");
 

@@ -1,4 +1,4 @@
-import { Camera, Monitor, Video, X } from "lucide-react";
+import { Camera, Monitor, PanelBottom, Settings, Video, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { useT } from "../../lib/i18n";
 
@@ -17,6 +17,11 @@ interface Props {
   /** Coger la pantalla entera de un clic, sin arrastrar nada. */
   pantallaEntera: boolean;
   onPantallaEntera: (valor: boolean) => void;
+  /** Si al soltar el recorte sale la barra para elegir qué hacer con él. */
+  conBarra: boolean;
+  onConBarra: (valor: boolean) => void;
+  /** Abre los ajustes de winshotx, cerrando la captura. */
+  onAjustes: () => void;
   onCancel: () => void;
   /** Se aparta mientras se arrastra, para no tapar lo que se está recortando. */
   dimmed: boolean;
@@ -38,6 +43,9 @@ export function ModeBar({
   onChange,
   pantallaEntera,
   onPantallaEntera,
+  conBarra,
+  onConBarra,
+  onAjustes,
   onCancel,
   dimmed,
 }: Props) {
@@ -93,6 +101,38 @@ export function ModeBar({
         >
           <Monitor className="size-[19px]" />
         </Boton>
+
+        <span className="mx-1 h-6 w-px bg-white/10" />
+
+        {/* Y el tercer eje: que pasa DESPUES de soltar. Encendido sale la barra de la
+            seleccion (copiar, guardar, editar, anclar, texto); apagado la foto se copia
+            sola y la captura se cierra. Estaba solo en los ajustes, dos ventanas mas
+            alla, cuando es una decision que se cambia captura a captura. Grabando no
+            pinta nada: en video y en GIF la barra siempre sale, porque es donde se
+            ajusta el recuadro antes de empezar. */}
+        {value === "still" && (
+          <Boton
+            activo={conBarra}
+            onClick={() => onConBarra(!conBarra)}
+            etiqueta="Elegir qué hacer"
+            titulo="Al soltar, elegir qué hacer con el recorte · B"
+          >
+            <PanelBottom className="size-[19px]" />
+          </Boton>
+        )}
+
+        {/* Sin `aria-pressed`: esto no se queda pulsado, abre una ventana. Va aqui
+            porque desde una captura a pantalla completa no hay forma de llegar a los
+            ajustes sin cerrarla primero y buscar el icono de la bandeja. */}
+        <button
+          type="button"
+          onClick={onAjustes}
+          title={t("Ajustes de winshotx")}
+          aria-label={t("Ajustes")}
+          className="flex size-9 items-center justify-center rounded-xl text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <Settings className="size-[19px]" />
+        </button>
 
         <span className="mx-1 h-6 w-px bg-white/10" />
 

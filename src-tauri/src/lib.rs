@@ -217,6 +217,8 @@ pub fn run() {
             commands::ffmpeg_available,
             commands::get_settings,
             commands::set_settings,
+            commands::set_capture_flow,
+            commands::open_settings,
             commands::pick_directory,
             commands::reveal_in_explorer,
             commands::discard_session,

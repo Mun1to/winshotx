@@ -9,7 +9,9 @@ import {
   captureStill,
   copyColor,
   freezeBytes,
+  openSettings,
   overlayBootstrap,
+  setCaptureFlow,
   startRecording,
 } from "../../lib/ipc";
 import { clamp } from "../../lib/format";
@@ -128,10 +130,20 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [modo, setModo] = useState<CaptureMode>("still");
   /** Coger la pantalla entera de un clic, sin arrastrar. */
   const [pantallaEntera, setPantallaEntera] = useState(false);
+  /**
+   * Si al soltar el recorte sale la barra para elegir que hacer con el.
+   *
+   * Es el ajuste `captureFlow` puesto donde se usa. Nace de los ajustes guardados y, al
+   * tocarlo aqui, se guarda alli: quien lo apaga una vez lo tiene apagado mannana, sin
+   * tener que acordarse de ir a la ventana de ajustes a cambiarlo de vuelta.
+   */
+  const [conBarra, setConBarra] = useState(true);
   const modoRef = useRef<CaptureMode>("still");
   modoRef.current = modo;
   const pantallaRef = useRef(false);
   pantallaRef.current = pantallaEntera;
+  const conBarraRef = useRef(true);
+  conBarraRef.current = conBarra;
 
   /**
    * Cambia el estado de la barra en TODAS las pantallas.
@@ -144,8 +156,30 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     void emit(EVENTS.overlayMode, {
       mode: cambio.mode ?? modoRef.current,
       fullScreen: cambio.fullScreen ?? pantallaRef.current,
+      withToolbar: cambio.withToolbar ?? conBarraRef.current,
     } satisfies OverlayModeState);
   }, []);
+
+  /**
+   * El interruptor de la barra de acciones: se enciende en todas las pantallas y se
+   * guarda en los ajustes.
+   *
+   * Se guarda con `setCaptureFlow` y no con `setSettings`: aquel reengancha los tres
+   * atajos globales y mira si hay que reiniciar el anillo cada vez que se llama, y esto
+   * se pulsa con la captura abierta delante.
+   */
+  const cambiarBarra = useCallback(
+    (valor: boolean) => {
+      difundir({ withToolbar: valor });
+      void setCaptureFlow(valor ? "toolbar" : "instant").catch((e) => {
+        // Que no se haya podido guardar no deshace lo que se acaba de encender: la
+        // captura de ahora sigue el interruptor igual, y lo unico que se pierde es que
+        // la proxima vez vuelva a nacer asi.
+        console.warn("no se ha podido guardar el perfil de captura", e);
+      });
+    },
+    [difundir],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -223,6 +257,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     setMode({ kind: "idle" });
     setPantallaEntera(false);
     setBusy(false);
+    // `conBarra` NO se reinicia aqui: lo pone el payload unas lineas mas abajo con lo que
+    // digan los ajustes, y ponerlo a un valor de fabrica antes seria ensennar la barra
+    // encendida un instante a quien la tiene apagada.
     setError(null);
     setBootError(null);
 
@@ -237,6 +274,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       numeroPantalla.current = data.screenNumber;
       // Quien pulsa el atajo de grabar quiere grabar: la barra abre en vídeo y ya.
       setModo(data.intent === "record" ? "video" : "still");
+      setConBarra(data.settings.captureFlow === "toolbar");
       void getCurrentWindow().setFocus();
 
       // El PNG se pasa a un blob del mismo origen: cargado directamente desde el
@@ -368,7 +406,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
    * Con el otro perfil sale la barra, que ademas deja ajustar el recuadro antes: grabando
    * eso importa mas que en una foto, porque lo que salga mal se ve minutos despues.
    */
-  const alVuelo = payload?.settings.captureFlow === "instant";
+  const alVuelo = !conBarra;
 
   const grabarRegion = useCallback(
     async (rect: Rect, format: "gif" | "video") => {
@@ -480,6 +518,10 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           .catch((err) => setError(String(err)));
       } else if (key === "p") {
         difundir({ fullScreen: !pantallaRef.current });
+      } else if (key === "b") {
+        // La barra de acciones, encendida o apagada. Con `Alt` no: es una letra sola como
+        // las demas de aqui, y el `b` de "barra" no lo usa nada mas.
+        cambiarBarra(!conBarraRef.current);
       } else if (key === "f") {
         difundir({ mode: "still" });
       } else if (key === "g") {
@@ -530,6 +572,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     capturarTodasLasPantallas,
     grabarRegion,
     difundir,
+    cambiarBarra,
   ]);
 
   const readHex = useCallback(
@@ -618,6 +661,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     const modos = listen<OverlayModeState>(EVENTS.overlayMode, ({ payload: p }) => {
       setModo(p.mode);
       setPantallaEntera(p.fullScreen);
+      setConBarra(p.withToolbar);
       if (p.fullScreen) setSelection(null);
     });
     const numeros = listen<number>(EVENTS.overlayTakeScreen, ({ payload: n }) => {
@@ -892,6 +936,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         onChange={(m) => difundir({ mode: m })}
         pantallaEntera={pantallaEntera}
         onPantallaEntera={(v) => difundir({ fullScreen: v })}
+        conBarra={conBarra}
+        onConBarra={cambiarBarra}
+        onAjustes={() => void openSettings()}
         onCancel={() => void cancelCapture()}
         dimmed={mode.kind !== "idle"}
       />

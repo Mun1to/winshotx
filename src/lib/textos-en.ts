@@ -348,6 +348,10 @@ export const EN: Record<string, string> = {
   "Grabar el recorte en GIF · G": "Record the crop to GIF · G",
   "Pantalla entera": "Whole screen",
   "Pantalla entera, de un clic · P": "Whole screen, one click · P",
+  "Elegir qué hacer": "Choose what to do",
+  "Al soltar, elegir qué hacer con el recorte · B":
+    "On release, choose what to do with the crop · B",
+  "Ajustes de winshotx": "winshotx settings",
 
   // La tira de miniaturas del editor
   "Fotograma {actual} de {total}": "Frame {actual} of {total}",
