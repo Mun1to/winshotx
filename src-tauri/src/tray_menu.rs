@@ -258,7 +258,7 @@ mod tests {
             300,
             Some(monitor(-1920, 0, 1920, 1080)),
         );
-        assert!(x >= -1912 && x < 0, "se ha ido a la pantalla principal: {x}");
+        assert!((-1912..0).contains(&x), "se ha ido a la pantalla principal: {x}");
         assert_eq!(y, 742);
     }
 }

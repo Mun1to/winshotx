@@ -228,7 +228,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     let dir = state
         .temp_root
         .join("replay")
-        .join(uuid::Uuid::new_v4().simple().to_string()[..8].to_string());
+        .join(&uuid::Uuid::new_v4().simple().to_string()[..8]);
 
     let audio = {
         let fuentes = record::audio::Fuentes {
@@ -461,6 +461,11 @@ struct Cocina {
 }
 
 impl Cocina {
+    // Ocho argumentos, uno mas de los que clippy da por buenos. Se queda asi a proposito: los
+    // cinco ultimos son los marcadores que este hilo comparte con quien lo mira desde fuera
+    // (`ReplayState`), y meterlos en una struct solo para bajar la cuenta seria un envoltorio
+    // que hay que abrir en cada uso sin que nadie entienda mejor lo que pasa aqui.
+    #[allow(clippy::too_many_arguments)]
     #[cfg(windows)]
     fn trabajar(
         &mut self,
@@ -971,7 +976,7 @@ fn escribir_vista_previa(
         &crate::encode::mp4::Mp4Options {
             width: ancho,
             height: alto,
-            fps: session.fps.min(FPS_VISTA_PREVIA).max(1),
+            fps: session.fps.clamp(1, FPS_VISTA_PREVIA),
             // La vista previa no es el archivo que se lleva nadie: se mira y se recorta.
             // Setenta y cinco es lo mismo que usa la grabacion normal para lo suyo.
             quality: 75,
@@ -1327,7 +1332,7 @@ mod pruebas_con_pantalla {
     #[test]
     fn saltarse_fotogramas_no_acorta_el_video() {
         // Un segundo grabado a sesenta por segundo.
-        let sesenta: Vec<u32> = std::iter::repeat(16).take(60).collect();
+        let sesenta: Vec<u32> = std::iter::repeat_n(16, 60).collect();
         let (indices, retardos) = a_ritmo(&sesenta, 30);
 
         assert_eq!(
@@ -1349,7 +1354,7 @@ mod pruebas_con_pantalla {
     /// uno de cada dos y dejar la vista previa a trompicones.
     #[test]
     fn a_quince_por_segundo_no_se_tira_ninguno() {
-        let quince: Vec<u32> = std::iter::repeat(66).take(15).collect();
+        let quince: Vec<u32> = std::iter::repeat_n(66, 15).collect();
         let (indices, retardos) = a_ritmo(&quince, 30);
 
         assert_eq!(indices.len(), 15, "no había nada que saltarse");

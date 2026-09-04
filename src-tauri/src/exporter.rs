@@ -1493,7 +1493,7 @@ mod medir {
         let indices: Vec<usize> = (0..cuantos).collect();
         let delays: Vec<u32> = indices.iter().map(|_| 33).collect();
         let mut loader = |i: usize| -> Result<image::RgbaImage> {
-            let d = (i as i64 % 20) as i64 - 10;
+            let d = (i as i64 % 20) - 10;
             let mut movida = image::RgbaImage::new(origen.width(), origen.height());
             image::imageops::replace(&mut movida, &origen, d, d / 2);
             Ok(movida)

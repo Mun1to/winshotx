@@ -410,7 +410,7 @@ pub fn precrear_overlays(app: &AppHandle) {
         if app.get_webview_window(&label).is_some() {
             continue;
         }
-        let (Ok(x), Ok(y), Ok(width), Ok(height)) =
+        let (Ok(_x), Ok(_y), Ok(width), Ok(height)) =
             (monitor.x(), monitor.y(), monitor.width(), monitor.height())
         else {
             continue;
