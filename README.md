@@ -9,7 +9,7 @@
 [![MIT license](https://img.shields.io/badge/license-MIT-0a9bff?style=flat-square)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#status)
 [![Latest release](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=release)](https://github.com/Mun1to/winshotx/releases/latest)
-[![Installer 2.50 MB](https://img.shields.io/badge/installer-2.50%20MB-22c55e?style=flat-square)](#install)
+[![Installer 2.51 MB](https://img.shields.io/badge/installer-2.51%20MB-22c55e?style=flat-square)](#install)
 [![Built with Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 
@@ -25,7 +25,7 @@
 
 A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
 magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It opens the selection in
-28 ms with one screen, uses 33 MB of memory and fits in a 2.50 MB installer. No account, no cloud, no telemetry and
+28 ms with one screen, uses 33 MB of memory and fits in a 2.51 MB installer. No account, no cloud, no telemetry and
 no bundled FFmpeg.
 
 > **The interface speaks English and Spanish**, and follows whichever one Windows is set to. You
@@ -36,7 +36,7 @@ no bundled FFmpeg.
 ## Install
 
 [**Download the installer**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2.50 MB · it installs for your user only, so Windows never asks for administrator rights. Older
+· 2.51 MB · it installs for your user only, so Windows never asks for administrator rights. Older
 versions are in [Releases](../../releases).
 
 It lives in the system tray with no window of its own. Windows hides new tray icons, so if you
