@@ -137,6 +137,27 @@ const TECHO = 4 * 1024 * 1024 * 1024;
 const loQuePuedeOcupar = (segundos: number, fps: number, ancho: number, alto: number) =>
   Math.min(ancho * alto * PEOR_POR_PIXEL * fps * segundos, TECHO);
 
+/**
+ * Lo que costó el anillo, de las dos combinaciones que se midieron de verdad.
+ *
+ * Medido el 31 de agosto de 2026 en un equipo con tres pantallas, con la máquina en
+ * reposo doce segundos: a 60 fotogramas y resolución nativa se lleva el **86% de un
+ * núcleo**, y a 30 con 1080 el **57%**. winshotx entera, con el anillo apagado, gasta
+ * el 2,9%: o sea que esto es treinta veces el resto de la aplicación junta.
+ *
+ * Se dice porque nadie elige «60, nativa» sabiendo eso; se elige porque suena a mejor.
+ * Munir lo tuvo así semanas y lo que notó fue que el ordenador iba con lag y que el
+ * atajo tardaba en abrir la captura.
+ *
+ * **Y solo se dicen esas dos**, que son las que se midieron. Las otras siete
+ * combinaciones saldrían de extrapolar dos puntos, que es inventarse un número y
+ * ponerlo en la cara de quien decide.
+ */
+const LO_QUE_COSTO: Record<string, string> = {
+  "60|0": "esta combinación midió el 86% de un núcleo",
+  "30|1080": "esta combinación midió el 57% de un núcleo",
+};
+
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
   { value: "toolbar", label: "Sale la barra" },
   { value: "instant", label: "Se copia sola" },
@@ -603,7 +624,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<History className="size-4" />}
                     label={t("Grabar siempre lo último")}
-                    explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Cuesta disco y algo de máquina mientras está encendido: el número que se ve arriba es lo que le escribe al disco cada segundo.")}
+                    explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva el 86% de un núcleo, y a 30 con 1080 el 57%. Apagado, winshotx entera gasta el 2,9%.")}
                     hint={
                       replay.running
                         ? // Lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño
@@ -698,7 +719,15 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     icon={<Gauge className="size-4" />}
                     label={t("Fluidez")}
                     explicacion={t("Los fotogramas por segundo del anillo. 15 es suficiente para ver qué pasó y es el que menos molesta al ordenador; 60 se ve suave pero escribe cuatro veces más, y esto está corriendo toda la tarde.")}
-                    hint={t("fotogramas por segundo")}
+                    // Lo que cuesta la combinación elegida, cuando está medido. El aviso va
+                    // aquí y no en la explicación del icono porque hay que verlo sin buscarlo:
+                    // es la diferencia entre el 86% de un núcleo toda la tarde y el 57%.
+                    hint={
+                      LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`]
+                        ? t(LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`])
+                        : t("fotogramas por segundo")
+                    }
+                    tone={settings.replayFps === 60 && settings.replayHeight === 0 ? "warn" : "normal"}
                     control={
                       <Segmented
                         ajustado

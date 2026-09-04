@@ -64,8 +64,12 @@ const AJUSTES: Settings = {
 };
 
 /** Monta los ajustes con Rust contestando datos de mentira, y espera a que carguen. */
-async function abrirAjustes(replay?: ReplayStatus, pantallas?: unknown[]) {
-  responde("get_settings", AJUSTES);
+async function abrirAjustes(
+  replay?: ReplayStatus,
+  pantallas?: unknown[],
+  ajustes?: Partial<Settings>,
+) {
+  responde("get_settings", { ...AJUSTES, ...ajustes });
   responde("shortcut_status", {
     capture: true,
     record: true,
@@ -242,8 +246,12 @@ describe("el tour de los ajustes", () => {
  * no tener la funcion.
  */
 describe("los ultimos segundos, en «Grabar»", () => {
-  async function irAGrabar(replay?: ReplayStatus, pantallas?: unknown[]) {
-    await abrirAjustes(replay, pantallas);
+  async function irAGrabar(
+    replay?: ReplayStatus,
+    pantallas?: unknown[],
+    ajustes?: Partial<Settings>,
+  ) {
+    await abrirAjustes(replay, pantallas, ajustes);
     // El nombre del boton cambia con el idioma, y una de estas pruebas va en ingles.
     fireEvent.click(screen.getByRole("button", { name: /^(Grabar|Record)$/ }));
   }
@@ -291,6 +299,34 @@ describe("los ultimos segundos, en «Grabar»", () => {
   it("apagado, la tecla no promete nada que no vaya a pasar", async () => {
     await irAGrabar();
     expect(screen.getByText("primero hay que encenderlo aquí arriba")).toBeInTheDocument();
+  });
+
+  /**
+   * Munir tuvo el anillo semanas a 60 fotogramas y resolución nativa, que es el 86% de un
+   * núcleo todo el día, y lo que notó fue que el ordenador iba con lag y que el atajo
+   * tardaba en abrir la captura. Nadie elige eso sabiendo lo que cuesta: se elige porque
+   * suena a mejor. Ahora lo dice la propia fila, y en rojo.
+   */
+  it("la combinación más cara dice lo que cuesta, y avisa", async () => {
+    await irAGrabar(undefined, undefined, { replayFps: 60, replayHeight: 0 });
+    const coste = screen.getByText(/86% de un núcleo/);
+    expect(coste).toBeInTheDocument();
+    expect(coste.className).toMatch(/amber|warn|yellow/);
+  });
+
+  it("y la combinación de en medio dice la suya", async () => {
+    await irAGrabar(undefined, undefined, { replayFps: 30, replayHeight: 1080 });
+    expect(screen.getByText(/57% de un núcleo/)).toBeInTheDocument();
+  });
+
+  /**
+   * Solo se midieron esas dos. Las otras siete saldrían de extrapolar dos puntos, o sea
+   * de inventarse un número y ponérselo delante a quien decide.
+   */
+  it("y de las que no se midieron no se inventa ninguna cifra", async () => {
+    await irAGrabar(undefined, undefined, { replayFps: 15, replayHeight: 720 });
+    expect(screen.getByText("fotogramas por segundo")).toBeInTheDocument();
+    expect(screen.queryByText(/% de un núcleo/)).toBeNull();
   });
 
   it("en ingles no se cuela ni una palabra en castellano", async () => {
