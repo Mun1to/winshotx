@@ -11,7 +11,7 @@
 Both tools measured on the same Windows 11 machine, three runs each, starting from cold. The
 clock stops when the selection is visible on screen.
 
-- From shortcut to selection: **winshotx 28 ms**, Snipping Tool 920 ms.
+- From shortcut to selection: **winshotx 28 ms with one screen**, about half a second with three (all of them get frozen); Snipping Tool 920 ms.
 - Memory while capturing: **winshotx 33 MB**, Snipping Tool 253 MB.
 - Memory sitting idle: **winshotx 31 MB**, Snipping Tool 98 MB.
 - Installer size: **2.50 MB**, with no bundled FFmpeg or other binaries.
