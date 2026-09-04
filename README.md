@@ -25,7 +25,7 @@
 
 A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
 magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It opens the selection in
-28 ms, uses 33 MB of memory and fits in a 2.50 MB installer. No account, no cloud, no telemetry and
+28 ms with one screen, uses 33 MB of memory and fits in a 2.50 MB installer. No account, no cloud, no telemetry and
 no bundled FFmpeg.
 
 > **The interface speaks English and Spanish**, and follows whichever one Windows is set to. You
@@ -72,7 +72,7 @@ has the nineteen rows, including the five the Snipping Tool wins.
 
 | | winshotx | Snipping Tool |
 |---|---|---|
-| From shortcut to selection | **28 ms** | 920 ms |
+| From shortcut to selection (one screen) | **28 ms** | 920 ms |
 | Memory while capturing | **33 MB** | 253 MB |
 | Memory sitting idle | **31 MB** | 98 MB |
 | Records GIF | **yes** | no |
