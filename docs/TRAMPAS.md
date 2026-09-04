@@ -954,3 +954,40 @@ carpeta, idioma, arranque con Windows) siguen intactos despues.
 
 **La regla:** un apunte que dice «esto no se puede» y que nadie ha vuelto a comprobar caduca
 igual que una medicion. Este llevaba dias mandando trabajo manual a Munir.
+
+## 40. La Store rechazo winshotx por una pagina de error, y el riesgo estaba apuntado
+
+El 1 de septiembre de 2026 la Microsoft Store rechazo el envio. El informe, que hay que ir a
+buscar a `products/<id>/certification/reports/<uuid>`, decia dos cosas:
+
+| Politica | Lo que decia |
+|---|---|
+| `10.1.2.10 Functionality` | **Unusable Feature: Display error page at launch.** ASUS EXPERTBOOK P5405CSA, build 26200.9168 |
+| `10.2.4.1 Software Dependencies` | No se declaran las dependencias de software no integrado. **Undisclosed software: MS Visual C++** |
+
+**Lo que se descarto, una por una, antes de tocar nada:**
+
+1. **No era el binario sin interfaz** (la trampa 36): se descomprimio el `.msix` enviado y su
+   `winshotx.exe` lleva `overlay.html`, `index.html` y `editor.html` dentro.
+2. **No era la carpeta de solo lectura del paquete**: WebView2 escribe su perfil en
+   `%LOCALAPPDATA%\com.munir.winshotx\EBWebView`, no junto al ejecutable.
+3. **No depende del Visual C++ Redistributable**: las dependencias del binario son
+   `api-ms-win-crt-*`, o sea el Universal CRT, que viene con Windows desde el 10. Su escaner
+   lo lee como «MS Visual C++»; declararlo cuesta una linea y discutirlo cuesta una ronda.
+
+**Lo que quedaba, y estaba escrito en el buzon desde el dia del envio:** *«si la maquina donde
+Microsoft certifique no tiene el runtime de WebView2, la app arranca sin ventana... es el
+unico punto por donde le veo un rechazo»*. Se cumplio.
+
+**No se pudo reproducir**, y conviene decirlo: esta maquina tiene WebView2, y para instalar el
+MSIX y probarlo hace falta el modo desarrollador, que pide permisos de administrador.
+
+**Lo que se hizo, que arregla el sintoma pase lo que pase:** `platform::webview` comprueba
+WebView2 **antes de crear ninguna ventana** y, si no esta, lo dice con un `MessageBoxW` del
+sistema (que no necesita WebView2 para pintarse) en el idioma de Windows, y sale. Una pagina
+de error del navegador no dice ni que ha pasado ni que hacer; un cuadro de dialogo que nombra
+lo que falta y donde se consigue, si.
+
+**La leccion:** un riesgo apuntado como «poco probable» y sin comprobar es un riesgo que
+sigue entero. Ese punto llevaba escrito desde el 31 de agosto con la palabra «probable»
+delante, y fue exactamente lo que paso.
