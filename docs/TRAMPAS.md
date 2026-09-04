@@ -873,3 +873,47 @@ esta sin comprobar y aqui se anota como lo que es, una sospecha.
 
 **Lo que si vale como regla:** en este proyecto, cualquier idea de rendimiento se mide antes
 de quedarsela, aunque parezca de cajon que va a mejorar. Esta parecia de cajon.
+
+## 38. El arranque con Windows guarda una RUTA, y esa ruta caduca
+
+Encontrada el 4 de septiembre de 2026, y llevaba mordiendo desde el 27 de agosto sin que
+nadie la viera.
+
+Munir dijo: *«tienes que estar todo el rato actualizando la app»*, y mando una foto de sus
+ajustes. En la esquina ponia **Version 0.1.18**. La publicada era la 0.2.18.
+
+**Lo que habia en su maquina:**
+
+| Donde | Version | Quien la abre |
+|---|---|---|
+| `C:\Apps\Random APPS\winshotx\winshotx.exe` | 0.2.18 | el menu inicio, y el desinstalador registrado |
+| `%LOCALAPPDATA%\winshotx\winshotx.exe` | **0.1.18** | **el arranque con Windows** |
+
+La clave `HKCU\...\CurrentVersion\Run\winshotx` apuntaba a la segunda. Asi que cada vez que
+encendia el ordenador le arrancaba la 0.1.18, la 0.1.18 miraba si habia version nueva,
+encontraba la 0.2.18 y le pedia actualizar. Actualizaba, el instalador escribia en la carpeta
+buena, la app se reiniciaba desde ahi, y **el registro seguia apuntando a la vieja**. Al
+siguiente encendido, otra vez.
+
+**De donde sale:** `autostart::set_registro` escribe `std::env::current_exe()` el dia que se
+pulsa el interruptor, y nadie lo vuelve a mirar nunca. Basta con reinstalar en otra carpeta
+(el asistente de Tauri deja elegirla, y Munir eligio una) para que esa ruta se quede
+apuntando a un ejecutable que ya no manda. **No hace falta ni tocar el interruptor.**
+
+**Lo que esto se llevo por delante, y es lo peor:** durante una semana, la aplicacion que
+corria en su maquina despues de cada reinicio era la del 27 de agosto. Todo lo que se
+publico esos dias para que fuera mas rapido pudo no estar corriendo cuando el decia que iba
+lento. Las seis versiones de la noche del 31 se midieron en la maquina de aqui, no en la suya.
+
+**Arreglado** en `autostart::revisar_ruta`, que se llama al arrancar (no al pulsar nada) y
+corrige la entrada si no apunta a este ejecutable. Cinco pruebas, incluida la ruta exacta que
+tenia el.
+
+**La regla, que vale para cualquier cosa que guarde una ruta absoluta:** una ruta guardada en
+el registro, en un acceso directo o en un archivo de ajustes es una foto del dia que se
+escribio. Si algo puede mudarse, hay que comprobarla al arrancar, no confiar en que quien la
+escribio la mantenga al dia.
+
+**Y la de metodo:** antes de creerse un informe de rendimiento de alguien, **mirar que
+version tiene puesta**. La respuesta estaba en la esquina de una captura de pantalla que ya
+se habia mirado varias veces sin leerla.
