@@ -163,6 +163,15 @@ pub fn run() {
             hotkeys::register(&handle, &config);
             tray::build(&handle)?;
 
+            // Si arranca sola con Windows, que arranque ESTA y no otra copia. Munir tenia
+            // el registro apuntando a una instalacion de hace una semana en otra carpeta:
+            // encendia el ordenador, le arrancaba la version vieja y le pedia actualizar,
+            // todos los dias. Ver `autostart::revisar_ruta`.
+            #[cfg(windows)]
+            if config.start_with_windows {
+                platform::autostart::revisar_ruta();
+            }
+
             // El anillo de los ultimos segundos vuelve solo si se dejo encendido: es un
             // ajuste que se pone una vez y se espera encontrar puesto. Si no arranca, se
             // dice por consola y la app sigue: quedarse sin winshotx por esto seria peor.
