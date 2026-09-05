@@ -33,10 +33,29 @@ export const captureAllScreens = (action: StillAction) =>
   invoke<StillResult>("capture_all_screens", { action });
 
 /** Respaldo del fondo del overlay cuando el protocolo asset no responde. */
+/** La pantalla congelada de este monitor, en PNG. Es el camino normal. */
+export const freezePng = (monitorId: number) =>
+  invoke<ArrayBuffer>("freeze_png", { monitorId });
+
+/** Y sin comprimir, en BMP, si el PNG fallara. */
 export const freezeBytes = (monitorId: number) =>
   invoke<ArrayBuffer>("freeze_bytes", { monitorId });
 
+/**
+ * Este overlay ya tiene la imagen pintada: que Rust lo ensenne. Hasta entonces la ventana
+ * sigue aparcada fuera de las pantallas y nadie ve una pantalla de carga.
+ */
+export const overlayListo = (monitorId: number, generation: number) =>
+  invoke<void>("overlay_listo", { monitorId, generation }).catch(() => undefined);
+
 export const cancelCapture = () => invoke<void>("cancel_capture");
+
+/**
+ * Una marca del cronometro del camino del atajo. Sin `--crono` en Rust no hace nada, y si
+ * el puente falla tampoco: medir no puede romper lo que se mide.
+ */
+export const cronoMarca = (etapa: string) =>
+  invoke<void>("crono_marca", { etapa }).catch(() => undefined);
 
 /** Copia al portapapeles el color que hay bajo el cursor, en `#rrggbb`. */
 export const copyColor = (color: string) => invoke<void>("copy_color", { color });

@@ -1,6 +1,7 @@
 pub mod archivos;
 pub mod capture;
 pub(crate) mod commands;
+pub mod crono;
 pub mod encode;
 pub mod enlaces;
 pub mod error;
@@ -104,11 +105,28 @@ pub fn run() {
     if !platform::webview::hay_con_que_pintar() {
         return;
     }
+    // El cronometro del camino del atajo, solo si se pide: ver `crono`.
+    if std::env::args().any(|arg| arg == "--crono") {
+        crono::activar();
+    }
 
     tauri::Builder::default()
         // Tiene que ir la primera: si ya hay un winshotx vivo, esta instancia se
         // cierra y le pasa el testigo, en vez de robarle los atajos globales.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // Una segunda instancia con `--capture` es la forma de disparar una captura
+            // desde fuera (un guion, otra herramienta, el cronometro), y `--cancel` la
+            // cierra. Sin argumentos, lo de siempre: ensennar los ajustes.
+            if args.iter().any(|arg| arg == "--capture") {
+                if let Err(error) = windows_mgr::open_overlays(app, windows_mgr::OverlayIntent::Capture) {
+                    eprintln!("no se ha podido abrir el overlay: {error}");
+                }
+                return;
+            }
+            if args.iter().any(|arg| arg == "--cancel") {
+                windows_mgr::close_overlays(app);
+                return;
+            }
             let _ = windows_mgr::show_settings(app);
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -216,9 +234,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::overlay_bootstrap,
             commands::freeze_bytes,
+            commands::freeze_png,
+            commands::overlay_listo,
             commands::capture_still,
             commands::capture_all_screens,
             commands::cancel_capture,
+            commands::crono_marca,
             commands::copy_color,
             commands::copy_pinned,
             commands::save_pinned,

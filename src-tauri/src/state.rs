@@ -100,10 +100,6 @@ impl AppState {
         }
     }
 
-    pub fn freeze_dir(&self) -> PathBuf {
-        self.temp_root.join("freeze")
-    }
-
     pub fn session_dir(&self, id: &str) -> PathBuf {
         self.temp_root.join("sessions").join(id)
     }

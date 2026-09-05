@@ -15,10 +15,10 @@ mod tests {
         let dir = std::env::temp_dir().join("winshotx-bench-freeze");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let _ = crate::capture::freeze_all(&dir).unwrap();
+        let _ = crate::capture::freeze_all().unwrap();
         for vuelta in 0..4 {
             let t = Instant::now();
-            let freezes = crate::capture::freeze_all(&dir).unwrap();
+            let freezes = crate::capture::freeze_all().unwrap();
             let ms_freeze = ms(t);
             let t = Instant::now();
             let region = crate::capture::Rect { x: 100, y: 100, width: 800, height: 600 };
@@ -28,8 +28,9 @@ mod tests {
             let _ = crate::capture::stitch_all(&freezes).unwrap();
             let ms_stitch = ms(t);
             println!(
-                "[freeze] vuelta {vuelta}: freeze_all {} pantallas {ms_freeze:.0} ms; recorte {ms_crop:.0} ms; juntar {ms_stitch:.0} ms",
-                freezes.len()
+                "[freeze] vuelta {vuelta}: freeze_all {} pantallas {ms_freeze:.0} ms ({} KB de PNG); recorte {ms_crop:.0} ms; juntar {ms_stitch:.0} ms",
+                freezes.len(),
+                freezes.iter().map(|f| f.png.len()).sum::<usize>() / 1024
             );
         }
         // Las partes por separado.

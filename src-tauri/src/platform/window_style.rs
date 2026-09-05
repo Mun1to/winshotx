@@ -51,3 +51,37 @@ pub fn never_focus(window: &tauri::WebviewWindow) {
 
 #[cfg(not(windows))]
 pub fn never_focus(_window: &tauri::WebviewWindow) {}
+
+/// Mueve la ventana a ese punto y la ensenna, de una sola vez y sin activarla.
+///
+/// Es para los overlays, que esperan aparcados fuera de las pantallas a tener su imagen:
+/// en el momento de aparecer cada llamada a Windows cuenta, y `set_position` mas `show`
+/// eran dos, cada una con su vuelta por el compositor. `SWP_NOACTIVATE` porque el foco se
+/// le da aparte y solo a la ventana de la pantalla del raton. Devuelve `false` si no ha
+/// podido, para que quien llama use el camino normal.
+#[cfg(windows)]
+pub fn colocar_y_ensennar(window: &tauri::WebviewWindow, x: i32, y: i32) -> bool {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOSIZE, SWP_SHOWWINDOW,
+    };
+
+    let Ok(handle) = window.hwnd() else { return false };
+    unsafe {
+        SetWindowPos(
+            HWND(handle.0),
+            Some(HWND_TOPMOST),
+            x,
+            y,
+            0,
+            0,
+            SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE,
+        )
+        .is_ok()
+    }
+}
+
+#[cfg(not(windows))]
+pub fn colocar_y_ensennar(_window: &tauri::WebviewWindow, _x: i32, _y: i32) -> bool {
+    false
+}

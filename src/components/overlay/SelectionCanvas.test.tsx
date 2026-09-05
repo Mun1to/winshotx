@@ -40,7 +40,7 @@ const PAYLOAD: OverlayPayload = {
     scale: 1,
     isPrimary: true,
   },
-  freezePath: "C:/temp/freeze-0.bmp",
+  generation: 1,
   windows: [],
   settings: AJUSTES,
   intent: "capture",
@@ -52,16 +52,11 @@ const PAYLOAD: OverlayPayload = {
 beforeEach(() => {
   aplicarIdioma("es");
   responde("overlay_bootstrap", PAYLOAD);
-  // El congelado se pide por el protocolo asset y se pasa a bitmap: aquí no hay ni
-  // servidor ni decodificador de imágenes, así que los dos se doblan. El bitmap mide lo
-  // que la ventana para que la escala sea 1 y el tamaño que se lee sea el que se arrastra.
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => ({ ok: true, status: 200, blob: async () => new Blob(["freeze"]) })),
-  );
+  // El congelado llega en PNG por el IPC y se pasa a bitmap: aquí no hay decodificador de
+  // imágenes, así que se dobla. El bitmap mide lo que la ventana para que la escala sea 1
+  // y el tamaño que se lee sea el que se arrastra.
+  responde("freeze_png", new Uint8Array([137, 80, 78, 71]).buffer);
   vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: ANCHO, height: ALTO })));
-  URL.createObjectURL = () => "blob:congelado";
-  URL.revokeObjectURL = () => {};
   HTMLCanvasElement.prototype.getContext = (() => ({
     drawImage: () => {},
     getImageData: () => ({ data: new Uint8ClampedArray([0, 0, 0, 255]) }),

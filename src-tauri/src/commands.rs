@@ -17,7 +17,10 @@ use crate::windows_mgr::{self, OverlayIntent};
 #[serde(rename_all = "camelCase")]
 pub struct OverlayPayload {
     monitor: MonitorInfo,
-    freeze_path: String,
+    /// De que disparo del atajo es este payload. El overlay lo devuelve en `overlay_listo`
+    /// cuando tiene la imagen pintada, y asi un aviso que llegue tarde (de una captura que
+    /// ya se cancelo) no ensenna una ventana que nadie ha pedido.
+    generation: u64,
     windows: Vec<WindowRect>,
     settings: Settings,
     /// Si se abrio para capturar o para grabar. El overlay es el mismo.
@@ -36,22 +39,23 @@ pub struct OverlayPayload {
 /// hecho en el evento cuando se reutiliza una ventana, y ahorrarse la vuelta de invoke).
 pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<OverlayPayload> {
     let freezes = state.freezes.read();
-    let posicion = freezes
+    let freeze = freezes
         .iter()
-        .position(|f| f.monitor.id == monitor_id)
+        .find(|f| f.monitor.id == monitor_id)
         .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?;
-    let freeze = &freezes[posicion];
 
     Ok(OverlayPayload {
         monitor: freeze.monitor.clone(),
-        freeze_path: freeze.path.to_string_lossy().to_string(),
+        generation: windows_mgr::generacion_actual(),
         windows: capture::window_rects(),
         settings: state.settings.read().clone(),
         intent: *state.intent.read(),
-        // El orden de `freezes` es el de los monitores del sistema, asi que el numero que
-        // se pinta en cada pantalla es siempre el mismo entre disparo y disparo.
-        screen_number: posicion + 1,
-        screen_count: freezes.len(),
+        // El id es el indice del monitor en la enumeracion del sistema, asi que el numero
+        // que se pinta en cada pantalla es siempre el mismo entre disparo y disparo, aunque
+        // las capturas lleguen en dos tandas (primero la del raton) y `freezes` no este
+        // completo todavia.
+        screen_number: freeze.monitor.id as usize + 1,
+        screen_count: capture::monitors().map(|m| m.len()).unwrap_or(freezes.len()).max(1),
         last_region: *state.last_region.read(),
     })
 }
@@ -79,13 +83,40 @@ pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> R
     build_overlay_payload(&state, monitor_id)
 }
 
-/// Respaldo del overlay: la pantalla congelada servida por el propio IPC, como BMP.
-/// El camino normal es el protocolo asset, pero si ese falla (CSP, ambito del
-/// scope, ruta fuera de $TEMP) el overlay se quedaria en negro tapando la
-/// pantalla entera. Con esto siempre hay una segunda via para pintar el fondo.
+/// La pantalla congelada de un monitor, en PNG, para el overlay.
 ///
-/// Sale de la imagen en memoria, no del archivo: asi este camino funciona aunque el
-/// archivo no se haya podido escribir, que es justo cuando hace falta.
+/// Es lo que mas pesaba de todo el camino del atajo: llevar los 8 MB en crudo a cada
+/// ventana tardaba 300-400 ms con tres pantallas (medido el 5 de septiembre de 2026), y en
+/// PNG rapido son dos o tres megabytes que el navegador decodifica nativo. Se comprime al
+/// congelar, una vez, en `capture::freeze_all`.
+#[tauri::command]
+pub async fn freeze_png(
+    state: State<'_, AppState>,
+    monitor_id: u32,
+) -> Result<tauri::ipc::Response> {
+    let png = {
+        let freezes = state.freezes.read();
+        freezes
+            .iter()
+            .find(|f| f.monitor.id == monitor_id)
+            .map(|f| f.png.clone())
+            .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?
+    };
+    Ok(tauri::ipc::Response::new((*png).clone()))
+}
+
+/// El overlay de ese monitor ya tiene su imagen pintada: que se ensenne.
+///
+/// Las ventanas se quedan aparcadas fuera de las pantallas hasta este aviso, asi que nadie
+/// ve nunca la pantalla de «preparando la captura»: lo que aparece, aparece ya pintado.
+#[tauri::command]
+pub async fn overlay_listo(app: AppHandle, monitor_id: u32, generation: u64) {
+    windows_mgr::overlay_listo(&app, monitor_id, generation);
+}
+
+/// Respaldo del overlay: la pantalla congelada sin comprimir, como BMP, si el PNG fallara.
+/// El overlay ocupa la pantalla entera y es opaco: sin una segunda via se quedaria en negro
+/// tapando el escritorio.
 #[tauri::command]
 pub async fn freeze_bytes(
     state: State<'_, AppState>,
@@ -385,6 +416,12 @@ mod pruebas_de_color {
 #[tauri::command]
 pub async fn cancel_capture(app: AppHandle) {
     windows_mgr::close_overlays(&app);
+}
+
+/// Una marca del cronometro puesta desde el frontend. Sin `--crono` no hace nada.
+#[tauri::command]
+pub async fn crono_marca(etapa: String) {
+    crate::crono::marca(&etapa);
 }
 
 #[tauri::command]

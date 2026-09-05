@@ -25,7 +25,8 @@
         "visible": false,
         "skipTaskbar": false,
         "minWidth": 780,
-        "minHeight": 420
+        "minHeight": 420,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-background-timer-throttling"
       }
     ],
     "security": {

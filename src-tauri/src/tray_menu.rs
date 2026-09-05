@@ -99,6 +99,7 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
         TRAY_MENU_LABEL,
         WebviewUrl::App("tray-menu.html".into()),
     )
+    .additional_browser_args(crate::windows_mgr::NAVEGADOR_ARGS)
     .title("winshotx")
     .decorations(false)
     .always_on_top(true)

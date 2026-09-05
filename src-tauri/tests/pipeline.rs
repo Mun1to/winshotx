@@ -165,13 +165,13 @@ fn exporta_un_mp4_que_media_foundation_acepta() {
 #[cfg(windows)]
 #[test]
 fn congela_los_monitores_reales_y_recorta_la_region_pedida() {
-    let dir = scratch("freeze");
-    let freezes = capture::freeze_all(&dir).expect("no se ha podido capturar la pantalla");
+    let freezes = capture::freeze_all().expect("no se ha podido capturar la pantalla");
     assert!(!freezes.is_empty(), "no se ha detectado ningun monitor");
 
     let monitor = &freezes[0].monitor;
     assert!(monitor.width > 0 && monitor.height > 0);
-    assert!(freezes[0].path.exists(), "el PNG congelado no se ha escrito");
+    assert!(freezes[0].png.len() > 1024, "el PNG congelado ha salido vacio");
+    assert_eq!(&freezes[0].png[1..4], b"PNG", "lo que viaja al overlay no es un PNG");
 
     let region = Rect {
         x: monitor.x + 10,
@@ -195,7 +195,7 @@ fn la_grabacion_en_vivo_entrega_fotogramas_recortados() {
 
     use winshotx_lib::record::win::{self, CaptureFlags};
 
-    let freezes = capture::freeze_all(&scratch("live")).expect("sin monitores");
+    let freezes = capture::freeze_all().expect("sin monitores");
     let monitor = freezes[0].monitor.clone();
     let region = Rect {
         x: monitor.x + 80,
@@ -253,7 +253,7 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
     use winshotx_lib::record::win::{self, CaptureFlags};
 
     let dir = scratch("extremo-a-extremo");
-    let freezes = capture::freeze_all(&dir.join("freeze")).expect("sin monitores");
+    let freezes = capture::freeze_all().expect("sin monitores");
     let monitor = freezes[0].monitor.clone();
     let region = Rect {
         x: monitor.x + 40,

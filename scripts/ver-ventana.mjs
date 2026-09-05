@@ -234,7 +234,7 @@ const RESPUESTAS = {
 
 const OVERLAY = {
   monitor: { id: 0, label: "principal", x: 0, y: 0, width: 1280, height: 800, scale: 1, isPrimary: true },
-  freezePath: "/freeze.png",
+  generation: 1,
   windows: [
     { title: "Documento sin título - Bloc de notas", rect: { x: 90, y: 110, width: 520, height: 340 } },
     { title: "Explorador de archivos", rect: { x: 660, y: 260, width: 540, height: 400 } },
@@ -280,6 +280,8 @@ window.__TAURI_INTERNALS__ = {
   invoke: function (cmd, args) {
     const tabla = ${JSON.stringify(RESPUESTAS)};
     if (cmd === "overlay_bootstrap") return Promise.resolve(${JSON.stringify(OVERLAY)});
+    // La pantalla congelada viaja por el IPC en PNG; aquí la sirve este mismo servidor.
+    if (cmd === "freeze_png") return fetch("/freeze.png").then((r) => r.arrayBuffer());
     if (cmd in tabla) return Promise.resolve(tabla[cmd]);
     if (cmd === "plugin:event|listen") {
       (this._oyentes[args.event] ??= []).push(args.handler);

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -8,9 +7,12 @@ import {
   captureAllScreens,
   captureStill,
   copyColor,
+  cronoMarca,
   freezeBytes,
+  freezePng,
   openSettings,
   overlayBootstrap,
+  overlayListo,
   setCaptureFlow,
   startRecording,
 } from "../../lib/ipc";
@@ -80,29 +82,20 @@ function contains(rect: Rect, x: number, y: number): boolean {
 /**
  * El fondo del overlay tapa la pantalla entera: si no se pinta, el usuario se
  * queda con un rectangulo negro encima de todo. Por eso hay dos vias.
+ *
+ * Las dos van por el IPC y salen de la memoria de Rust: ya no hay ningun archivo. La
+ * normal trae la pantalla en PNG (dos o tres megabytes); llevarla en crudo, 8 MB por
+ * pantalla, era el trozo mas gordo de todo el camino del atajo: 300-400 ms con tres
+ * pantallas pidiendola a la vez. La de respaldo la trae sin comprimir, en BMP, por si el
+ * PNG fallara.
  */
-async function loadFreeze(path: string, monitorId: number): Promise<Blob> {
+async function loadFreeze(monitorId: number): Promise<Blob> {
   try {
-    // Via rapida: el protocolo asset sirve el archivo sin copiarlo por el IPC.
-    // (Se probo lanzar esta via y la de IPC a la vez, tomando la que respondiera antes,
-    // pero con las tres ventanas pidiendolo simultaneamente competian por el mismo disco
-    // y salia peor que dejar una sola via fija: descartado.)
-    //
-    // El nombre del archivo es siempre el mismo entre capturas (freeze-N.bmp: el indice es
-    // del monitor, no de la captura), asi que si el navegador cachea por URL sin mirar que
-    // el contenido cambio, serviria el freeze de la vez anterior. `cache: "no-store"` mas
-    // un parametro que cambia siempre es la doble seguridad de que esto nunca pasa.
-    const url = convertFileSrc(path);
-    const sinCache = `${url}${url.includes("?") ? "&" : "?"}t=${crypto.randomUUID()}`;
-    const response = await fetch(sinCache, { cache: "no-store" });
-    if (!response.ok) throw new Error(`asset devolvio ${response.status}`);
-    const blob = await response.blob();
-    if (blob.size === 0) throw new Error("el asset ha llegado vacio");
-    return blob;
-  } catch (assetError) {
-    // Via de respaldo: los bytes por el IPC. No depende ni de la CSP ni del ambito del
-    // protocolo asset.
-    console.warn("el protocolo asset ha fallado, se tira del IPC", assetError);
+    const bytes = await freezePng(monitorId);
+    if (!bytes || bytes.byteLength === 0) throw new Error("el PNG ha llegado vacio");
+    return new Blob([bytes], { type: "image/png" });
+  } catch (pngError) {
+    console.warn("el PNG del congelado ha fallado, se pide sin comprimir", pngError);
     const bytes = await freezeBytes(monitorId);
     return new Blob([bytes], { type: "image/bmp" });
   }
@@ -205,7 +198,10 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     return source.width / Math.max(1, window.innerWidth);
   }, [source]);
 
-  const [freezeUrl, setFreezeUrl] = useState<string | null>(null);
+  /** Si el fondo ya esta dibujado en `source`. Hasta entonces, la pantalla de arranque. */
+  const [fondoListo, setFondoListo] = useState(false);
+  /** Donde se cuelga el lienzo con la pantalla congelada, que es el fondo que se ve. */
+  const fondoRef = useRef<HTMLDivElement>(null);
 
   /** Ventanas del sistema recortadas a este monitor, ya en coordenadas CSS locales. */
   const snapTargets = useMemo(
@@ -240,18 +236,17 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
    * a medias, para que una llegada tardia de la vieja no pise el estado de la nueva.
    */
   const bootIdRef = useRef(0);
-  const freezeUrlRef = useRef<string | null>(null);
-  freezeUrlRef.current = freezeUrl;
 
   const boot = useCallback(async (payloadListo?: OverlayPayload) => {
     const miId = ++bootIdRef.current;
     const vigente = () => bootIdRef.current === miId;
+    const quien = payloadListo?.monitor.id ?? monitorId;
+    void cronoMarca(`js-evento-${quien}`);
 
     // Se limpia lo de la vez anterior ANTES de pedir nada: si esta ventana se reutiliza,
     // sin esto se veria un instante la captura vieja antes de que llegue la nueva.
-    if (freezeUrlRef.current) URL.revokeObjectURL(freezeUrlRef.current);
     setPayload(null);
-    setFreezeUrl(null);
+    setFondoListo(false);
     setSource(null);
     setSelection(null);
     setMode({ kind: "idle" });
@@ -277,28 +272,28 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       setConBarra(data.settings.captureFlow === "toolbar");
       void getCurrentWindow().setFocus();
 
-      // El PNG se pasa a un blob del mismo origen: cargado directamente desde el
-      // protocolo asset, el canvas quedaria contaminado y la lupa no podria leer
-      // ni un pixel.
-      //
       // Aqui va el id de `data.monitor.id` (el de ESTA captura, siempre correcto),
       // NUNCA el prop `monitorId` de la URL: esta ventana se reutiliza entre capturas
       // (ver windows_mgr::open_overlays) y ese prop se fijo la primera vez que se creo,
       // que puede no coincidir con el id actual si el orden de los monitores del sistema
-      // cambio entre medias. Solo importa para la via de respaldo por IPC (loadFreeze),
-      // y pedir ahi el id equivocado significaba ensennar el freeze de otro monitor.
-      const blob = await loadFreeze(data.freezePath, data.monitor.id);
+      // cambio entre medias. Pedir el id equivocado es ensennar el freeze de otro monitor.
+      const blob = await loadFreeze(data.monitor.id);
       if (!vigente()) return;
-      const objectUrl = URL.createObjectURL(blob);
-      setFreezeUrl(objectUrl);
+      void cronoMarca(`js-bytes-${quien}`);
 
+      // Un solo lienzo hace de fondo y de fuente para la lupa: decodificar una vez, no dos
+      // (antes el fondo era un <img> con su propia decodificacion ademas de esta).
       const bitmap = await createImageBitmap(blob);
       if (!vigente()) return;
       const canvas = document.createElement("canvas");
       canvas.width = bitmap.width;
       canvas.height = bitmap.height;
+      canvas.className = "pointer-events-none absolute inset-0 h-full w-full";
       canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+      bitmap.close?.();
       setSource(canvas);
+      setFondoListo(true);
+      void cronoMarca(`js-canvas-${quien}`);
     } catch (e) {
       if (vigente()) setBootError(String(e));
     }
@@ -307,6 +302,46 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   useEffect(() => {
     void boot();
   }, [boot]);
+
+  // El lienzo con la pantalla congelada se cuelga en el DOM a mano: React no lo redibuja,
+  // y asi el mismo elemento que lee la lupa es el que se ve.
+  useLayoutEffect(() => {
+    const hueco = fondoRef.current;
+    if (!hueco || !source || !fondoListo) return;
+    hueco.replaceChildren(source);
+    return () => {
+      hueco.replaceChildren();
+    };
+  }, [source, fondoListo]);
+
+  /**
+   * Con el fondo colgado, se le dice a Rust que ya puede ensennar esta ventana: hasta
+   * entonces esta aparcada fuera de las pantallas y nadie ve la pantalla de carga.
+   *
+   * Se espera al siguiente cuadro (`requestAnimationFrame`), que es el que lleva el lienzo
+   * recien colgado: para cuando Rust reciba el aviso y mueva la ventana, ese cuadro ya
+   * esta pintado. Con dos cuadros se esperaba de mas (medido: 16 ms). Y un navegador
+   * aparcado fuera de las pantallas puede no pintar cuadros: si en 30 ms no ha llegado
+   * ninguno, se avisa igual.
+   */
+  useEffect(() => {
+    if (!fondoListo || !payload) return;
+    const { id } = payload.monitor;
+    const generacion = payload.generation;
+    let avisado = false;
+    const avisar = () => {
+      if (avisado) return;
+      avisado = true;
+      void cronoMarca(`js-pintado-${id}`);
+      void overlayListo(id, generacion);
+    };
+    const uno = requestAnimationFrame(avisar);
+    const plazo = window.setTimeout(avisar, 30);
+    return () => {
+      cancelAnimationFrame(uno);
+      window.clearTimeout(plazo);
+    };
+  }, [fondoListo, payload]);
 
   // La ventana ya estaba montada de una captura anterior: no llega un remontaje que
   // dispare el arranque solo, asi que el backend lo pide explicitamente por evento, con
@@ -330,12 +365,6 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       void unlisten.then((fn) => fn());
     };
   }, [boot]);
-
-  useEffect(() => {
-    return () => {
-      if (freezeUrlRef.current) URL.revokeObjectURL(freezeUrlRef.current);
-    };
-  }, []);
 
   const toPhysical = useCallback(
     (rect: Rect): Rect => aVirtual(rect, payload!.monitor, scale),
@@ -730,7 +759,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     readHex(e.clientX, e.clientY);
   };
 
-  if (!payload || !freezeUrl) {
+  if (!payload || !fondoListo) {
     return <BootScreen error={bootError} />;
   }
 
@@ -750,16 +779,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       className="relative h-screen w-screen overflow-hidden"
       style={{ cursor: pantallaEntera ? "pointer" : active ? "default" : "crosshair" }}
     >
-      {/* La key fuerza a React a desmontar y crear un <img> nuevo en cada captura, en vez
-          de reutilizar el elemento cambiandole el src: asi no hay forma de que el
-          navegador siga pintando el frame anterior mientras decide si actualizar. */}
-      <img
-        key={freezeUrl}
-        src={freezeUrl}
-        alt=""
-        draggable={false}
-        className="pointer-events-none absolute inset-0 h-full w-full"
-      />
+      {/* El fondo: el lienzo con la pantalla congelada, colgado aqui por el efecto de
+          arriba. Un lienzo y no un <img>, para decodificar la imagen una sola vez. */}
+      <div ref={fondoRef} className="pointer-events-none absolute inset-0" />
 
       {/* Sin seleccion: velo uniforme. Con seleccion: el velo lo dibuja la sombra del recuadro. */}
       {!active && <div className="pointer-events-none absolute inset-0 bg-black/45" />}

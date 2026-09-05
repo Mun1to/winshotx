@@ -41,8 +41,11 @@ export type CaptureMode = "still" | "video" | "gif";
 
 export interface OverlayPayload {
   monitor: MonitorInfo;
-  /** Ruta absoluta del PNG congelado de este monitor. */
-  freezePath: string;
+  /**
+   * De que disparo del atajo es este payload. Se devuelve en `overlayListo` al tener la
+   * imagen pintada, para que un aviso tardio de una captura ya cancelada no ensenne nada.
+   */
+  generation: number;
   windows: WindowRect[];
   settings: Settings;
   intent: OverlayIntent;

@@ -7,11 +7,62 @@ use tauri::{
     WebviewWindowBuilder,
 };
 
-use crate::capture::{self, Rect};
+use parking_lot::Mutex;
+
+use crate::capture::{self, MonitorInfo, Rect};
 use crate::error::Result;
 use crate::state::{AppState, CandadoCaptura};
 
+/// Las ventanas del overlay que esperan a ensennarse, hasta que cada una avise de que tiene
+/// su imagen pintada (`overlay_listo`).
+///
+/// Antes se ensennaban nada mas congelar, y durante los 300-400 ms que tardaba en llegarles
+/// la imagen el usuario veia una pantalla oscura con «Preparando la captura». Munir, el 5 de
+/// septiembre de 2026: *«lo del principio de carga queda muy mal»*. Ahora la ventana sigue
+/// aparcada fuera de las pantallas mientras carga, y lo que aparece, aparece ya pintado.
+///
+/// La generacion distingue una captura de la siguiente: un aviso que llegue tarde, de una
+/// captura que ya se cancelo, no puede ensennar una ventana que nadie ha pedido.
+struct Pendientes {
+    generacion: u64,
+    ventanas: Vec<(u32, String, MonitorInfo)>,
+    cursor: Option<(i32, i32)>,
+    con_foco: bool,
+}
+
+static PENDIENTES: Mutex<Pendientes> = Mutex::new(Pendientes {
+    generacion: 0,
+    ventanas: Vec::new(),
+    cursor: None,
+    con_foco: false,
+});
+
+/// Cuanto se espera a que un overlay avise de que esta pintado antes de ensennarlo igual.
+/// Si el frontend no llega a avisar (porque ha fallado y esta ensennando su error), el
+/// usuario tiene que poder ver ese error y salir con Escape, no quedarse sin nada.
+const ESPERA_MAXIMA: std::time::Duration = std::time::Duration::from_millis(900);
+
+/// El numero de la captura en curso: viaja en el payload y vuelve en `overlay_listo`.
+pub fn generacion_actual() -> u64 {
+    PENDIENTES.lock().generacion
+}
+
 pub const OVERLAY_PREFIX: &str = "overlay-";
+
+/// Los argumentos con los que arranca el navegador de TODAS las ventanas.
+///
+/// Los tres primeros son los que pone wry si no se le dice nada (quitan el menu flotante de
+/// Edge y su filtro de descargas). Los otros tres le prohiben a Chromium tratar como
+/// «de fondo» a una ventana que no se ve: los overlays viven aparcados fuera de las
+/// pantallas entre captura y captura, y con la ventana de fondo el navegador tardaba unos
+/// 300 ms en enterarse del aviso de que hay captura nueva (trampa 33).
+///
+/// **Tienen que ser los mismos en todas las ventanas**, incluida la `main` de
+/// `tauri.conf.json`: WebView2 comparte un solo proceso de navegador y lo configura la
+/// primera ventana; una segunda que pida otros argumentos se queda sin webview y sale en
+/// blanco. Eso es lo que paso la primera vez que se intento, cuando solo se pusieron en el
+/// overlay.
+pub const NAVEGADOR_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-background-timer-throttling";
 
 static OVERLAY_SEQUENCE: AtomicU32 = AtomicU32::new(0);
 pub const RECORDER_PREFIX: &str = "recorder-";
@@ -60,6 +111,7 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     let Some(candado) = state.intentar_capturar() else {
         return Ok(());
     };
+    crate::crono::marca("atajo");
     *state.intent.write() = intent;
 
     // La espera es solo del atajo de capturar, aunque el overlay sea el mismo. Al grabar,
@@ -117,20 +169,20 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
 ///
 /// El candado entra por parametro y se suelta al terminar: con el temporizador puesto se
 /// cogio hace tres segundos, en otro hilo, y no se puede volver a pedir aqui.
-fn congelar_y_abrir(app: &AppHandle, _candado: CandadoCaptura) -> Result<()> {
+fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
     let state = app.state::<AppState>();
 
-    // El anillo de los ultimos segundos se aparta mientras dura esto, y vuelve solo al
-    // salir de la funcion, tambien si se sale por el `?` de `freeze_all`. Se come el 86%
-    // de un nucleo a 60 fps y alto nativo, y congelar tres pantallas compitiendo con eso
-    // es lo que hacia que el atajo se notara. Ver `replay::apartar`, que explica por que
-    // esto no deja un agujero en lo grabado.
-    let _anillo = crate::replay::apartar(app);
+    // El anillo de los ultimos segundos se aparta mientras dura esto, y vuelve solo cuando
+    // el guardian se suelta al final del hilo de abajo. Se come el 86% de un nucleo a 60
+    // fps y alto nativo, y congelar tres pantallas compitiendo con eso es lo que hacia que
+    // el atajo se notara. Ver `replay::apartar`, que explica por que esto no deja un
+    // agujero en lo grabado.
+    let anillo = crate::replay::apartar(app);
 
     // Los iconos se esconden solo lo que dura el disparo, no toda la seleccion: el
     // overlay tapa el escritorio de todas formas, asi que tenerlos escondidos mas rato no
     // se ve en la imagen y si aumenta la posibilidad de dejarselos escondidos a alguien.
-    // El guardian los devuelve tambien si `freeze_all` sale por el `?`.
+    // El guardian los devuelve tambien si la captura falla a medias.
     let esconder_iconos = state.settings.read().hide_desktop_icons;
     let iconos = if esconder_iconos {
         crate::platform::desktop_icons::esconder()
@@ -138,10 +190,23 @@ fn congelar_y_abrir(app: &AppHandle, _candado: CandadoCaptura) -> Result<()> {
         None
     };
 
-    let freezes = capture::freeze_all(&state.freeze_dir())?;
-    drop(iconos);
-    let monitors: Vec<_> = freezes.iter().map(|f| f.monitor.clone()).collect();
-    *state.freezes.write() = freezes;
+    // Las pantallas que hay, sin fotografiarlas todavia: hace falta saber cuantas son y
+    // cual tiene el raton antes de decidir por cual se empieza.
+    let monitors = capture::monitors()?;
+    if monitors.is_empty() {
+        return Err(crate::error::AppError::Msg("no se ha detectado ningún monitor".into()));
+    }
+    let cursor = cursor_position();
+
+    // Una captura nueva: lo que quedara pendiente de la anterior ya no cuenta.
+    let generacion = {
+        let mut pendientes = PENDIENTES.lock();
+        pendientes.generacion += 1;
+        pendientes.ventanas.clear();
+        pendientes.cursor = cursor;
+        pendientes.con_foco = false;
+        pendientes.generacion
+    };
 
     // Si algun monitor de la ultima vez ya no existe (se desconecto una pantalla), su
     // ventana se queda escondida en el pool: no molesta a nadie ahi.
@@ -155,54 +220,232 @@ fn congelar_y_abrir(app: &AppHandle, _candado: CandadoCaptura) -> Result<()> {
         }
     }
 
-    let mut windows = Vec::with_capacity(monitors.len());
-    for monitor in &monitors {
-        let label = format!("{OVERLAY_PREFIX}{}", monitor.id);
+    // **Primero la pantalla donde esta el raton, sola.** Es la que el usuario mira. Se
+    // congela, se le manda su imagen y se sigue con las demas: asi aparece bastante antes
+    // que si se esperara a tener las tres, y las otras dos llegan justo detras.
+    let primera = cursor
+        .and_then(|(x, y)| monitors.iter().position(|m| m.contains(x, y)))
+        .or_else(|| monitors.iter().position(|m| m.is_primary))
+        .unwrap_or(0);
+    let resto: Vec<usize> = (0..monitors.len()).filter(|&i| i != primera).collect();
+    state.freezes.write().clear();
 
-        let window = if let Some(existente) = app.get_webview_window(&label) {
-            // El payload va ya construido en el propio evento: sin esto, el frontend
-            // tendria que pedirlo aparte con un invoke (overlay_bootstrap) despues de
-            // enterarse, y esa vuelta de IPC completa se ahorra entera. Se manda ANTES de
-            // ensennarla: asi el frontend ya ha vaciado su pantalla vieja (vuelve al
-            // BootScreen) para cuando la ventana se hace visible, en vez de enseñar un
-            // instante la captura de la vez anterior.
-            // `emit` manda el evento a TODAS las ventanas, no solo a `existente`: con eso
-            // las tres pantallas recibian el payload de la ultima que se procesaba en
-            // este bucle y se pisaban entre si. `emit_to` con la etiqueta de esta ventana
-            // es lo que lo manda solo a ella.
-            if let Ok(payload) = crate::commands::build_overlay_payload(&state, monitor.id) {
-                let _ = existente.emit_to(label.as_str(), crate::EVENT_OVERLAY_SHOW, payload);
+    // **Y todo eso en un hilo aparte, no en el principal.** El aviso a cada ventana viaja
+    // por el bucle de mensajes del hilo principal: si ese hilo se queda esperando a que se
+    // congelen las otras dos pantallas, el aviso de la primera se queda en la cola con el,
+    // y la prioridad no sirve de nada. Medido el 5 de septiembre de 2026: congelada a los
+    // 53 ms, y su navegador enterandose a los 131. Aqui el principal solo hace lo que solo
+    // el puede hacer (hablar con las ventanas), unas decimas de milisegundo cada vez.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        // Los tres guardianes viven hasta que las dos tandas esten congeladas: el candado
+        // de «hay una captura en marcha», el anillo apartado y los iconos escondidos.
+        let candado = candado;
+        let anillo = anillo;
+        let iconos = iconos;
+        let primera_id = monitors[primera].id;
+        for (numero, tanda) in [vec![primera], resto].into_iter().enumerate() {
+            if tanda.is_empty() {
+                continue;
             }
-            existente
-        } else {
-            build_overlay_window(app, &label, monitor.id)?
-        };
+            let freezes = match capture::freeze_monitors(&tanda) {
+                Ok(freezes) => freezes,
+                Err(error) => {
+                    eprintln!("no se ha podido congelar la pantalla: {error}");
+                    continue;
+                }
+            };
+            crate::crono::marca(&format!("congelado-{}", tanda.len()));
+            let monitores: Vec<MonitorInfo> = freezes.iter().map(|f| f.monitor.clone()).collect();
+            app.state::<AppState>().freezes.write().extend(freezes);
+            if numero == 1 {
+                // Las demas no se mandan hasta que la primera este A LA VISTA. Servirles
+                // sus PNG ocupa el hilo principal, que es el mismo que tiene que ensennar
+                // la primera: medido, la retrasaba de 105 a 280 ms una de cada tres veces.
+                // Capturarlas si se ha hecho ya, en paralelo con la primera; lo que espera
+                // es solo el aviso.
+                esperar_a_que_se_vea(primera_id, generacion);
+            }
+            let dentro = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                let state = dentro.state::<AppState>();
+                for monitor in &monitores {
+                    if let Err(error) = preparar_overlay(&dentro, &state, monitor) {
+                        eprintln!("no se ha podido preparar el overlay: {error}");
+                    }
+                }
+            });
+        }
+        drop(iconos);
+        drop(anillo);
+        drop(candado);
 
-        // Posicion y tamanno en pixeles fisicos: el escalado por DPI no debe tocarlos.
-        // Se repiten en cada apertura por si el monitor cambio de sitio o de resolucion
-        // desde la ultima vez que se uso esta ventana.
-        window.set_position(PhysicalPosition::new(monitor.x, monitor.y))?;
-        window.set_size(PhysicalSize::new(monitor.width, monitor.height))?;
-        window.show()?;
-        windows.push((monitor, window));
+        // Si alguna no avisa a tiempo, se ensenna igual: mejor ver la pantalla de error del
+        // overlay, con su Escape, que quedarse sin nada tras pulsar el atajo.
+        std::thread::sleep(ESPERA_MAXIMA);
+        let dentro = app.clone();
+        let _ = app.run_on_main_thread(move || mostrar_las_que_falten(&dentro, generacion));
+    });
+
+    Ok(())
+}
+
+/// Le manda a la ventana de ese monitor su captura y la deja apuntada como pendiente de
+/// ensennar. La ventana se crea si no existia.
+fn preparar_overlay(app: &AppHandle, state: &AppState, monitor: &MonitorInfo) -> Result<()> {
+    let label = format!("{OVERLAY_PREFIX}{}", monitor.id);
+
+    let window = if let Some(existente) = app.get_webview_window(&label) {
+        // El payload va ya construido en el propio evento: sin esto, el frontend
+        // tendria que pedirlo aparte con un invoke (overlay_bootstrap) despues de
+        // enterarse, y esa vuelta de IPC completa se ahorra entera.
+        // `emit` manda el evento a TODAS las ventanas, no solo a `existente`: con eso
+        // las tres pantallas recibian el payload de la ultima que se procesaba en
+        // este bucle y se pisaban entre si. `emit_to` con la etiqueta de esta ventana
+        // es lo que lo manda solo a ella.
+        if let Ok(payload) = crate::commands::build_overlay_payload(state, monitor.id) {
+            let _ = existente.emit_to(label.as_str(), crate::EVENT_OVERLAY_SHOW, payload);
+        }
+        crate::crono::marca(&format!("emitido-{}", monitor.id));
+        existente
+    } else {
+        // Recien creada arranca sola y pide su payload con `overlay_bootstrap`.
+        build_overlay_window(app, &label, monitor.id)?
+    };
+
+    // El tamanno se pone ya, aparcada, para que el navegador se acomode a el mientras
+    // carga la imagen. La posicion NO: eso es ensennarla, y se ensenna cuando avise de
+    // que esta pintada (`overlay_listo`), o cuando se agote la espera del rescate.
+    window.set_size(PhysicalSize::new(monitor.width, monitor.height))?;
+    PENDIENTES
+        .lock()
+        .ventanas
+        .push((monitor.id, label, monitor.clone()));
+    Ok(())
+}
+
+/// Espera a que el overlay de ese monitor haya salido de la lista de pendientes (o sea, a
+/// que se haya ensennado), con un tope por si no llega a avisar: la espera es para ordenar,
+/// no para bloquear.
+fn esperar_a_que_se_vea(monitor_id: u32, generacion: u64) {
+    let tope = std::time::Instant::now() + std::time::Duration::from_millis(250);
+    while std::time::Instant::now() < tope {
+        {
+            let pendientes = PENDIENTES.lock();
+            if pendientes.generacion != generacion
+                || !pendientes.ventanas.iter().any(|(id, _, _)| *id == monitor_id)
+            {
+                return;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(3));
     }
+}
 
-    // El foco de teclado se pide una sola vez, a la pantalla donde esta el cursor: es la
-    // que el usuario esta mirando y donde va a empezar a arrastrar o a pulsar Escape.
-    let cursor = cursor_position();
-    let objetivo = cursor
-        .and_then(|(x, y)| windows.iter().find(|(m, _)| m.contains(x, y)))
-        .or_else(|| windows.iter().find(|(m, _)| m.is_primary))
-        .or_else(|| windows.first());
-    if let Some((_, window)) = objetivo {
+/// El overlay de ese monitor ya esta pintado: se ensenna, y si es el de la pantalla del
+/// raton se le da el foco.
+///
+/// Llega desde un comando (otro hilo), y las ventanas se manejan en el principal.
+pub fn overlay_listo(app: &AppHandle, monitor_id: u32, generacion: u64) {
+    let dentro = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let Some((label, monitor, con_foco)) = sacar_pendiente(monitor_id, generacion) else {
+            // De una captura anterior, o ya ensennada por el rescate: no hay nada que hacer.
+            return;
+        };
+        ensennar_overlay(&dentro, &label, &monitor, con_foco);
+        crate::crono::marca(&format!("mostrada-{monitor_id}"));
+    });
+}
+
+/// Saca de la lista de pendientes la ventana de ese monitor, si es de esta captura, y
+/// decide si le toca el foco: a la pantalla del raton, o a la ultima que quede si el raton
+/// no esta en ninguna.
+fn sacar_pendiente(monitor_id: u32, generacion: u64) -> Option<(String, MonitorInfo, bool)> {
+    let mut pendientes = PENDIENTES.lock();
+    if pendientes.generacion != generacion {
+        return None;
+    }
+    let posicion = pendientes.ventanas.iter().position(|(id, _, _)| *id == monitor_id)?;
+    let (_, label, monitor) = pendientes.ventanas.remove(posicion);
+    let cursor = pendientes.cursor;
+    let es_la_del_raton = cursor.is_some_and(|(x, y)| monitor.contains(x, y));
+    let otra_lo_tendra = pendientes
+        .ventanas
+        .iter()
+        .any(|(_, _, m)| cursor.is_some_and(|(x, y)| m.contains(x, y)));
+    let con_foco = !pendientes.con_foco && (es_la_del_raton || !otra_lo_tendra);
+    if con_foco {
+        pendientes.con_foco = true;
+    }
+    Some((label, monitor, con_foco))
+}
+
+/// La coloca en su pantalla y la ensenna. Siempre desde el hilo principal.
+fn ensennar_overlay(app: &AppHandle, label: &str, monitor: &MonitorInfo, con_foco: bool) {
+    let Some(window) = app.get_webview_window(label) else {
+        return;
+    };
+    // Posicion en pixeles fisicos: el escalado por DPI no debe tocarla. El tamanno ya se
+    // puso al preparar la ventana, aparcada. Colocar y ensennar van en UNA llamada a
+    // Windows (`SetWindowPos` con `SWP_SHOWWINDOW`) en vez de dos; el `show()` de despues
+    // solo pone al dia lo que Tauri cree de la ventana, y no cuesta nada si ya esta visible.
+    #[cfg(windows)]
+    let colocada = crate::platform::window_style::colocar_y_ensennar(&window, monitor.x, monitor.y);
+    #[cfg(not(windows))]
+    let colocada = false;
+    if !colocada {
+        let _ = window.set_position(PhysicalPosition::new(monitor.x, monitor.y));
+    }
+    let _ = window.show();
+    // Si el aparcadero no pudo darle el DPI de su monitor y Windows la ha reescalado al
+    // traerla, el tamanno se corrige aqui. Normalmente no pasa y esta comprobacion es una
+    // lectura.
+    if window
+        .inner_size()
+        .is_ok_and(|s| s.width != monitor.width || s.height != monitor.height)
+    {
+        let _ = window.set_size(PhysicalSize::new(monitor.width, monitor.height));
+    }
+    if con_foco {
         // Sin esto, el primer clic del usuario se lo come Windows para activar
         // la ventana y la seleccion nunca empieza.
         let _ = window.set_focus();
         #[cfg(windows)]
-        force_foreground(window);
+        force_foreground(&window);
     }
+}
 
-    Ok(())
+/// El rescate: pasado el plazo, se ensenna lo que no haya avisado, sea lo que sea.
+fn mostrar_las_que_falten(app: &AppHandle, generacion: u64) {
+    let que_faltan: Vec<(u32, String, MonitorInfo, bool)> = {
+        let mut pendientes = PENDIENTES.lock();
+        if pendientes.generacion != generacion {
+            return;
+        }
+        let cursor = pendientes.cursor;
+        let mut lista = Vec::new();
+        for (id, label, monitor) in std::mem::take(&mut pendientes.ventanas) {
+            let con_foco = !pendientes.con_foco
+                && cursor.is_some_and(|(x, y)| monitor.contains(x, y));
+            if con_foco {
+                pendientes.con_foco = true;
+            }
+            lista.push((id, label, monitor, con_foco));
+        }
+        // Si el raton no estaba en ninguna, el foco a la primera que quede.
+        if !pendientes.con_foco {
+            if let Some(primera) = lista.first_mut() {
+                primera.3 = true;
+                pendientes.con_foco = true;
+            }
+        }
+        lista
+    };
+    for (id, label, monitor, con_foco) in que_faltan {
+        ensennar_overlay(app, &label, &monitor, con_foco);
+        crate::crono::marca(&format!("mostrada-{id}-tarde"));
+    }
 }
 
 /// Ensenna los segundos que faltan, abajo a la derecha de la pantalla donde esta el raton.
@@ -225,6 +468,7 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
             // cuando se emitiria el evento, asi que no habria nadie escuchandolo.
             let url = WebviewUrl::App(format!("cuenta.html?segundos={segundos}").into());
             let construida = WebviewWindowBuilder::new(app, COUNTDOWN_LABEL, url)
+                .additional_browser_args(NAVEGADOR_ARGS)
                 .title("winshotx")
                 .decorations(false)
                 .always_on_top(true)
@@ -351,6 +595,7 @@ fn ventanita_de_numero(app: &AppHandle, indice: u32) -> Option<tauri::WebviewWin
     }
     let url = WebviewUrl::App(format!("cuenta.html?pantalla={}", indice + 1).into());
     let construida = WebviewWindowBuilder::new(app, COUNTDOWN_LABEL, url)
+        .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx")
         .decorations(false)
         .always_on_top(true)
@@ -383,6 +628,7 @@ fn esconder_cuenta_atras(app: &AppHandle) {
 fn build_overlay_window(app: &AppHandle, label: &str, monitor_id: u32) -> Result<tauri::WebviewWindow> {
     let url = WebviewUrl::App(format!("overlay.html?monitor={monitor_id}").into());
     Ok(WebviewWindowBuilder::new(app, label, url)
+        .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx")
         .decorations(false)
         .always_on_top(true)
@@ -402,31 +648,27 @@ fn build_overlay_window(app: &AppHandle, label: &str, monitor_id: u32) -> Result
 /// primera vez que se pulsa el atajo tras abrir la app tiene que pagar ese coste igual
 /// que antes del pool.
 pub fn precrear_overlays(app: &AppHandle) {
-    let Ok(monitors) = xcap::Monitor::all() else {
+    let Ok(monitors) = capture::monitors() else {
         return;
     };
-    for (index, monitor) in monitors.iter().enumerate() {
-        let label = format!("{OVERLAY_PREFIX}{index}");
+    for monitor in &monitors {
+        let label = format!("{OVERLAY_PREFIX}{}", monitor.id);
         if app.get_webview_window(&label).is_some() {
             continue;
         }
-        let (Ok(_x), Ok(_y), Ok(width), Ok(height)) =
-            (monitor.x(), monitor.y(), monitor.width(), monitor.height())
-        else {
+        let Ok(window) = build_overlay_window(app, &label, monitor.id) else {
             continue;
         };
-        let Ok(window) = build_overlay_window(app, &label, index as u32) else {
-            continue;
-        };
-        let _ = window.set_size(PhysicalSize::new(width, height));
         // Aparcada fuera de las pantallas y ENSENNADA, no escondida.
         //
         // Una ventana que no se ha ensennado nunca no tiene interfaz montada, asi que la
         // primera captura del dia pagaba entero el arranque de su navegador. Aparcada
         // fuera se monta ahora, mientras nadie espera nada (la app vive en la bandeja), y
         // el primer atajo la encuentra despierta. Es lo mismo que hace `close_overlays`
-        // entre captura y captura, y por la misma razon.
-        let _ = window.set_position(aparcadero(app));
+        // entre captura y captura, y por la misma razon. Primero el sitio y despues el
+        // tamanno, para que el tamanno se aplique ya con el DPI de su monitor.
+        let _ = window.set_position(aparcadero_de(monitor, &monitors));
+        let _ = window.set_size(PhysicalSize::new(monitor.width, monitor.height));
         let _ = window.show();
     }
 }
@@ -449,28 +691,95 @@ fn cursor_position() -> Option<(i32, i32)> {
 /// Esconde el overlay en vez de cerrarlo: la ventana se reutiliza en la siguiente
 /// captura, ver `open_overlays`.
 pub fn close_overlays(app: &AppHandle) {
-    let aparcadero = aparcadero(app);
+    // Lo que estuviera esperando a ensennarse ya no se ensenna: la captura se ha cerrado.
+    {
+        let mut pendientes = PENDIENTES.lock();
+        pendientes.generacion += 1;
+        pendientes.ventanas.clear();
+    }
+    let monitores = capture::monitors().unwrap_or_default();
     for (label, window) in app.webview_windows() {
-        if label.starts_with(OVERLAY_PREFIX) {
-            // **Aparcada fuera de las pantallas, no escondida.**
-            //
-            // Una ventana escondida se queda sin atender: al ensennarla otra vez tardaba
-            // entre 300 y 490 ms en enterarse siquiera del aviso de Rust, y ahi se iba la
-            // mitad de lo que tarda el atajo (medido: de 905 a 623 ms el camino entero,
-            // hasta ver la imagen). Aparcada sigue existiendo para Windows, asi que
-            // reacciona antes, y como esta fuera de todas las pantallas no la ve nadie.
-            //
-            // Se probo el camino "limpio" de decirle al navegador que no duerma las
-            // ventanas ocultas (`additional_browser_args` con los tres interruptores de
-            // Chromium) y **deja el overlay en blanco**: esos argumentos SUSTITUYEN a los
-            // que pone wry, y algo de lo que se pierde por el camino se lleva la interfaz
-            // por delante. Mas rapido y roto no vale.
-            let _ = window.set_position(aparcadero);
-        }
+        let Some(id) = label
+            .strip_prefix(OVERLAY_PREFIX)
+            .and_then(|resto| resto.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        // **Aparcada fuera de las pantallas, no escondida.**
+        //
+        // Una ventana escondida se queda sin atender: al ensennarla otra vez tardaba
+        // entre 300 y 490 ms en enterarse siquiera del aviso de Rust, y ahi se iba la
+        // mitad de lo que tarda el atajo (medido: de 905 a 623 ms el camino entero,
+        // hasta ver la imagen). Aparcada sigue existiendo para Windows, asi que
+        // reacciona antes, y como esta fuera de todas las pantallas no la ve nadie.
+        // (Y desde que el navegador arranca con `NAVEGADOR_ARGS`, aparcada tampoco se
+        // duerme: el aviso le llega en 10 ms.)
+        //
+        // Y cada una a SU aparcadero, pegado a su monitor: ver `aparcadero_de`.
+        let sitio = monitores
+            .iter()
+            .find(|m| m.id == id)
+            .map(|m| aparcadero_de(m, &monitores))
+            .unwrap_or_else(|| aparcadero(app));
+        let _ = window.set_position(sitio);
     }
 }
 
-/// Un punto fuera de todas las pantallas, donde aparcar un overlay sin que se vea.
+/// Donde aparcar el overlay de ESE monitor: fuera de todas las pantallas, pero de forma
+/// que **el monitor mas cercano a la ventana aparcada sea el suyo**, o uno con su mismo
+/// escalado.
+///
+/// Windows le asigna a una ventana el DPI del monitor mas cercano. Aparcadas todas en la
+/// misma esquina, el overlay del monitor vertical (al 100 %) quedaba pegado a uno al 125 %:
+/// al traerlo a su pantalla Windows le cambiaba el DPI y **lo reescalaba a 864x1536**, en
+/// vez de los 1080x1920 que le tocan, y el navegador tenia que volver a dibujarlo todo a
+/// otra escala. Visto en una foto de la ventana el 5 de septiembre de 2026.
+///
+/// Se prueban los cuatro lados (encima, izquierda, debajo, derecha de todo el escritorio,
+/// alineado con el monitor) y se elige el primero cuyo vecino mas cercano es el propio
+/// monitor; si ninguno lo consigue (un monitor rodeado por otros), vale uno cuyo vecino
+/// tenga el mismo escalado, que es lo que de verdad importa.
+fn aparcadero_de(monitor: &MonitorInfo, todos: &[MonitorInfo]) -> PhysicalPosition<i32> {
+    const MARGEN: i32 = 100;
+    let izquierda = todos.iter().map(|m| m.x).min().unwrap_or(monitor.x);
+    let arriba = todos.iter().map(|m| m.y).min().unwrap_or(monitor.y);
+    let derecha = todos.iter().map(|m| m.x + m.width as i32).max().unwrap_or(monitor.x);
+    let abajo = todos.iter().map(|m| m.y + m.height as i32).max().unwrap_or(monitor.y);
+    let (ancho, alto) = (monitor.width as i32, monitor.height as i32);
+    let candidatos = [
+        (monitor.x, arriba - alto - MARGEN),
+        (izquierda - ancho - MARGEN, monitor.y),
+        (monitor.x, abajo + MARGEN),
+        (derecha + MARGEN, monitor.y),
+    ];
+    let mas_cercano = |x: i32, y: i32| {
+        todos
+            .iter()
+            .min_by_key(|m| distancia_entre((x, y, x + ancho, y + alto), (m.x, m.y, m.x + m.width as i32, m.y + m.height as i32)))
+    };
+    let elegido = candidatos
+        .iter()
+        .find(|(x, y)| mas_cercano(*x, *y).is_some_and(|m| m.id == monitor.id))
+        .or_else(|| {
+            candidatos.iter().find(|(x, y)| {
+                mas_cercano(*x, *y).is_some_and(|m| (m.scale - monitor.scale).abs() < 0.01)
+            })
+        })
+        .copied()
+        .unwrap_or(candidatos[0]);
+    PhysicalPosition::new(elegido.0, elegido.1)
+}
+
+/// La distancia entre dos rectangulos (izquierda, arriba, derecha, abajo), al cuadrado:
+/// cero si se tocan o se solapan.
+fn distancia_entre(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> i64 {
+    let dx = i64::from((b.0 - a.2).max(a.0 - b.2).max(0));
+    let dy = i64::from((b.1 - a.3).max(a.1 - b.3).max(0));
+    dx * dx + dy * dy
+}
+
+/// Un punto fuera de todas las pantallas, donde aparcar un overlay sin que se vea. Es el
+/// respaldo de `aparcadero_de`, para una ventana de la que no se sabe el monitor.
 ///
 /// No vale un numero grande y negativo a ojo: con un monitor a la izquierda del principal,
 /// las coordenadas negativas son pantalla de verdad. Se busca la esquina de mas arriba y
@@ -500,6 +809,7 @@ pub fn open_recorder(app: &AppHandle, region: Rect) -> Result<()> {
         OVERLAY_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     );
     let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("recorder.html".into()))
+        .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx")
         .decorations(false)
         .always_on_top(true)
@@ -624,6 +934,7 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     );
     let url = WebviewUrl::App(format!("editor.html?session={session_id}").into());
     let window = WebviewWindowBuilder::new(app, &label, url)
+        .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx · editor")
         .decorations(true)
         .resizable(true)
@@ -663,6 +974,7 @@ pub fn open_pin(app: &AppHandle, region: Rect, imagen: &std::path::Path) -> Resu
         .into(),
     );
     let window = WebviewWindowBuilder::new(app, &label, url)
+        .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx")
         .decorations(false)
         .always_on_top(true)
@@ -873,5 +1185,94 @@ mod tests {
         assert!(!escapada.contains(' '), "el espacio corta la direccion");
         assert!(!escapada.contains(':'), "los dos puntos tambien");
         assert!(escapada.contains("pin-1.png"), "el nombre se sigue leyendo: {escapada}");
+    }
+
+    /// Las tres pantallas de Munir tal como estan puestas: la principal al 125 %, una
+    /// vertical al 100 % a su izquierda (y algo mas baja) y una tercera al 125 % debajo.
+    fn pantallas_de_munir() -> Vec<MonitorInfo> {
+        let m = |id, x, y, w, h, scale, is_primary| MonitorInfo {
+            id,
+            label: format!("M{id}"),
+            x,
+            y,
+            width: w,
+            height: h,
+            scale,
+            is_primary,
+        };
+        vec![
+            m(0, 0, 0, 1920, 1080, 1.25, true),
+            m(1, -1080, 238, 1080, 1920, 1.0, false),
+            m(2, 0, 1080, 1536, 960, 1.25, false),
+        ]
+    }
+
+    /// Lo que vecino mas cercano tiene un rectangulo aparcado en ese punto.
+    fn vecino(x: i32, y: i32, m: &MonitorInfo, todos: &[MonitorInfo]) -> u32 {
+        todos
+            .iter()
+            .min_by_key(|otro| {
+                distancia_entre(
+                    (x, y, x + m.width as i32, y + m.height as i32),
+                    (otro.x, otro.y, otro.x + otro.width as i32, otro.y + otro.height as i32),
+                )
+            })
+            .map(|otro| otro.id)
+            .unwrap()
+    }
+
+    /// El fallo visto en la foto: el overlay vertical, aparcado en la esquina de siempre,
+    /// tenia como vecino un monitor al 125 % y volvia reescalado a 864x1536.
+    #[test]
+    fn cada_overlay_se_aparca_junto_a_un_monitor_de_su_mismo_escalado() {
+        let todos = pantallas_de_munir();
+        for m in &todos {
+            let sitio = aparcadero_de(m, &todos);
+            let cerca = vecino(sitio.x, sitio.y, m, &todos);
+            let escala_del_vecino = todos.iter().find(|o| o.id == cerca).unwrap().scale;
+            assert!(
+                (escala_del_vecino - m.scale).abs() < 0.01,
+                "el overlay {} se aparca en {:?} junto al monitor {cerca}, que va a otra escala",
+                m.id,
+                (sitio.x, sitio.y)
+            );
+        }
+    }
+
+    #[test]
+    fn el_aparcadero_queda_fuera_de_todas_las_pantallas() {
+        let todos = pantallas_de_munir();
+        for m in &todos {
+            let sitio = aparcadero_de(m, &todos);
+            let rect = (sitio.x, sitio.y, sitio.x + m.width as i32, sitio.y + m.height as i32);
+            for otro in &todos {
+                let suyo = (otro.x, otro.y, otro.x + otro.width as i32, otro.y + otro.height as i32);
+                assert!(
+                    distancia_entre(rect, suyo) > 0,
+                    "el overlay {} aparcado en {:?} pisa el monitor {}",
+                    m.id,
+                    (sitio.x, sitio.y),
+                    otro.id
+                );
+            }
+        }
+    }
+
+    /// El vertical, que es el que fallaba, tiene que quedar con EL como vecino: a su
+    /// izquierda hay sitio libre.
+    #[test]
+    fn el_vertical_se_aparca_a_su_izquierda() {
+        let todos = pantallas_de_munir();
+        let vertical = &todos[1];
+        let sitio = aparcadero_de(vertical, &todos);
+        assert_eq!(vecino(sitio.x, sitio.y, vertical, &todos), vertical.id);
+        assert!(sitio.x < -1080, "tenia que salir por la izquierda: {}", sitio.x);
+    }
+
+    #[test]
+    fn la_distancia_entre_rectangulos_es_cero_si_se_tocan() {
+        assert_eq!(distancia_entre((0, 0, 10, 10), (10, 0, 20, 10)), 0);
+        assert_eq!(distancia_entre((0, 0, 10, 10), (20, 0, 30, 10)), 100);
+        assert_eq!(distancia_entre((0, 0, 10, 10), (13, 14, 30, 30)), 9 + 16);
     }
 }

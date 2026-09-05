@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod bench_freeze;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use image::RgbaImage;
@@ -67,16 +66,18 @@ pub struct WindowRect {
 
 /// Pantalla congelada de un monitor: es el fondo sobre el que se selecciona.
 ///
-/// La imagen vive **en memoria** ademas de en el disco. El BMP del disco es para el
-/// navegador del overlay, que lo carga por el protocolo asset; todo lo que hace Rust con
-/// la pantalla congelada (recortar la seleccion, juntar todas las pantallas) sale de aqui.
-/// Volver a abrir el BMP de 8 MB para recortar 800x600 costaba 25 ms, y juntar tres
-/// pantallas 110, en cada captura. Medido el 5 de septiembre de 2026.
+/// Vive **en memoria**, en dos formas. Los pixeles tal cual son para lo que hace Rust con
+/// ella (recortar la seleccion, juntar todas las pantallas: volver a abrir un BMP de 8 MB
+/// del disco para eso costaba 25 ms por captura). Y el PNG es lo que viaja al navegador del
+/// overlay por el IPC: **llevar 8 MB en crudo a cada ventana tardaba 300-400 ms**, medido el
+/// 5 de septiembre de 2026 con tres pantallas, y era el trozo mas gordo de todo el camino
+/// del atajo; comprimido a lo rapido son dos o tres megabytes, y el navegador lo decodifica
+/// nativo. Ya no se escribe nada en el disco.
 #[derive(Debug, Clone)]
 pub struct Freeze {
     pub monitor: MonitorInfo,
-    pub path: PathBuf,
     pub image: Arc<RgbaImage>,
+    pub png: Arc<Vec<u8>>,
 }
 
 /// Captura todos los monitores de una vez y deja los BMP en disco.
@@ -118,9 +119,23 @@ pub fn monitors() -> Result<Vec<MonitorInfo>> {
         .collect()
 }
 
-pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
-    std::fs::create_dir_all(dir)?;
-    let monitors = xcap::Monitor::all().map_err(|e| AppError::Msg(e.to_string()))?;
+pub fn freeze_all() -> Result<Vec<Freeze>> {
+    let cuantos = xcap::Monitor::all()
+        .map_err(|e| AppError::Msg(e.to_string()))?
+        .len();
+    freeze_monitors(&(0..cuantos).collect::<Vec<_>>())
+}
+
+/// Congela solo esas pantallas (por su indice en la enumeracion del sistema), a la vez.
+///
+/// Existe para poder congelar PRIMERO la pantalla donde esta el raton y ensennarla sin
+/// esperar a las demas: es la que el usuario mira, y con tres pantallas la diferencia entre
+/// congelar una y congelar tres son unos 40 ms de captura y otros tantos de llevar los
+/// PNG al navegador, porque comparten la misma tuberia.
+pub fn freeze_monitors(indices: &[usize]) -> Result<Vec<Freeze>> {
+    if indices.is_empty() {
+        return Ok(Vec::new());
+    }
 
     // Las pantallas se fotografian A LA VEZ, una por hilo.
     //
@@ -134,10 +149,10 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
     // a otro. Volver a enumerar cuesta microsegundos, que al lado de fotografiar una
     // pantalla no es nada, y evita tener que prometerle al compilador algo que no se puede
     // comprobar sobre un tipo de otra biblioteca.
-    let cuantos = monitors.len();
     let capturas = std::thread::scope(|scope| -> Result<Vec<_>> {
-        let handles: Vec<_> = (0..cuantos)
-            .map(|index| {
+        let handles: Vec<_> = indices
+            .iter()
+            .map(|&index| {
                 scope.spawn(move || -> Result<(usize, MonitorInfo, image::RgbaImage)> {
                     let suyos = xcap::Monitor::all().map_err(|e| AppError::Msg(e.to_string()))?;
                     let monitor = suyos
@@ -164,24 +179,19 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
         return Err(AppError::Msg("no se ha detectado ningún monitor".into()));
     }
 
+    // Y cada una se comprime a PNG en su propio hilo, que es lo que se le manda al
+    // navegador. Con la compresion rapida son unos 28 ms por pantalla de 1080p, contra los
+    // 300-400 que costaba llevarle los 8 MB en crudo.
     std::thread::scope(|scope| -> Result<Vec<Freeze>> {
         let handles: Vec<_> = capturas
             .into_iter()
-            .map(|(index, info, image)| {
-                let dir = dir.to_path_buf();
+            .map(|(_, info, image)| {
                 scope.spawn(move || -> Result<Freeze> {
-                    // BMP en vez de PNG: sin compresion, casi sin coste de CPU al escribir
-                    // ni al decodificar en el navegador (PNG comprimido, aunque "rapido",
-                    // seguia costando varios cientos de ms por monitor entre escribirlo y
-                    // luego decodificarlo en cada ventana). El navegador lo entiende nativo
-                    // en <img>/createImageBitmap. El canal alfa de una captura de escritorio
-                    // siempre es opaco, asi que da igual si algun decodificador lo ignora.
-                    let path = dir.join(format!("freeze-{index}.bmp"));
-                    std::fs::write(&path, bmp_bytes(&image))?;
+                    let png = crate::encode::png::to_bytes(&image)?;
                     Ok(Freeze {
                         monitor: info,
-                        path,
                         image: Arc::new(image),
+                        png: Arc::new(png),
                     })
                 })
             })
@@ -192,7 +202,7 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
             .map(|handle| {
                 handle
                     .join()
-                    .map_err(|_| AppError::Msg("un hilo de guardado ha fallado".into()))?
+                    .map_err(|_| AppError::Msg("un hilo de compresion ha fallado".into()))?
             })
             .collect()
     })
@@ -200,10 +210,10 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
 
 /// Los bytes de un BMP de 32 bits con esa imagen dentro, hechos a mano.
 ///
-/// El codificador de `image` tardaba 20 ms por pantalla de 1080p en esto, que es una
-/// copia con los canales dados la vuelta: aqui son unos 3. Es el formato mas simple que
-/// existe (cabecera de 54 bytes y los pixeles tal cual, de abajo arriba y en BGRA), y el
-/// navegador lo abre nativo.
+/// Es el camino de respaldo del overlay si el PNG fallara: sin comprimir, asi que no
+/// depende de ningun codificador. Es el formato mas simple que existe (cabecera de 54 bytes
+/// y los pixeles tal cual, de abajo arriba y en BGRA), el navegador lo abre nativo, y
+/// hacerlo a mano cuesta unos 6 ms por pantalla contra los 20 del codificador de `image`.
 pub fn bmp_bytes(image: &RgbaImage) -> Vec<u8> {
     let (width, height) = image.dimensions();
     let fila = width as usize * 4;
@@ -366,44 +376,42 @@ pub fn stitch_all(freezes: &[Freeze]) -> Result<(image::RgbaImage, Rect)> {
 mod tests {
     use super::*;
 
-    /// Escribe una pantalla congelada de un solo color, como las que deja `freeze_all`.
+    /// Una pantalla congelada de un solo color, como las que deja `freeze_all`.
     /// El color es la firma: si el recorte sale de otra pantalla, se ve en el pixel.
-    fn pantalla(dir: &Path, id: u32, x: i32, color: [u8; 3]) -> Freeze {
+    fn pantalla(id: u32, x: i32, color: [u8; 3]) -> Freeze {
         let (ancho, alto) = (1920u32, 1080u32);
         let imagen = image::RgbaImage::from_pixel(
             ancho,
             alto,
             image::Rgba([color[0], color[1], color[2], 255]),
         );
-        let path = dir.join(format!("freeze-{id}.bmp"));
-        std::fs::write(&path, bmp_bytes(&imagen)).expect("no se ha podido escribir la pantalla de prueba");
+        congelada(id, x, 0, imagen)
+    }
+
+    fn congelada(id: u32, x: i32, y: i32, imagen: image::RgbaImage) -> Freeze {
         Freeze {
             monitor: MonitorInfo {
                 id,
                 label: format!("PRUEBA-{id}"),
                 x,
-                y: 0,
-                width: ancho,
-                height: alto,
+                y,
+                width: imagen.width(),
+                height: imagen.height(),
                 scale: 1.0,
                 is_primary: id == 0,
             },
-            path,
+            png: Arc::new(crate::encode::png::to_bytes(&imagen).expect("png de prueba")),
             image: Arc::new(imagen),
         }
     }
 
     /// Tres monitores de 1920 en fila, como los de Munir: rojo, verde y azul.
-    fn tres_pantallas(nombre: &str) -> (PathBuf, Vec<Freeze>) {
-        let dir = std::env::temp_dir().join(format!("winshotx-test-{nombre}"));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("no se ha podido crear el directorio de prueba");
-        let freezes = vec![
-            pantalla(&dir, 0, 0, [255, 0, 0]),
-            pantalla(&dir, 1, 1920, [0, 255, 0]),
-            pantalla(&dir, 2, 3840, [0, 0, 255]),
-        ];
-        (dir, freezes)
+    fn tres_pantallas() -> Vec<Freeze> {
+        vec![
+            pantalla(0, 0, [255, 0, 0]),
+            pantalla(1, 1920, [0, 255, 0]),
+            pantalla(2, 3840, [0, 0, 255]),
+        ]
     }
 
     fn primer_pixel(imagen: &image::RgbaImage) -> [u8; 3] {
@@ -413,7 +421,7 @@ mod tests {
 
     #[test]
     fn recorta_de_la_pantalla_donde_cae_la_seleccion() {
-        let (_dir, freezes) = tres_pantallas("donde-cae");
+        let freezes = tres_pantallas();
 
         // Coordenadas del escritorio virtual, que es lo que manda `toPhysical`.
         let en_la_primera = crop_from_freeze(&freezes, Rect { x: 10, y: 10, width: 100, height: 100 }).unwrap();
@@ -431,7 +439,7 @@ mod tests {
     /// en las otras", porque cualquier error de coordenadas rio arriba acaba aqui.
     #[test]
     fn una_seleccion_fuera_de_todo_falla_en_vez_de_devolver_la_principal() {
-        let (_dir, freezes) = tres_pantallas("fuera-de-todo");
+        let freezes = tres_pantallas();
 
         let resultado = crop_from_freeze(
             &freezes,
@@ -446,38 +454,19 @@ mod tests {
         );
     }
     /// Un monitor mas bajo que los otros deja un hueco debajo que no es de nadie.
-    fn tres_pantallas_desalineadas(nombre: &str) -> (PathBuf, Vec<Freeze>) {
-        let dir = std::env::temp_dir().join(format!("winshotx-test-{nombre}"));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("no se ha podido crear el directorio de prueba");
-        let mut freezes = vec![
-            pantalla(&dir, 0, 0, [255, 0, 0]),
-            pantalla(&dir, 1, 1920, [0, 255, 0]),
-        ];
+    fn tres_pantallas_desalineadas() -> Vec<Freeze> {
         // La tercera es de 1920x720 en vez de 1920x1080: deja 360 px de hueco debajo.
         let bajita = image::RgbaImage::from_pixel(1920, 720, image::Rgba([0, 0, 255, 255]));
-        let path = dir.join("freeze-2.bmp");
-        std::fs::write(&path, bmp_bytes(&bajita)).expect("no se ha podido escribir la pantalla baja");
-        freezes.push(Freeze {
-            monitor: MonitorInfo {
-                id: 2,
-                label: "PRUEBA-2".into(),
-                x: 3840,
-                y: 0,
-                width: 1920,
-                height: 720,
-                scale: 1.0,
-                is_primary: false,
-            },
-            path,
-            image: Arc::new(bajita),
-        });
-        (dir, freezes)
+        vec![
+            pantalla(0, 0, [255, 0, 0]),
+            pantalla(1, 1920, [0, 255, 0]),
+            congelada(2, 3840, 0, bajita),
+        ]
     }
 
     #[test]
     fn el_escritorio_virtual_abarca_todas_las_pantallas() {
-        let (_dir, freezes) = tres_pantallas("marco");
+        let freezes = tres_pantallas();
         let marco = virtual_desktop(&freezes).expect("hay tres pantallas");
         assert_eq!(marco.x, 0);
         assert_eq!(marco.y, 0);
@@ -487,7 +476,7 @@ mod tests {
 
     #[test]
     fn juntar_las_pantallas_deja_cada_una_en_su_sitio() {
-        let (_dir, freezes) = tres_pantallas("juntar");
+        let freezes = tres_pantallas();
         let (lienzo, marco) = stitch_all(&freezes).unwrap();
 
         assert_eq!((lienzo.width(), lienzo.height()), (5760, 1080));
@@ -504,7 +493,7 @@ mod tests {
     /// y no en el portapapeles de alguien.
     #[test]
     fn el_hueco_entre_monitores_desalineados_queda_transparente() {
-        let (_dir, freezes) = tres_pantallas_desalineadas("hueco");
+        let freezes = tres_pantallas_desalineadas();
         let (lienzo, _) = stitch_all(&freezes).unwrap();
 
         assert_eq!((lienzo.width(), lienzo.height()), (5760, 1080));

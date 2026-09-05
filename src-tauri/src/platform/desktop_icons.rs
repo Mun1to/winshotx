@@ -16,6 +16,12 @@ pub struct IconosEscondidos {
     hwnd: windows::Win32::Foundation::HWND,
 }
 
+// Un HWND es un identificador opaco del sistema, no un puntero a memoria de este proceso:
+// `ShowWindow` funciona desde cualquier hilo. Hace falta para que el guardian viva en el
+// hilo que congela las pantallas, que no es el principal.
+#[cfg(windows)]
+unsafe impl Send for IconosEscondidos {}
+
 #[cfg(windows)]
 impl Drop for IconosEscondidos {
     fn drop(&mut self) {
