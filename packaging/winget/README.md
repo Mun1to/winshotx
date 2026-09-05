@@ -22,6 +22,12 @@ real check is the validation plus the SHA256 of the published installer.
    request. `packaging/winget/pr.sh X.Y.Z` does all of that through the API, without cloning the
    several gigabytes of winget-pkgs.
 
+Since 0.2.9 is merged, the shorter path is `packaging/winget/subir.sh <old> <new> <SHA256> <date>`:
+it takes the three manifests of the previous version straight from the catalog, rewrites the
+version, hash and date, checks the published installer answers 200 with that hash, runs
+`winget validate`, uploads them to a fresh branch of the fork and opens the pull request. Every
+version needs its own pull request, and a moderator still has to merge it.
+
 About twenty bots then run on the pull request. The one that matters is `Installation
 Validation`, which installs the package on a clean virtual machine and takes around half an
 hour. **Passing every check is not enough to merge:** `Review required` stays until a human
