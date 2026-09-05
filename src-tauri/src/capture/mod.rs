@@ -1,9 +1,9 @@
-use std::io::BufWriter;
+#[cfg(test)]
+mod bench_freeze;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use image::ExtendedColorType;
-use image::ImageEncoder;
-use image::codecs::bmp::BmpEncoder;
+use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
@@ -66,10 +66,17 @@ pub struct WindowRect {
 }
 
 /// Pantalla congelada de un monitor: es el fondo sobre el que se selecciona.
+///
+/// La imagen vive **en memoria** ademas de en el disco. El BMP del disco es para el
+/// navegador del overlay, que lo carga por el protocolo asset; todo lo que hace Rust con
+/// la pantalla congelada (recortar la seleccion, juntar todas las pantallas) sale de aqui.
+/// Volver a abrir el BMP de 8 MB para recortar 800x600 costaba 25 ms, y juntar tres
+/// pantallas 110, en cada captura. Medido el 5 de septiembre de 2026.
 #[derive(Debug, Clone)]
 pub struct Freeze {
     pub monitor: MonitorInfo,
     pub path: PathBuf,
+    pub image: Arc<RgbaImage>,
 }
 
 /// Captura todos los monitores de una vez y deja los BMP en disco.
@@ -170,16 +177,11 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
                     // en <img>/createImageBitmap. El canal alfa de una captura de escritorio
                     // siempre es opaco, asi que da igual si algun decodificador lo ignora.
                     let path = dir.join(format!("freeze-{index}.bmp"));
-                    let mut writer = BufWriter::new(std::fs::File::create(&path)?);
-                    BmpEncoder::new(&mut writer).write_image(
-                        image.as_raw(),
-                        image.width(),
-                        image.height(),
-                        ExtendedColorType::Rgba8,
-                    )?;
+                    std::fs::write(&path, bmp_bytes(&image))?;
                     Ok(Freeze {
                         monitor: info,
                         path,
+                        image: Arc::new(image),
                     })
                 })
             })
@@ -194,6 +196,56 @@ pub fn freeze_all(dir: &Path) -> Result<Vec<Freeze>> {
             })
             .collect()
     })
+}
+
+/// Los bytes de un BMP de 32 bits con esa imagen dentro, hechos a mano.
+///
+/// El codificador de `image` tardaba 20 ms por pantalla de 1080p en esto, que es una
+/// copia con los canales dados la vuelta: aqui son unos 3. Es el formato mas simple que
+/// existe (cabecera de 54 bytes y los pixeles tal cual, de abajo arriba y en BGRA), y el
+/// navegador lo abre nativo.
+pub fn bmp_bytes(image: &RgbaImage) -> Vec<u8> {
+    let (width, height) = image.dimensions();
+    let fila = width as usize * 4;
+    let pixeles = fila * height as usize;
+    let mut out = Vec::with_capacity(54 + pixeles);
+
+    // BITMAPFILEHEADER (14 bytes).
+    out.extend_from_slice(b"BM");
+    out.extend_from_slice(&((54 + pixeles) as u32).to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&54u32.to_le_bytes());
+    // BITMAPINFOHEADER (40 bytes): 32 bits por pixel sin comprimir, filas de abajo arriba.
+    out.extend_from_slice(&40u32.to_le_bytes());
+    out.extend_from_slice(&(width as i32).to_le_bytes());
+    out.extend_from_slice(&(height as i32).to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&32u16.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&(pixeles as u32).to_le_bytes());
+    out.extend_from_slice(&2835i32.to_le_bytes());
+    out.extend_from_slice(&2835i32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+
+    // Las filas al reves y los canales dados la vuelta, fila a fila y a trozos de cuatro
+    // bytes: asi el compilador lo convierte en copias anchas en vez de comprobar los
+    // limites en cada byte. Annadir pixel a pixel con `extend_from_slice` costaba 18 ms
+    // por pantalla, casi lo mismo que el codificador de `image`.
+    let raw = image.as_raw();
+    let cabecera = out.len();
+    out.resize(cabecera + pixeles, 0);
+    let cuerpo = &mut out[cabecera..];
+    for (y, destino) in cuerpo.chunks_exact_mut(fila).enumerate() {
+        let origen = &raw[(height as usize - 1 - y) * fila..(height as usize - y) * fila];
+        for (d, s) in destino.chunks_exact_mut(4).zip(origen.chunks_exact(4)) {
+            d[0] = s[2];
+            d[1] = s[1];
+            d[2] = s[0];
+            d[3] = s[3];
+        }
+    }
+    out
 }
 
 /// Rectangulos de las ventanas visibles, para el ajuste automatico del overlay.
@@ -237,7 +289,7 @@ pub fn crop_from_freeze(freezes: &[Freeze], region: Rect) -> Result<image::RgbaI
         .or_else(|| freezes.first())
         .ok_or_else(|| AppError::Msg("no hay pantalla congelada".into()))?;
 
-    let image = image::open(&freeze.path)?.to_rgba8();
+    let image = &freeze.image;
     let local_x = (region.x - freeze.monitor.x).max(0) as u32;
     let local_y = (region.y - freeze.monitor.y).max(0) as u32;
     let width = region.width.min(image.width().saturating_sub(local_x));
@@ -245,7 +297,7 @@ pub fn crop_from_freeze(freezes: &[Freeze], region: Rect) -> Result<image::RgbaI
     if width == 0 || height == 0 {
         return Err(AppError::Msg("la selección queda fuera de la pantalla".into()));
     }
-    Ok(image::imageops::crop_imm(&image, local_x, local_y, width, height).to_image())
+    Ok(image::imageops::crop_imm(image.as_ref(), local_x, local_y, width, height).to_image())
 }
 
 /// El rectangulo que contiene todas las pantallas: el escritorio virtual entero.
@@ -286,11 +338,25 @@ pub fn stitch_all(freezes: &[Freeze]) -> Result<(image::RgbaImage, Rect)> {
 
     let mut lienzo = image::RgbaImage::from_pixel(marco.width, marco.height, image::Rgba([0, 0, 0, 0]));
 
+    // Fila a fila con copias de memoria, no con `imageops::overlay`: aquel mezcla el alfa
+    // pixel a pixel y tardaba 50 ms en juntar tres pantallas, y una pantalla congelada es
+    // opaca entera, no hay nada que mezclar. Los monitores no se solapan, asi que copiar
+    // encima es exactamente lo que hacia la mezcla.
+    let ancho_lienzo = marco.width as usize * 4;
     for f in freezes {
-        let trozo = image::open(&f.path)?.to_rgba8();
-        let dx = f.monitor.x - marco.x;
-        let dy = f.monitor.y - marco.y;
-        image::imageops::overlay(&mut lienzo, &trozo, dx as i64, dy as i64);
+        let dx = (f.monitor.x - marco.x).max(0) as usize;
+        let dy = (f.monitor.y - marco.y).max(0) as usize;
+        let (fw, fh) = f.image.dimensions();
+        let fila = fw as usize * 4;
+        let origen = f.image.as_raw();
+        let destino = lienzo.as_mut();
+        for y in 0..fh as usize {
+            let a = (dy + y) * ancho_lienzo + dx * 4;
+            if a + fila > destino.len() {
+                break;
+            }
+            destino[a..a + fila].copy_from_slice(&origen[y * fila..(y + 1) * fila]);
+        }
     }
 
     Ok((lienzo, marco))
@@ -310,7 +376,7 @@ mod tests {
             image::Rgba([color[0], color[1], color[2], 255]),
         );
         let path = dir.join(format!("freeze-{id}.bmp"));
-        imagen.save(&path).expect("no se ha podido escribir la pantalla de prueba");
+        std::fs::write(&path, bmp_bytes(&imagen)).expect("no se ha podido escribir la pantalla de prueba");
         Freeze {
             monitor: MonitorInfo {
                 id,
@@ -323,6 +389,7 @@ mod tests {
                 is_primary: id == 0,
             },
             path,
+            image: Arc::new(imagen),
         }
     }
 
@@ -390,7 +457,7 @@ mod tests {
         // La tercera es de 1920x720 en vez de 1920x1080: deja 360 px de hueco debajo.
         let bajita = image::RgbaImage::from_pixel(1920, 720, image::Rgba([0, 0, 255, 255]));
         let path = dir.join("freeze-2.bmp");
-        bajita.save(&path).expect("no se ha podido escribir la pantalla baja");
+        std::fs::write(&path, bmp_bytes(&bajita)).expect("no se ha podido escribir la pantalla baja");
         freezes.push(Freeze {
             monitor: MonitorInfo {
                 id: 2,
@@ -403,6 +470,7 @@ mod tests {
                 is_primary: false,
             },
             path,
+            image: Arc::new(bajita),
         });
         (dir, freezes)
     }
@@ -447,4 +515,21 @@ mod tests {
         assert_eq!(lienzo.get_pixel(4800, 900).0[3], 0, "el hueco tiene que ser transparente");
     }
 
+
+    /// El BMP hecho a mano tiene que abrirse con un decodificador de verdad y devolver los
+    /// mismos pixeles, incluido el orden de las filas: un BMP va de abajo arriba y si se
+    /// escribiera al reves, el overlay ensennaria la pantalla dada la vuelta.
+    #[test]
+    fn el_bmp_a_mano_se_vuelve_a_abrir_igual() {
+        let imagen = image::RgbaImage::from_fn(37, 11, |x, y| {
+            image::Rgba([(x * 6) as u8, (y * 20) as u8, (x + y) as u8, 255])
+        });
+        let bytes = bmp_bytes(&imagen);
+        assert_eq!(bytes.len(), 54 + 37 * 11 * 4);
+        let releida = image::load_from_memory_with_format(&bytes, image::ImageFormat::Bmp)
+            .expect("el BMP no se puede abrir")
+            .to_rgba8();
+        assert_eq!(releida.dimensions(), (37, 11));
+        assert_eq!(releida.as_raw(), imagen.as_raw(), "los pixeles no son los mismos");
+    }
 }

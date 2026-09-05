@@ -27,23 +27,29 @@ fn build_dib(image: &RgbaImage) -> Vec<u8> {
     out.extend_from_slice(&0u32.to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes());
 
+    // Fila a fila sobre memoria ya reservada, y sin mezclar cuando el pixel es opaco, que
+    // en una captura de pantalla son todos: la version que empujaba byte a byte y mezclaba
+    // siempre costaba mas que codificar el PNG que va al lado.
     let source = image.as_raw();
-    for y in (0..height as usize).rev() {
-        let mut written = 0;
-        for x in 0..width as usize {
-            let i = (y * width as usize + x) * 4;
-            let alpha = source[i + 3] as u32;
-            let blend = |c: u8| -> u8 {
-                ((c as u32 * alpha + 255 * (255 - alpha)) / 255).min(255) as u8
-            };
-            out.push(blend(source[i + 2]));
-            out.push(blend(source[i + 1]));
-            out.push(blend(source[i]));
-            written += 3;
-        }
-        while written < padded_row {
-            out.push(0);
-            written += 1;
+    let fila_origen = width as usize * 4;
+    let cabecera = out.len();
+    out.resize(cabecera + pixel_bytes, 0);
+    let cuerpo = &mut out[cabecera..];
+    for (n, destino) in cuerpo.chunks_exact_mut(padded_row).enumerate() {
+        let y = height as usize - 1 - n;
+        let origen = &source[y * fila_origen..(y + 1) * fila_origen];
+        for (d, s) in destino[..row_size].chunks_exact_mut(3).zip(origen.chunks_exact(4)) {
+            if s[3] == 255 {
+                d[0] = s[2];
+                d[1] = s[1];
+                d[2] = s[0];
+            } else {
+                let alpha = s[3] as u32;
+                let blend = |c: u8| -> u8 { ((c as u32 * alpha + 255 * (255 - alpha)) / 255).min(255) as u8 };
+                d[0] = blend(s[2]);
+                d[1] = blend(s[1]);
+                d[2] = blend(s[0]);
+            }
         }
     }
     out

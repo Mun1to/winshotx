@@ -54,6 +54,19 @@ pub fn save(image: &RgbaImage, path: &Path, width: u32, height: u32) -> Result<(
     Ok(())
 }
 
+/// Guarda un PNG comprimido lo minimo, para archivos que se miran una vez y se tiran.
+///
+/// Es el fotograma grande que el editor pide al saltar con el raton por la tira cuando
+/// no hay video de vista previa. Cada salto es un archivo nuevo, asi que lo que importa
+/// es que salga ya: 28 ms contra los 180 de la compresion de fabrica a 1920x1200.
+pub fn save_fast(image: &RgbaImage, path: &Path) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, codificar(image, CompressionType::Fast)?)?;
+    Ok(())
+}
+
 /// Bytes PNG en memoria: es lo que se mete en el portapapeles.
 ///
 /// Aqui se comprime lo minimo (`Fast`), y no es una concesion: al portapapeles el tamano

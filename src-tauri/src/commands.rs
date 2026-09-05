@@ -79,24 +79,27 @@ pub async fn overlay_bootstrap(state: State<'_, AppState>, monitor_id: u32) -> R
     build_overlay_payload(&state, monitor_id)
 }
 
-/// Respaldo del overlay: el PNG congelado servido por el propio IPC.
+/// Respaldo del overlay: la pantalla congelada servida por el propio IPC, como BMP.
 /// El camino normal es el protocolo asset, pero si ese falla (CSP, ambito del
 /// scope, ruta fuera de $TEMP) el overlay se quedaria en negro tapando la
 /// pantalla entera. Con esto siempre hay una segunda via para pintar el fondo.
+///
+/// Sale de la imagen en memoria, no del archivo: asi este camino funciona aunque el
+/// archivo no se haya podido escribir, que es justo cuando hace falta.
 #[tauri::command]
 pub async fn freeze_bytes(
     state: State<'_, AppState>,
     monitor_id: u32,
 ) -> Result<tauri::ipc::Response> {
-    let path = {
+    let image = {
         let freezes = state.freezes.read();
         freezes
             .iter()
             .find(|f| f.monitor.id == monitor_id)
-            .map(|f| f.path.clone())
+            .map(|f| f.image.clone())
             .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?
     };
-    Ok(tauri::ipc::Response::new(std::fs::read(path)?))
+    Ok(tauri::ipc::Response::new(capture::bmp_bytes(&image)))
 }
 
 #[tauri::command]
@@ -444,7 +447,10 @@ pub async fn frame_image(app: AppHandle, session_id: String, index: usize) -> Re
     let path = directory.join(format!("{index:06}.png"));
     if !path.exists() {
         let image = record::read_frame(&session, index)?;
-        image.save(&path)?;
+        // Comprimido lo minimo: es una vista previa temporal que se pide en cada
+        // fotograma al que se salta con el raton, y con la compresion de fabrica de
+        // `image` cada salto costaba 180 ms a 1080p. Ver `png::save_fast`.
+        png::save_fast(&image, &path)?;
     }
     Ok(path.to_string_lossy().to_string())
 }
