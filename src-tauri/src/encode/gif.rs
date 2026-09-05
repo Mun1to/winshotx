@@ -62,7 +62,13 @@ const VISITAS_MAX: usize = 600_000;
 /// mientras se entrena: cuatro millones de pixeles son 16 MB.
 const MUESTRA_MAX: usize = 4_000_000;
 /// Cuanta memoria se deja para los fotogramas de un lote que se cuantizan a la vez.
-const LOTE_BYTES: usize = 96 << 20;
+///
+/// Cada fotograma del lote lleva ademas, mientras se cuantiza, su mapa de errores de la
+/// difusion (seis bytes por pixel) y su mascara: a 1080p son unos 16 MB por fotograma
+/// encima de los 8 de la imagen. Con 64 MB de imagenes, el peor caso (una pantalla entera
+/// cambiando en todos los fotogramas del lote) se queda en unos 200 MB de pico, que es lo
+/// que cabe pagar por una exportacion sin que nadie lo note.
+const LOTE_BYTES: usize = 64 << 20;
 
 pub struct GifOptions {
     pub width: u32,
@@ -403,8 +409,10 @@ fn quantize_frame(
         }
     }
 
-    // Floyd-Steinberg sobre el area recortada, difundiendo solo entre pixeles vivos.
-    let mut errors = vec![0i32; region_w * region_h * 3];
+    // Floyd-Steinberg sobre el area recortada, difundiendo solo entre pixeles vivos. El
+    // error acumulado por canal cabe de sobra en 16 bits (en la practica no pasa de unos
+    // cientos), y a pantalla completa eso son 12 MB por fotograma en vez de 24.
+    let mut errors = vec![0i16; region_w * region_h * 3];
     for y in 0..region_h {
         let src_fila = (y + min_y) * fila + min_x * 4;
         for x in 0..region_w {
@@ -413,9 +421,9 @@ fn quantize_frame(
             }
             let src = src_fila + x * 4;
             let e = (y * region_w + x) * 3;
-            let r = (current[src] as i32 + errors[e]).clamp(0, 255);
-            let g = (current[src + 1] as i32 + errors[e + 1]).clamp(0, 255);
-            let b = (current[src + 2] as i32 + errors[e + 2]).clamp(0, 255);
+            let r = (current[src] as i32 + errors[e] as i32).clamp(0, 255);
+            let g = (current[src + 1] as i32 + errors[e + 1] as i32).clamp(0, 255);
+            let b = (current[src + 2] as i32 + errors[e + 2] as i32).clamp(0, 255);
             let index = buscador.indice(r as u8, g as u8, b as u8);
             out[y * region_w + x] = index as u8;
 
@@ -431,14 +439,15 @@ fn quantize_frame(
     )
 }
 
-fn diffuse(errors: &mut [i32], w: usize, h: usize, x: usize, y: usize, err: [i32; 3]) {
+fn diffuse(errors: &mut [i16], w: usize, h: usize, x: usize, y: usize, err: [i32; 3]) {
     let mut spread = |tx: usize, ty: usize, factor: i32| {
         if tx >= w || ty >= h {
             return;
         }
         let target = (ty * w + tx) * 3;
         for c in 0..3 {
-            errors[target + c] += err[c] * factor / 16;
+            let suma = errors[target + c] as i32 + err[c] * factor / 16;
+            errors[target + c] = suma.clamp(i16::MIN as i32, i16::MAX as i32) as i16;
         }
     };
     if x + 1 < w {
@@ -582,7 +591,7 @@ mod tests {
     /// Un lote nunca es tan grande que se coma la memoria, ni tan pequenno que no valga.
     #[test]
     fn el_lote_cabe_en_memoria() {
-        assert!(tamanno_del_lote(3840, 2160) <= 3, "a 4K un lote son 33 MB por fotograma");
+        assert!(tamanno_del_lote(3840, 2160) <= 2, "a 4K un lote son 33 MB por fotograma");
         assert!(tamanno_del_lote(320, 200) >= 2);
         assert!(tamanno_del_lote(320, 200) <= rayon::current_num_threads().max(2));
     }
