@@ -1049,3 +1049,77 @@ Medido en release, 90 fotogramas de 1280x720 con casi todo quieto. El banco esta
 sin el. Queda apuntado en el buzon con una hipotesis: los 300 ms que pasan entre ensennar la
 ventana y que el navegador reaccione podrian ser un cambio de DPI al mover la ventana del
 aparcadero a su pantalla, si sus pantallas no van todas al mismo escalado.
+
+## 42. Los 8 MB que viajaban al overlay, la ventana que se dormia y la que cambiaba de DPI
+
+Munir, el 5 de septiembre de 2026: *«sobre todo el tiempo de carga de querer hacer una captura,
+y quitar lo del principio de carga, eso queda muy mal»*. La pantalla oscura con «Preparando la
+captura» se veia durante casi medio segundo en cada disparo.
+
+**Como se midio, por fin bien:** un cronometro dentro de la aplicacion (`crono.rs`, se
+enciende con `--crono` y escribe cada etapa en `%TEMP%\winshotx\crono.log`, las del frontend
+llegan por el comando `crono_marca`), un disparador desde fuera (`winshotx.exe --capture` y
+`--cancel`, que la instancia unica le pasa a la que corre) y `scripts/cronometrar-atajo.mjs`,
+que repite seis capturas y saca las medianas. Con tres pantallas, la primera medida dijo:
+
+| Etapa | ms desde el atajo |
+|---|---|
+| Pantallas congeladas | 110 |
+| Ventanas ensennadas (con la pantalla de carga) | 140-180 |
+| El navegador recibe el aviso | 205-290, a veces 450 |
+| **Los 8 MB de cada pantalla llegan al navegador** | **550-590** |
+| Imagen pintada | 590 |
+
+**El trozo gordo no era el navegador reaccionando: era llevarle 8 MB por pantalla.** El
+protocolo por el que WebView2 sirve archivos y respuestas del IPC da unos 70-90 MB por
+segundo, y tres ventanas pidiendo 8 MB cada una son 24 MB en cola. En PNG rapido
+(`png::to_bytes`, 28 ms por pantalla, en paralelo) son dos o tres megabytes cada una y
+llegan en 80 ms. El congelado ya no toca el disco: viaja por el IPC desde la memoria
+(`freeze_png`), con el BMP sin comprimir de respaldo.
+
+**Lo segundo:** el aviso tardaba a veces 280 ms en llegar al navegador. Chromium trata como
+«de fondo» a una ventana que no se ve, y los overlays viven aparcados fuera de las pantallas.
+Los interruptores `--disable-renderer-backgrounding --disable-backgrounding-occluded-windows
+--disable-background-timer-throttling` lo evitan, **pero tienen que ir en TODAS las ventanas,
+incluida la `main` de `tauri.conf.json`**: WebView2 comparte un proceso de navegador y lo
+configura la primera ventana; una que pida otros argumentos se queda sin webview y sale en
+blanco. Eso fue lo que paso la primera vez que se intento (trampa 33) y por lo que se
+descarto. Con los argumentos en las siete ventanas, el aviso llega en 10 ms.
+
+**Lo tercero, que es lo que quita la pantalla de carga:** la ventana ya no se ensenna al
+congelar. Se le manda la imagen aparcada, y cuando el frontend la tiene pintada avisa
+(`overlay_listo`, con el numero de la captura para ignorar avisos de una ya cancelada) y
+Rust la trae a su sitio en una sola llamada (`SetWindowPos` con `SWP_SHOWWINDOW`). Si un
+overlay no avisa en 900 ms se ensenna igual, para poder ver su error y salir con Escape.
+
+**Y la prioridad:** se congela primero la pantalla donde esta el raton y se le manda su
+imagen sola; las demas van detras. **Todo eso en un hilo aparte**: la primera version lo
+hacia en el principal, y como el aviso a cada ventana viaja por el bucle de mensajes de ese
+hilo, se quedaba en la cola mientras se congelaban las otras dos. Congelada a los 53 ms y su
+navegador enterandose a los 131: la prioridad no servia de nada.
+
+### Las dos trampas que salieron al medir esto
+
+1. **`cargo test` DESPUES de `pnpm tauri build` deja un binario sin interfaz.** Se
+   encadenaron para ahorrar tiempo y las pruebas recompilaron `winshotx.exe` sin la
+   caracteristica `custom-protocol`, que es la que mete `dist/` dentro. El cronometro no
+   veia ni una marca del frontend y las ventanas salian por el rescate de los 900 ms. Se vio
+   fotografiando la ventana (trampa 36, otra vez): la pagina de error de Edge. **Las pruebas
+   van antes del build, o el build se repite.** `scripts/fotografiar-ventanas.ps1` hace esa
+   foto sin tocar nada.
+2. **Aparcar todos los overlays en la misma esquina reescala al que va a otro DPI.** Windows
+   le da a una ventana el DPI del monitor mas cercano; el overlay del monitor vertical (al
+   100 %) se aparcaba pegado a uno al 125 %, y al traerlo a su pantalla Windows lo dejaba en
+   **864x1536** en vez de 1080x1920 (y el navegador tenia que redibujarlo todo a otra
+   escala). Ahora cada overlay se aparca pegado a su propio monitor, o a uno de su misma
+   escala (`aparcadero_de`, con las tres pantallas de Munir en las pruebas).
+
+### El resultado
+
+| | Antes | Ahora |
+|---|---|---|
+| Pantalla de carga visible | ~450 ms | nunca |
+| Primera pantalla (la del raton) pintada | 590 ms | 114 ms |
+| Ultima pantalla pintada | 590 ms | 233 ms |
+
+Medido con `node scripts/cronometrar-atajo.mjs`, seis capturas, tres pantallas, medianas.
