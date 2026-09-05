@@ -274,6 +274,18 @@ window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
   convertFileSrc: (p) => (${anclada !== null} ? "/anclada.png" : ${editor !== null} ? "/editor.png" : p),
   transformCallback: (cb) => { const id = Math.floor(Math.random() * 1e9); window["_" + id] = cb; return id; },
+};
+// El overlay decodifica su pantalla congelada con createImageBitmap, y el Chrome sin ventana
+// con reloj virtual no espera a ese decodificador (va en otro hilo): la foto salia con la
+// pantalla de arranque. Un <img> con un blob si cuenta como carga y el reloj lo espera, y
+// drawImage lo acepta igual que a un bitmap.
+window.createImageBitmap = (blob) => new Promise((listo, falla) => {
+  const img = new Image();
+  img.onload = () => listo(img);
+  img.onerror = () => falla(new Error("no se ha podido decodificar el congelado"));
+  img.src = URL.createObjectURL(blob);
+});
+Object.assign(window.__TAURI_INTERNALS__, {
   // Los eventos de Tauri, de mentira pero funcionando: la app los usa para hablar entre
   // sus ventanas, y sin esto un botón que emite un evento no hace absolutamente nada aquí.
   _oyentes: {},
@@ -296,7 +308,7 @@ window.__TAURI_INTERNALS__ = {
     if (cmd.startsWith("plugin:")) return Promise.resolve(null);
     return Promise.resolve(null);
   },
-};
+});
 </script>`;
 
 // Sin ratón no hay hover, y lo que solo se ve al pasar por encima no sale en la foto.
