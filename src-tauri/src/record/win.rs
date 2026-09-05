@@ -49,6 +49,10 @@ pub struct RegionCapture {
     flags: CaptureFlags,
     start: Instant,
     last_emit: Option<Instant>,
+    /// El apoyo que necesita el crate cuando la textura viene con relleno de fila. Se
+    /// guarda entre fotogramas para no reservar ocho megabytes nuevos sesenta veces por
+    /// segundo: la copia que se manda por el canal sigue siendo una, esta no cuenta.
+    scratch: Vec<u8>,
 }
 
 impl GraphicsCaptureApiHandler for RegionCapture {
@@ -60,6 +64,7 @@ impl GraphicsCaptureApiHandler for RegionCapture {
             flags: ctx.flags,
             start: Instant::now(),
             last_emit: None,
+            scratch: Vec::new(),
         })
     }
 
@@ -88,8 +93,7 @@ impl GraphicsCaptureApiHandler for RegionCapture {
         let (x1, y1, x2, y2) = self.flags.crop;
         let buffer = frame.buffer_crop(x1, y1, x2, y2)?;
         // El crate necesita un Vec de apoyo por si la textura viene con relleno de fila.
-        let mut scratch = Vec::new();
-        let data = buffer.as_nopadding_buffer(&mut scratch).to_vec();
+        let data = buffer.as_nopadding_buffer(&mut self.scratch).to_vec();
 
         let elapsed = now.duration_since(self.start).as_millis() as u64;
         let ts_ms = elapsed.saturating_sub(self.flags.paused_ms.load(Ordering::Relaxed));

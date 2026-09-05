@@ -562,7 +562,8 @@ impl Cocina {
 
     #[cfg(windows)]
     fn tragar(&mut self, frame: crate::record::win::CapturedFrame) {
-        let rgba = crate::recorder::bgra_a_rgba(&frame.bgra);
+        let mut rgba = frame.bgra;
+        crate::recorder::bgra_a_rgba_en_sitio(&mut rgba);
         // Todo lo que se anota va YA en la escala a la que se guarda. Guardar a 720p desde
         // una pantalla de 1080p y anotar el clic en coordenadas de 1080 dejaria la camara
         // acercandose a un sitio que no es, y el puntero dibujado fuera de la pantalla.
@@ -1220,7 +1221,8 @@ mod pruebas_con_pantalla {
             match receiver.recv_timeout(Duration::from_millis(200)) {
                 Ok(frame) => {
                     ultimo_ts = frame.ts_ms;
-                    let rgba = crate::recorder::bgra_a_rgba(&frame.bgra);
+                    let mut rgba = frame.bgra;
+                    crate::recorder::bgra_a_rgba_en_sitio(&mut rgba);
                     if anillo
                         .empujar(&rgba, region.width, region.height, frame.ts_ms)
                         .unwrap()

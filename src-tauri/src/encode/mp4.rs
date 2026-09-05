@@ -21,21 +21,23 @@ impl Mp4Options {
 }
 
 /// Media Foundation espera BGRA y las filas de abajo arriba.
+///
+/// Fila a fila y con trozos de cuatro bytes, sin indices calculados a mano: asi el
+/// compilador no tiene que comprobar los limites en cada canal de cada pixel, que a dos
+/// millones de pixeles por fotograma se notaba.
 pub fn rgba_to_bgra_bottom_up(image: &RgbaImage) -> Vec<u8> {
     let width = image.width() as usize;
     let height = image.height() as usize;
+    let fila = width * 4;
     let source = image.as_raw();
-    let mut out = vec![0u8; width * height * 4];
-    for y in 0..height {
-        let src_row = y * width * 4;
-        let dst_row = (height - 1 - y) * width * 4;
-        for x in 0..width {
-            let s = src_row + x * 4;
-            let d = dst_row + x * 4;
-            out[d] = source[s + 2];
-            out[d + 1] = source[s + 1];
-            out[d + 2] = source[s];
-            out[d + 3] = source[s + 3];
+    let mut out = vec![0u8; fila * height];
+    for (y, destino) in out.chunks_exact_mut(fila).enumerate() {
+        let origen = &source[(height - 1 - y) * fila..(height - y) * fila];
+        for (d, s) in destino.chunks_exact_mut(4).zip(origen.chunks_exact(4)) {
+            d[0] = s[2];
+            d[1] = s[1];
+            d[2] = s[0];
+            d[3] = s[3];
         }
     }
     out

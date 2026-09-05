@@ -84,18 +84,25 @@ impl From<&SessionData> for SessionInfo {
 }
 
 /// La captura de Windows entrega los colores al reves de como los quiere `image`.
-pub(crate) fn bgra_a_rgba(input: &[u8]) -> Vec<u8> {
-    let mut out = input.to_vec();
-    for pixel in out.chunks_exact_mut(4) {
+///
+/// Se da la vuelta EN EL SITIO: el fotograma ya es nuestro (acaba de llegar por el canal)
+/// y copiarlo para cambiarle el orden de los bytes eran ocho megabytes mas por fotograma,
+/// sesenta veces por segundo con el anillo encendido.
+pub(crate) fn bgra_a_rgba_en_sitio(pixeles: &mut [u8]) {
+    for pixel in pixeles.chunks_exact_mut(4) {
         pixel.swap(0, 2);
     }
-    out
 }
 
 /// Media Foundation quiere las filas al reves; la captura las entrega derechas.
-fn flip_rows(input: &[u8], width: u32, height: u32) -> Vec<u8> {
+///
+/// Escribe en un buffer que se le presta y se reutiliza fotograma tras fotograma: reservar
+/// ocho megabytes nuevos treinta veces por segundo era una parte medible de lo que
+/// costaba grabar, y el codificador solo necesita los bytes mientras se los manda.
+fn flip_rows_en(input: &[u8], width: u32, height: u32, out: &mut Vec<u8>) {
     let stride = width as usize * 4;
-    let mut out = vec![0u8; input.len()];
+    out.clear();
+    out.resize(input.len(), 0);
     for y in 0..height as usize {
         let src = y * stride;
         let dst = (height as usize - 1 - y) * stride;
@@ -103,7 +110,6 @@ fn flip_rows(input: &[u8], width: u32, height: u32) -> Vec<u8> {
             out[dst..dst + stride].copy_from_slice(&input[src..src + stride]);
         }
     }
-    out
 }
 
 fn monitor_origin(app: &AppHandle, region: Rect) -> (i32, i32) {
@@ -204,6 +210,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         let formato_audio = audio.as_ref().map(|a| a.formato);
         let mut encoder = build_preview_encoder(&session, formato_audio);
         let mut last_ts = 0u64;
+        let mut dado_la_vuelta: Vec<u8> = Vec::new();
 
         // El sonido va a dos sitios a la vez: al MP4 de vista previa, para poder oirlo de
         // una pieza, y a un archivo en crudo, que es lo que se recorta al exportar. Sin el
@@ -270,7 +277,15 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             };
             last_ts = frame.ts_ms;
-            let mut rgba = bgra_a_rgba(&frame.bgra);
+            // El codificador de vista previa quiere BGRA con las filas al reves, asi que su
+            // copia se saca ANTES de dar la vuelta a los colores, y despues el fotograma que
+            // llego se convierte en sitio sin pedir mas memoria.
+            let para_vista_previa = encoder.is_some();
+            if para_vista_previa {
+                flip_rows_en(&frame.bgra, width, height, &mut dado_la_vuelta);
+            }
+            let mut rgba = frame.bgra;
+            bgra_a_rgba_en_sitio(&mut rgba);
 
             // El aro se pinta en el fotograma que se guarda, no en la pantalla: pintarlo
             // encima del escritorio seria otra ventana transparente, que ademas se colaria
@@ -345,10 +360,9 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                 writer_frames.store(cache.frame_count() as u64, Ordering::Relaxed);
                 writer_bytes.store(cache.bytes_written(), Ordering::Relaxed);
             }
-            if let Some(enc) = encoder.as_mut() {
-                let flipped = flip_rows(&frame.bgra, width, height);
+            if let Some(enc) = encoder.as_mut().filter(|_| para_vista_previa) {
                 if enc
-                    .send_frame_buffer(&flipped, frame.ts_ms as i64 * 10_000)
+                    .send_frame_buffer(&dado_la_vuelta, frame.ts_ms as i64 * 10_000)
                     .is_err()
                 {
                     // Si el codificador falla, la grabacion sigue: el cache es la fuente real.
