@@ -991,3 +991,61 @@ lo que falta y donde se consigue, si.
 **La leccion:** un riesgo apuntado como «poco probable» y sin comprobar es un riesgo que
 sigue entero. Ese punto llevaba escrito desde el 31 de agosto con la palabra «probable»
 delante, y fue exactamente lo que paso.
+
+## 41. El GIF iba un 10 % mas rapido que la grabacion, y nadie lo habia visto
+
+Encontrada el 5 de septiembre de 2026 al medir el codificador GIF, no al mirarlo: un GIF
+«va rapido» sin mas y a nadie le llamo la atencion.
+
+El GIF cuenta el tiempo en centesimas de segundo. Cada fotograma de 33 ms se redondeaba a 3
+centesimas **por separado**, asi que treinta fotogramas de 990 ms salian como 90 centesimas:
+un clip grabado a 30 fps se reproducia un 10 % mas deprisa de lo que paso. Ahora el redondeo
+se arrastra de un fotograma al siguiente (`gif::Reloj`) y la duracion total cuadra. Hay una
+prueba que codifica doce fotogramas, vuelve a abrir el archivo y suma los retardos.
+
+**La regla:** cuando algo se redondea por unidad y se suma, el redondeo se acumula. Se
+redondea el total y se reparte la diferencia, no al reves.
+
+### Y las tres cosas que salieron de medir ese mismo codificador
+
+1. **Calidad 100 tardaba 352 ms por fotograma; calidad 80, 46.** No era la calidad: era que
+   la paleta se entrenaba con toda la muestra, y la muestra crecia con el tamanno del clip.
+   Once millones de pixeles a calidad 100 son veintisiete segundos antes de escribir nada.
+   Lo que hay que acotar es cuantos pixeles VISITA el entrenamiento, no cuantos hay.
+2. **Una cache de colores compartida entre hilos salia distinta cada vez.** Se guardaba la
+   respuesta por «casilla» (los seis bits altos de cada canal), y dos colores de la misma
+   casilla con respuestas distintas: ganaba el hilo que llegara primero. Una prueba que
+   codifica dos veces y compara byte a byte lo cazo a la primera. Una casilla por color
+   exacto (16 MB que viven lo que dura la exportacion) es determinista por construccion, y
+   ademas mas fiel: el error de color bajo de 1,35 a 1,27 niveles.
+3. **Para comparar con lo de antes, lo de antes se trajo de git a un modulo de pruebas**
+   (`git show HEAD:ruta > gif_viejo.rs`, `#[cfg(test)] mod gif_viejo;`) y el banco codifico
+   con los dos, midiendo tiempo, tamanno y **error de color contra el original** (decodificar
+   el GIF y comparar pixel a pixel). Sin el error medido, «mas rapido» podia estar escondiendo
+   «peor», y con la primera version de la cache lo estaba. El modulo se borro al terminar.
+
+| calidad | antes | ahora |
+|---|---|---|
+| 50 | 18 ms/fotograma, error 2,01 | 6,6 ms/fotograma, error 1,26 |
+| 80 | 37 ms/fotograma, error 1,35 | 8,4 ms/fotograma, error 1,27 |
+| 100 | **308 ms/fotograma**, error 1,54 | 8,2 ms/fotograma, error 1,30 |
+
+Medido en release, 90 fotogramas de 1280x720 con casi todo quieto. El banco esta en
+`encode/bench_gif.rs`: `cargo test --release --lib medir_gif -- --ignored --nocapture`.
+
+### Lo demas que se midio ese dia, con sus bancos
+
+| Camino | Antes | Ahora | Banco |
+|---|---|---|---|
+| Recortar la seleccion de la pantalla congelada | 25 ms (volvia a abrir el BMP de 8 MB) | 2 ms (la imagen se queda en memoria) | `capture/bench_freeze.rs` |
+| Juntar las tres pantallas (tecla `0`) | 110 ms | 17 ms | idem |
+| Congelar las tres pantallas | 110 ms | 85-90 ms (el BMP se escribe a mano) | idem |
+| Miniaturas al parar de grabar, a 1080p | 7,2 ms/fotograma | 2,7 ms/fotograma | `record/bench_thumbs.rs` |
+| Leer los fotogramas al exportar | 12 ms/fotograma (`read_frame` reconstruia desde el ultimo entero) | 4 ms/fotograma (`LectorEnOrden`) | idem |
+| El fotograma grande del editor al saltar con el raton | 180 ms (PNG con la compresion de fabrica) | 28 ms (`png::save_fast`) | `encode/png.rs` |
+
+**Lo que NO se midio, y por que:** el camino del atajo hasta ver la imagen en el overlay
+(trampas 33 y 37) necesita abrir los overlays encima del escritorio de Munir, y eso no se hace
+sin el. Queda apuntado en el buzon con una hipotesis: los 300 ms que pasan entre ensennar la
+ventana y que el navegador reaccione podrian ser un cambio de DPI al mover la ventana del
+aparcadero a su pantalla, si sus pantallas no van todas al mismo escalado.
