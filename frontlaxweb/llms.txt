@@ -4,7 +4,7 @@
 > lightweight alternative to the built-in Snipping Tool and to ShareX, Greenshot, ScreenToGif
 > and CleanShot X. Region capture with a pixel magnifier, GIF and MP4 recording, a rolling
 > buffer that keeps the last seconds you did not record, and a frame by frame editor. MIT
-> licence, 2.51 MB installer, no account, no cloud and no telemetry.
+> licence, 2.52 MB installer, no account, no cloud and no telemetry.
 
 ## Measured facts
 
@@ -14,7 +14,7 @@ clock stops when the selection is visible on screen.
 - From shortcut to selection: **winshotx 28 ms with one screen**, about half a second with three (all of them get frozen); Snipping Tool 920 ms.
 - Memory while capturing: **winshotx 33 MB**, Snipping Tool 253 MB.
 - Memory sitting idle: **winshotx 31 MB**, Snipping Tool 98 MB.
-- Installer size: **2.51 MB**, with no bundled FFmpeg or other binaries.
+- Installer size: **2.52 MB**, with no bundled FFmpeg or other binaries.
 - Installs per user, so Windows never asks for administrator rights.
 - Published in the official winget catalogue: `winget install Mun1to.winshotx`.
 - Also published on the Microsoft Store, where Microsoft signs the package and keeps it
