@@ -24,7 +24,7 @@
 ---
 
 Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región con lupa de
-píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Abre la selección en 28 ms con una
+píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Enseña la selección, ya pintada, 114 ms después del atajo con tres pantallas, gasta
 pantalla, gasta 33 MB de memoria y cabe en un instalador de 2,52 MB. Sin cuenta, sin nube, sin telemetría y sin
 FFmpeg empaquetado.
 
@@ -70,7 +70,7 @@ incluidas las cinco que gana la de Windows.
 
 | | winshotx | Herramienta de Recortes |
 |---|---|---|
-| Del atajo a la selección (una pantalla) | **28 ms** | 920 ms |
+| Del atajo a la selección en pantalla, ya pintada (tres pantallas) | **114 ms** | 920 ms |
 | Memoria mientras capturas | **33 MB** | 253 MB |
 | Memoria esperando quieta | **31 MB** | 98 MB |
 | Graba GIF | **sí** | no |

@@ -143,16 +143,16 @@ ${JSON.stringify(bloque, null, 2)}
  * las claves se hayan usado en alguna pagina.
  */
 const ATRIBUTOS = {
-  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y editor fotograma a fotograma. Abre la selección en 28 ms con una pantalla y gasta 33 MB. Instalador de 2,52 MB, sin cuenta y sin nube."':
-    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and a frame by frame editor. Opens the selection in 28 ms with one screen and uses 33 MB. A 2.52 MB installer, no account and no cloud."',
+  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y editor fotograma a fotograma. Enseña la selección ya pintada 114 ms después del atajo, con tres pantallas, y gasta 33 MB. Instalador de 2,52 MB, sin cuenta y sin nube."':
+    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and a frame by frame editor. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 2.52 MB installer, no account and no cloud."',
   'content="winshotx · captura y grabación de pantalla para Windows"':
     'content="winshotx · screenshots and screen recording for Windows"',
-  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta tarda 28 ms con una pantalla y gasta 33 MB, graba GIF y trae editor. 2,52 MB, código abierto."':
-    'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms with one screen and 33 MB, records GIF and ships an editor. 2.52 MB, open source."',
-  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta tarda 28 ms con una pantalla y gasta 33 MB. 2,52 MB, código abierto."':
-    'content="The Snipping Tool takes 920 ms and 253 MB. This one takes 28 ms with one screen and 33 MB. 2.52 MB, open source."',
-  'content="winshotx: 28 ms contra 920 ms de la Herramienta de Recortes"':
-    'content="winshotx: 28 ms against the Snipping Tool\'s 920 ms"',
+  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta la enseña ya pintada en 114 ms con tres pantallas y gasta 33 MB, graba GIF y trae editor. 2,52 MB, código abierto."':
+    'content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB, records GIF and ships an editor. 2.52 MB, open source."',
+  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta la enseña ya pintada en 114 ms con tres pantallas y gasta 33 MB. 2,52 MB, código abierto."':
+    'content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB. 2.52 MB, open source."',
+  'content="winshotx: 114 ms contra 920 ms de la Herramienta de Recortes"':
+    'content="winshotx: 114 ms against the Snipping Tool\'s 920 ms"',
   'content="winshotx no recoge nada: ni cuentas, ni telemetría, ni analítica. Aquí están, una por una, las únicas conexiones que hace la aplicación y para qué usa cada permiso de Windows."':
     'content="winshotx collects nothing: no accounts, no telemetry, no analytics. Here, one by one, are the only connections the app makes and what it uses each Windows permission for."',
   'content="No recoge nada. Las únicas conexiones que hace la aplicación, una por una."':
