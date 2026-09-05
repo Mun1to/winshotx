@@ -11,6 +11,8 @@ use crate::error::{AppError, Result};
 
 #[cfg(windows)]
 pub mod audio;
+#[cfg(test)]
+mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
 pub mod mezcla;
@@ -158,7 +160,6 @@ pub struct FrameCache {
     file: BufWriter<File>,
     offset: u64,
     entries: Vec<FrameEntry>,
-    last_hash: Option<u64>,
     dir: PathBuf,
     /// El ultimo fotograma completo, para poder comparar con el que llega. Ocupa una
     /// imagen en memoria (9 MB a 1920x1200), que es mucho menos de lo que se ahorra en
@@ -188,7 +189,6 @@ impl FrameCache {
             file: BufWriter::with_capacity(1 << 20, File::create(ruta)?),
             offset: 0,
             entries: Vec::new(),
-            last_hash: None,
             dir: ruta.to_path_buf(),
             anterior: None,
             desde_entero: 0,
@@ -198,8 +198,17 @@ impl FrameCache {
     /// Devuelve false cuando el fotograma es identico al anterior: en ese caso
     /// no se escribe nada y solo se alarga la duracion del ultimo, como ScreenToGif.
     pub fn push_rgba(&mut self, rgba: &[u8], width: u32, height: u32, ts_ms: u64) -> Result<bool> {
-        let hash = quick_hash(rgba);
-        if self.last_hash == Some(hash) {
+        // Que ha cambiado respecto al ultimo guardado, comparando filas enteras de memoria.
+        // Esto sustituye al hash que habia antes, que leia un byte de cada cinco: comparar
+        // de verdad cuesta lo mismo (una pasada por el fotograma) y no se le escapa nada.
+        // El hash muestreaba los bytes 0, 5, 10 y 15 de cada veinte, o sea el rojo de un
+        // pixel, el verde del siguiente, el azul del tercero, el alfa del cuarto y NADA del
+        // quinto: un cambio que cayera solo en esos pixeles pasaba por identico.
+        let cambio = self
+            .anterior
+            .as_ref()
+            .map(|previo| delta::zona_cambiada(previo, rgba, width, height));
+        if cambio == Some(None) {
             return Ok(false);
         }
 
@@ -207,11 +216,9 @@ impl FrameCache {
         // cuando no hay con que comparar, cuando toca uno de referencia, o cuando ha
         // cambiado tanto que recortar ya no ahorra nada.
         let entero = u64::from(width) * u64::from(height);
-        let parche = self
-            .anterior
-            .as_ref()
+        let parche = cambio
+            .flatten()
             .filter(|_| self.desde_entero + 1 < FOTOGRAMA_ENTERO_CADA)
-            .and_then(|previo| delta::zona_cambiada(previo, rgba, width, height))
             .filter(|p| (p.pixeles() as f64) < entero as f64 * PARTE_MAXIMA);
 
         let (encoded, guardado) = match parche {
@@ -233,7 +240,6 @@ impl FrameCache {
             patch: guardado,
         });
         self.offset += encoded.len() as u64;
-        self.last_hash = Some(hash);
         self.desde_entero = if guardado.is_some() {
             self.desde_entero + 1
         } else {
@@ -282,21 +288,6 @@ pub fn calcular_duraciones(entries: &mut [FrameEntry], total_ms: u64, fallback_f
         let delta = next_ts.saturating_sub(entries[i].timestamp_ms) as u32;
         entries[i].duration_ms = delta.clamp(10, 10_000);
     }
-}
-
-/// Hash barato para saber si el fotograma ha cambiado. El paso es 5 y no 4 a
-/// proposito: con 4 sobre datos RGBA se leeria siempre el mismo canal de cada
-/// pixel, y un cambio que solo tocara el verde o el azul pasaria por identico.
-fn quick_hash(data: &[u8]) -> u64 {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    let mut i = 0;
-    while i < data.len() {
-        hash ^= data[i] as u64;
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-        i += 5;
-    }
-    hash ^= data.len() as u64;
-    hash
 }
 
 /// El ultimo fotograma guardado entero en o antes de `index`. Desde ahi hacia delante
@@ -483,14 +474,15 @@ pub fn generate_thumbnails(session: &mut SessionData) -> Result<()> {
                 if destino.exists() {
                     continue;
                 }
-                let image = RgbaImage::from_raw(ancho, alto, lienzo.clone())
+                // El lienzo se presta a la imagen y se recupera despues, sin copiarlo:
+                // son ocho megabytes por fotograma a 1080p.
+                let image = RgbaImage::from_raw(ancho, alto, std::mem::take(&mut lienzo))
                     .ok_or_else(|| AppError::Msg("miniatura corrupta".into()))?;
-                let thumb = image::imageops::resize(
-                    &image,
-                    thumb_width,
-                    THUMB_HEIGHT,
-                    image::imageops::FilterType::Triangle,
-                );
+                // En dos pasos y no con `image::imageops::resize`: aquel tardaba unos 30 ms
+                // por miniatura a 1080p, y con novecientos fotogramas eran seis segundos
+                // mirando una ventana en blanco antes de que abriera el editor.
+                let thumb = crate::encode::escalar::miniatura(&image, thumb_width, THUMB_HEIGHT);
+                lienzo = image.into_raw();
                 thumb.save(destino)?;
             }
             Ok(())

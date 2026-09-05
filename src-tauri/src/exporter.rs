@@ -282,13 +282,17 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 let _ = std::fs::remove_file(&temporary);
             } else {
                 let mut vestir = estudio_de(&session, &request);
+                // En orden y no `read_frame`: los fotogramas se exportan de principio a
+                // fin, y reconstruir cada uno desde el ultimo entero eran hasta treinta
+                // parches por fotograma en vez de uno. Ver `LectorEnOrden`.
+                let mut lector = record::LectorEnOrden::nuevo(&session)?;
                 let mut loader = |index: usize| {
                     let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
                     let recortes = recortes_de!(ms);
                     if let Some(e) = vestir.as_mut() {
                         e.ms = ms;
                     }
-                    record::read_frame(&session, index).map(|imagen| {
+                    lector.en(index).map(|imagen| {
                         enmarcar_y_anotar(
                             imagen,
                             width,
@@ -597,6 +601,8 @@ where
     let (ancho_final, alto_final) = marco.medida(ancho, alto);
     let camara = Camara::preparar(session, request);
     let mut vestir = estudio_de(session, request);
+    // En orden, igual que el GIF: un parche por fotograma en vez de hasta treinta.
+    let mut lector = record::LectorEnOrden::nuevo(session)?;
     let mut loader = |index: usize| {
         let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
         let mut recortes: Vec<Recorte> = request.crop.into_iter().collect();
@@ -606,7 +612,7 @@ where
         if let Some(e) = vestir.as_mut() {
             e.ms = ms;
         }
-        record::read_frame(session, index).map(|imagen| {
+        lector.en(index).map(|imagen| {
             enmarcar_y_anotar(
                 imagen,
                 ancho,

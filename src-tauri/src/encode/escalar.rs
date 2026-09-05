@@ -269,6 +269,74 @@ pub fn reducir(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
 /// Lo que suman los pesos de los dos ejes juntos.
 const TOTAL: u64 = (UNO as u64) * (UNO as u64);
 
+/// Encoge la imagen un numero entero de veces, promediando cada bloque de `factor` por
+/// `factor` pixeles. Es exacto (un filtro de caja con bloques enteros) y muy barato,
+/// porque cada pixel de entrada se lee una vez y las sumas caben en un entero corto.
+///
+/// Existe para las miniaturas: bajar de 1920x1080 a 142x80 con `reducir` directamente
+/// cuesta unos diez milisegundos por fotograma, porque cada pixel de salida promedia
+/// catorce por catorce con pesos fraccionarios. Encogiendo antes seis veces con esto, lo
+/// que le llega a `reducir` son 320x180 y el total baja a un par de milisegundos. Al
+/// parar una grabacion de un minuto eso es la diferencia entre esperar y no esperar.
+///
+/// Lo que sobra por la derecha y por abajo cuando el lado no es multiplo del factor se
+/// descarta: como mucho `factor - 1` pixeles, que en una miniatura no los ve nadie.
+pub fn prereducir(origen: &RgbaImage, factor: u32) -> RgbaImage {
+    let (ow, oh) = origen.dimensions();
+    if factor <= 1 || ow < factor || oh < factor {
+        return origen.clone();
+    }
+    let (ancho, alto) = (ow / factor, oh / factor);
+    let f = factor as usize;
+    let entrada = origen.as_raw();
+    let fila_in = ow as usize * 4;
+    let cuantos = (f * f) as u32;
+    let mitad = cuantos / 2;
+
+    let mut salida = vec![0u8; (ancho as usize) * (alto as usize) * 4];
+    salida
+        .par_chunks_mut(ancho as usize * 4)
+        .enumerate()
+        .for_each(|(y, destino)| {
+            // Primero se suman las `f` filas del bloque columna a columna, y despues se
+            // agrupan las columnas de `f` en `f`: asi cada byte de entrada se lee una vez.
+            let mut columnas = vec![0u32; ancho as usize * f * 4];
+            for dy in 0..f {
+                let fila = &entrada[(y * f + dy) * fila_in..(y * f + dy) * fila_in + columnas.len()];
+                for (acumulado, byte) in columnas.iter_mut().zip(fila) {
+                    *acumulado += u32::from(*byte);
+                }
+            }
+            for (x, pixel) in destino.chunks_exact_mut(4).enumerate() {
+                let mut suma = [0u32; 4];
+                for bloque in columnas[x * f * 4..(x + 1) * f * 4].chunks_exact(4) {
+                    for canal in 0..4 {
+                        suma[canal] += bloque[canal];
+                    }
+                }
+                for canal in 0..4 {
+                    pixel[canal] = ((suma[canal] + mitad) / cuantos) as u8;
+                }
+            }
+        });
+    RgbaImage::from_raw(ancho, alto, salida).unwrap_or_else(|| RgbaImage::new(ancho, alto))
+}
+
+/// Una miniatura de ese alto, encogiendo primero a lo bruto y despues fino.
+///
+/// El factor entero se elige para que a `reducir` le llegue algo entre dos y cuatro veces
+/// el tamanno final: mas grande y se pierde el ahorro, mas pequenno y el promedio fino ya
+/// no tiene con que trabajar.
+pub fn miniatura(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
+    let (ow, oh) = origen.dimensions();
+    let ratio = (ow / ancho.max(1)).min(oh / alto.max(1));
+    let factor = (ratio / 2).max(1);
+    if factor <= 1 {
+        return reducir(origen, ancho, alto);
+    }
+    reducir(&prereducir(origen, factor), ancho, alto)
+}
+
 /// Para cada píxel de salida, desde qué píxel del origen empieza y con cuánto entra cada
 /// uno. Se calcula una vez por eje y vale para todas las filas.
 ///
@@ -466,5 +534,46 @@ mod medir_reduccion {
                 qoi.len() / 1024
             );
         }
+    }
+
+    #[test]
+    fn prereducir_promedia_bloques_enteros() {
+        // Bloques de 2x2 con valores 0, 0, 100, 100 -> media 50; y un canal distinto.
+        let mut img = RgbaImage::from_pixel(4, 2, image::Rgba([0, 10, 200, 255]));
+        for x in 0..4 {
+            img.put_pixel(x, 1, image::Rgba([100, 10, 200, 255]));
+        }
+        let chica = prereducir(&img, 2);
+        assert_eq!(chica.dimensions(), (2, 1));
+        assert_eq!(*chica.get_pixel(0, 0), image::Rgba([50, 10, 200, 255]));
+        assert_eq!(*chica.get_pixel(1, 0), image::Rgba([50, 10, 200, 255]));
+    }
+
+    #[test]
+    fn prereducir_descarta_lo_que_no_llena_un_bloque() {
+        let img = RgbaImage::from_fn(11, 7, |x, y| image::Rgba([x as u8, y as u8, 7, 255]));
+        assert_eq!(prereducir(&img, 3).dimensions(), (3, 2));
+        // Factor uno o imagen mas pequenna que el bloque: se devuelve tal cual.
+        assert_eq!(prereducir(&img, 1).dimensions(), (11, 7));
+        assert_eq!(prereducir(&img, 20).dimensions(), (11, 7));
+    }
+
+    /// Una miniatura hecha en dos pasos tiene que parecerse a la que sale de un solo paso
+    /// fino: si se alejara, es que el encogido bruto esta mal alineado.
+    #[test]
+    fn la_miniatura_en_dos_pasos_se_parece_a_la_de_uno() {
+        let grande = RgbaImage::from_fn(640, 360, |x, y| {
+            image::Rgba([(x / 3) as u8, (y / 2) as u8, ((x + y) / 5) as u8, 255])
+        });
+        let fina = reducir(&grande, 142, 80);
+        let rapida = miniatura(&grande, 142, 80);
+        assert_eq!(rapida.dimensions(), (142, 80));
+        let peor = fina
+            .pixels()
+            .zip(rapida.pixels())
+            .map(|(a, b)| (0..3).map(|i| (a.0[i] as i32 - b.0[i] as i32).abs()).max().unwrap_or(0))
+            .max()
+            .unwrap_or(0);
+        assert!(peor <= 6, "la miniatura rapida se aleja {peor} niveles de la fina");
     }
 }
