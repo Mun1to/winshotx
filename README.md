@@ -10,6 +10,7 @@
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#status)
 [![Latest release](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=release)](https://github.com/Mun1to/winshotx/releases/latest)
 [![Installer 2.52 MB](https://img.shields.io/badge/installer-2.52%20MB-22c55e?style=flat-square)](#install)
+[![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-get%20it-0078d4?style=flat-square&logo=microsoftstore&logoColor=white)](https://apps.microsoft.com/detail/9P1NKWNRXD6Z)
 [![Built with Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 
@@ -38,6 +39,15 @@ no bundled FFmpeg.
 [**Download the installer**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
 · 2.52 MB · it installs for your user only, so Windows never asks for administrator rights. Older
 versions are in [Releases](../../releases).
+
+Three other ways, same app:
+
+```
+winget install Mun1to.winshotx
+```
+
+or from the [**Microsoft Store**](https://apps.microsoft.com/detail/9P1NKWNRXD6Z), where Microsoft signs the package and the Store keeps
+it updated, so the app's own updater stays out of the way.
 
 It lives in the system tray with no window of its own. Windows hides new tray icons, so if you
 cannot see it, look behind the `^` arrow on the taskbar.

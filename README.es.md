@@ -10,6 +10,7 @@
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#estado)
 [![Última versión](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=versión)](https://github.com/Mun1to/winshotx/releases/latest)
 [![Instalador 2,52 MB](https://img.shields.io/badge/instalador-2,52%20MB-22c55e?style=flat-square)](#instalación)
+[![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-desc%C3%A1rgalo-0078d4?style=flat-square&logo=microsoftstore&logoColor=white)](https://apps.microsoft.com/detail/9P1NKWNRXD6Z)
 [![Hecho con Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 
@@ -37,6 +38,15 @@ FFmpeg empaquetado.
 [**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
 · 2,52 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
 versiones anteriores están en [Releases](../../releases).
+
+Otros dos caminos, la misma app:
+
+```
+winget install Mun1to.winshotx
+```
+
+o la [**Microsoft Store**](https://apps.microsoft.com/detail/9P1NKWNRXD6Z), donde el paquete lo
+firma Microsoft y lo mantiene al día la propia Store, así que el actualizador de la app se aparta.
 
 Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo
 ves, está detrás de la flecha `^` de la barra de tareas.
