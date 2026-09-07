@@ -1,6 +1,6 @@
 # Trampas de Tauri v2 + Windows que costaron sangre
 
-Ocho fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
+Cuarenta y tres fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
 cuelga, sale en negro o no hace nada. Si vuelve a pasar algo raro con ventanas, empieza
 por aquí. El número 6 es el peor de todos, porque no se ve en desarrollo.
 
@@ -1123,3 +1123,78 @@ navegador enterandose a los 131: la prioridad no servia de nada.
 | Ultima pantalla pintada | 590 ms | 233 ms |
 
 Medido con `node scripts/cronometrar-atajo.mjs`, seis capturas, tres pantallas, medianas.
+
+## 43. Windows Defender borro winshotx del ordenador de su propio autor
+
+Munir, el 7 de septiembre de 2026: *«por que no tengo winshotx instalado?»*. No lo habia
+desinstalado nadie: **Windows Defender se lo llevo a cuarentena el 6 de septiembre a las
+9:44** como `Trojan:Win32/Wacatac.C!ml`, el veredicto generico del modelo de aprendizaje
+automatico de Defender para un ejecutable sin firma digital.
+
+Y no borro solo el `.exe`. La lista de la deteccion, sacada con PowerShell, es esta:
+
+```
+file:_C:\Apps\Random APPS\winshotx\winshotx.exe
+file:_...\Start Menu\Programs\winshotx.lnk
+file:_...\Escritorio\winshotx.lnk
+process:_pid:16428
+regkey:_HKCU\...\CurrentVersion\Run\winshotx
+regkey:_HKCU\...\CurrentVersion\Uninstall\winshotx
+```
+
+Es decir: mato el proceso, borro el binario, los dos accesos directos, el arranque con
+Windows y **la entrada de "Aplicaciones instaladas"**. Lo unico que quedo en la carpeta fue
+`uninstall.exe`, huerfano. Por eso el ordenador no se veia "con winshotx roto", sino
+**limpio**, como si nunca se hubiera instalado: no habia nada que mirar.
+
+### Como se comprueba que fue eso y no otra cosa
+
+Los tres comandos, sin permisos de administrador, en este orden:
+
+```powershell
+Get-MpThreatDetection | Where-Object { $_.Resources -match 'winshot' } |
+  Select-Object InitialDetectionTime, Resources
+Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational'; Id=1116,1117} |
+  Where-Object { $_.Message -match 'winshot' } | Select-Object -First 1 -ExpandProperty Message
+& 'C:\Program Files\Windows Defender\MpCmdRun.exe' -Scan -ScanType 3 -File <ruta al exe>
+```
+
+El primero dice **si** hubo deteccion y que se llevo; el segundo, **con que nombre** (el
+mensaje sale con los acentos rotos, pero el `ThreatName` se lee bien); el tercero dice si
+**hoy** sigue detectandolo. Restaurar de cuarentena y ver las exclusiones si necesitan
+administrador; los tres de arriba, no.
+
+### Lo importante: hoy ya no salta
+
+Escaneando el mismo binario y el instalador publicado de la 0.2.23 el 7 de septiembre, con
+las firmas del dia: `found no threats`. O sea que fue un **falso positivo transitorio del
+modelo en la nube** (`!ml` y origen `FastPath`), corregido despues por Microsoft sin que
+nadie reclamara. Reinstalar y ya esta:
+
+```
+winshotx_0.2.23_x64-setup.exe /S /D=C:\Apps\Random APPS\winshotx
+```
+
+El `/D=` va **el ultimo y sin comillas** aunque la ruta lleve espacios; NSIS se queda con el
+resto de la linea tal cual.
+
+### Lo que esto significa para el producto, que es lo que de verdad duele
+
+Ese instalador llevaba **30 descargas** cuando paso. A cualquiera de esas personas le pudo
+pasar lo mismo, y ninguna lo va a reportar: van a pensar que la app era un virus, o ni se
+van a enterar de que se fue. **Un `.exe` de Rust sin firma es carne de Wacatac**, y esto
+volvera a pasar en cada version mientras no se firme.
+
+Las tres salidas, de menos a mas definitiva:
+
+1. **Reportarlo cuando pase**, gratis y en tres dias, en
+   `microsoft.com/wdsi/filesubmission` como desarrollador de software. Arregla la version
+   afectada para todo el mundo, no solo para uno.
+2. **Firmar el binario.** Azure Trusted Signing es de Microsoft y esta al alcance de un
+   desarrollador individual verificado; un certificado EV clasico cuesta varias veces mas.
+   Es lo unico que quita el problema de raiz para el instalador de GitHub y para winget.
+3. **La Microsoft Store**, que ya esta en marcha: el MSIX lo firma Microsoft, asi que por
+   ese camino la deteccion no puede ocurrir. Ver la memoria de publicar en la Store.
+
+Mientras tanto, el aviso honesto: si alguien dice que "winshotx le desaparecio", la primera
+pregunta no es que version tiene, es `Get-MpThreatDetection`.
