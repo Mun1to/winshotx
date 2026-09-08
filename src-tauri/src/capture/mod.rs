@@ -141,9 +141,9 @@ pub fn freeze_monitors(indices: &[usize]) -> Result<Vec<Freeze>> {
     //
     // Estaban en fila, y con una pantalla eso da igual, pero con tres se paga tres veces:
     // en la maquina de Munir (1920x1080 + 1080x1920 + 1536x960) congelarlas costaba 150 ms
-    // de los 270 que tarda el atajo entero, y el numero que la app anuncia y defiende son
-    // 28 ms desde el atajo hasta ver la seleccion. Escribir los archivos ya se hacia en
-    // paralelo aqui abajo; fotografiar, no.
+    // de los 270 que tardaba el atajo entero, y el numero que la app anuncia y defiende son
+    // los 114 ms desde el atajo hasta ver la seleccion YA PINTADA, con esas tres pantallas.
+    // Escribir los archivos ya se hacia en paralelo aqui abajo; fotografiar, no.
     // Cada hilo se busca SU monitor en vez de recibirlo: `xcap::Monitor` lleva un puntero
     // crudo dentro (el identificador que da Windows), asi que no se puede mandar de un hilo
     // a otro. Volver a enumerar cuesta microsegundos, que al lado de fotografiar una
