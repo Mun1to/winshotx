@@ -2,6 +2,12 @@
 //
 //   node scripts/msix.mjs             monta el paquete y lo firma para probarlo aqui
 //   node scripts/msix.mjs --tienda    lo monta para subirlo, SIN firmar
+//   node scripts/msix.mjs --exe=<ruta>  desde otro binario, no el de C:/ct/release
+//
+// Lo de `--exe` no es un capricho: el binario que se sube a la Store deberia ser el MISMO
+// que ya funciona instalado, no una recompilacion posterior que nadie ha abierto. Dos
+// compilaciones del mismo codigo pesan igual y tienen hash distinto, asi que comparar
+// tamannos no sirve para saber cual es cual.
 //
 // Por que MSIX y no el instalador de siempre: la Store acepta las dos cosas, pero un .exe
 // hay que firmarlo con un certificado de una autoridad de pago, y un MSIX lo firma
@@ -19,6 +25,7 @@ import sharp from "sharp";
 
 const raiz = process.cwd();
 const paraLaTienda = process.argv.includes("--tienda");
+const exePedido = process.argv.find((a) => a.startsWith("--exe="))?.slice("--exe=".length);
 
 const paquete = JSON.parse(readFileSync(join(raiz, "package.json"), "utf8"));
 const version = paquete.version;
@@ -29,7 +36,7 @@ const versionMsix = `${version}.0`;
 
 const identidad = JSON.parse(readFileSync(join(raiz, "packaging/store/identidad.json"), "utf8"));
 
-const exe = "C:/ct/release/winshotx.exe";
+const exe = exePedido ?? "C:/ct/release/winshotx.exe";
 if (!existsSync(exe)) {
   console.error(`No hay binario en ${exe}.`);
   console.error("Compilalo antes: pnpm build && cargo build --release --manifest-path src-tauri/Cargo.toml");
@@ -42,6 +49,13 @@ const enCargo = readFileSync(join(raiz, "src-tauri/Cargo.toml"), "utf8").match(/
 if (enCargo !== version) {
   console.error(`package.json dice ${version} y Cargo.toml dice ${enCargo}. Ponlas iguales.`);
   process.exit(1);
+}
+
+/** La version que lleva DENTRO el ejecutable, que es la unica que no se puede falsear. */
+function versionDelBinario(ruta) {
+  const salida = execFileSync("powershell", ["-NoProfile", "-Command",
+    `(Get-Item '${ruta.replace(/'/g, "''")}').VersionInfo.FileVersion`], { encoding: "utf8" });
+  return salida.trim();
 }
 
 const sdk = "C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64";
@@ -114,6 +128,17 @@ for (const escala of [100, 150]) {
 console.log(`Iconos: ${hechos}`);
 
 // --- El binario -------------------------------------------------------------------
+//
+// Comprobado AQUI y no arriba porque hasta ahora esto solo miraba package.json contra
+// Cargo.toml, que son dos archivos de texto: los dos pueden decir 0.2.23 con un binario
+// de la 0.2.20 al lado. Lo que se empaqueta es el exe, asi que se le pregunta a el.
+const dentro = versionDelBinario(exe);
+if (dentro !== version && dentro !== `${version}.0`) {
+  console.error(`El binario ${exe} dice ser la ${dentro} y el proyecto va por la ${version}.`);
+  console.error("Compila otra vez, o pasa el bueno con --exe=<ruta>.");
+  process.exit(1);
+}
+console.log(`Binario: ${exe} (version ${dentro})`);
 cpSync(exe, join(salida, "winshotx.exe"));
 
 // --- El manifiesto ----------------------------------------------------------------
