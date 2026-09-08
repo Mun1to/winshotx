@@ -138,7 +138,21 @@ if (dentro !== version && dentro !== `${version}.0`) {
   console.error("Compila otra vez, o pasa el bueno con --exe=<ruta>.");
   process.exit(1);
 }
-console.log(`Binario: ${exe} (version ${dentro})`);
+
+// Y que lleve la INTERFAZ dentro, que es el fallo que ya costo un rechazo de la Store
+// («Display error page at launch»). Un `cargo test` despues del build recompila el binario
+// SIN la caracteristica `custom-protocol`, o sea sin `dist/` embebido: pesa unos 200 KB
+// menos, arranca igual y ensenna la pagina de error de Edge. Un binario con la interfaz
+// dentro lleva los nombres de los archivos de `dist/assets`, que van en claro aunque el
+// contenido vaya comprimido.
+const crudo = readFileSync(exe);
+const conAssets = /assets\/[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8}\.js/.test(crudo.toString("latin1"));
+if (!conAssets) {
+  console.error(`El binario ${exe} NO lleva la interfaz dentro: ensennaria una pagina de error.`);
+  console.error("Pasa por `pnpm tauri build` otra vez, y sin correr `cargo test` despues.");
+  process.exit(1);
+}
+console.log(`Binario: ${exe} (version ${dentro}, con la interfaz dentro)`);
 cpSync(exe, join(salida, "winshotx.exe"));
 
 // --- El manifiesto ----------------------------------------------------------------

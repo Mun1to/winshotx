@@ -1107,6 +1107,13 @@ navegador enterandose a los 131: la prioridad no servia de nada.
    fotografiando la ventana (trampa 36, otra vez): la pagina de error de Edge. **Las pruebas
    van antes del build, o el build se repite.** `scripts/fotografiar-ventanas.ps1` hace esa
    foto sin tocar nada.
+
+   **Desde el 9 de septiembre de 2026 esto ya no depende de acordarse.** El binario sin
+   interfaz se reconoce sin abrirlo: pesa unos 200 KB menos y **no lleva dentro los nombres
+   de los archivos de `dist/assets`**, que en uno bueno van en claro aunque su contenido vaya
+   comprimido (6.354.944 bytes contra 6.561.280 en la 0.2.23). `scripts/msix.mjs` lo comprueba
+   antes de empaquetar y se planta, que es justo donde mas caro sale: empaquetar ese binario
+   para la Store es el rechazo «Display error page at launch» que ya costo una ronda.
 2. **Aparcar todos los overlays en la misma esquina reescala al que va a otro DPI.** Windows
    le da a una ventana el DPI del monitor mas cercano; el overlay del monitor vertical (al
    100 %) se aparcaba pegado a uno al 125 %, y al traerlo a su pantalla Windows lo dejaba en

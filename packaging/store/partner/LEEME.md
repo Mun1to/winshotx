@@ -47,8 +47,11 @@ jurisdiccion». Eso es una declaracion de Munir, no una tarea: la marca el, como
     PERFIL=<...> ENVIO=<id> SOLO_MIRAR=1 node .../paquete.mjs           mira los paquetes
     PERFIL=<...> ENVIO=<id> MSIX=<ruta> node .../paquete.mjs            sube el nuevo
     PERFIL=<...> ENVIO=<id> node .../descripcion.mjs                    textos y novedades
+    PERFIL=<...> ENVIO=<id> SOLO_MIRAR=1 node .../caracteristicas.mjs   cuenta las 11
+    PERFIL=<...> ENVIO=<id> node .../caracteristicas.mjs                las escribe
     PERFIL=<...> SOLO_MIRAR=1 node .../reenviar.mjs                     revisa
     PERFIL=<...> node .../reenviar.mjs                                  envia a certificacion
+    PERFIL=<...> PULSAR=1 node .../cancelar.mjs                         para la certificacion
 
 `abrir-sesion.mjs` existe porque el inicio de sesion de Microsoft pide correo, contrasenna y
 segundo factor, y eso lo teclea Munir. Lo unico automatizable es esperar bien: se corre una
@@ -58,7 +61,7 @@ vez, el perfil queda con la sesion, y los demas guiones ya entran solos.
 la cuenta de Partner Center sin contrasenna. No vive en el repo (esta en el `.gitignore` por
 si acaso) y conviene borrarlo cuando se acabe el trabajo.
 
-## Cuatro trampas mas, las del dia que se publico y hubo que actualizar
+## Seis trampas mas, las de los dias que se publico y hubo que actualizar
 
 10. **Cuando la app esta publicada, el envio pasa a SOLO LECTURA.** Se llama «Presencia en
     Store», los campos se ven y no se dejan tocar, y parece que el panel esta roto. Para
@@ -70,7 +73,18 @@ si acaso) y conviene borrarlo cuando se acabe el trabajo.
 12. **El campo de las novedades no dice «Novedades».** Su etiqueta es «Proporciona notas de la
     version que indican lo que ha cambiado», asi que buscarlo por la palabra «novedades» no
     lo encuentra nunca. Es el segundo `textarea` de la ficha, detras de la descripcion.
-13. **Subir el paquete nuevo y pulsar Save se lleva el viejo por delante.** No hizo falta el
+13. **Las caracteristicas se olvidan al corregir textos.** La ficha tiene ONCE, se ven como
+    una lista con vinetas debajo de la descripcion, y viven en `input` sueltos, no en el
+    `textarea` que toca `descripcion.mjs`. El 8 de septiembre se corrigio la descripcion, se
+    mando a certificacion y la primera caracteristica seguia diciendo la cifra vieja. Se ven
+    desde fuera sin entrar al panel, en el catalogo publico de la Store, que es lo que habria
+    ahorrado la vuelta atras.
+14. **Cancelar la certificacion es barato y devuelve el envio entero a borrador**, con el
+    paquete validado y los textos guardados donde estaban (`cancelar.mjs`). El dialogo de
+    confirmacion **no lleva `role="dialog"`**: buscarlo por el rol se lleva otro trozo de la
+    pagina. Sus botones son `he-button`, asi que `locator('button')` tampoco los ve; por el
+    arbol de accesibilidad, `getByRole("button", { name: "Sí" })`, si.
+15. **Subir el paquete nuevo y pulsar Save se lleva el viejo por delante.** No hizo falta el
     boton de quitar, que ademas no aparecia: despues de guardar, la pantalla recargada solo
     listaba el paquete nuevo. Comprobarlo recargando, no fiarse de lo que se ve antes de
     guardar.

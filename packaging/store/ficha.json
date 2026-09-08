@@ -5,7 +5,7 @@
     "corta": "Screenshot and screen recording for Windows: region capture with a pixel magnifier, GIF and MP4 recording, a ring that keeps the last seconds you did not record, and a frame by frame editor. 2.5 MB, no account, no cloud, MIT licensed.",
     "novedades": "It opens instantly. The selection is already painted 114 milliseconds after the shortcut with three screens, against 590 before, and the \"Preparing the capture\" screen that showed for almost half a second is gone: no screen appears until its image is in place, and the one under the mouse goes first.\n\nExporting to GIF is 4 to 36 times faster depending on quality, with less colour error, and a GIF now lasts exactly as long as the recording did: it used to come out 10 % fast.\n\nCropping and copying no longer read the screen back from disk, so they answer sooner.",
     "caracteristicas": [
-      "Opens the selection in 28 ms and uses around 33 MB while capturing",
+      "Shows the selection already painted 114 ms after the shortcut and uses around 33 MB while capturing",
       "Region capture with a 6x pixel magnifier and the hex colour under the cursor",
       "Snap to any window with a single click, at its real coordinates",
       "Records GIF and MP4 with nothing downloaded at runtime and no FFmpeg bundled",
@@ -34,7 +34,7 @@
     "corta": "Captura y grabación de pantalla para Windows: captura de región con lupa de píxel, grabación en GIF y MP4, un anillo que guarda los últimos segundos que no grabaste y un editor fotograma a fotograma. 2,5 MB, sin cuentas, sin nube y con licencia MIT.",
     "novedades": "Se abre al instante. La selección aparece ya pintada 114 milisegundos después del atajo con tres pantallas, contra los 590 de antes, y ha desaparecido la pantalla de «Preparando la captura», que se veía casi medio segundo: ninguna pantalla se enseña hasta que tiene su imagen puesta, y la del ratón va primero.\n\nExportar a GIF va entre 4 y 36 veces más rápido según la calidad, con menos error de color, y el GIF ya dura exactamente lo que duró la grabación: antes salía un 10 % acelerado.\n\nRecortar y copiar ya no vuelven a leer la pantalla del disco, así que responden antes.",
     "caracteristicas": [
-      "Abre la selección en 28 ms y gasta unos 33 MB mientras captura",
+      "Enseña la selección ya pintada 114 ms después del atajo y gasta unos 33 MB mientras captura",
       "Captura de región con lupa de 6 aumentos y el color hexadecimal bajo el cursor",
       "Ajuste a cualquier ventana con un solo clic, con sus coordenadas reales",
       "Graba GIF y MP4 sin descargar nada al usarla y sin FFmpeg dentro",
