@@ -243,6 +243,11 @@ node scripts/publicar.mjs --publicar   # prepara latest.json y crea la release
 `publicar.mjs` se niega a seguir si `package.json` y `Cargo.toml` no dicen la misma versión, o si el
 `.sig` es más viejo que el instalador, que es lo que pasa cuando compilas sin la clave.
 
+Después de publicar, `node scripts/verificar-firma.mjs` se baja lo que sirve la release de verdad y
+comprueba la firma contra la clave pública que lleva la app dentro, con ed25519 sobre BLAKE2b-512.
+Firmar con otra clave es el fallo que no da ningún error: el actualizador rechaza en silencio cada
+descarga y ninguna copia instalada se mueve.
+
 Los manifiestos de winget están en [`packaging/winget`](packaging/winget).
 
 </details>

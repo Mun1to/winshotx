@@ -251,6 +251,11 @@ node scripts/publicar.mjs --publicar   # writes latest.json and creates the rele
 `publicar.mjs` refuses to run if `package.json` and `Cargo.toml` disagree on the version, or if the
 `.sig` is older than the installer, which is what happens when you build without the key.
 
+After publishing, `node scripts/verificar-firma.mjs` downloads what the release actually serves and
+checks the signature against the public key inside the app, with ed25519 over BLAKE2b-512. A
+signature made with a different key is the one failure that gives no error at all: the updater
+quietly refuses every download and every installed copy stays where it is.
+
 The winget manifests are in [`packaging/winget`](packaging/winget).
 
 </details>
