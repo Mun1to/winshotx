@@ -1,15 +1,28 @@
-// Cambia la descripcion de la ficha en los dos idiomas, de principio a fin.
+// Cambia la descripcion y las novedades de la ficha, en los dos idiomas, de principio a fin.
+//
+//   PERFIL=<perfil> ENVIO=<id> node packaging/store/partner/descripcion.mjs
+//   PERFIL=<perfil> ENVIO=<id> SOLO_MIRAR=1 node ...    vuelca los campos y no toca nada
 //
 // El camino real, descubierto pulsando en el menu: «Descripciones de Store» no lleva a la
 // ficha, lleva a `/managelanguages`, que es la lista de idiomas, y desde ahi se entra a cada
 // uno. La URL `/listings` a secas se queda en blanco para siempre.
+//
+// El ENVIO cambia cada vez que se actualiza el producto (lo crea `actualizar.mjs` y lo
+// imprime). Tenerlo escrito aqui dentro significaba que el guion seguia escribiendo en el
+// envio del mes pasado, que ademas es de solo lectura en cuanto la app se publica.
 
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 
 const PERFIL = process.env.PERFIL;
-const ID = "9P1NKWNRXD6Z";
-const ENVIO = "1152921505701771888";
+const ENVIO = process.env.ENVIO;
+const SOLO_MIRAR = process.env.SOLO_MIRAR === "1";
+if (!PERFIL || !ENVIO) {
+  console.error("Faltan PERFIL=<carpeta con la sesion> y ENVIO=<id del envio>.");
+  console.error("El id del envio lo imprime actualizar.mjs.");
+  process.exit(1);
+}
+const ID = process.env.STORE_ID ?? "9P1NKWNRXD6Z";
 const BASE = `https://partner.microsoft.com/es-es/dashboard/products/${ID}/submissions/${ENVIO}`;
 const FICHA = JSON.parse(readFileSync("C:/proyectos/winshotx/packaging/store/ficha.json", "utf8"));
 
@@ -32,12 +45,26 @@ async function esperarFicha(segundos = 180) {
   return false;
 }
 
+/**
+ * Los textarea de la ficha con la etiqueta que tienen encima. No hay `label` que valga:
+ * se lee el texto del bloque que los envuelve, que es lo unico estable de esta pagina.
+ */
+async function campos() {
+  return page.locator("textarea").evaluateAll((as) =>
+    as.map((a, i) => {
+      let n = a, etiqueta = "";
+      for (let s = 0; s < 5 && n; s++) {
+        n = n.parentElement;
+        const t = (n?.innerText || "").trim();
+        if (t && t.length < 400) etiqueta = t.split("\n")[0];
+        if (etiqueta) break;
+      }
+      return { i, etiqueta, largo: (a.value || "").length, cabeza: (a.value || "").slice(0, 60) };
+    }));
+}
+
 await page.goto(`${BASE}/managelanguages?producttype=app`, { waitUntil: "domcontentloaded", timeout: 90000 });
 await page.waitForTimeout(20000);
-console.log("=== PANTALLA DE IDIOMAS ===");
-const texto = (await page.locator("body").innerText().catch(() => "")).replace(/\n{2,}/g, "\n");
-const i0 = texto.indexOf("Envío 1");
-console.log(texto.slice(i0 >= 0 ? i0 : 0, (i0 >= 0 ? i0 : 0) + 1200));
 
 const enlaces = await page.evaluate(() =>
   [...document.querySelectorAll("a")]
@@ -51,40 +78,60 @@ if (!enlaces.length) {
   await page.screenshot({ path: `${PERFIL}/../idiomas.png`, fullPage: true }).catch(() => {});
   console.log("NO hay enlaces de ficha; queda la foto idiomas.png para mirarla");
   await ctx.close();
-  process.exit(0);
+  process.exit(1);
 }
 
 for (const { t: nombre, h } of enlaces) {
   const url = h.startsWith("http") ? h : `https://partner.microsoft.com${h}`;
-  console.log(`=== ${nombre || url} ===`);
+  console.log(`\n=== ${nombre || url} ===`);
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90000 });
   if (!(await esperarFicha())) {
     console.log("  la ficha no ha cargado, la salto");
     continue;
   }
 
+  const lista = await campos();
+  const desc = lista.reduce((a, b) => (b.largo > a.largo ? b : a), lista[0]);
+  const code = (url.match(/languagecode=([a-zA-Z-]+)/) || [])[1]?.toLowerCase();
+  const clave = code && FICHA[code] ? code : desc.cabeza.startsWith("Requires") ? "en-us" : "es-es";
+  console.log(`  idioma: ${clave}`);
+  for (const c of lista) console.log(`   [${c.i}] ${c.largo} chars · ${c.etiqueta.slice(0, 60)}`);
+
+  // Las novedades son otro textarea. Su etiqueta NO dice «Novedades»: dice «Proporciona
+  // notas de la version que indican lo que ha cambiado», asi que se busca por ahi.
+  const nov = lista.find((c) => c.i !== desc.i &&
+    /notas de la versi|release notes|novedad|what's new/i.test(c.etiqueta));
+  console.log(`  descripcion -> [${desc.i}] | novedades -> ${nov ? `[${nov.i}]` : "no encontrado"}`);
+
+  if (SOLO_MIRAR) continue;
+
   const areas = await page.locator("textarea").all();
-  let iDesc = 0;
-  let largo = -1;
-  for (let i = 0; i < areas.length; i++) {
-    const n = ((await areas[i].inputValue().catch(() => "")) || "").length;
-    if (n > largo) {
-      largo = n;
-      iDesc = i;
+  let tocado = false;
+
+  // Se compara el texto ENTERO. Antes se miraba solo la primera linea, que es la
+  // declaracion de dependencias y no cambia nunca: cualquier correccion posterior se
+  // daba por hecha y el guion decia «ya esta» sin haber escrito nada.
+  const actual = (await areas[desc.i].inputValue().catch(() => "")) || "";
+  if (actual.trim() === FICHA[clave].descripcion.trim()) {
+    console.log("  descripcion: ya es la de ficha.json");
+  } else {
+    await areas[desc.i].fill(FICHA[clave].descripcion);
+    console.log("  descripcion: puesta");
+    tocado = true;
+  }
+
+  if (nov && FICHA[clave].novedades) {
+    const hoy = (await areas[nov.i].inputValue().catch(() => "")) || "";
+    if (hoy.trim() === FICHA[clave].novedades.trim()) {
+      console.log("  novedades: ya son las de ficha.json");
+    } else {
+      await areas[nov.i].fill(FICHA[clave].novedades);
+      console.log("  novedades: puestas");
+      tocado = true;
     }
   }
-  const actual = (await areas[iDesc].inputValue().catch(() => "")) || "";
-  const code = (url.match(/languagecode=([a-zA-Z-]+)/) || [])[1]?.toLowerCase();
-  const clave = code && FICHA[code] ? code : actual.startsWith("winshotx is") ? "en-us" : "es-es";
-  console.log(`  idioma: ${clave} | campo [${iDesc}] con ${largo} chars`);
 
-  if (actual.startsWith(FICHA[clave].descripcion.split("\n")[0])) {
-    console.log("  ya tiene la declaración puesta, no se toca");
-    continue;
-  }
-
-  await areas[iDesc].fill(FICHA[clave].descripcion);
-  console.log("  puesto:", ((await areas[iDesc].inputValue()) || "").slice(0, 70).replace(/\n/g, " "));
+  if (!tocado) continue;
 
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(2500);

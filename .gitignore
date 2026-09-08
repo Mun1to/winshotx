@@ -27,3 +27,7 @@ packaging/store/*.msix
 
 # Las fotos de `node scripts/ver-web.mjs`, para mirar la web sin abrirla.
 .fotos-web/
+
+# El perfil de navegador con la sesion de Partner Center es una credencial.
+packaging/store/perfil*/
+.perfil*/

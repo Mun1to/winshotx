@@ -1,7 +1,9 @@
 # Rellenar el envio de la Store sin hacerlo a mano
 
 Partner Center es un formulario largo repartido en seis pantallas, y cada version nueva hay
-que volver a pasar por el. Estos tres guiones lo rellenan con Playwright.
+que volver a pasar por el. Los guiones de esta carpeta lo rellenan con Playwright. El orden
+para actualizar una app que ya esta publicada esta mas abajo, en su propia seccion; esto de
+aqui es el primer envio, cuando todavia no hay nada en la Store.
 
     PERFIL=<carpeta del perfil de Chrome> node packaging/store/partner/ficha.mjs
 
@@ -36,6 +38,51 @@ que volver a pasar por el. Estos tres guiones lo rellenan con Playwright.
 
 La casilla de los terminos de uso de IARC dice «declaro que soy mayor de edad en mi
 jurisdiccion». Eso es una declaracion de Munir, no una tarea: la marca el, como el CLA.
+
+## Actualizar una app YA publicada (8 de septiembre de 2026)
+
+    PERFIL=<carpeta> node packaging/store/partner/abrir-sesion.mjs      guarda la sesion
+    PERFIL=<...> node packaging/store/partner/actualizar.mjs            mira si se puede
+    PERFIL=<...> PULSAR=1 node packaging/store/partner/actualizar.mjs   crea el envio nuevo
+    PERFIL=<...> ENVIO=<id> SOLO_MIRAR=1 node .../paquete.mjs           mira los paquetes
+    PERFIL=<...> ENVIO=<id> MSIX=<ruta> node .../paquete.mjs            sube el nuevo
+    PERFIL=<...> ENVIO=<id> node .../descripcion.mjs                    textos y novedades
+    PERFIL=<...> SOLO_MIRAR=1 node .../reenviar.mjs                     revisa
+    PERFIL=<...> node .../reenviar.mjs                                  envia a certificacion
+
+`abrir-sesion.mjs` existe porque el inicio de sesion de Microsoft pide correo, contrasenna y
+segundo factor, y eso lo teclea Munir. Lo unico automatizable es esperar bien: se corre una
+vez, el perfil queda con la sesion, y los demas guiones ya entran solos.
+
+**Ese perfil es una credencial.** Con el, cualquiera que tenga acceso a la carpeta entra en
+la cuenta de Partner Center sin contrasenna. No vive en el repo (esta en el `.gitignore` por
+si acaso) y conviene borrarlo cuando se acabe el trabajo.
+
+## Cuatro trampas mas, las del dia que se publico y hubo que actualizar
+
+10. **Cuando la app esta publicada, el envio pasa a SOLO LECTURA.** Se llama «Presencia en
+    Store», los campos se ven y no se dejan tocar, y parece que el panel esta roto. Para
+    cambiar cualquier cosa, hasta una coma, hay que crear un envio nuevo desde
+    «Lanzamiento del producto → Iniciar actualizacion». Eso es `actualizar.mjs`.
+11. **El envio nuevo tiene un ID distinto**, y los guiones lo llevaban escrito dentro. Con el
+    ID viejo escriben en un envio de solo lectura, dicen que han guardado y no cambia nada.
+    Ahora va por `ENVIO=<id>`, y `actualizar.mjs` lo imprime al crearlo.
+12. **El campo de las novedades no dice «Novedades».** Su etiqueta es «Proporciona notas de la
+    version que indican lo que ha cambiado», asi que buscarlo por la palabra «novedades» no
+    lo encuentra nunca. Es el segundo `textarea` de la ficha, detras de la descripcion.
+13. **Subir el paquete nuevo y pulsar Save se lleva el viejo por delante.** No hizo falta el
+    boton de quitar, que ademas no aparecia: despues de guardar, la pantalla recargada solo
+    listaba el paquete nuevo. Comprobarlo recargando, no fiarse de lo que se ve antes de
+    guardar.
+
+## Comprobaciones que caducan, y por que ahora salen de los archivos
+
+`reenviar.mjs` comprobaba «¿el paquete es el 0.2.21?» con la version escrita a mano, asi que
+tras un lanzamiento daba por bueno un envio con el paquete equivocado. Ahora la version sale
+de `package.json` y el guion se planta si en el envio hay cualquier otra. Lo mismo con
+`descripcion.mjs`, que comparaba **solo la primera linea** de la descripcion (la declaracion
+de dependencias, que no cambia nunca) y por eso daba por escrita cualquier correccion
+posterior sin haber tocado el campo: ahora compara el texto entero.
 
 ## Los tres guiones nuevos, del 4 de septiembre de 2026
 
