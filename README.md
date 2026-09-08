@@ -25,9 +25,9 @@
 ---
 
 A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
-magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It opens the selection in
-the selection, already painted, 114 ms after the shortcut with three screens, uses 33 MB of memory and fits in a 2.52 MB installer. No account, no cloud, no telemetry and
-no bundled FFmpeg.
+magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It shows the selection
+already painted 114 ms after the shortcut with three screens, uses 33 MB of memory and fits in a
+2.52 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
 
 > **The interface speaks English and Spanish**, and follows whichever one Windows is set to. You
 > can pin it to either in **Settings → The app → Appearance**. The identifiers and comments in the

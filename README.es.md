@@ -25,9 +25,9 @@
 ---
 
 Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región con lupa de
-píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Enseña la selección, ya pintada, 114 ms después del atajo con tres pantallas, gasta
-pantalla, gasta 33 MB de memoria y cabe en un instalador de 2,52 MB. Sin cuenta, sin nube, sin telemetría y sin
-FFmpeg empaquetado.
+píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Enseña la selección ya pintada
+114 ms después del atajo con tres pantallas, gasta 33 MB de memoria y cabe en un instalador de
+2,52 MB. Sin cuenta, sin nube, sin telemetría y sin FFmpeg empaquetado.
 
 > **La interfaz habla español e inglés**, y arranca en el que tenga puesto Windows. Se puede fijar
 > uno de los dos en **Ajustes → La app → Aspecto**. Los identificadores y los comentarios del código

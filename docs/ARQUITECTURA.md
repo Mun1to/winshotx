@@ -256,7 +256,7 @@ GIF y MP4 que se releen para comprobar que valen.
 **Tres pruebas por función:**
 
 1. Que hace lo que dice, sobre artefactos reales.
-2. **Que apagada no cuesta nada** — la que protege los 28 ms.
+2. **Que apagada no cuesta nada** — la que protege los 114 ms del atajo.
 3. Que no rompe la captura ni la grabación de siempre.
 
 **El frontend también se prueba, desde el 27 de agosto de 2026.** `pnpm test` levanta Vitest
@@ -284,8 +284,12 @@ Lo que cubre y por qué esas cuatro cosas y no otras:
 La regla que salió de montarlo: **una prueba que nunca se ha visto roja no ha probado nada.**
 Las dos de idioma se estrenaron rompiendo la traducción a mano y comprobando que mordían.
 
-**Y una que sigue faltando:** una prueba de arranque que **falle sola si pasa de 28 ms**. Hoy ese
-número se mide a mano con scripts de un scratchpad, o sea que no se mide.
+**Y una que sigue faltando:** una prueba que **falle sola si el atajo pasa de 114 ms**. Desde el
+5 de septiembre de 2026 al menos ya se mide con algo que vive en el repo y no en un scratchpad:
+la aplicación lleva un cronómetro dentro (`src-tauri/src/crono.rs`, se enciende con `--crono` y
+escribe cada etapa en `%TEMP%\winshotx\crono.log`) y `node scripts/cronometrar-atajo.mjs` dispara
+N capturas y da las medianas. Lo que falta es que ese número rompa una tanda por su cuenta, sin
+que nadie se acuerde de mirarlo.
 
 Al cerrar cada tanda se remiden los tres números de la línea base: milisegundos de arranque,
 bytes del instalador, MB de RAM. **Ninguna cifra publicada empeora en silencio**: están en el
