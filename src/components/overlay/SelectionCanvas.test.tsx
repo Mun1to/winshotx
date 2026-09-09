@@ -199,3 +199,182 @@ describe("el interruptor de la barra de acciones", () => {
     );
   });
 });
+
+describe("la lupa no se pone encima de lo que estas mirando", () => {
+  /**
+   * Munir, el 9 de septiembre de 2026: «cuando capturas una esquina de la pantalla no ves
+   * lo que estás capturando».
+   *
+   * La lupa salía siempre abajo y a la derecha del cursor, y cerca de un borde solo se
+   * recortaba para no salirse: en la esquina de abajo a la derecha acababa **encima del
+   * propio cursor**, justo tapando el píxel que se está mirando. Que es para lo que sirve
+   * la lupa.
+   */
+  const CON_LUPA: OverlayPayload = {
+    ...PAYLOAD,
+    settings: { ...AJUSTES, showMagnifier: true } as Settings,
+  };
+
+  /** El hueco que ocupa la lupa: el recuadro de 132 px, su barra de abajo y el margen. */
+  const LUPA_ANCHO = 148;
+  const LUPA_ALTO = 168;
+
+  /** Dónde ha quedado la lupa, leyendo su estilo. */
+  function lupa() {
+    const marco = screen.getByText(/^#[0-9a-f]{6}$/i).closest("div.absolute") as HTMLElement;
+    return { left: parseFloat(marco.style.left), top: parseFloat(marco.style.top) };
+  }
+
+  /** ¿El punto que se está mirando queda debajo de la lupa? */
+  function tapa(punto: { x: number; y: number }) {
+    const { left, top } = lupa();
+    return (
+      punto.x >= left &&
+      punto.x <= left + LUPA_ANCHO &&
+      punto.y >= top &&
+      punto.y <= top + LUPA_ALTO
+    );
+  }
+
+  beforeEach(() => {
+    responde("overlay_bootstrap", CON_LUPA);
+    // El doble de arriba solo sabe dibujar el fondo. La lupa pinta rejilla y recuadro, y
+    // sin estos metodos el render revienta y la prueba falla por otra cosa.
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      drawImage: () => {},
+      getImageData: () => ({ data: new Uint8ClampedArray([0, 0, 0, 255]) }),
+      clearRect: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => {},
+      strokeRect: () => {},
+    })) as unknown as HTMLCanvasElement["getContext"];
+  });
+
+  it("en el centro se pone al lado, sin tapar nada", async () => {
+    const lienzo = await abrir();
+    const punto = { x: Math.round(ANCHO / 2), y: Math.round(ALTO / 2) };
+    fireEvent.pointerMove(lienzo, { clientX: punto.x, clientY: punto.y });
+
+    await waitFor(() => expect(lupa().left).toBeGreaterThan(punto.x));
+    expect(tapa(punto)).toBe(false);
+  });
+
+  it("y en las cuatro esquinas TAMPOCO tapa el punto que miras", async () => {
+    const lienzo = await abrir();
+    const esquinas = [
+      { x: 4, y: 4 },
+      { x: ANCHO - 4, y: 4 },
+      { x: 4, y: ALTO - 4 },
+      { x: ANCHO - 4, y: ALTO - 4 },
+    ];
+    for (const punto of esquinas) {
+      fireEvent.pointerMove(lienzo, { clientX: punto.x, clientY: punto.y });
+      await waitFor(() => expect(lupa()).toBeDefined());
+      expect({ esquina: punto, tapada: tapa(punto) }).toEqual({ esquina: punto, tapada: false });
+    }
+  });
+
+  it("y nunca se sale de la pantalla", async () => {
+    const lienzo = await abrir();
+    for (const punto of [
+      { x: 2, y: 2 },
+      { x: ANCHO - 2, y: ALTO - 2 },
+    ]) {
+      fireEvent.pointerMove(lienzo, { clientX: punto.x, clientY: punto.y });
+      await waitFor(() => expect(lupa()).toBeDefined());
+      const { left, top } = lupa();
+      expect(left).toBeGreaterThanOrEqual(0);
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(left + LUPA_ANCHO).toBeLessThanOrEqual(ANCHO);
+      expect(top + LUPA_ALTO).toBeLessThanOrEqual(ALTO);
+    }
+  });
+});
+
+describe("la pantalla entera con la barra puesta", () => {
+  /**
+   * Munir, el 9 de septiembre de 2026: «cuando seleccionas todo con un click y tienes el
+   * modo de la barra activado no aparece la barra para editar copiar etc».
+   *
+   * Con «pantalla entera» encendido, el clic se llevaba la pantalla al portapapeles y
+   * cerraba, sin pasar por la barra, aunque el perfil elegido fuese el de la barra. Y
+   * `Ctrl+A`, que hace lo mismo, sí la enseñaba: dos caminos al mismo sitio y cada uno
+   * hacía una cosa.
+   */
+  /** Lo que mide la barra de acciones de alto, con sus botones. */
+  const ALTO_BARRA = 52;
+
+  const CON_BARRA: OverlayPayload = {
+    ...PAYLOAD,
+    settings: { ...AJUSTES, captureFlow: "toolbar" } as Settings,
+  };
+
+  beforeEach(() => responde("overlay_bootstrap", CON_BARRA));
+
+  /**
+   * Enciende «pantalla entera», que llega por el evento que comparten las pantallas, y
+   * espera a que el estado esté puesto de verdad: con la pantalla entera el puntero pasa
+   * a ser una mano, y eso se ve en el estilo del lienzo. Sin esperar a algo, el clic de
+   * la prueba llega antes que el estado y se prueba otra cosa.
+   */
+  async function conPantallaEntera(withToolbar = true) {
+    const lienzo = await abrir();
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: true, withToolbar });
+    await waitFor(() => expect(lienzo.style.cursor).toBe("pointer"));
+    return lienzo;
+  }
+
+  it("el clic enseña la barra en vez de llevarse la pantalla y cerrar", async () => {
+    const lienzo = await conPantallaEntera();
+    fireEvent.pointerDown(lienzo, { clientX: 400, clientY: 300, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 300 });
+
+    await waitFor(() => expect(screen.getByLabelText("Copiar")).toBeDefined());
+    expect(screen.getByLabelText("Editar")).toBeDefined();
+    expect(llamadas.some((l) => l.comando === "capture_still")).toBe(false);
+  });
+
+  it("y la barra se ve entera, no colgando fuera de la pantalla", async () => {
+    // Con el recorte ocupando la pantalla no cabe ni debajo ni encima, y la barra se
+    // colocaba en top -10: existía en el DOM, con sus botones, pero no se veía ninguno.
+    const lienzo = await conPantallaEntera();
+    fireEvent.pointerDown(lienzo, { clientX: 400, clientY: 300, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 300 });
+
+    const barra = (await screen.findByLabelText("Copiar")).closest("div.absolute") as HTMLElement;
+    const top = parseFloat(barra.style.top);
+    // Volteada, `top` es el borde de ABAJO de la barra; si no, el de arriba.
+    const volteada = barra.className.includes("-translate-y-full");
+    const arriba = volteada ? top - ALTO_BARRA : top;
+    expect({ arriba, abajo: arriba + ALTO_BARRA }).toEqual({
+      arriba: expect.any(Number),
+      abajo: expect.any(Number),
+    });
+    expect(arriba).toBeGreaterThanOrEqual(0);
+    expect(arriba + ALTO_BARRA).toBeLessThanOrEqual(ALTO);
+  });
+
+  it("y lo que queda seleccionado es la pantalla entera", async () => {
+    const lienzo = await conPantallaEntera();
+    fireEvent.pointerDown(lienzo, { clientX: 400, clientY: 300, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 300 });
+
+    await waitFor(() => expect(recorte()).toBe(`${ANCHO} × ${ALTO}`));
+  });
+
+  it("pero sin barra, al vuelo, se la sigue llevando de un clic", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      settings: { ...AJUSTES, captureFlow: "instant" } as Settings,
+    });
+    const lienzo = await conPantallaEntera(false);
+    fireEvent.pointerDown(lienzo, { clientX: 400, clientY: 300, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 300 });
+
+    await waitFor(() =>
+      expect(llamadas.some((l) => l.comando === "capture_still")).toBe(true),
+    );
+  });
+});

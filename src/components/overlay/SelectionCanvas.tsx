@@ -49,6 +49,64 @@ type Mode =
 
 const MIN_DRAG = 4; // por debajo de esto, un arrastre cuenta como clic
 
+/** Lo que ocupa la lupa con su barra de abajo, y el aire que se le deja al cursor. */
+const LUPA_ANCHO = 148;
+const LUPA_ALTO = 168;
+const LUPA_AIRE = 18;
+
+/** Lo que ocupa la barra de acciones de alto, y el aire que se le deja al recorte. */
+const BARRA_ALTO = 52;
+const BARRA_AIRE = 10;
+
+/**
+ * Donde se pone la barra de acciones, y si va volteada.
+ *
+ * Iba debajo del recorte, y si ahi no cabia, encima. Cuando el recorte es la pantalla
+ * entera no cabe en ninguno de los dos sitios, y la cuenta la dejaba en `top: -10`: la
+ * barra existia, con sus botones, y no se veia **ni un pixel** de ella. Ahora, cuando no
+ * cabe fuera, se mete DENTRO del recorte pegada a su borde de abajo, que es lo que hacen
+ * las demas herramientas de captura.
+ *
+ * Con `volteada`, el `top` que se devuelve es el borde de ABAJO de la barra, porque el
+ * componente se sube a si mismo con `-translate-y-full`.
+ */
+function sitioDeLaBarra(sel: Rect, alto: number) {
+  if (sel.y + sel.height + BARRA_AIRE + BARRA_ALTO <= alto) {
+    return { top: sel.y + sel.height + BARRA_AIRE, volteada: false };
+  }
+  if (sel.y - BARRA_AIRE - BARRA_ALTO >= 0) {
+    return { top: sel.y - BARRA_AIRE, volteada: true };
+  }
+  return { top: Math.min(alto, sel.y + sel.height) - BARRA_AIRE, volteada: true };
+}
+
+/**
+ * Donde se pone la lupa para que NO tape el pixel que se esta mirando.
+ *
+ * Iba siempre abajo y a la derecha del cursor, y cerca de un borde solo se recortaba para
+ * no salirse de la pantalla. En la esquina de abajo a la derecha eso la dejaba **encima
+ * del propio cursor**: se capturaba a ciegas justo donde mas falta hace ver, que es lo que
+ * conto Munir el 9 de septiembre de 2026 («cuando capturas una esquina no ves lo que estas
+ * capturando»). Ahora se cambia de lado, como ya hacia la barra flotante: si no cabe a la
+ * derecha va a la izquierda, y si no cabe abajo va arriba.
+ */
+function sitioDeLaLupa(x: number, y: number, ancho: number, alto: number) {
+  const cabeDerecha = x + LUPA_AIRE + LUPA_ANCHO <= ancho;
+  const cabeAbajo = y + LUPA_AIRE + LUPA_ALTO <= alto;
+  return {
+    left: clamp(
+      cabeDerecha ? x + LUPA_AIRE : x - LUPA_AIRE - LUPA_ANCHO,
+      0,
+      Math.max(0, ancho - LUPA_ANCHO),
+    ),
+    top: clamp(
+      cabeAbajo ? y + LUPA_AIRE : y - LUPA_AIRE - LUPA_ALTO,
+      0,
+      Math.max(0, alto - LUPA_ALTO),
+    ),
+  };
+}
+
 function normalize(ax: number, ay: number, bx: number, by: number): Rect {
   return {
     x: Math.min(ax, bx),
@@ -680,6 +738,15 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       height: window.innerHeight,
     };
     difundir({ fullScreen: false });
+    // Con la barra puesta, la pantalla entera es una SELECCION, no una captura. Quien
+    // elige ese perfil quiere decidir despues: copiar, guardar, editar o anclar. Antes se
+    // la llevaba al portapapeles y cerraba, y la barra no aparecia nunca; `Ctrl+A`, que
+    // hace exactamente lo mismo, si la ensennaba. Dos caminos al mismo sitio no pueden
+    // acabar en dos sitios distintos. Lo conto Munir el 9 de septiembre de 2026.
+    if (conBarraRef.current) {
+      setSelection(todo);
+      return;
+    }
     if (modoRef.current !== "still") await grabarRegion(todo, modoRef.current);
     else await capturarRegion(todo, "copy");
   }, [difundir, capturarRegion, grabarRegion]);
@@ -768,7 +835,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       ? selection
       : null;
   const highlight = !active && hovered ? hovered : null;
-  const toolbarFlip = active ? active.y + active.height + 62 > window.innerHeight : false;
+  const sitioBarra = active ? sitioDeLaBarra(active, window.innerHeight) : null;
   const magnifierVisible =
     payload.settings.showMagnifier && !pantallaEntera && (!active || mode.kind === "drawing");
 
@@ -862,8 +929,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           source={source}
           px={cursor.x * scale}
           py={cursor.y * scale}
-          left={clamp(cursor.x + 18, 0, window.innerWidth - 148)}
-          top={clamp(cursor.y + 18, 0, window.innerHeight - 168)}
+          {...sitioDeLaLupa(cursor.x, cursor.y, window.innerWidth, window.innerHeight)}
           hex={hex}
         />
       )}
@@ -873,8 +939,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           <FloatingToolbar
             key="toolbar"
             left={clamp(active.x + active.width / 2, 190, window.innerWidth - 190)}
-            top={toolbarFlip ? active.y - 10 : active.y + active.height + 10}
-            flipped={toolbarFlip}
+            top={sitioBarra!.top}
+            flipped={sitioBarra!.volteada}
             busy={busy}
             modo={modo}
             onCopy={() => void runStill("copy")}

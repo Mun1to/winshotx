@@ -314,6 +314,12 @@ Object.assign(window.__TAURI_INTERNALS__, {
 // Sin ratón no hay hover, y lo que solo se ve al pasar por encima no sale en la foto.
 // Lo que se pinta con `hover:` o `group-hover:` de CSS no lo enciende esto: eso se mira
 // levantando la pantalla con `--servir` y mandando un ratón de verdad con Playwright.
+//
+// Y OJO con el overlay de selección: ahí este ratón de mentira NO llega. Comprobado el 9
+// de septiembre de 2026 con `--dom`: la lupa se queda en `left: 18px; top: 18px`, o sea con
+// el cursor en 0,0, aunque se mande al centro de la pantalla. No es la lupa, es que el
+// componente no recibe el evento. Para probar dónde se coloca la lupa está su prueba de
+// Vitest, `SelectionCanvas.test.tsx`, que sí puede mover el ratón.
 const RATON = raton
   ? `<script>
 addEventListener("load", () => {
