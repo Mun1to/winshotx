@@ -1,6 +1,6 @@
 # Trampas de Tauri v2 + Windows que costaron sangre
 
-Cuarenta y tres fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
+Cuarenta y cuatro fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
 cuelga, sale en negro o no hace nada. Si vuelve a pasar algo raro con ventanas, empieza
 por aquí. El número 6 es el peor de todos, porque no se ve en desarrollo.
 
@@ -1205,3 +1205,61 @@ Las tres salidas, de menos a mas definitiva:
 
 Mientras tanto, el aviso honesto: si alguien dice que "winshotx le desaparecio", la primera
 pregunta no es que version tiene, es `Get-MpThreatDetection`.
+
+## 44. Lo que tapa justo lo que estas mirando: la lupa en la esquina y la barra fuera de la pantalla
+
+Munir, el 9 de septiembre de 2026: *«cuando capturas una esquina de la pantalla no ves lo que
+estas capturando»* y *«cuando seleccionas todo con un click y tienes el modo de la barra
+activado no aparece la barra para editar copiar etc»*. Dos quejas, y por debajo el mismo
+fallo: **una pieza que se coloca en un sitio fijo y solo se recorta para no salirse.**
+
+### La lupa se pone encima del pixel que amplia
+
+Iba siempre 18 px abajo y a la derecha del cursor, y para no salirse se acotaba:
+
+```js
+left={clamp(cursor.x + 18, 0, window.innerWidth - 148)}
+top={clamp(cursor.y + 18, 0, window.innerHeight - 168)}
+```
+
+Con el cursor en la esquina de abajo a la derecha de una pantalla de 1440x900, eso da
+`left 1292, top 732`: la lupa ocupa de ahi hasta 1440x900, **y el cursor (1400, 860) cae
+dentro**. O sea que la herramienta que sirve para ver el pixel exacto se pone encima de ese
+pixel. Acotar evita que se salga, pero no evita que tape.
+
+Ahora **cambia de lado**, que es lo que ya hacia la barra: si no cabe a la derecha va a la
+izquierda del cursor, y si no cabe abajo va arriba (`sitioDeLaLupa`).
+
+### La barra existia, con sus botones, y no se veia ni un pixel
+
+Con el recorte ocupando la pantalla entera no cabe debajo (`y + alto + 62 > pantalla`), asi
+que se volteaba y se ponia en `top: active.y - 10`, o sea **-10**. Volteada, ese `top` es su
+borde de abajo: la barra quedaba entera en negativo, entre -62 y -10.
+
+La prueba que lo dice bien no es «hay un boton Copiar en el DOM» (lo habia), sino **donde
+esta**: leer su `top`, restarle el alto si va volteada, y exigir que el resultado caiga
+dentro de la pantalla. Ahora, cuando no cabe ni debajo ni encima, la barra se mete DENTRO
+del recorte pegada a su borde de abajo (`sitioDeLaBarra`).
+
+### Y una tercera, que era la que escondia a las otras dos
+
+Con «pantalla entera» puesto, el clic se llevaba la pantalla al portapapeles y cerraba,
+**aunque el perfil elegido fuese el de la barra**. Estaba escrito a proposito («un clic es un
+clic»), pero `Ctrl+A`, que hace exactamente lo mismo, si ensennaba la barra. Dos caminos al
+mismo sitio no pueden acabar en dos sitios distintos: ahora los dos seleccionan y dejan
+decidir.
+
+### El banco de pruebas no llega al overlay: usa Vitest
+
+`pnpm ver --overlay=x.png --raton=700,450` **no mueve la lupa**. Comprobado con `--dom`: se
+queda en `left: 18px; top: 18px`, o sea con el cursor en 0,0, aunque se mande al centro. El
+raton de mentira que inyecta el guion no lo recoge ese componente, y perseguirlo con
+esperas mas largas o mandandolo varias veces no arregla nada, porque con tiempo virtual los
+temporizadores se disparan todos al principio, antes de que la pantalla congelada este
+decodificada.
+
+Donde si se puede mover el raton es en **`SelectionCanvas.test.tsx`** (Vitest + happy-dom):
+ahi se dispara `pointerMove` de verdad y se lee el `style.left` de la lupa. Las seis pruebas
+nuevas de esta trampa viven ahi, y se pusieron rojas antes de tocar el codigo. Para la barra
+si vale la foto (`--seleccion=0,0,1440,900`), y de hecho fue la foto la que destapo que el
+problema de verdad no era el clic, sino que la barra caia fuera.
