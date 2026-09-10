@@ -9,6 +9,7 @@
 
 pub mod autostart;
 pub mod empaquetado;
+pub mod marco;
 pub mod clipboard;
 pub mod desktop_icons;
 pub mod ocr;
