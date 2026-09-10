@@ -152,15 +152,24 @@ Rust a propósito y sus pruebas comprueban las mismas cifras. Hasta ese día el 
 existía en el archivo exportado, y quien lo ponía tenía que exportar, mirar, volver y exportar
 otra vez.
 
-El puntero de Windows **ya no se mete en los fotogramas** al grabar: se anota por dónde va y se
-dibuja al exportar, al tamaño normal de fábrica (un 4 % del alto, entre 24 y 64 píxeles), sin
-pixelarlo y encogiéndose un poco en cada clic. Cocido dentro del vídeo medía 32 píxeles y no se
-podía agrandar, y al encender el dibujado salían dos. También se anota **qué forma tenía**
-(`SessionData.formas`, solo cuando cambia): la flecha, la barra de texto sobre un campo donde se
-escribe, o la manita sobre un enlace. Se sabe comparando el cursor que hay puesto con los
-identificadores del sistema (`raton::forma`), y cada forma se dibuja con su punto caliente donde
-lo tiene Windows (`cursor::pintar_forma`). Un cursor personalizado no coincide con ninguno y sale
-como flecha.
+**El puntero, dos caminos.** Con «Incluir el cursor» puesto (lo de fábrica), Windows Graphics
+Capture lo mete en los fotogramas tal cual: es lo más fiel y no puede fallar. Apagado, la
+grabación **anota** por dónde va y el editor lo **dibuja al exportar** del tamaño que se pida (de
+fábrica un 4 % del alto, entre 24 y 64 píxeles), encogiéndose un poco en cada clic. Para que eso
+salga bien hicieron falta dos cosas que no estaban:
+
+- **Un reloj propio para el ratón** (`anotador::Muestreador`): se mira cada 16 ms desde un hilo
+  aparte, con el mismo cero que los fotogramas (`CaptureFlags::start`). Antes se miraba una vez
+  por fotograma *recibido*, y sin el cursor cocido una pantalla quieta no manda fotogramas
+  aunque el ratón se mueva: el rastro tenía huecos y el puntero se clavaba y saltaba.
+- **La imagen de verdad del puntero** (`record/punteros.rs`): al grabar se lee de Windows el
+  cursor que hay puesto, una vez por cursor distinto (`GetIconInfo` y `GetDIBits`, con su
+  transparencia y su punto caliente), se guarda como PNG en la carpeta de la sesión
+  (`SessionData.punteros`, `cambios_puntero`) y es lo que se escala y se pega al exportar
+  (`estudio::pegar_puntero`) y lo que la vista previa dibuja con `drawImage`. Sale el puntero de
+  cada uno: el de serie, el grande de accesibilidad o uno descargado. Si no se pudo leer (un
+  cursor monocromo antiguo) o la grabación es de antes, se dibuja a mano la forma que había
+  (`SessionData.formas`: flecha, barra de texto o manita).
 
 > ### 🚫 PROHIBIDO `WH_KEYBOARD_LL`
 >

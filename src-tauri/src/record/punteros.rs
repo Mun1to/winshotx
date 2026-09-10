@@ -29,9 +29,13 @@ pub struct Puntero {
 
 /// La imagen del cursor con ese identificador, o `None` si no se puede leer.
 ///
-/// No se puede leer un cursor monocromo de los antiguos (sin mapa de color): son dos
-/// mascaras que se combinan al vuelo, y hoy no los usa nadie. En ese caso el exportador
-/// dibuja la flecha de siempre.
+/// Hay dos clases de cursor. Los de color (los de serie de Windows 11 y casi todos los
+/// descargados) traen su mapa de color con transparencia. Los **monocromos** (los esquemas
+/// «Windows Black», «Invertido» y los clasicos, y tambien los que Windows entrega a un
+/// proceso sin ventana) no tienen mapa de color: son dos mascaras, una que dice que se
+/// deja pasar y otra que dice que se pinta, apiladas en un solo mapa del doble de alto.
+/// Los dos se leen; la primera version solo leia los de color y en esta maquina la flecha
+/// del sistema salio monocroma.
 pub fn capturar(hcursor: isize) -> Option<Puntero> {
     let mut info = ICONINFO::default();
     unsafe { GetIconInfo(HICON(hcursor as *mut core::ffi::c_void), &mut info) }.ok()?;
@@ -51,7 +55,7 @@ pub fn capturar(hcursor: isize) -> Option<Puntero> {
 
 fn leer(info: &ICONINFO) -> Option<Puntero> {
     if info.hbmColor.is_invalid() {
-        return None;
+        return leer_monocromo(info);
     }
     let (ancho, alto, mut color) = bits_de(info.hbmColor)?;
     // Los cursores modernos traen la transparencia en el cuarto byte. Si ninguno lo usa,
@@ -71,6 +75,39 @@ fn leer(info: &ICONINFO) -> Option<Puntero> {
         pixel.swap(0, 2);
     }
     let imagen = RgbaImage::from_raw(ancho, alto, color)?;
+    Some(Puntero {
+        caliente: (info.xHotspot.min(ancho), info.yHotspot.min(alto)),
+        imagen,
+    })
+}
+
+/// Un cursor sin mapa de color: la mascara lleva arriba lo que se deja pasar (AND) y abajo
+/// lo que se pinta (XOR). Dejar pasar y no pintar es transparente; pintar es blanco; ni
+/// pasar ni pintar es negro; y pasar y pintar, que en pantalla invierte lo de debajo, se
+/// dibuja blanco, que es lo que mas se parece sobre lo que suele haber en un video.
+fn leer_monocromo(info: &ICONINFO) -> Option<Puntero> {
+    let (ancho, alto_doble, mascara) = bits_de(info.hbmMask)?;
+    if alto_doble < 2 || alto_doble % 2 != 0 {
+        return None;
+    }
+    let alto = alto_doble / 2;
+    let fila = (ancho * 4) as usize;
+    let mut rgba = vec![0u8; (ancho * alto * 4) as usize];
+    for y in 0..alto as usize {
+        let pasa = &mascara[y * fila..(y + 1) * fila];
+        let pinta = &mascara[(y + alto as usize) * fila..(y + alto as usize + 1) * fila];
+        for x in 0..ancho as usize {
+            let deja_pasar = pasa[x * 4] != 0;
+            let se_pinta = pinta[x * 4] != 0;
+            let destino = &mut rgba[(y * ancho as usize + x) * 4..(y * ancho as usize + x) * 4 + 4];
+            match (deja_pasar, se_pinta) {
+                (true, false) => destino.copy_from_slice(&[0, 0, 0, 0]),
+                (false, false) => destino.copy_from_slice(&[0, 0, 0, 255]),
+                _ => destino.copy_from_slice(&[255, 255, 255, 255]),
+            }
+        }
+    }
+    let imagen = RgbaImage::from_raw(ancho, alto, rgba)?;
     Some(Puntero {
         caliente: (info.xHotspot.min(ancho), info.yHotspot.min(alto)),
         imagen,
@@ -134,10 +171,7 @@ mod tests {
             eprintln!("[punteros] no hay cursor a la vista (¿sesion sin escritorio?)");
             return;
         };
-        let Some(puntero) = capturar(asa) else {
-            eprintln!("[punteros] el cursor actual es monocromo: no se lee, se dibuja la flecha");
-            return;
-        };
+        let puntero = capturar(asa).expect("el cursor de ahora mismo tiene que leerse");
         let (w, h) = puntero.imagen.dimensions();
         assert!(w >= 8 && h >= 8, "un cursor de {w}x{h} no es un cursor");
         assert!(puntero.caliente.0 <= w && puntero.caliente.1 <= h);
@@ -145,6 +179,32 @@ mod tests {
         let transparentes = puntero.imagen.pixels().filter(|p| p.0[3] == 0).count();
         assert!(opacos > 10, "el cursor tiene que tener pixeles que se vean: {opacos}");
         assert!(transparentes > 10, "y pixeles transparentes alrededor: {transparentes}");
+    }
+
+    /// Los cursores del sistema se pueden cargar por su identificador fijo, sin que haya
+    /// ninguno a la vista: la flecha y la barra de texto de Windows se leen enteros, con su
+    /// transparencia y con el punto caliente dentro de la imagen. Es lo que comprueba la
+    /// lectura de verdad aunque quien corre las pruebas tenga el puntero escondido por
+    /// estar tecleando. En esta maquina la flecha del sistema sale monocroma desde el
+    /// proceso de pruebas, asi que esto ejercita justo el camino de las dos mascaras.
+    #[test]
+    fn la_flecha_y_la_barra_del_sistema_se_leen_enteras() {
+        use windows::Win32::UI::WindowsAndMessaging::{LoadCursorW, IDC_ARROW, IDC_IBEAM};
+
+        for (nombre, id) in [("flecha", IDC_ARROW), ("barra", IDC_IBEAM)] {
+            let asa = unsafe { LoadCursorW(None, id) }.expect("cursor del sistema");
+            let p = capturar(asa.0 as isize).unwrap_or_else(|| panic!("la {nombre} tiene que leerse"));
+            let (w, h) = p.imagen.dimensions();
+            assert!(w >= 16 && h >= 16, "{nombre}: {w}x{h}");
+            assert!(p.caliente.0 <= w && p.caliente.1 <= h, "{nombre}: {:?}", p.caliente);
+            let opacos = p.imagen.pixels().filter(|px| px.0[3] > 200).count();
+            let transparentes = p.imagen.pixels().filter(|px| px.0[3] == 0).count();
+            assert!(opacos > 30, "la {nombre} tiene que verse: {opacos}");
+            assert!(
+                transparentes > (w * h / 3) as usize,
+                "y sobrar sitio transparente alrededor de la {nombre}: {transparentes}"
+            );
+        }
     }
 
     #[test]
