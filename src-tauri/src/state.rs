@@ -38,6 +38,8 @@ pub struct RecordingState {
     pub cabecera: Cabecera,
     /// Puesto, el escritor se ahorra las miniaturas al terminar: la carpeta se va a borrar.
     pub descartar: Arc<AtomicBool>,
+    /// La etiqueta de la barra de ESTA grabacion, para cerrar esa y no la de la siguiente.
+    pub barra: Option<String>,
     #[cfg(windows)]
     pub control: Option<crate::record::win::Control>,
     /// El marco que se ve alrededor de lo que se graba. Se cierra solo al soltarlo.

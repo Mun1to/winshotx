@@ -802,7 +802,11 @@ fn aparcadero(app: &AppHandle) -> PhysicalPosition<i32> {
 /// Barra flotante que acompanna a la grabacion, justo debajo de la region.
 /// Las ventanas se crean en el hilo principal: hacerlo desde el hilo de un comando
 /// bloquea a la espera del bucle de eventos y la grabacion se queda colgada.
-pub fn open_recorder(app: &AppHandle, region: Rect) -> Result<()> {
+///
+/// Devuelve la etiqueta de la ventana, para que quien la abrio cierre ESA barra y no la que
+/// haya: desde que parar vuelve enseguida, una grabacion nueva puede empezar mientras la
+/// anterior todavia esta guardando, y la limpieza de la vieja no puede llevarse la nueva.
+pub fn open_recorder(app: &AppHandle, region: Rect) -> Result<String> {
     close_recorder(app);
     let label = format!(
         "{RECORDER_PREFIX}{}",
@@ -823,7 +827,14 @@ pub fn open_recorder(app: &AppHandle, region: Rect) -> Result<()> {
 
     colocar_barra(&window, region);
     window.show()?;
-    Ok(())
+    Ok(label)
+}
+
+/// Cierra una barra concreta, la de la grabacion que acaba de terminar.
+pub fn close_recorder_label(app: &AppHandle, label: &str) {
+    if let Some(window) = app.get_webview_window(label) {
+        let _ = window.close();
+    }
 }
 
 /// Pone la barra debajo de la region, y dentro de la pantalla donde esta esa region.

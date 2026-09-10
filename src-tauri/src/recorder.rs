@@ -416,6 +416,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         control: Some(control),
         marco,
         descartar,
+        barra: None,
         writer: Some(writer),
     };
 
@@ -434,8 +435,13 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     };
 
     *state.recording.lock() = Some(recording);
-    if let Err(error) = windows_mgr::open_recorder(app, region) {
-        eprintln!("no se ha podido abrir la barra de grabacion: {error}");
+    match windows_mgr::open_recorder(app, region) {
+        Ok(label) => {
+            if let Some(recording) = state.recording.lock().as_mut() {
+                recording.barra = Some(label);
+            }
+        }
+        Err(error) => eprintln!("no se ha podido abrir la barra de grabacion: {error}"),
     }
     spawn_ticker(app.clone(), stop);
     Ok(info)
@@ -576,36 +582,46 @@ pub fn stop(app: &AppHandle) -> Result<()> {
     };
     avisar_barra(app, tick_de(&recording, true));
     let open_editor = state.settings.read().open_editor_after_recording;
+    let barra = recording.barra.clone();
 
     let handle = app.clone();
     std::thread::spawn(move || match terminar(recording) {
         Ok(session) if session.frames.is_empty() => {
             eprintln!("no se ha capturado ningún fotograma; prueba a bajar los fps");
             let _ = std::fs::remove_dir_all(&session.dir);
-            windows_mgr::close_recorder(&handle);
+            cerrar_esta_barra(&handle, barra.as_deref());
         }
-        Ok(session) => entregar(&handle, session, open_editor),
+        Ok(session) => entregar(&handle, session, open_editor, barra.as_deref()),
         Err(error) => {
             eprintln!("fallo al parar: {error}");
             // La barra es always-on-top y no tiene aspa: si esto se fuera sin cerrarla,
             // se quedaria encima de todo y no habria forma de quitarla.
-            windows_mgr::close_recorder(&handle);
+            cerrar_esta_barra(&handle, barra.as_deref());
         }
     });
     Ok(())
+}
+
+/// La barra de esta grabacion y solo esa. Si no se sabe cual era, todas: mejor cerrar una
+/// de mas que dejar una siempre encima sin aspa.
+fn cerrar_esta_barra(app: &AppHandle, barra: Option<&str>) {
+    match barra {
+        Some(label) => windows_mgr::close_recorder_label(app, label),
+        None => windows_mgr::close_recorder(app),
+    }
 }
 
 /// Lo que pasa con la grabacion ya terminada: al editor, o directa a la carpeta.
 ///
 /// Corre en un hilo neutral: tocar ventanas desde el hilo del atajo bloquea el bucle de
 /// eventos, y desde el de un comando tambien puede.
-fn entregar(app: &AppHandle, session: SessionData, open_editor: bool) {
+fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Option<&str>) {
     let state = app.state::<AppState>();
     state
         .sessions
         .write()
         .insert(session.id.clone(), session.clone());
-    windows_mgr::close_recorder(app);
+    cerrar_esta_barra(app, barra);
 
     if open_editor {
         if let Err(error) = windows_mgr::open_editor(app, &session.id) {
@@ -663,20 +679,20 @@ pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::Ex
 }
 
 /// Cierra la barra de grabacion desde un hilo neutral, nunca desde el del atajo.
-fn cerrar_barra(app: &AppHandle) {
+fn cerrar_barra(app: &AppHandle, barra: Option<String>) {
     let handle = app.clone();
-    std::thread::spawn(move || windows_mgr::close_recorder(&handle));
+    std::thread::spawn(move || cerrar_esta_barra(&handle, barra.as_deref()));
 }
 
 /// Tira la grabacion. Vuelve enseguida, como `stop`, y la carpeta se borra por detras.
 pub fn cancel(app: &AppHandle) -> Result<()> {
     let state = app.state::<AppState>();
     let Some(recording) = state.recording.lock().take() else {
-        cerrar_barra(app);
+        cerrar_barra(app, None);
         return Err(AppError::NoRecording);
     };
     recording.descartar.store(true, Ordering::Relaxed);
-    cerrar_barra(app);
+    cerrar_barra(app, recording.barra.clone());
     std::thread::spawn(move || match terminar(recording) {
         Ok(session) => {
             let _ = std::fs::remove_dir_all(&session.dir);

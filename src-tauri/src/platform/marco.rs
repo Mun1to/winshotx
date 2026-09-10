@@ -22,7 +22,6 @@
 
 #![cfg(windows)]
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
@@ -36,10 +35,11 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-    PostQuitMessage, PostThreadMessageW, RegisterClassW, SetLayeredWindowAttributes,
-    ShowWindow, TranslateMessage, HTTRANSPARENT, LWA_ALPHA, MSG, SW_SHOWNOACTIVATE,
-    WM_APP, WM_ERASEBKGND, WM_NCHITTEST, WM_PAINT, WNDCLASSW, WS_EX_LAYERED,
-    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
+    GetWindowLongPtrW, PostQuitMessage, PostThreadMessageW, RegisterClassW,
+    SetLayeredWindowAttributes, SetWindowLongPtrW, ShowWindow, TranslateMessage,
+    GWLP_USERDATA, HTTRANSPARENT, LWA_ALPHA, MSG, SW_SHOWNOACTIVATE, WM_APP, WM_ERASEBKGND,
+    WM_NCHITTEST, WM_PAINT, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 
 use crate::capture::Rect;
@@ -55,9 +55,15 @@ const fn rgb(r: u8, g: u8, b: u8) -> u32 {
     (r as u32) | ((g as u32) << 8) | ((b as u32) << 16)
 }
 
-/// El color con el que se pinta ahora mismo. Global porque el procedimiento de ventana no
-/// recibe nada nuestro, y solo hay un marco a la vez.
-static COLOR: AtomicU32 = AtomicU32::new(GRABANDO);
+/// El color de cada linea vive en la propia ventana (`GWLP_USERDATA`), no en un global: dos
+/// marcos vivos a la vez (el de una grabacion que termina y el de la siguiente, o dos
+/// pruebas corriendo juntas) no pueden pisarse el color.
+fn color_de_la_ventana(hwnd: HWND) -> u32 {
+    match unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as u32 {
+        0 => GRABANDO,
+        color => color,
+    }
+}
 
 /// Los dos recados que se le mandan al hilo.
 const MSG_REPINTAR: u32 = WM_APP + 1;
@@ -70,6 +76,7 @@ pub struct Marco {
     id_hilo: u32,
     /// Las cuatro ventanas, como numeros: un `HWND` no puede viajar entre hilos y aqui
     /// solo hacen falta para fotografiarlas en las pruebas.
+    #[cfg_attr(not(test), allow(dead_code))]
     ventanas: Vec<isize>,
 }
 
@@ -80,8 +87,6 @@ impl Marco {
     /// crear. Un marco que no se abre no impide grabar: quien llama lo apunta y sigue.
     pub fn abrir(region: Rect, grosor: i32) -> Result<Self> {
         let (aviso_tx, aviso_rx) = mpsc::channel::<Aviso>();
-        // El color se pone ANTES de crear las ventanas: la primera pintada ya sale roja.
-        COLOR.store(GRABANDO, Ordering::Relaxed);
         let hilo = std::thread::Builder::new()
             .name("winshotx-marco".into())
             .spawn(move || bucle(region, grosor.max(1), aviso_tx))
@@ -99,8 +104,10 @@ impl Marco {
 
     /// Cambia el color: ambar en pausa, rojo grabando.
     pub fn pausado(&self, pausado: bool) {
-        COLOR.store(if pausado { EN_PAUSA } else { GRABANDO }, Ordering::Relaxed);
-        let _ = unsafe { PostThreadMessageW(self.id_hilo, MSG_REPINTAR, WPARAM(0), LPARAM(0)) };
+        let color = if pausado { EN_PAUSA } else { GRABANDO };
+        let _ = unsafe {
+            PostThreadMessageW(self.id_hilo, MSG_REPINTAR, WPARAM(color as usize), LPARAM(0))
+        };
     }
 }
 
@@ -157,6 +164,7 @@ fn bucle(region: Rect, grosor: i32, aviso: mpsc::Sender<Aviso>) {
             match msg.message {
                 MSG_REPINTAR if msg.hwnd.0.is_null() => {
                     for &hwnd in &ventanas {
+                        SetWindowLongPtrW(hwnd, GWLP_USERDATA, msg.wParam.0 as isize);
                         let _ = InvalidateRect(Some(hwnd), None, true);
                     }
                 }
@@ -212,6 +220,8 @@ unsafe fn crear_ventanas(region: Rect, grosor: i32) -> std::result::Result<Vec<H
             )
         }
         .map_err(|e| format!("no se ha podido crear una linea del marco: {e}"))?;
+        // El color va en la ventana antes de ensennarla: la primera pintada ya sale roja.
+        unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, GRABANDO as isize) };
         // Una ventana `WS_EX_LAYERED` no se pinta hasta que se le dan sus atributos. Opaca
         // del todo: el color ya es lo bastante fino como para no tapar nada.
         let _ = unsafe { SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA) };
@@ -232,7 +242,7 @@ unsafe extern "system" fn procedimiento(
         WM_PAINT => {
             let mut ps = PAINTSTRUCT::default();
             let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
-            let brocha: HBRUSH = unsafe { CreateSolidBrush(COLORREF(COLOR.load(Ordering::Relaxed))) };
+            let brocha: HBRUSH = unsafe { CreateSolidBrush(COLORREF(color_de_la_ventana(hwnd))) };
             unsafe {
                 FillRect(hdc, &ps.rcPaint, brocha);
                 let _ = DeleteObject(brocha.into());
