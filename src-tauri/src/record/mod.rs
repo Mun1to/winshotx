@@ -10,6 +10,8 @@ use crate::capture::Rect;
 use crate::error::{AppError, Result};
 
 #[cfg(windows)]
+pub mod anotador;
+#[cfg(windows)]
 pub mod audio;
 #[cfg(test)]
 mod bench_thumbs;
