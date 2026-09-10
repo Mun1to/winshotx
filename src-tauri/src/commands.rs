@@ -433,8 +433,10 @@ pub async fn start_recording(
     recorder::start(&app, region, options)
 }
 
+/// Vuelve enseguida: lo que tarda (miniaturas, editor o archivo) pasa por detras, y la
+/// barra se entera por el ultimo tick, que llega con `saving`.
 #[tauri::command]
-pub async fn stop_recording(app: AppHandle) -> Result<SessionInfo> {
+pub async fn stop_recording(app: AppHandle) -> Result<()> {
     recorder::stop(&app)
 }
 

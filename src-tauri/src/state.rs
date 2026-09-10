@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use parking_lot::{Mutex, RwLock};
 
@@ -14,6 +14,18 @@ use crate::settings::Settings;
 use crate::windows_mgr::OverlayIntent;
 use tauri_plugin_global_shortcut::Shortcut;
 
+/// Lo que la barra de grabacion ensenna de lo que se esta grabando y no cambia mientras
+/// dura: en que formato sale y si lleva sonido. Viaja dentro de cada tick para que la barra
+/// no tenga que preguntar nada al abrirse.
+#[derive(Debug, Clone)]
+pub struct Cabecera {
+    pub format: String,
+    /// Si el altavoz se llego a abrir. No es lo que se pidio, es lo que hay.
+    pub audio: bool,
+    /// Y el microfono, idem.
+    pub microphone: bool,
+}
+
 /// Todo lo que hay que compartir con el hilo de captura mientras se graba.
 pub struct RecordingState {
     pub started: Instant,
@@ -23,16 +35,43 @@ pub struct RecordingState {
     pub pause_started: Mutex<Option<Instant>>,
     pub frames: Arc<AtomicU64>,
     pub bytes: Arc<AtomicU64>,
+    pub cabecera: Cabecera,
+    /// Puesto, el escritor se ahorra las miniaturas al terminar: la carpeta se va a borrar.
+    pub descartar: Arc<AtomicBool>,
     #[cfg(windows)]
     pub control: Option<crate::record::win::Control>,
+    /// El marco que se ve alrededor de lo que se graba. Se cierra solo al soltarlo.
+    #[cfg(windows)]
+    pub marco: Option<crate::platform::marco::Marco>,
     pub writer: Option<JoinHandle<Result<SessionData>>>,
 }
 
 impl RecordingState {
+    /// Lo que lleva grabado, sin contar las pausas: ni las que ya acabaron ni la que este
+    /// en marcha ahora mismo.
     pub fn elapsed_ms(&self) -> u64 {
-        (self.started.elapsed().as_millis() as u64)
-            .saturating_sub(self.paused_ms.load(std::sync::atomic::Ordering::Relaxed))
+        tiempo_grabado(
+            self.started.elapsed(),
+            self.paused_ms.load(Ordering::Relaxed),
+            self.pause_started.lock().map(|desde| desde.elapsed()),
+        )
     }
+}
+
+/// El reloj de la barra: lo que ha pasado menos lo que se estuvo en pausa.
+///
+/// La pausa en curso se descuenta APARTE porque `paused_ms` solo se actualiza al reanudar.
+/// Sin este tercer sumando, el reloj seguia corriendo mientras la grabacion estaba parada
+/// y pegaba un salto hacia atras al darle a reanudar: quien miraba la barra veia un
+/// cronometro que contaba lo que no se estaba grabando.
+pub fn tiempo_grabado(
+    desde_el_inicio: Duration,
+    pausado_ms: u64,
+    pausa_en_curso: Option<Duration>,
+) -> u64 {
+    (desde_el_inicio.as_millis() as u64)
+        .saturating_sub(pausado_ms)
+        .saturating_sub(pausa_en_curso.map(|p| p.as_millis() as u64).unwrap_or(0))
 }
 
 pub struct AppState {
@@ -121,5 +160,36 @@ impl AppState {
     /// vuelva a anunciar algo que ya se conto.
     pub fn consumir_recien_actualizado(&self) -> bool {
         self.recien_actualizado.swap(false, Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// El reloj de la barra no puede contar el tiempo que se esta en pausa, ni siquiera el
+    /// de la pausa que todavia no ha terminado. Antes contaba 10 segundos de grabacion y 5
+    /// de pausa como 15, y al reanudar volvia a 10 de golpe.
+    #[test]
+    fn el_reloj_no_cuenta_la_pausa_que_esta_en_marcha() {
+        let diez = Duration::from_secs(10);
+        assert_eq!(tiempo_grabado(diez, 0, None), 10_000);
+        // Dos pausas ya cerradas que sumaron tres segundos.
+        assert_eq!(tiempo_grabado(diez, 3_000, None), 7_000);
+        // Y una tercera que lleva dos segundos abierta: tampoco cuenta.
+        assert_eq!(
+            tiempo_grabado(diez, 3_000, Some(Duration::from_secs(2))),
+            5_000
+        );
+    }
+
+    /// Los relojes del sistema pueden ir un pelin desacompasados: la resta nunca se pasa
+    /// de cero, que se veria como un numero gigante en la barra.
+    #[test]
+    fn el_reloj_nunca_se_pasa_por_debajo_de_cero() {
+        assert_eq!(
+            tiempo_grabado(Duration::from_millis(100), 150, Some(Duration::from_millis(10))),
+            0
+        );
     }
 }

@@ -108,7 +108,12 @@ const COLCHON_100NS: i64 = 2_000_000;
 ///
 /// Devuelve el formato antes de arrancar el hilo a proposito: quien codifica necesita
 /// saber cuantos canales y a que frecuencia ANTES de que llegue el primer trozo.
-pub fn empezar(fuentes: Fuentes) -> Result<Captura> {
+///
+/// `pausa` es la misma bandera que para la imagen: mientras este puesta, lo que suene se
+/// lee y se tira. Se tiene que seguir leyendo, porque si no el bufer de Windows se llena y
+/// al reanudar llega con su marca de discontinuidad; pero no puede llegar al archivo. La
+/// imagen en pausa no avanza, y el sonido tiene que quedarse en el mismo sitio que ella.
+pub fn empezar(fuentes: Fuentes, pausa: Arc<AtomicBool>) -> Result<Captura> {
     let (formato_tx, formato_rx) = mpsc::channel::<Result<Formato>>();
     let (tx, rx) = mpsc::channel::<Trozo>();
     let parar = Arc::new(AtomicBool::new(false));
@@ -117,7 +122,7 @@ pub fn empezar(fuentes: Fuentes) -> Result<Captura> {
     // Todo el trabajo de COM vive en su propio hilo, del principio al fin: los objetos de
     // audio pertenecen al hilo que los crea y no se pueden pasear por otros.
     let hilo = std::thread::spawn(move || {
-        let resultado = capturar(fuentes, &formato_tx, &tx, &bandera);
+        let resultado = capturar(fuentes, &formato_tx, &tx, &bandera, &pausa);
         if let Err(error) = resultado {
             // Si falla despues de haber dado el formato, ya no hay a quien contarselo por
             // el canal: se deja escrito y la grabacion sigue, muda.
@@ -142,6 +147,7 @@ fn capturar(
     formato_tx: &Sender<Result<Formato>>,
     tx: &Sender<Trozo>,
     parar: &AtomicBool,
+    pausa: &AtomicBool,
 ) -> Result<()> {
     // El guardian cierra COM pase lo que pase: sin esto, un error a medio camino deja el
     // hilo con COM inicializado y la siguiente grabacion se encuentra el estropicio.
@@ -225,6 +231,20 @@ fn capturar(
             };
             unsafe { captura.ReleaseBuffer(instantes) }
                 .map_err(|e| AppError::Msg(format!("no se puede soltar el audio: {e}")))?;
+
+            // En pausa se tira lo leido, del sistema y del microfono. `escritos` no avanza,
+            // asi que el siguiente trozo que si se mande sigue pegado al anterior: para el
+            // codificador y para el archivo en crudo la pausa no ha existido, que es
+            // exactamente lo que le pasa a la imagen. Antes el sonido de la pausa se
+            // escribia igual y, tras reanudar, el video iba por delante del audio tantos
+            // segundos como hubiera durado la pausa.
+            if pausa.load(Ordering::Relaxed) {
+                if let Some(mic) = acompannante.as_mut() {
+                    let _ = unsafe { leer_todo(&mic.captura, mic.formato) };
+                    mic.pendiente.clear();
+                }
+                continue;
+            }
 
             // Y encima, la voz. `mezclar_encima` coge del microfono justo lo que dura
             // este trozo; si el microfono va con retraso, lo que falte se queda en
@@ -501,10 +521,13 @@ mod tests {
     #[test]
     #[ignore]
     fn escuchar_el_microfono() {
-        let captura = empezar(Fuentes {
-            sistema: false,
-            microfono: true,
-        })
+        let captura = empezar(
+            Fuentes {
+                sistema: false,
+                microfono: true,
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
         .expect("abrir el micrófono");
         println!(
             "el micrófono da {} canales a {} Hz y {} bits",
@@ -536,10 +559,13 @@ mod tests {
     #[test]
     #[ignore]
     fn el_sistema_y_el_microfono_a_la_vez_no_cambian_la_duracion() {
-        let captura = empezar(Fuentes {
-            sistema: true,
-            microfono: true,
-        })
+        let captura = empezar(
+            Fuentes {
+                sistema: true,
+                microfono: true,
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
         .expect("abrir los dos");
         let formato = captura.formato;
         std::thread::sleep(std::time::Duration::from_millis(600));
@@ -596,10 +622,13 @@ mod prueba_de_verdad {
     #[test]
     #[ignore]
     fn escuchar_el_altavoz_de_verdad() {
-        let captura = empezar(Fuentes {
-            sistema: true,
-            microfono: false,
-        })
+        let captura = empezar(
+            Fuentes {
+                sistema: true,
+                microfono: false,
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
         .expect("no se ha podido abrir el altavoz");
         println!(
             "altavoz: {} canales a {} Hz, {} bits",

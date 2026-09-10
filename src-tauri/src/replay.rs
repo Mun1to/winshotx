@@ -230,6 +230,9 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         .join("replay")
         .join(&uuid::Uuid::new_v4().simple().to_string()[..8]);
 
+    // La bandera de apartar se crea antes que el sonido a proposito: el hilo de audio la
+    // recibe al nacer, y asi apartar el anillo tambien calla lo que suene mientras tanto.
+    let pause = Arc::new(AtomicBool::new(false));
     let audio = {
         let fuentes = record::audio::Fuentes {
             sistema: quiere_audio,
@@ -238,7 +241,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         if fuentes.ninguna() {
             None
         } else {
-            match record::audio::empezar(fuentes) {
+            match record::audio::empezar(fuentes, pause.clone()) {
                 Ok(captura) => Some(captura),
                 Err(error) => {
                     eprintln!("[replay] sin sonido: {error}");
@@ -251,7 +254,6 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     let (sender, receiver) = channel::<win::CapturedFrame>();
     let (ordenes, buzon) = channel::<Orden>();
     let stop = Arc::new(AtomicBool::new(false));
-    let pause = Arc::new(AtomicBool::new(false));
     let paused_ms = Arc::new(AtomicU64::new(0));
     let bytes = Arc::new(AtomicU64::new(0));
     let escritos = Arc::new(AtomicU64::new(0));

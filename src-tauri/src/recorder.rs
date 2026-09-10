@@ -9,7 +9,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::capture::Rect;
 use crate::error::{AppError, Result};
 use crate::record::{self, FrameCache, SessionData};
-use crate::state::{AppState, RecordingState};
+use crate::state::{AppState, Cabecera, RecordingState};
 use crate::windows_mgr;
 
 pub const EVENT_TICK: &str = "winshotx://recording-tick";
@@ -35,6 +35,10 @@ pub struct RecordOptions {
     pub highlight_keys: bool,
 }
 
+/// Lo que la barra ensenna, cinco veces por segundo.
+///
+/// Lleva tambien lo que no cambia (formato, sonido) para que la barra no tenga que pedir
+/// nada al abrirse: el primer tick ya lo trae todo.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingTick {
@@ -42,6 +46,15 @@ pub struct RecordingTick {
     pub frames: u64,
     pub bytes: u64,
     pub paused: bool,
+    /// Ya se ha pulsado parar y se estan haciendo las miniaturas: la barra ensenna
+    /// «Guardando…» y apaga los botones. Es el ultimo tick que llega.
+    pub saving: bool,
+    /// «video» o «gif».
+    pub format: String,
+    /// Si el sonido del sistema esta entrando de verdad.
+    pub audio: bool,
+    /// Y el microfono.
+    pub microphone: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -129,6 +142,82 @@ fn monitor_origin(app: &AppHandle, region: Rect) -> (i32, i32) {
         .unwrap_or((0, 0))
 }
 
+/// El sonido va a dos sitios a la vez: al MP4 de vista previa, para poder oirlo de una
+/// pieza, y a un archivo en crudo, que es lo que se recorta al exportar. Sin el archivo,
+/// el video que guarda el usuario sale mudo, porque la exportacion vuelve a codificar
+/// desde los fotogramas y ahi no hay sonido ninguno.
+#[cfg(windows)]
+struct SalidaDeAudio {
+    captura: Option<crate::record::audio::Captura>,
+    archivo: Option<std::io::BufWriter<std::fs::File>>,
+    /// Bytes que han llegado al archivo. Sin uno solo, no hay sonido que exportar.
+    escritos: u64,
+}
+
+#[cfg(windows)]
+impl SalidaDeAudio {
+    fn abrir(captura: Option<crate::record::audio::Captura>, ruta: std::path::PathBuf) -> Self {
+        let archivo = captura.as_ref().and_then(|_| {
+            std::fs::File::create(ruta)
+                .ok()
+                .map(std::io::BufWriter::new)
+        });
+        Self {
+            captura,
+            archivo,
+            escritos: 0,
+        }
+    }
+
+    fn formato(&self) -> Option<crate::record::audio::Formato> {
+        self.captura.as_ref().map(|c| c.formato)
+    }
+
+    /// Lo que haya sonado desde la ultima vez: al archivo y, si sigue vivo, al codificador
+    /// de la vista previa. Si el codificador falla, el sonido se queda fuera de la vista
+    /// previa pero la imagen sigue y el archivo en crudo tambien: el video exportado
+    /// saldra con sonido.
+    fn volcar(&mut self, encoder: &mut Option<windows_capture::encoder::VideoEncoder>) {
+        use std::io::Write;
+        let Some(captura) = self.captura.as_ref() else { return };
+        while let Ok(trozo) = captura.trozos.try_recv() {
+            let pcm = crate::record::audio::a_pcm16(&trozo.datos);
+            if let Some(f) = self.archivo.as_mut() {
+                if f.write_all(&pcm).is_ok() {
+                    self.escritos += pcm.len() as u64;
+                }
+            }
+            let Some(codificador) = encoder.as_mut() else { continue };
+            if codificador
+                .send_audio_buffer(&pcm, trozo.desde_el_inicio)
+                .is_err()
+            {
+                *encoder = None;
+            }
+        }
+    }
+
+    /// Para la captura, vacia lo ultimo y dice que sonido hay, si lo hay. Decir que lo hay
+    /// sin un byte dejaria al exportador buscando un archivo vacio.
+    fn cerrar(
+        mut self,
+        encoder: &mut Option<windows_capture::encoder::VideoEncoder>,
+    ) -> Option<record::AudioInfo> {
+        use std::io::Write;
+        self.volcar(encoder);
+        let captura = self.captura.take()?;
+        let formato = captura.formato;
+        captura.parar();
+        if let Some(mut f) = self.archivo.take() {
+            let _ = f.flush();
+        }
+        (self.escritos > 0).then_some(record::AudioInfo {
+            channels: formato.canales,
+            sample_rate: formato.muestras_por_segundo,
+        })
+    }
+}
+
 /// Arranca la grabacion de la region: cache sin perdida para editar y MP4 de
 /// referencia para que el editor pueda reproducir sin decodificar nada a mano.
 #[cfg(windows)]
@@ -169,6 +258,13 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         frames: Vec::new(),
     };
 
+    let stop = Arc::new(AtomicBool::new(false));
+    let pause = Arc::new(AtomicBool::new(false));
+    let descartar = Arc::new(AtomicBool::new(false));
+    let paused_ms = Arc::new(AtomicU64::new(0));
+    let frames_counter = Arc::new(AtomicU64::new(0));
+    let bytes_counter = Arc::new(AtomicU64::new(0));
+
     // El altavoz se abre ANTES de arrancar el hilo que escribe: hay que saber a que
     // frecuencia y con cuantos canales suena para configurar el codificador, y eso no se
     // puede cambiar a mitad del MP4. Si no se puede abrir, se graba sin sonido y se dice:
@@ -180,7 +276,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let audio = if fuentes.ninguna() {
         None
     } else {
-        match crate::record::audio::empezar(fuentes) {
+        match crate::record::audio::empezar(fuentes, pause.clone()) {
             Ok(captura) => Some(captura),
             Err(error) => {
                 eprintln!("[winshotx] sin sonido: {error}");
@@ -188,80 +284,30 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             }
         }
     };
+    let cabecera = Cabecera {
+        format: options.format.clone(),
+        audio: audio.is_some() && fuentes.sistema,
+        microphone: audio.is_some() && fuentes.microfono,
+    };
 
     let (sender, receiver) = channel::<win::CapturedFrame>();
-    let stop = Arc::new(AtomicBool::new(false));
-    let pause = Arc::new(AtomicBool::new(false));
-    let paused_ms = Arc::new(AtomicU64::new(0));
-    let frames_counter = Arc::new(AtomicU64::new(0));
-    let bytes_counter = Arc::new(AtomicU64::new(0));
-
     let writer_frames = frames_counter.clone();
     let writer_bytes = bytes_counter.clone();
     let writer_stop = stop.clone();
+    let writer_descartar = descartar.clone();
     let marcar_clics = options.highlight_clicks;
     let marcar_teclas = options.highlight_keys;
     let writer = std::thread::spawn(move || -> Result<SessionData> {
         let mut session = session_seed;
         session.has_audio = audio.is_some();
-        let width = session.width;
-        let height = session.height;
+        let (width, height) = (session.width, session.height);
         let mut cache = FrameCache::new(&session.dir)?;
-        let formato_audio = audio.as_ref().map(|a| a.formato);
-        let mut encoder = build_preview_encoder(&session, formato_audio);
+        let mut salida = SalidaDeAudio::abrir(audio, session.audio_path());
+        let mut encoder = build_preview_encoder(&session, salida.formato());
+        let mut anotador =
+            crate::record::anotador::Anotador::new(region, marcar_clics, marcar_teclas);
         let mut last_ts = 0u64;
         let mut dado_la_vuelta: Vec<u8> = Vec::new();
-
-        // El sonido va a dos sitios a la vez: al MP4 de vista previa, para poder oirlo de
-        // una pieza, y a un archivo en crudo, que es lo que se recorta al exportar. Sin el
-        // archivo, el video que guarda el usuario sale mudo, porque la exportacion vuelve
-        // a codificar desde los fotogramas y ahi no hay sonido ninguno.
-        // Los clics que todavia se ven. El vigilante mira los botones en cada fotograma,
-        // que es mucho mas barato y mucho menos peligroso que engancharse al raton del
-        // sistema: un enganche mal hecho le deja el escritorio a tirones a quien lo tenga.
-        let mut vigilante = crate::record::raton::Vigilante::default();
-        let mut clics: Vec<crate::record::realce::Clic> = Vec::new();
-        // Los que se guardan en la sesion, en coordenadas de la region y para siempre.
-        // Los de arriba son los que todavia se estan dibujando y se olvidan enseguida.
-        let mut anotados: Vec<crate::encode::zoom::Clic> = Vec::new();
-        let mut atajos: Vec<crate::record::teclas::Atajo> = Vec::new();
-        // Donde esta el raton en cada fotograma. Cuesta una llamada al sistema, la misma
-        // que ya se hace para los clics, y permite dibujar el cursor al exportar.
-        let mut rastro: Vec<(u64, i32, i32)> = Vec::new();
-        let mut teclado = crate::record::teclas::Vigilante::default();
-        let mut atajo: Option<crate::record::teclas::Atajo> = None;
-        let mut pastillas = crate::record::pastilla::Cache::default();
-
-        let mut audio_file = audio.as_ref().and_then(|_| {
-            std::fs::File::create(session.audio_path())
-                .ok()
-                .map(std::io::BufWriter::new)
-        });
-        let mut bytes_de_audio: u64 = 0;
-
-        let volcar_audio = |enc: &mut Option<windows_capture::encoder::VideoEncoder>,
-                                archivo: &mut Option<std::io::BufWriter<std::fs::File>>,
-                                escritos: &mut u64| {
-            use std::io::Write;
-            let Some(captura) = audio.as_ref() else { return };
-            while let Ok(trozo) = captura.trozos.try_recv() {
-                let pcm = crate::record::audio::a_pcm16(&trozo.datos);
-                if let Some(f) = archivo.as_mut() {
-                    if f.write_all(&pcm).is_ok() {
-                        *escritos += pcm.len() as u64;
-                    }
-                }
-                let Some(codificador) = enc.as_mut() else { continue };
-                if codificador
-                    .send_audio_buffer(&pcm, trozo.desde_el_inicio)
-                    .is_err()
-                {
-                    // El sonido se queda fuera de la vista previa, pero la imagen sigue y
-                    // el archivo en crudo tambien: el video exportado saldra con sonido.
-                    *enc = None;
-                }
-            }
-        };
 
         // El fin de la grabacion no puede depender de que el canal se cierre: si la
         // pantalla esta quieta no llegan fotogramas y el hilo se quedaria esperando.
@@ -272,6 +318,9 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                     if writer_stop.load(Ordering::Relaxed) {
                         break;
                     }
+                    // Con la pantalla quieta no llegan fotogramas, pero el sonido sigue:
+                    // se vuelca aqui para que no se acumule en memoria hasta el siguiente.
+                    salida.volcar(&mut encoder);
                     continue;
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
@@ -287,74 +336,11 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             let mut rgba = frame.bgra;
             bgra_a_rgba_en_sitio(&mut rgba);
 
-            // El aro se pinta en el fotograma que se guarda, no en la pantalla: pintarlo
-            // encima del escritorio seria otra ventana transparente, que ademas se colaria
-            // en cualquier otra captura.
-            // Los clics se anotan SIEMPRE, aunque no se hayan pedido los aros: de ahi
-            // sale el zoom, y el zoom se decide al exportar. Quien graba no tiene que
-            // adivinar antes de empezar si despues va a querer que la camara se acerque.
-            if let Some((cx, cy)) = crate::record::raton::cursor() {
-                rastro.push((frame.ts_ms, cx - region.x, cy - region.y));
-            }
-            if let Some(clic) = vigilante.mirar(frame.ts_ms) {
-                anotados.push(crate::encode::zoom::Clic {
-                    ms: clic.ms,
-                    x: clic.x - region.x,
-                    y: clic.y - region.y,
-                    derecho: clic.derecho,
-                });
-                if marcar_clics {
-                    clics.push(clic);
-                }
-            }
-            if marcar_clics {
-                crate::record::realce::olvidar_viejos(&mut clics, frame.ts_ms);
-            }
-            // Las teclas tambien se anotan siempre: la pastilla se dibuja al exportar.
-            if let Some(nuevo) = teclado.mirar(frame.ts_ms) {
-                // El raton viene en coordenadas del escritorio; se guarda en las de la
-                // region, como los clics, para que el zoom no tenga que saber de monitores.
-                atajos.push(crate::record::teclas::Atajo {
-                    x: nuevo.x - region.x,
-                    y: nuevo.y - region.y,
-                    ..nuevo.clone()
-                });
-                if marcar_teclas {
-                    atajo = Some(nuevo);
-                }
-            }
-
-            // Se monta la imagen UNA vez aunque haya que pintar las dos cosas: cada vuelta
-            // copia dos millones de pixeles y a treinta por segundo eso se nota.
-            let hay_teclas = atajo.as_ref().is_some_and(|a| {
-                crate::record::pastilla::opacidad(
-                    frame.ts_ms.saturating_sub(a.ms),
-                    crate::record::teclas::DURACION_MS,
-                ) > 0.0
-            });
-            if !clics.is_empty() || hay_teclas {
-                if let Some(mut imagen) = image::RgbaImage::from_raw(width, height, rgba.clone()) {
-                    if !clics.is_empty() {
-                        crate::record::realce::pintar(
-                            &mut imagen,
-                            &clics,
-                            region.x,
-                            region.y,
-                            frame.ts_ms,
-                        );
-                    }
-                    if let Some(a) = atajo.as_ref().filter(|_| hay_teclas) {
-                        let opaca = crate::record::pastilla::opacidad(
-                            frame.ts_ms.saturating_sub(a.ms),
-                            crate::record::teclas::DURACION_MS,
-                        );
-                        if let Some(dibujo) = pastillas.pastilla(&a.texto) {
-                            crate::record::pastilla::pegar(&mut imagen, dibujo, opaca);
-                        }
-                    }
-                    rgba = imagen.into_raw();
-                }
-            }
+            // Los aros y la pastilla se pintan en el fotograma que se guarda, no en la
+            // pantalla: pintarlos encima del escritorio seria otra ventana transparente,
+            // que ademas se colaria en cualquier otra captura.
+            anotador.mirar(frame.ts_ms);
+            anotador.pintar(&mut rgba, width, height, frame.ts_ms);
 
             if cache.push_rgba(&rgba, width, height, frame.ts_ms)? {
                 writer_frames.store(cache.frame_count() as u64, Ordering::Relaxed);
@@ -369,39 +355,26 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                     encoder = None;
                 }
             }
-            volcar_audio(&mut encoder, &mut audio_file, &mut bytes_de_audio);
+            salida.volcar(&mut encoder);
         }
 
-        // Lo ultimo que quedo sonando, ya con la captura parada.
-        volcar_audio(&mut encoder, &mut audio_file, &mut bytes_de_audio);
-        if let Some(captura) = audio {
-            let formato = captura.formato;
-            captura.parar();
-            if let Some(mut f) = audio_file.take() {
-                use std::io::Write;
-                let _ = f.flush();
-            }
-            // Sin un solo byte no hay sonido que exportar, y decir que lo hay dejaria al
-            // exportador buscando un archivo vacio.
-            session.audio = (bytes_de_audio > 0).then_some(crate::record::AudioInfo {
-                channels: formato.canales,
-                sample_rate: formato.muestras_por_segundo,
-            });
-            session.has_audio = session.audio.is_some();
-        }
-
-        if let Some(enc) = encoder.take() {
-            if enc.finish().is_err() {
-                session.mp4_path = None;
-            }
-        } else {
+        session.audio = salida.cerrar(&mut encoder);
+        session.has_audio = session.audio.is_some();
+        let vista_previa_cerrada = encoder.take().is_some_and(|enc| enc.finish().is_ok());
+        if !vista_previa_cerrada {
             session.mp4_path = None;
         }
 
         session.frames = cache.finish(last_ts, session.fps)?;
-        session.clics = anotados;
-        session.teclas = atajos;
-        session.cursor = rastro;
+        let anotaciones = anotador.terminar();
+        session.clics = anotaciones.clics;
+        session.teclas = anotaciones.teclas;
+        session.cursor = anotaciones.cursor;
+        // Si se ha descartado, las miniaturas serian trabajo para una carpeta que se va a
+        // borrar en cuanto esto vuelva.
+        if writer_descartar.load(Ordering::Relaxed) {
+            return Ok(session);
+        }
         record::generate_thumbnails(&mut session)?;
         session.persist()?;
         Ok(session)
@@ -422,6 +395,15 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         },
     )?;
 
+    // El marco alrededor de lo que se graba. Que no se pueda abrir no impide grabar.
+    let marco = match crate::platform::marco::Marco::abrir(region, grosor_del_marco(region)) {
+        Ok(marco) => Some(marco),
+        Err(error) => {
+            eprintln!("[winshotx] sin marco alrededor de la grabacion: {error}");
+            None
+        }
+    };
+
     let recording = RecordingState {
         started: Instant::now(),
         stop: stop.clone(),
@@ -430,7 +412,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         pause_started: parking_lot::Mutex::new(None),
         frames: frames_counter,
         bytes: bytes_counter,
+        cabecera,
         control: Some(control),
+        marco,
+        descartar,
         writer: Some(writer),
     };
 
@@ -454,6 +439,16 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     }
     spawn_ticker(app.clone(), stop);
     Ok(info)
+}
+
+/// Dos pixeles logicos: en una pantalla al 150 % son tres de verdad, para que se vea igual.
+#[cfg(windows)]
+fn grosor_del_marco(region: Rect) -> i32 {
+    let (cx, cy) = region.center();
+    let escala = windows_mgr::monitor_de(cx, cy)
+        .map(|m| m.escala)
+        .unwrap_or(1.0);
+    (2.0 * escala).round().max(1.0) as i32
 }
 
 #[cfg(not(windows))]
@@ -499,37 +494,49 @@ fn build_preview_encoder(
     .ok()
 }
 
+/// Lo que la barra tiene que ensennar ahora mismo.
+fn tick_de(recording: &RecordingState, saving: bool) -> RecordingTick {
+    RecordingTick {
+        elapsed_ms: recording.elapsed_ms(),
+        frames: recording.frames.load(Ordering::Relaxed),
+        bytes: recording.bytes.load(Ordering::Relaxed),
+        paused: recording.pause.load(Ordering::Relaxed),
+        saving,
+        format: recording.cabecera.format.clone(),
+        audio: recording.cabecera.audio,
+        microphone: recording.cabecera.microphone,
+    }
+}
+
+/// Se emite directamente a la barra: un emit global tropieza con las ventanas recien
+/// cerradas y el aviso se pierde por el camino.
+fn avisar_barra(app: &AppHandle, tick: RecordingTick) {
+    for (label, window) in app.webview_windows() {
+        if label.starts_with(windows_mgr::RECORDER_PREFIX) {
+            let _ = window.emit(EVENT_TICK, tick.clone());
+        }
+    }
+}
+
 fn spawn_ticker(app: AppHandle, stop: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         while !stop.load(Ordering::Relaxed) {
             let tick = {
                 let state = app.state::<AppState>();
                 let guard = state.recording.lock();
-                guard.as_ref().map(|recording| RecordingTick {
-                    elapsed_ms: recording.elapsed_ms(),
-                    frames: recording.frames.load(Ordering::Relaxed),
-                    bytes: recording.bytes.load(Ordering::Relaxed),
-                    paused: recording.pause.load(Ordering::Relaxed),
-                })
+                guard.as_ref().map(|recording| tick_de(recording, false))
             };
             let Some(tick) = tick else { break };
-            // Se emite directamente a la barra: un emit global tropieza con las
-            // ventanas recien cerradas y el aviso se pierde por el camino.
-            for (label, window) in app.webview_windows() {
-                if label.starts_with(windows_mgr::RECORDER_PREFIX) {
-                    let _ = window.emit(EVENT_TICK, tick.clone());
-                }
-            }
+            avisar_barra(&app, tick);
             std::thread::sleep(Duration::from_millis(200));
         }
     });
 }
 
-fn finish_recording(app: &AppHandle) -> Result<SessionData> {
-    let state = app.state::<AppState>();
-    let Some(mut recording) = state.recording.lock().take() else {
-        return Err(AppError::NoRecording);
-    };
+/// Para la captura y espera a que el escritor termine. **Tarda**: al final el escritor
+/// hace las miniaturas de todos los fotogramas, que con un minuto de grabacion son unos
+/// segundos. Por eso nadie llama a esto desde el hilo principal: ver `stop`.
+fn terminar(mut recording: RecordingState) -> Result<SessionData> {
     recording.stop.store(true, Ordering::Relaxed);
 
     // Parar la captura puede tardar en devolver el control; se hace aparte para que
@@ -540,6 +547,10 @@ fn finish_recording(app: &AppHandle) -> Result<SessionData> {
             let _ = control.stop();
         });
     }
+    // El marco se quita ya: lo que viene ahora es guardar, y un marco rojo encima de un
+    // escritorio que ya no se graba dice lo contrario de lo que pasa.
+    #[cfg(windows)]
+    drop(recording.marco.take());
 
     let writer = recording
         .writer
@@ -550,50 +561,105 @@ fn finish_recording(app: &AppHandle) -> Result<SessionData> {
         .map_err(|_| AppError::Msg("el hilo de escritura se ha caído".into()))?
 }
 
-pub fn stop(app: &AppHandle) -> Result<SessionInfo> {
-    // La barra es always-on-top y no tiene aspa: si esto se va por el desague sin
-    // cerrarla, se queda encima de todo y no hay forma de quitarla.
-    let session = match finish_recording(app) {
-        Ok(session) => session,
+/// Para la grabacion y vuelve enseguida. Lo que tarda (las miniaturas, abrir el editor o
+/// guardar el archivo) pasa en otro hilo.
+///
+/// **Vuelve enseguida a proposito.** Esto lo llama el atajo global, y el manejador del
+/// atajo corre en el hilo principal: mientras esperaba a las miniaturas, la aplicacion
+/// entera se quedaba clavada, la barra incluida, sin ensennar ni que se estaba guardando.
+/// Ahora la barra recibe un ultimo tick con `saving` y se queda diciendo «Guardando…»
+/// hasta que se cierra sola.
+pub fn stop(app: &AppHandle) -> Result<()> {
+    let state = app.state::<AppState>();
+    let Some(recording) = state.recording.lock().take() else {
+        return Err(AppError::NoRecording);
+    };
+    avisar_barra(app, tick_de(&recording, true));
+    let open_editor = state.settings.read().open_editor_after_recording;
+
+    let handle = app.clone();
+    std::thread::spawn(move || match terminar(recording) {
+        Ok(session) if session.frames.is_empty() => {
+            eprintln!("no se ha capturado ningún fotograma; prueba a bajar los fps");
+            let _ = std::fs::remove_dir_all(&session.dir);
+            windows_mgr::close_recorder(&handle);
+        }
+        Ok(session) => entregar(&handle, session, open_editor),
         Err(error) => {
             eprintln!("fallo al parar: {error}");
-            cerrar_barra(app);
-            return Err(error);
+            // La barra es always-on-top y no tiene aspa: si esto se fuera sin cerrarla,
+            // se quedaria encima de todo y no habria forma de quitarla.
+            windows_mgr::close_recorder(&handle);
         }
-    };
+    });
+    Ok(())
+}
 
-    if session.frames.is_empty() {
-        let _ = std::fs::remove_dir_all(&session.dir);
-        cerrar_barra(app);
-        return Err(AppError::Msg(
-            "no se ha capturado ningún fotograma; prueba a bajar los fps".into(),
-        ));
-    }
-
-    let info = SessionInfo::from(&session);
+/// Lo que pasa con la grabacion ya terminada: al editor, o directa a la carpeta.
+///
+/// Corre en un hilo neutral: tocar ventanas desde el hilo del atajo bloquea el bucle de
+/// eventos, y desde el de un comando tambien puede.
+fn entregar(app: &AppHandle, session: SessionData, open_editor: bool) {
     let state = app.state::<AppState>();
-    let open_editor = state.settings.read().open_editor_after_recording;
     state
         .sessions
         .write()
         .insert(session.id.clone(), session.clone());
+    windows_mgr::close_recorder(app);
 
-    // Tocar ventanas desde aqui es peligroso: esta funcion la llama tanto un comando
-    // como el hilo del atajo global, y crear una ventana desde ese hilo bloquea el
-    // bucle de eventos. Se hace siempre desde un hilo neutral.
-    let handle = app.clone();
-    let session_id = session.id.clone();
-    std::thread::spawn(move || {
-        windows_mgr::close_recorder(&handle);
-        if open_editor {
-            if let Err(error) = windows_mgr::open_editor(&handle, &session_id) {
-                eprintln!("no se ha podido abrir el editor: {error}");
-            }
+    if open_editor {
+        if let Err(error) = windows_mgr::open_editor(app, &session.id) {
+            eprintln!("no se ha podido abrir el editor: {error}");
         }
-        let _ = handle.emit(EVENT_SESSION_READY, session_id);
-    });
+    } else {
+        // Sin editor, la grabacion se guarda sola en la carpeta de siempre, con los mismos
+        // ajustes con los que abre el editor. Antes se quedaba en la carpeta temporal, sin
+        // archivo, sin aviso y sin forma de volver a ella: el ajuste decia «dejarla
+        // guardada» y lo que hacia era perderla.
+        let con_sonido = state.settings.read().play_sound;
+        match crate::exporter::export(app, peticion_por_defecto(&session)) {
+            Ok(resultado) => {
+                if con_sonido {
+                    crate::platform::sonido::obturador();
+                }
+                eprintln!("[winshotx] grabación guardada en {}", resultado.path);
+            }
+            Err(error) => eprintln!("[winshotx] no se ha podido guardar la grabación: {error}"),
+        }
+    }
+    let _ = app.emit(EVENT_SESSION_READY, session.id);
+}
 
-    Ok(info)
+/// Como se exporta una grabacion cuando nadie la va a recortar: entera, al tamanno al
+/// que se grabo, con el sonido que tenga, y a la carpeta de los ajustes. Son los mismos
+/// valores con los que el editor abre su panel, para que «sin editor» de el mismo archivo
+/// que «editor y Ctrl+S sin tocar nada».
+pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::ExportRequest {
+    crate::exporter::ExportRequest {
+        session_id: session.id.clone(),
+        format: if session.format == "gif" { "gif" } else { "mp4" }.into(),
+        engine: "native".into(),
+        from: 0,
+        to: session.frames.len().saturating_sub(1),
+        width: session.width,
+        height: session.height,
+        fps: session.fps.min(30),
+        quality: 80,
+        audio: session.has_audio,
+        loop_forever: true,
+        margin: 0,
+        background: String::new(),
+        shadow: false,
+        annotations: Vec::new(),
+        crop: None,
+        zoom: 0.0,
+        clicks: false,
+        keys: false,
+        cursor: 0.0,
+        speed: 1.0,
+        destination: None,
+        copy_to_clipboard: false,
+    }
 }
 
 /// Cierra la barra de grabacion desde un hilo neutral, nunca desde el del atajo.
@@ -602,16 +668,21 @@ fn cerrar_barra(app: &AppHandle) {
     std::thread::spawn(move || windows_mgr::close_recorder(&handle));
 }
 
+/// Tira la grabacion. Vuelve enseguida, como `stop`, y la carpeta se borra por detras.
 pub fn cancel(app: &AppHandle) -> Result<()> {
-    let session = match finish_recording(app) {
-        Ok(session) => session,
-        Err(error) => {
-            cerrar_barra(app);
-            return Err(error);
-        }
+    let state = app.state::<AppState>();
+    let Some(recording) = state.recording.lock().take() else {
+        cerrar_barra(app);
+        return Err(AppError::NoRecording);
     };
+    recording.descartar.store(true, Ordering::Relaxed);
     cerrar_barra(app);
-    let _ = std::fs::remove_dir_all(&session.dir);
+    std::thread::spawn(move || match terminar(recording) {
+        Ok(session) => {
+            let _ = std::fs::remove_dir_all(&session.dir);
+        }
+        Err(error) => eprintln!("fallo al descartar: {error}"),
+    });
     Ok(())
 }
 
@@ -630,6 +701,10 @@ pub fn set_paused(app: &AppHandle, paused: bool) -> Result<()> {
             .fetch_add(started.elapsed().as_millis() as u64, Ordering::Relaxed);
     }
     recording.pause.store(paused, Ordering::Relaxed);
+    #[cfg(windows)]
+    if let Some(marco) = recording.marco.as_ref() {
+        marco.pausado(paused);
+    }
     Ok(())
 }
 
