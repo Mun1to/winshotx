@@ -123,6 +123,18 @@ export function formaEn(formas: [number, number][] | undefined, ms: number): For
   return formas[i][1] === 1 ? "texto" : formas[i][1] === 2 ? "mano" : "flecha";
 }
 
+/** Uno que no se pudo leer al grabar: en su tramo se dibuja la forma a mano. */
+const ILEGIBLE = 4294967295;
+
+/** Qué puntero leído estaba puesto en ese instante, o `null` si ninguno. */
+export function punteroEn(cambios: [number, number][] | undefined, ms: number): number | null {
+  if (!cambios || cambios.length === 0) return null;
+  const i = ultimaAntes(cambios, ms, (c) => c[0]);
+  if (i < 0) return null;
+  const id = cambios[i][1];
+  return id === ILEGIBLE ? null : id;
+}
+
 /** Dónde estaba el ratón en ese instante: la última anotación que no es posterior. */
 export function cursorEn(
   rastro: [number, number, number][],

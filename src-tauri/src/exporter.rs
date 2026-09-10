@@ -398,25 +398,33 @@ struct Estudio<'a> {
     teclas: &'a [crate::record::teclas::Atajo],
     rastro: &'a [(u64, i32, i32)],
     formas: &'a [(u64, u8)],
+    /// Las imagenes de verdad de los punteros, cargadas del disco una vez por exportacion.
+    punteros: Vec<estudio::PunteroCargado>,
+    cambios_puntero: &'a [(u64, u32)],
     origen: (u32, u32),
     ajustes: estudio::Ajustes,
     ms: u64,
-    pastillas: crate::record::pastilla::Cache,
+    caches: estudio::Caches,
 }
 
 impl Estudio<'_> {
     fn pintar(&mut self, imagen: &mut image::RgbaImage, recortes: &[Recorte]) {
+        let fuente = estudio::Fuente {
+            clics: self.clics,
+            atajos: self.teclas,
+            rastro: self.rastro,
+            formas: self.formas,
+            punteros: &self.punteros,
+            cambios_puntero: self.cambios_puntero,
+        };
         estudio::pintar(
             imagen,
             self.ms,
-            self.clics,
-            self.teclas,
-            self.rastro,
-            self.formas,
+            &fuente,
             self.origen,
             recortes,
             &self.ajustes,
-            &mut self.pastillas,
+            &mut self.caches,
         );
     }
 }
@@ -430,15 +438,30 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
     if !ajustes.hay_algo() {
         return None;
     }
+    // Los punteros que se leyeron al grabar. Uno que no se pueda abrir se queda fuera y
+    // en su tramo se dibuja la forma a mano.
+    let punteros = session
+        .punteros
+        .iter()
+        .filter_map(|p| {
+            image::open(&p.archivo).ok().map(|imagen| estudio::PunteroCargado {
+                id: p.id,
+                caliente: p.caliente,
+                imagen: imagen.to_rgba8(),
+            })
+        })
+        .collect();
     Some(Estudio {
         clics: &session.clics,
         teclas: &session.teclas,
         rastro: &session.cursor,
         formas: &session.formas,
+        punteros,
+        cambios_puntero: &session.cambios_puntero,
         origen: (session.width.max(1), session.height.max(1)),
         ajustes,
         ms: 0,
-        pastillas: crate::record::pastilla::Cache::default(),
+        caches: estudio::Caches::default(),
     })
 }
 
@@ -850,6 +873,8 @@ mod tests {
             cursor: Vec::new(),
             cursor_capturado: false,
             formas: Vec::new(),
+            punteros: Vec::new(),
+            cambios_puntero: Vec::new(),
             frames,
         }
     }
@@ -1347,6 +1372,8 @@ mod la_camara_del_exportador {
             cursor: Vec::new(),
             cursor_capturado: false,
             formas: Vec::new(),
+            punteros: Vec::new(),
+            cambios_puntero: Vec::new(),
             frames: Vec::new(),
         }
     }

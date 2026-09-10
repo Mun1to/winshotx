@@ -73,6 +73,14 @@ pub fn cursor() -> Option<(i32, i32)> {
 /// `LoadCursorW`. Se cargan una vez y se comparan. Un cursor personalizado no coincide con
 /// ninguno y se dibuja como flecha, que es lo que hacia siempre.
 pub fn forma() -> crate::encode::cursor::Forma {
+    puntero_actual()
+        .map(|(_, forma)| forma)
+        .unwrap_or(crate::encode::cursor::Forma::Flecha)
+}
+
+/// El cursor que hay puesto ahora mismo: su identificador (con el que se puede leer su
+/// imagen, ver `punteros.rs`) y su forma. `None` si esta escondido o no se puede saber.
+pub fn puntero_actual() -> Option<(isize, crate::encode::cursor::Forma)> {
     use crate::encode::cursor::Forma;
     use std::sync::OnceLock;
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -89,17 +97,19 @@ pub fn forma() -> crate::encode::cursor::Forma {
         cbSize: std::mem::size_of::<CURSORINFO>() as u32,
         ..Default::default()
     };
-    if unsafe { GetCursorInfo(&mut info) }.is_err() {
-        return Forma::Flecha;
-    }
+    unsafe { GetCursorInfo(&mut info) }.ok()?;
     let actual = info.hCursor.0 as isize;
-    if actual != 0 && actual == texto {
+    if actual == 0 {
+        return None;
+    }
+    let forma = if actual == texto {
         Forma::Texto
-    } else if actual != 0 && actual == mano {
+    } else if actual == mano {
         Forma::Mano
     } else {
         Forma::Flecha
-    }
+    };
+    Some((actual, forma))
 }
 
 fn donde() -> Option<(i32, i32)> {

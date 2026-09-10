@@ -544,6 +544,8 @@ mod tests {
             cursor: Vec::new(),
             cursor_capturado: false,
             formas: Vec::new(),
+            punteros: Vec::new(),
+            cambios_puntero: Vec::new(),
             frames,
         };
         let dibujado = crate::record::read_frame(&session, session.frames.len() - 1).unwrap();

@@ -43,11 +43,15 @@ pub struct CaptureFlags {
     /// Milisegundos acumulados en pausa, para que el reloj no cuente ese tiempo.
     pub paused_ms: Arc<AtomicU64>,
     pub min_interval_ms: u64,
+    /// El cero del reloj de los fotogramas. Lo crea quien arranca la grabacion y lo
+    /// comparte con el hilo que muestrea el raton: asi el rastro y la imagen van en el
+    /// mismo tiempo. Antes cada uno tenia su `Instant::now()` y se separaban unos
+    /// milisegundos que no se podian corregir.
+    pub start: Instant,
 }
 
 pub struct RegionCapture {
     flags: CaptureFlags,
-    start: Instant,
     last_emit: Option<Instant>,
     /// El apoyo que necesita el crate cuando la textura viene con relleno de fila. Se
     /// guarda entre fotogramas para no reservar ocho megabytes nuevos sesenta veces por
@@ -62,7 +66,6 @@ impl GraphicsCaptureApiHandler for RegionCapture {
     fn new(ctx: Context<Self::Flags>) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             flags: ctx.flags,
-            start: Instant::now(),
             last_emit: None,
             scratch: Vec::new(),
         })
@@ -95,7 +98,7 @@ impl GraphicsCaptureApiHandler for RegionCapture {
         // El crate necesita un Vec de apoyo por si la textura viene con relleno de fila.
         let data = buffer.as_nopadding_buffer(&mut self.scratch).to_vec();
 
-        let elapsed = now.duration_since(self.start).as_millis() as u64;
+        let elapsed = now.duration_since(self.flags.start).as_millis() as u64;
         let ts_ms = elapsed.saturating_sub(self.flags.paused_ms.load(Ordering::Relaxed));
         let _ = self.flags.sender.send(CapturedFrame { bgra: data, ts_ms });
         Ok(())

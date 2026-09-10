@@ -78,6 +78,8 @@ export type SessionFormat = RecordFormat | "still";
 export interface RecordOptions {
   format: RecordFormat;
   fps: number;
+  /** El puntero de Windows tal cual dentro de los fotogramas. Apagado, se dibuja al exportar. */
+  captureCursor: boolean;
   audio: boolean;
   /** La voz por el micrófono. Con el audio del sistema puesto, van mezclados. */
   microphone: boolean;
@@ -147,6 +149,20 @@ export interface StudioData {
   cursor: [number, number, number][];
   /** `[ms, forma]` cada vez que el puntero cambió de forma: 0 flecha, 1 texto, 2 mano. */
   formas: [number, number][];
+  /** Las imágenes de verdad de los punteros que hubo puestos, leídas de Windows al grabar. */
+  punteros: PunteroGrabado[];
+  /** `[ms, id]` cada vez que cambió el puntero puesto. `4294967295` es uno que no se pudo leer. */
+  cambiosPuntero: [number, number][];
+}
+
+/** Un puntero leído de Windows durante la grabación, guardado como PNG con transparencia. */
+export interface PunteroGrabado {
+  id: number;
+  ancho: number;
+  alto: number;
+  /** El punto caliente, en píxeles de la propia imagen. */
+  caliente: [number, number];
+  archivo: string;
 }
 
 /**

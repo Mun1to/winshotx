@@ -16,6 +16,7 @@ import {
   encuadreEn,
   esEntero,
   formaEn,
+  punteroEn,
   opacidadDelAro,
   punteroNormal,
   radioDelAro,
@@ -154,6 +155,21 @@ describe("la pastilla y el puntero", () => {
     expect(formaEn(formas, 100)).toBe("texto");
     expect(formaEn(formas, 899)).toBe("texto");
     expect(formaEn(formas, 900)).toBe("mano");
+  });
+
+  it("el puntero leído es el del último cambio, y el ilegible no cuenta", () => {
+    expect(punteroEn(undefined, 5)).toBeNull();
+    expect(punteroEn([], 5)).toBeNull();
+    const cambios: [number, number][] = [
+      [100, 0],
+      [900, 4294967295],
+      [1500, 1],
+    ];
+    expect(punteroEn(cambios, 50)).toBeNull();
+    expect(punteroEn(cambios, 100)).toBe(0);
+    expect(punteroEn(cambios, 899)).toBe(0);
+    expect(punteroEn(cambios, 900)).toBeNull();
+    expect(punteroEn(cambios, 5000)).toBe(1);
   });
 
   it("cada forma tiene su dibujo y su punto caliente donde lo tiene Windows", () => {

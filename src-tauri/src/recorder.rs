@@ -20,6 +20,11 @@ pub const EVENT_SESSION_READY: &str = "winshotx://session-ready";
 pub struct RecordOptions {
     pub format: String,
     pub fps: u32,
+    /// Meter el puntero de Windows tal cual en los fotogramas, del tamanno que tenga en
+    /// la pantalla. Es lo mas fiel y lo de fabrica. Apagado, se anota por donde va y el
+    /// editor lo dibuja al exportar del tamanno que se quiera, con su imagen de verdad.
+    #[serde(default = "si")]
+    pub capture_cursor: bool,
     /// Lo que suena por los altavoces.
     pub audio: bool,
     /// Y la voz de quien graba. Los dos a la vez se mezclan en una sola pista.
@@ -32,6 +37,10 @@ pub struct RecordOptions {
     /// suelta no sale nunca, para que una contrasenna escrita no acabe dentro del video.
     #[serde(default)]
     pub highlight_keys: bool,
+}
+
+fn si() -> bool {
+    true
 }
 
 /// Lo que la barra ensenna, cinco veces por segundo.
@@ -253,12 +262,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         clics: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
-        // El puntero de Windows NO se mete en los fotogramas: se anota por donde va y el
-        // editor lo dibuja al exportar, del tamanno que se quiera y sin pixelarlo. Cocido
-        // dentro del video media 32 pixeles a 1080p, no se podia agrandar, y ademas
-        // chocaba con el dibujado: al encenderlo salian dos punteros.
-        cursor_capturado: false,
+        cursor_capturado: options.capture_cursor,
         formas: Vec::new(),
+        punteros: Vec::new(),
+        cambios_puntero: Vec::new(),
         frames: Vec::new(),
     };
 
@@ -266,6 +273,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let pause = Arc::new(AtomicBool::new(false));
     let descartar = Arc::new(AtomicBool::new(false));
     let paused_ms = Arc::new(AtomicU64::new(0));
+    // El cero del reloj: el mismo para los fotogramas, el raton y la barra.
+    let reloj_inicio = Instant::now();
     let frames_counter = Arc::new(AtomicU64::new(0));
     let bytes_counter = Arc::new(AtomicU64::new(0));
 
@@ -301,6 +310,17 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let writer_descartar = descartar.clone();
     let marcar_clics = options.highlight_clicks;
     let marcar_teclas = options.highlight_keys;
+    // El raton y el teclado se miran en su propio hilo, con el mismo reloj que los
+    // fotogramas, y no una vez por fotograma: sin el cursor cocido, una pantalla quieta no
+    // manda fotogramas aunque el raton se mueva, y el rastro se quedaba sin puntos.
+    let muestreador = crate::record::anotador::Muestreador::empezar(
+        crate::record::anotador::Anotador::new(region, marcar_clics, marcar_teclas),
+        crate::record::anotador::Reloj {
+            start: reloj_inicio,
+            paused_ms: paused_ms.clone(),
+        },
+        pause.clone(),
+    );
     let writer = std::thread::spawn(move || -> Result<SessionData> {
         let mut session = session_seed;
         session.has_audio = audio.is_some();
@@ -308,8 +328,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         let mut cache = FrameCache::new(&session.dir)?;
         let mut salida = SalidaDeAudio::abrir(audio, session.audio_path());
         let mut encoder = build_preview_encoder(&session, salida.formato());
-        let mut anotador =
-            crate::record::anotador::Anotador::new(region, marcar_clics, marcar_teclas);
+        let pintar_al_vuelo = marcar_clics || marcar_teclas;
         let mut last_ts = 0u64;
         let mut dado_la_vuelta: Vec<u8> = Vec::new();
 
@@ -343,8 +362,12 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             // Los aros y la pastilla se pintan en el fotograma que se guarda, no en la
             // pantalla: pintarlos encima del escritorio seria otra ventana transparente,
             // que ademas se colaria en cualquier otra captura.
-            anotador.mirar(frame.ts_ms);
-            anotador.pintar(&mut rgba, width, height, frame.ts_ms);
+            if pintar_al_vuelo {
+                muestreador
+                    .anotador()
+                    .lock()
+                    .pintar(&mut rgba, width, height, frame.ts_ms);
+            }
 
             if cache.push_rgba(&rgba, width, height, frame.ts_ms)? {
                 writer_frames.store(cache.frame_count() as u64, Ordering::Relaxed);
@@ -370,11 +393,27 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         }
 
         session.frames = cache.finish(last_ts, session.fps)?;
-        let anotaciones = anotador.terminar();
+        let anotaciones = muestreador.terminar();
         session.clics = anotaciones.clics;
         session.teclas = anotaciones.teclas;
         session.cursor = anotaciones.cursor;
         session.formas = anotaciones.formas;
+        session.cambios_puntero = anotaciones.cambios_puntero;
+        // Las imagenes de los punteros, a disco: son lo que el exportador y la vista
+        // previa dibujan. Una que no se pueda escribir se queda fuera y se dibuja la
+        // flecha en su lugar, que es mejor que perder la grabacion.
+        for (id, p) in anotaciones.punteros.iter().enumerate() {
+            let archivo = session.dir.join(format!("cursor-{id}.png"));
+            if crate::encode::png::save_fast(&p.imagen, &archivo).is_ok() {
+                session.punteros.push(record::PunteroGrabado {
+                    id: id as u32,
+                    ancho: p.imagen.width(),
+                    alto: p.imagen.height(),
+                    caliente: p.caliente,
+                    archivo: archivo.to_string_lossy().to_string(),
+                });
+            }
+        }
         // Si se ha descartado, las miniaturas serian trabajo para una carpeta que se va a
         // borrar en cuanto esto vuelva.
         if writer_descartar.load(Ordering::Relaxed) {
@@ -388,7 +427,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let control = win::start(
         region,
         origin,
-        false,
+        options.capture_cursor,
         fps,
         CaptureFlags {
             sender,
@@ -397,6 +436,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             pause: pause.clone(),
             paused_ms: paused_ms.clone(),
             min_interval_ms: 0,
+            start: reloj_inicio,
         },
     )?;
 
@@ -410,7 +450,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     };
 
     let recording = RecordingState {
-        started: Instant::now(),
+        started: reloj_inicio,
         stop: stop.clone(),
         pause: pause.clone(),
         paused_ms: paused_ms.clone(),
@@ -434,7 +474,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         has_audio: false,
         // Todavia no se ha pulsado nada: esto es lo que se devuelve al EMPEZAR a grabar.
         has_clicks: false,
-        cursor_baked: false,
+        cursor_baked: options.capture_cursor,
         format: options.format,
         mp4_path: None,
     };
@@ -759,6 +799,8 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         clics: Vec::new(),
         cursor_capturado: false,
         formas: Vec::new(),
+        punteros: Vec::new(),
+        cambios_puntero: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
         width: image.width(),

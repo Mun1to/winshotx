@@ -1,4 +1,5 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { MuestraCamara, StudioData } from "../../lib/types";
 import {
   altoDelPuntero,
@@ -10,6 +11,7 @@ import {
   encuadreEn,
   formaEn,
   opacidadDelAro,
+  punteroEn,
   radioDelAro,
   radioMaximo,
   transformacion,
@@ -58,9 +60,23 @@ export function CapaEstudio({
   sinEncuadre = false,
 }: Props) {
   const lienzo = useRef<HTMLCanvasElement>(null);
+  /**
+   * Las imágenes de verdad de los punteros, cargadas una vez. Se dibujan con `drawImage`,
+   * que es lo que hace que el puntero de la vista previa sea el mismo que el de Windows y
+   * el mismo que va a salir al exportar.
+   */
+  const imagenes = useMemo(() => {
+    const mapa = new Map<number, HTMLImageElement>();
+    for (const p of datos?.punteros ?? []) {
+      const img = new Image();
+      img.src = convertFileSrc(p.archivo);
+      mapa.set(p.id, img);
+    }
+    return mapa;
+  }, [datos]);
   // Lo último que se sabe, para que el bucle no tenga que reengancharse a cada cambio.
-  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre });
-  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre };
+  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes });
+  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes };
 
   useEffect(() => {
     let vivo = true;
@@ -71,7 +87,7 @@ export function CapaEstudio({
       peticion = requestAnimationFrame(pintar);
       const canvas = lienzo.current;
       const video = videoRef.current;
-      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre } =
+      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes } =
         estado.current;
       if (!canvas) return;
 
@@ -113,7 +129,21 @@ export function CapaEstudio({
         const punta = raton ? aPantalla(raton[0], raton[1]) : null;
         if (punta) {
           const altoPx = altoDelPuntero(estudio.cursor, datos.clics, ms) * escala;
-          puntero(ctx, punta.x, punta.y, altoPx, formaEn(datos.formas, ms));
+          const id = punteroEn(datos.cambiosPuntero, ms);
+          const leido = id === null ? undefined : datos.punteros.find((p) => p.id === id);
+          const img = leido ? imagenes.get(leido.id) : undefined;
+          if (leido && img && img.complete && img.naturalWidth > 0 && leido.alto > 0) {
+            const s = altoPx / leido.alto;
+            ctx.drawImage(
+              img,
+              punta.x - leido.caliente[0] * s,
+              punta.y - leido.caliente[1] * s,
+              leido.ancho * s,
+              altoPx,
+            );
+          } else {
+            puntero(ctx, punta.x, punta.y, altoPx, formaEn(datos.formas, ms));
+          }
         }
       }
 

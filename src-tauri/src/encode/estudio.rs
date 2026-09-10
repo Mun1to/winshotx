@@ -10,11 +10,55 @@
 //! Lo que se guarda al grabar es una lista de puntos y de textos. Todo lo demás es
 //! aritmética sobre fotogramas que ya están en disco.
 
+use std::collections::HashMap;
+
 use image::RgbaImage;
 
 use crate::encode::recorte::Recorte;
 use crate::encode::zoom::Clic;
 use crate::record::{pastilla, realce, teclas::Atajo};
+
+/// Un puntero leido de Windows al grabar, ya cargado del disco.
+#[derive(Debug, Clone)]
+pub struct PunteroCargado {
+    pub id: u32,
+    /// El punto caliente, en pixeles de la propia imagen.
+    pub caliente: (u32, u32),
+    pub imagen: RgbaImage,
+}
+
+/// Todo lo que se anoto al grabar, tal como lo necesita el dibujo. Prestado: el
+/// exportador lo tiene en la sesion y no hay que copiarlo por fotograma.
+pub struct Fuente<'a> {
+    pub clics: &'a [Clic],
+    pub atajos: &'a [Atajo],
+    pub rastro: &'a [(u64, i32, i32)],
+    /// La forma del puntero cuando cambio, para dibujarlo a mano si no hay imagen.
+    pub formas: &'a [(u64, u8)],
+    /// Las imagenes de verdad de los punteros, y cual estaba puesta desde cuando.
+    pub punteros: &'a [PunteroCargado],
+    pub cambios_puntero: &'a [(u64, u32)],
+}
+
+impl Fuente<'static> {
+    /// Sin nada anotado. Para las pruebas y para una captura fija.
+    pub const VACIA: Fuente<'static> = Fuente {
+        clics: &[],
+        atajos: &[],
+        rastro: &[],
+        formas: &[],
+        punteros: &[],
+        cambios_puntero: &[],
+    };
+}
+
+/// Lo que se guarda de un fotograma al siguiente para no repetir trabajo: la pastilla
+/// dibujada con GDI y los punteros ya escalados al tamanno pedido.
+#[derive(Default)]
+pub struct Caches {
+    pub pastillas: pastilla::Cache,
+    punteros: HashMap<(u32, u32), RgbaImage>,
+}
 
 /// Qué se dibuja encima. Lo elige quien exporta.
 #[derive(Debug, Clone, Copy, Default)]
@@ -101,20 +145,24 @@ fn colocar(
 ///
 /// `origen` es el tamaño de la región grabada, que es en cuyo sistema están los clics.
 /// `recortes` son los que se aplicaron antes de escalar, en orden.
-#[allow(clippy::too_many_arguments)]
 pub fn pintar(
     imagen: &mut RgbaImage,
     ms: u64,
-    clics: &[Clic],
-    atajos: &[Atajo],
-    rastro: &[(u64, i32, i32)],
-    formas: &[(u64, u8)],
+    fuente: &Fuente<'_>,
     origen: (u32, u32),
     recortes: &[Recorte],
     ajustes: &Ajustes,
-    pastillas: &mut pastilla::Cache,
+    caches: &mut Caches,
 ) {
     let destino = (imagen.width(), imagen.height());
+    let Fuente {
+        clics,
+        atajos,
+        rastro,
+        formas,
+        punteros,
+        cambios_puntero,
+    } = *fuente;
 
     // El puntero va DEBAJO del aro: el aro se abre desde donde se pulsó, y tapar el
     // cursor con él sería tapar justo lo que se está señalando.
@@ -122,7 +170,14 @@ pub fn pintar(
         if let Some((_, x, y)) = donde_estaba(rastro, ms) {
             if let Some((px, py)) = colocar(x, y, origen, recortes, destino) {
                 let alto = alto_del_puntero(ajustes.cursor, clics, ms);
-                super::cursor::pintar_forma(imagen, px, py, alto, forma_en(formas, ms));
+                // Con la imagen de verdad del puntero si se pudo leer al grabar; si no,
+                // la forma dibujada a mano, que es lo que habia antes.
+                let leido = puntero_en(cambios_puntero, ms)
+                    .and_then(|id| punteros.iter().find(|p| p.id == id));
+                match leido {
+                    Some(p) => pegar_puntero(imagen, p, px, py, alto, &mut caches.punteros),
+                    None => super::cursor::pintar_forma(imagen, px, py, alto, forma_en(formas, ms)),
+                }
             }
         }
     }
@@ -155,7 +210,7 @@ pub fn pintar(
         {
             let opaca = pastilla::opacidad(ms - a.ms, teclas_duracion());
             if opaca > 0.0 {
-                if let Some(dibujo) = pastillas.pastilla(&a.texto) {
+                if let Some(dibujo) = caches.pastillas.pastilla(&a.texto) {
                     pastilla::pegar(imagen, dibujo, opaca);
                 }
             }
@@ -165,6 +220,67 @@ pub fn pintar(
 
 fn teclas_duracion() -> u64 {
     crate::record::teclas::DURACION_MS
+}
+
+/// Qué puntero leído estaba puesto en ese instante, o `None` si ninguno (grabaciones de
+/// antes) o si el que había no se pudo leer (`u32::MAX`).
+pub fn puntero_en(cambios: &[(u64, u32)], ms: u64) -> Option<u32> {
+    let i = cambios.partition_point(|(t, _)| *t <= ms);
+    match i {
+        0 => None,
+        i => Some(cambios[i - 1].1).filter(|id| *id != u32::MAX),
+    }
+}
+
+/// Pega la imagen del puntero, escalada a ese alto, con su punto caliente en `(x, y)`.
+///
+/// La escalada se guarda por `(puntero, alto)`: se pide la misma treinta veces por
+/// segundo y escalar un cursor de 32 píxeles cuesta más que pegarlo.
+fn pegar_puntero(
+    imagen: &mut RgbaImage,
+    p: &PunteroCargado,
+    x: i32,
+    y: i32,
+    alto: f32,
+    cache: &mut HashMap<(u32, u32), RgbaImage>,
+) {
+    if alto < 4.0 {
+        return;
+    }
+    let (ow, oh) = p.imagen.dimensions();
+    if ow == 0 || oh == 0 {
+        return;
+    }
+    let alto_px = alto.round().max(4.0) as u32;
+    let escala = alto_px as f32 / oh as f32;
+    let ancho_px = ((ow as f32 * escala).round() as u32).max(1);
+    let sprite = cache
+        .entry((p.id, alto_px))
+        .or_insert_with(|| super::escalar::a_medida(&p.imagen, ancho_px, alto_px));
+    let x0 = x - (p.caliente.0 as f32 * escala).round() as i32;
+    let y0 = y - (p.caliente.1 as f32 * escala).round() as i32;
+    let (ancho, alto_img) = imagen.dimensions();
+    for (sy, fila) in sprite.rows().enumerate() {
+        let dy = y0 + sy as i32;
+        if dy < 0 || dy >= alto_img as i32 {
+            continue;
+        }
+        for (sx, pixel) in fila.enumerate() {
+            let dx = x0 + sx as i32;
+            if dx < 0 || dx >= ancho as i32 {
+                continue;
+            }
+            let alfa = pixel.0[3] as f32 / 255.0;
+            if alfa <= 0.0 {
+                continue;
+            }
+            let destino = imagen.get_pixel_mut(dx as u32, dy as u32);
+            for i in 0..3 {
+                destino.0[i] =
+                    (destino.0[i] as f32 * (1.0 - alfa) + pixel.0[i] as f32 * alfa).round() as u8;
+            }
+        }
+    }
 }
 
 /// Qué forma tenía el puntero en ese instante: el último cambio que no es posterior.
@@ -263,16 +379,16 @@ mod tests {
             teclas: false,
             cursor: 0.0,
         };
-        let mut cache = pastilla::Cache::default();
+        let mut cache = Caches::default();
         let mut tocado = |ms: u64| {
             let mut imagen = RgbaImage::from_pixel(400, 300, image::Rgba([0, 0, 0, 255]));
             pintar(
                 &mut imagen,
                 ms,
-                std::slice::from_ref(&clic),
-                &[],
-                &[],
-                &[],
+                &Fuente {
+                    clics: std::slice::from_ref(&clic),
+                    ..Fuente::VACIA
+                },
                 (400, 300),
                 &entera(),
                 &ajustes,
@@ -286,6 +402,58 @@ mod tests {
             "medio segundo despues ya no tendria que quedar nada"
         );
         assert!(!tocado(500), "antes del clic no puede haber aro");
+    }
+
+    #[test]
+    fn el_puntero_puesto_es_el_del_ultimo_cambio_y_el_ilegible_no_cuenta() {
+        assert_eq!(puntero_en(&[], 500), None);
+        let cambios = [(100, 0), (900, u32::MAX), (1500, 1)];
+        assert_eq!(puntero_en(&cambios, 50), None, "antes del primer cambio");
+        assert_eq!(puntero_en(&cambios, 100), Some(0));
+        assert_eq!(puntero_en(&cambios, 899), Some(0));
+        assert_eq!(puntero_en(&cambios, 900), None, "uno que no se pudo leer: la flecha");
+        assert_eq!(puntero_en(&cambios, 5000), Some(1));
+    }
+
+    /// El puntero leido se pega con su imagen, escalado al alto pedido y con el punto
+    /// caliente donde estaba el raton: un cursor de 4x4 rojo con el punto caliente en su
+    /// esquina de abajo a la derecha, pedido a 8 de alto, tiene que quedar ENCIMA y a la
+    /// IZQUIERDA del punto, y del doble de tamanno.
+    #[test]
+    fn el_puntero_leido_se_pega_con_su_imagen_y_su_punto_caliente() {
+        let mut sprite = RgbaImage::from_pixel(4, 4, image::Rgba([255, 0, 0, 255]));
+        // Una esquina transparente, para comprobar que la transparencia se respeta.
+        sprite.put_pixel(0, 0, image::Rgba([255, 0, 0, 0]));
+        let punteros = [PunteroCargado {
+            id: 0,
+            caliente: (4, 4),
+            imagen: sprite,
+        }];
+        let cambios = [(0u64, 0u32)];
+        let rastro = [(0u64, 100i32, 100i32)];
+        let fuente = Fuente {
+            rastro: &rastro,
+            punteros: &punteros,
+            cambios_puntero: &cambios,
+            ..Fuente::VACIA
+        };
+        let ajustes = Ajustes {
+            clics: false,
+            teclas: false,
+            cursor: 8.0,
+        };
+        let mut caches = Caches::default();
+        let fondo = image::Rgba([0, 0, 0, 255]);
+        let mut imagen = RgbaImage::from_pixel(200, 200, fondo);
+        pintar(&mut imagen, 0, &fuente, (200, 200), &[], &ajustes, &mut caches);
+        // Del punto hacia arriba y a la izquierda hay rojo...
+        assert_eq!(imagen.get_pixel(96, 96).0[0], 255, "el sprite tiene que caer a la izquierda y arriba");
+        assert_eq!(imagen.get_pixel(99, 99).0[0], 255);
+        // ...y a la derecha o abajo del punto caliente no hay nada.
+        assert_eq!(*imagen.get_pixel(101, 101), fondo);
+        assert_eq!(*imagen.get_pixel(100, 90), fondo);
+        // Y la esquina transparente sigue siendo fondo.
+        assert_eq!(*imagen.get_pixel(92, 92), fondo, "la transparencia no se respeta");
     }
 
     #[test]
@@ -335,14 +503,14 @@ mod tests {
             derecho: false,
         };
         let mut imagen = RgbaImage::from_pixel(400, 300, image::Rgba([0, 0, 0, 255]));
-        let mut cache = pastilla::Cache::default();
+        let mut cache = Caches::default();
         pintar(
             &mut imagen,
             1000,
-            std::slice::from_ref(&clic),
-            &[],
-            &[],
-            &[],
+            &Fuente {
+                clics: std::slice::from_ref(&clic),
+                ..Fuente::VACIA
+            },
             (400, 300),
             &entera(),
             &Ajustes::default(),
@@ -366,16 +534,16 @@ mod tests {
             teclas: false,
             cursor: 0.0,
         };
-        let mut cache = pastilla::Cache::default();
+        let mut cache = Caches::default();
         let mut cuantos = |recortes: &[Recorte]| {
             let mut imagen = RgbaImage::from_pixel(400, 300, image::Rgba([0, 0, 0, 255]));
             pintar(
                 &mut imagen,
                 1000,
-                std::slice::from_ref(&clic),
-                &[],
-                &[],
-                &[],
+                &Fuente {
+                    clics: std::slice::from_ref(&clic),
+                    ..Fuente::VACIA
+                },
                 (400, 300),
                 recortes,
                 &ajustes,
@@ -424,7 +592,7 @@ mod tests {
             teclas: false,
             cursor: 40.0,
         };
-        let mut cache = pastilla::Cache::default();
+        let mut cache = Caches::default();
         let mut imagen = RgbaImage::from_pixel(1280, 800, image::Rgba([30, 30, 30, 255]));
 
         let t = Instant::now();
@@ -432,10 +600,11 @@ mod tests {
             pintar(
                 &mut imagen,
                 f as u64 * 33,
-                &clics,
-                &[],
-                &rastro,
-                &[],
+                &Fuente {
+                    clics: &clics,
+                    rastro: &rastro,
+                    ..Fuente::VACIA
+                },
                 (1280, 800),
                 &[],
                 &ajustes,
@@ -597,7 +766,7 @@ mod tests {
             teclas: true,
             cursor: 44.0,
         };
-        let mut cache = pastilla::Cache::default();
+        let mut cache = Caches::default();
         let destino = std::env::temp_dir().join("winshotx-ver-zoom");
         let _ = std::fs::remove_dir_all(&destino);
         std::fs::create_dir_all(&destino).unwrap();
@@ -632,10 +801,14 @@ mod tests {
             pintar(
                 &mut salida,
                 *ms,
-                &sesion.clics,
-                &sesion.teclas,
-                &sesion.cursor,
-                &sesion.formas,
+                &Fuente {
+                    clics: &sesion.clics,
+                    atajos: &sesion.teclas,
+                    rastro: &sesion.cursor,
+                    formas: &sesion.formas,
+                    punteros: &[],
+                    cambios_puntero: &sesion.cambios_puntero,
+                },
                 (sesion.width, sesion.height),
                 &recortes,
                 &ajustes,

@@ -490,6 +490,10 @@ pub struct StudioDto {
     pub cursor: Vec<(u64, i32, i32)>,
     /// `[ms, forma]` cada vez que el puntero cambio de forma: 0 flecha, 1 texto, 2 mano.
     pub formas: Vec<(u64, u8)>,
+    /// Las imagenes de verdad de los punteros, como PNG en la carpeta de la sesion.
+    pub punteros: Vec<record::PunteroGrabado>,
+    /// `[ms, id]` cada vez que cambio el puntero puesto. `4294967295` es uno ilegible.
+    pub cambios_puntero: Vec<(u64, u32)>,
 }
 
 #[tauri::command]
@@ -500,6 +504,8 @@ pub async fn session_studio(app: AppHandle, session_id: String) -> Result<Studio
         teclas: session.teclas,
         cursor: session.cursor,
         formas: session.formas,
+        punteros: session.punteros,
+        cambios_puntero: session.cambios_puntero,
     })
 }
 

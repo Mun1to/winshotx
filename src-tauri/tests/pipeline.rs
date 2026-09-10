@@ -80,6 +80,8 @@ fn el_cache_deduplica_y_devuelve_los_fotogramas_intactos() {
         cursor: Vec::new(),
         cursor_capturado: false,
         formas: Vec::new(),
+        punteros: Vec::new(),
+        cambios_puntero: Vec::new(),
         frames,
     };
 
@@ -219,6 +221,7 @@ fn la_grabacion_en_vivo_entrega_fotogramas_recortados() {
             pause: Arc::new(AtomicBool::new(false)),
             paused_ms: Arc::new(AtomicU64::new(0)),
             min_interval_ms: 0,
+            start: std::time::Instant::now(),
         },
     )
     .expect("no se ha podido iniciar la captura");
@@ -277,6 +280,7 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
             pause: Arc::new(AtomicBool::new(false)),
             paused_ms: Arc::new(AtomicU64::new(0)),
             min_interval_ms: 0,
+            start: std::time::Instant::now(),
         },
     )
     .expect("no se ha podido iniciar la captura");
@@ -319,6 +323,8 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
         cursor: Vec::new(),
         cursor_capturado: false,
         formas: Vec::new(),
+        punteros: Vec::new(),
+        cambios_puntero: Vec::new(),
         frames,
     };
     record::generate_thumbnails(&mut session).expect("las miniaturas han fallado");

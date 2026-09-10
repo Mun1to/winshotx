@@ -12,6 +12,8 @@ use crate::error::{AppError, Result};
 #[cfg(windows)]
 pub mod anotador;
 #[cfg(windows)]
+pub mod punteros;
+#[cfg(windows)]
 pub mod audio;
 #[cfg(test)]
 mod bench_thumbs;
@@ -83,6 +85,19 @@ impl AudioInfo {
     }
 }
 
+/// Un puntero leido de Windows durante la grabacion, ya en disco.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PunteroGrabado {
+    pub id: u32,
+    pub ancho: u32,
+    pub alto: u32,
+    /// El punto caliente, en pixeles de la propia imagen.
+    pub caliente: (u32, u32),
+    /// El PNG con la imagen, con transparencia.
+    pub archivo: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionData {
@@ -135,6 +150,14 @@ pub struct SessionData {
     /// se dibujan con la flecha siempre. Las formas son las de `encode::cursor::Forma`.
     #[serde(default)]
     pub formas: Vec<(u64, u8)>,
+    /// Las imagenes de verdad de los punteros que hubo puestos, leidas de Windows al
+    /// grabar y guardadas como PNG en la carpeta de la sesion. Ver `punteros.rs`.
+    #[serde(default)]
+    pub punteros: Vec<PunteroGrabado>,
+    /// Que puntero de `punteros` estaba puesto y desde cuando: `(ms, id)`, solo al cambiar.
+    /// `u32::MAX` es «uno que no se pudo leer»: se dibuja la flecha de siempre.
+    #[serde(default)]
+    pub cambios_puntero: Vec<(u64, u32)>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -595,6 +618,8 @@ mod tests {
             cursor: Vec::new(),
             cursor_capturado: false,
             formas: Vec::new(),
+            punteros: Vec::new(),
+            cambios_puntero: Vec::new(),
             frames,
         }
     }

@@ -327,6 +327,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
             pause: pause.clone(),
             paused_ms: paused_ms.clone(),
             min_interval_ms: 0,
+            start: Instant::now(),
         },
     )?;
 
@@ -879,6 +880,8 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
             .collect(),
         cursor_capturado: encargo.con_cursor,
         formas: Vec::new(),
+        punteros: Vec::new(),
+        cambios_puntero: Vec::new(),
         frames,
     };
     record::generate_thumbnails(&mut session)?;
@@ -1212,6 +1215,7 @@ mod pruebas_con_pantalla {
                 pause: Arc::new(AtomicBool::new(false)),
                 paused_ms: Arc::new(AtomicU64::new(0)),
                 min_interval_ms: 0,
+                start: Instant::now(),
             },
         )
         .expect("no ha arrancado la captura");
