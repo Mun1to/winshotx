@@ -72,7 +72,11 @@ export const pinnedText = (path: string) => invoke<void>("pinned_text", { path }
 export const startRecording = (region: Rect, options: RecordOptions) =>
   invoke<SessionInfo>("start_recording", { region, options });
 
-export const stopRecording = () => invoke<SessionInfo>("stop_recording");
+/**
+ * Vuelve enseguida: lo que tarda (miniaturas, editor o archivo) pasa por detrás en Rust, y
+ * la barra se entera por el último tick, que llega con `saving`.
+ */
+export const stopRecording = () => invoke<void>("stop_recording");
 
 export const pauseRecording = (paused: boolean) =>
   invoke<void>("pause_recording", { paused });

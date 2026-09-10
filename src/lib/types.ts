@@ -129,11 +129,23 @@ export interface FrameMeta {
   thumbPath: string;
 }
 
+/**
+ * Lo que la barra de grabación enseña, cinco veces por segundo.
+ *
+ * Lleva también lo que no cambia (formato, sonido) para que la barra no tenga que pedir
+ * nada al abrirse: el primer tick ya lo trae todo.
+ */
 export interface RecordingTick {
   elapsedMs: number;
   frames: number;
   bytes: number;
   paused: boolean;
+  /** Ya se ha parado y se están haciendo las miniaturas. Es el último tick que llega. */
+  saving: boolean;
+  format: RecordFormat;
+  /** Si el sonido del sistema está entrando de verdad, no si se pidió. */
+  audio: boolean;
+  microphone: boolean;
 }
 
 export type ExportFormat = "gif" | "mp4" | "png" | "jpg";

@@ -773,7 +773,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<SquarePen className="size-4" />}
                     label={t("Abrir el editor al terminar")}
-                    explicacion={t("Al parar una grabación, abrirla para recortarla y exportarla, o dejarla guardada y seguir a lo tuyo. Lo que rescatas de los últimos segundos abre el editor igualmente: ahí todavía no hay ningún archivo hecho.")}
+                    explicacion={t("Al parar una grabación, abrirla para recortarla y exportarla. Apagado, el vídeo o el GIF se guarda solo en tu carpeta, entero y tal cual se grabó, y tú sigues a lo tuyo. Lo que rescatas de los últimos segundos abre el editor igualmente: ahí todavía no hay ningún archivo hecho.")}
                     control={
                       <Switch
                         checked={settings.openEditorAfterRecording}
