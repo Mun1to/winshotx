@@ -155,7 +155,12 @@ otra vez.
 El puntero de Windows **ya no se mete en los fotogramas** al grabar: se anota por dónde va y se
 dibuja al exportar, al tamaño normal de fábrica (un 4 % del alto, entre 24 y 64 píxeles), sin
 pixelarlo y encogiéndose un poco en cada clic. Cocido dentro del vídeo medía 32 píxeles y no se
-podía agrandar, y al encender el dibujado salían dos.
+podía agrandar, y al encender el dibujado salían dos. También se anota **qué forma tenía**
+(`SessionData.formas`, solo cuando cambia): la flecha, la barra de texto sobre un campo donde se
+escribe, o la manita sobre un enlace. Se sabe comparando el cursor que hay puesto con los
+identificadores del sistema (`raton::forma`), y cada forma se dibuja con su punto caliente donde
+lo tiene Windows (`cursor::pintar_forma`). Un cursor personalizado no coincide con ninguno y sale
+como flecha.
 
 > ### 🚫 PROHIBIDO `WH_KEYBOARD_LL`
 >
