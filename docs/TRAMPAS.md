@@ -1,6 +1,6 @@
 # Trampas de Tauri v2 + Windows que costaron sangre
 
-Cuarenta y cuatro fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
+Cuarenta y cinco fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
 cuelga, sale en negro o no hace nada. Si vuelve a pasar algo raro con ventanas, empieza
 por aquí. El número 6 es el peor de todos, porque no se ve en desarrollo.
 
@@ -1263,3 +1263,54 @@ ahi se dispara `pointerMove` de verdad y se lee el `style.left` de la lupa. Las 
 nuevas de esta trampa viven ahi, y se pusieron rojas antes de tocar el codigo. Para la barra
 si vale la foto (`--seleccion=0,0,1440,900`), y de hecho fue la foto la que destapo que el
 problema de verdad no era el clic, sino que la barra caia fuera.
+
+## 45. Cuatro cosas de la grabacion que nadie habia visto porque ninguna da error
+
+Salieron el 10 de septiembre de 2026 leyendo `recorder.rs` de arriba abajo con la pregunta
+«¿que ve la persona que graba?». Las cuatro pasaban todas las pruebas.
+
+### El reloj de la barra seguia contando en pausa
+
+`RecordingState::elapsed_ms` restaba `paused_ms`, y `paused_ms` **solo se actualiza al
+reanudar**. Mientras la pausa esta abierta el reloj sigue subiendo, y al darle a reanudar
+pega un salto hacia atras. Quien miraba la barra veia un cronometro que contaba lo que no se
+estaba grabando. Ahora `tiempo_grabado` (en `state.rs`, pura y con prueba) resta tambien la
+pausa en curso.
+
+### El sonido se seguia escribiendo en pausa, y el video salia desincronizado
+
+La captura de imagen mira la bandera de pausa y no manda fotogramas. **La de sonido no la
+miraba**: los trozos seguian llegando por el canal y, al reanudar, se escribian todos al
+`audio.pcm`. La imagen descuenta la pausa de sus marcas de tiempo y el sonido no, asi que
+al exportar, `pista_de_audio` cortaba el archivo por el tiempo de la imagen y se llevaba el
+sonido de la pausa: **tras una pausa de N segundos, el video iba N segundos por delante del
+audio**. Ahora `audio::empezar` recibe la misma bandera, sigue vaciando el bufer de Windows
+(si no, se llena y avisa de discontinuidad) pero tira lo leido, y el contador de muestras no
+avanza: para el archivo y para el codificador la pausa no ha existido.
+
+### Parar desde el atajo congelaba la aplicacion entera
+
+`recorder::stop` esperaba al hilo escritor con `join()`, y el escritor termina haciendo las
+miniaturas de todos los fotogramas: unos segundos por minuto grabado. El atajo global corre
+en el hilo principal (trampa 1), asi que durante esos segundos la app entera estaba clavada,
+la barra incluida, sin ensennar siquiera que se estaba guardando. Ahora `stop` saca el estado,
+manda a la barra un ultimo tick con `saving` y vuelve; todo lo que tarda pasa en otro hilo.
+La barra se queda en «Guardando…» y **no vuelve atras** aunque un tick viejo del ticker le
+llegue detras por la carrera entre los dos hilos.
+
+### Con el editor apagado, la grabacion se perdia
+
+`open_editor_after_recording` en falso dejaba la sesion en `%TEMP%\winshotx\sessions`, sin
+archivo, sin aviso y sin ninguna pantalla desde la que volver a ella. El ajuste decia
+«dejarla guardada y seguir a lo tuyo». A las 24 horas la purga del arranque la borraba. Ahora
+`entregar` exporta sola con `peticion_por_defecto` (los mismos valores con los que abre el
+editor) a la carpeta de los ajustes, y suena el obturador si esta encendido.
+
+### Y lo que no era un fallo pero tapaba los cuatro: no se veia que se estaba grabando
+
+Al empezar a grabar el overlay se cierra y no quedaba ni un pixel que dijera que zona se
+estaba grabando. `platform/marco.rs` pone cuatro ventanas de Windows a pelo (sin webview, que
+cuestan decenas de megabytes cada una) de dos pixeles **por fuera** de la region, que el clic
+atraviesa y que no cogen el foco. Por fuera es lo que las deja fuera del video. Se prueban
+fuera de las pantallas con `PrintWindow`, que pide a la ventana que se pinte en memoria: asi
+se comprueba el color de verdad sin que aparezca nada en el escritorio de nadie.

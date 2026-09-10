@@ -61,7 +61,7 @@ signature is checked before anything is installed, so a tampered file is rejecte
 |  |  |
 |---|---|
 | 📸 **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex, copied with `C` and snapping to system windows: one click takes the whole window. |
-| 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. |
+| 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. A thin red frame shows what is being recorded (amber while paused), the bar below says whether sound is going in, and discarding asks twice. |
 | ✂️ **Frame by frame editor** | Thumbnail strip, A/B trimming, looped playback, cropping the image, scaling with locked aspect ratio and a quality control. |
 | 🔍 **Recording studio** | The camera moves in on every click and shortcut and follows the mouse while it is there, the pointer can be drawn as large as you want without pixelating, and clicks get a ring. **All of it decided when exporting**, over frames already on disk: change your mind without recording again. |
 | ⏩ **Speed on export** | 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens, and those play at 2× without losing a thing. |
@@ -88,10 +88,11 @@ has the nineteen rows, including the five the Snipping Tool wins.
 | Records GIF | **yes** | no |
 | Frame by frame editor | **yes** | no |
 | Pick your own shortcut | **yes** | no |
-| Draw and annotate on top | no | **yes** |
-| Copy the text out of the image | no | **yes** |
-| System audio when recording | not yet | **yes** |
-| Timer before capturing | no | **yes** |
+| Draw and annotate on top | **six marks, with numbered steps** | pen, shapes and text |
+| Copy the text out of the image | **yes, with the T key** | yes |
+| System audio when recording | **yes, and the microphone mixed in** | yes |
+| Timer before capturing | 3 or 5 seconds | **3, 5 or 10 seconds** |
+| Blur out personal data | by hand, and with a mosaic | **automatic** |
 
 ## Is this what you were looking for?
 
@@ -267,9 +268,9 @@ returns "esta función solo está implementada en Windows": capture, recording, 
 clipboard and autostart are all behind `#[cfg(windows)]` with a stub for everything else, so
 porting means filling those stubs in.
 
-**What is missing:** system audio is not recorded yet. It needs WASAPI in loopback mode to feed the
-encoder; the switch is already in the interface, disabled and saying so. Annotating on top of a
-capture, text recognition and a timer are not there either, and the comparison above says so.
+**What is missing:** automatic blurring of personal data (winshotx blurs by hand, with a mosaic),
+a timer longer than five seconds, and any language other than Spanish and English. The full
+comparison on the site says which rows the Snipping Tool still wins.
 
 ## License
 

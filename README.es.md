@@ -60,7 +60,7 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
 |  |  |
 |---|---|
 | 📸 **Captura de región** | Sobre la pantalla congelada, con lupa 6× que da el color exacto en hexadecimal y ajuste a las ventanas: un clic coge la ventana entera. |
-| 🎬 **Grabación de la región** | A 15, 30 o 60 fps con Windows Graphics Capture, sin que se cuelen overlays en el vídeo. |
+| 🎬 **Grabación de la región** | A 15, 30 o 60 fps con Windows Graphics Capture, sin que se cuelen overlays en el vídeo. Un marco rojo fino enseña lo que se está grabando (ámbar en pausa), la barra de debajo dice si está entrando el sonido, y descartar pregunta dos veces. |
 | ✂️ **Editor fotograma a fotograma** | Tira de miniaturas, recorte A/B, reproducción en bucle, escala con proporción bloqueada y control de calidad. |
 | 💾 **Exportación** | GIF, MP4 o PNG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como **archivo** en Slack, Discord o el Explorador. |
 | ⏪ **Los últimos segundos** | Graba siempre, tira lo viejo, y con una tecla se queda con los últimos 15, 30 o 60 segundos. Lo bueno de una pantalla casi siempre pasa **antes** de que a nadie se le ocurra grabarla. |
@@ -86,10 +86,11 @@ incluidas las cinco que gana la de Windows.
 | Graba GIF | **sí** | no |
 | Editor fotograma a fotograma | **sí** | no |
 | Elegir el atajo de teclado | **sí** | no |
-| Dibujar y anotar encima | no | **sí** |
-| Copiar el texto de la imagen | no | **sí** |
-| Audio del sistema al grabar | todavía no | **sí** |
-| Temporizador antes de capturar | no | **sí** |
+| Dibujar y anotar encima | **seis marcas, con pasos numerados** | bolígrafo, formas y texto |
+| Copiar el texto de la imagen | **sí, con la tecla T** | sí |
+| Audio del sistema al grabar | **sí, y el micrófono mezclado** | sí |
+| Temporizador antes de capturar | 3 o 5 segundos | **3, 5 o 10 segundos** |
+| Tapar datos personales | a mano, y con mosaico | **automático** |
 
 ## ¿Es esto lo que buscabas?
 
@@ -259,10 +260,9 @@ plataforma devuelve "esta función solo está implementada en Windows": captura,
 codificación MP4, portapapeles y arranque automático están detrás de `#[cfg(windows)]` con un stub
 para el resto, así que portarlo es rellenar esos stubs.
 
-**Lo que falta:** el audio del sistema todavía no se graba. Necesita WASAPI en modo loopback para
-alimentar el codificador; el interruptor ya está en la interfaz, desactivado y diciéndolo. Anotar
-encima de una captura, leer el texto de la imagen y el temporizador tampoco están, y la comparativa
-de arriba lo dice.
+**Lo que falta:** tapar datos personales solo (winshotx los tapa a mano, con mosaico), un
+temporizador de más de cinco segundos, y cualquier idioma que no sea español o inglés. La
+comparativa entera de la web dice qué filas sigue ganando la Herramienta de Recortes.
 
 ## Licencia
 
