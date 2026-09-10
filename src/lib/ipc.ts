@@ -5,6 +5,7 @@ import type {
   ExportRequest,
   ExportResult,
   FrameMeta,
+  MuestraCamara,
   OverlayPayload,
   Rect,
   RecordOptions,
@@ -18,7 +19,9 @@ import type {
   TrayMenuState,
   StillAction,
   StillResult,
+  StudioData,
 } from "./types";
+import type { Recorte } from "./recorte";
 
 /** Unica puerta hacia Rust: si un comando cambia de nombre, se cambia aqui. */
 
@@ -88,6 +91,14 @@ export const sessionInfo = (sessionId: string) =>
 
 export const sessionFrames = (sessionId: string) =>
   invoke<FrameMeta[]>("session_frames", { sessionId });
+
+/** Los clics, atajos y rastro del ratón anotados al grabar, para la vista previa. */
+export const sessionStudio = (sessionId: string) =>
+  invoke<StudioData>("session_studio", { sessionId });
+
+/** La cámara del zoom en cada fotograma, con ese zoom y ese recorte. */
+export const sessionCamera = (sessionId: string, zoom: number, crop: Recorte | null) =>
+  invoke<MuestraCamara[]>("session_camera", { sessionId, zoom, crop });
 
 /** Extrae un frame concreto como PNG y devuelve su ruta absoluta. */
 export const frameImage = (sessionId: string, index: number) =>

@@ -457,15 +457,21 @@ struct Camara {
 
 impl Camara {
     fn preparar(session: &SessionData, request: &ExportRequest) -> Option<Self> {
+        Self::nueva(session, request.zoom, request.crop)
+    }
+
+    /// La misma camara que usa la exportacion, para quien la quiera preguntar por su
+    /// cuenta: la vista previa del editor la usa para ensennar el zoom antes de exportar.
+    fn nueva(session: &SessionData, zoom: f32, crop: Option<Recorte>) -> Option<Self> {
         // Menos de 1,05 no se ve y solo cuesta trabajo: es apagado, dicho con un numero.
-        if request.zoom < 1.05 || (session.clics.is_empty() && session.teclas.is_empty()) {
+        if zoom < 1.05 || (session.clics.is_empty() && session.teclas.is_empty()) {
             return None;
         }
         let (ancho, alto) = (session.width.max(1), session.height.max(1));
         // Los clics estan en pixeles de la region grabada. Si el usuario recorto, la camara
         // se mueve dentro de ESE trozo, asi que hay que trasladarlos y descartar los que
         // se quedaron fuera: acercarse a un clic que ya no se ve seria acercarse a nada.
-        let (dx, dy, ancho, alto) = match request.crop {
+        let (dx, dy, ancho, alto) = match crop {
             Some(r) => {
                 let (x, y, w, h) = r.en_pixeles(ancho, alto);
                 (x as i32, y as i32, w, h)
@@ -502,7 +508,7 @@ impl Camara {
             return None;
         }
         let ajustes = zoom::Ajustes {
-            escala: request.zoom.min(4.0),
+            escala: zoom.min(4.0),
             ..zoom::Ajustes::default()
         };
         let rastro = session
@@ -518,6 +524,59 @@ impl Camara {
             alto,
         })
     }
+}
+
+/// Donde mira la camara en un fotograma, como trozo de la imagen ENTERA (de 0 a 1).
+///
+/// Es lo que la vista previa del editor necesita para ensennar el zoom antes de exportar:
+/// el mismo encuadre que va a usar el exportador en ese instante, ya compuesto con el
+/// recorte del usuario, para que se pueda aplicar directamente sobre el video de la vista
+/// previa sin volver a hacer ninguna cuenta.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MuestraCamara {
+    pub ms: u64,
+    pub x1: f32,
+    pub y1: f32,
+    pub x2: f32,
+    pub y2: f32,
+}
+
+/// La camara del zoom, muestreada en cada fotograma de la sesion.
+///
+/// Sale de la MISMA camara que usa la exportacion, asi que lo que ensenna la vista previa
+/// es lo que va a salir: antes el zoom solo se veia en el archivo ya exportado, y quien lo
+/// ponia tenia que exportar, abrir el video, volver, tocar y exportar otra vez.
+pub fn muestras_de_camara(session: &SessionData, zoom: f32, crop: Option<Recorte>) -> Vec<MuestraCamara> {
+    let camara = Camara::nueva(session, zoom, crop);
+    // El recorte del usuario, como esta en la imagen entera. La camara se mueve dentro.
+    let (ux1, uy1, ux2, uy2) = match crop {
+        Some(r) => {
+            let (x, y, w, h) = r.en_pixeles(session.width.max(1), session.height.max(1));
+            let (aw, ah) = (session.width.max(1) as f32, session.height.max(1) as f32);
+            (x as f32 / aw, y as f32 / ah, (x + w) as f32 / aw, (y + h) as f32 / ah)
+        }
+        None => (0.0, 0.0, 1.0, 1.0),
+    };
+    session
+        .frames
+        .iter()
+        .map(|f| {
+            let ms = f.timestamp_ms;
+            let (x1, y1, x2, y2) = match camara.en(ms) {
+                // El encuadre de la camara se mide sobre el trozo recortado; se lleva a
+                // la imagen entera para que la vista previa lo aplique tal cual.
+                Some(r) => (
+                    ux1 + r.x1 * (ux2 - ux1),
+                    uy1 + r.y1 * (uy2 - uy1),
+                    ux1 + r.x2 * (ux2 - ux1),
+                    uy1 + r.y2 * (uy2 - uy1),
+                ),
+                None => (ux1, uy1, ux2, uy2),
+            };
+            MuestraCamara { ms, x1, y1, x2, y2 }
+        })
+        .collect()
 }
 
 /// Un `Option<Camara>` sabe contestar igual que una: sin zoom, no recorta nada.
@@ -788,6 +847,51 @@ mod tests {
             cursor: Vec::new(),
             cursor_capturado: false,
             frames,
+        }
+    }
+
+    /// La camara muestreada para la vista previa dice lo mismo que la de exportar: sin
+    /// zoom o sin clics es la imagen entera, y con zoom se acerca en el momento del clic
+    /// sin salirse nunca de la imagen ni del recorte del usuario.
+    #[test]
+    fn la_camara_muestreada_se_acerca_al_clic_y_no_se_sale() {
+        let mut session = session_with(&[20; 20]);
+        let entera = |m: &MuestraCamara| m.x1 == 0.0 && m.y1 == 0.0 && m.x2 == 1.0 && m.y2 == 1.0;
+
+        // Sin clics no hay a donde acercarse, con zoom o sin el.
+        assert!(muestras_de_camara(&session, 2.0, None).iter().all(entera));
+
+        session.clics.push(zoom::Clic {
+            ms: 200,
+            x: 5,
+            y: 5,
+            derecho: false,
+        });
+        assert!(muestras_de_camara(&session, 1.0, None).iter().all(entera), "sin zoom, entera");
+
+        let muestras = muestras_de_camara(&session, 2.0, None);
+        assert_eq!(muestras.len(), session.frames.len(), "una muestra por fotograma");
+        let en_el_clic = muestras.iter().find(|m| m.ms == 200).expect("hay fotograma a 200");
+        assert!(!entera(en_el_clic), "en el clic tiene que estar acercada");
+        assert!(
+            (en_el_clic.x2 - en_el_clic.x1 - 0.5).abs() < 0.11,
+            "al doble se ve la mitad del ancho: {en_el_clic:?}"
+        );
+        for m in &muestras {
+            assert!(m.x1 >= 0.0 && m.y1 >= 0.0 && m.x2 <= 1.0 && m.y2 <= 1.0, "{m:?}");
+            assert!(m.x1 < m.x2 && m.y1 < m.y2, "{m:?}");
+        }
+
+        // Con el recorte del usuario, la camara se mueve DENTRO de ese trozo.
+        let mitad_derecha = Recorte {
+            x1: 0.5,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+        };
+        session.clics[0].x = 8;
+        for m in muestras_de_camara(&session, 2.0, Some(mitad_derecha)) {
+            assert!(m.x1 >= 0.5 - 0.001 && m.x2 <= 1.0, "se sale del recorte: {m:?}");
         }
     }
 

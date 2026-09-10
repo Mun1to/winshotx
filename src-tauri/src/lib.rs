@@ -250,6 +250,8 @@ pub fn run() {
             commands::cancel_recording,
             commands::session_info,
             commands::session_frames,
+            commands::session_studio,
+            commands::session_camera,
             commands::frame_image,
             commands::export_media,
             commands::ffmpeg_available,

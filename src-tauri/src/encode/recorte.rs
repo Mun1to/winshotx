@@ -12,12 +12,15 @@
 //! captura entera. Recortar después de escalar daría el mismo trozo pero a otro tamaño.
 
 use image::RgbaImage;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::anotacion::Anotacion;
 
 /// El trozo que se queda, con sus dos esquinas en tanto por uno.
-#[derive(Debug, Clone, Copy, Deserialize)]
+///
+/// Tambien se serializa: la vista previa del editor recibe el encuadre de la camara del
+/// zoom en esta misma forma, una por fotograma, para ensennar lo que va a salir.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Recorte {
     pub x1: f32,

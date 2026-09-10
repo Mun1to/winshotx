@@ -504,7 +504,6 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         await startRecording(toPhysical(rect), {
           format,
           fps: payload.settings.fps,
-          captureCursor: payload.settings.captureCursor,
           // El interruptor de audio del overlay se fue con la barra vieja: mientras el
           // ajuste diga "todavia no disponible", esto es siempre false.
           audio: payload.settings.recordAudio && format === "video",

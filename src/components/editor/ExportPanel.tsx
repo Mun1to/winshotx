@@ -17,6 +17,7 @@ import { Toggle } from "../ui/Toggle";
 import { useT } from "../../lib/i18n";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import type { Anotacion } from "../../lib/anotaciones";
+import { punteroNormal, type Estudio } from "../../lib/estudio";
 
 /**
  * Los fondos del marco, con el color con el que se pintan en el propio botón.
@@ -65,6 +66,11 @@ interface Props {
   fpsMax: number;
   hasFfmpeg: boolean;
   saveDirectory: string;
+  /**
+   * Lo que se decide del estudio, cada vez que cambia, para que la vista previa lo
+   * dibuje. El panel sigue mandando; esto es un aviso hacia arriba.
+   */
+  onEstudio?: (estudio: Estudio) => void;
 }
 
 export function ExportPanel({
@@ -77,6 +83,7 @@ export function ExportPanel({
   fpsMax,
   hasFfmpeg,
   saveDirectory,
+  onEstudio,
 }: Props) {
   const t = useT();
   const [format, setFormat] = useState<ExportFormat>(() => {
@@ -113,10 +120,14 @@ export function ExportPanel({
    * El alto del puntero dibujado, en píxeles. Cero es no dibujarlo.
    *
    * Se dibuja aquí en vez de usar el que capturó Windows, y por eso se puede hacer grande
-   * sin pixelarlo. **No es el puntero que tengas puesto**: es la flecha estándar, así que
-   * quien use uno personalizado verá otro en el vídeo. Por eso no se enciende solo.
+   * sin pixelarlo. **No es el puntero que tengas puesto**: es la flecha estándar. Viene
+   * encendido al tamaño normal porque la grabación ya no mete el puntero de Windows en
+   * los fotogramas: sin esto el vídeo saldría sin ratón. Solo las grabaciones viejas, que
+   * lo llevan cocido, empiezan en cero para no enseñar dos.
    */
-  const [cursor, setCursor] = useState(0);
+  const [cursor, setCursor] = useState(() =>
+    session.cursorBaked || session.format === "still" ? 0 : punteroNormal(session.region.height),
+  );
   /** Aire alrededor de la captura. Cero significa sin marco, que es lo de siempre. */
   const [margen, setMargen] = useState(0);
   const [fondo, setFondo] = useState<Background>("blanco");
@@ -126,6 +137,10 @@ export function ExportPanel({
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onEstudio?.({ zoom, cursor, aros, teclas });
+  }, [zoom, cursor, aros, teclas, onEstudio]);
 
   /**
    * Lo que mide de verdad lo que se va a exportar, con el recorte ya aplicado.
@@ -365,23 +380,21 @@ export function ExportPanel({
         </div>
       </div>
 
-      {/* Todo el estudio junto, y solo con vídeo: los tres se deciden aquí porque los tres
-          se dibujan al exportar. Sin un solo clic no sale nada, que un interruptor que no
-          puede hacer nada es peor que no tenerlo. */}
-      {!esUnaFoto(format) && session.hasClicks && (
+      {/* Todo el estudio junto, y solo con vídeo: se decide aquí porque se dibuja al
+          exportar, y se ve en la vista previa segun se toca. El puntero sale siempre
+          (una grabacion sin clics tambien tiene raton); el zoom y los aros solo con
+          clics, que un interruptor que no puede hacer nada es peor que no tenerlo. */}
+      {!esUnaFoto(format) && (
         <div className="space-y-2 border-t border-white/8 pt-3">
           <Slider
-            label={t("Acercarse a los clics")}
-            hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
-            min={1}
-            max={3}
-            step={0.1}
-            value={zoom}
-            onChange={setZoom}
-          />
-          <Slider
             label={t("Puntero dibujado")}
-            hint={cursor === 0 ? t("el de Windows") : `${cursor} px`}
+            hint={
+              cursor === 0
+                ? session.cursorBaked
+                  ? t("el de Windows")
+                  : t("sin puntero")
+                : `${cursor} px`
+            }
             min={0}
             max={80}
             step={4}
@@ -399,7 +412,20 @@ export function ExportPanel({
                 : t("Es la flecha estándar, no la que tengas puesta.")}
             </p>
           )}
-          <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
+          {session.hasClicks && (
+            <>
+              <Slider
+                label={t("Acercarse a los clics")}
+                hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={setZoom}
+              />
+              <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
+            </>
+          )}
           <Toggle
             checked={teclas}
             onChange={setTeclas}
@@ -409,7 +435,7 @@ export function ExportPanel({
             hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
           />
           <p className="text-[11px] leading-snug text-neutral-500">
-            {t("Todo esto se dibuja al exportar, así que se puede cambiar sin volver a grabar.")}
+            {t("Lo que ves aquí es lo que sale: el zoom, el puntero y los aros se dibujan encima de la vista previa.")}
           </p>
         </div>
       )}

@@ -150,6 +150,47 @@ describe("Escape sale de lo que se esté haciendo antes de cerrar", () => {
  * cuesta unos doce segundos para medio minuto y se hace por detrás), y eso el botón lo
  * tiene que DECIR en vez de quedarse quieto: pulsar y que no pase nada parece una app rota.
  */
+describe("la vista previa del estudio", () => {
+  it("una grabación lleva la capa que dibuja el zoom, el puntero y los aros", async () => {
+    preparar(VERTICAL, "C:\\s\\preview.mp4", "video");
+    responde("session_studio", { clics: [], teclas: [], cursor: [[0, 10, 10]] });
+    const vista = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    expect(vista.container.querySelector("[data-capa-estudio]")).not.toBeNull();
+    // Y se pidió lo anotado al grabar, que es de donde sale todo.
+    expect(llamadas.some((l) => l.comando === "session_studio")).toBe(true);
+  });
+
+  it("una captura fija no la lleva: no tiene tiempo dentro", async () => {
+    const vista = await abrir();
+    expect(vista.container.querySelector("[data-capa-estudio]")).toBeNull();
+    expect(llamadas.some((l) => l.comando === "session_studio")).toBe(false);
+  });
+
+  it("sin zoom no se pide la cámara; con zoom sí, con ese zoom", async () => {
+    preparar(VERTICAL, "C:\\s\\preview.mp4", "video");
+    responde("session_info", {
+      id: "s1",
+      region: VERTICAL,
+      fps: 30,
+      frameCount: 3,
+      durationMs: 100,
+      hasAudio: false,
+      hasClicks: true,
+      cursorBaked: false,
+      format: "video",
+      mp4Path: "C:\\s\\preview.mp4",
+    });
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    expect(llamadas.some((l) => l.comando === "session_camera")).toBe(false);
+    fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "session_camera")).toBe(true));
+    const peticion = llamadas.find((l) => l.comando === "session_camera")?.args as { zoom: number };
+    expect(peticion.zoom).toBe(2);
+  });
+});
+
 describe("el botón de reproducir", () => {
   const play = () => screen.getByRole("button", { name: /Reproducir|Play/ });
 

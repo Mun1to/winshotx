@@ -157,7 +157,7 @@ export const EN: Record<string, string> = {
   "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.": "Freezes the screen the moment you press it and lets you crop over that still picture, so whatever moves underneath stops getting in the way. Windows keeps some combinations for itself and those never reach here.",
   "La pantalla se congela justo al pulsar el atajo, así que un menú abierto se cierra antes de que dé tiempo a fotografiarlo. Con 3 o 5 segundos, pulsas primero, abres el menú y la foto se toma sola cuando ya está delante.": "The screen freezes the instant you press the shortcut, so an open menu closes before you can shoot it. With 3 or 5 seconds you press first, open the menu, and the shot is taken on its own once it is there.",
   "Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.": "The icons hide only for the shot itself, not while you pick the crop, and they come back even if the capture fails. It is for shooting the wallpaper, or a window with the desktop behind it, without your files showing.",
-  "Si el puntero del ratón sale dentro de la imagen. Para señalar un botón viene bien; para una captura limpia sobra, y hay que acordarse antes de disparar porque después ya no se puede quitar.": "Whether the mouse pointer ends up inside the image. Handy for pointing at a button, noise for a clean shot, and you have to decide before you shoot: it cannot be removed afterwards.",
+  "Si el puntero del ratón sale dentro de la captura. Para señalar un botón viene bien; para una captura limpia sobra, y hay que acordarse antes de disparar porque después ya no se puede quitar. Solo afecta a las fotos: en las grabaciones el puntero se dibuja al exportar, del tamaño que quieras.": "Whether the mouse pointer shows up inside the screenshot. Good for pointing at a button; for a clean capture it is in the way, and you have to remember before shooting because it cannot be removed afterwards. Screenshots only: in recordings the pointer is drawn when exporting, at whatever size you want.",
   "Mientras arrastras, una lupa de 6 aumentos con retícula te enseña el píxel exacto que hay bajo el cursor y su color en hexadecimal. Con la tecla C te llevas ese color al portapapeles sin capturar nada.": "While you drag, a 6x magnifier with a crosshair shows the exact pixel under the cursor and its colour in hex. Press C and that colour goes to the clipboard without capturing anything.",
   "Con la barra sales a decidir: copiar, guardar, editar, anclar encima de todo o leer el texto. Sin ella el recorte se va directo al portapapeles y el overlay desaparece, que es un clic menos cuando siempre haces lo mismo.": "With the bar you get to decide: copy, save, edit, pin it on top of everything or read the text in it. Without it the crop goes straight to the clipboard and the overlay is gone, which is one click less when you always do the same thing.",
   "Guardar deja el archivo en tu carpeta, y con esto además lo deja pegable. Es para cuando quieres las dos cosas a la vez: el archivo para luego y la imagen para pegarla ahora mismo en un chat.": "Saving leaves the file in your folder, and this also leaves it ready to paste. It is for when you want both: the file for later and the image to paste into a chat right now.",
@@ -317,6 +317,9 @@ export const EN: Record<string, string> = {
   Reproducir: "Play",
   Parar: "Stop",
   "Guardando…": "Saving…",
+  "sin puntero": "no pointer",
+  "Lo que ves aquí es lo que sale: el zoom, el puntero y los aros se dibujan encima de la vista previa.":
+    "What you see here is what comes out: the zoom, the pointer and the rings are drawn over the preview.",
 
   Editor: "Editor",
   Cerrar: "Close",
@@ -398,8 +401,6 @@ export const EN: Record<string, string> = {
   // El zoom que se acerca a los clics
   "Acercarse a los clics": "Zoom in on clicks",
   "sin zoom": "no zoom",
-  "Todo esto se dibuja al exportar, así que se puede cambiar sin volver a grabar.":
-    "All of this is drawn when exporting, so it can be changed without recording again.",
 
   // El puntero dibujado
   "Puntero dibujado": "Drawn pointer",

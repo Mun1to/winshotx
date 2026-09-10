@@ -8,19 +8,24 @@ import {
   ffmpegAvailable,
   frameImage,
   getSettings,
+  sessionCamera,
   sessionFrames,
   sessionInfo,
+  sessionStudio,
 } from "../../lib/ipc";
 import { clamp, formatTimecode } from "../../lib/format";
 import {
   EVENTS,
   type AvisoVistaPrevia,
   type FrameMeta,
+  type MuestraCamara,
   type SessionInfo,
   type Settings,
+  type StudioData,
 } from "../../lib/types";
 import { BarraAnotar } from "./BarraAnotar";
 import { CapaAnotaciones } from "./CapaAnotaciones";
+import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
 import { COLORES, COLOR_RESALTADO, type Anotacion, type Herramienta } from "../../lib/anotaciones";
 import { ExportPanel } from "./ExportPanel";
@@ -28,6 +33,7 @@ import { FrameStrip } from "./FrameStrip";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import { contener } from "../../lib/contener";
+import { ESTUDIO_APAGADO, type Estudio } from "../../lib/estudio";
 import { useT } from "../../lib/i18n";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
@@ -55,6 +61,15 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [previaFallida, setPreviaFallida] = useState(false);
   /** Y lo que lleva escrito, mientras la escriben. */
   const [porCiento, setPorCiento] = useState(0);
+  /**
+   * Lo que el panel ha decidido del estudio (zoom, puntero, aros, pastilla), para
+   * dibujarlo encima de la vista previa. El panel manda; esto es el espejo.
+   */
+  const [estudio, setEstudio] = useState<Estudio>(ESTUDIO_APAGADO);
+  /** Los clics, atajos y rastro del raton que se anotaron al grabar. */
+  const [datosEstudio, setDatosEstudio] = useState<StudioData | null>(null);
+  /** La camara del zoom, una muestra por fotograma, con el zoom y el recorte puestos. */
+  const [camara, setCamara] = useState<MuestraCamara[]>([]);
   /** Lo dibujado encima, en el orden en que se hizo. */
   const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
@@ -94,6 +109,38 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       })
       .catch((e) => setError(String(e)));
   }, [sessionId]);
+
+  // Lo anotado al grabar se pide una vez: no cambia. Sin ello la capa no dibuja nada.
+  useEffect(() => {
+    if (!session || session.format === "still") return;
+    void sessionStudio(sessionId)
+      .then((datos) => setDatosEstudio(datos ?? null))
+      .catch(() => setDatosEstudio(null));
+  }, [session, sessionId]);
+
+  /**
+   * La camara se vuelve a pedir cada vez que cambia el zoom o el recorte, con un respiro:
+   * arrastrar el deslizador dispara decenas de cambios por segundo y cada uno recorre
+   * todos los fotogramas en Rust. Sin zoom no se pide nada y el video se queda quieto.
+   */
+  useEffect(() => {
+    if (!session || estudio.zoom <= 1.05) {
+      setCamara([]);
+      return;
+    }
+    let vigente = true;
+    const espera = window.setTimeout(() => {
+      void sessionCamera(sessionId, estudio.zoom, recorte)
+        .then((muestras) => {
+          if (vigente) setCamara(muestras ?? []);
+        })
+        .catch(() => undefined);
+    }, 120);
+    return () => {
+      vigente = false;
+      window.clearTimeout(espera);
+    };
+  }, [session, sessionId, estudio.zoom, recorte]);
 
   /** El marcador A nunca puede caer fuera de la tira ni pasarse del B. */
   const markIn = useCallback(
@@ -369,7 +416,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               caen encima con exactitud, sin que nadie tenga que medir nada.
             */}
             <div
-              className="relative"
+              // `overflow-hidden` porque la camara del zoom escala el video dentro de
+              // esta caja, y lo que se sale por los lados no tiene que verse.
+              className="relative overflow-hidden"
               style={{
                 aspectRatio: `${session.region.width} / ${session.region.height}`,
                 // El `aspect-ratio` de arriba es el respaldo mientras no se ha medido nada.
@@ -392,6 +441,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 onPlaying={setPlaying}
                 onFallo={setFalloDeVideo}
               />
+              {session.format !== "still" && (
+                <CapaEstudio
+                  videoRef={videoRef}
+                  datos={datosEstudio}
+                  camara={camara}
+                  estudio={estudio}
+                  ancho={session.region.width}
+                  alto={session.region.height}
+                  msParado={frames[currentIndex]?.timestampMs ?? 0}
+                  reproduciendo={playing}
+                />
+              )}
               <CapaAnotaciones
                 herramienta={herramienta}
                 // El resaltado es un marcador, y un marcador es amarillo: no se elige.
@@ -532,6 +593,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           fpsMax={Math.max(15, session.fps)}
           hasFfmpeg={hasFfmpeg}
           saveDirectory={settings.saveDirectory}
+          onEstudio={setEstudio}
         />
       </div>
     </div>

@@ -477,7 +477,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<MousePointer2 className="size-4" />}
                     label={t("Incluir el cursor")}
-                    explicacion={t("Si el puntero del ratón sale dentro de la imagen. Para señalar un botón viene bien; para una captura limpia sobra, y hay que acordarse antes de disparar porque después ya no se puede quitar.")}
+                    explicacion={t("Si el puntero del ratón sale dentro de la captura. Para señalar un botón viene bien; para una captura limpia sobra, y hay que acordarse antes de disparar porque después ya no se puede quitar. Solo afecta a las fotos: en las grabaciones el puntero se dibuja al exportar, del tamaño que quieras.")}
                     control={
                       <Switch
                         checked={settings.captureCursor}

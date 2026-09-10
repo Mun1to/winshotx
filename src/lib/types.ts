@@ -78,7 +78,6 @@ export type SessionFormat = RecordFormat | "still";
 export interface RecordOptions {
   format: RecordFormat;
   fps: number;
-  captureCursor: boolean;
   audio: boolean;
   /** La voz por el micrófono. Con el audio del sistema puesto, van mezclados. */
   microphone: boolean;
@@ -119,6 +118,45 @@ export interface AvisoVistaPrevia {
   listo: boolean;
   /** Y esto, que ya no va a venir. */
   fallida: boolean;
+}
+
+/** Un clic anotado al grabar, en píxeles de la región grabada. */
+export interface ClicGrabado {
+  ms: number;
+  x: number;
+  y: number;
+  derecho: boolean;
+}
+
+/** Un atajo anotado al grabar, con su texto ya escrito («Ctrl + C»). */
+export interface AtajoGrabado {
+  texto: string;
+  ms: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * Lo que se anotó al grabar y de lo que sale el estudio. La vista previa del editor lo
+ * dibuja en vivo encima del vídeo para que se vea antes de exportar.
+ */
+export interface StudioData {
+  clics: ClicGrabado[];
+  teclas: AtajoGrabado[];
+  /** `[ms, x, y]` por fotograma. */
+  cursor: [number, number, number][];
+}
+
+/**
+ * Dónde mira la cámara del zoom en un fotograma, como trozo de la imagen entera de 0 a 1.
+ * Sale de la misma cámara que usa la exportación.
+ */
+export interface MuestraCamara {
+  ms: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 }
 
 export interface FrameMeta {

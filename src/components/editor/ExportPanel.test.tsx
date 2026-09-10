@@ -203,6 +203,49 @@ describe("el zoom que se acerca a los clics", () => {
   });
 });
 
+describe("el puntero dibujado", () => {
+  it("viene encendido al tamanno normal, porque la grabacion ya no lo lleva cocido", () => {
+    pintar({ cursorBaked: false, region: { x: 0, y: 0, width: 1920, height: 1080 } });
+    const barra = screen.getByLabelText("Puntero dibujado") as HTMLInputElement;
+    expect(Number(barra.value)).toBe(43);
+  });
+
+  it("y en una grabacion vieja con el cursor cocido empieza apagado, para no ensennar dos", () => {
+    pintar({ cursorBaked: true });
+    const barra = screen.getByLabelText("Puntero dibujado") as HTMLInputElement;
+    expect(Number(barra.value)).toBe(0);
+    expect(screen.getByText("el de Windows")).toBeInTheDocument();
+  });
+
+  it("sale aunque la grabacion no tenga un solo clic: un video sin clics tambien tiene raton", () => {
+    pintar({ hasClicks: false });
+    expect(screen.getByLabelText("Puntero dibujado")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Acercarse a los clics")).toBeNull();
+  });
+
+  it("lo que se decide se avisa hacia arriba, para la vista previa", () => {
+    const avisos: unknown[] = [];
+    render(
+      <ExportPanel
+        anotaciones={[]}
+        recorte={null}
+        session={GRABACION}
+        inIndex={10}
+        outIndex={80}
+        currentIndex={42}
+        fpsMax={60}
+        hasFfmpeg={false}
+        saveDirectory="C:\\capturas"
+        onEstudio={(e) => avisos.push(e)}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
+    const ultimo = avisos.at(-1) as { zoom: number; cursor: number };
+    expect(ultimo.zoom).toBe(2);
+    expect(ultimo.cursor).toBe(24);
+  });
+});
+
 describe("la velocidad", () => {
   /** El botón de cada velocidad, que se lee «2×». */
   const boton = (v: string) => screen.getByRole("button", { name: `${v}×` });

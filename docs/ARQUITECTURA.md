@@ -141,6 +141,22 @@ Tres cosas salen gratis de esta decisión:
    mes.
 3. **No hace falta ningún hook de teclado.**
 
+Y una cuarta, desde el 10 de septiembre de 2026: **se ve antes de exportar.** El editor pide
+a Rust la misma cámara que va a usar el exportador (`session_camera`, una muestra por
+fotograma, ya compuesta con el recorte del usuario) y lo anotado al grabar
+(`session_studio`), y `CapaEstudio.tsx` lo dibuja encima de la vista previa a la velocidad de
+la pantalla: el vídeo se mueve con una transformación CSS para enseñar el encuadre, y el
+puntero, los aros y la pastilla van en un canvas que no se transforma, porque un aro mide lo
+mismo con zoom y sin él. Las cuentas de la vista previa (`src/lib/estudio.ts`) repiten las de
+Rust a propósito y sus pruebas comprueban las mismas cifras. Hasta ese día el zoom solo
+existía en el archivo exportado, y quien lo ponía tenía que exportar, mirar, volver y exportar
+otra vez.
+
+El puntero de Windows **ya no se mete en los fotogramas** al grabar: se anota por dónde va y se
+dibuja al exportar, al tamaño normal de fábrica (un 4 % del alto, entre 24 y 64 píxeles), sin
+pixelarlo y encogiéndose un poco en cada clic. Cocido dentro del vídeo medía 32 píxeles y no se
+podía agrandar, y al encender el dibujado salían dos.
+
 > ### 🚫 PROHIBIDO `WH_KEYBOARD_LL`
 >
 > Está escrito en `docs/METAS.md`: un hook de teclado de bajo nivel **le colgó el ordenador a

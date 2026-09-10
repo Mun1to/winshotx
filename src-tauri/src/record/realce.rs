@@ -31,13 +31,29 @@ pub struct Clic {
     pub derecho: bool,
 }
 
+/// El radio que alcanza el aro, según lo alto que sea el vídeo.
+///
+/// Iba fijo en 22 píxeles, y eso en un vídeo de 1080 se veía como una chispa y en uno de
+/// 4K ni se veía. Un 2,4 % del alto, entre 14 y 44: a 1080p son 26, y en una región
+/// pequeña de 400 de alto se queda en 14 para no taparla entera.
+pub fn radio_maximo(alto_imagen: u32) -> f32 {
+    (alto_imagen as f32 * 0.024).clamp(14.0, 44.0)
+}
+
 /// El radio del aro en un momento dado. Crece al principio y se queda.
 ///
 /// Crece porque un aro que aparece ya del tamaño final se lee como un adorno; uno que se
 /// abre desde el punto donde se pulsó se lee como «aquí ha pasado algo».
-fn radio(avance: f32) -> f32 {
+fn radio(avance: f32, alto_imagen: u32) -> f32 {
     let crecida = (avance * 3.0).min(1.0);
-    6.0 + 16.0 * crecida
+    let grande = radio_maximo(alto_imagen);
+    grande * (0.28 + 0.72 * crecida)
+}
+
+/// Grosor del trazo, a juego con el radio: un aro grande con un trazo de tres píxeles
+/// parece un pelo.
+fn grosor(alto_imagen: u32) -> f32 {
+    (radio_maximo(alto_imagen) / 7.0).clamp(2.5, 5.5)
 }
 
 /// Lo transparente que está el aro. Entero al principio, apagándose al final.
@@ -69,19 +85,22 @@ pub fn pintar(
             continue;
         }
         let avance = edad as f32 / DURACION_MS as f32;
+        let alto_imagen = imagen.height();
         aro(
             imagen,
             clic.x - region_x,
             clic.y - region_y,
-            radio(avance),
+            radio(avance, alto_imagen),
             opacidad(avance),
             clic.derecho,
         );
     }
 }
 
-/// Grosor del trazo del aro, en píxeles.
-const GROSOR: f32 = 3.0;
+/// Lo que se rellena por dentro del aro, sobre la opacidad del trazo: un velo suave que
+/// hace que el clic se vea también sobre fondos con mucho detalle, donde una línea sola
+/// se pierde entre las letras.
+const VELO: f32 = 0.22;
 
 /// Un aro de color, con el borde suavizado para que no salgan los escalones.
 fn aro(imagen: &mut RgbaImage, cx: i32, cy: i32, radio: f32, opacidad: f32, derecho: bool) {
@@ -89,7 +108,8 @@ fn aro(imagen: &mut RgbaImage, cx: i32, cy: i32, radio: f32, opacidad: f32, dere
         return;
     }
     let (ancho, alto) = imagen.dimensions();
-    let borde = radio + GROSOR;
+    let grosor = grosor(alto);
+    let borde = radio + grosor;
     // Solo se recorre el cuadrado que ocupa el aro, no la imagen entera: a 30 fotogramas
     // por segundo, barrer dos millones de píxeles por cada clic no sale a cuenta.
     let x0 = (cx as f32 - borde).floor().max(0.0) as u32;
@@ -109,11 +129,13 @@ fn aro(imagen: &mut RgbaImage, cx: i32, cy: i32, radio: f32, opacidad: f32, dere
             let dy = y as f32 - cy as f32;
             let distancia = (dx * dx + dy * dy).sqrt();
             // Lo cerca que está del trazo, de 0 (fuera) a 1 (justo encima).
-            let cerca = 1.0 - ((distancia - radio).abs() / (GROSOR / 2.0)).min(1.0);
-            if cerca <= 0.0 {
+            let cerca = 1.0 - ((distancia - radio).abs() / (grosor / 2.0)).min(1.0);
+            // Por dentro del trazo va el velo, que se funde con el trazo sin escalón.
+            let dentro = if distancia < radio { VELO } else { 0.0 };
+            let alfa = cerca.max(dentro) * opacidad;
+            if alfa <= 0.0 {
                 continue;
             }
-            let alfa = cerca * opacidad;
             let pixel = imagen.get_pixel_mut(x, y);
             for (canal, nuevo) in pixel.0.iter_mut().zip(color).take(3) {
                 *canal = (*canal as f32 * (1.0 - alfa) + nuevo as f32 * alfa).round() as u8;
@@ -225,8 +247,8 @@ mod tests {
             derecho: false,
         };
         pintar(&mut imagen, &[clic], -1000, 100, 10);
-        // El centro del aro está hueco (es un aro), así que se mira un punto del trazo.
-        let radio_ahora = radio(10.0 / DURACION_MS as f32).round() as u32;
+        // Se mira un punto del trazo, que es donde el color es entero.
+        let radio_ahora = radio(10.0 / DURACION_MS as f32, 200).round() as u32;
         let tocado = imagen.get_pixel(100 + radio_ahora, 100);
         assert!(tocado.0[2] > 0, "el aro no ha caído en 100,100");
     }

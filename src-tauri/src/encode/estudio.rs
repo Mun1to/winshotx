@@ -36,6 +36,29 @@ impl Ajustes {
     }
 }
 
+/// El alto del puntero que se dibuja si nadie dice otra cosa: un 4 % del alto del video,
+/// entre 24 y 64 pixeles. A 1080p son 43, que es lo que se ve bien en un video compartido
+/// sin tapar lo que se sennala; el de Windows a ese tamanno mide 32 y se pierde.
+pub fn puntero_normal(alto_video: u32) -> f32 {
+    (alto_video as f32 * 0.04).clamp(24.0, 64.0).round()
+}
+
+/// Cuanto dura el apreton del puntero tras un clic: se encoge un poco y vuelve, que es
+/// lo que hace que un clic se VEA aunque los aros esten apagados.
+pub const PULSANDO_MS: u64 = 140;
+
+/// Lo que mide el puntero en ese instante: mas pequenno mientras dura el apreton del clic.
+pub fn alto_del_puntero(alto: f32, clics: &[Clic], ms: u64) -> f32 {
+    let pulsando = clics
+        .iter()
+        .any(|c| ms >= c.ms && ms - c.ms < PULSANDO_MS);
+    if pulsando {
+        alto * 0.82
+    } else {
+        alto
+    }
+}
+
 /// Lleva un punto de la región grabada al fotograma que se va a escribir.
 ///
 /// Por el mismo camino que las anotaciones: cada recorte lo vuelve a medir, y al final se
@@ -97,7 +120,8 @@ pub fn pintar(
     if ajustes.cursor > 0.0 {
         if let Some((_, x, y)) = donde_estaba(rastro, ms) {
             if let Some((px, py)) = colocar(x, y, origen, recortes, destino) {
-                super::cursor::pintar(imagen, px, py, ajustes.cursor);
+                let alto = alto_del_puntero(ajustes.cursor, clics, ms);
+                super::cursor::pintar(imagen, px, py, alto);
             }
         }
     }
@@ -250,6 +274,32 @@ mod tests {
             "medio segundo despues ya no tendria que quedar nada"
         );
         assert!(!tocado(500), "antes del clic no puede haber aro");
+    }
+
+    #[test]
+    fn el_puntero_se_encoge_mientras_dura_el_clic() {
+        let clic = Clic {
+            ms: 1000,
+            x: 200,
+            y: 150,
+            derecho: false,
+        };
+        let clics = std::slice::from_ref(&clic);
+        assert_eq!(alto_del_puntero(40.0, clics, 500), 40.0, "antes del clic, entero");
+        assert!(alto_del_puntero(40.0, clics, 1000) < 40.0, "al pulsar se encoge");
+        assert!(alto_del_puntero(40.0, clics, 1000 + PULSANDO_MS / 2) < 40.0);
+        assert_eq!(
+            alto_del_puntero(40.0, clics, 1000 + PULSANDO_MS),
+            40.0,
+            "y vuelve a su tamanno en cuanto pasa el apreton"
+        );
+    }
+
+    #[test]
+    fn el_puntero_normal_crece_con_el_video_pero_con_tope() {
+        assert_eq!(puntero_normal(1080), 43.0);
+        assert_eq!(puntero_normal(400), 24.0, "en un video pequenno no baja de 24");
+        assert_eq!(puntero_normal(4320), 64.0, "y en uno enorme no pasa de 64");
     }
 
     #[test]

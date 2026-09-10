@@ -71,7 +71,12 @@ export function PreviewCanvas({
       // parecía que el sonido no se había grabado.
       muted={!conSonido}
       playsInline
-      className="size-full object-contain"
+      className="size-full object-contain will-change-transform"
+      // La camara del zoom se ensenna moviendo y escalando ESTE elemento desde la esquina
+      // de arriba a la izquierda (ver `CapaEstudio`); la caja de fuera recorta lo que se
+      // sale. El estilo lo pone la capa a mano, sin pasar por React, sesenta veces por
+      // segundo.
+      style={{ transformOrigin: "0 0" }}
       // El estado de reproducción sale del vídeo, que es quien sabe si está sonando:
       // pintarlo desde una variable aparte es cómo se acaba con un botón que dice
       // «pausa» sobre una imagen quieta.

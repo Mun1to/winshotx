@@ -20,7 +20,6 @@ pub const EVENT_SESSION_READY: &str = "winshotx://session-ready";
 pub struct RecordOptions {
     pub format: String,
     pub fps: u32,
-    pub capture_cursor: bool,
     /// Lo que suena por los altavoces.
     pub audio: bool,
     /// Y la voz de quien graba. Los dos a la vez se mezclan en una sola pista.
@@ -254,7 +253,11 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         clics: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
-        cursor_capturado: options.capture_cursor,
+        // El puntero de Windows NO se mete en los fotogramas: se anota por donde va y el
+        // editor lo dibuja al exportar, del tamanno que se quiera y sin pixelarlo. Cocido
+        // dentro del video media 32 pixeles a 1080p, no se podia agrandar, y ademas
+        // chocaba con el dibujado: al encenderlo salian dos punteros.
+        cursor_capturado: false,
         frames: Vec::new(),
     };
 
@@ -383,7 +386,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let control = win::start(
         region,
         origin,
-        options.capture_cursor,
+        false,
         fps,
         CaptureFlags {
             sender,
@@ -429,7 +432,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         has_audio: false,
         // Todavia no se ha pulsado nada: esto es lo que se devuelve al EMPEZAR a grabar.
         has_clicks: false,
-        cursor_baked: options.capture_cursor,
+        cursor_baked: false,
         format: options.format,
         mp4_path: None,
     };
@@ -671,7 +674,13 @@ pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::Ex
         zoom: 0.0,
         clicks: false,
         keys: false,
-        cursor: 0.0,
+        // El puntero se dibuja, al tamanno normal: sin esto el video saldria sin raton,
+        // porque la grabacion ya no lo mete en los fotogramas.
+        cursor: if session.cursor_capturado {
+            0.0
+        } else {
+            crate::encode::estudio::puntero_normal(session.height)
+        },
         speed: 1.0,
         destination: None,
         copy_to_clipboard: false,

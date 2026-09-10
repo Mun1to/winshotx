@@ -478,6 +478,41 @@ pub async fn session_frames(app: AppHandle, session_id: String) -> Result<Vec<Fr
         .collect())
 }
 
+/// Lo que se anoto al grabar y de lo que sale el estudio: clics, atajos y el rastro del
+/// raton. La vista previa del editor lo dibuja en vivo encima del video, para que el zoom,
+/// los aros y el puntero se vean ANTES de exportar y no solo en el archivo.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioDto {
+    pub clics: Vec<crate::encode::zoom::Clic>,
+    pub teclas: Vec<crate::record::teclas::Atajo>,
+    /// `[ms, x, y]` por fotograma, en pixeles de la region grabada.
+    pub cursor: Vec<(u64, i32, i32)>,
+}
+
+#[tauri::command]
+pub async fn session_studio(app: AppHandle, session_id: String) -> Result<StudioDto> {
+    let session = session_of(&app, &session_id)?;
+    Ok(StudioDto {
+        clics: session.clics,
+        teclas: session.teclas,
+        cursor: session.cursor,
+    })
+}
+
+/// La camara del zoom en cada fotograma, con ese zoom y ese recorte: la misma que usara la
+/// exportacion, para que la vista previa ensenne exactamente lo que va a salir.
+#[tauri::command]
+pub async fn session_camera(
+    app: AppHandle,
+    session_id: String,
+    zoom: f32,
+    crop: Option<crate::encode::recorte::Recorte>,
+) -> Result<Vec<crate::exporter::MuestraCamara>> {
+    let session = session_of(&app, &session_id)?;
+    Ok(crate::exporter::muestras_de_camara(&session, zoom, crop))
+}
+
 #[tauri::command]
 pub async fn frame_image(app: AppHandle, session_id: String, index: usize) -> Result<String> {
     let session = session_of(&app, &session_id)?;
