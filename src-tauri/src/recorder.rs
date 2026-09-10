@@ -258,6 +258,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // dentro del video media 32 pixeles a 1080p, no se podia agrandar, y ademas
         // chocaba con el dibujado: al encenderlo salian dos punteros.
         cursor_capturado: false,
+        formas: Vec::new(),
         frames: Vec::new(),
     };
 
@@ -373,6 +374,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         session.clics = anotaciones.clics;
         session.teclas = anotaciones.teclas;
         session.cursor = anotaciones.cursor;
+        session.formas = anotaciones.formas;
         // Si se ha descartado, las miniaturas serian trabajo para una carpeta que se va a
         // borrar en cuanto esto vuelva.
         if writer_descartar.load(Ordering::Relaxed) {
@@ -756,6 +758,7 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         // Una captura fija no tiene clics que anotar: no hay tiempo dentro.
         clics: Vec::new(),
         cursor_capturado: false,
+        formas: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
         width: image.width(),

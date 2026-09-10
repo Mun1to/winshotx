@@ -128,6 +128,13 @@ pub struct SessionData {
     /// DOS punteros en el video, y eso parece un fallo del programa.
     #[serde(default)]
     pub cursor_capturado: bool,
+    /// Que forma tenia el puntero y desde cuando: `(ms, forma)`, solo cuando cambia.
+    ///
+    /// Va aparte del rastro y solo con los cambios porque casi nunca cambia: un minuto de
+    /// grabacion son un punnado de entradas. Vacio en las grabaciones de antes de esto, que
+    /// se dibujan con la flecha siempre. Las formas son las de `encode::cursor::Forma`.
+    #[serde(default)]
+    pub formas: Vec<(u64, u8)>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -587,6 +594,7 @@ mod tests {
             teclas: Vec::new(),
             cursor: Vec::new(),
             cursor_capturado: false,
+            formas: Vec::new(),
             frames,
         }
     }

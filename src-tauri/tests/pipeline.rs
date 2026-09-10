@@ -79,6 +79,7 @@ fn el_cache_deduplica_y_devuelve_los_fotogramas_intactos() {
         teclas: Vec::new(),
         cursor: Vec::new(),
         cursor_capturado: false,
+        formas: Vec::new(),
         frames,
     };
 
@@ -317,6 +318,7 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
         teclas: Vec::new(),
         cursor: Vec::new(),
         cursor_capturado: false,
+        formas: Vec::new(),
         frames,
     };
     record::generate_thumbnails(&mut session).expect("las miniaturas han fallado");

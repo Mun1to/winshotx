@@ -108,6 +108,7 @@ pub fn pintar(
     clics: &[Clic],
     atajos: &[Atajo],
     rastro: &[(u64, i32, i32)],
+    formas: &[(u64, u8)],
     origen: (u32, u32),
     recortes: &[Recorte],
     ajustes: &Ajustes,
@@ -121,7 +122,7 @@ pub fn pintar(
         if let Some((_, x, y)) = donde_estaba(rastro, ms) {
             if let Some((px, py)) = colocar(x, y, origen, recortes, destino) {
                 let alto = alto_del_puntero(ajustes.cursor, clics, ms);
-                super::cursor::pintar(imagen, px, py, alto);
+                super::cursor::pintar_forma(imagen, px, py, alto, forma_en(formas, ms));
             }
         }
     }
@@ -164,6 +165,16 @@ pub fn pintar(
 
 fn teclas_duracion() -> u64 {
     crate::record::teclas::DURACION_MS
+}
+
+/// Qué forma tenía el puntero en ese instante: el último cambio que no es posterior.
+/// Sin nada anotado (las grabaciones de antes), la flecha.
+pub fn forma_en(formas: &[(u64, u8)], ms: u64) -> super::cursor::Forma {
+    let i = formas.partition_point(|(t, _)| *t <= ms);
+    match i {
+        0 => super::cursor::Forma::Flecha,
+        i => super::cursor::Forma::desde(formas[i - 1].1),
+    }
 }
 
 /// Dónde estaba el ratón en ese instante, según el rastro anotado al grabar.
@@ -261,6 +272,7 @@ mod tests {
                 std::slice::from_ref(&clic),
                 &[],
                 &[],
+                &[],
                 (400, 300),
                 &entera(),
                 &ajustes,
@@ -274,6 +286,18 @@ mod tests {
             "medio segundo despues ya no tendria que quedar nada"
         );
         assert!(!tocado(500), "antes del clic no puede haber aro");
+    }
+
+    #[test]
+    fn la_forma_es_la_del_ultimo_cambio_y_sin_nada_la_flecha() {
+        use super::super::cursor::Forma;
+        assert_eq!(forma_en(&[], 500), Forma::Flecha);
+        let formas = [(100, Forma::Texto as u8), (900, Forma::Mano as u8)];
+        assert_eq!(forma_en(&formas, 50), Forma::Flecha, "antes del primer cambio");
+        assert_eq!(forma_en(&formas, 100), Forma::Texto);
+        assert_eq!(forma_en(&formas, 899), Forma::Texto);
+        assert_eq!(forma_en(&formas, 900), Forma::Mano);
+        assert_eq!(forma_en(&formas, 5000), Forma::Mano);
     }
 
     #[test]
@@ -318,6 +342,7 @@ mod tests {
             std::slice::from_ref(&clic),
             &[],
             &[],
+            &[],
             (400, 300),
             &entera(),
             &Ajustes::default(),
@@ -348,6 +373,7 @@ mod tests {
                 &mut imagen,
                 1000,
                 std::slice::from_ref(&clic),
+                &[],
                 &[],
                 &[],
                 (400, 300),
@@ -409,6 +435,7 @@ mod tests {
                 &clics,
                 &[],
                 &rastro,
+                &[],
                 (1280, 800),
                 &[],
                 &ajustes,
@@ -608,6 +635,7 @@ mod tests {
                 &sesion.clics,
                 &sesion.teclas,
                 &sesion.cursor,
+                &sesion.formas,
                 (sesion.width, sesion.height),
                 &recortes,
                 &ajustes,

@@ -12,8 +12,10 @@ import {
   atajoEn,
   colocar,
   cursorEn,
+  dibujoDe,
   encuadreEn,
   esEntero,
+  formaEn,
   opacidadDelAro,
   punteroNormal,
   radioDelAro,
@@ -139,6 +141,27 @@ describe("la pastilla y el puntero", () => {
     expect(altoDelPuntero(40, clics, 500)).toBe(40);
     expect(altoDelPuntero(40, clics, 1000)).toBeLessThan(40);
     expect(altoDelPuntero(40, clics, 1000 + PULSANDO_MS)).toBe(40);
+  });
+
+  it("la forma es la del último cambio, y sin nada anotado la flecha", () => {
+    expect(formaEn(undefined, 100)).toBe("flecha");
+    expect(formaEn([], 100)).toBe("flecha");
+    const formas: [number, number][] = [
+      [100, 1],
+      [900, 2],
+    ];
+    expect(formaEn(formas, 50)).toBe("flecha");
+    expect(formaEn(formas, 100)).toBe("texto");
+    expect(formaEn(formas, 899)).toBe("texto");
+    expect(formaEn(formas, 900)).toBe("mano");
+  });
+
+  it("cada forma tiene su dibujo y su punto caliente donde lo tiene Windows", () => {
+    expect(dibujoDe("flecha").caliente).toEqual([0, 0]);
+    expect(dibujoDe("texto").caliente).toEqual([0.5, 0.5]);
+    expect(dibujoDe("mano").caliente[1]).toBe(0);
+    expect(dibujoDe("mano").claro).toBe(true);
+    expect(dibujoDe("texto").puntos.length).toBeGreaterThan(4);
   });
 
   it("el puntero normal es la misma cuenta que en Rust", () => {

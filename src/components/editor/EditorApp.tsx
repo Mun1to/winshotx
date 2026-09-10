@@ -451,6 +451,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   alto={session.region.height}
                   msParado={frames[currentIndex]?.timestampMs ?? 0}
                   reproduciendo={playing}
+                  sinEncuadre={herramienta !== null || recortando}
                 />
               )}
               <CapaAnotaciones

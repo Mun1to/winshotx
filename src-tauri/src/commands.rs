@@ -488,6 +488,8 @@ pub struct StudioDto {
     pub teclas: Vec<crate::record::teclas::Atajo>,
     /// `[ms, x, y]` por fotograma, en pixeles de la region grabada.
     pub cursor: Vec<(u64, i32, i32)>,
+    /// `[ms, forma]` cada vez que el puntero cambio de forma: 0 flecha, 1 texto, 2 mano.
+    pub formas: Vec<(u64, u8)>,
 }
 
 #[tauri::command]
@@ -497,6 +499,7 @@ pub async fn session_studio(app: AppHandle, session_id: String) -> Result<Studio
         clics: session.clics,
         teclas: session.teclas,
         cursor: session.cursor,
+        formas: session.formas,
     })
 }
 

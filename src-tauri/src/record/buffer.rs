@@ -543,6 +543,7 @@ mod tests {
             teclas: Vec::new(),
             cursor: Vec::new(),
             cursor_capturado: false,
+            formas: Vec::new(),
             frames,
         };
         let dibujado = crate::record::read_frame(&session, session.frames.len() - 1).unwrap();

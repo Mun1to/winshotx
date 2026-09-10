@@ -76,40 +76,126 @@ fn mezclar(imagen: &mut RgbaImage, x: i32, y: i32, color: [u8; 3], alfa: f32) {
     }
 }
 
-/// Dibuja el puntero con la punta en `(x, y)`.
+/// La barra de texto, la que sale encima de un campo donde se escribe: una I con sus dos
+/// remates. Su punto caliente es el centro.
+const BARRA_TEXTO: [(f32, f32); 12] = [
+    (0.20, 0.00),
+    (0.80, 0.00),
+    (0.80, 0.10),
+    (0.55, 0.10),
+    (0.55, 0.90),
+    (0.80, 0.90),
+    (0.80, 1.00),
+    (0.20, 1.00),
+    (0.20, 0.90),
+    (0.45, 0.90),
+    (0.45, 0.10),
+    (0.20, 0.10),
+];
+
+/// La manita de los enlaces: el índice arriba y los otros tres dedos recogidos, con el
+/// pulgar a la izquierda. Su punto caliente es la yema del índice.
+const MANO: [(f32, f32); 17] = [
+    (0.30, 0.00),
+    (0.44, 0.00),
+    (0.44, 0.42),
+    (0.58, 0.40),
+    (0.58, 0.48),
+    (0.72, 0.46),
+    (0.72, 0.54),
+    (0.84, 0.52),
+    (0.84, 0.60),
+    (0.82, 0.80),
+    (0.70, 1.00),
+    (0.30, 1.00),
+    (0.10, 0.78),
+    (0.00, 0.55),
+    (0.06, 0.48),
+    (0.18, 0.52),
+    (0.30, 0.62),
+];
+
+/// Las tres formas que se distinguen al grabar. Se guardan como número en la sesión.
+///
+/// Solo estas tres porque son las que cambian lo que se entiende: sobre un campo de texto
+/// sale la barra, sobre un enlace la manita, y en todo lo demás la flecha. Los cursores de
+/// esperar, redimensionar y demás son un instante y se dibujan como flecha.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Forma {
+    Flecha = 0,
+    Texto = 1,
+    Mano = 2,
+}
+
+impl Forma {
+    /// Desde el número guardado. Un número desconocido es la flecha, que no falla nunca.
+    pub fn desde(n: u8) -> Self {
+        match n {
+            1 => Self::Texto,
+            2 => Self::Mano,
+            _ => Self::Flecha,
+        }
+    }
+
+    /// Los puntos de la forma, dónde está su punto caliente (de 0 a 1), y si va clara
+    /// (blanca con borde oscuro, como la manita) o oscura (negra con borde blanco).
+    fn dibujo(self) -> (&'static [(f32, f32)], (f32, f32), bool) {
+        match self {
+            Self::Flecha => (&FLECHA, (0.0, 0.0), false),
+            Self::Texto => (&BARRA_TEXTO, (0.5, 0.5), false),
+            Self::Mano => (&MANO, (0.37, 0.0), true),
+        }
+    }
+}
+
+/// Dibuja la flecha con la punta en `(x, y)`.
 ///
 /// `alto` es lo que mide de arriba abajo en píxeles del fotograma; el ancho sale de la
 /// forma. El borde blanco tiene un grosor proporcional, para que a tamaño grande no se
 /// quede como un pelo.
 pub fn pintar(imagen: &mut RgbaImage, x: i32, y: i32, alto: f32) {
+    pintar_forma(imagen, x, y, alto, Forma::Flecha);
+}
+
+/// Dibuja el puntero de esa forma, con su punto caliente en `(x, y)`.
+pub fn pintar_forma(imagen: &mut RgbaImage, x: i32, y: i32, alto: f32, forma: Forma) {
     if alto < 4.0 {
         return;
     }
+    let (puntos, (cu, cv), clara) = forma.dibujo();
+    let (relleno, contorno) = if clara {
+        ([250u8, 250, 250], [16u8, 16, 16])
+    } else {
+        ([16u8, 16, 16], [255u8, 255, 255])
+    };
     let borde = (alto * 0.055).max(1.0);
-    // La caja que hay que recorrer: la forma más el borde, que sobresale por fuera.
-    let ancho = alto * 0.62;
+    // La caja que hay que recorrer: la forma más el borde, que sobresale por fuera. La
+    // forma va de 0 a 1 en cada eje, desplazada para que el punto caliente caiga en (x, y).
+    let origen_x = x as f32 - cu * alto;
+    let origen_y = y as f32 - cv * alto;
     let margen = borde + 1.0;
-    let desde_x = (x as f32 - margen).floor() as i32;
-    let hasta_x = (x as f32 + ancho + margen).ceil() as i32;
-    let desde_y = (y as f32 - margen).floor() as i32;
-    let hasta_y = (y as f32 + alto + margen).ceil() as i32;
+    let desde_x = (origen_x - margen).floor() as i32;
+    let hasta_x = (origen_x + alto + margen).ceil() as i32;
+    let desde_y = (origen_y - margen).floor() as i32;
+    let hasta_y = (origen_y + alto + margen).ceil() as i32;
 
     for py in desde_y..=hasta_y {
         for px in desde_x..=hasta_x {
             // El punto, llevado al sistema de la forma.
-            let u = (px as f32 + 0.5 - x as f32) / alto;
-            let v = (py as f32 + 0.5 - y as f32) / alto;
-            let d = al_borde(u, v, &FLECHA) * alto;
-            if dentro(u, v, &FLECHA) {
-                // Dentro: negro, y blanco pegado al borde por la parte de adentro.
+            let u = (px as f32 + 0.5 - origen_x) / alto;
+            let v = (py as f32 + 0.5 - origen_y) / alto;
+            let d = al_borde(u, v, puntos) * alto;
+            if dentro(u, v, puntos) {
+                // Dentro: el relleno, y el contorno pegado al borde por la parte de adentro.
                 if d < borde * 0.5 {
-                    mezclar(imagen, px, py, [255, 255, 255], (borde * 0.5 - d).min(1.0));
+                    mezclar(imagen, px, py, contorno, (borde * 0.5 - d).min(1.0));
                 } else {
-                    mezclar(imagen, px, py, [16, 16, 16], 1.0);
+                    mezclar(imagen, px, py, relleno, 1.0);
                 }
             } else if d < borde {
-                // Fuera pero cerca: el borde blanco, que se apaga medio píxel más allá.
-                mezclar(imagen, px, py, [255, 255, 255], (borde - d).min(1.0));
+                // Fuera pero cerca: el contorno, que se apaga medio píxel más allá.
+                mezclar(imagen, px, py, contorno, (borde - d).min(1.0));
             }
         }
     }
@@ -183,13 +269,49 @@ mod tests {
         assert_eq!(tocados(&i), 0);
     }
 
-    /// No comprueba nada: deja un PNG para mirar la forma con los ojos.
+    /// La barra de texto va centrada en el punto: tiene que haber tinta a la izquierda y a
+    /// la derecha del punto caliente, no solo hacia un lado como la flecha.
+    #[test]
+    fn la_barra_de_texto_va_centrada_en_el_punto() {
+        let mut i = lienzo();
+        pintar_forma(&mut i, 60, 60, 40.0, Forma::Texto);
+        let fondo = image::Rgba([120, 120, 120, 255]);
+        assert_ne!(*i.get_pixel(60, 60), fondo, "el centro de la I tiene que estar pintado");
+        assert_ne!(*i.get_pixel(50, 42), fondo, "el remate de arriba llega a la izquierda");
+        assert_ne!(*i.get_pixel(70, 42), fondo, "y a la derecha");
+        assert_eq!(*i.get_pixel(60, 20), fondo, "por encima del remate no hay nada");
+    }
+
+    /// La manita va clara con borde oscuro, como la de Windows, y con la yema del indice
+    /// en el punto caliente: por encima del punto no hay nada.
+    #[test]
+    fn la_manita_es_clara_y_apunta_con_el_indice() {
+        let mut i = lienzo();
+        pintar_forma(&mut i, 50, 30, 50.0, Forma::Mano);
+        let claros = i.pixels().filter(|p| p.0[0] > 240).count();
+        let oscuros = i.pixels().filter(|p| p.0[0] < 40).count();
+        assert!(claros > 200, "la manita tiene que ser blanca por dentro: {claros}");
+        assert!(oscuros > 30, "y llevar borde oscuro: {oscuros}");
+        assert_eq!(*i.get_pixel(50, 20), image::Rgba([120, 120, 120, 255]));
+    }
+
+    #[test]
+    fn un_numero_desconocido_es_la_flecha() {
+        assert_eq!(Forma::desde(0), Forma::Flecha);
+        assert_eq!(Forma::desde(1), Forma::Texto);
+        assert_eq!(Forma::desde(2), Forma::Mano);
+        assert_eq!(Forma::desde(77), Forma::Flecha);
+    }
+
+    /// No comprueba nada: deja un PNG para mirar las formas con los ojos.
     #[test]
     #[ignore]
     fn ver_el_cursor() {
-        let mut i = RgbaImage::from_pixel(260, 140, image::Rgba([200, 205, 215, 255]));
+        let mut i = RgbaImage::from_pixel(260, 260, image::Rgba([200, 205, 215, 255]));
         for (n, alto) in [18.0f32, 28.0, 44.0, 70.0].iter().enumerate() {
             pintar(&mut i, 20 + n as i32 * 60, 30, *alto);
+            pintar_forma(&mut i, 40 + n as i32 * 60, 120, *alto, Forma::Texto);
+            pintar_forma(&mut i, 20 + n as i32 * 60, 180, *alto, Forma::Mano);
         }
         let destino = std::env::temp_dir().join("winshotx-cursor.png");
         i.save(&destino).unwrap();

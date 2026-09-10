@@ -66,6 +66,42 @@ pub fn cursor() -> Option<(i32, i32)> {
     donde()
 }
 
+/// Que forma tiene el puntero ahora mismo: la flecha, la barra de texto o la manita.
+///
+/// Windows no dice «esto es una barra de texto»: da el identificador del cursor que hay
+/// puesto, y los cursores del sistema tienen identificadores fijos que se consiguen con
+/// `LoadCursorW`. Se cargan una vez y se comparan. Un cursor personalizado no coincide con
+/// ninguno y se dibuja como flecha, que es lo que hacia siempre.
+pub fn forma() -> crate::encode::cursor::Forma {
+    use crate::encode::cursor::Forma;
+    use std::sync::OnceLock;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetCursorInfo, LoadCursorW, CURSORINFO, IDC_HAND, IDC_IBEAM,
+    };
+
+    static CONOCIDOS: OnceLock<(isize, isize)> = OnceLock::new();
+    let (texto, mano) = *CONOCIDOS.get_or_init(|| {
+        let carga = |id| unsafe { LoadCursorW(None, id) }.map(|h| h.0 as isize).unwrap_or(0);
+        (carga(IDC_IBEAM), carga(IDC_HAND))
+    });
+
+    let mut info = CURSORINFO {
+        cbSize: std::mem::size_of::<CURSORINFO>() as u32,
+        ..Default::default()
+    };
+    if unsafe { GetCursorInfo(&mut info) }.is_err() {
+        return Forma::Flecha;
+    }
+    let actual = info.hCursor.0 as isize;
+    if actual != 0 && actual == texto {
+        Forma::Texto
+    } else if actual != 0 && actual == mano {
+        Forma::Mano
+    } else {
+        Forma::Flecha
+    }
+}
+
 fn donde() -> Option<(i32, i32)> {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
@@ -94,5 +130,18 @@ mod tests {
     #[test]
     fn el_puntero_esta_en_algun_sitio() {
         assert!(donde().is_some(), "Windows siempre sabe dónde está el ratón");
+    }
+
+    /// Preguntar la forma no revienta y devuelve una de las tres, sea cual sea el cursor
+    /// que tenga puesto quien corre las pruebas.
+    #[test]
+    fn la_forma_del_puntero_es_una_de_las_tres() {
+        let f = forma();
+        assert!(matches!(
+            f,
+            crate::encode::cursor::Forma::Flecha
+                | crate::encode::cursor::Forma::Texto
+                | crate::encode::cursor::Forma::Mano
+        ));
     }
 }

@@ -59,6 +59,7 @@ mod tests {
             teclas: Vec::new(),
             cursor: Vec::new(),
             cursor_capturado: false,
+            formas: Vec::new(),
             frames,
         };
         let t = Instant::now();

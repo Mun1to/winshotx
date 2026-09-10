@@ -145,6 +145,8 @@ export interface StudioData {
   teclas: AtajoGrabado[];
   /** `[ms, x, y]` por fotograma. */
   cursor: [number, number, number][];
+  /** `[ms, forma]` cada vez que el puntero cambió de forma: 0 flecha, 1 texto, 2 mano. */
+  formas: [number, number][];
 }
 
 /**

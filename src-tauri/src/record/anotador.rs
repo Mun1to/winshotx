@@ -26,6 +26,8 @@ pub struct Anotaciones {
     pub clics: Vec<zoom::Clic>,
     pub teclas: Vec<teclas::Atajo>,
     pub cursor: Vec<(u64, i32, i32)>,
+    /// La forma del puntero cada vez que cambia: flecha, barra de texto o manita.
+    pub formas: Vec<(u64, u8)>,
 }
 
 pub struct Anotador {
@@ -42,6 +44,9 @@ pub struct Anotador {
     atajo: Option<teclas::Atajo>,
     pastillas: pastilla::Cache,
     anotaciones: Anotaciones,
+    /// La ultima forma vista, para apuntar solo los cambios. Empieza en un valor que no
+    /// es ninguna forma, asi el primer fotograma siempre deja la suya escrita.
+    ultima_forma: u8,
 }
 
 impl Anotador {
@@ -56,6 +61,7 @@ impl Anotador {
             atajo: None,
             pastillas: pastilla::Cache::default(),
             anotaciones: Anotaciones::default(),
+            ultima_forma: u8::MAX,
         }
     }
 
@@ -68,6 +74,11 @@ impl Anotador {
         let (rx, ry) = (self.region.x, self.region.y);
         if let Some((cx, cy)) = raton::cursor() {
             self.anotaciones.cursor.push((ts_ms, cx - rx, cy - ry));
+        }
+        let forma = raton::forma() as u8;
+        if forma != self.ultima_forma {
+            self.anotaciones.formas.push((ts_ms, forma));
+            self.ultima_forma = forma;
         }
         if let Some(clic) = self.raton.mirar(ts_ms) {
             self.anotaciones.clics.push(zoom::Clic {

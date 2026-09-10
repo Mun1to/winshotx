@@ -188,7 +188,14 @@ pub fn siguiendo(
     // más peso en lo reciente. Es lo que convierte un temblor en un movimiento.
     let desde = ms.saturating_sub(ajustes.seguir_ms);
     let (mut sx, mut sy, mut peso_total) = (0.0f32, 0.0f32, 0.0f32);
-    for (t, x, y) in rastro.iter().filter(|(t, _, _)| *t >= desde && *t <= ms) {
+    // El rastro va en orden de tiempo, asi que la ventana se encuentra con dos busquedas
+    // binarias en vez de recorrerlo entero. Recorrerlo se notaba: esto se pregunta una
+    // vez por fotograma y el rastro tiene un punto por fotograma, o sea que una grabacion
+    // de diez minutos eran trescientos millones de comparaciones para exportar, y otras
+    // tantas cada vez que la vista previa mueve el deslizador del zoom.
+    let inicio = rastro.partition_point(|(t, _, _)| *t < desde);
+    let fin = rastro.partition_point(|(t, _, _)| *t <= ms);
+    for (t, x, y) in &rastro[inicio..fin.max(inicio)] {
         // De 0 en el punto más antiguo a 1 en el más reciente.
         let cercania = (*t - desde) as f32 / ajustes.seguir_ms.max(1) as f32;
         let peso = 0.15 + cercania * cercania;

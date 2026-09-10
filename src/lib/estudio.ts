@@ -112,6 +112,17 @@ export function colocar(
   return { u: nu, v: nv };
 }
 
+/** Las tres formas del puntero, con los mismos números que `cursor::Forma` en Rust. */
+export type Forma = "flecha" | "texto" | "mano";
+
+/** Qué forma tenía el puntero en ese instante. Sin nada anotado, la flecha. */
+export function formaEn(formas: [number, number][] | undefined, ms: number): Forma {
+  if (!formas || formas.length === 0) return "flecha";
+  const i = ultimaAntes(formas, ms, (f) => f[0]);
+  if (i < 0) return "flecha";
+  return formas[i][1] === 1 ? "texto" : formas[i][1] === 2 ? "mano" : "flecha";
+}
+
 /** Dónde estaba el ratón en ese instante: la última anotación que no es posterior. */
 export function cursorEn(
   rastro: [number, number, number][],
@@ -176,7 +187,7 @@ export function altoDelPuntero(alto: number, clics: ClicGrabado[], ms: number): 
 
 /**
  * La flecha del puntero, de 0 a 1 donde 1 es su alto. Los mismos siete puntos que
- * `cursor::FLECHA`, medidos del puntero de Windows.
+ * `cursor::FLECHA`, medidos del puntero de Windows. El punto caliente es la punta, (0, 0).
  */
 export const FLECHA: [number, number][] = [
   [0.0, 0.0],
@@ -187,3 +198,59 @@ export const FLECHA: [number, number][] = [
   [0.39, 0.57],
   [0.62, 0.57],
 ];
+
+/** La barra de texto: una I con sus dos remates. El punto caliente es su centro. */
+export const BARRA_TEXTO: [number, number][] = [
+  [0.2, 0.0],
+  [0.8, 0.0],
+  [0.8, 0.1],
+  [0.55, 0.1],
+  [0.55, 0.9],
+  [0.8, 0.9],
+  [0.8, 1.0],
+  [0.2, 1.0],
+  [0.2, 0.9],
+  [0.45, 0.9],
+  [0.45, 0.1],
+  [0.2, 0.1],
+];
+
+/**
+ * La manita de los enlaces: el índice arriba y los otros tres dedos recogidos. El punto
+ * caliente es la yema del índice.
+ */
+export const MANO: [number, number][] = [
+  [0.3, 0.0],
+  [0.44, 0.0],
+  [0.44, 0.42],
+  [0.58, 0.4],
+  [0.58, 0.48],
+  [0.72, 0.46],
+  [0.72, 0.54],
+  [0.84, 0.52],
+  [0.84, 0.6],
+  [0.82, 0.8],
+  [0.7, 1.0],
+  [0.3, 1.0],
+  [0.1, 0.78],
+  [0.0, 0.55],
+  [0.06, 0.48],
+  [0.18, 0.52],
+  [0.3, 0.62],
+];
+
+/** El dibujo de cada forma: sus puntos, dónde está su punto caliente y de qué color va. */
+export function dibujoDe(forma: Forma): {
+  puntos: [number, number][];
+  caliente: [number, number];
+  claro: boolean;
+} {
+  switch (forma) {
+    case "texto":
+      return { puntos: BARRA_TEXTO, caliente: [0.5, 0.5], claro: false };
+    case "mano":
+      return { puntos: MANO, caliente: [0.37, 0.0], claro: true };
+    default:
+      return { puntos: FLECHA, caliente: [0, 0], claro: false };
+  }
+}

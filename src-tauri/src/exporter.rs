@@ -397,6 +397,7 @@ struct Estudio<'a> {
     clics: &'a [zoom::Clic],
     teclas: &'a [crate::record::teclas::Atajo],
     rastro: &'a [(u64, i32, i32)],
+    formas: &'a [(u64, u8)],
     origen: (u32, u32),
     ajustes: estudio::Ajustes,
     ms: u64,
@@ -411,6 +412,7 @@ impl Estudio<'_> {
             self.clics,
             self.teclas,
             self.rastro,
+            self.formas,
             self.origen,
             recortes,
             &self.ajustes,
@@ -432,6 +434,7 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
         clics: &session.clics,
         teclas: &session.teclas,
         rastro: &session.cursor,
+        formas: &session.formas,
         origen: (session.width.max(1), session.height.max(1)),
         ajustes,
         ms: 0,
@@ -846,6 +849,7 @@ mod tests {
             teclas: Vec::new(),
             cursor: Vec::new(),
             cursor_capturado: false,
+            formas: Vec::new(),
             frames,
         }
     }
@@ -1342,6 +1346,7 @@ mod la_camara_del_exportador {
             teclas: Vec::new(),
             cursor: Vec::new(),
             cursor_capturado: false,
+            formas: Vec::new(),
             frames: Vec::new(),
         }
     }

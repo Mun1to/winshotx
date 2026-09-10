@@ -6,13 +6,15 @@ import {
   atajoEn,
   colocar,
   cursorEn,
+  dibujoDe,
   encuadreEn,
+  formaEn,
   opacidadDelAro,
   radioDelAro,
   radioMaximo,
   transformacion,
-  FLECHA,
   type Estudio,
+  type Forma,
 } from "../../lib/estudio";
 
 interface Props {
@@ -28,6 +30,11 @@ interface Props {
   /** El instante que se enseña cuando el vídeo está parado. */
   msParado: number;
   reproduciendo: boolean;
+  /**
+   * Enseñar la imagen entera aunque haya zoom: mientras se dibuja o se recorta, lo que se
+   * dibuja se mide sobre la captura entera y con la cámara acercada caería en otro sitio.
+   */
+  sinEncuadre?: boolean;
 }
 
 /**
@@ -48,11 +55,12 @@ export function CapaEstudio({
   alto,
   msParado,
   reproduciendo,
+  sinEncuadre = false,
 }: Props) {
   const lienzo = useRef<HTMLCanvasElement>(null);
   // Lo último que se sabe, para que el bucle no tenga que reengancharse a cada cambio.
-  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo });
-  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo };
+  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre });
+  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre };
 
   useEffect(() => {
     let vivo = true;
@@ -63,7 +71,8 @@ export function CapaEstudio({
       peticion = requestAnimationFrame(pintar);
       const canvas = lienzo.current;
       const video = videoRef.current;
-      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo } = estado.current;
+      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre } =
+        estado.current;
       if (!canvas) return;
 
       const caja = canvas.getBoundingClientRect();
@@ -76,7 +85,7 @@ export function CapaEstudio({
       }
 
       const ms = reproduciendo && video ? video.currentTime * 1000 : msParado;
-      const encuadre = estudio.zoom > 1.05 ? encuadreEn(camara, ms) : null;
+      const encuadre = estudio.zoom > 1.05 && !sinEncuadre ? encuadreEn(camara, ms) : null;
       if (video) {
         const css = transformacion(encuadre, W, H);
         if (video.style.transform !== css) video.style.transform = css;
@@ -104,7 +113,7 @@ export function CapaEstudio({
         const punta = raton ? aPantalla(raton[0], raton[1]) : null;
         if (punta) {
           const altoPx = altoDelPuntero(estudio.cursor, datos.clics, ms) * escala;
-          flecha(ctx, punta.x, punta.y, altoPx);
+          puntero(ctx, punta.x, punta.y, altoPx, formaEn(datos.formas, ms));
         }
       }
 
@@ -151,22 +160,32 @@ export function CapaEstudio({
   );
 }
 
-/** La flecha de Windows con la punta en `(x, y)`: relleno oscuro y borde blanco. */
-function flecha(ctx: CanvasRenderingContext2D, x: number, y: number, alto: number) {
+/**
+ * El puntero con su punto caliente en `(x, y)`: la flecha y la barra de texto van oscuras
+ * con borde blanco, la manita va blanca con borde oscuro, como las de Windows.
+ */
+function puntero(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  alto: number,
+  forma: Forma,
+) {
   if (alto < 4) return;
+  const { puntos, caliente, claro } = dibujoDe(forma);
   ctx.beginPath();
-  FLECHA.forEach(([u, v], i) => {
-    const px = x + u * alto;
-    const py = y + v * alto;
+  puntos.forEach(([u, v], i) => {
+    const px = x + (u - caliente[0]) * alto;
+    const py = y + (v - caliente[1]) * alto;
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   });
   ctx.closePath();
   ctx.lineJoin = "round";
   ctx.lineWidth = Math.max(1, alto * 0.11);
-  ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+  ctx.strokeStyle = claro ? "rgb(16, 16, 16)" : "rgba(255, 255, 255, 1)";
   ctx.stroke();
-  ctx.fillStyle = "rgb(16, 16, 16)";
+  ctx.fillStyle = claro ? "rgb(250, 250, 250)" : "rgb(16, 16, 16)";
   ctx.fill();
 }
 

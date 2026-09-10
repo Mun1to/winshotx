@@ -878,6 +878,7 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
             .map(|(ms, x, y)| (ms - t0, x, y))
             .collect(),
         cursor_capturado: encargo.con_cursor,
+        formas: Vec::new(),
         frames,
     };
     record::generate_thumbnails(&mut session)?;
