@@ -333,6 +333,20 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       void unlisten.then((fn) => fn());
     };
   }, [sessionId]);
+  /**
+   * Las miniaturas de la tira llegan DESPUÉS de que el editor abra: al parar se abre
+   * enseguida, sin esperarlas, y cuando están en disco Rust avisa y se vuelven a pedir los
+   * fotogramas, ya con sus rutas. Hasta entonces la tira enseña huecos.
+   */
+  useEffect(() => {
+    const unlisten = listen<string>(EVENTS.sessionThumbs, (e) => {
+      if (e.payload !== sessionId) return;
+      void sessionFrames(sessionId).then(setFrames).catch(() => undefined);
+    });
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, [sessionId]);
   // Sin MP4 la vista previa es una imagen: la miniatura de 80 px se veria borrosa,
   // asi que se pide el fotograma entero y se sustituye en cuanto llega.
   const [stillPath, setStillPath] = useState<string | null>(null);

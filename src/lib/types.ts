@@ -78,8 +78,6 @@ export type SessionFormat = RecordFormat | "still";
 export interface RecordOptions {
   format: RecordFormat;
   fps: number;
-  /** El puntero de Windows tal cual dentro de los fotogramas. Apagado, se dibuja al exportar. */
-  captureCursor: boolean;
   audio: boolean;
   /** La voz por el micrófono. Con el audio del sistema puesto, van mezclados. */
   microphone: boolean;
@@ -392,6 +390,8 @@ export const EVENTS = {
   screenNumber: "winshotx://screen-number",
   /** El vídeo de vista previa de una sesión ya está escrito, y con él llega el play. */
   sessionPreview: "winshotx://session-preview",
+  /** Las miniaturas de la tira ya están: el editor vuelve a pedir los fotogramas. */
+  sessionThumbs: "winshotx://session-thumbs",
   /**
    * Lo que hay elegido en la barra del overlay.
    *

@@ -1,6 +1,6 @@
 # Trampas de Tauri v2 + Windows que costaron sangre
 
-Cuarenta y cinco fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
+Cuarenta y seis fallos reales encontrados montando winshotx. Ninguno da error claro: la app se
 cuelga, sale en negro o no hace nada. Si vuelve a pasar algo raro con ventanas, empieza
 por aquí. El número 6 es el peor de todos, porque no se ve en desarrollo.
 
@@ -1314,3 +1314,27 @@ cuestan decenas de megabytes cada una) de dos pixeles **por fuera** de la region
 atraviesa y que no cogen el foco. Por fuera es lo que las deja fuera del video. Se prueban
 fuera de las pantallas con `PrintWindow`, que pide a la ventana que se pinte en memoria: asi
 se comprueba el color de verdad sin que aparezca nada en el escritorio de nadie.
+
+## 46. Sin el cursor cocido, una pantalla quieta no manda fotogramas: el rastro del raton tenia huecos
+
+El puntero dibujado al exportar salia «donde no deberia de estar» (Munir, 10 de septiembre de
+2026). El rastro del raton se apuntaba **una vez por fotograma recibido** de Windows Graphics
+Capture, y WGC solo entrega un fotograma cuando la pantalla cambia. Con el cursor cocido en la
+imagen, mover el raton cambia la pantalla y llegan fotogramas; **sin el cursor cocido, mover el
+raton sobre una pantalla quieta no cambia nada**, no llega ningun fotograma, y el rastro se queda
+sin puntos justo mientras el raton se mueve. Al exportar, el puntero se clavaba en el ultimo
+punto y luego pegaba un salto.
+
+**El arreglo:** el raton se mira desde su propio hilo cada 16 ms (`anotador::Muestreador`), con
+el **mismo cero de reloj** que los fotogramas (`CaptureFlags::start`, compartido) y sin mirar en
+pausa (los tiempos se descuentan al reanudar y un punto tomado en medio iria hacia atras). Se ve
+en `%TEMP%\winshotx\sessions\<id>\session.json`: antes `cursor` tenia saltos de mas de un
+segundo entre puntos; ahora va a 16 ms sin fotogramas de por medio.
+
+**Y la segunda mitad de la queja, «en mala calidad»:** el puntero era un poligono dibujado a
+mano. Ahora se lee de Windows la imagen real del cursor que hay puesto (`record/punteros.rs`:
+`GetIconInfo` y `GetDIBits`; los de color con su transparencia, y los monocromos, que son dos
+mascaras apiladas, tambien) y es lo que se escala y se pega. Ojo: `LoadCursorW(IDC_ARROW)` desde
+un proceso sin ventana devuelve la version **monocroma**, y `GetCursorInfo` devuelve un cursor
+nulo mientras se teclea, asi que las pruebas cargan los cursores por su identificador fijo y
+toleran que no haya ninguno a la vista.

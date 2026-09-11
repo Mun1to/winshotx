@@ -161,6 +161,20 @@ describe("la vista previa del estudio", () => {
     expect(llamadas.some((l) => l.comando === "session_studio")).toBe(true);
   });
 
+  it("cuando Rust avisa de que las miniaturas ya están, se vuelven a pedir los fotogramas", async () => {
+    preparar(VERTICAL, "C:\\s\\preview.mp4", "video");
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    const antes = llamadas.filter((l) => l.comando === "session_frames").length;
+    emite("winshotx://session-thumbs", "s1");
+    await waitFor(() =>
+      expect(llamadas.filter((l) => l.comando === "session_frames").length).toBe(antes + 1),
+    );
+    // El aviso de otra sesión no hace nada.
+    emite("winshotx://session-thumbs", "otra");
+    expect(llamadas.filter((l) => l.comando === "session_frames").length).toBe(antes + 1);
+  });
+
   it("una captura fija no la lleva: no tiene tiempo dentro", async () => {
     const vista = await abrir();
     expect(vista.container.querySelector("[data-capa-estudio]")).toBeNull();

@@ -152,11 +152,12 @@ Rust a propósito y sus pruebas comprueban las mismas cifras. Hasta ese día el 
 existía en el archivo exportado, y quien lo ponía tenía que exportar, mirar, volver y exportar
 otra vez.
 
-**El puntero, dos caminos.** Con «Incluir el cursor» puesto (lo de fábrica), Windows Graphics
-Capture lo mete en los fotogramas tal cual: es lo más fiel y no puede fallar. Apagado, la
-grabación **anota** por dónde va y el editor lo **dibuja al exportar** del tamaño que se pida (de
-fábrica un 4 % del alto, entre 24 y 64 píxeles), encogiéndose un poco en cada clic. Para que eso
-salga bien hicieron falta dos cosas que no estaban:
+**El puntero nunca va cocido en los fotogramas.** La grabación **anota** por dónde va y el editor
+lo **dibuja al exportar** del tamaño que se pida (de fábrica un 4 % del alto, entre 24 y 64
+píxeles), encogiéndose un poco en cada clic. Cocido por Windows Graphics Capture salía pequeño,
+no se podía agrandar, y al encender el dibujado se veían dos («luego pones tú uno encima y se ven
+dos cursores», Munir, 11 de septiembre de 2026). «Incluir el cursor» solo afecta a las fotos.
+Para que el dibujado salga bien hicieron falta dos cosas que no estaban:
 
 - **Un reloj propio para el ratón** (`anotador::Muestreador`): se mira cada 16 ms desde un hilo
   aparte, con el mismo cero que los fotogramas (`CaptureFlags::start`). Antes se miraba una vez

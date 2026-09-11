@@ -14,17 +14,14 @@ use crate::windows_mgr;
 
 pub const EVENT_TICK: &str = "winshotx://recording-tick";
 pub const EVENT_SESSION_READY: &str = "winshotx://session-ready";
+/// Las miniaturas de la tira ya estan en disco: el editor vuelve a pedir los fotogramas.
+pub const EVENT_SESSION_THUMBS: &str = "winshotx://session-thumbs";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordOptions {
     pub format: String,
     pub fps: u32,
-    /// Meter el puntero de Windows tal cual en los fotogramas, del tamanno que tenga en
-    /// la pantalla. Es lo mas fiel y lo de fabrica. Apagado, se anota por donde va y el
-    /// editor lo dibuja al exportar del tamanno que se quiera, con su imagen de verdad.
-    #[serde(default = "si")]
-    pub capture_cursor: bool,
     /// Lo que suena por los altavoces.
     pub audio: bool,
     /// Y la voz de quien graba. Los dos a la vez se mezclan en una sola pista.
@@ -37,10 +34,6 @@ pub struct RecordOptions {
     /// suelta no sale nunca, para que una contrasenna escrita no acabe dentro del video.
     #[serde(default)]
     pub highlight_keys: bool,
-}
-
-fn si() -> bool {
-    true
 }
 
 /// Lo que la barra ensenna, cinco veces por segundo.
@@ -262,7 +255,12 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         clics: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
-        cursor_capturado: options.capture_cursor,
+        // El puntero de Windows NUNCA va cocido en los fotogramas: se anota por donde va
+        // (cada 16 ms, con su imagen de verdad) y el editor lo dibuja al exportar del
+        // tamanno que se quiera. Cocido salia pequenno, no se podia agrandar, y al
+        // encender el dibujado se veian dos. Munir, 11 de septiembre de 2026: «luego pones
+        // tu uno encima y luego se ven dos cursores».
+        cursor_capturado: false,
         formas: Vec::new(),
         punteros: Vec::new(),
         cambios_puntero: Vec::new(),
@@ -414,12 +412,12 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                 });
             }
         }
-        // Si se ha descartado, las miniaturas serian trabajo para una carpeta que se va a
-        // borrar en cuanto esto vuelva.
         if writer_descartar.load(Ordering::Relaxed) {
             return Ok(session);
         }
-        record::generate_thumbnails(&mut session)?;
+        // Las miniaturas de la tira NO se hacen aqui: son lo que mas tarda al parar (una
+        // por fotograma) y el editor no las necesita para abrir. Se hacen despues, con el
+        // editor ya delante, y la tira se rellena cuando llegan. Ver `entregar`.
         session.persist()?;
         Ok(session)
     });
@@ -427,7 +425,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let control = win::start(
         region,
         origin,
-        options.capture_cursor,
+        false,
         fps,
         CaptureFlags {
             sender,
@@ -474,7 +472,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         has_audio: false,
         // Todavia no se ha pulsado nada: esto es lo que se devuelve al EMPEZAR a grabar.
         has_clicks: false,
-        cursor_baked: options.capture_cursor,
+        cursor_baked: false,
         format: options.format,
         mp4_path: None,
     };
@@ -671,6 +669,21 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
     if open_editor {
         if let Err(error) = windows_mgr::open_editor(app, &session.id) {
             eprintln!("no se ha podido abrir el editor: {error}");
+        }
+        // Y ahora las miniaturas, con el editor ya abierto. Antes se hacian ANTES de abrirlo
+        // y con un minuto de grabacion la barra decia «Guardando…» varios segundos sin que
+        // hubiera nada que guardar: solo miniaturas que el editor puede esperar.
+        let mut con_miniaturas = session.clone();
+        match record::generate_thumbnails(&mut con_miniaturas) {
+            Ok(()) => {
+                let _ = con_miniaturas.persist();
+                state
+                    .sessions
+                    .write()
+                    .insert(con_miniaturas.id.clone(), con_miniaturas);
+                let _ = app.emit(EVENT_SESSION_THUMBS, session.id.clone());
+            }
+            Err(error) => eprintln!("[winshotx] sin miniaturas para la tira: {error}"),
         }
     } else {
         // Sin editor, la grabacion se guarda sola en la carpeta de siempre, con los mismos

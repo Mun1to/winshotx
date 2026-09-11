@@ -35,8 +35,12 @@ export function FrameStrip({
   const ultimo = Math.max(0, frames.length - 1);
 
   // Las rutas no cambian mientras dure la sesion, pero sin esto se recalculaban las de los
-  // ochenta y pico fotogramas en cada tic de la reproduccion.
-  const miniaturas = useMemo(() => frames.map((f) => convertFileSrc(f.thumbPath)), [frames]);
+  // ochenta y pico fotogramas en cada tic de la reproduccion. Sin ruta todavia (las
+  // miniaturas se hacen despues de abrir el editor) se deja un hueco, no una imagen rota.
+  const miniaturas = useMemo(
+    () => frames.map((f) => (f.thumbPath ? convertFileSrc(f.thumbPath) : null)),
+    [frames],
+  );
 
   /** Posicion del puntero dentro de la tira, en pixeles. */
   const xEnTira = useCallback((clientX: number) => {
@@ -115,21 +119,34 @@ export function FrameStrip({
         className="relative h-[52px] overflow-x-auto overflow-y-hidden rounded-lg border border-white/8 bg-black/40"
       >
         <div className="relative h-[42px]" style={{ width }}>
-          {frames.map((frame, posicion) => (
-            <img
-              key={frame.index}
-              src={miniaturas[posicion]}
-              alt=""
-              draggable={false}
-              loading="lazy"
-              style={{
-                left: frame.index * THUMB_W,
-                width: THUMB_W,
-                height: THUMB_H,
-              }}
-              className="absolute top-px object-cover opacity-90"
-            />
-          ))}
+          {frames.map((frame, posicion) =>
+            miniaturas[posicion] ? (
+              <img
+                key={frame.index}
+                src={miniaturas[posicion]}
+                alt=""
+                draggable={false}
+                loading="lazy"
+                style={{
+                  left: frame.index * THUMB_W,
+                  width: THUMB_W,
+                  height: THUMB_H,
+                }}
+                className="absolute top-px object-cover opacity-90"
+              />
+            ) : (
+              <div
+                key={frame.index}
+                data-miniatura-pendiente
+                style={{
+                  left: frame.index * THUMB_W,
+                  width: THUMB_W,
+                  height: THUMB_H,
+                }}
+                className="absolute top-px animate-pulse bg-white/5"
+              />
+            ),
+          )}
 
           {/* Lo que se descarta se apaga, como en ScreenToGif. */}
           <div
