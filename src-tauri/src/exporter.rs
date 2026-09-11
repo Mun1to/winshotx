@@ -476,6 +476,9 @@ struct Camara {
     /// mientras esta acercada, en vez de quedarse clavada en el punto del clic.
     rastro: Vec<(u64, i32, i32)>,
     ajustes: zoom::Ajustes,
+    /// La inercia del centro. Con estado, y por eso los fotogramas se le piden en orden:
+    /// es lo que evita que un clic en la otra punta mueva la camara de golpe.
+    seguimiento: std::cell::RefCell<zoom::Seguimiento>,
     /// El tamanno sobre el que se mide, que es el de la imagen YA recortada por el usuario.
     ancho: u32,
     alto: u32,
@@ -548,6 +551,7 @@ impl Camara {
             ajustes,
             ancho,
             alto,
+            seguimiento: std::cell::RefCell::new(zoom::Seguimiento::default()),
         })
     }
 }
@@ -613,7 +617,11 @@ trait EnElInstante {
 impl EnElInstante for Option<Camara> {
     fn en(&self, ms: u64) -> Option<Recorte> {
         let c = self.as_ref()?;
-        let mirando = zoom::siguiendo(&c.tramos, &c.rastro, ms, c.ancho, c.alto, &c.ajustes);
+        let objetivo = zoom::siguiendo(&c.tramos, &c.rastro, ms, c.ancho, c.alto, &c.ajustes);
+        let mirando = c
+            .seguimiento
+            .borrow_mut()
+            .avanzar(objetivo, ms, c.ancho, &c.ajustes);
         (mirando.escala > 1.001).then(|| mirando.como_recorte(c.ancho, c.alto))
     }
 }
@@ -922,6 +930,48 @@ mod tests {
         for m in muestras_de_camara(&session, 2.0, Some(mitad_derecha)) {
             assert!(m.x1 >= 0.5 - 0.001 && m.x2 <= 1.0, "se sale del recorte: {m:?}");
         }
+    }
+
+    /// Dos clics en puntas opuestas, uno detras de otro: el encuadre muestreado se mueve
+    /// de uno al otro sin saltos, nunca mas de lo que permite la velocidad maxima entre dos
+    /// fotogramas seguidos. Es la queja de Munir del 12 de septiembre de 2026.
+    #[test]
+    fn la_camara_muestreada_no_pega_saltos_entre_dos_clics_lejanos() {
+        let mut session = session_with(&[33; 120]);
+        session.width = 1920;
+        session.height = 1080;
+        session.region.width = 1920;
+        session.region.height = 1080;
+        session.clics = vec![
+            zoom::Clic { ms: 500, x: 150, y: 500, derecho: false },
+            zoom::Clic { ms: 1300, x: 1750, y: 500, derecho: false },
+        ];
+        // El raton salta con el clic: en 500 esta a la izquierda y en 1300 a la derecha.
+        session.cursor = (0..120u64)
+            .map(|i| {
+                let ms = i * 33;
+                (ms, if ms < 1300 { 150 } else { 1750 }, 500)
+            })
+            .collect();
+        let muestras = muestras_de_camara(&session, 2.0, None);
+        let ajustes = zoom::Ajustes::default();
+        let tope = ajustes.velocidad_max * 33.0 / 1000.0 + 0.002;
+        let mut cruzo = false;
+        for par in muestras.windows(2) {
+            // Solo mientras la camara esta acercada y quieta de escala: al acercarse o
+            // alejarse el encuadre cambia de tamanno, y eso mueve el borde sin ser un salto.
+            let ancho_antes = par[0].x2 - par[0].x1;
+            let ancho_ahora = par[1].x2 - par[1].x1;
+            if (ancho_antes - ancho_ahora).abs() > 1e-4 {
+                continue;
+            }
+            let salto = (par[1].x1 - par[0].x1).abs();
+            assert!(salto <= tope, "entre {} y {} ms el encuadre salta {salto} (tope {tope})", par[0].ms, par[1].ms);
+            if par[1].x1 > 0.4 {
+                cruzo = true;
+            }
+        }
+        assert!(cruzo, "la camara tenia que acabar mirando a la derecha");
     }
 
     #[test]

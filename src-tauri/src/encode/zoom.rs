@@ -46,6 +46,14 @@ pub struct Ajustes {
     /// Más alto es más suave y más retrasado; más bajo, más pegado y más nervioso. Medio
     /// segundo deja la cámara acompañando sin dar tirones.
     pub seguir_ms: u64,
+    /// La inercia del centro: lo que tarda la cámara en recorrer dos tercios de lo que le
+    /// falta hasta donde tiene que mirar. Es lo que convierte un cambio de sitio en un
+    /// desplazamiento y no en un salto.
+    pub inercia_ms: u64,
+    /// Y el tope: cuánto puede moverse el centro por segundo, en anchos de imagen. Con
+    /// 1,3, cruzar la pantalla entera cuesta como poco tres cuartos de segundo, que es lo
+    /// que se sigue con la vista sin marearse.
+    pub velocidad_max: f32,
 }
 
 impl Default for Ajustes {
@@ -55,6 +63,63 @@ impl Default for Ajustes {
             transicion_ms: 450,
             quieto_ms: 1200,
             seguir_ms: 500,
+            inercia_ms: 220,
+            velocidad_max: 1.3,
+        }
+    }
+}
+
+/// El centro de la cámara yendo hacia donde tiene que mirar, con inercia.
+///
+/// `siguiendo` dice a dónde debería mirar la cámara en cada instante; esto es lo que hace
+/// que llegue **sin saltos**. Un clic a la izquierda y otro a la derecha ponían el objetivo
+/// en la otra punta de la pantalla y la cámara cruzaba en un par de fotogramas: con el zoom
+/// puesto, eso es un latigazo. Munir, 12 de septiembre de 2026: «es muy brusco cuando al
+/// hacer zoom en clics te vas de un lado a otro».
+///
+/// Va con estado y se le pregunta **en orden**, fotograma a fotograma: en cada paso cierra
+/// una parte de la distancia que le falta (un muelle amortiguado) y nunca más deprisa que
+/// la velocidad máxima. Los dos que la usan, el exportador y la cámara muestreada para la
+/// vista previa, recorren los fotogramas en orden, así que los dos ven el mismo camino.
+#[derive(Debug, Default, Clone)]
+pub struct Seguimiento {
+    /// Dónde estaba el centro la última vez, y cuándo.
+    ultimo: Option<(f32, f32, u64)>,
+}
+
+impl Seguimiento {
+    /// La cámara que se enseña en este instante, partiendo de donde estaba la vez anterior.
+    ///
+    /// Con la imagen entera no hay centro que arrastrar: se olvida lo anterior, y así el
+    /// siguiente acercamiento arranca centrado en su clic y no viniendo de otro sitio.
+    pub fn avanzar(&mut self, objetivo: Camara, ms: u64, ancho: u32, ajustes: &Ajustes) -> Camara {
+        if objetivo.escala <= 1.001 {
+            self.ultimo = None;
+            return objetivo;
+        }
+        let (tx, ty) = (objetivo.x as f32, objetivo.y as f32);
+        let (px, py) = match self.ultimo {
+            Some((x, y, t)) if ms >= t => {
+                let dt = (ms - t) as f32;
+                let parte = 1.0 - (-dt / ajustes.inercia_ms.max(1) as f32).exp();
+                let mut dx = (tx - x) * parte;
+                let mut dy = (ty - y) * parte;
+                let tope = ajustes.velocidad_max * ancho.max(1) as f32 * dt / 1000.0;
+                let paso = (dx * dx + dy * dy).sqrt();
+                if paso > tope && paso > 0.0 {
+                    dx *= tope / paso;
+                    dy *= tope / paso;
+                }
+                (x + dx, y + dy)
+            }
+            // La primera vez, o si se ha vuelto hacia atrás: donde toque, sin recorrido.
+            _ => (tx, ty),
+        };
+        self.ultimo = Some((px, py, ms));
+        Camara {
+            x: px.round() as i32,
+            y: py.round() as i32,
+            escala: objetivo.escala,
         }
     }
 }
@@ -129,15 +194,21 @@ impl Camara {
 /// Agrupa los clics en tramos de zoom.
 ///
 /// Dos clics entran en el mismo tramo si el segundo llega antes de que el primero haya
-/// terminado de estar quieto. El centro es el del PRIMER clic del grupo y no la media: la
-/// media de dos esquinas opuestas cae en el medio de la pantalla, que es donde no ha pasado
-/// nada.
+/// **terminado del todo**, alejamiento incluido. Antes el corte estaba al acabar el rato
+/// quieto, y un clic que caía durante el alejamiento abría un tramo nuevo que se pisaba con
+/// el que se estaba cerrando: `camara` cogía el primero hasta que acababa y de golpe pasaba
+/// al segundo, ya acercado en otro sitio. Un corte seco en mitad del vídeo.
+///
+/// El centro es el del PRIMER clic del grupo y no la media: la media de dos esquinas
+/// opuestas cae en el medio de la pantalla, que es donde no ha pasado nada. A partir de ahí
+/// la cámara sigue al ratón, con inercia (`Seguimiento`).
 pub fn tramos(clics: &[Clic], ajustes: &Ajustes) -> Vec<Tramo> {
     let mut salida: Vec<Tramo> = Vec::new();
     for clic in clics {
         match salida.last_mut() {
-            // Sigue dentro del anterior: se alarga en vez de abrir otro.
-            Some(ultimo) if clic.ms <= ultimo.fin_cerca_ms + ajustes.quieto_ms => {
+            // Sigue dentro del anterior, o empezaria a acercarse antes de que el anterior
+            // acabe de alejarse: se alarga en vez de abrir otro que se pisaria con el.
+            Some(ultimo) if clic.ms <= ultimo.hasta_ms + ajustes.transicion_ms => {
                 ultimo.fin_cerca_ms = clic.ms;
                 ultimo.hasta_ms = clic.ms + ajustes.quieto_ms + ajustes.transicion_ms;
             }
@@ -265,6 +336,8 @@ mod tests {
             transicion_ms: 400,
             quieto_ms: 1000,
             seguir_ms: 500,
+            inercia_ms: 220,
+            velocidad_max: 1.3,
         }
     }
 
@@ -344,6 +417,75 @@ mod tests {
         let t = tramos(&[clic(2000, 100, 100), clic(9000, 800, 400)], &ajustes());
         assert_eq!(t.len(), 2);
         assert_eq!((t[1].x, t[1].y), (800, 400));
+    }
+
+    #[test]
+    fn un_clic_durante_el_alejamiento_alarga_el_tramo_en_vez_de_pisarlo() {
+        // El primero se queda quieto hasta 3000 y se aleja hasta 3400. Un clic a 3200 caia
+        // en el alejamiento y abria un tramo que se pisaba con este: corte seco.
+        let a = ajustes();
+        let t = tramos(&[clic(2000, 100, 100), clic(3200, 1800, 900)], &a);
+        assert_eq!(t.len(), 1, "tenia que alargarse, no abrir otro: {t:?}");
+        assert_eq!(t[0].fin_cerca_ms, 3200);
+    }
+
+    #[test]
+    fn dos_tramos_seguidos_nunca_se_pisan() {
+        let a = ajustes();
+        let clics: Vec<Clic> = (0..6).map(|i| clic(1000 + i * 1450, (i * 300) as i32, 100)).collect();
+        let t = tramos(&clics, &a);
+        for par in t.windows(2) {
+            assert!(
+                par[1].desde_ms >= par[0].hasta_ms,
+                "el tramo {:?} empieza antes de que acabe {:?}",
+                par[1],
+                par[0]
+            );
+        }
+    }
+
+    /// El objetivo salta de una punta a la otra y la camara NO: va, y nunca mas deprisa
+    /// que el tope. Es lo que evita el latigazo al hacer clic a la izquierda y luego a la
+    /// derecha con el zoom puesto.
+    #[test]
+    fn la_camara_no_salta_de_un_lado_a_otro() {
+        let a = ajustes();
+        let ancho = 1920u32;
+        let mut s = Seguimiento::default();
+        let cerca = |x: i32| Camara { x, y: 500, escala: 2.0 };
+        let primera = s.avanzar(cerca(200), 1000, ancho, &a);
+        assert_eq!(primera.x, 200, "la primera vez se pone donde toca, sin recorrido");
+
+        // A partir de aqui el objetivo esta en la otra punta.
+        let mut anterior = primera;
+        let mut llego = None;
+        for i in 1..=90u64 {
+            let ms = 1000 + i * 33;
+            let ahora = s.avanzar(cerca(1700), ms, ancho, &a);
+            let paso = (ahora.x - anterior.x).abs() as f32;
+            let tope = a.velocidad_max * ancho as f32 * 33.0 / 1000.0 + 1.0;
+            assert!(paso <= tope, "a los {ms} ms ha saltado {paso} px, mas que el tope {tope}");
+            assert!(ahora.x >= anterior.x, "no puede volver atras");
+            if llego.is_none() && (ahora.x - 1700).abs() <= 20 {
+                llego = Some(ms);
+            }
+            anterior = ahora;
+        }
+        let llego = llego.expect("tiene que llegar");
+        assert!(llego - 1000 >= 500, "ha llegado demasiado rapido: {} ms", llego - 1000);
+        assert!(llego - 1000 <= 2500, "ha tardado demasiado: {} ms", llego - 1000);
+    }
+
+    #[test]
+    fn con_la_imagen_entera_la_camara_se_olvida_de_donde_estaba() {
+        let a = ajustes();
+        let mut s = Seguimiento::default();
+        s.avanzar(Camara { x: 200, y: 200, escala: 2.0 }, 1000, 1920, &a);
+        let entera = s.avanzar(Camara::entera(1920, 1080), 1500, 1920, &a);
+        assert_eq!(entera.escala, 1.0);
+        // El siguiente acercamiento arranca centrado en su clic, no viniendo del anterior.
+        let nuevo = s.avanzar(Camara { x: 1700, y: 900, escala: 2.0 }, 2000, 1920, &a);
+        assert_eq!((nuevo.x, nuevo.y), (1700, 900));
     }
 
     #[test]
