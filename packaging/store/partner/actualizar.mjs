@@ -37,7 +37,20 @@ await page.goto(`https://partner.microsoft.com/es-es/dashboard/products/${ID}/ov
   waitUntil: "domcontentloaded",
   timeout: 60000,
 });
-await page.waitForTimeout(9000);
+// La pantalla pinta primero un esqueleto gris, y el boton todavia no existe. Con una espera
+// de nueve segundos fijos, el dia que Partner Center va lento el guion dice que no hay boton
+// y la foto sale en blanco: no falta el boton, falta la pagina. Se espera a que haya
+// CONTENIDO, no a que pase un rato.
+await page
+  .waitForFunction(
+    () =>
+      document.querySelectorAll('a[href*="/submissions/"]').length > 0 ||
+      /Iniciar actualizaci\u00f3n|Start update/.test(document.body.innerText),
+    null,
+    { timeout: 90000 },
+  )
+  .catch(() => console.log("La pagina no termino de cargar en 90 s."));
+await page.waitForTimeout(2000);
 
 /** Los envios que la pagina enlaza, que es de donde sale el ID nuevo. */
 async function envios() {

@@ -20,12 +20,14 @@ import { existsSync } from "node:fs";
 const PERFIL = process.env.PERFIL;
 const ENVIO = process.env.ENVIO;
 const SOLO_MIRAR = process.env.SOLO_MIRAR === "1";
+// Para reintentar solo el guardado cuando el paquete ya esta subido, sin subirlo dos veces.
+const SOLO_GUARDAR = process.env.SOLO_GUARDAR === "1";
 const MSIX = process.env.MSIX;
 if (!PERFIL || !ENVIO) {
   console.error("Faltan PERFIL=<carpeta con la sesion> y ENVIO=<id del envio>.");
   process.exit(1);
 }
-if (!SOLO_MIRAR && (!MSIX || !existsSync(MSIX))) {
+if (!SOLO_MIRAR && !SOLO_GUARDAR && (!MSIX || !existsSync(MSIX))) {
   console.error(`Falta MSIX=<ruta al paquete>, o no existe: ${MSIX}`);
   process.exit(1);
 }
@@ -65,56 +67,84 @@ if (SOLO_MIRAR) {
   process.exit(0);
 }
 
-// --- Subir el nuevo --------------------------------------------------------------
-const file = page.locator('input[type="file"]').first();
-if ((await file.count()) === 0) {
-  console.log("No hay input de archivo en esta pantalla.");
-  await ctx.close();
-  process.exit(1);
-}
-await file.setInputFiles(MSIX);
-console.log("Subiendo", MSIX);
-
-// La validacion del paquete tarda: se espera a que su nombre aparezca en la pantalla.
-const nombre = MSIX.split(/[\\/]/).pop();
-let subido = false;
-for (let i = 0; i < 40; i++) {
-  await page.waitForTimeout(6000);
-  texto = await cuerpo();
-  if (texto.includes(nombre)) {
-    subido = true;
-    break;
+if (!SOLO_GUARDAR) {
+  // --- Subir el nuevo --------------------------------------------------------------
+  const file = page.locator('input[type="file"]').first();
+  if ((await file.count()) === 0) {
+    console.log("No hay input de archivo en esta pantalla.");
+    await ctx.close();
+    process.exit(1);
   }
-  process.stdout.write(".");
-}
-console.log(`\n${subido ? "Subido" : "NO aparece"}: ${nombre}`);
-console.log("PAQUETES AHORA:", paquetesDe(await cuerpo()));
+  await file.setInputFiles(MSIX);
+  console.log("Subiendo", MSIX);
 
-// --- Quitar los viejos -----------------------------------------------------------
-for (const viejo of paquetesDe(await cuerpo()).filter((p) => p !== nombre)) {
-  console.log("Quitando", viejo);
-  const fila = page.locator(`tr:has-text("${viejo}"), div:has-text("${viejo}")`).last();
-  const quitar = fila.locator('button:has-text("Quitar"), button:has-text("Remove"), [aria-label*="liminar"], [aria-label*="emove"]').first();
-  if ((await quitar.count()) === 0) {
-    console.log("  sin boton de quitar a la vista");
-    continue;
+  // La validacion del paquete tarda: se espera a que su nombre aparezca en la pantalla.
+  const nombre = MSIX.split(/[\\/]/).pop();
+  let subido = false;
+  for (let i = 0; i < 40; i++) {
+    await page.waitForTimeout(6000);
+    texto = await cuerpo();
+    if (texto.includes(nombre)) {
+      subido = true;
+      break;
+    }
+    process.stdout.write(".");
   }
-  await quitar.click().catch((e) => console.log("  fallo:", e.message.slice(0, 80)));
-  await page.waitForTimeout(4000);
+  console.log(`\n${subido ? "Subido" : "NO aparece"}: ${nombre}`);
+  console.log("PAQUETES AHORA:", paquetesDe(await cuerpo()));
+
+  // --- Quitar los viejos -----------------------------------------------------------
+  for (const viejo of paquetesDe(await cuerpo()).filter((p) => p !== nombre)) {
+    console.log("Quitando", viejo);
+    const fila = page.locator(`tr:has-text("${viejo}"), div:has-text("${viejo}")`).last();
+    const quitar = fila.locator('button:has-text("Quitar"), button:has-text("Remove"), [aria-label*="liminar"], [aria-label*="emove"]').first();
+    if ((await quitar.count()) === 0) {
+      // Partner Center tacha el paquete viejo por su cuenta en cuanto hay uno mayor que
+    // sirve a los mismos clientes, y lo quita al guardar. Entonces no hay boton, y no falta.
+    console.log("  sin boton: la pantalla ya lo da por quitado al guardar");
+      continue;
+    }
+    await quitar.click().catch((e) => console.log("  fallo:", e.message.slice(0, 80)));
+    await page.waitForTimeout(4000);
+  }
 }
 
 // --- Guardar ---------------------------------------------------------------------
+// El boton de verdad es un <button> al fondo del todo. Buscarlo por texto a secas tambien
+// encuentra el «Save.» suelto del aviso de arriba, que no se puede pulsar: sale un timeout
+// y la version anterior de esto lo cantaba igualmente como «GUARDADO». Se coge por rol, y
+// si el click normal no entra se pulsa desde el DOM.
 await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 await page.waitForTimeout(3000);
-const guardar = page.locator('text=/^\\s*(Save|Guardar)\\s*$/');
-console.log("botones de guardar encontrados:", await guardar.count());
-if ((await guardar.count()) > 0) {
-  await guardar.last().scrollIntoViewIfNeeded().catch(() => {});
-  await guardar.last().click({ timeout: 25000 }).catch((e) => console.log("fallo al guardar:", e.message.slice(0, 100)));
+const guardar = page.getByRole("button", { name: /^\s*(Save|Guardar)\s*$/ }).last();
+if ((await guardar.count()) === 0) {
+  console.log("NO hay boton de guardar: el envio se queda como estaba.");
+} else {
+  await guardar.scrollIntoViewIfNeeded().catch(() => {});
+  const pulsado = await guardar
+    .click({ timeout: 25000 })
+    .then(() => true)
+    .catch(async (e) => {
+      console.log("  el click normal fallo:", e.message.slice(0, 80));
+      return guardar
+        .evaluate((el) => el.click())
+        .then(() => true)
+        .catch(() => false);
+    });
+  console.log(pulsado ? "Guardar pulsado" : "NO se pudo pulsar Guardar");
   await page.waitForTimeout(20000);
-  console.log("GUARDADO");
 }
 
+// Lo unico que dice si se guardo es volver a leer la pantalla: al guardar desaparece el
+// paquete viejo, que Partner Center deja tachado con su aviso hasta que se confirma.
+await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
+await page.waitForTimeout(20000);
 await page.screenshot({ path: `${FOTOS}/paquetes-despues.png`, fullPage: true }).catch(() => {});
-console.log("PAQUETES DESPUES:", paquetesDe(await cuerpo()));
+const final = await cuerpo();
+console.log("PAQUETES DESPUES:", paquetesDe(final));
+console.log(
+  /will be removed after you save|se quitara despues de guardar/i.test(final)
+    ? "SIN GUARDAR: el paquete viejo sigue esperando confirmacion."
+    : "GUARDADO: en el envio solo queda el paquete nuevo.",
+);
 await ctx.close();

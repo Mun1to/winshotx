@@ -46,6 +46,7 @@ jurisdiccion». Eso es una declaracion de Munir, no una tarea: la marca el, como
     PERFIL=<...> PULSAR=1 node packaging/store/partner/actualizar.mjs   crea el envio nuevo
     PERFIL=<...> ENVIO=<id> SOLO_MIRAR=1 node .../paquete.mjs           mira los paquetes
     PERFIL=<...> ENVIO=<id> MSIX=<ruta> node .../paquete.mjs            sube el nuevo
+    PERFIL=<...> ENVIO=<id> SOLO_GUARDAR=1 node .../paquete.mjs        reintenta el guardado
     PERFIL=<...> ENVIO=<id> node .../descripcion.mjs                    textos y novedades
     PERFIL=<...> ENVIO=<id> SOLO_MIRAR=1 node .../caracteristicas.mjs   cuenta las 11
     PERFIL=<...> ENVIO=<id> node .../caracteristicas.mjs                las escribe
@@ -128,3 +129,18 @@ certificacion tarda dias y mandarla a medias es perder esa ronda entera.
 9. **Quitar un paquete no lo quita: lo marca.** Sale tachado y con un aviso de «haz clic en
    Guardar para confirmar la eliminacion», y hasta que no se pulsa **Save** (que no es
    «Guardar borrador», es otro boton) el paquete viejo sigue en el envio.
+
+## Dos trampas mas, de la 0.2.25 (12 de septiembre de 2026)
+
+16. **La pantalla de «Informacion general» pinta un esqueleto gris antes de tener botones.**
+    `actualizar.mjs` esperaba nueve segundos fijos, y el dia que Partner Center va lento
+    concluye que no esta «Iniciar actualizacion», guarda una foto con la pagina a medio
+    cargar y se planta. No falta el boton: falta la pagina. Ahora espera a que haya
+    CONTENIDO (un enlace a `/submissions/` o el texto del boton), hasta 90 segundos.
+17. **En la pantalla de paquetes hay mas de un «Save».** Cogerlo por texto se lleva el «Save.»
+    suelto de un aviso, que no se puede pulsar: timeout de 25 segundos y el guion cantando
+    «GUARDADO» sin haber guardado nada, que es el mismo fallo que ya tuvieron
+    `descripcion.mjs` y `reenviar.mjs`. Se coge por rol (`getByRole("button")`), con un click
+    desde el DOM de reserva, y despues se **recarga y se comprueba** que el aviso «will be
+    removed after you save» ya no esta. Si el guardado falla, `SOLO_GUARDAR=1` lo reintenta
+    sin volver a subir el paquete, que si no acaban dos copias del mismo MSIX en el envio.
