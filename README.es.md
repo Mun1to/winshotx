@@ -9,7 +9,7 @@
 [![Licencia MIT](https://img.shields.io/badge/licencia-MIT-0a9bff?style=flat-square)](LICENSE)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#estado)
 [![Última versión](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=versión)](https://github.com/Mun1to/winshotx/releases/latest)
-[![Instalador 2,52 MB](https://img.shields.io/badge/instalador-2,52%20MB-22c55e?style=flat-square)](#instalación)
+[![Instalador 2,54 MB](https://img.shields.io/badge/instalador-2,54%20MB-22c55e?style=flat-square)](#instalación)
 [![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-desc%C3%A1rgalo-0078d4?style=flat-square&logo=microsoftstore&logoColor=white)](https://apps.microsoft.com/detail/9P1NKWNRXD6Z)
 [![Hecho con Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
@@ -27,7 +27,7 @@
 Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región con lupa de
 píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Enseña la selección ya pintada
 114 ms después del atajo con tres pantallas, gasta 33 MB de memoria y cabe en un instalador de
-2,52 MB. Sin cuenta, sin nube, sin telemetría y sin FFmpeg empaquetado.
+2,54 MB. Sin cuenta, sin nube, sin telemetría y sin FFmpeg empaquetado.
 
 > **La interfaz habla español e inglés**, y arranca en el que tenga puesto Windows. Se puede fijar
 > uno de los dos en **Ajustes → La app → Aspecto**. Los identificadores y los comentarios del código
@@ -36,7 +36,7 @@ píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Enseña la s
 ## Instalación
 
 [**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2,52 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
+· 2,54 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
 versiones anteriores están en [Releases](../../releases).
 
 Otros dos caminos, la misma app:
