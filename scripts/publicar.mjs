@@ -80,6 +80,10 @@ const ANUNCIAN = [
   join("frontlaxweb", "index.html"),
   join("frontlaxweb", "docs", "index.html"),
   join("frontlaxweb", "llms.txt"),
+  // El generador del ingles lleva las frases espannolas como clave. Si el tamanno cambia en el
+  // HTML y no aqui, la clave deja de encontrarse y el despliegue de la web falla despues de
+  // haber publicado la version, que es justo cuando ya no lo mira nadie.
+  join("frontlaxweb", "generar-en.mjs"),
 ];
 const desfasados = [];
 let veces = 0;
