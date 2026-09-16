@@ -171,6 +171,12 @@ fn pantalla_elegida(pedida: Option<u32>) -> Result<MonitorInfo> {
     elegida.ok_or_else(|| AppError::Msg("no se ha detectado ningún monitor".into()))
 }
 
+/// La pantalla que cogeria el anillo ahora mismo, para el banco que mide lo que cuesta.
+#[cfg(all(test, windows))]
+pub(crate) fn pantalla_para_medir() -> Result<MonitorInfo> {
+    pantalla_elegida(None)
+}
+
 /// Enciende el anillo sobre la pantalla donde este el raton.
 #[cfg(windows)]
 pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
@@ -1216,7 +1222,7 @@ mod pruebas_con_pantalla {
                 paused_ms: Arc::new(AtomicU64::new(0)),
                 min_interval_ms: 0,
                 start: Instant::now(),
-            },
+                },
         )
         .expect("no ha arrancado la captura");
 

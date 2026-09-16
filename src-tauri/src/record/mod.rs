@@ -16,6 +16,7 @@ pub mod punteros;
 #[cfg(windows)]
 pub mod audio;
 #[cfg(test)]
+mod bench_anillo;
 mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
