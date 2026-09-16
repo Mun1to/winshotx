@@ -348,9 +348,14 @@ mod tests {
         let m = Muestreador::empezar(Anotador::new(region(), false, false), reloj, pause);
         std::thread::sleep(Duration::from_millis(120));
         let anotaciones = m.terminar();
+        // Mas de una vez, no cuatro. Lo que esta prueba demuestra es que el muestreador
+        // tiene reloj propio y no espera a que llegue un fotograma; cuantas vueltas le den
+        // en 120 ms lo decide la maquina, y con las otras trescientas pruebas corriendo a
+        // la vez se ha visto quedarse en tres. Pedir cuatro convertia eso en un fallo rojo
+        // que no reproduce nadie y que no dice nada del producto.
         assert!(
-            anotaciones.cursor.len() >= 4,
-            "en 120 ms tendria que haber mirado varias veces: {}",
+            anotaciones.cursor.len() >= 2,
+            "en 120 ms tendria que haber mirado mas de una vez: {}",
             anotaciones.cursor.len()
         );
         let tiempos: Vec<u64> = anotaciones.cursor.iter().map(|p| p.0).collect();
