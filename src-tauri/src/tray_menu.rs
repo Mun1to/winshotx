@@ -135,6 +135,25 @@ pub fn esconder(app: &AppHandle) {
     }
 }
 
+/// Que el menu no salga dentro de lo que se esta grabando.
+///
+/// Se abre a menudo EN MEDIO de una grabacion, porque es desde donde se para, y hasta
+/// ahora se colaba en el video: un panel cuadrado encima del tutorial, que ademas se queda
+/// ahi hasta que pierde el foco. Munir, el 16 de septiembre de 2026: *«que cuando estes
+/// grabando no se muestre el menu de settings cuadrado feo que se queda»*.
+///
+/// No se esconde, que desde el se para la grabacion: se le dice a Windows que no lo grabe.
+/// Quien esta delante lo ve y lo pulsa igual; en el video sale lo que hay detras.
+///
+/// **Se vuelve a poner como estaba al terminar**, y no da igual: el temporizador de la
+/// captura existe justo para fotografiar menus abiertos, y un menu que se quedara excluido
+/// saldria en blanco en la foto sin que ningun error lo dijera.
+pub fn fuera_de_la_grabacion(app: &AppHandle, grabando: bool) {
+    if let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) {
+        crate::platform::window_style::fuera_de_la_captura(&window, grabando);
+    }
+}
+
 fn esta_a_la_vista(app: &AppHandle) -> bool {
     app.get_webview_window(TRAY_MENU_LABEL)
         .and_then(|w| w.is_visible().ok())
@@ -160,6 +179,12 @@ fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
         monitor_de(anclaje.0, anclaje.1),
     );
     let _ = window.set_position(PhysicalPosition::new(x, y));
+    // La ventana se reutiliza de una vez para otra, asi que esto se decide cada vez que se
+    // abre y no al crearla: grabando, fuera del video; el resto del tiempo, normal.
+    crate::platform::window_style::fuera_de_la_captura(
+        &window,
+        app.state::<crate::state::AppState>().is_recording(),
+    );
     window.show()?;
     window.set_focus()?;
     // La ventana se reutiliza, asi que hay que decirle que vuelva a leer el estado: el

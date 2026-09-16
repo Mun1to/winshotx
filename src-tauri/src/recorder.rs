@@ -478,6 +478,9 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     };
 
     *state.recording.lock() = Some(recording);
+    // El menu de la bandeja, si estaba abierto, se queda fuera del video desde el primer
+    // fotograma. El que se abra DESPUES lo resuelve el propio menu al ensennarse.
+    crate::tray_menu::fuera_de_la_grabacion(app, true);
     match windows_mgr::open_recorder(app, region) {
         Ok(label) => {
             if let Some(recording) = state.recording.lock().as_mut() {
@@ -624,6 +627,7 @@ pub fn stop(app: &AppHandle) -> Result<()> {
         return Err(AppError::NoRecording);
     };
     avisar_barra(app, tick_de(&recording, true));
+    crate::tray_menu::fuera_de_la_grabacion(app, false);
     let open_editor = state.settings.read().open_editor_after_recording;
     let barra = recording.barra.clone();
 
@@ -756,6 +760,7 @@ pub fn cancel(app: &AppHandle) -> Result<()> {
         return Err(AppError::NoRecording);
     };
     recording.descartar.store(true, Ordering::Relaxed);
+    crate::tray_menu::fuera_de_la_grabacion(app, false);
     cerrar_barra(app, recording.barra.clone());
     std::thread::spawn(move || match terminar(recording) {
         Ok(session) => {
