@@ -284,8 +284,10 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 let mut vestir = estudio_de(&session, &request);
                 // En orden y no `read_frame`: los fotogramas se exportan de principio a
                 // fin, y reconstruir cada uno desde el ultimo entero eran hasta treinta
-                // parches por fotograma en vez de uno. Ver `LectorEnOrden`.
-                let mut lector = record::LectorEnOrden::nuevo(&session)?;
+                // parches por fotograma en vez de uno. Y por delante, en otro hilo, para
+                // que leer el siguiente no espere a vestir y codificar este. Ver
+                // `LectorPorDelante`.
+                let mut lector = record::LectorPorDelante::nuevo(session.clone(), indices.clone());
                 let mut loader = |index: usize| {
                     let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
                     let recortes = recortes_de!(ms);
@@ -694,8 +696,9 @@ where
     let (ancho_final, alto_final) = marco.medida(ancho, alto);
     let camara = Camara::preparar(session, request);
     let mut vestir = estudio_de(session, request);
-    // En orden, igual que el GIF: un parche por fotograma en vez de hasta treinta.
-    let mut lector = record::LectorEnOrden::nuevo(session)?;
+    // En orden, igual que el GIF: un parche por fotograma en vez de hasta treinta. Y por
+    // delante, en otro hilo, para que leer no espere a vestir y codificar.
+    let mut lector = record::LectorPorDelante::nuevo(session.clone(), indices.to_vec());
     let mut loader = |index: usize| {
         let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
         let mut recortes: Vec<Recorte> = request.crop.into_iter().collect();
@@ -1621,6 +1624,78 @@ mod la_camara_del_exportador {
 mod medir {
     use super::*;
     use std::time::Instant;
+
+    /// Exportar a MP4 leyendo por delante (en otro hilo) frente a leer en el mismo hilo,
+    /// sobre una sesion de 1080p hecha aqui mismo, vistiendo cada fotograma como lo hace
+    /// `encode_mp4`. `cargo test --release --lib medir_exportar_por_delante -- --ignored --nocapture`
+    #[test]
+    #[ignore = "es una medicion, no una comprobacion"]
+    fn medir_exportar_por_delante() {
+        let (ancho, alto, cuantos) = (1920u32, 1080u32, 90usize);
+        let dir = std::env::temp_dir().join("winshotx-bench-exportar");
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut cache = record::FrameCache::new(&dir).unwrap();
+        // Ruido de fondo y un bloque que se mueve: parches pequennos, pero cada fotograma
+        // hay que descomprimirlo y pegarlo igual.
+        let mut fondo = vec![0u8; (ancho * alto) as usize * 4];
+        let mut s: u32 = 99;
+        for p in fondo.chunks_exact_mut(4) {
+            s = s.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            p.copy_from_slice(&[(s >> 24) as u8, (s >> 16) as u8, (s >> 8) as u8, 255]);
+        }
+        for i in 0..cuantos as u32 {
+            let mut f = fondo.clone();
+            for y in 400..464u32 {
+                for x in (100 + i * 12)..(164 + i * 12) {
+                    let p = ((y * ancho + x) * 4) as usize;
+                    f[p..p + 3].copy_from_slice(&[255, 255, 255]);
+                }
+            }
+            cache.push_rgba(&f, ancho, alto, u64::from(i) * 33).unwrap();
+        }
+        let frames = cache.finish(cuantos as u64 * 33, 30).unwrap();
+        let session = SessionData {
+            id: "bench".into(),
+            dir: dir.clone(),
+            region: crate::capture::Rect { x: 0, y: 0, width: ancho, height: alto },
+            fps: 30,
+            format: "mp4".into(),
+            has_audio: false,
+            width: ancho,
+            height: alto,
+            mp4_path: None,
+            audio: None,
+            clics: Vec::new(),
+            teclas: Vec::new(),
+            cursor: Vec::new(),
+            cursor_capturado: false,
+            formas: Vec::new(),
+            punteros: Vec::new(),
+            cambios_puntero: Vec::new(),
+            frames,
+        };
+        let indices: Vec<usize> = (0..cuantos).collect();
+        let delays = vec![33u32; cuantos];
+        let marco = marco::Marco { margen: 0, fondo: marco::Fondo::desde("blanco"), sombra: false };
+        let opciones = mp4::Mp4Options { width: ancho, height: alto, fps: 30, quality: 75 };
+
+        let vestir = |imagen: image::RgbaImage| enmarcar_y_anotar(imagen, ancho, alto, marco, &[], &[], None);
+
+        let t = Instant::now();
+        let mut en_orden = record::LectorEnOrden::nuevo(&session).unwrap();
+        let mut loader = |i: usize| en_orden.en(i).map(vestir);
+        mp4::encode(&indices, &delays, &mut loader, &dir.join("mismo-hilo.mp4"), &opciones, None, |_, _, _| {}).unwrap();
+        let mismo_hilo = t.elapsed().as_secs_f64() * 1000.0 / cuantos as f64;
+
+        let t = Instant::now();
+        let mut por_delante = record::LectorPorDelante::nuevo(session.clone(), indices.clone());
+        let mut loader = |i: usize| por_delante.en(i).map(vestir);
+        mp4::encode(&indices, &delays, &mut loader, &dir.join("por-delante.mp4"), &opciones, None, |_, _, _| {}).unwrap();
+        let otro_hilo = t.elapsed().as_secs_f64() * 1000.0 / cuantos as f64;
+
+        println!("[exportar 1080p] mismo hilo {mismo_hilo:.1} ms/fotograma · leyendo por delante {otro_hilo:.1} ms/fotograma");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     fn sesion() -> Option<SessionData> {
         let dir = std::env::var("WINSHOTX_SESION").ok()?;

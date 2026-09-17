@@ -1023,17 +1023,25 @@ fn escribir_vista_previa(
     // es justo el caso para el que existe `LectorEnOrden`. El encogido va aqui y no dentro
     // del codificador porque el suyo es un Lanczos que cuesta 46 ms por fotograma, diez
     // veces mas que el filtro de caja de `reducir`.
-    let copia = session.clone();
-    let mut lector = record::LectorEnOrden::nuevo(&copia)?;
-    let mut cargar = |indice: usize| {
-        let fotograma = lector.en(indice)?;
-        Ok(if fotograma.dimensions() == (ancho, alto) {
-            fotograma
-        } else {
-            crate::encode::escalar::reducir(&fotograma, ancho, alto)
-        })
-    };
-    crate::encode::mp4::encode(
+    //
+    // **Y se lee en otro hilo, dos fotogramas por delante del codificador.** Leer uno
+    // (descomprimir el QOI, pegar sus zonas, encogerlo) y codificarlo son dos trabajos
+    // que no se pisan: mientras Media Foundation mastica uno, aqui ya esta el siguiente.
+    // Medido el 17 de septiembre de 2026 sobre el anillo de verdad: de 37 a 21 ms por
+    // fotograma, y un rescate de treinta segundos a 60 fps son novecientos.
+    let mut lector = record::LectorPorDelante::nuevo_con(
+        session.clone(),
+        indices.clone(),
+        move |fotograma| {
+            if fotograma.dimensions() == (ancho, alto) {
+                fotograma
+            } else {
+                crate::encode::escalar::reducir(&fotograma, ancho, alto)
+            }
+        },
+    );
+    let mut cargar = |indice: usize| lector.en(indice);
+    let resultado = crate::encode::mp4::encode(
         &indices,
         &retardos,
         &mut cargar,
@@ -1048,7 +1056,8 @@ fn escribir_vista_previa(
         },
         sonido,
         |_, hechos, total| avisar(hechos, total),
-    )?;
+    );
+    resultado?;
     session.mp4_path = Some(ruta);
     Ok(())
 }
