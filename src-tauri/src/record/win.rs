@@ -48,6 +48,42 @@ pub struct CaptureFlags {
     /// mismo tiempo. Antes cada uno tenia su `Instant::now()` y se separaban unos
     /// milisegundos que no se podian corregir.
     pub start: Instant,
+    /// Los bufers ya usados que vuelven para el siguiente fotograma. Ver `Reciclados`.
+    pub reciclados: Reciclados,
+}
+
+/// Bufers de fotograma que van y vuelven, para no reservar ocho megabytes nuevos sesenta
+/// veces por segundo.
+///
+/// **Medido el 17 de septiembre de 2026** (`bench_anillo`, en release): copiar un fotograma
+/// de 1920x1080 a un `Vec` recien reservado cuesta 3,4 ms, y copiarlo a uno que ya se uso
+/// cuesta 0,5 ms. La diferencia no es la copia, es que Windows tiene que buscar y poner a
+/// cero ocho megabytes de paginas nuevas cada vez, y el anillo hace eso toda la tarde.
+///
+/// Quien consume el fotograma lo devuelve con `devolver` cuando termina; la captura coge
+/// uno con `coger` antes de copiar. Si no hay ninguno devuelto se reserva uno nuevo, como
+/// antes: esto es un ahorro, nunca una espera.
+#[derive(Clone, Default)]
+pub struct Reciclados(Arc<parking_lot::Mutex<Vec<Vec<u8>>>>);
+
+impl Reciclados {
+    /// Cuantos se guardan como mucho. Los que sobren se sueltan: si el consumidor va por
+    /// detras y devuelve de golpe, no hace falta quedarse con veinte fotogramas en memoria.
+    const TOPE: usize = 4;
+
+    /// Un bufer vacio, con la memoria de la vez anterior si la hay.
+    pub fn coger(&self) -> Vec<u8> {
+        self.0.lock().pop().unwrap_or_default()
+    }
+
+    /// Devuelve un bufer para que lo use el siguiente fotograma.
+    pub fn devolver(&self, mut bufer: Vec<u8>) {
+        bufer.clear();
+        let mut guardados = self.0.lock();
+        if guardados.len() < Self::TOPE {
+            guardados.push(bufer);
+        }
+    }
 }
 
 pub struct RegionCapture {
@@ -96,7 +132,9 @@ impl GraphicsCaptureApiHandler for RegionCapture {
         let (x1, y1, x2, y2) = self.flags.crop;
         let buffer = frame.buffer_crop(x1, y1, x2, y2)?;
         // El crate necesita un Vec de apoyo por si la textura viene con relleno de fila.
-        let data = buffer.as_nopadding_buffer(&mut self.scratch).to_vec();
+        // A un bufer devuelto si lo hay, que ya tiene sus paginas puestas; si no, a uno nuevo.
+        let mut data = self.flags.reciclados.coger();
+        data.extend_from_slice(buffer.as_nopadding_buffer(&mut self.scratch));
 
         let elapsed = now.duration_since(self.flags.start).as_millis() as u64;
         let ts_ms = elapsed.saturating_sub(self.flags.paused_ms.load(Ordering::Relaxed));
@@ -212,7 +250,21 @@ mod tests {
     }
 
     /// Graba la region medio segundo y dice si el ultimo fotograma lleva magenta.
-    fn sale_el_magenta(region: Rect) -> bool {
+    fn sale_el_magenta(region: Rect, ventana: isize) -> bool {
+        // Windows solo entrega un fotograma cuando algo cambia en el monitor. Con la
+        // pantalla quieta llegaba UNO y luego nada, y esta prueba dependia de que el
+        // terminal estuviera escribiendo en esa pantalla para pasar. Asi que la propia
+        // ventana se mueve un pixel de un lado a otro mientras dura la captura, y los
+        // fotogramas llegan porque hay motivo, no por suerte.
+        //
+        // La mueve ESTE hilo, que es el que la creo: desde otro hilo `SetWindowPos` manda
+        // el mensaje al dueño, que estaria aqui esperando fotogramas sin atenderlo, y se
+        // queda colgado para siempre. Ya paso.
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER,
+        };
+        let hwnd = HWND(ventana as *mut core::ffi::c_void);
+        let mut paso = 0;
         let (sender, receiver) = channel::<CapturedFrame>();
         let stop = Arc::new(AtomicBool::new(false));
         let control = start(
@@ -228,6 +280,7 @@ mod tests {
                 paused_ms: Arc::new(AtomicU64::new(0)),
                 min_interval_ms: 0,
                 start: Instant::now(),
+                reciclados: Reciclados::default(),
             },
         )
         .expect("no se ha podido arrancar la captura");
@@ -237,9 +290,20 @@ mod tests {
         let hasta = Instant::now() + Duration::from_millis(600);
         let mut ultimo = None;
         while Instant::now() < hasta {
-            match receiver.recv_timeout(Duration::from_millis(200)) {
-                Ok(frame) => ultimo = Some(frame),
-                Err(_) => break,
+            paso = (paso + 1) % 2;
+            let _ = unsafe {
+                SetWindowPos(
+                    hwnd,
+                    None,
+                    region.x + paso,
+                    region.y,
+                    0,
+                    0,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                )
+            };
+            if let Ok(frame) = receiver.recv_timeout(Duration::from_millis(30)) {
+                ultimo = Some(frame);
             }
         }
         stop.store(true, Ordering::Relaxed);
@@ -269,7 +333,7 @@ mod tests {
         std::thread::sleep(Duration::from_millis(300));
 
         assert!(
-            sale_el_magenta(region),
+            sale_el_magenta(region, ventana),
             "sin excluirla tiene que salir, o esta prueba no prueba nada"
         );
 
@@ -278,7 +342,7 @@ mod tests {
             "Windows no ha aceptado sacarla de la captura"
         );
         std::thread::sleep(Duration::from_millis(300));
-        let sigue = sale_el_magenta(region);
+        let sigue = sale_el_magenta(region, ventana);
 
         unsafe {
             let _ = DestroyWindow(HWND(ventana as *mut core::ffi::c_void));

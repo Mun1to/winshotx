@@ -222,6 +222,7 @@ fn la_grabacion_en_vivo_entrega_fotogramas_recortados() {
             paused_ms: Arc::new(AtomicU64::new(0)),
             min_interval_ms: 0,
             start: std::time::Instant::now(),
+            reciclados: Default::default(),
         },
     )
     .expect("no se ha podido iniciar la captura");
@@ -281,6 +282,7 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
             paused_ms: Arc::new(AtomicU64::new(0)),
             min_interval_ms: 0,
             start: std::time::Instant::now(),
+            reciclados: Default::default(),
         },
     )
     .expect("no se ha podido iniciar la captura");

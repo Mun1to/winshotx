@@ -306,6 +306,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let writer_bytes = bytes_counter.clone();
     let writer_stop = stop.clone();
     let writer_descartar = descartar.clone();
+    // Los bufers de fotograma van y vuelven entre la captura y este hilo: reservar ocho
+    // megabytes nuevos treinta veces por segundo era lo mas caro de cada fotograma.
+    let reciclados = win::Reciclados::default();
+    let reciclados_escritor = reciclados.clone();
     let marcar_clics = options.highlight_clicks;
     let marcar_teclas = options.highlight_keys;
     // El raton y el teclado se miran en su propio hilo, con el mismo reloj que los
@@ -380,6 +384,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
                     encoder = None;
                 }
             }
+            reciclados_escritor.devolver(rgba);
             salida.volcar(&mut encoder);
         }
 
@@ -435,6 +440,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             paused_ms: paused_ms.clone(),
             min_interval_ms: 0,
             start: reloj_inicio,
+            reciclados,
         },
     )?;
 

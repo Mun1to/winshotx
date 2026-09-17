@@ -233,20 +233,28 @@ mod tests {
 
         // Cada escenario arranca su propia captura, la deja correr SEGUNDOS y mide cuanta
         // CPU ha gastado el proceso entero mientras tanto (captura, copias y anillo).
+        // Los bufers van y vuelven como en la aplicacion; el primer escenario los tira sin
+        // devolverlos, que es lo que se hacia antes, para ver lo que cuesta reservarlos.
+        let reciclados = win::Reciclados::default();
         type Tragar = Box<dyn Fn(CapturedFrame, &mut Option<Anillo>)>;
-        let escenarios: [(&str, Tragar); 3] = [
-            ("captura sola, tirando los fotogramas", Box::new(|_f, _a| {})),
-            (
-                "camino entero, alto nativo",
+        let escenarios: [(&str, Tragar); 4] = [
+            ("captura sola, sin devolver el bufer", Box::new(|_f, _a| {})),
+            ("captura sola, devolviendo el bufer", {
+                let r = reciclados.clone();
+                Box::new(move |f, _a| r.devolver(f.bgra))
+            }),
+            ("camino entero, alto nativo", {
+                let r = reciclados.clone();
                 Box::new(move |f, anillo| {
                     let mut rgba = f.bgra;
                     crate::recorder::bgra_a_rgba_en_sitio(&mut rgba);
                     let (w, h) = (region.width, region.height);
                     let _ = anillo.as_mut().unwrap().empujar(&rgba, w, h, f.ts_ms);
-                }),
-            ),
-            (
-                "camino entero, reducido a 720 de alto",
+                    r.devolver(rgba);
+                })
+            }),
+            ("camino entero, reducido a 720 de alto", {
+                let r = reciclados.clone();
                 Box::new(move |f, anillo| {
                     let mut rgba = f.bgra;
                     crate::recorder::bgra_a_rgba_en_sitio(&mut rgba);
@@ -257,9 +265,10 @@ mod tests {
                     };
                     let imagen = image::RgbaImage::from_raw(region.width, region.height, rgba).unwrap();
                     let chica = crate::encode::escalar::reducir(&imagen, w, h).into_raw();
+                    r.devolver(imagen.into_raw());
                     let _ = anillo.as_mut().unwrap().empujar(&chica, w, h, f.ts_ms);
-                }),
-            ),
+                })
+            }),
         ];
 
         println!();
@@ -290,6 +299,7 @@ mod tests {
                     paused_ms: Arc::new(AtomicU64::new(0)),
                     min_interval_ms: 0,
                     start: Instant::now(),
+                    reciclados: reciclados.clone(),
                 },
             )
             .expect("no ha arrancado la captura");

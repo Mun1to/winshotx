@@ -259,6 +259,8 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
 
     let (sender, receiver) = channel::<win::CapturedFrame>();
     let (ordenes, buzon) = channel::<Orden>();
+    let reciclados = win::Reciclados::default();
+    let reciclados_cocina = reciclados.clone();
     let stop = Arc::new(AtomicBool::new(false));
     let paused_ms = Arc::new(AtomicU64::new(0));
     let bytes = Arc::new(AtomicU64::new(0));
@@ -307,6 +309,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 ventana_ms,
                 con_cursor,
                 desde_la_limpieza: 0,
+                reciclados: reciclados_cocina,
             };
             cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado_ms, audio.as_ref());
             if let Some(captura) = audio {
@@ -334,6 +337,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
             paused_ms: paused_ms.clone(),
             min_interval_ms: 0,
             start: Instant::now(),
+            reciclados,
         },
     )?;
 
@@ -467,6 +471,9 @@ struct Cocina {
     ventana_ms: u64,
     con_cursor: bool,
     desde_la_limpieza: u32,
+    /// Por donde vuelven los bufers a la captura. Ver `win::Reciclados`.
+    #[cfg(windows)]
+    reciclados: crate::record::win::Reciclados,
 }
 
 impl Cocina {
@@ -526,7 +533,8 @@ impl Cocina {
                     // alguien que ni sabe que esto esta puesto.
                     let mut tirados = 0u32;
                     while let Ok(siguiente) = receiver.try_recv() {
-                        frame = siguiente;
+                        let tirado = std::mem::replace(&mut frame, siguiente);
+                        self.reciclados.devolver(tirado.bgra);
                         tirados += 1;
                     }
                     perdidos += u64::from(tirados);
@@ -602,8 +610,15 @@ impl Cocina {
         }
 
         let (ancho, alto) = self.destino.unwrap_or((self.region.width, self.region.height));
-        let guardado = match self.destino {
-            None => rgba,
+        // El bufer del fotograma vuelve a la captura en cuanto se ha guardado, escalado o
+        // no: es lo que evita reservar ocho megabytes nuevos por cada uno.
+        match self.destino {
+            None => {
+                if let Err(error) = self.anillo.empujar(&rgba, ancho, alto, frame.ts_ms) {
+                    eprintln!("[replay] fotograma perdido: {error}");
+                }
+                self.reciclados.devolver(rgba);
+            }
             Some((w, h)) => {
                 let Some(imagen) =
                     image::RgbaImage::from_raw(self.region.width, self.region.height, rgba)
@@ -611,12 +626,12 @@ impl Cocina {
                     eprintln!("[replay] fotograma con un tamaño que no cuadra");
                     return;
                 };
-                crate::encode::escalar::reducir(&imagen, w, h).into_raw()
+                let guardado = crate::encode::escalar::reducir(&imagen, w, h).into_raw();
+                self.reciclados.devolver(imagen.into_raw());
+                if let Err(error) = self.anillo.empujar(&guardado, ancho, alto, frame.ts_ms) {
+                    eprintln!("[replay] fotograma perdido: {error}");
+                }
             }
-        };
-
-        if let Err(error) = self.anillo.empujar(&guardado, ancho, alto, frame.ts_ms) {
-            eprintln!("[replay] fotograma perdido: {error}");
         }
 
         // Las anotaciones tambien se tiran cuando se salen de la ventana: un anillo que
@@ -1222,6 +1237,7 @@ mod pruebas_con_pantalla {
                 paused_ms: Arc::new(AtomicU64::new(0)),
                 min_interval_ms: 0,
                 start: Instant::now(),
+                reciclados: win::Reciclados::default(),
                 },
         )
         .expect("no ha arrancado la captura");
