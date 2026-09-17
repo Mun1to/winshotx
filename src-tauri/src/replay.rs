@@ -310,6 +310,11 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 con_cursor,
                 desde_la_limpieza: 0,
                 reciclados: reciclados_cocina,
+                reduccion: destino.map(|(w, h)| {
+                    crate::encode::escalar::Reduccion::nueva(region.width, region.height, w, h)
+                }),
+                nativo_anterior: None,
+                escalado: Vec::new(),
             };
             cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado_ms, audio.as_ref());
             if let Some(captura) = audio {
@@ -474,6 +479,12 @@ struct Cocina {
     /// Por donde vuelven los bufers a la captura. Ver `win::Reciclados`.
     #[cfg(windows)]
     reciclados: crate::record::win::Reciclados,
+    /// Lo que hace falta para reducir solo lo que cambio, cuando se guarda a menos tamanno:
+    /// las tablas, el ultimo fotograma nativo y el reducido que se va pegando. Vacio si se
+    /// guarda al tamanno de la pantalla. Ver `escalar::Reduccion`.
+    reduccion: Option<crate::encode::escalar::Reduccion>,
+    nativo_anterior: Option<Vec<u8>>,
+    escalado: Vec<u8>,
 }
 
 impl Cocina {
@@ -620,16 +631,42 @@ impl Cocina {
                 self.reciclados.devolver(rgba);
             }
             Some((w, h)) => {
-                let Some(imagen) =
-                    image::RgbaImage::from_raw(self.region.width, self.region.height, rgba)
-                else {
-                    eprintln!("[replay] fotograma con un tamaño que no cuadra");
+                // Se reduce SOLO lo que cambio respecto al fotograma nativo anterior y se
+                // pega sobre el reducido de antes: reducir 1080p a 720p entero son 10-12 ms
+                // de CPU por fotograma, y lo normal es que solo se haya movido el cursor.
+                // Ver `escalar::Reduccion`. Sin fotograma anterior (el primero, o si el
+                // tamanno no cuadra) se reduce entero.
+                let Some(reduccion) = self.reduccion.as_ref() else {
                     return;
                 };
-                let guardado = crate::encode::escalar::reducir(&imagen, w, h).into_raw();
-                self.reciclados.devolver(imagen.into_raw());
-                if let Err(error) = self.anillo.empujar(&guardado, ancho, alto, frame.ts_ms) {
+                if self.escalado.len() != (w as usize) * (h as usize) * 4 {
+                    self.escalado = vec![0u8; (w as usize) * (h as usize) * 4];
+                    self.nativo_anterior = None;
+                }
+                let cambios = match self.nativo_anterior.as_ref() {
+                    Some(anterior) if anterior.len() == rgba.len() => crate::record::delta::zonas_cambiadas(
+                        anterior,
+                        &rgba,
+                        self.region.width,
+                        self.region.height,
+                    ),
+                    _ => vec![crate::record::delta::Parche {
+                        x: 0,
+                        y: 0,
+                        width: self.region.width,
+                        height: self.region.height,
+                    }],
+                };
+                for cambio in cambios {
+                    let zona = reduccion.zona_afectada(cambio);
+                    reduccion.reducir_zona(&rgba, zona, &mut self.escalado);
+                }
+                if let Err(error) = self.anillo.empujar(&self.escalado, ancho, alto, frame.ts_ms) {
                     eprintln!("[replay] fotograma perdido: {error}");
+                }
+                // Este fotograma se queda como referencia; el anterior vuelve a la captura.
+                if let Some(viejo) = self.nativo_anterior.replace(rgba) {
+                    self.reciclados.devolver(viejo);
                 }
             }
         }

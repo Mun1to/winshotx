@@ -104,8 +104,13 @@ mod tests {
         let cuantos = 120u32;
         let fondo = ruido(ancho, alto, 7);
 
-        for escenario in ["raton sobre escritorio quieto", "pantalla entera cambiando"] {
+        for escenario in [
+            "raton sobre escritorio quieto",
+            "raton abajo y un icono girando arriba, lejos",
+            "pantalla entera cambiando",
+        ] {
             let partida = escenario.starts_with("pantalla");
+            let lejos = escenario.contains("lejos");
             println!();
             println!("== {escenario}: {cuantos} fotogramas de {ancho}x{alto} ==");
             // Los fotogramas se preparan ANTES, en BGRA como los entrega Windows.
@@ -113,7 +118,13 @@ mod tests {
                 .map(|i| {
                     let mut f = if partida { ruido(ancho, alto, 100 + i) } else { fondo.clone() };
                     if !partida {
-                        cursor_en(&mut f, ancho, 100 + i * 8, 300);
+                        cursor_en(&mut f, ancho, 100 + i * 8, 900);
+                    }
+                    if lejos {
+                        // Un icono de 32x32 que cambia cada fotograma en la esquina de
+                        // arriba a la derecha: la caja que lo abarca junto al raton es
+                        // casi la pantalla entera.
+                        cursor_en(&mut f, ancho, 1800 + (i % 2) * 8, 40);
                     }
                     f
                 })
@@ -122,10 +133,10 @@ mod tests {
             let mut e_copia = Etapa::nueva("copiar 8 MB (to_vec, como win.rs)");
             let mut e_color = Etapa::nueva("BGRA -> RGBA en sitio, entero");
             let mut e_delta = Etapa::nueva("delta::zona_cambiada");
-            let mut e_qoi = Etapa::nueva("QOI de lo que se guarda");
+            let mut e_qoi = Etapa::nueva("QOI de UNA caja (como antes)");
             let mut e_anterior = Etapa::nueva("copiar el fotograma a `anterior`");
             let mut e_reducir = Etapa::nueva("escalar::reducir a 1280x720");
-            let mut e_cache = Etapa::nueva("FrameCache::push_rgba entero");
+            let mut e_cache = Etapa::nueva("FrameCache::push_rgba (zonas, ahora)");
 
             let dir = std::env::temp_dir().join("winshotx-bench-anillo");
             let _ = std::fs::remove_dir_all(&dir);
@@ -236,8 +247,10 @@ mod tests {
         // Los bufers van y vuelven como en la aplicacion; el primer escenario los tira sin
         // devolverlos, que es lo que se hacia antes, para ver lo que cuesta reservarlos.
         let reciclados = win::Reciclados::default();
+        // (fotogramas, pixeles de salida reducidos, ms en delta, ms en reducir, ms en empujar)
+        let cuentas = Arc::new(parking_lot::Mutex::new((0u64, 0u64, 0f64, 0f64, 0f64)));
         type Tragar = Box<dyn Fn(CapturedFrame, &mut Option<Anillo>)>;
-        let escenarios: [(&str, Tragar); 4] = [
+        let escenarios: [(&str, Tragar); 5] = [
             ("captura sola, sin devolver el bufer", Box::new(|_f, _a| {})),
             ("captura sola, devolviendo el bufer", {
                 let r = reciclados.clone();
@@ -253,7 +266,7 @@ mod tests {
                     r.devolver(rgba);
                 })
             }),
-            ("camino entero, reducido a 720 de alto", {
+            ("reducido a 720, entero cada vez (como antes)", {
                 let r = reciclados.clone();
                 Box::new(move |f, anillo| {
                     let mut rgba = f.bgra;
@@ -267,6 +280,52 @@ mod tests {
                     let chica = crate::encode::escalar::reducir(&imagen, w, h).into_raw();
                     r.devolver(imagen.into_raw());
                     let _ = anillo.as_mut().unwrap().empujar(&chica, w, h, f.ts_ms);
+                })
+            }),
+            ("reducido a 720, solo lo que cambia (ahora)", {
+                // Lo mismo que hace `replay::Cocina::tragar` con un destino puesto.
+                let r = reciclados.clone();
+                let Some((w, h)) = crate::encode::escalar::medida_para(region.width, region.height, 720)
+                else {
+                    panic!("la pantalla ya mide 720 o menos");
+                };
+                let estado = parking_lot::Mutex::new((
+                    crate::encode::escalar::Reduccion::nueva(region.width, region.height, w, h),
+                    None::<Vec<u8>>,
+                    vec![0u8; (w as usize) * (h as usize) * 4],
+                ));
+                let cuentas = cuentas.clone();
+                Box::new(move |f, anillo| {
+                    let mut rgba = f.bgra;
+                    crate::recorder::bgra_a_rgba_en_sitio(&mut rgba);
+                    let mut guardado = estado.lock();
+                    let (reduccion, anterior, escalado) = &mut *guardado;
+                    let t_delta = Instant::now();
+                    let cambios = match anterior.as_ref() {
+                        Some(a) => delta::zonas_cambiadas(a, &rgba, region.width, region.height),
+                        None => vec![delta::Parche { x: 0, y: 0, width: region.width, height: region.height }],
+                    };
+                    let ms_delta = t_delta.elapsed().as_secs_f64() * 1000.0;
+                    let mut pixeles = 0u64;
+                    let t_red = Instant::now();
+                    for cambio in cambios {
+                        let zona = reduccion.zona_afectada(cambio);
+                        pixeles += zona.pixeles();
+                        reduccion.reducir_zona(&rgba, zona, escalado);
+                    }
+                    let ms_red = t_red.elapsed().as_secs_f64() * 1000.0;
+                    let t_emp = Instant::now();
+                    let _ = anillo.as_mut().unwrap().empujar(escalado, w, h, f.ts_ms);
+                    let ms_emp = t_emp.elapsed().as_secs_f64() * 1000.0;
+                    if let Some(viejo) = anterior.replace(rgba) {
+                        r.devolver(viejo);
+                    }
+                    let mut c = cuentas.lock();
+                    c.0 += 1;
+                    c.1 += pixeles;
+                    c.2 += ms_delta;
+                    c.3 += ms_red;
+                    c.4 += ms_emp;
                 })
             }),
         ];
@@ -334,6 +393,17 @@ mod tests {
             );
             if let Some(a) = anillo.take() {
                 a.limpiar();
+            }
+        }
+
+        {
+            let c = cuentas.lock();
+            if c.0 > 0 {
+                let n = c.0 as f64;
+                println!(
+                    "  (reducido por zonas: {:.0} px de salida por fotograma; delta {:.2} ms, reducir {:.2} ms, empujar {:.2} ms)",
+                    c.1 as f64 / n, c.2 / n, c.3 / n, c.4 / n
+                );
             }
         }
 

@@ -28,6 +28,8 @@
 use image::RgbaImage;
 use rayon::prelude::*;
 
+use crate::record::delta::Parche;
+
 /// El punto fijo con el que se recorre: 16 bits de parte entera y 16 de fracción.
 ///
 /// Con flotantes hay una conversión por píxel y por canal, que a un millón de píxeles se
@@ -233,37 +235,132 @@ pub fn reducir(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
     if (ow, oh) == (ancho, alto) || ancho == 0 || alto == 0 || ow == 0 || oh == 0 {
         return origen.clone();
     }
-    let columnas = reparto(ow, ancho);
-    let filas = reparto(oh, alto);
-    let entrada = origen.as_raw();
-
+    let reduccion = Reduccion::nueva(ow, oh, ancho, alto);
     let mut salida = vec![0u8; (ancho as usize) * (alto as usize) * 4];
-    salida
-        .par_chunks_mut(ancho as usize * 4)
-        .zip(filas.par_iter())
-        .for_each(|(destino, (y0, pesos_y))| {
-            for (x, (x0, pesos_x)) in columnas.iter().enumerate() {
-                let mut suma = [0u64; 4];
-                for (dy, py) in pesos_y.iter().enumerate() {
-                    let fila = ((*y0 as usize + dy) * ow as usize + *x0 as usize) * 4;
-                    for (dx, px) in pesos_x.iter().enumerate() {
-                        let p = fila + dx * 4;
-                        let peso = u64::from(*py) * u64::from(*px);
-                        suma[0] += peso * u64::from(entrada[p]);
-                        suma[1] += peso * u64::from(entrada[p + 1]);
-                        suma[2] += peso * u64::from(entrada[p + 2]);
-                        suma[3] += peso * u64::from(entrada[p + 3]);
+    reduccion.reducir_zona(origen.as_raw(), reduccion.entera(), &mut salida);
+    RgbaImage::from_raw(ancho, alto, salida).unwrap_or_else(|| RgbaImage::new(ancho, alto))
+}
+
+/// Una reduccion preparada: las tablas de reparto de los dos ejes, calculadas una vez.
+///
+/// El anillo de los ultimos segundos reduce el mismo tamanno al mismo destino toda la
+/// tarde, y en cada fotograma casi nunca cambia mas que el cursor. Con esto se reduce
+/// **solo la zona de salida a la que le afecta lo que cambio**, y se pega sobre el
+/// fotograma reducido anterior: el resto de pixeles de salida dependen de pixeles de
+/// entrada que no se han movido, asi que valen tal cual. Medido el 17 de septiembre de
+/// 2026: reducir 1080p a 720p entero son 10-12 ms de CPU por fotograma; con un cursor
+/// moviendose, la zona afectada son unos cientos de pixeles.
+pub struct Reduccion {
+    origen: (u32, u32),
+    destino: (u32, u32),
+    columnas: Vec<(u32, Vec<u32>)>,
+    filas: Vec<(u32, Vec<u32>)>,
+}
+
+impl Reduccion {
+    pub fn nueva(ow: u32, oh: u32, ancho: u32, alto: u32) -> Self {
+        Self {
+            origen: (ow, oh),
+            destino: (ancho, alto),
+            columnas: reparto(ow, ancho),
+            filas: reparto(oh, alto),
+        }
+    }
+
+    /// El fotograma de salida entero, como zona.
+    pub fn entera(&self) -> Parche {
+        Parche {
+            x: 0,
+            y: 0,
+            width: self.destino.0,
+            height: self.destino.1,
+        }
+    }
+
+    /// La zona de SALIDA que depende de esa zona de ENTRADA: todo pixel de salida que
+    /// tenga dentro de su rectangulo al menos un pixel de entrada que cambio.
+    ///
+    /// Es lo unico que hace correcto reducir por zonas: un pixel de salida que se queda
+    /// fuera de esta zona solo mira pixeles de entrada iguales a los de antes, asi que su
+    /// valor de antes sigue siendo el bueno.
+    pub fn zona_afectada(&self, cambio: Parche) -> Parche {
+        let (x1, x2) = tramo_afectado(&self.columnas, cambio.x, cambio.x + cambio.width);
+        let (y1, y2) = tramo_afectado(&self.filas, cambio.y, cambio.y + cambio.height);
+        Parche {
+            x: x1,
+            y: y1,
+            width: x2.saturating_sub(x1),
+            height: y2.saturating_sub(y1),
+        }
+    }
+
+    /// Reduce solo esa zona de salida, leyendo del fotograma de entrada entero, y la
+    /// escribe en su sitio de `salida`. `entrada` mide el origen y `salida` el destino,
+    /// las dos en RGBA.
+    pub fn reducir_zona(&self, entrada: &[u8], zona: Parche, salida: &mut [u8]) {
+        let (ow, _) = self.origen;
+        let (ancho, alto) = self.destino;
+        let fila_out = ancho as usize * 4;
+        if entrada.len() < (self.origen.0 as usize) * (self.origen.1 as usize) * 4
+            || salida.len() < fila_out * alto as usize
+        {
+            return;
+        }
+        let x_desde = zona.x.min(ancho) as usize;
+        let x_hasta = (zona.x + zona.width).min(ancho) as usize;
+        let y_desde = zona.y.min(alto) as usize;
+        let y_hasta = (zona.y + zona.height).min(alto) as usize;
+        if x_desde >= x_hasta || y_desde >= y_hasta {
+            return;
+        }
+        let columnas = &self.columnas[x_desde..x_hasta];
+        let filas = &self.filas;
+
+        salida
+            .par_chunks_mut(fila_out)
+            .enumerate()
+            .skip(y_desde)
+            .take(y_hasta - y_desde)
+            .for_each(|(y, destino)| {
+                let (y0, pesos_y) = &filas[y];
+                for (x, (x0, pesos_x)) in (x_desde..).zip(columnas.iter()) {
+                    let mut suma = [0u64; 4];
+                    for (dy, py) in pesos_y.iter().enumerate() {
+                        let fila = ((*y0 as usize + dy) * ow as usize + *x0 as usize) * 4;
+                        for (dx, px) in pesos_x.iter().enumerate() {
+                            let p = fila + dx * 4;
+                            let peso = u64::from(*py) * u64::from(*px);
+                            suma[0] += peso * u64::from(entrada[p]);
+                            suma[1] += peso * u64::from(entrada[p + 1]);
+                            suma[2] += peso * u64::from(entrada[p + 2]);
+                            suma[3] += peso * u64::from(entrada[p + 3]);
+                        }
+                    }
+                    let d = x * 4;
+                    for canal in 0..4 {
+                        // Los pesos de cada eje suman UNO, así que el total es UNO al cuadrado.
+                        destino[d + canal] =
+                            (((suma[canal] + (TOTAL / 2)) / TOTAL).min(255)) as u8;
                     }
                 }
-                let d = x * 4;
-                for canal in 0..4 {
-                    // Los pesos de cada eje suman UNO, así que el total es UNO al cuadrado.
-                    destino[d + canal] =
-                        (((suma[canal] + (TOTAL / 2)) / TOTAL).min(255)) as u8;
-                }
-            }
-        });
-    RgbaImage::from_raw(ancho, alto, salida).unwrap_or_else(|| RgbaImage::new(ancho, alto))
+            });
+    }
+}
+
+/// Que pixeles de salida (de un eje) tocan el tramo `[desde, hasta)` de entrada. Las
+/// tablas van en orden, asi que basta con el primero que llega y el ultimo que empieza
+/// antes del final.
+fn tramo_afectado(tabla: &[(u32, Vec<u32>)], desde: u32, hasta: u32) -> (u32, u32) {
+    let primero = tabla
+        .iter()
+        .position(|(inicio, pesos)| inicio + pesos.len() as u32 > desde)
+        .unwrap_or(tabla.len());
+    let ultimo = tabla
+        .iter()
+        .rposition(|(inicio, _)| *inicio < hasta)
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    (primero as u32, ultimo.max(primero) as u32)
 }
 
 /// Lo que suman los pesos de los dos ejes juntos.
@@ -481,6 +578,60 @@ mod reducir_tests {
         let mixta = a_medida(&origen, 200, 600);
         assert_eq!(mixta.dimensions(), (200, 600));
         assert_eq!(mixta.get_pixel(100, 300).0, [10, 20, 30, 255]);
+    }
+
+    /// Reducir solo la zona afectada y pegarla da EXACTAMENTE lo mismo que reducir el
+    /// fotograma entero. Es lo que permite que el anillo reducido cueste segun lo que se
+    /// mueve y no segun lo que mide la pantalla.
+    #[test]
+    fn reducir_por_zonas_da_lo_mismo_que_entero() {
+        let mut origen = RgbaImage::new(640, 360);
+        let mut s: u32 = 0x1234_5678;
+        for pixel in origen.pixels_mut() {
+            s = s.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            *pixel = image::Rgba([(s >> 24) as u8, (s >> 16) as u8, (s >> 8) as u8, 255]);
+        }
+        let reduccion = Reduccion::nueva(640, 360, 427, 240);
+        let mut escalado = vec![0u8; 427 * 240 * 4];
+        reduccion.reducir_zona(origen.as_raw(), reduccion.entera(), &mut escalado);
+        assert_eq!(escalado, reducir(&origen, 427, 240).into_raw());
+
+        // Cambia un cuadrado de la entrada (un cursor), en tres sitios distintos, incluido
+        // el borde de abajo a la derecha que es donde las tablas se acaban.
+        for (cx, cy) in [(100u32, 50u32), (0, 0), (640 - 20, 360 - 20)] {
+            for y in cy..cy + 20 {
+                for x in cx..cx + 20 {
+                    origen.put_pixel(x, y, image::Rgba([255, 255, 255, 255]));
+                }
+            }
+            let cambio = Parche { x: cx, y: cy, width: 20, height: 20 };
+            let zona = reduccion.zona_afectada(cambio);
+            assert!(zona.width > 0 && zona.height > 0, "la zona afectada no puede estar vacia");
+            reduccion.reducir_zona(origen.as_raw(), zona, &mut escalado);
+            assert_eq!(
+                escalado,
+                reducir(&origen, 427, 240).into_raw(),
+                "tras cambiar en ({cx}, {cy}) el fotograma por zonas no coincide con el entero"
+            );
+        }
+    }
+
+    /// La zona afectada cubre todos los pixeles de salida que miran al cambio, y ninguno
+    /// mas de la cuenta: con reduccion 2:1, cambiar el pixel 10 afecta al pixel 5 y al 4
+    /// no; cambiar del 10 al 13 afecta al 5 y al 6.
+    #[test]
+    fn la_zona_afectada_cubre_justo_lo_que_mira_al_cambio() {
+        let reduccion = Reduccion::nueva(100, 100, 50, 50);
+        let zona = reduccion.zona_afectada(Parche { x: 10, y: 10, width: 1, height: 1 });
+        assert_eq!((zona.x, zona.y, zona.width, zona.height), (5, 5, 1, 1));
+        let zona = reduccion.zona_afectada(Parche { x: 10, y: 20, width: 4, height: 2 });
+        assert_eq!((zona.x, zona.y, zona.width, zona.height), (5, 10, 2, 1));
+        // Un cambio que se sale por el final se queda en el ultimo pixel de salida.
+        let zona = reduccion.zona_afectada(Parche { x: 98, y: 98, width: 10, height: 10 });
+        assert_eq!((zona.x, zona.y, zona.width, zona.height), (49, 49, 1, 1));
+        // Y el fotograma entero afecta al fotograma entero.
+        let zona = reduccion.zona_afectada(Parche { x: 0, y: 0, width: 100, height: 100 });
+        assert_eq!((zona.x, zona.y, zona.width, zona.height), (0, 0, 50, 50));
     }
 
     #[test]
