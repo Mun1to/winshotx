@@ -44,8 +44,23 @@ pub struct FrameEntry {
     pub len: u32,
     /// La zona que cambio respecto al fotograma anterior, o `None` si lo que hay guardado
     /// es el fotograma entero. Ver `delta`: es lo que hace que un minuto de grabacion no
-    /// ocupe un gigabyte.
+    /// ocupe un gigabyte. Con varias zonas (`parches`) esto es la caja que las abarca, y
+    /// sigue diciendo lo unico que todos preguntan: si el fotograma es entero o no.
     pub patch: Option<Parche>,
+    /// Las zonas guardadas de verdad, cuando son varias: cada una es un QOI aparte, y van
+    /// seguidos en el archivo desde `offset`, en este orden, sumando `len`. Vacio en las
+    /// grabaciones de antes del 17 de septiembre de 2026, que guardaban una sola zona (la
+    /// de `patch`) con todo el tramo. Ver `delta::zonas_cambiadas` para el porque.
+    #[serde(default)]
+    pub parches: Vec<Trozo>,
+}
+
+/// Una de las zonas de un fotograma guardado a trozos: donde va y cuanto ocupa su QOI.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Trozo {
+    pub parche: Parche,
+    pub len: u32,
 }
 
 /// Cada cuantos fotogramas se guarda uno entero. Marca dos cosas a la vez: cuanto trabajo
@@ -237,48 +252,77 @@ impl FrameCache {
         // El hash muestreaba los bytes 0, 5, 10 y 15 de cada veinte, o sea el rojo de un
         // pixel, el verde del siguiente, el azul del tercero, el alfa del cuarto y NADA del
         // quinto: un cambio que cayera solo en esos pixeles pasaba por identico.
-        let cambio = self
-            .anterior
-            .as_ref()
-            .map(|previo| delta::zona_cambiada(previo, rgba, width, height));
-        if cambio == Some(None) {
-            return Ok(false);
-        }
+        //
+        // Y son ZONAS, no una: dos cambios pequennos y lejanos (el cursor abajo, un icono
+        // que gira arriba) se guardan como dos recortes de nada y no como la media
+        // pantalla que los abarca. Ver `delta::zonas_cambiadas`.
+        let zonas = match self.anterior.as_ref() {
+            Some(previo) => {
+                let zonas = delta::zonas_cambiadas(previo, rgba, width, height);
+                if zonas.is_empty() {
+                    return Ok(false);
+                }
+                Some(zonas)
+            }
+            None => None,
+        };
 
-        // De cada fotograma se guarda solo la zona que ha cambiado. Se guarda entero
+        // De cada fotograma se guardan solo las zonas que han cambiado. Se guarda entero
         // cuando no hay con que comparar, cuando toca uno de referencia, o cuando ha
         // cambiado tanto que recortar ya no ahorra nada.
         let entero = u64::from(width) * u64::from(height);
-        let parche = cambio
-            .flatten()
+        let recortar = zonas
             .filter(|_| self.desde_entero + 1 < FOTOGRAMA_ENTERO_CADA)
-            .filter(|p| (p.pixeles() as f64) < entero as f64 * PARTE_MAXIMA);
+            .filter(|zonas| {
+                (zonas.iter().map(Parche::pixeles).sum::<u64>() as f64) < entero as f64 * PARTE_MAXIMA
+            });
 
-        let (encoded, guardado) = match parche {
-            Some(p) => (
-                qoi::encode_to_vec(delta::recortar(rgba, width, p), p.width, p.height)?,
-                Some(p),
-            ),
-            None => (qoi::encode_to_vec(rgba, width, height)?, None),
+        let (escrito, patch, parches) = match recortar {
+            Some(zonas) => {
+                let mut escrito = 0usize;
+                let mut parches = Vec::with_capacity(zonas.len());
+                for zona in &zonas {
+                    let encoded = qoi::encode_to_vec(delta::recortar(rgba, width, *zona), zona.width, zona.height)?;
+                    self.file.write_all(&encoded)?;
+                    escrito += encoded.len();
+                    parches.push(Trozo {
+                        parche: *zona,
+                        len: encoded.len() as u32,
+                    });
+                }
+                (escrito, delta::envolvente(&zonas), parches)
+            }
+            None => {
+                let encoded = qoi::encode_to_vec(rgba, width, height)?;
+                self.file.write_all(&encoded)?;
+                (encoded.len(), None, Vec::new())
+            }
         };
 
-        self.file.write_all(&encoded)?;
         self.entries.push(FrameEntry {
             index: self.entries.len() as u32,
             timestamp_ms: ts_ms,
             duration_ms: 0,
             thumb_path: String::new(),
             offset: self.offset,
-            len: encoded.len() as u32,
-            patch: guardado,
+            len: escrito as u32,
+            patch,
+            parches: parches.clone(),
         });
-        self.offset += encoded.len() as u64;
-        self.desde_entero = if guardado.is_some() {
+        self.offset += escrito as u64;
+        self.desde_entero = if patch.is_some() {
             self.desde_entero + 1
         } else {
             0
         };
+        // El fotograma de referencia se pone al dia copiando SOLO lo que cambio: copiarlo
+        // entero eran ocho megabytes por fotograma para dos zonas de cien pixeles.
         match self.anterior.as_mut() {
+            Some(previo) if previo.len() == rgba.len() && !parches.is_empty() => {
+                for trozo in &parches {
+                    delta::copiar_zona(previo, rgba, width, trozo.parche);
+                }
+            }
             Some(previo) if previo.len() == rgba.len() => previo.copy_from_slice(rgba),
             _ => self.anterior = Some(rgba.to_vec()),
         }
@@ -372,14 +416,32 @@ impl<'a> LectorFotogramas<'a> {
         self.file.seek(SeekFrom::Start(entry.offset))?;
         self.buffer.resize(entry.len as usize, 0);
         self.file.read_exact(&mut self.buffer)?;
-        let (header, pixels) = qoi::decode_to_vec(&self.buffer)?;
-        match entry.patch {
-            None => {
+        match (entry.patch, entry.parches.is_empty()) {
+            (None, _) => {
+                let (header, pixels) = qoi::decode_to_vec(&self.buffer)?;
                 *ancho = header.width;
                 *alto = header.height;
                 *lienzo = pixels;
             }
-            Some(parche) => delta::aplicar(lienzo, *ancho, parche, &pixels),
+            // Una sola zona con todo el tramo: las grabaciones de antes de las zonas.
+            (Some(parche), true) => {
+                let (_, pixels) = qoi::decode_to_vec(&self.buffer)?;
+                delta::aplicar(lienzo, *ancho, parche, &pixels);
+            }
+            // Varias zonas, cada una su QOI, seguidas en el tramo.
+            (Some(_), false) => {
+                let mut desde = 0usize;
+                for trozo in &entry.parches {
+                    let hasta = desde + trozo.len as usize;
+                    let blob = self
+                        .buffer
+                        .get(desde..hasta)
+                        .ok_or_else(|| AppError::Msg("fotograma a trozos mas corto de lo que dice".into()))?;
+                    let (_, pixels) = qoi::decode_to_vec(blob)?;
+                    delta::aplicar(lienzo, *ancho, trozo.parche, &pixels);
+                    desde = hasta;
+                }
+            }
         }
         Ok(())
     }
@@ -652,6 +714,37 @@ mod tests {
                 "el fotograma {i} no se reconstruye igual"
             );
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Dos cambios lejanos en el mismo fotograma se guardan como dos zonas, se leen igual
+    /// que se escribieron, y ocupan MUCHO menos que la caja que los abarca. Es lo que
+    /// estrena el formato a trozos del 17 de septiembre de 2026.
+    #[test]
+    fn dos_cambios_lejanos_se_guardan_como_dos_zonas_y_se_leen_igual() {
+        let (ancho, alto) = (320u32, 200u32);
+        let dir = carpeta("dos-zonas");
+        let base = pantalla(ancho, alto, 0);
+        let mut con_dos = base.clone();
+        for (x, y) in [(3u32, 2u32), (310, 195)] {
+            let p = ((y * ancho + x) * 4) as usize;
+            con_dos[p..p + 4].copy_from_slice(&[255, 0, 255, 255]);
+        }
+        let mut cache = FrameCache::new(&dir).expect("no se ha podido crear la caché");
+        cache.push_rgba(&base, ancho, alto, 0).unwrap();
+        let antes = cache.bytes_written();
+        cache.push_rgba(&con_dos, ancho, alto, 33).unwrap();
+        let de_las_zonas = cache.bytes_written() - antes;
+        let entries = cache.finish(66, 30).unwrap();
+        assert_eq!(entries[1].parches.len(), 2, "tenian que ser dos zonas: {:?}", entries[1].parches);
+        assert!(entries[1].patch.is_some(), "no es un fotograma entero");
+        // La caja envolvente medi­ria casi toda la pantalla; dos zonas de un pixel son dos
+        // cabeceras de QOI y poco mas.
+        assert!(de_las_zonas < 200, "dos pixeles han ocupado {de_las_zonas} bytes");
+
+        let sesion = sesion_de(&dir, entries, ancho, alto);
+        assert_eq!(read_frame(&sesion, 1).unwrap().as_raw(), &con_dos);
+        // Y el siguiente, que compara contra la referencia actualizada por zonas, tambien.
         let _ = std::fs::remove_dir_all(&dir);
     }
 

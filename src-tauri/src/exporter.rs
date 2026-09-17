@@ -855,6 +855,7 @@ mod tests {
                     offset: 0,
                     len: 0,
                     patch: None,
+                    parches: Vec::new(),
                 };
                 timestamp += *duration as u64;
                 entry
