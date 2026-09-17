@@ -250,13 +250,23 @@ mod tests {
         // (fotogramas, pixeles de salida reducidos, ms en delta, ms en reducir, ms en empujar)
         let cuentas = Arc::new(parking_lot::Mutex::new((0u64, 0u64, 0f64, 0f64, 0f64)));
         type Tragar = Box<dyn Fn(CapturedFrame, &mut Option<Anillo>)>;
-        let escenarios: [(&str, Tragar); 5] = [
+        let escenarios: [(&str, Tragar); 6] = [
             ("captura sola, sin devolver el bufer", Box::new(|_f, _a| {})),
             ("captura sola, devolviendo el bufer", {
                 let r = reciclados.clone();
                 Box::new(move |f, _a| r.devolver(f.bgra))
             }),
             ("camino entero, alto nativo", {
+                let r = reciclados.clone();
+                Box::new(move |f, anillo| {
+                    let mut rgba = f.bgra;
+                    crate::recorder::bgra_a_rgba_en_sitio(&mut rgba);
+                    let (w, h) = (region.width, region.height);
+                    let _ = anillo.as_mut().unwrap().empujar(&rgba, w, h, f.ts_ms);
+                    r.devolver(rgba);
+                })
+            }),
+            ("camino entero, alto nativo, a 30 fps", {
                 let r = reciclados.clone();
                 Box::new(move |f, anillo| {
                     let mut rgba = f.bgra;
@@ -333,6 +343,7 @@ mod tests {
         println!();
         println!("{:<42} {:>8} {:>10} {:>14}", "escenario", "fotogr.", "fps", "CPU (nucleos)");
         for (nombre, tragar) in escenarios.iter() {
+            let fps = if nombre.contains("30 fps") { 30 } else { fps };
             let _ = std::fs::remove_dir_all(&dir);
             let mut anillo = Some(
                 Anillo::nuevo(

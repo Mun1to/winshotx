@@ -138,24 +138,33 @@ const loQuePuedeOcupar = (segundos: number, fps: number, ancho: number, alto: nu
   Math.min(ancho * alto * PEOR_POR_PIXEL * fps * segundos, TECHO);
 
 /**
- * Lo que costó el anillo, de las dos combinaciones que se midieron de verdad.
+ * Lo que cuesta el anillo, de las dos combinaciones que se midieron de verdad.
  *
  * Medido el 31 de agosto de 2026 en un equipo con tres pantallas, con la máquina en
- * reposo doce segundos: a 60 fotogramas y resolución nativa se lleva el **86% de un
+ * reposo doce segundos: a 60 fotogramas y resolución nativa se llevaba el **86% de un
  * núcleo**, y a 30 con 1080 el **57%**. winshotx entera, con el anillo apagado, gasta
- * el 2,9%: o sea que esto es treinta veces el resto de la aplicación junta.
+ * el 2,9%: o sea que esto era treinta veces el resto de la aplicación junta.
  *
- * Se dice porque nadie elige «60, nativa» sabiendo eso; se elige porque suena a mejor.
- * Munir lo tuvo así semanas y lo que notó fue que el ordenador iba con lag y que el
- * atajo tardaba en abrir la captura.
+ * Vuelto a medir el 17 de septiembre de 2026, con el anillo grabando de verdad
+ * (`medir_el_anillo_con_pantalla`), después de reciclar los búferes y de guardar solo
+ * las zonas que cambian: **22%** a 60 y nativa con el escritorio quieto (hasta el 60% con
+ * la pantalla en movimiento), y **17%** a 30. Los textos de abajo llevan estos.
+ *
+ * Se dice porque nadie elige «60, nativa» sabiendo lo que cuesta; se elige porque suena
+ * a mejor. Munir lo tuvo así semanas y lo que notó fue que el ordenador iba con lag y
+ * que el atajo tardaba en abrir la captura.
  *
  * **Y solo se dicen esas dos**, que son las que se midieron. Las otras siete
  * combinaciones saldrían de extrapolar dos puntos, que es inventarse un número y
  * ponerlo en la cara de quien decide.
  */
+// Medido el 17 de septiembre de 2026 en una pantalla de 1080, con el anillo grabando de
+// verdad (`cargo test --release --lib medir_el_anillo_con_pantalla -- --ignored`). En agosto
+// la primera fila era el 86%: reciclar los búferes y guardar solo las zonas que cambian lo
+// bajó a esto.
 const LO_QUE_COSTO: Record<string, string> = {
-  "60|0": "esta combinación midió el 86% de un núcleo",
-  "30|1080": "esta combinación midió el 57% de un núcleo",
+  "60|0": "esta combinación midió el 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento",
+  "30|1080": "esta combinación midió el 17% de un núcleo con el escritorio quieto",
 };
 
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
@@ -624,7 +633,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<History className="size-4" />}
                     label={t("Grabar siempre lo último")}
-                    explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva el 86% de un núcleo, y a 30 con 1080 el 57%. Apagado, winshotx entera gasta el 2,9%.")}
+                    explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva un 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento. Apagado, winshotx entera gasta el 2,9%.")}
                     hint={
                       replay.running
                         ? // Lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño
@@ -721,7 +730,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     explicacion={t("Los fotogramas por segundo del anillo. 15 es suficiente para ver qué pasó y es el que menos molesta al ordenador; 60 se ve suave pero escribe cuatro veces más, y esto está corriendo toda la tarde.")}
                     // Lo que cuesta la combinación elegida, cuando está medido. El aviso va
                     // aquí y no en la explicación del icono porque hay que verlo sin buscarlo:
-                    // es la diferencia entre el 86% de un núcleo toda la tarde y el 57%.
+                    // es lo que se paga toda la tarde, y 60 fps a alto nativo sigue siendo
+                    // la combinación que más cuesta aunque ya no sea el 86% de un núcleo.
                     hint={
                       LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`]
                         ? t(LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`])

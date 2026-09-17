@@ -302,21 +302,22 @@ describe("los ultimos segundos, en «Grabar»", () => {
   });
 
   /**
-   * Munir tuvo el anillo semanas a 60 fotogramas y resolución nativa, que es el 86% de un
-   * núcleo todo el día, y lo que notó fue que el ordenador iba con lag y que el atajo
-   * tardaba en abrir la captura. Nadie elige eso sabiendo lo que cuesta: se elige porque
-   * suena a mejor. Ahora lo dice la propia fila, y en rojo.
+   * Munir tuvo el anillo semanas a 60 fotogramas y resolución nativa, que entonces era el
+   * 86% de un núcleo todo el día, y lo que notó fue que el ordenador iba con lag y que el
+   * atajo tardaba en abrir la captura. Nadie elige eso sabiendo lo que cuesta: se elige
+   * porque suena a mejor. Ahora lo dice la propia fila, y en rojo, con lo medido el 17 de
+   * septiembre de 2026 (22% quieto, hasta el 60% en movimiento).
    */
   it("la combinación más cara dice lo que cuesta, y avisa", async () => {
     await irAGrabar(undefined, undefined, { replayFps: 60, replayHeight: 0 });
-    const coste = screen.getByText(/86% de un núcleo/);
+    const coste = screen.getByText(/22% de un núcleo.*60%/);
     expect(coste).toBeInTheDocument();
     expect(coste.className).toMatch(/amber|warn|yellow/);
   });
 
   it("y la combinación de en medio dice la suya", async () => {
     await irAGrabar(undefined, undefined, { replayFps: 30, replayHeight: 1080 });
-    expect(screen.getByText(/57% de un núcleo/)).toBeInTheDocument();
+    expect(screen.getByText(/17% de un núcleo/)).toBeInTheDocument();
   });
 
   /**
