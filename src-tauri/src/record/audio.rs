@@ -12,6 +12,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use windows::Win32::Media::Audio::{
     eCapture, eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator,
@@ -60,6 +61,11 @@ impl Formato {
         let instantes = bytes as u64 / por_instante;
         (instantes * 10_000_000 / u64::from(self.muestras_por_segundo.max(1))) as i64
     }
+
+    /// Lo mismo, como `Duration`, para compararlo con el reloj de la maquina.
+    pub fn duracion(&self, bytes: usize) -> Duration {
+        Duration::from_nanos(self.duracion_de(bytes).max(0) as u64 * 100)
+    }
 }
 
 /// Un trozo de sonido tal y como lo entrega Windows, con el momento en que empieza.
@@ -103,6 +109,13 @@ const CADA: std::time::Duration = std::time::Duration::from_millis(10);
 /// Lo que se le pide a Windows de colchon: dos decimas. Si el hilo se retrasa mas que
 /// esto, Windows tira lo viejo y avisa con su marca de discontinuidad.
 const COLCHON_100NS: i64 = 2_000_000;
+
+/// Cuanto puede quedarse lo escrito por detras del reloj de la maquina antes de rellenar
+/// con silencio. Una decima: el maestro entrega cada diez milisegundos y su reloj no es el
+/// de la maquina, asi que por debajo de esto no hay sequia, hay jitter, y rellenar ahi
+/// meteria silencios en mitad de una cancion. Por encima, el altavoz se ha callado de
+/// verdad y lo que falta es silencio de verdad.
+const SEQUIA: Duration = Duration::from_millis(100);
 
 /// Abre el altavoz por defecto y empieza a recoger lo que suena.
 ///
@@ -202,9 +215,18 @@ fn capturar(
 
     unsafe { cliente.Start() }.map_err(|e| AppError::Msg(format!("no arranca el audio: {e}")))?;
 
+    // El reloj de pared de la grabacion, descontando las pausas. Es el que manda cuando el
+    // maestro se calla: ver `SEQUIA`.
+    let mut reloj = RelojDeGrabacion::arrancar(Instant::now());
     let mut escritos: usize = 0;
     while !parar.load(Ordering::Relaxed) {
         std::thread::sleep(CADA);
+        let en_pausa = pausa.load(Ordering::Relaxed);
+        reloj.apuntar_pausa(en_pausa, Instant::now());
+
+        // 1. Lo que el maestro haya entregado: son sus muestras y su ritmo, y mientras
+        //    entregue, manda el.
+        let mut llego_algo = false;
         loop {
             let disponible = unsafe { captura.GetNextPacketSize() }
                 .map_err(|e| AppError::Msg(format!("no se puede leer el audio: {e}")))?;
@@ -231,6 +253,7 @@ fn capturar(
             };
             unsafe { captura.ReleaseBuffer(instantes) }
                 .map_err(|e| AppError::Msg(format!("no se puede soltar el audio: {e}")))?;
+            llego_algo = true;
 
             // En pausa se tira lo leido, del sistema y del microfono. `escritos` no avanza,
             // asi que el siguiente trozo que si se mande sigue pegado al anterior: para el
@@ -238,7 +261,7 @@ fn capturar(
             // exactamente lo que le pasa a la imagen. Antes el sonido de la pausa se
             // escribia igual y, tras reanudar, el video iba por delante del audio tantos
             // segundos como hubiera durado la pausa.
-            if pausa.load(Ordering::Relaxed) {
+            if en_pausa {
                 if let Some(mic) = acompannante.as_mut() {
                     let _ = unsafe { leer_todo(&mic.captura, mic.formato) };
                     mic.pendiente.clear();
@@ -246,25 +269,36 @@ fn capturar(
                 continue;
             }
 
-            // Y encima, la voz. `mezclar_encima` coge del microfono justo lo que dura
-            // este trozo; si el microfono va con retraso, lo que falte se queda en
-            // silencio y el sistema se sigue oyendo entero.
-            let trozo = match acompannante.as_mut() {
-                Some(mic) => mezclar_encima(trozo, formato, mic),
-                None => trozo,
-            };
-
-            let desde_el_inicio = formato.duracion_de(escritos);
-            escritos += trozo.len();
-            if tx
-                .send(Trozo {
-                    datos: trozo,
-                    desde_el_inicio,
-                })
-                .is_err()
-            {
+            if !emitir(trozo, formato, acompannante.as_mut(), &mut escritos, tx) {
                 // Ya no hay nadie escuchando: la grabacion ha terminado.
                 break;
+            }
+        }
+        if en_pausa {
+            continue;
+        }
+
+        // 2. Y si el maestro se ha callado, manda el reloj de pared: se emite el silencio
+        //    que falta hasta ahora mismo, con la voz del microfono encima.
+        //
+        //    El loopback de Windows entrega lo que ESTA SONANDO, y cuando no suena nada no
+        //    entrega nada: ni silencio, ni paquetes. Hasta el 17 de septiembre de 2026 eso
+        //    significaba dos cosas, las dos malas: que un tutorial narrado sin musica de
+        //    fondo salia MUDO (la voz solo se leia encima de los paquetes del altavoz, y no
+        //    habia paquetes), y que cuando por fin sonaba algo el sonido iba por detras de
+        //    la imagen tanto como hubiera durado el silencio, porque el reloj del sonido
+        //    cuenta bytes entregados. Se probo el remedio de OBS (reproducir silencio por el
+        //    altavoz para que el loopback no se calle) y en esta maquina no despierta nada:
+        //    cero paquetes, medido con ceros y con ruido inaudible. Asi que el silencio se
+        //    escribe desde aqui, medido con el reloj de la maquina, que es el mismo que
+        //    llevan los fotogramas.
+        if !llego_algo {
+            let emitido = formato.duracion(escritos);
+            if let Some(instantes) =
+                instantes_que_faltan(reloj.transcurrido(Instant::now()), emitido, formato.muestras_por_segundo)
+            {
+                let silencio = vec![0u8; instantes * formato.bytes_por_instante() as usize];
+                let _ = emitir(silencio, formato, acompannante.as_mut(), &mut escritos, tx);
             }
         }
     }
@@ -274,6 +308,86 @@ fn capturar(
         let _ = unsafe { mic.cliente.Stop() };
     }
     Ok(())
+}
+
+/// Manda un trozo con la voz encima y avanza el reloj de lo escrito.
+///
+/// Devuelve `false` cuando ya no hay nadie escuchando: la grabacion ha terminado.
+fn emitir(
+    trozo: Vec<u8>,
+    formato: Formato,
+    mic: Option<&mut Acompannante>,
+    escritos: &mut usize,
+    tx: &Sender<Trozo>,
+) -> bool {
+    // `mezclar_encima` coge del microfono justo lo que dura este trozo; si el microfono va
+    // con retraso, lo que falte se queda en silencio y el sistema se sigue oyendo entero.
+    let trozo = match mic {
+        Some(mic) => mezclar_encima(trozo, formato, mic),
+        None => trozo,
+    };
+    let desde_el_inicio = formato.duracion_de(*escritos);
+    *escritos += trozo.len();
+    tx.send(Trozo {
+        datos: trozo,
+        desde_el_inicio,
+    })
+    .is_ok()
+}
+
+/// Cuantos instantes de silencio hay que emitir para que lo escrito alcance al reloj.
+///
+/// `None` mientras la diferencia no llegue a `SEQUIA`. Va aparte y sin tocar ningun
+/// aparato para poder probar la cuenta, que es la que decide si el sonido va pegado a la
+/// imagen cuando el altavoz se calla.
+fn instantes_que_faltan(reloj: Duration, emitido: Duration, muestras_por_segundo: u32) -> Option<usize> {
+    let falta = reloj.checked_sub(emitido)?;
+    if falta < SEQUIA {
+        return None;
+    }
+    Some((falta.as_nanos() * u128::from(muestras_por_segundo) / 1_000_000_000) as usize)
+}
+
+/// El reloj de pared de la grabacion, descontando lo que haya durado en pausa.
+///
+/// Los instantes entran por parametro para poder probarlo con tiempos inventados.
+struct RelojDeGrabacion {
+    arranque: Instant,
+    pausado: Duration,
+    pausa_desde: Option<Instant>,
+}
+
+impl RelojDeGrabacion {
+    fn arrancar(ahora: Instant) -> Self {
+        Self {
+            arranque: ahora,
+            pausado: Duration::ZERO,
+            pausa_desde: None,
+        }
+    }
+
+    /// Se le dice en cada vuelta si se esta en pausa; el apunta cuando empieza y acaba.
+    fn apuntar_pausa(&mut self, en_pausa: bool, ahora: Instant) {
+        match (en_pausa, self.pausa_desde) {
+            (true, None) => self.pausa_desde = Some(ahora),
+            (false, Some(desde)) => {
+                self.pausado += ahora.saturating_duration_since(desde);
+                self.pausa_desde = None;
+            }
+            _ => {}
+        }
+    }
+
+    /// Lo que ha pasado de verdad grabando: sin las pausas cerradas ni la que este abierta.
+    fn transcurrido(&self, ahora: Instant) -> Duration {
+        let en_curso = self
+            .pausa_desde
+            .map(|desde| ahora.saturating_duration_since(desde))
+            .unwrap_or_default();
+        ahora
+            .saturating_duration_since(self.arranque)
+            .saturating_sub(self.pausado + en_curso)
+    }
 }
 
 /// El microfono cuando acompanna al sistema, con lo que le sobro de la ultima vuelta.
@@ -294,6 +408,15 @@ fn mezclar_encima(trozo: Vec<u8>, formato: Formato, mic: &mut Acompannante) -> V
     if let Some(nuevas) = unsafe { leer_todo(&mic.captura, mic.formato) } {
         mic.pendiente
             .extend(super::mezcla::adaptar(&nuevas, mic.formato, formato));
+    }
+    // Si el microfono va por delante (su reloj corre un pelin mas rapido que el del
+    // maestro), lo pendiente creceria toda la tarde y la voz llegaria cada vez mas tarde.
+    // Se tira lo mas viejo y se deja medio segundo, que es mas que cualquier retraso
+    // normal entre los dos aparatos. Con el anillo puesto esto corre horas.
+    let tope = formato.muestras_por_segundo as usize * usize::from(formato.canales.max(1)) / 2;
+    if mic.pendiente.len() > tope {
+        let sobra = mic.pendiente.len() - tope;
+        mic.pendiente.drain(..sobra);
     }
     let mut muestras = super::mezcla::como_flotantes(&trozo);
     let cuantas = muestras.len().min(mic.pendiente.len());
@@ -510,6 +633,125 @@ mod tests {
         assert_eq!(pcm.len(), bytes.len() / 2, "ocupa la mitad, que es el objetivo");
     }
 
+    /// Por debajo de la sequia no se rellena nada: eso es jitter, no silencio.
+    #[test]
+    fn por_debajo_de_la_sequia_no_se_rellena() {
+        let emitido = Duration::from_millis(1_000);
+        assert_eq!(instantes_que_faltan(Duration::from_millis(1_050), emitido, 48_000), None);
+        assert_eq!(instantes_que_faltan(Duration::from_millis(1_099), emitido, 48_000), None);
+        // Y si lo escrito va por delante del reloj, tampoco: no hay nada que rellenar.
+        assert_eq!(instantes_que_faltan(Duration::from_millis(900), emitido, 48_000), None);
+    }
+
+    /// Con sequia se rellena JUSTO lo que falta hasta el reloj, ni un instante mas: es lo
+    /// que deja el sonido pegado a la imagen cuando el altavoz vuelve a sonar.
+    #[test]
+    fn con_sequia_se_rellena_justo_lo_que_falta() {
+        let emitido = Duration::from_millis(700);
+        assert_eq!(
+            instantes_que_faltan(Duration::from_millis(1_000), emitido, 48_000),
+            Some(14_400),
+            "300 ms a 48 kHz son 14.400 instantes"
+        );
+        assert_eq!(
+            instantes_que_faltan(Duration::from_millis(800), emitido, 44_100),
+            Some(4_410)
+        );
+    }
+
+    /// El reloj de la grabacion no cuenta las pausas, ni las cerradas ni la que este
+    /// abierta: en pausa la imagen no avanza y el sonido tiene que quedarse con ella.
+    #[test]
+    fn el_reloj_descuenta_las_pausas() {
+        let t0 = Instant::now();
+        let en = |ms: u64| t0 + Duration::from_millis(ms);
+        let mut reloj = RelojDeGrabacion::arrancar(t0);
+        reloj.apuntar_pausa(false, en(500));
+        assert_eq!(reloj.transcurrido(en(500)), Duration::from_millis(500));
+
+        reloj.apuntar_pausa(true, en(1_000));
+        // A mitad de la pausa: lo de antes de pausar, y nada mas.
+        assert_eq!(reloj.transcurrido(en(2_000)), Duration::from_millis(1_000));
+        reloj.apuntar_pausa(true, en(2_500));
+        reloj.apuntar_pausa(false, en(3_000));
+        // Dos segundos de pausa descontados de cuatro de reloj.
+        assert_eq!(reloj.transcurrido(en(4_000)), Duration::from_millis(2_000));
+
+        // Una segunda pausa se suma a la primera.
+        reloj.apuntar_pausa(true, en(4_000));
+        reloj.apuntar_pausa(false, en(4_500));
+        assert_eq!(reloj.transcurrido(en(5_000)), Duration::from_millis(2_500));
+    }
+
+    /// Un segundo de lo escrito dura un segundo tambien como `Duration`.
+    #[test]
+    fn la_duracion_como_duration_cuadra() {
+        let formato = Formato {
+            canales: 2,
+            muestras_por_segundo: 48_000,
+            bits_por_muestra: 32,
+        };
+        assert_eq!(formato.duracion(384_000), Duration::from_secs(1));
+        assert_eq!(formato.duracion(0), Duration::ZERO);
+    }
+
+    /// Con el altavoz CALLADO tiene que seguir llegando sonido (silencio, pero entregado),
+    /// porque es lo que mantiene la pista pegada a la imagen. Antes de rellenar por reloj
+    /// esto daba cero trozos en tres segundos siempre que no hubiera nada sonando.
+    ///
+    /// Va con `--ignored` porque necesita un altavoz:
+    /// `cargo test --lib el_sonido_sigue_llegando -- --ignored --nocapture`
+    #[test]
+    #[ignore = "necesita un altavoz de verdad"]
+    fn el_sonido_sigue_llegando_con_el_altavoz_callado() {
+        let captura = empezar(
+            Fuentes { sistema: true, microfono: false },
+            Arc::new(AtomicBool::new(false)),
+        )
+        .expect("no se ha podido abrir el altavoz");
+        let formato = captura.formato;
+        std::thread::sleep(Duration::from_secs(3));
+        let (mut bytes, mut trozos, mut ultimo_inicio) = (0usize, 0u32, 0i64);
+        while let Ok(trozo) = captura.trozos.try_recv() {
+            assert!(trozo.desde_el_inicio >= ultimo_inicio, "el tiempo del sonido va hacia atras");
+            ultimo_inicio = trozo.desde_el_inicio;
+            bytes += trozo.datos.len();
+            trozos += 1;
+        }
+        captura.parar();
+        let ms = formato.duracion_de(bytes) / 10_000;
+        eprintln!("[altavoz callado] {trozos} trozos, {ms} ms de sonido en 3 s de reloj");
+        assert!(
+            (2_500..=3_300).contains(&ms),
+            "en 3 s tendrian que haber llegado unos 3 s de sonido, y han llegado {ms} ms"
+        );
+    }
+
+    /// Lo mismo con el microfono puesto: es el caso del tutorial narrado sin musica, que
+    /// salia MUDO. Aqui no se puede comprobar que se oiga la voz (nadie habla), pero si
+    /// que los trozos llegan y que la pista dura lo que dura el reloj.
+    ///
+    /// `cargo test --lib la_pista_no_se_queda_muda -- --ignored --nocapture`
+    #[test]
+    #[ignore = "necesita altavoz y microfono de verdad"]
+    fn la_pista_no_se_queda_muda_con_microfono_y_altavoz_callado() {
+        let captura = empezar(
+            Fuentes { sistema: true, microfono: true },
+            Arc::new(AtomicBool::new(false)),
+        )
+        .expect("no se ha podido abrir el sonido");
+        let formato = captura.formato;
+        std::thread::sleep(Duration::from_secs(3));
+        let mut bytes = 0usize;
+        while let Ok(trozo) = captura.trozos.try_recv() {
+            bytes += trozo.datos.len();
+        }
+        captura.parar();
+        let ms = formato.duracion_de(bytes) / 10_000;
+        eprintln!("[voz con altavoz callado] {ms} ms de pista en 3 s de reloj");
+        assert!((2_500..=3_300).contains(&ms), "la pista dura {ms} ms y tenia que durar unos 3 s");
+    }
+
     /// Abre el microfono de verdad y comprueba que entrega sonido.
     ///
     /// Va con `--ignored` porque necesita un microfono conectado:
@@ -617,8 +859,11 @@ mod prueba_de_verdad {
     /// porque necesita una tarjeta de sonido y medio segundo:
     /// `cargo test --lib escuchar_el_altavoz -- --ignored --nocapture`.
     ///
-    /// Con el equipo en silencio tambien pasa: WASAPI en loopback entrega silencio, pero
-    /// lo entrega. Lo que se comprueba es que el grifo esta abierto.
+    /// Con el equipo en silencio tambien pasa, pero NO porque el loopback entregue
+    /// silencio: cuando no suena nada no entrega nada, medido el 17 de septiembre de 2026
+    /// (esta misma prueba daba cero trozos con el altavoz callado, y su comentario decia lo
+    /// contrario). Lo que rellena el silencio es `capturar`, con el reloj de la maquina.
+    /// Lo que se comprueba es que el grifo esta abierto, suene algo o no.
     #[test]
     #[ignore]
     fn escuchar_el_altavoz_de_verdad() {
