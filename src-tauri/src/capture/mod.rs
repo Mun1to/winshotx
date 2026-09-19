@@ -1,0 +1,524 @@
+#[cfg(test)]
+mod bench_freeze;
+use std::sync::Arc;
+
+use image::RgbaImage;
+use serde::{Deserialize, Serialize};
+
+use crate::error::{AppError, Result};
+
+/// Rectangulo en pixeles fisicos del escritorio virtual.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Rect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Rect {
+    pub fn center(&self) -> (i32, i32) {
+        (
+            self.x + (self.width / 2) as i32,
+            self.y + (self.height / 2) as i32,
+        )
+    }
+
+    /// Los codecs de video exigen dimensiones pares.
+    pub fn to_even(mut self) -> Self {
+        self.width = (self.width / 2) * 2;
+        self.height = (self.height / 2) * 2;
+        self.width = self.width.max(2);
+        self.height = self.height.max(2);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorInfo {
+    pub id: u32,
+    pub label: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub scale: f32,
+    pub is_primary: bool,
+}
+
+impl MonitorInfo {
+    pub fn contains(&self, x: i32, y: i32) -> bool {
+        x >= self.x
+            && y >= self.y
+            && x < self.x + self.width as i32
+            && y < self.y + self.height as i32
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowRect {
+    pub title: String,
+    pub rect: Rect,
+}
+
+/// Pantalla congelada de un monitor: es el fondo sobre el que se selecciona.
+///
+/// Vive **en memoria**, en dos formas. Los pixeles tal cual son para lo que hace Rust con
+/// ella (recortar la seleccion, juntar todas las pantallas: volver a abrir un BMP de 8 MB
+/// del disco para eso costaba 25 ms por captura). Y el PNG es lo que viaja al navegador del
+/// overlay por el IPC: **llevar 8 MB en crudo a cada ventana tardaba 300-400 ms**, medido el
+/// 5 de septiembre de 2026 con tres pantallas, y era el trozo mas gordo de todo el camino
+/// del atajo; comprimido a lo rapido son dos o tres megabytes, y el navegador lo decodifica
+/// nativo. Ya no se escribe nada en el disco.
+#[derive(Debug, Clone)]
+pub struct Freeze {
+    pub monitor: MonitorInfo,
+    pub image: Arc<RgbaImage>,
+    pub png: Arc<Vec<u8>>,
+}
+
+/// Captura todos los monitores de una vez y deja los BMP en disco.
+/// Congelar la imagen evita pelearse con ventanas transparentes y da lupa exacta.
+///
+/// Capturar es estrictamente secuencial: GDI (lo que usa `xcap` en Windows) no tolera
+/// bien que varios hilos capturen pantalla a la vez, y paralelizarlo fue justo lo que
+/// colgo la app la primera vez que se intento (ver la memoria del proyecto). Pero una vez
+/// que cada imagen ya esta en memoria, guardarla a disco no comparte nada entre monitores
+/// (cada uno escribe su propio archivo), asi que eso si se reparte en hilos: mientras se
+/// captura el monitor 2, el monitor 1 ya se puede estar escribiendo en paralelo.
+/// Como es un monitor: donde esta, cuanto mide y como se llama.
+fn describir(index: usize, monitor: &xcap::Monitor) -> Result<MonitorInfo> {
+    Ok(MonitorInfo {
+        id: index as u32,
+        label: monitor
+            .name()
+            .unwrap_or_else(|_| format!("Monitor {}", index + 1)),
+        x: monitor.x().map_err(|e| AppError::Msg(e.to_string()))?,
+        y: monitor.y().map_err(|e| AppError::Msg(e.to_string()))?,
+        width: monitor.width().map_err(|e| AppError::Msg(e.to_string()))?,
+        height: monitor.height().map_err(|e| AppError::Msg(e.to_string()))?,
+        scale: monitor.scale_factor().unwrap_or(1.0),
+        is_primary: monitor.is_primary().unwrap_or(false),
+    })
+}
+
+/// Las pantallas que hay, sin fotografiarlas.
+///
+/// `freeze_all` tambien las enumera, pero de paso captura cada una, que es lo caro. Quien
+/// solo quiere saber donde estan (el anillo de los ultimos segundos, para elegir cual
+/// vigila) no tiene por que pagar eso.
+pub fn monitors() -> Result<Vec<MonitorInfo>> {
+    xcap::Monitor::all()
+        .map_err(|e| AppError::Msg(e.to_string()))?
+        .iter()
+        .enumerate()
+        .map(|(index, monitor)| describir(index, monitor))
+        .collect()
+}
+
+pub fn freeze_all() -> Result<Vec<Freeze>> {
+    let cuantos = xcap::Monitor::all()
+        .map_err(|e| AppError::Msg(e.to_string()))?
+        .len();
+    freeze_monitors(&(0..cuantos).collect::<Vec<_>>())
+}
+
+/// Congela solo esas pantallas (por su indice en la enumeracion del sistema), a la vez.
+///
+/// Existe para poder congelar PRIMERO la pantalla donde esta el raton y ensennarla sin
+/// esperar a las demas: es la que el usuario mira, y con tres pantallas la diferencia entre
+/// congelar una y congelar tres son unos 40 ms de captura y otros tantos de llevar los
+/// PNG al navegador, porque comparten la misma tuberia.
+pub fn freeze_monitors(indices: &[usize]) -> Result<Vec<Freeze>> {
+    if indices.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Las pantallas se fotografian A LA VEZ, una por hilo.
+    //
+    // Estaban en fila, y con una pantalla eso da igual, pero con tres se paga tres veces:
+    // en la maquina de Munir (1920x1080 + 1080x1920 + 1536x960) congelarlas costaba 150 ms
+    // de los 270 que tardaba el atajo entero, y el numero que la app anuncia y defiende son
+    // los 114 ms desde el atajo hasta ver la seleccion YA PINTADA, con esas tres pantallas.
+    // Escribir los archivos ya se hacia en paralelo aqui abajo; fotografiar, no.
+    // Cada hilo se busca SU monitor en vez de recibirlo: `xcap::Monitor` lleva un puntero
+    // crudo dentro (el identificador que da Windows), asi que no se puede mandar de un hilo
+    // a otro. Volver a enumerar cuesta microsegundos, que al lado de fotografiar una
+    // pantalla no es nada, y evita tener que prometerle al compilador algo que no se puede
+    // comprobar sobre un tipo de otra biblioteca.
+    let capturas = std::thread::scope(|scope| -> Result<Vec<_>> {
+        let handles: Vec<_> = indices
+            .iter()
+            .map(|&index| {
+                scope.spawn(move || -> Result<(usize, MonitorInfo, image::RgbaImage)> {
+                    let suyos = xcap::Monitor::all().map_err(|e| AppError::Msg(e.to_string()))?;
+                    let monitor = suyos
+                        .get(index)
+                        .ok_or_else(|| AppError::Msg("una pantalla ha desaparecido".into()))?;
+                    let info = describir(index, monitor)?;
+                    let image = monitor
+                        .capture_image()
+                        .map_err(|e| AppError::Msg(e.to_string()))?;
+                    Ok((index, info, image))
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| {
+                h.join()
+                    .map_err(|_| AppError::Msg("una pantalla ha fallado al congelarse".into()))?
+            })
+            .collect()
+    })?;
+
+    if capturas.is_empty() {
+        return Err(AppError::Msg("no se ha detectado ningún monitor".into()));
+    }
+
+    // Y cada una se comprime a PNG en su propio hilo, que es lo que se le manda al
+    // navegador. Con la compresion rapida son unos 28 ms por pantalla de 1080p, contra los
+    // 300-400 que costaba llevarle los 8 MB en crudo.
+    std::thread::scope(|scope| -> Result<Vec<Freeze>> {
+        let handles: Vec<_> = capturas
+            .into_iter()
+            .map(|(_, info, image)| {
+                scope.spawn(move || -> Result<Freeze> {
+                    let png = crate::encode::png::to_bytes(&image)?;
+                    Ok(Freeze {
+                        monitor: info,
+                        image: Arc::new(image),
+                        png: Arc::new(png),
+                    })
+                })
+            })
+            .collect();
+
+        handles
+            .into_iter()
+            .map(|handle| {
+                handle
+                    .join()
+                    .map_err(|_| AppError::Msg("un hilo de compresion ha fallado".into()))?
+            })
+            .collect()
+    })
+}
+
+/// Los bytes de un BMP de 32 bits con esa imagen dentro, hechos a mano.
+///
+/// Es el camino de respaldo del overlay si el PNG fallara: sin comprimir, asi que no
+/// depende de ningun codificador. Es el formato mas simple que existe (cabecera de 54 bytes
+/// y los pixeles tal cual, de abajo arriba y en BGRA), el navegador lo abre nativo, y
+/// hacerlo a mano cuesta unos 6 ms por pantalla contra los 20 del codificador de `image`.
+pub fn bmp_bytes(image: &RgbaImage) -> Vec<u8> {
+    let (width, height) = image.dimensions();
+    let fila = width as usize * 4;
+    let pixeles = fila * height as usize;
+    let mut out = Vec::with_capacity(54 + pixeles);
+
+    // BITMAPFILEHEADER (14 bytes).
+    out.extend_from_slice(b"BM");
+    out.extend_from_slice(&((54 + pixeles) as u32).to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&54u32.to_le_bytes());
+    // BITMAPINFOHEADER (40 bytes): 32 bits por pixel sin comprimir, filas de abajo arriba.
+    out.extend_from_slice(&40u32.to_le_bytes());
+    out.extend_from_slice(&(width as i32).to_le_bytes());
+    out.extend_from_slice(&(height as i32).to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&32u16.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&(pixeles as u32).to_le_bytes());
+    out.extend_from_slice(&2835i32.to_le_bytes());
+    out.extend_from_slice(&2835i32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+
+    // Las filas al reves y los canales dados la vuelta, fila a fila y a trozos de cuatro
+    // bytes: asi el compilador lo convierte en copias anchas en vez de comprobar los
+    // limites en cada byte. Annadir pixel a pixel con `extend_from_slice` costaba 18 ms
+    // por pantalla, casi lo mismo que el codificador de `image`.
+    let raw = image.as_raw();
+    let cabecera = out.len();
+    out.resize(cabecera + pixeles, 0);
+    let cuerpo = &mut out[cabecera..];
+    for (y, destino) in cuerpo.chunks_exact_mut(fila).enumerate() {
+        let origen = &raw[(height as usize - 1 - y) * fila..(height as usize - y) * fila];
+        for (d, s) in destino.chunks_exact_mut(4).zip(origen.chunks_exact(4)) {
+            d[0] = s[2];
+            d[1] = s[1];
+            d[2] = s[0];
+            d[3] = s[3];
+        }
+    }
+    out
+}
+
+/// Rectangulos de las ventanas visibles, para el ajuste automatico del overlay.
+pub fn window_rects() -> Vec<WindowRect> {
+    let Ok(windows) = xcap::Window::all() else {
+        return Vec::new();
+    };
+    // Las ventanas del propio overlay tapan la pantalla entera y se enumeran como
+    // cualquier otra: sin este filtro, el ajuste automatico se ofreceria a si mismo.
+    let own_pid = std::process::id();
+    windows
+        .iter()
+        .filter(|w| w.pid().map(|pid| pid != own_pid).unwrap_or(true))
+        .filter(|w| !w.is_minimized().unwrap_or(true))
+        .filter_map(|w| {
+            let title = w.title().unwrap_or_default();
+            let width = w.width().ok()?;
+            let height = w.height().ok()?;
+            if width < 40 || height < 40 {
+                return None;
+            }
+            Some(WindowRect {
+                title,
+                rect: Rect {
+                    x: w.x().ok()?,
+                    y: w.y().ok()?,
+                    width,
+                    height,
+                },
+            })
+        })
+        .collect()
+}
+
+/// Recorta la region pedida del monitor que la contiene, usando la imagen ya congelada.
+pub fn crop_from_freeze(freezes: &[Freeze], region: Rect) -> Result<image::RgbaImage> {
+    let (cx, cy) = region.center();
+    let freeze = freezes
+        .iter()
+        .find(|f| f.monitor.contains(cx, cy))
+        .or_else(|| freezes.first())
+        .ok_or_else(|| AppError::Msg("no hay pantalla congelada".into()))?;
+
+    let image = &freeze.image;
+    let local_x = (region.x - freeze.monitor.x).max(0) as u32;
+    let local_y = (region.y - freeze.monitor.y).max(0) as u32;
+    let width = region.width.min(image.width().saturating_sub(local_x));
+    let height = region.height.min(image.height().saturating_sub(local_y));
+    if width == 0 || height == 0 {
+        return Err(AppError::Msg("la selección queda fuera de la pantalla".into()));
+    }
+    Ok(image::imageops::crop_imm(image.as_ref(), local_x, local_y, width, height).to_image())
+}
+
+/// El rectangulo que contiene todas las pantallas: el escritorio virtual entero.
+/// Con monitores de distinto alto o mal alineados sobra sitio por algun lado, y ese
+/// sobrante no pertenece a ninguna pantalla: ver `stitch_all`.
+pub fn virtual_desktop(freezes: &[Freeze]) -> Option<Rect> {
+    let primero = freezes.first()?;
+    let (mut x0, mut y0) = (primero.monitor.x, primero.monitor.y);
+    let (mut x1, mut y1) = (
+        primero.monitor.x + primero.monitor.width as i32,
+        primero.monitor.y + primero.monitor.height as i32,
+    );
+    for f in freezes.iter().skip(1) {
+        x0 = x0.min(f.monitor.x);
+        y0 = y0.min(f.monitor.y);
+        x1 = x1.max(f.monitor.x + f.monitor.width as i32);
+        y1 = y1.max(f.monitor.y + f.monitor.height as i32);
+    }
+    Some(Rect {
+        x: x0,
+        y: y0,
+        width: (x1 - x0) as u32,
+        height: (y1 - y0) as u32,
+    })
+}
+
+/// Pega todas las pantallas congeladas en una sola imagen, cada una en su sitio real.
+///
+/// Los huecos que quedan entre monitores desalineados se dejan **transparentes**, no en
+/// negro (decision D7). Conviene saber que pasa despues con esa transparencia, porque no
+/// es igual en todas las salidas: el PNG guardado la conserva; el portapapeles la compone
+/// sobre blanco, porque `platform::clipboard` construye el CF_DIB sobre blanco ya que
+/// muchas aplicaciones ignoran el alfa; y el GIF y el MP4 no tienen alfa, asi que ahi los
+/// huecos salen negros. No hay nada que arreglar en eso, solo que no sorprenda.
+pub fn stitch_all(freezes: &[Freeze]) -> Result<(image::RgbaImage, Rect)> {
+    let marco = virtual_desktop(freezes)
+        .ok_or_else(|| AppError::Msg("no hay ninguna pantalla congelada".into()))?;
+
+    let mut lienzo = image::RgbaImage::from_pixel(marco.width, marco.height, image::Rgba([0, 0, 0, 0]));
+
+    // Fila a fila con copias de memoria, no con `imageops::overlay`: aquel mezcla el alfa
+    // pixel a pixel y tardaba 50 ms en juntar tres pantallas, y una pantalla congelada es
+    // opaca entera, no hay nada que mezclar. Los monitores no se solapan, asi que copiar
+    // encima es exactamente lo que hacia la mezcla.
+    let ancho_lienzo = marco.width as usize * 4;
+    for f in freezes {
+        let dx = (f.monitor.x - marco.x).max(0) as usize;
+        let dy = (f.monitor.y - marco.y).max(0) as usize;
+        let (fw, fh) = f.image.dimensions();
+        let fila = fw as usize * 4;
+        let origen = f.image.as_raw();
+        let destino = lienzo.as_mut();
+        for y in 0..fh as usize {
+            let a = (dy + y) * ancho_lienzo + dx * 4;
+            if a + fila > destino.len() {
+                break;
+            }
+            destino[a..a + fila].copy_from_slice(&origen[y * fila..(y + 1) * fila]);
+        }
+    }
+
+    Ok((lienzo, marco))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Una pantalla congelada de un solo color, como las que deja `freeze_all`.
+    /// El color es la firma: si el recorte sale de otra pantalla, se ve en el pixel.
+    fn pantalla(id: u32, x: i32, color: [u8; 3]) -> Freeze {
+        let (ancho, alto) = (1920u32, 1080u32);
+        let imagen = image::RgbaImage::from_pixel(
+            ancho,
+            alto,
+            image::Rgba([color[0], color[1], color[2], 255]),
+        );
+        congelada(id, x, 0, imagen)
+    }
+
+    fn congelada(id: u32, x: i32, y: i32, imagen: image::RgbaImage) -> Freeze {
+        Freeze {
+            monitor: MonitorInfo {
+                id,
+                label: format!("PRUEBA-{id}"),
+                x,
+                y,
+                width: imagen.width(),
+                height: imagen.height(),
+                scale: 1.0,
+                is_primary: id == 0,
+            },
+            png: Arc::new(crate::encode::png::to_bytes(&imagen).expect("png de prueba")),
+            image: Arc::new(imagen),
+        }
+    }
+
+    /// Tres monitores de 1920 en fila, como los de Munir: rojo, verde y azul.
+    fn tres_pantallas() -> Vec<Freeze> {
+        vec![
+            pantalla(0, 0, [255, 0, 0]),
+            pantalla(1, 1920, [0, 255, 0]),
+            pantalla(2, 3840, [0, 0, 255]),
+        ]
+    }
+
+    fn primer_pixel(imagen: &image::RgbaImage) -> [u8; 3] {
+        let p = imagen.get_pixel(0, 0).0;
+        [p[0], p[1], p[2]]
+    }
+
+    #[test]
+    fn recorta_de_la_pantalla_donde_cae_la_seleccion() {
+        let freezes = tres_pantallas();
+
+        // Coordenadas del escritorio virtual, que es lo que manda `toPhysical`.
+        let en_la_primera = crop_from_freeze(&freezes, Rect { x: 10, y: 10, width: 100, height: 100 }).unwrap();
+        assert_eq!(primer_pixel(&en_la_primera), [255, 0, 0], "la primera pantalla es roja");
+
+        let en_la_segunda = crop_from_freeze(&freezes, Rect { x: 1930, y: 10, width: 100, height: 100 }).unwrap();
+        assert_eq!(primer_pixel(&en_la_segunda), [0, 255, 0], "la segunda pantalla es verde");
+
+        let en_la_tercera = crop_from_freeze(&freezes, Rect { x: 3850, y: 10, width: 100, height: 100 }).unwrap();
+        assert_eq!(primer_pixel(&en_la_tercera), [0, 0, 255], "la tercera pantalla es azul");
+    }
+
+    /// EL BUG. Una seleccion que no cae en ninguna pantalla no puede devolver la primera
+    /// en silencio: eso es exactamente lo que se ve como "mi pantalla principal duplicada
+    /// en las otras", porque cualquier error de coordenadas rio arriba acaba aqui.
+    #[test]
+    fn una_seleccion_fuera_de_todo_falla_en_vez_de_devolver_la_principal() {
+        let freezes = tres_pantallas();
+
+        let resultado = crop_from_freeze(
+            &freezes,
+            Rect { x: 10_000, y: 10_000, width: 100, height: 100 },
+        );
+
+        assert!(
+            resultado.is_err(),
+            "una seleccion fuera de toda pantalla devolvio una imagen en vez de fallar; \
+             si el pixel es rojo, ha caido en la pantalla principal: {:?}",
+            resultado.map(|i| primer_pixel(&i))
+        );
+    }
+    /// Un monitor mas bajo que los otros deja un hueco debajo que no es de nadie.
+    fn tres_pantallas_desalineadas() -> Vec<Freeze> {
+        // La tercera es de 1920x720 en vez de 1920x1080: deja 360 px de hueco debajo.
+        let bajita = image::RgbaImage::from_pixel(1920, 720, image::Rgba([0, 0, 255, 255]));
+        vec![
+            pantalla(0, 0, [255, 0, 0]),
+            pantalla(1, 1920, [0, 255, 0]),
+            congelada(2, 3840, 0, bajita),
+        ]
+    }
+
+    #[test]
+    fn el_escritorio_virtual_abarca_todas_las_pantallas() {
+        let freezes = tres_pantallas();
+        let marco = virtual_desktop(&freezes).expect("hay tres pantallas");
+        assert_eq!(marco.x, 0);
+        assert_eq!(marco.y, 0);
+        assert_eq!(marco.width, 5760, "tres monitores de 1920 en fila");
+        assert_eq!(marco.height, 1080);
+    }
+
+    #[test]
+    fn juntar_las_pantallas_deja_cada_una_en_su_sitio() {
+        let freezes = tres_pantallas();
+        let (lienzo, marco) = stitch_all(&freezes).unwrap();
+
+        assert_eq!((lienzo.width(), lienzo.height()), (5760, 1080));
+        assert_eq!(marco.width, 5760);
+
+        // Un pixel del centro de cada tercio tiene que ser del color de esa pantalla.
+        let color = |x: u32| { let p = lienzo.get_pixel(x, 540).0; [p[0], p[1], p[2], p[3]] };
+        assert_eq!(color(960), [255, 0, 0, 255], "el primer tercio es la pantalla roja");
+        assert_eq!(color(2880), [0, 255, 0, 255], "el segundo tercio es la verde");
+        assert_eq!(color(4800), [0, 0, 255, 255], "el tercero es la azul");
+    }
+
+    /// D7: los huecos van transparentes, no negros. Si alguien lo cambia, que falle aqui
+    /// y no en el portapapeles de alguien.
+    #[test]
+    fn el_hueco_entre_monitores_desalineados_queda_transparente() {
+        let freezes = tres_pantallas_desalineadas();
+        let (lienzo, _) = stitch_all(&freezes).unwrap();
+
+        assert_eq!((lienzo.width(), lienzo.height()), (5760, 1080));
+
+        // Dentro de la tercera pantalla, que solo llega hasta y=720.
+        assert_eq!(lienzo.get_pixel(4800, 360).0[3], 255, "dentro de la pantalla, opaco");
+        // Debajo de ella no hay pantalla ninguna.
+        assert_eq!(lienzo.get_pixel(4800, 900).0[3], 0, "el hueco tiene que ser transparente");
+    }
+
+
+    /// El BMP hecho a mano tiene que abrirse con un decodificador de verdad y devolver los
+    /// mismos pixeles, incluido el orden de las filas: un BMP va de abajo arriba y si se
+    /// escribiera al reves, el overlay ensennaria la pantalla dada la vuelta.
+    #[test]
+    fn el_bmp_a_mano_se_vuelve_a_abrir_igual() {
+        let imagen = image::RgbaImage::from_fn(37, 11, |x, y| {
+            image::Rgba([(x * 6) as u8, (y * 20) as u8, (x + y) as u8, 255])
+        });
+        let bytes = bmp_bytes(&imagen);
+        assert_eq!(bytes.len(), 54 + 37 * 11 * 4);
+        let releida = image::load_from_memory_with_format(&bytes, image::ImageFormat::Bmp)
+            .expect("el BMP no se puede abrir")
+            .to_rgba8();
+        assert_eq!(releida.dimensions(), (37, 11));
+        assert_eq!(releida.as_raw(), imagen.as_raw(), "los pixeles no son los mismos");
+    }
+}

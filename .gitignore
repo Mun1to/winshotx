@@ -1,0 +1,36 @@
+# El buzon entre sesiones: recados de una sesion a la siguiente. Es efimero y
+# local, asi que no tiene por que quedar en el historial de nadie.
+BUZON.md
+
+node_modules/
+dist/
+.env
+.env.*
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Documentos internos del taller: no viajan a un repositorio publico (regla P).
+AGENTS.md
+docs/METAS.md
+# Las incidencias y lo que dice Munir de como se trabaja: interno, como el buzon.
+FEEDBACK.md
+docs/SEO-ESTADO.md
+docs/investigacion/
+.playwright-mcp/
+
+# El paquete de la Microsoft Store se monta con `node scripts/msix.mjs`: ni el .msix ni
+# los iconos que genera son fuente, y el paquete solo pesa tres megas cada vez.
+packaging/store/paquete/
+packaging/store/*.msix
+
+# Las fotos de `node scripts/ver-web.mjs`, para mirar la web sin abrirla.
+.fotos-web/
+
+# El perfil de navegador con la sesion de Partner Center es una credencial.
+packaging/store/perfil*/
+.perfil*/
+node_modules/
+dist/
+src-tauri/target/
