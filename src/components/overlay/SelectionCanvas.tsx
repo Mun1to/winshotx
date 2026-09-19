@@ -575,7 +575,10 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           return;
       }
       const key = e.key.toLowerCase();
-      if (key === "s" && e.ctrlKey) {
+      if (key === "s" && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        void runStill("save_as");
+      } else if (key === "s" && e.ctrlKey) {
         e.preventDefault();
         void runStill("save");
       } else if (key === "a" && e.ctrlKey) {
@@ -944,6 +947,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             modo={modo}
             onCopy={() => void runStill("copy")}
             onSave={() => void runStill("save")}
+            onSaveAs={() => void runStill("save_as")}
             onEdit={() => void runStill("edit")}
             onPin={() => void runStill("pin")}
             onText={() => void runStill("text")}

@@ -736,6 +736,7 @@ pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::Ex
         shadow: false,
         annotations: Vec::new(),
         crop: None,
+        file: None,
         zoom: 0.0,
         clicks: false,
         keys: false,

@@ -159,6 +159,20 @@ describe("el interruptor de la barra de acciones", () => {
     expect(screen.queryByLabelText("Copiar")).toBeNull();
   });
 
+  it("Ctrl+Mayús+S guarda donde diga el usuario, y Ctrl+S en la carpeta de siempre", async () => {
+    const lienzo = await abrir();
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: true });
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    expect(await screen.findByLabelText("Guardar en…")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
+    await waitFor(() =>
+      expect(llamadas.some((l) => l.comando === "capture_still")).toBe(true),
+    );
+    const accion = (llamadas.find((l) => l.comando === "capture_still")?.args as { action: string }).action;
+    expect(accion).toBe("save_as");
+  });
+
   it("encendido, soltar el recorte saca la barra y no captura nada todavia", async () => {
     const lienzo = await abrir();
     emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: true });

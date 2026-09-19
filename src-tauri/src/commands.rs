@@ -208,6 +208,23 @@ fn entregar(
             }
             result.path = Some(path.to_string_lossy().to_string());
         }
+        // Guardar donde diga el usuario, con el dialogo de Windows: para la captura que va
+        // a un proyecto concreto y no a la carpeta de siempre. Los overlays tapan la
+        // pantalla entera y van encima de todo, asi que el dialogo saldria detras: se
+        // cierran antes, que la imagen ya esta recortada. Si cancela, no pasa nada.
+        "save_as" => {
+            let directory = PathBuf::from(state.settings.read().save_directory.clone());
+            windows_mgr::close_overlays(app);
+            let Some(path) = elegir_donde_guardar(app, &directory, "png") else {
+                return Ok(result);
+            };
+            png::save(&image, &path, width, height)?;
+            if copy_after {
+                let bytes = png::to_bytes(&image)?;
+                result.copied = crate::platform::clipboard::copy_image(&image, &bytes).is_ok();
+            }
+            result.path = Some(path.to_string_lossy().to_string());
+        }
         "edit" => {
             let session = recorder::session_from_image(app, &image, region)?;
             windows_mgr::close_overlays(app);
@@ -899,6 +916,42 @@ pub async fn pick_directory(app: AppHandle) -> Option<String> {
         .file()
         .blocking_pick_folder()
         .map(|folder| folder.to_string())
+}
+
+/// El dialogo de «Guardar como» de Windows, para elegir carpeta Y nombre de una vez.
+///
+/// Arranca en la carpeta que se le diga (la de capturas, si no hay otra) y con el nombre
+/// que le habria puesto `archivos`, para que aceptar sin tocar nada de lo mismo que guardar
+/// a secas. Devuelve la ruta entera, o nada si se cancelo. La extension la asegura quien
+/// escribe el archivo: el dialogo deja borrarla.
+fn elegir_donde_guardar(app: &AppHandle, carpeta: &std::path::Path, extension: &str) -> Option<PathBuf> {
+    use tauri_plugin_dialog::DialogExt;
+    let sugerido = crate::archivos::destino(carpeta, extension).ok()?;
+    let nombre = sugerido.file_name()?.to_string_lossy().to_string();
+    let elegido = app
+        .dialog()
+        .file()
+        .set_directory(carpeta)
+        .set_file_name(&nombre)
+        .add_filter(extension.to_uppercase(), &[extension])
+        .blocking_save_file()?;
+    elegido.into_path().ok()
+}
+
+/// «Guardar en…» del editor: el mismo dialogo, y el archivo elegido se le pasa despues a
+/// `export_media` en `file`. Va aparte de exportar porque el dialogo bloquea, y el editor
+/// quiere ensennar la barra de progreso solo cuando de verdad se esta escribiendo.
+#[tauri::command]
+pub async fn pick_save_file(
+    app: AppHandle,
+    extension: String,
+    directory: Option<String>,
+) -> Option<String> {
+    let carpeta = directory
+        .filter(|d| !d.trim().is_empty())
+        .unwrap_or_else(|| app.state::<AppState>().settings.read().save_directory.clone());
+    elegir_donde_guardar(&app, &PathBuf::from(carpeta), &extension)
+        .map(|ruta| ruta.to_string_lossy().to_string())
 }
 
 #[tauri::command]

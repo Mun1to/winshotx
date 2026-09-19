@@ -119,7 +119,8 @@ has the nineteen rows, including the five the Snipping Tool wins.
 | `Ctrl+Shift+6` | Keep what just happened · while "the last few seconds" is on |
 | `Print Screen` | Capture a region · once you take the key from the Snipping Tool |
 | `Enter` | Copy the selection to the clipboard |
-| `Ctrl+S` | Save the selection |
+| `Ctrl+S` | Save the selection to the shots folder |
+| `Ctrl+Shift+S` | Save it wherever you want: Windows asks for the folder and the name |
 | `E` | Open the selection in the editor |
 | `A` | Pin the selection: it floats on top of everything, where it was |
 | `T` | Copy the text inside the selection, read by Windows' own OCR |
@@ -130,7 +131,8 @@ has the nineteen rows, including the five the Snipping Tool wins.
 | `Esc` | Cancel |
 
 In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `C` crops the image,
-`←` `→` step through frames, `Ctrl+S` exports with whatever the panel has set, and `Esc` closes —
+`←` `→` step through frames, `Ctrl+S` exports with whatever the panel has set, `Ctrl+Shift+S` asks
+where to save it first, and `Esc` closes —
 letting go of the crop frame or the drawing tool first, since closing throws the frames away.
 
 In the editor, to annotate: `1` arrow, `2` box, `3` text, `4` highlight, `5` numbered step and

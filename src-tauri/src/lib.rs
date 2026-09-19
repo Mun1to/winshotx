@@ -260,6 +260,7 @@ pub fn run() {
             commands::set_capture_flow,
             commands::open_settings,
             commands::pick_directory,
+            commands::pick_save_file,
             commands::reveal_in_explorer,
             commands::discard_session,
             commands::just_updated,

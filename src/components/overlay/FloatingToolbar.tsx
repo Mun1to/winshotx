@@ -1,4 +1,4 @@
-import { Check, Circle, Copy, Download, Pencil, Pin, Type, X } from "lucide-react";
+import { Check, Circle, Copy, Download, FolderDown, Pencil, Pin, Type, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { GlassPanel } from "../ui/GlassPanel";
 import { IconButton } from "../ui/IconButton";
@@ -14,6 +14,8 @@ interface Props {
   modo: CaptureMode;
   onCopy: () => void;
   onSave: () => void;
+  /** Guardar donde diga el usuario, con el diálogo de Windows, en vez de en la carpeta de siempre. */
+  onSaveAs: () => void;
   onEdit: () => void;
   /** Deja la captura flotando encima de todo, en su sitio, hasta que se cierre. */
   onPin: () => void;
@@ -38,6 +40,7 @@ export function FloatingToolbar({
   modo,
   onCopy,
   onSave,
+  onSaveAs,
   onEdit,
   onPin,
   onText,
@@ -66,6 +69,13 @@ export function FloatingToolbar({
               label={t("Guardar")}
               shortcut="Ctrl+S"
               onClick={onSave}
+              disabled={busy}
+            />
+            <IconButton
+              icon={FolderDown}
+              label={t("Guardar en…")}
+              shortcut={t("Ctrl+Mayús+S")}
+              onClick={onSaveAs}
               disabled={busy}
             />
             <IconButton

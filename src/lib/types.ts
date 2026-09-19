@@ -61,7 +61,7 @@ export interface OverlayPayload {
   lastRegion: Rect | null;
 }
 
-export type StillAction = "copy" | "save" | "edit" | "pin" | "text";
+export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text";
 
 export interface StillResult {
   path: string | null;
@@ -229,6 +229,8 @@ export interface ExportRequest {
   annotations: Anotacion[];
   /** El trozo que se queda, de 0 a 1. null = la captura entera. */
   crop: Recorte | null;
+  /** El archivo exacto elegido en «Guardar en…». Manda sobre `destination`. */
+  file?: string | null;
   /** Cuánto se acerca la cámara a cada clic. 1 es no acercarse. */
   zoom: number;
   /** Un aro donde se pulsó. */

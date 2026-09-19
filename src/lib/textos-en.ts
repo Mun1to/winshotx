@@ -77,6 +77,10 @@ export const EN: Record<string, string> = {
     "this combination measured 22% of a core with a quiet desktop, and up to 60% with the screen moving",
   "esta combinación midió el 17% de un núcleo con el escritorio quieto":
     "this combination measured 17% of a core with a quiet desktop",
+  "Guardar en…": "Save to…",
+  "Ctrl+Mayús+S": "Ctrl+Shift+S",
+  "Elegir dónde guardar (Ctrl+Mayús+S)": "Choose where to save (Ctrl+Shift+S)",
+  "Elegir dónde guardar": "Choose where to save",
   "fotogramas por segundo": "frames per second",
   Nativa: "Native",
   "abre el editor con lo último, sin dejar de grabar":

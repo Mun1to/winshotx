@@ -45,6 +45,11 @@ pub struct ExportRequest {
     /// El trozo que se queda, de 0 a 1. Sin esto se exporta la captura entera.
     #[serde(default)]
     pub crop: Option<Recorte>,
+    /// El archivo exacto que eligio el usuario en el dialogo de «Guardar en…», con su
+    /// nombre. Manda sobre `destination`: es para la captura que va a un proyecto concreto
+    /// y no a la carpeta de siempre. Sin esto, el nombre lo pone `archivos`.
+    #[serde(default)]
+    pub file: Option<String>,
     /// Cuanto se acerca la camara a cada clic. 0 o 1 es no acercarse.
     ///
     /// Se decide AQUI y no al grabar: los clics quedaron anotados en la sesion, asi que
@@ -171,6 +176,13 @@ fn destination_path(
     request: &ExportRequest,
     extension: &str,
 ) -> Result<PathBuf> {
+    if let Some(elegido) = request.file.as_deref().filter(|f| !f.trim().is_empty()) {
+        let ruta = ruta_elegida(elegido, extension);
+        if let Some(carpeta) = ruta.parent() {
+            std::fs::create_dir_all(carpeta)?;
+        }
+        return Ok(ruta);
+    }
     let state = app.state::<AppState>();
     let dir = request
         .destination
@@ -180,6 +192,26 @@ fn destination_path(
     // Quien decide donde cae un archivo y como se llama es `archivos`, y solo el: son
     // tres sitios los que guardan y los tres tienen que nombrar igual y no pisar nada.
     Ok(crate::archivos::destino(&PathBuf::from(dir), extension)?)
+}
+
+/// La ruta que eligio el usuario, con la extension del formato puesta si no la lleva: el
+/// dialogo de Windows deja escribir «captura» a secas, y un MP4 sin extension no lo abre
+/// nadie. Si ya trae la buena, en mayusculas o minusculas, se respeta tal cual.
+fn ruta_elegida(elegido: &str, extension: &str) -> PathBuf {
+    let mut ruta = PathBuf::from(elegido.trim());
+    let la_lleva = ruta
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(extension));
+    if !la_lleva {
+        let nombre = ruta
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("winshotx")
+            .to_string();
+        ruta.set_file_name(format!("{nombre}.{extension}"));
+    }
+    ruta
 }
 
 fn load_session(app: &AppHandle, id: &str) -> Result<SessionData> {
@@ -841,6 +873,19 @@ fn imagen_escrita(path: &Path) -> Result<(image::RgbaImage, Vec<u8>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Lo que eligio el usuario en «Guardar en…» se respeta, y solo se le pone la
+    /// extension cuando no la trae: ni se le cambia el nombre ni se le quita la carpeta.
+    #[test]
+    fn la_ruta_elegida_lleva_siempre_su_extension() {
+        assert_eq!(ruta_elegida(r"C:\Proyectos\demo\captura", "png"), PathBuf::from(r"C:\Proyectos\demo\captura.png"));
+        assert_eq!(ruta_elegida(r"C:\Proyectos\demo\captura.png", "png"), PathBuf::from(r"C:\Proyectos\demo\captura.png"));
+        assert_eq!(ruta_elegida(r"C:\Proyectos\demo\captura.PNG", "png"), PathBuf::from(r"C:\Proyectos\demo\captura.PNG"));
+        // Una extension que no es la del formato no vale: un MP4 llamado .txt no lo abre nadie.
+        assert_eq!(ruta_elegida(r"C:\demo\video.txt", "mp4"), PathBuf::from(r"C:\demo\video.txt.mp4"));
+        // Un punto en medio del nombre no es una extension.
+        assert_eq!(ruta_elegida(r"C:\demo\v1.2 final", "gif"), PathBuf::from(r"C:\demo\v1.2 final.gif"));
+    }
     use crate::capture::Rect;
     use crate::record::FrameEntry;
 
@@ -1136,6 +1181,7 @@ mod el_orden_de_exportar {
             shadow: false,
             annotations: Vec::new(),
             crop: None,
+            file: None,
             zoom: 0.0,
             clicks: false,
             keys: false,
@@ -1450,6 +1496,7 @@ mod la_camara_del_exportador {
             shadow: false,
             annotations: Vec::new(),
             crop,
+            file: None,
             zoom,
             clicks: false,
             keys: false,

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { Clipboard, Cpu, FolderOpen, Link2, Save, Sparkles, Unlink2, Zap } from "lucide-react";
-import { exportMedia, pickDirectory, revealInExplorer } from "../../lib/ipc";
+import { Clipboard, Cpu, FolderDown, FolderOpen, Link2, Save, Sparkles, Unlink2, Zap } from "lucide-react";
+import { exportMedia, pickDirectory, pickSaveFile, revealInExplorer } from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
 import {
   EVENTS,
@@ -198,7 +198,7 @@ export function ExportPanel({
     return (bitrate / 8) * seconds;
   }, [format, width, height, margen, quality, fps, inIndex, outIndex, session.fps, velocidad]);
 
-  const run = async (copyToClipboard: boolean) => {
+  const run = async (copyToClipboard: boolean, file: string | null = null) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
     if (progress !== null) return;
     setError(null);
@@ -233,6 +233,7 @@ export function ExportPanel({
         annotations: anotaciones,
         crop: recorte,
         destination: directory || null,
+        file,
         copyToClipboard,
       });
       setResult(res);
@@ -243,15 +244,27 @@ export function ExportPanel({
     }
   };
 
-  // Ctrl+S exporta sin ir al raton, igual que en el overlay. El ref evita volver
-  // a registrar el listener en cada tecleo del panel.
-  const runRef = useRef(run);
-  runRef.current = run;
+  /**
+   * «Guardar en…»: el diálogo de Windows para elegir carpeta y nombre de una vez, y
+   * después la exportación normal a ese archivo. Cancelar el diálogo no exporta nada.
+   */
+  const runAs = async (copyToClipboard: boolean) => {
+    if (progress !== null) return;
+    const file = await pickSaveFile(format, directory || null);
+    if (!file) return;
+    await run(copyToClipboard, file);
+  };
+
+  // Ctrl+S exporta sin ir al raton, igual que en el overlay, y Ctrl+Mayús+S pregunta
+  // dónde. El ref evita volver a registrar el listener en cada tecleo del panel.
+  const runRef = useRef({ run, runAs });
+  runRef.current = { run, runAs };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
       e.preventDefault();
-      void runRef.current(false);
+      if (e.shiftKey) void runRef.current.runAs(false);
+      else void runRef.current.run(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -546,6 +559,16 @@ export function ExportPanel({
             className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 text-sm font-semibold whitespace-nowrap text-white transition-colors hover:bg-blue-400 disabled:opacity-50"
           >
             <Save className="size-4" /> {t("Guardar")}
+          </button>
+          <button
+            type="button"
+            disabled={progress !== null}
+            onClick={() => void runAs(false)}
+            title={t("Elegir dónde guardar (Ctrl+Mayús+S)")}
+            aria-label={t("Elegir dónde guardar")}
+            className="flex h-9 items-center justify-center rounded-lg border border-white/10 px-3 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+          >
+            <FolderDown className="size-4" />
           </button>
           <button
             type="button"

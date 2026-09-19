@@ -128,6 +128,10 @@ export const openSettings = () => invoke<void>("open_settings");
 
 export const pickDirectory = () => invoke<string | null>("pick_directory");
 
+/** El diálogo de «Guardar como» de Windows: carpeta y nombre de una vez, o null si se cancela. */
+export const pickSaveFile = (extension: string, directory?: string | null) =>
+  invoke<string | null>("pick_save_file", { extension, directory: directory ?? null });
+
 export const revealInExplorer = (path: string) =>
   invoke<void>("reveal_in_explorer", { path });
 

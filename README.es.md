@@ -119,7 +119,8 @@ incluidas las cinco que gana la de Windows.
 | `Ctrl+Shift+6` | Quedarte con lo último que pasó · mientras «los últimos segundos» esté encendido |
 | `Impr Pant` | Capturar región · si le quitas la tecla a la Herramienta de Recortes |
 | `Enter` | Copiar la selección al portapapeles |
-| `Ctrl+S` | Guardar la selección |
+| `Ctrl+S` | Guardar la selección en la carpeta de capturas |
+| `Ctrl+Mayús+S` | Guardarla donde quieras: Windows pregunta carpeta y nombre |
 | `E` | Abrir la selección en el editor |
 | `A` | Anclar la selección: se queda flotando encima de todo, en su sitio |
 | `T` | Copiar el texto de la selección, leído por el lector de Windows |
@@ -129,7 +130,8 @@ incluidas las cinco que gana la de Windows.
 | `Esc` | Cancelar |
 
 En el editor: `espacio` reproduce, `I` y `O` marcan inicio y final del recorte, `←` `→` avanzan
-fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel y `Esc` cierra.
+fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel, `Ctrl+Mayús+S` pregunta antes
+dónde guardarlo y `Esc` cierra.
 
 En el editor, para anotar: `1` flecha, `2` rectángulo, `3` texto, `4` resaltar, `5` paso numerado
 y `6` tapar datos. `Ctrl+Z` deshace la última marca. Los pasos se numeran solos, así que meter uno

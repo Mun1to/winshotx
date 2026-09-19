@@ -5,11 +5,11 @@
  * lo que se le manda a Rust, no en lo que se ve. Una casilla que se queda pegada del
  * formato anterior no se nota mirando: se nota cuando alguien abre el archivo.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExportPanel } from "./ExportPanel";
 import { aplicarIdioma } from "../../lib/i18n";
-import { llamadas } from "../../test/preparar";
+import { llamadas, responde } from "../../test/preparar";
 import type { SessionInfo } from "../../lib/types";
 import type { Recorte } from "../../lib/recorte";
 
@@ -64,6 +64,41 @@ describe("elegir el formato", () => {
     for (const f of ["GIF", "MP4", "PNG", "JPG"]) {
       expect(screen.getByText(f)).toBeInTheDocument();
     }
+  });
+});
+
+describe("guardar donde uno quiera", () => {
+  it("«Guardar en…» pregunta con el diálogo y exporta al archivo elegido", async () => {
+    // Munir, el 19 de septiembre de 2026: «que puedas guardar las capturas donde quieras».
+    // La carpeta de ajustes sigue siendo la de siempre; esto es para la captura que va a
+    // un proyecto concreto, y tiene que llegar a Rust con el archivo exacto.
+    responde("pick_save_file", "C:\\proyectos\\demo\\portada.mp4");
+    pintar();
+    fireEvent.click(screen.getByLabelText("Elegir dónde guardar"));
+    await waitFor(() => expect(loExportado()).toBeTruthy());
+    const pregunta = llamadas.find((l) => l.comando === "pick_save_file")?.args as {
+      extension: string;
+      directory: string;
+    };
+    expect(pregunta.extension).toBe("mp4");
+    expect(pregunta.directory).toContain("capturas");
+    expect(loExportado().file).toBe("C:\\proyectos\\demo\\portada.mp4");
+  });
+
+  it("si se cancela el diálogo no se exporta nada", async () => {
+    responde("pick_save_file", null);
+    pintar();
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "pick_save_file")).toBe(true));
+    expect(llamadas.some((l) => l.comando === "export_media")).toBe(false);
+  });
+
+  it("Ctrl+S a secas sigue yendo a la carpeta, sin preguntar", async () => {
+    pintar();
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => expect(loExportado()).toBeTruthy());
+    expect(llamadas.some((l) => l.comando === "pick_save_file")).toBe(false);
+    expect(loExportado().file).toBeNull();
   });
 });
 
