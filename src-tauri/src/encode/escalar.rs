@@ -54,11 +54,68 @@ fn tabla(origen: u32, destino: u32) -> Vec<(u32, u32)> {
         .collect()
 }
 
+/// Las dos tablas de una escala, guardadas para no recalcularlas en cada fotograma.
+///
+/// La tabla depende solo de los dos tamaños, no de la imagen. Exportando un vídeo se
+/// llama a `ampliar` una vez por fotograma —cientos de veces—, y antes cada llamada
+/// reservaba dos vectores y hacía una división por píxel. Con las tablas guardadas, esa
+/// parte pasa de costar tiempo a no costar nada, y el bucle se queda con el trabajo de
+/// verdad, que es interpolar.
+///
+/// Solo cabe una escala a la vez porque exportar un vídeo no mezcla resoluciones: el
+/// bucle de la exportación va fotograma a fotograma con el mismo tamaño de destino. Si
+/// algún día se mezclaran, esta cache guardaría la última y habría que rehacerla, que es
+/// justo lo que hace hoy.
+///
+/// Es pública porque la usan los codificadores: quien exporta un vídeo la guarda y se la
+/// pasa a cada fotograma, y entonces las tablas se calculan una vez para todo el vídeo.
+#[derive(Default)]
+pub struct CacheEscala {
+    origen: Option<(u32, u32)>,
+    destino: Option<(u32, u32)>,
+    columnas: Vec<(u32, u32)>,
+    filas: Vec<(u32, u32)>,
+}
+
+impl CacheEscala {
+    /// Las tablas de la escala pedida, calculadas si todavía no están.
+    fn tablas(
+        &mut self,
+        ow: u32,
+        oh: u32,
+        ancho: u32,
+        alto: u32,
+    ) -> (&[(u32, u32)], &[(u32, u32)]) {
+        if self.origen != Some((ow, oh)) || self.destino != Some((ancho, alto)) {
+            self.columnas = tabla(ow, ancho);
+            self.filas = tabla(oh, alto);
+            self.origen = Some((ow, oh));
+            self.destino = Some((ancho, alto));
+        }
+        (&self.columnas, &self.filas)
+    }
+}
+
 /// Estira la imagen al tamaño pedido, con interpolación bilineal.
 ///
 /// Si ya mide lo pedido devuelve una copia sin tocar nada: es el caso normal cuando no hay
 /// zoom, y no tiene sentido pagar una interpolación para no cambiar nada.
 pub fn ampliar(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
+    let mut cache = CacheEscala::default();
+    ampliar_con_cache(origen, ancho, alto, &mut cache)
+}
+
+/// Lo mismo que [`ampliar`], pero con las tablas de la escala ya calculadas.
+///
+/// El que exporta un vídeo llama a esto una vez por fotograma, y las tablas solo dependen
+/// de los tamaños: si se calcularan dentro, se reservaría dos vectores y se haría una
+/// división por píxel de salida en cada fotograma, para siempre igual.
+pub fn ampliar_con_cache(
+    origen: &RgbaImage,
+    ancho: u32,
+    alto: u32,
+    cache: &mut CacheEscala,
+) -> RgbaImage {
     if origen.dimensions() == (ancho, alto) {
         return origen.clone();
     }
@@ -67,8 +124,7 @@ pub fn ampliar(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
         return RgbaImage::new(ancho.max(1), alto.max(1));
     }
 
-    let columnas = tabla(ow, ancho);
-    let filas = tabla(oh, alto);
+    let (columnas, filas) = cache.tablas(ow, oh, ancho, alto);
     let dentro = origen.as_raw();
     let mut salida = vec![0u8; (ancho as usize) * (alto as usize) * 4];
 
@@ -477,12 +533,27 @@ fn reparto(origen: u32, destino: u32) -> Vec<(u32, Vec<u32>)> {
 /// de 50 segundos a 1280 y tardó dos minutos: 64 de esos 92 ms por fotograma eran esta
 /// línea. Medido el 29 de agosto de 2026.
 pub fn a_medida(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
+    let mut cache = CacheEscala::default();
+    a_medida_con_cache(origen, ancho, alto, &mut cache)
+}
+
+/// Lo mismo que [`a_medida`], pero guardando las tablas de la escala.
+///
+/// Exportar un vídeo llama a esto una vez por fotograma, y las tablas de la interpolación
+/// solo dependen de los dos tamaños. Sin la cache, cada fotograma reservaba dos vectores
+/// y hacía una división por píxel de salida para producir siempre la misma tabla.
+pub fn a_medida_con_cache(
+    origen: &RgbaImage,
+    ancho: u32,
+    alto: u32,
+    cache: &mut CacheEscala,
+) -> RgbaImage {
     let (ow, oh) = origen.dimensions();
     if (ow, oh) == (ancho, alto) {
         return origen.clone();
     }
     if ancho >= ow && alto >= oh {
-        return ampliar(origen, ancho, alto);
+        return ampliar_con_cache(origen, ancho, alto, cache);
     }
     if ancho <= ow && alto <= oh {
         return reducir(origen, ancho, alto);
@@ -490,7 +561,7 @@ pub fn a_medida(origen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
     // Un lado crece y el otro encoge, que es lo que pasa al cambiar la proporción. Primero
     // se encoge, que deja menos píxeles que estirar después.
     let intermedio = reducir(origen, ancho.min(ow), alto.min(oh));
-    ampliar(&intermedio, ancho, alto)
+    ampliar_con_cache(&intermedio, ancho, alto, cache)
 }
 
 /// El tamaño al que se graba, dado el alto que se pidió.

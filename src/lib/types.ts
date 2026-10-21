@@ -32,8 +32,32 @@ export type CaptureFlow = "toolbar" | "instant";
 /** De que color se pinta la app. "sistema" es seguir a Windows y cambiar con el. */
 export type Theme = "sistema" | "claro" | "oscuro";
 
-/** En que idioma habla la app. "sistema" es el de Windows, si winshotx lo habla. */
-export type Language = "sistema" | "es" | "en" | "zh";
+/**
+ * En que idioma habla la app. "sistema" es el de Windows, si winshotx lo habla.
+ *
+ * Los codigos son los mismos que usa el backend en `settings.rs`, para que el valor que
+ * va al disco y el que se pinta en pantalla sean la misma cosa.
+ */
+export type Language =
+  | "sistema"
+  | "es"
+  | "en"
+  | "zh"
+  | "de"
+  | "fr"
+  | "it"
+  | "pt-br"
+  | "ru"
+  | "ja"
+  | "ko"
+  | "zh-tw"
+  | "nl"
+  | "pl"
+  | "tr"
+  | "uk"
+  | "sv"
+  | "fi"
+  | "da";
 
 /**
  * Con que se abrio el overlay: el mismo sirve para capturar, para grabar y para capturar

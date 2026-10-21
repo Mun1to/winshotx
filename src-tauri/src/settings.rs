@@ -21,6 +21,11 @@ pub enum CaptureFlow {
 
 
 /// En que idioma habla la aplicacion.
+///
+/// Los nombres son los mismos codigos que usa la interfaz (`es`, `en`, `zh`, `pt-br`...),
+/// para que el ajuste que va al disco y el que se pinta en pantalla sean la misma cosa.
+/// Por eso los dos que llevan guion llevan su nombre a mano: `camelCase` los dejaria
+/// como `ptBr`, que no es el codigo que entiende el resto del programa.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
@@ -31,6 +36,23 @@ pub enum Language {
     Es,
     En,
     Zh,
+    De,
+    Fr,
+    It,
+    #[serde(rename = "pt-br")]
+    PtBr,
+    Ru,
+    Ja,
+    Ko,
+    #[serde(rename = "zh-tw")]
+    ZhTw,
+    Nl,
+    Pl,
+    Tr,
+    Uk,
+    Sv,
+    Fi,
+    Da,
 }
 
 

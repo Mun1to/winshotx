@@ -152,6 +152,9 @@ where
     let mut enviado: usize = 0;
     // El ultimo que se mando, para poder mandarlo otra vez al final. Ver abajo.
     let mut ultimo: Option<Vec<u8>> = None;
+    // Las tablas de la escala se guardan para todo el vídeo: solo dependen de los dos
+    // tamaños, y sin esto se recalculaban en cada fotograma.
+    let mut cache_escala = crate::encode::escalar::CacheEscala::default();
     for (position, index) in indices.iter().enumerate() {
         progress("encoding", position, total);
         let frame = loader(*index)?;
@@ -160,7 +163,7 @@ where
         let frame = if frame.width() == width && frame.height() == height {
             frame
         } else {
-            crate::encode::escalar::a_medida(&frame, width, height)
+            crate::encode::escalar::a_medida_con_cache(&frame, width, height, &mut cache_escala)
         };
         let buffer = rgba_to_bgra_bottom_up(&frame);
         encoder

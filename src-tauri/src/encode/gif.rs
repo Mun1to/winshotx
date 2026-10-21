@@ -119,8 +119,11 @@ where
     let zancada = zancada_de_muestreo(width, height, muestreados, options.sample_faction());
     let por_fotograma = ((width as usize) * (height as usize)).div_ceil(zancada);
     let mut sample: Vec<u8> = Vec::with_capacity(por_fotograma * muestreados * 4);
+    // Las tablas de la escala se guardan: son las mismas para todo el GIF, porque el
+    // tamaño de destino no cambia, y sin esto se recalculaban en cada fotograma.
+    let mut cache_escala = super::escalar::CacheEscala::default();
     for (n, index) in indices.iter().step_by(step).enumerate() {
-        let frame = scaled(loader(*index)?, width, height);
+        let frame = scaled_con_cache(loader(*index)?, width, height, &mut cache_escala);
         for pixel in frame.as_raw().chunks_exact(4).step_by(zancada) {
             sample.extend_from_slice(pixel);
         }
@@ -156,7 +159,7 @@ where
         progress("encoding", numero_lote * lote, total);
         let frames = trozo
             .iter()
-            .map(|index| Ok(scaled(loader(*index)?, width, height)))
+            .map(|index| Ok(scaled_con_cache(loader(*index)?, width, height, &mut cache_escala)))
             .collect::<Result<Vec<RgbaImage>>>()?;
 
         let cuantizados: Vec<(Vec<u8>, Region)> = frames
@@ -243,11 +246,21 @@ impl Reloj {
     }
 }
 
-fn scaled(image: RgbaImage, width: u32, height: u32) -> RgbaImage {
+/// Escala el fotograma al tamaño del GIF, guardando las tablas de la interpolación.
+///
+/// Se usa en los dos bucles de la exportacion, que pasan por todos los fotogramas: sin
+/// la cache, cada uno recalculaba las tablas, que son las mismas para todo el GIF porque
+/// el tamaño de destino no cambia.
+fn scaled_con_cache(
+    image: RgbaImage,
+    width: u32,
+    height: u32,
+    cache: &mut super::escalar::CacheEscala,
+) -> RgbaImage {
     if image.width() == width && image.height() == height {
         return image;
     }
-    super::escalar::a_medida(&image, width, height)
+    super::escalar::a_medida_con_cache(&image, width, height, cache)
 }
 
 /// El color de la paleta mas cercano a uno dado, con memoria.
