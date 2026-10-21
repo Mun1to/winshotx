@@ -487,4 +487,29 @@ export const ZH: Record<string, string> = {
   "esta combinación midió el 17% de un núcleo con el escritorio quieto": "此组合在桌面静止时测得约占一个核心的 17%",
   "esta combinación midió el 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento": "此组合在桌面静止时测得约占一个核心的 22%，画面移动时最高到 60%",
   "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no hayas pulsado grabar. Y cuesta: memoria mientras está encendido, y disco cuando guardas.": "winshotx 会一直录制屏幕并不断丢弃旧画面，所以即使你没按下录制，刚刚发生的事情依然还在。代价是：开着时占内存，保存时占硬盘。",
+
+  // 「录屏」区块：片段起点与终点
+  "Inicio del trozo (tecla I)": "片段起点（I 键）",
+  "Final del trozo (tecla O)": "片段终点（O 键）",
+  // 最近截图与时间戳
+  "Últimas capturas": "最新截图",
+  "hace un momento": "刚刚",
+  "hace {minutos} min": "{minutos} 分钟前",
+  "hace {horas} h": "{horas} 小时前",
+  "hace {dias} días": "{dias} 天前",
+  // 复制
+  "Copiar {nombre}": "复制{nombre}",
+  "Copiada: {nombre}": "已复制：{nombre}",
+  "No he podido copiarla": "无法复制",
+  "Copiar el texto de la imagen": "复制图片中的文字",
+  "Texto copiado: {palabras} palabras": "文字已复制：{palabras} 个字",
+  // 只录这一个窗口
+  "W: grabar solo esta ventana": "W：只录这一个窗口",
+  // 涂黑隐私信息
+  "Tapar datos personales": "涂黑隐私信息",
+  "No he encontrado datos personales en esta imagen": "这张图里没有找到隐私信息",
+  "Tapado: {detalle}": "已涂黑：{detalle}",
+  // 持续录制与性能开销（上游更新了数字）
+  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva un 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento. Apagado, winshotx entera gasta el 2,9%.":
+    "winshotx 持续录制屏幕并丢弃旧内容，所以即使你没按录制，刚刚发生的画面仍在。代价是：在三屏、60 帧、原生分辨率下实测，桌面静止时占用单核 22%，屏幕运动时最高占用 60%。关闭后，整个 winshotx 只占用 2.9%。",
 };
