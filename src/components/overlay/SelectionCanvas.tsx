@@ -134,6 +134,20 @@ function enLaBarra(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(SELECTOR_BARRA) !== null;
 }
 
+/** El naranja de fabrica del resalte, el mismo que pone Rust en los ajustes. */
+const RESALTE_DE_FABRICA = "#f97316";
+
+/**
+ * Un `#rrggbb` en sus tres canales separados por comas, para meterlo en un `rgba()`.
+ * Lo que no sea un color de seis cifras cae al de fabrica: los ajustes son un JSON que
+ * se puede editar a mano, y un color roto dejaria el resalte sin borde ni sombra.
+ */
+function canales(hex: string): string {
+  const color = /^#[0-9a-f]{6}$/i.test(hex) ? hex : RESALTE_DE_FABRICA;
+  const n = parseInt(color.slice(1), 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
 function contains(rect: Rect, x: number, y: number): boolean {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 }
@@ -899,6 +913,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       ? selection
       : null;
   const highlight = !active && hovered ? hovered : null;
+  /** El resalte de color (foco + borde que brilla) o, apagado en ajustes, el marco blanco. */
+  const conColor = payload.settings.windowHighlight;
+  const rgb = canales(payload.settings.windowHighlightColor);
   const sitioBarra = active ? sitioDeLaBarra(active, window.innerHeight) : null;
   const magnifierVisible =
     payload.settings.showMagnifier && !pantallaEntera && (!active || mode.kind === "drawing");
@@ -914,11 +931,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           arriba. Un lienzo y no un <img>, para decodificar la imagen una sola vez. */}
       <div ref={fondoRef} className="pointer-events-none absolute inset-0" />
 
-      {/* Sin seleccion: velo uniforme. Con seleccion: el velo lo dibuja la sombra del recuadro. */}
-      {!active && <div className="pointer-events-none absolute inset-0 bg-black/45" />}
+      {/* Sin seleccion: velo uniforme. Con seleccion o ventana resaltada: el velo lo dibuja
+          la sombra del recuadro, que deja su hueco sin oscurecer. */}
+      {!active && !(highlight && conColor) && (
+        <div className="pointer-events-none absolute inset-0 bg-black/45" />
+      )}
 
-      {/* La ventana de debajo del cursor, con su nombre: el marco solo, y encima azul
-          fuerte, no decia de que era ni que se le podia hacer clic. */}
+      {/* La ventana de debajo del cursor, con su nombre. Un marco blanco fino sobre el velo
+          no se distinguia de una ventana cualquiera: ahora es un foco, la ventana se queda
+          con su brillo y todo lo demas se oscurece, con un borde naranja que brilla. El
+          marco se desliza de una ventana a otra en vez de saltar. */}
       {highlight && (
         <div
           style={{
@@ -926,16 +948,36 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             top: highlight.rect.y,
             width: highlight.rect.width,
             height: highlight.rect.height,
+            ...(conColor
+              ? {
+                  borderColor: `rgb(${rgb})`,
+                  boxShadow: `0 0 0 100vmax rgba(0,0,0,0.45), 0 0 18px 2px rgba(${rgb},0.55), inset 0 0 14px rgba(${rgb},0.25)`,
+                }
+              : {}),
           }}
-          className="pointer-events-none absolute rounded-[3px] border border-white/45 bg-white/[0.06]"
+          className={`pointer-events-none absolute ${
+            conColor
+              ? "rounded-lg border-2 transition-[left,top,width,height] duration-100 ease-out"
+              : "rounded-[3px] border border-white/45 bg-white/[0.06]"
+          }`}
         >
           {highlight.title && (
             <span
               // Fuera del marco cuando cabe: dentro se pone justo encima de la barra de
               // titulo de la ventana y se leen dos titulos pisados uno sobre otro.
-              className={`absolute left-0 max-w-[min(360px,100%)] truncate rounded-md bg-neutral-900/90 px-2 py-1 text-[11px] text-neutral-200 shadow-lg backdrop-blur-sm ${
-                highlight.rect.y > 28 ? "-top-7" : "top-1.5 left-1.5"
-              }`}
+              style={
+                conColor
+                  ? {
+                      backgroundColor: `rgb(${rgb})`,
+                      boxShadow: `0 10px 15px -3px rgba(${rgb},0.3)`,
+                    }
+                  : undefined
+              }
+              className={`absolute max-w-[min(360px,100%)] truncate rounded-md px-2 py-1 text-[11px] ${
+                conColor
+                  ? "font-medium text-white"
+                  : "bg-neutral-900/90 text-neutral-200 shadow-lg backdrop-blur-sm"
+              } ${highlight.rect.y > 32 ? "-left-0.5 -top-8" : "top-1.5 left-1.5"}`}
             >
               {highlight.title}
               {/*
@@ -944,7 +986,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
                 esquina de la pantalla no la lee nadie con el raton al otro lado.
               */}
               {modo !== "still" && highlight.hwnd > 0 && (
-                <span className="ml-2 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                <span
+                  className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-semibold text-white ${
+                    conColor ? "bg-black/20" : "bg-white/15"
+                  }`}
+                >
                   {t("W: grabar solo esta ventana")}
                 </span>
               )}

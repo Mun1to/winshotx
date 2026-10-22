@@ -53,6 +53,7 @@ import {
   usePrintScreen,
 } from "../../lib/ipc";
 import { CAFE, FALLOS, REPO, WEB, comoSeLee } from "../../lib/enlaces";
+import { ColorDelResalte } from "./ColorDelResalte";
 import { formatBytes } from "../../lib/format";
 import { aplicarTema } from "../../lib/tema";
 import { aplicarIdioma, useT } from "../../lib/i18n";
@@ -560,6 +561,31 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                  <Row
+                    icon={<AppWindow className="size-4" />}
+                    label={t("Resaltar la ventana bajo el cursor")}
+                    explicacion={t("Al pasar por encima de una ventana se queda con su brillo, el resto de la pantalla se oscurece y lleva un borde de color que brilla. Apagado sale un marco blanco fino. Hacer clic para capturar la ventana entera funciona igual en los dos casos.")}
+                    control={
+                      <Switch
+                        checked={settings.windowHighlight}
+                        onChange={(v) => patch({ windowHighlight: v })}
+                        label={t("Resaltar la ventana bajo el cursor")}
+                      />
+                    }
+                  />
+                  {settings.windowHighlight && (
+                    <Row
+                      icon={<Palette className="size-4" />}
+                      label={t("Color del resalte")}
+                      stacked
+                      control={
+                        <ColorDelResalte
+                          value={settings.windowHighlightColor}
+                          onChange={(c) => patch({ windowHighlightColor: c })}
+                        />
+                      }
+                    />
+                  )}
                   <Row
                     icon={<Crop className="size-4" />}
                     label={t("Al soltar el ratón")}

@@ -116,6 +116,12 @@ pub struct Settings {
     pub replay_height: u32,
     pub play_sound: bool,
     pub show_magnifier: bool,
+    /// Pintar de color la ventana que hay bajo el cursor al capturar: la ventana se queda
+    /// con su brillo, lo demas se oscurece y lleva un borde que brilla. Apagado vuelve al
+    /// marco blanco fino de siempre; hacer clic para cogerla entera funciona igual.
+    pub window_highlight: bool,
+    /// De que color es ese resalte, en `#rrggbb`.
+    pub window_highlight_color: String,
     pub start_with_windows: bool,
     /// Segundos de espera antes de congelar la pantalla. 0 es sin espera, que es lo de
     /// siempre. Existe para poder capturar un menu abierto: pulsar el atajo lo cierra,
@@ -175,6 +181,8 @@ impl Default for Settings {
             replay_height: 0,
             play_sound: false,
             show_magnifier: true,
+            window_highlight: true,
+            window_highlight_color: "#f97316".into(),
             start_with_windows: false,
             capture_delay_seconds: 0,
             hide_desktop_icons: false,
@@ -288,6 +296,14 @@ pub fn save(app: &AppHandle, settings: &Settings) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Quien venga de una version sin el resalte de color lo encuentra encendido y naranja.
+    #[test]
+    fn el_resalte_de_ventana_viene_encendido_y_naranja() {
+        let settings: Settings = serde_json::from_str(r#"{ "showMagnifier": true }"#).unwrap();
+        assert!(settings.window_highlight);
+        assert_eq!(settings.window_highlight_color, "#f97316");
+    }
 
     /// Quien actualice desde una version sin la tecla del editor tiene que encontrarsela
     /// puesta, no vacia: un atajo en blanco no se registra y la funcion no existiria.

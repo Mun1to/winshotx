@@ -427,3 +427,33 @@ describe("la pantalla entera con la barra puesta", () => {
     );
   });
 });
+describe("el resalte de la ventana bajo el cursor", () => {
+  const VENTANA = { title: "Bloc de notas", hwnd: 7, rect: { x: 100, y: 100, width: 400, height: 300 } };
+
+  async function pasarPorEncima(ajustes: Partial<Settings>) {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      windows: [VENTANA],
+      settings: { ...AJUSTES, ...ajustes } as Settings,
+    });
+    const lienzo = await abrir();
+    fireEvent.pointerMove(lienzo, { clientX: 200, clientY: 200 });
+    return screen.getByText("Bloc de notas").parentElement as HTMLElement;
+  }
+
+  it("lleva el color elegido en los ajustes", async () => {
+    const marco = await pasarPorEncima({ windowHighlight: true, windowHighlightColor: "#22c55e" });
+    expect(marco.style.borderColor).toBe("rgb(34, 197, 94)");
+  });
+
+  it("un color roto en el JSON cae al naranja de fabrica, no deja el marco sin borde", async () => {
+    const marco = await pasarPorEncima({ windowHighlight: true, windowHighlightColor: "verde" });
+    expect(marco.style.borderColor).toBe("rgb(249, 115, 22)");
+  });
+
+  it("apagado vuelve al marco blanco fino, sin color", async () => {
+    const marco = await pasarPorEncima({ windowHighlight: false, windowHighlightColor: "#22c55e" });
+    expect(marco.style.borderColor).toBe("");
+    expect(marco.className).toContain("border-white/45");
+  });
+});

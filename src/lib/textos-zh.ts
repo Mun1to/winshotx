@@ -38,6 +38,10 @@ export const ZH: Record<string, string> = {
   "winshotx hace las fotos con la captura moderna de Windows, que sí ve lo que dibuja la tarjeta gráfica. Esta versión de Windows no la admite, así que van por la de siempre y una ventana acelerada puede salir con trozos en negro. No hay nada que puedas tocar, y las grabaciones no se ven afectadas.":
     "winshotx 使用 Windows 的现代截屏方式拍照，它能看到显卡绘制的内容。此版本 Windows 不支持这种方式，因此会改用旧方式，使用硬件加速的窗口可能出现黑块。你无需做任何设置，录制不受影响。",
   "Lupa de píxel": "像素放大镜",
+  "Resaltar la ventana bajo el cursor": "高亮光标下的窗口",
+  "Al pasar por encima de una ventana se queda con su brillo, el resto de la pantalla se oscurece y lleva un borde de color que brilla. Apagado sale un marco blanco fino. Hacer clic para capturar la ventana entera funciona igual en los dos casos.": "鼠标悬停在窗口上时，该窗口保持原有亮度，屏幕其余部分变暗，并加上发光的彩色边框。关闭后只显示一个细白框。两种情况下，点击都可以截取整个窗口。",
+  "Color del resalte": "高亮颜色",
+  "Otro color": "其他颜色",
   "Al soltar el ratón": "松开鼠标时",
   "va directa al portapapeles": "直接复制到剪贴板",
   "sale la barra para copiar, guardar o editar": "弹出工具栏，可复制、保存或编辑",

@@ -53,6 +53,8 @@ const AJUSTES: Settings = {
   replayHeight: 0,
   playSound: true,
   showMagnifier: true,
+  windowHighlight: true,
+  windowHighlightColor: "#f97316",
   startWithWindows: false,
   captureDelaySeconds: 0,
   hideDesktopIcons: false,
@@ -539,5 +541,26 @@ describe("cuando este Windows no tiene la captura moderna", () => {
       expect(screen.getByText("This Windows uses the old capture")).toBeInTheDocument(),
     );
     expect(screen.queryByText(/trozos en negro/)).not.toBeInTheDocument();
+  });
+});
+
+describe("el resalte de la ventana", () => {
+  const guardados = () =>
+    llamadas
+      .filter((l) => l.comando === "set_settings")
+      .map((l) => (l.args as { settings: Settings }).settings);
+
+  it("elegir una muestra guarda ese color", async () => {
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("radio", { name: "#22c55e" }));
+    await waitFor(() => expect(guardados().at(-1)?.windowHighlightColor).toBe("#22c55e"));
+  });
+
+  it("apagado, el color ya no se ofrece", async () => {
+    await abrirAjustes(undefined, undefined, { windowHighlight: false });
+    expect(screen.queryByRole("radiogroup", { name: "Color del resalte" })).toBeNull();
+    fireEvent.click(screen.getByRole("switch", { name: "Resaltar la ventana bajo el cursor" }));
+    await waitFor(() => expect(guardados().at(-1)?.windowHighlight).toBe(true));
+    expect(screen.getByRole("radiogroup", { name: "Color del resalte" })).toBeInTheDocument();
   });
 });

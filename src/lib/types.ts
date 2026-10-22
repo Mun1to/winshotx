@@ -315,6 +315,10 @@ export interface Settings {
   replayHeight: number;
   playSound: boolean;
   showMagnifier: boolean;
+  /** Pintar de color la ventana bajo el cursor al capturar. Apagado, el marco blanco fino. */
+  windowHighlight: boolean;
+  /** De qué color es ese resalte, en `#rrggbb`. */
+  windowHighlightColor: string;
   startWithWindows: boolean;
   /** Segundos de espera antes de congelar la pantalla. 0 es sin espera. */
   captureDelaySeconds: number;
