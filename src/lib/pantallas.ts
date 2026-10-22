@@ -103,18 +103,26 @@ export function ventanasDeEstaPantalla(
     );
 }
 
-/** La ventana mas pequenna que hay bajo un punto, que es la que esta encima de las demas. */
+/**
+ * La ventana que esta encima de las demas bajo un punto.
+ *
+ * Rust las manda en el orden de `EnumWindows`, que es el orden Z: la primera es la de
+ * delante. Antes se cogia la mas pequenna, y eso fallaba en cuanto una ventanita quedaba
+ * DETRAS de otra grande (un dialogo tapado por el navegador maximizado): se resaltaba un
+ * cuadro que no se veia.
+ */
 export function ventanaBajoElPunto(
   ventanas: VentanaDelSistema[],
   x: number,
   y: number,
 ): VentanaDelSistema | null {
-  const dentro = ventanas.filter(
-    (v) =>
-      x >= v.rect.x && y >= v.rect.y && x < v.rect.x + v.rect.width && y < v.rect.y + v.rect.height,
-  );
-  if (dentro.length === 0) return null;
-  return dentro.reduce((mejor, v) =>
-    v.rect.width * v.rect.height < mejor.rect.width * mejor.rect.height ? v : mejor,
+  return (
+    ventanas.find(
+      (v) =>
+        x >= v.rect.x &&
+        y >= v.rect.y &&
+        x < v.rect.x + v.rect.width &&
+        y < v.rect.y + v.rect.height,
+    ) ?? null
   );
 }

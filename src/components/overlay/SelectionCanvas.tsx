@@ -277,7 +277,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     [payload, scale],
   );
 
-  /** La ventana mas pequenna bajo el punto es la que esta encima. */
+  /** La de delante bajo el punto, en orden Z (ver `ventanaBajoElPunto`). */
   const windowAt = useCallback(
     (x: number, y: number) => ventanaBajoElPunto(snapTargets, x, y),
     [snapTargets],
