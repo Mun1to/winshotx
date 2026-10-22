@@ -427,3 +427,16 @@ describe("la pantalla entera con la barra puesta", () => {
     );
   });
 });
+
+describe("solo la pantalla del ratón pinta la interfaz", () => {
+  it("al irse el ratón a otra pantalla, esta se queda con el velo y nada más", async () => {
+    // Un overlay por monitor: el que no tenía el ratón pintaba también la barra, la lupa
+    // y el resalte, donde se quedó el cursor.
+    const lienzo = await abrir();
+    fireEvent.pointerLeave(lienzo);
+    expect(screen.queryByLabelText("Foto")).toBeNull();
+
+    fireEvent.pointerMove(lienzo, { clientX: 400, clientY: 300 });
+    expect(screen.getByLabelText("Foto")).toBeTruthy();
+  });
+});
