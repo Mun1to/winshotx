@@ -300,7 +300,26 @@ pub fn bmp_bytes(image: &RgbaImage) -> Vec<u8> {
     out
 }
 
+/// Si la ventana deja pasar el raton (`WS_EX_TRANSPARENT`): las capas de NVIDIA, Discord,
+/// la Game Bar... Estan encima de todo y a pantalla completa pero no se ven, y como el
+/// overlay coge la de delante en orden Z, se comerian cualquier otra.
+#[cfg(windows)]
+fn deja_pasar_el_raton(hwnd: u32) -> bool {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TRANSPARENT};
+    let estilo = unsafe { GetWindowLongPtrW(HWND(hwnd as isize as *mut _), GWL_EXSTYLE) } as u32;
+    estilo & WS_EX_TRANSPARENT.0 != 0
+}
+
+#[cfg(not(windows))]
+fn deja_pasar_el_raton(_hwnd: u32) -> bool {
+    false
+}
+
 /// Rectangulos de las ventanas visibles, para el ajuste automatico del overlay.
+///
+/// **El orden importa**: sale tal cual de `EnumWindows`, que es el orden Z (la primera es la
+/// de delante), y el overlay se queda con la primera que haya bajo el cursor. No reordenar.
 pub fn window_rects() -> Vec<WindowRect> {
     let Ok(windows) = xcap::Window::all() else {
         return Vec::new();
@@ -312,6 +331,7 @@ pub fn window_rects() -> Vec<WindowRect> {
         .iter()
         .filter(|w| w.pid().map(|pid| pid != own_pid).unwrap_or(true))
         .filter(|w| !w.is_minimized().unwrap_or(true))
+        .filter(|w| !w.id().map(deja_pasar_el_raton).unwrap_or(false))
         .filter_map(|w| {
             let title = w.title().unwrap_or_default();
             let width = w.width().ok()?;

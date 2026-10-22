@@ -121,13 +121,22 @@ describe("las ventanas del sistema que se ven en esta pantalla", () => {
 });
 
 describe("que ventana coge el punto", () => {
+  // En orden Z, como las manda Rust: la primera es la de delante.
   const APILADAS = [
-    { title: "la de detras", hwnd: 0, rect: { x: 0, y: 0, width: 1000, height: 800 } },
     { title: "la de delante", hwnd: 0, rect: { x: 100, y: 100, width: 300, height: 200 } },
+    { title: "la de detras", hwnd: 0, rect: { x: 0, y: 0, width: 1000, height: 800 } },
   ];
 
-  it("coge la mas pequenna, que es la que esta encima", () => {
+  it("coge la que esta encima", () => {
     expect(ventanaBajoElPunto(APILADAS, 200, 150)?.title).toBe("la de delante");
+  });
+
+  it("una ventanita tapada por otra grande no gana por ser pequenna", () => {
+    const tapada = [
+      { title: "navegador maximizado", hwnd: 0, rect: { x: 0, y: 0, width: 1920, height: 1080 } },
+      { title: "dialogo de detras", hwnd: 0, rect: { x: 100, y: 100, width: 300, height: 200 } },
+    ];
+    expect(ventanaBajoElPunto(tapada, 200, 150)?.title).toBe("navegador maximizado");
   });
 
   it("fuera de la pequenna coge la grande", () => {
@@ -140,7 +149,7 @@ describe("que ventana coge el punto", () => {
 
   it("el borde de abajo y el de la derecha ya estan fuera de la ventana", () => {
     // 100 + 300 = 400: el pixel 400 es el primero de fuera.
-    expect(ventanaBajoElPunto([APILADAS[1]], 400, 150)).toBeNull();
-    expect(ventanaBajoElPunto([APILADAS[1]], 399, 150)?.title).toBe("la de delante");
+    expect(ventanaBajoElPunto([APILADAS[0]], 400, 150)).toBeNull();
+    expect(ventanaBajoElPunto([APILADAS[0]], 399, 150)?.title).toBe("la de delante");
   });
 });
