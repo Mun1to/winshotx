@@ -7,6 +7,7 @@
  * 这里没出现的文本会回退到西班牙语，所以新增文本不会导致程序崩溃，只会暂时未翻译。
  */
 export const ZH: Record<string, string> = {
+  "Doce idiomas, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.": "十二种语言，或者用 winshotx 支持的系统语言。切换立即生效，无需重启任何东西。",
   // 标题栏和四个设置分区
   Versión: "版本",
   Capturar: "截图",
@@ -135,7 +136,6 @@ export const ZH: Record<string, string> = {
   Idioma: "语言",
   "el de Windows": "Windows 语言",
   Español: "西班牙语",
-  Inglés: "英语",
 
   Actualizaciones: "更新",
   "mirando si hay versión nueva…": "正在检查新版本…",
@@ -182,7 +182,6 @@ export const ZH: Record<string, string> = {
   "Donde caen las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y si ya existiera uno igual no lo pisa nunca.": "截图和视频保存的位置。winshotx 会用日期和时间命名，同名文件不会被覆盖。",
   "Los fotogramas en crudo de lo que has grabado, que es lo que permite volver a exportar sin perder calidad. Vaciarlo no toca ni una captura guardada: solo tira lo que quedó a medias en el editor.": "已录制内容的原始帧，它是无损重新导出的基础。清空不会影响任何已保存的截图：只会丢弃编辑器中未完成的内容。",
   "Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.": "浅色、深色，或跟随 Windows 并随之切换。只影响这些窗口的颜色，截图内容不变。",
-  "Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.": "西班牙语、英语，或 Windows 语言（如果 winshotx 支持）。立即生效，无需重启。",
   "Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.": "再次显示第一天的四个页面：每个按键的作用以及如何选择。不到一分钟，不会更改任何设置。",
   "Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.": "逐个模块讲解本页面的用途。这是快速了解这里有什么的捷径，不用一个个打开试探。",
   "winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "winshotx 开机自动启动并驻留托盘，无窗口。不开启的话每次都要手动打开，而且未运行时截图快捷键无效。",

@@ -21,6 +21,11 @@ pub enum CaptureFlow {
 
 
 /// En que idioma habla la aplicacion.
+///
+/// Doce mas el de Windows. Los nombres van en camelCase porque es lo que viaja por el
+/// IPC, y tienen que coincidir con el `Language` de `src/lib/types.ts`: si aqui se aniade
+/// uno y alli no, el ajuste se guarda con un nombre que el frontend no entiende y vuelve
+/// al de fabrica sin decir nada.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
@@ -31,6 +36,15 @@ pub enum Language {
     Es,
     En,
     Zh,
+    ZhTw,
+    De,
+    Fr,
+    It,
+    Ja,
+    Ko,
+    Ru,
+    PtBr,
+    Pl,
 }
 
 
