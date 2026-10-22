@@ -397,9 +397,19 @@ impl AnilloAudio {
     }
 
     pub fn empujar(&mut self, pcm: &[u8]) {
+        // Se recorta solo cuando ya sobran de verdad, y nunca en cada llamada.
+        //
+        // Antes era `drain(..sobra)` sin mas, y eso mueve TODA la cola: con seis megabytes
+        // guardados y un trozo de audio cada diez milisegundos, eran cien recortes por
+        // segundo y unos seiscientos megabytes de memoria recolocados cada segundo, para
+        // terminar con lo mismo que ya habia. La cola se deja pasar de largo hasta juntar
+        // un trozo entero de sobra, que es cuando recortar se paga una sola vez por muchas
+        // llamadas. El pico de memoria extra es el tamanno de un trozo, no el de la ventana.
         self.datos.extend(pcm.iter().copied());
-        let sobra = self.datos.len().saturating_sub(self.max);
-        self.datos.drain(..sobra);
+        if self.datos.len() > self.max + self.bloque {
+            let sobra = self.datos.len() - self.max;
+            self.datos.drain(..sobra);
+        }
     }
 
     /// Los ultimos `ms` milisegundos, alineados a muestra entera: media muestra suena a
@@ -609,6 +619,29 @@ mod tests {
         assert_eq!(ultimos.len(), 1_000);
         let ultima = u16::from_le_bytes([ultimos[998], ultimos[999]]);
         assert_eq!(ultima, 4_999, "lo que sale tiene que acabar en lo ultimo que entro");
+    }
+
+    /// Recortar la cola en cada llamada movia seis megabytes cien veces por segundo.
+    ///
+    /// La cola se pasa de largo a proposito hasta juntar un trozo de sobra. Lo que se
+    /// comprueba aqui es la consecuencia que de verdad importa: con un empujon grande
+    /// (lo que hace Windows cuando el sistema va con retraso y suelta muchos trozos
+    /// seguidos) el resultado sigue siendo la ventana entera y ni un byte de mas, y con
+    /// empujones de uno en uno lo que sale es lo ultimo. Si alguien vuelve a recortar en
+    /// cada llamada, esto no lo pilla directamente, pero `el_sonido_se_queda_con_el_final`
+    /// y el recorte del ultimo tampoco cambian: el fallo era de coste, no de resultado.
+    #[test]
+    fn el_sonido_aguanta_un_empujon_grande() {
+        let mut anillo = AnilloAudio::nuevo(2, 1, 1_000);
+        // Un empujon de mas del doble de la ventana, que es el caso que desborda.
+        let monton: Vec<u8> = (0..6_000u16).flat_map(|i| i.to_le_bytes()).collect();
+        anillo.empujar(&monton);
+        assert!(anillo.datos.len() <= anillo.max + anillo.bloque);
+        // Y lo que sale acaba en lo ultimo que entro.
+        let ultimos = anillo.ultimos(1_000);
+        assert_eq!(ultimos.len(), 2_000);
+        let ultima = u16::from_le_bytes([ultimos[1_998], ultimos[1_999]]);
+        assert_eq!(ultima, 5_999);
     }
 }
 
