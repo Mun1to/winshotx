@@ -65,7 +65,17 @@ fn on_edit(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
 /// sigue teniendolo, y desde ese momento cualquier atajo devuelve "HotKey already
 /// registered" aunque el usuario no haya repetido ninguna tecla. Con la lista propia eso no
 /// puede pasar: se pide soltar exactamente lo que se pidio poner.
+///
+/// **De uno en uno.** Los comandos async de Tauri corren en varios hilos a la vez, y cada
+/// cambio en los ajustes llama aqui: dos clics seguidos (o el selector de color) metian dos
+/// registros a la vez. El segundo cogia la lista vacia porque el primero aun no la habia
+/// guardado, pedia F2 cuando el primero ya la tenia, Windows decia "ya registrada" y la
+/// lista que quedaba no la llevaba. Desde ahi nadie la soltaba, cada registro fallaba y
+/// los ajustes decian "esa combinacion esta cogida" sobre una tecla que era nuestra.
 pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
+    static DE_UNO_EN_UNO: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+    let _turno = DE_UNO_EN_UNO.lock();
+
     let manager = app.global_shortcut();
     let state = app.state::<AppState>();
 
