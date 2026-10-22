@@ -79,6 +79,8 @@ vi.mock("@tauri-apps/api/window", () => ({
     setFocus: () => Promise.resolve(),
     label: "prueba",
   }),
+  // Dentro de la pantalla de prueba, que empieza en (0, 0): el raton esta en ella.
+  cursorPosition: () => Promise.resolve({ x: 5, y: 5 }),
 }));
 
 afterEach(() => {

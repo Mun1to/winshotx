@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { emit, listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { cursorPosition, getCurrentWindow } from "@tauri-apps/api/window";
 import {
   cancelCapture,
   captureAllScreens,
@@ -166,6 +166,13 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [selection, setSelection] = useState<Rect | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  /**
+   * Si el raton esta en ESTA pantalla. Hay un overlay por monitor y todos pintaban la lupa,
+   * la cruceta, el resalte y la barra de modos: en el que no tenia el raton salian donde
+   * se quedo el cursor (o en la esquina, en (0, 0)). Solo los pinta el que lo tiene; el
+   * resto se queda con el velo.
+   */
+  const [cursorAqui, setCursorAqui] = useState(false);
   const [hex, setHex] = useState("#000000");
   // El manejador de teclas se registra una vez, asi que lee el color por referencia: con
   // el valor del cierre copiaria siempre el negro con el que arranca.
@@ -287,9 +294,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const hoveredRef = useRef<VentanaDelSistema | null>(null);
 
   const hovered = useMemo(() => {
-    if (selection || mode.kind !== "idle" || pantallaEntera) return null;
+    if (!cursorAqui || selection || mode.kind !== "idle" || pantallaEntera) return null;
     return windowAt(cursor.x, cursor.y);
-  }, [windowAt, cursor, selection, mode.kind, pantallaEntera]);
+  }, [windowAt, cursor, cursorAqui, selection, mode.kind, pantallaEntera]);
   hoveredRef.current = hovered;
 
   /**
@@ -320,6 +327,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     // encendida un instante a quien la tiene apagada.
     setError(null);
     setBootError(null);
+    setCursorAqui(false);
 
     try {
       // Cuando se reutiliza una ventana, el backend manda el payload ya hecho en el
@@ -330,6 +338,19 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       if (!vigente()) return;
       setPayload(data);
       numeroPantalla.current = data.screenNumber;
+      // Donde esta el raton al abrir: si se queda quieto no llega ningun `pointermove`, y
+      // sin esto ninguna pantalla sabria que lo tiene hasta que se moviera.
+      void cursorPosition()
+        .then((p) => {
+          const m = data.monitor;
+          const fuera =
+            p.x < m.x || p.y < m.y || p.x >= m.x + m.width || p.y >= m.y + m.height;
+          if (!vigente() || fuera) return;
+          const escala = window.devicePixelRatio || 1;
+          setCursor({ x: (p.x - m.x) / escala, y: (p.y - m.y) / escala });
+          setCursorAqui(true);
+        })
+        .catch(() => {});
       // Quien pulsa el atajo de grabar quiere grabar: la barra abre en vídeo y ya.
       setModo(data.intent === "record" ? "video" : "still");
       setConBarra(data.settings.captureFlow === "toolbar");
@@ -885,6 +906,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         return;
       }
     }
+    setCursorAqui(true);
     if (mode.kind !== "idle") return;
     setCursor({ x: e.clientX, y: e.clientY });
     readHex(e.clientX, e.clientY);
@@ -901,12 +923,17 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const highlight = !active && hovered ? hovered : null;
   const sitioBarra = active ? sitioDeLaBarra(active, window.innerHeight) : null;
   const magnifierVisible =
-    payload.settings.showMagnifier && !pantallaEntera && (!active || mode.kind === "drawing");
+    cursorAqui &&
+    payload.settings.showMagnifier &&
+    !pantallaEntera &&
+    (!active || mode.kind === "drawing");
 
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
+      onPointerEnter={() => setCursorAqui(true)}
+      onPointerLeave={() => setCursorAqui(false)}
       className="relative h-screen w-screen overflow-hidden"
       style={{ cursor: pantallaEntera ? "pointer" : active ? "default" : "crosshair" }}
     >
@@ -1065,7 +1092,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         no se ve no la usa nadie, y esto se explica solo: ahi tenias lo de antes, pulsa R y
         vuelve. Se va en cuanto se empieza a arrastrar, para no estorbar.
       */}
-      {ultimaRegion && !selection && mode.kind === "idle" && !pantallaEntera && !hovered && (
+      {cursorAqui &&
+        ultimaRegion &&
+        !selection &&
+        mode.kind === "idle" &&
+        !pantallaEntera &&
+        !hovered && (
         <div
           className="pointer-events-none absolute rounded-[3px] border border-dashed border-white/35"
           style={{
@@ -1094,17 +1126,22 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         />
       )}
 
-      <ModeBar
-        value={modo}
-        onChange={(m) => difundir({ mode: m })}
-        pantallaEntera={pantallaEntera}
-        onPantallaEntera={(v) => difundir({ fullScreen: v })}
-        conBarra={conBarra}
-        onConBarra={cambiarBarra}
-        onAjustes={() => void openSettings()}
-        onCancel={() => void cancelCapture()}
-        dimmed={mode.kind !== "idle"}
-      />
+      {/* La barra de modos, solo en la pantalla del raton: dos barras iguales, una en cada
+          monitor, parecen dos capturas abiertas. Al elegir pantalla entera se ve en todas,
+          que es justo cuando se elige entre ellas. */}
+      {(cursorAqui || pantallaEntera) && (
+        <ModeBar
+          value={modo}
+          onChange={(m) => difundir({ mode: m })}
+          pantallaEntera={pantallaEntera}
+          onPantallaEntera={(v) => difundir({ fullScreen: v })}
+          conBarra={conBarra}
+          onConBarra={cambiarBarra}
+          onAjustes={() => void openSettings()}
+          onCancel={() => void cancelCapture()}
+          dimmed={mode.kind !== "idle"}
+        />
+      )}
     </div>
   );
 }
