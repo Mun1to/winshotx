@@ -112,7 +112,7 @@ pub fn zonas_cambiadas(anterior: &[u8], actual: &[u8], width: u32, height: u32) 
     let ancho = width as usize;
     let alto = height as usize;
     let fila = ancho * CANALES;
-    if anterior.len() != actual.len() || anterior.len() < fila * alto || ancho == 0 {
+    if anterior.len() != actual.len() || anterior.len() < fila * alto || ancho == 0 || alto == 0 {
         return vec![Parche {
             x: 0,
             y: 0,
@@ -199,10 +199,22 @@ pub fn envolvente(zonas: &[Parche]) -> Option<Parche> {
 /// Saca del fotograma los pixeles de esa zona, fila a fila.
 pub fn recortar(frame: &[u8], width: u32, parche: Parche) -> Vec<u8> {
     let fila_completa = width as usize * CANALES;
-    let fila_parche = parche.width as usize * CANALES;
-    let mut salida = Vec::with_capacity(fila_parche * parche.height as usize);
-    for y in 0..parche.height as usize {
-        let inicio = (parche.y as usize + y) * fila_completa + parche.x as usize * CANALES;
+    // El parche viene de fuera (lo manda el editor al exportar), y un rectangulo que se
+    // sale de la imagen recortaria menos filas de las que dice o, peor, indexaria fuera
+    // de la memoria. Se recorta a lo que de verdad cabe.
+    let columnas = fila_completa / CANALES;
+    let filas = frame.len() / fila_completa.max(1);
+    let x = (parche.x as usize).min(columnas);
+    let y = (parche.y as usize).min(filas);
+    let ancho_util = (parche.width as usize).min(columnas - x).max(1);
+    let alto_util = (parche.height as usize).min(filas - y).max(1);
+    let fila_parche = ancho_util * CANALES;
+    let mut salida = Vec::with_capacity(fila_parche * alto_util);
+    for fila in y..y + alto_util {
+        let inicio = fila * fila_completa + x * CANALES;
+        if inicio + fila_parche > frame.len() {
+            break;
+        }
         salida.extend_from_slice(&frame[inicio..inicio + fila_parche]);
     }
     salida

@@ -1,0 +1,66 @@
+✓ Lockfile passes supply-chain policies (verified 12h ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.28.2
+
+Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+[WARN] The install that runs before scripts failed, so your node_modules may be out of sync with your lockfile. Set "verifyDepsBeforeRun: false" to skip this install.
+$ tauri build
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `pnpm build`
+$ tsc --noEmit && vite build
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 2155 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/cuenta.html                        0.77 kB │ gzip:  0.38 kB
+dist/pin.html                           0.98 kB │ gzip:  0.42 kB
+dist/recorder.html                      1.08 kB │ gzip:  0.44 kB
+dist/tray-menu.html                     1.37 kB │ gzip:  0.54 kB
+dist/editor.html                        1.37 kB │ gzip:  0.48 kB
+dist/index.html                         1.49 kB │ gzip:  0.48 kB
+dist/overlay.html                       1.70 kB │ gzip:  0.55 kB
+dist/assets/styles-CNmw3hSU.css        56.87 kB │ gzip:  9.71 kB
+dist/assets/circle-X37pBUZV.js          0.13 kB │ gzip:  0.13 kB
+dist/assets/square-DQYNJTx4.js          0.15 kB │ gzip:  0.15 kB
+dist/assets/x-jMQ3EUIr.js               0.16 kB │ gzip:  0.15 kB
+dist/assets/type-CXFMNTB6.js            0.22 kB │ gzip:  0.18 kB
+dist/assets/download-4fc_jdTQ.js        0.23 kB │ gzip:  0.19 kB
+dist/assets/copy-CE3-JQP3.js            0.24 kB │ gzip:  0.21 kB
+dist/assets/video-BMFg35do.js           0.25 kB │ gzip:  0.22 kB
+dist/assets/folder-open-fVrIaF_i.js     0.29 kB │ gzip:  0.22 kB
+dist/assets/camera-mSJll2MB.js          0.33 kB │ gzip:  0.25 kB
+dist/assets/play-BPv8rFp4.js            0.36 kB │ gzip:  0.25 kB
+dist/assets/format-DG4mpx9c.js          0.48 kB │ gzip:  0.27 kB
+dist/assets/settings-CEoyyZqA.js        0.49 kB │ gzip:  0.26 kB
+dist/assets/types-BhCAHmEl.js           0.55 kB │ gzip:  0.26 kB
+dist/assets/volume-2-Dr9IgrXP.js        0.57 kB │ gzip:  0.37 kB
+dist/assets/scissors-BhPKDjJ-.js        0.66 kB │ gzip:  0.37 kB
+dist/assets/IconButton-CJmXDJ6B.js      0.78 kB │ gzip:  0.50 kB
+dist/assets/cuenta-DUXntxV1.js          1.13 kB │ gzip:  0.63 kB
+dist/assets/teclas-qho1zF07.js          1.56 kB │ gzip:  0.86 kB
+dist/assets/pin-13mVv9xK.js             2.67 kB │ gzip:  1.38 kB
+dist/assets/recorder-BFq1O7S_.js        4.45 kB │ gzip:  1.95 kB
+dist/assets/tray-menu-xx1DycGu.js       5.54 kB │ gzip:  2.24 kB
+dist/assets/i18n-cuFyG3ZN.js            6.06 kB │ gzip:  2.73 kB
+dist/assets/window-BOCUQFHd.js         13.01 kB │ gzip:  3.17 kB
+dist/assets/overlay-DGYlmBTO.js        25.98 kB │ gzip:  8.85 kB
+dist/assets/textos-zh-DmrenrsR.js      32.64 kB │ gzip: 14.27 kB
+dist/assets/textos-zh-tw-B6-1rhOt.js   33.33 kB │ gzip: 14.59 kB
+dist/assets/textos-en-BhyDSTsa.js      34.46 kB │ gzip: 13.27 kB
+dist/assets/textos-pt-br-CIyIklWm.js   35.33 kB │ gzip: 12.70 kB
+dist/assets/textos-pl-DTG3zVov.js      35.38 kB │ gzip: 14.16 kB
+dist/assets/textos-it-mGQkSYYT.js      35.69 kB │ gzip: 13.24 kB
+dist/assets/textos-de-CVcAD7-X.js      37.15 kB │ gzip: 14.40 kB
+dist/assets/textos-fr-CvaMr9QY.js      37.34 kB │ gzip: 14.05 kB
+dist/assets/textos-ko-k9D4ERle.js      38.01 kB │ gzip: 14.65 kB
+dist/assets/textos-ja-DTYVJoi8.js      39.78 kB │ gzip: 14.96 kB
+dist/assets/editor-DoBIl959.js         47.17 kB │ gzip: 16.15 kB
+dist/assets/textos-ru-DrXTQziO.js      48.39 kB │ gzip: 16.09 kB
+dist/assets/main-CB5bmcaI.js           63.60 kB │ gzip: 20.23 kB
+dist/assets/proxy-DeRDLhfV.js         127.25 kB │ gzip: 41.97 kB
+dist/assets/styles-DG6eGANb.js        197.33 kB │ gzip: 62.33 kB
+✓ built in 5.60s
+   Compiling winshotx v0.3.6 (C:\Users\Admin\code\winshotx\src-tauri)

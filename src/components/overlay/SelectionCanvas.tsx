@@ -348,11 +348,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       // (antes el fondo era un <img> con su propia decodificacion ademas de esta).
       const bitmap = await createImageBitmap(blob);
       if (!vigente()) return;
+      // El mismo lienzo hace de fondo y de fuente para la lupa: decodificar una vez, no dos
+      // (antes el fondo era un <img> con su propia decodificacion ademas de esta). Y se pide
+      // con `willReadFrequently` DESDE AQUI, que es la unica vez que el navegador lee los
+      // atributos de un contexto: la lupa y el color bajo el cursor leen pixeles de este
+      // lienzo, y sin esta marca cada lectura es un viaje de ida y vuelta a la GPU.
       const canvas = document.createElement("canvas");
       canvas.width = bitmap.width;
       canvas.height = bitmap.height;
       canvas.className = "pointer-events-none absolute inset-0 h-full w-full";
-      canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+      canvas.getContext("2d", { willReadFrequently: true })?.drawImage(bitmap, 0, 0);
       bitmap.close?.();
       setSource(canvas);
       setFondoListo(true);
@@ -718,18 +723,32 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     cambiarBarra,
   ]);
 
+  // El contexto del lienzo congelado se pide UNA sola vez y se guarda. Pedirlo en
+  // cada `pointermove` era pedirselo al navegador cientos de veces por segundo durante
+  // un arrastre, y ademas no servia de nada: el lienzo nacio con `getContext("2d")` a secas
+  // (linea 355), y los atributos de contexto solo se leen la PRIMERA vez. Asi que el
+  // `willReadFrequently` de aqui dentro jamas se aplicaba, y el `getImageData` de debajo
+  // caia siempre en el camino lento: un viaje de ida y vuelta a la GPU por cada movimiento
+  // del raton, que es justo lo que hay que evitar cuando el usuario esta eligiendo a ojo.
+  const sourceCtx = useMemo(
+    () => source?.getContext("2d", { willReadFrequently: true }) ?? null,
+    [source],
+  );
+
   const readHex = useCallback(
     (cssX: number, cssY: number) => {
-      if (!source) return;
-      const ctx = source.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
+      if (!source || !sourceCtx) return;
       const px = clamp(Math.floor(cssX * scale), 0, source.width - 1);
       const py = clamp(Math.floor(cssY * scale), 0, source.height - 1);
-      const data = ctx.getImageData(px, py, 1, 1).data;
+      const data = sourceCtx.getImageData(px, py, 1, 1).data;
       const toHex = (c: number) => c.toString(16).padStart(2, "0");
-      setHex("#" + toHex(data[0]) + toHex(data[1]) + toHex(data[2]));
+      const siguiente = "#" + toHex(data[0]) + toHex(data[1]) + toHex(data[2]);
+      // Si el color no cambia, no se toca el estado: mover el raton dentro de una zona
+      // lisa (un fondo blanco, una pared) disparaba un repintado entero del overlay por
+      // cada evento, con la lupa incluida, sin que hubiera nada nuevo que ensenar.
+      setHex((anterior) => (anterior === siguiente ? anterior : siguiente));
     },
-    [source, scale],
+    [source, sourceCtx, scale],
   );
 
   // Durante el gesto los eventos se escuchan en window, no en el div: asi el arrastre

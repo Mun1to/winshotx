@@ -10,6 +10,33 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { Storage } from "happy-dom";
+
+/**
+ * Node 26 trae un `localStorage` experimental en el global, pero sin
+ * `--localstorage-file` devuelve `undefined` y tapa el que trae happy-dom.
+ * Sin esto, en Node 26 el `localStorage` es `undefined` y TODAS las pruebas
+ * del frontend caen al suelo. Se vuelve a poner el de happy-dom encima.
+ */
+function arreglaAlmacen() {
+  const global = globalThis as unknown as { localStorage?: Storage; sessionStorage?: Storage };
+  if (!global.localStorage) {
+    Object.defineProperty(global, "localStorage", {
+      value: new Storage(),
+      writable: true,
+      configurable: true,
+    });
+  }
+  if (!global.sessionStorage) {
+    Object.defineProperty(global, "sessionStorage", {
+      value: new Storage(),
+      writable: true,
+      configurable: true,
+    });
+  }
+}
+
+arreglaAlmacen();
 
 /** Lo que contesta cada comando de Rust en esta prueba. Se rellena con `responde`. */
 const respuestas = new Map<string, unknown>();
