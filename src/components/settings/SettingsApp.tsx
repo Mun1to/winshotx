@@ -182,14 +182,27 @@ const TEMAS: { value: Theme; label: string }[] = [
   { value: "oscuro", label: "Oscuro" },
 ];
 
-/** Los idiomas que habla hoy. Anadir uno mas es una linea aqui y un archivo mas. */
-const IDIOMAS: { value: Language; label: string }[] = [
+/**
+ * Los idiomas que habla hoy. Anadir uno mas es una linea aqui y un archivo mas.
+ *
+ * El nombre de cada idioma va en ESE idioma y NO pasa por `t`: es como lo busca quien lo
+ * necesita, y traducirlo seria buscar «Chino» en una interfaz que esta en chino. La
+ * unica excepcion es «Sistema», que si es una frase de la aplicacion.
+ */
+const IDIOMAS: { value: Language; label: string; propio?: boolean }[] = [
   { value: "sistema", label: "Automático" },
-  { value: "es", label: "Español" },
-  { value: "en", label: "Inglés" },
-  // El nombre de cada idioma va en ESE idioma, que es como lo busca quien lo necesita:
-  // alguien que abre la aplicacion en chino no esta buscando la palabra «Chino».
-  { value: "zh", label: "中文" },
+  { value: "es", label: "Español", propio: true },
+  { value: "en", label: "English", propio: true },
+  { value: "zh", label: "中文（简体）", propio: true },
+  { value: "zh-tw", label: "中文（繁體）", propio: true },
+  { value: "de", label: "Deutsch", propio: true },
+  { value: "fr", label: "Français", propio: true },
+  { value: "it", label: "Italiano", propio: true },
+  { value: "ja", label: "日本語", propio: true },
+  { value: "ko", label: "한국어", propio: true },
+  { value: "ru", label: "Русский", propio: true },
+  { value: "pt-br", label: "Português (Brasil)", propio: true },
+  { value: "pl", label: "Polski", propio: true },
 ];
 
 /** Tres opciones y ninguna más: un campo de números aquí solo sirve para escribir 47. */
@@ -212,7 +225,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const flujos = FLUJOS.map((o) => ({ ...o, label: t(o.label) }));
   const temas = TEMAS.map((o) => ({ ...o, label: t(o.label) }));
   const esperas = ESPERAS.map((o) => ({ ...o, label: t(o.label) }));
-  const idiomas = IDIOMAS.map((o) => ({ ...o, label: t(o.label) }));
+  // Los nombres propios de cada idioma no se traducen: van como se escriben en ese idioma.
+  const idiomas = IDIOMAS.map((o) => ({
+    ...o,
+    label: o.propio ? o.label : t(o.label),
+  }));
   // Que seccion se esta viendo. Es estado de la pantalla y no un ajuste: no tiene sentido
   // guardarlo en disco ni que sobreviva a cerrar la ventana.
   const [seccion, setSeccion] = useState<SeccionId>("capturar");
@@ -1083,7 +1100,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     stacked
                     icon={<Languages className="size-4" />}
                     label={t("Idioma")}
-                    explicacion={t("Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")}
+                    explicacion={t("Doce idiomas, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")}
                     hint={settings.language === "sistema" ? t("el de Windows") : undefined}
                     control={
                       <Segmented

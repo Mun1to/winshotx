@@ -6,6 +6,7 @@
  * mas, este archivo copiado y traducido, sin tocar ni un componente.
  */
 export const EN: Record<string, string> = {
+  "Doce idiomas, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.": "Twelve languages, or the one Windows uses if winshotx speaks it. It changes right away, nothing needs restarting.",
   // La cabecera y las cuatro secciones
   Versión: "Version",
   Capturar: "Capture",
@@ -144,7 +145,6 @@ export const EN: Record<string, string> = {
   Idioma: "Language",
   "el de Windows": "the one Windows uses",
   Español: "Spanish",
-  Inglés: "English",
 
   Actualizaciones: "Updates",
   "mirando si hay versión nueva…": "checking for a new version…",
@@ -191,7 +191,6 @@ export const EN: Record<string, string> = {
   "Donde caen las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y si ya existiera uno igual no lo pisa nunca.": "Where the screenshots and videos you save end up. winshotx names them with the date and the time, and it never overwrites one that already exists.",
   "Los fotogramas en crudo de lo que has grabado, que es lo que permite volver a exportar sin perder calidad. Vaciarlo no toca ni una captura guardada: solo tira lo que quedó a medias en el editor.": "The raw frames of what you have recorded, which is what lets you export again without losing quality. Emptying it does not touch a single saved capture: it only drops what was left half done in the editor.",
   "Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.": "Light, dark, or whatever Windows says and change along with it. It is only the colour of these windows; what you capture does not change.",
-  "Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.": "Spanish, English, or the one Windows uses if winshotx speaks it. It changes right away and nothing needs restarting.",
   "Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.": "The four screens from your first day, again: what each key does and what to choose. It takes less than a minute and changes no setting.",
   "Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.": "Walks this screen stopping at every block and saying what it is for. It is the quick way to see what is here without opening things to find out.",
   "winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "winshotx opens on its own when you turn the computer on and sits in the tray, with no window. Without this you have to open it by hand every time, and the capture keys do nothing while it is closed.",
