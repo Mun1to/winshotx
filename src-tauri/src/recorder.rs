@@ -336,6 +336,12 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         },
         pause.clone(),
     );
+    // El reloj del escritor y el de la pausa, para saber cuanto se grabo DE VERDAD. El
+    // ultimo fotograma no sirve: Windows no manda ninguno mientras la pantalla esta quieta,
+    // asi que un minuto mirando algo parado deja el ultimo en el segundo treinta y el video
+    // se cortaria ahi. Ver `cache.finish` mas abajo.
+    let reloj_escritor = reloj_inicio;
+    let pausado_escritor = paused_ms.clone();
     let writer = std::thread::spawn(move || -> Result<SessionData> {
         let mut session = session_seed;
         session.has_audio = audio.is_some();
@@ -408,7 +414,15 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             session.mp4_path = None;
         }
 
-        session.frames = cache.finish(last_ts, session.fps)?;
+        // Cuanto duro la grabacion de verdad, sin contar las pausas. NO `last_ts`: ese es
+        // el instante del ultimo fotograma que mando Windows, y Windows no manda ninguno
+        // mientras la pantalla no cambia. Grabar un minuto de una ventana quieta dejaba
+        // `last_ts` en el segundo treinta, el ultimo fotograma se quedaba con treinta
+        // milisegundos y el video terminaba ahi: la segunda mitad desaparecia. El reloj
+        // sabe lo que se grabo aunque no haya llegado ni un fotograma.
+        let grabado_ms = (reloj_escritor.elapsed().as_millis() as u64)
+            .saturating_sub(pausado_escritor.load(Ordering::Relaxed));
+        session.frames = cache.finish(grabado_ms.max(last_ts), session.fps)?;
         let anotaciones = muestreador.terminar();
         session.clics = anotaciones.clics;
         session.teclas = anotaciones.teclas;
