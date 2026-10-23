@@ -363,7 +363,12 @@ pub fn calcular_duraciones(entries: &mut [FrameEntry], total_ms: u64, fallback_f
             total_ms.max(entries[i].timestamp_ms + fallback)
         };
         let delta = next_ts.saturating_sub(entries[i].timestamp_ms) as u32;
-        entries[i].duration_ms = delta.clamp(10, 10_000);
+        // Hasta un minuto, no diez segundos. El tope existe para que un salto del reloj no
+        // invente una duracion absurda, pero una pantalla quieta SI puede estarse asi: en
+        // una grabacion real de 59 s habia un hueco de 16 sin un solo fotograma, y el tope
+        // de diez se comia seis segundos de video sin que nadie lo dijera. Un minuto sigue
+        // cortando un salto de reloj de horas y deja pasar cualquier quietud de verdad.
+        entries[i].duration_ms = delta.clamp(10, 60_000);
     }
 }
 
