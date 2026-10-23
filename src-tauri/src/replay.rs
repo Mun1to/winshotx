@@ -1018,14 +1018,29 @@ fn a_ritmo(duraciones_origen: &[u32], fps: u32) -> (Vec<usize>, Vec<u32>) {
     let mut reloj: u32 = 0;
     let mut objetivo: u32 = 0;
     for (i, dura) in duraciones_origen.iter().copied().enumerate() {
-        match duraciones.last_mut() {
+        if reloj < objetivo && !duraciones.is_empty() {
             // Lo que cae entre dos pasos no se codifica: su tiempo se le suma al ultimo
             // que si entro, que es lo que mantiene la duracion del video clavada.
-            Some(ultima) if reloj < objetivo => *ultima += dura,
-            _ => {
+            *duraciones.last_mut().expect("hay al menos uno") += dura;
+        } else {
+            // Entra un fotograma nuevo. Casi siempre con su duracion tal cual. Pero una
+            // pantalla quieta deja UN fotograma con un retraso de segundos, y el
+            // codificador del MP4 va a velocidad fija: eso le rompe la linea de tiempo y
+            // el video pierde la segunda mitad, el mismo fallo que ya aparecio al
+            // exportar. Un tramo asi de largo se parte repitiendo el indice, que en
+            // pantalla es el mismo fotograma y para el codificador es un reloj que avanza.
+            //
+            // El corte esta en tres pasos y no en uno: a 15 fps cada fotograma dura 66 ms
+            // y eso NO es un tramo quieto, es el ritmo normal, y partirlo dejaria la vista
+            // previa a trompicones sin arreglar nada.
+            let mut queda = dura;
+            let trozos = if dura > paso * 3 { dura.div_ceil(paso) } else { 1 };
+            for n in 0..trozos {
+                let trozo = if n + 1 == trozos { queda } else { paso };
                 indices.push(i);
-                duraciones.push(dura);
+                duraciones.push(trozo);
                 objetivo += paso;
+                queda -= trozo;
             }
         }
         reloj += dura;
@@ -1743,6 +1758,48 @@ mod pruebas_con_pantalla {
 
         assert_eq!(indices.len(), 15, "no había nada que saltarse");
         assert_eq!(retardos, quince);
+    }
+
+    /// **El mismo fallo del MP4, pero en la vista previa.** Una pantalla quieta deja un
+    /// fotograma con un retraso de segundos; si eso llega tal cual al codificador de
+    /// velocidad fija, la linea de tiempo se rompe y el video se queda sin la segunda
+    /// mitad. Aqui se comprueba que el tramo largo se parte en trozos de `paso` y que la
+    /// duracion total no cambia.
+    #[test]
+    fn un_tramo_quieto_largo_se_reparte_en_la_vista_previa() {
+        // Veinte fotogramas de 50 ms, dieciseis segundos de pantalla quieta, y veinte mas.
+        let mut duraciones = vec![50u32; 20];
+        duraciones.push(16_000);
+        duraciones.extend(std::iter::repeat_n(50u32, 20));
+        let total: u32 = duraciones.iter().sum();
+
+        let (indices, retardos) = a_ritmo(&duraciones, 30);
+        assert_eq!(
+            retardos.iter().sum::<u32>(),
+            total,
+            "la vista previa ha cambiado de duracion"
+        );
+        // El tramo quieto son muchos fotogramas repetidos del mismo indice, no uno solo con
+        // un retraso de dieciseis segundos: dieciseis segundos a 30 por segundo son unos
+        // cuatrocientos ochenta.
+        let quietos = indices.iter().filter(|i| **i == 20).count();
+        assert!(
+            quietos >= 470,
+            "dieciseis segundos a 30 por segundo son unos 480 fotogramas y salieron {quietos}"
+        );
+        // Y ninguno de esos lleva el retraso entero: se reparten en tramos de un paso.
+        let peor = indices
+            .iter()
+            .zip(&retardos)
+            .filter(|(i, _)| **i == 20)
+            .map(|(_, d)| *d)
+            .max()
+            .unwrap_or(0);
+        assert!(
+            peor <= 33,
+            "un fotograma del tramo quieto lleva {peor} ms de retraso; el codificador va a \
+             velocidad fija y eso le rompe la linea de tiempo"
+        );
     }
 
     /// Un guardia con los dos relojes a mano, sin necesitar ni anillo ni aplicación.
