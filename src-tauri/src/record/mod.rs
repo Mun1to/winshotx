@@ -363,7 +363,12 @@ pub fn calcular_duraciones(entries: &mut [FrameEntry], total_ms: u64, fallback_f
             total_ms.max(entries[i].timestamp_ms + fallback)
         };
         let delta = next_ts.saturating_sub(entries[i].timestamp_ms) as u32;
-        entries[i].duration_ms = delta.clamp(10, 10_000);
+        // Hasta un minuto, no diez segundos. El tope existe para que un salto del reloj no
+        // invente una duracion absurda, pero una pantalla quieta SI puede estarse asi: en
+        // una grabacion real de 59 s habia un hueco de 16 sin un solo fotograma, y el tope
+        // de diez se comia seis segundos de video sin que nadie lo dijera. Un minuto sigue
+        // cortando un salto de reloj de horas y deja pasar cualquier quietud de verdad.
+        entries[i].duration_ms = delta.clamp(10, 60_000);
     }
 }
 
@@ -984,5 +989,63 @@ mod tests {
             .map(|e| e.index)
             .collect();
         assert_eq!(enteros, vec![0, 30, 60], "los enteros no caen donde deberían");
+    }
+
+    /// **El caso que se comia la segunda mitad del video.** Windows no manda fotograma
+    /// mientras la pantalla no cambia, asi que una grabacion de un minuto puede acabar con
+    /// el ultimo fotograma en el segundo treinta. Si a `finish` se le pasa ESE instante en
+    /// vez del tiempo que se grabo, el ultimo fotograma se queda con treinta milisegundos y
+    /// el video termina ahi: los otros treinta segundos desaparecen.
+    ///
+    /// Aqui se comprueba la parte que se puede comprobar sin grabar: con el reloj de verdad
+    /// (sesenta segundos) la ultima duracion cubre el hueco entero, y con el instante del
+    /// ultimo fotograma (treinta segundos) no.
+    #[test]
+    fn una_pantalla_quieta_no_puede_comerse_el_final_de_la_grabacion() {
+        let (ancho, alto) = (32u32, 16u32);
+        let dir = carpeta("quieta-al-final");
+        let mut cache = FrameCache::new(&dir).expect("no se ha podido crear la caché");
+
+        // Treinta segundos moviendose, y despues treinta mas con la pantalla clavada: esos
+        // treinta no mandan ni un fotograma, que es justo lo que hace Windows.
+        for i in 0..30u32 {
+            cache
+                .push_rgba(&pantalla(ancho, alto, i), ancho, alto, u64::from(i) * 1000)
+                .unwrap();
+        }
+        let ultimo_fotograma_ms = 29_000u64;
+        let grabado_ms = 60_000u64;
+
+        // Lo que hacia antes: pasarle el instante del ultimo fotograma. El video dura lo
+        // que duro la parte que se movia y nada mas.
+        let mut con_el_fotograma = cache.finish(ultimo_fotograma_ms, 30).expect("no se ha cerrado");
+        calcular_duraciones(&mut con_el_fotograma, ultimo_fotograma_ms, 30);
+        let corto: u64 = con_el_fotograma
+            .iter()
+            .map(|f| u64::from(f.duration_ms))
+            .sum();
+        assert!(
+            corto < 31_000,
+            "con el instante del ultimo fotograma el video dura {corto} ms: asi se perdia la mitad"
+        );
+
+        // Y lo que hace ahora: el reloj de la grabacion, que sabe que se grabo un minuto
+        // aunque el ultimo fotograma llegara en el segundo veintinueve.
+        let dir2 = carpeta("quieta-al-final-2");
+        let mut cache2 = FrameCache::new(&dir2).expect("no se ha podido crear la caché");
+        for i in 0..30u32 {
+            cache2
+                .push_rgba(&pantalla(ancho, alto, i), ancho, alto, u64::from(i) * 1000)
+                .unwrap();
+        }
+        let entero = cache2.finish(grabado_ms, 30).expect("no se ha cerrado");
+        let largo: u64 = entero.iter().map(|f| u64::from(f.duration_ms)).sum();
+        assert!(
+            (59_900..=60_100).contains(&largo),
+            "el video tiene que durar los sesenta segundos grabados y dura {largo} ms"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&dir2);
     }
 }

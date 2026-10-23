@@ -108,6 +108,7 @@ fn resample(
     to: usize,
     fps: u32,
     velocidad: f32,
+    unir: bool,
 ) -> (Vec<usize>, Vec<u32>) {
     let from = from.min(session.frames.len().saturating_sub(1));
     let to = to.min(session.frames.len().saturating_sub(1)).max(from);
@@ -138,12 +139,18 @@ fn resample(
             ((queda as f32 / velocidad).round() as u64).max(1)
         } as u32;
         let picked = from + cursor;
-        if indices.last() != Some(&picked) {
+        // Para el MP4 (`unir=false`) la velocidad es fija, asi que cada paso es un
+        // fotograma del video: un mismo fotograma capturado se REPITE en vez de alargar
+        // el retardo del anterior. El GIF (`unir=true`) junta los repetidos en uno solo
+        // con el retardo acumulado, que es como funciona un GIF.
+        if unir && indices.last() == Some(&picked) {
+            // El mismo fotograma se queda en pantalla mas tiempo en vez de repetirse.
+            if let Some(ultimo) = delays.last_mut() {
+                *ultimo += slot;
+            }
+        } else {
             indices.push(picked);
             delays.push(slot);
-        } else if let Some(last) = delays.last_mut() {
-            // El mismo fotograma se queda en pantalla mas tiempo en vez de repetirse.
-            *last += slot;
         }
         t += paso_origen;
     }
@@ -304,6 +311,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 request.to,
                 request.fps,
                 request.velocidad(),
+                true,
             );
             let path = destination_path(app, &request, "gif")?;
             if request.engine == "ffmpeg" && ffmpeg::available() {
@@ -361,6 +369,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 request.to,
                 request.fps,
                 request.velocidad(),
+                false,
             );
             let path = destination_path(app, &request, "mp4")?;
             if request.engine == "ffmpeg" && ffmpeg::available() {
@@ -1027,7 +1036,7 @@ mod tests {
     fn bajar_los_fps_reparte_el_tiempo_sin_perderlo() {
         // 10 fotogramas de 20 ms = 200 ms de clip, exportados a 25 fps (40 ms).
         let session = session_with(&[20; 10]);
-        let (indices, delays) = resample(&session, 0, 9, 25, 1.0);
+        let (indices, delays) = resample(&session, 0, 9, 25, 1.0, true);
         assert_eq!(indices.len(), 5);
         assert_eq!(delays.iter().sum::<u32>(), 200);
     }
@@ -1038,8 +1047,8 @@ mod tests {
     fn al_doble_de_velocidad_dura_la_mitad() {
         // 40 fotogramas de 25 ms = un segundo, exportado a 20 fps.
         let session = session_with(&[25; 40]);
-        let (normal, retardos_normales) = resample(&session, 0, 39, 20, 1.0);
-        let (rapido, retardos_rapidos) = resample(&session, 0, 39, 20, 2.0);
+        let (normal, retardos_normales) = resample(&session, 0, 39, 20, 1.0, true);
+        let (rapido, retardos_rapidos) = resample(&session, 0, 39, 20, 2.0, true);
 
         assert_eq!(retardos_normales.iter().sum::<u32>(), 1_000);
         assert_eq!(retardos_rapidos.iter().sum::<u32>(), 500, "a 2x tiene que durar la mitad");
@@ -1077,7 +1086,7 @@ mod tests {
 
         let duracion_de = |velocidad: f32| -> u64 {
             let session = session_with(&[25; 40]);
-            let (indices, delays) = resample(&session, 0, 39, 20, velocidad);
+            let (indices, delays) = resample(&session, 0, 39, 20, velocidad, true);
             let salida = dir.join(format!("v{velocidad}.gif"));
             let mut loader = |index: usize| {
                 Ok(image::RgbaImage::from_raw(ancho, alto, lienzos[index].clone()).unwrap())
@@ -1123,7 +1132,7 @@ mod tests {
     #[test]
     fn a_camara_lenta_dura_el_doble() {
         let session = session_with(&[25; 40]);
-        let (_, retardos) = resample(&session, 0, 39, 20, 0.5);
+        let (_, retardos) = resample(&session, 0, 39, 20, 0.5, true);
         assert_eq!(retardos.iter().sum::<u32>(), 2_000);
     }
 
@@ -1131,17 +1140,135 @@ mod tests {
     fn los_fotogramas_repetidos_alargan_el_retardo() {
         // Un solo fotograma que dura 500 ms no debe repetirse 12 veces a 25 fps.
         let session = session_with(&[500]);
-        let (indices, delays) = resample(&session, 0, 0, 25, 1.0);
+        let (indices, delays) = resample(&session, 0, 0, 25, 1.0, true);
         assert_eq!(indices, vec![0]);
         assert_eq!(delays, vec![500]);
+    }
+
+    /// El MP4 se codifica a velocidad fija, asi que cada paso de `resample` tiene que
+    /// ser su propio fotograma: un tramo quieto no puede salir como un unico fotograma
+    /// con un retraso de varios segundos, porque eso le rompe la linea de tiempo al
+    /// codificador y el video se queda sin la segunda mitad. Con `unir=false` los
+    /// fotogramas repetidos se REPITEN en vez de juntarse.
+    #[test]
+    fn el_mp4_no_junta_fotogramas_en_retrasos_largos() {
+        let session = session_with(&[500, 500]);
+        let (_, delays) = resample(&session, 0, 1, 25, 1.0, false);
+        // A 25 fps el paso es de 40 ms: ningun retraso deberia pasar de ahi por mucho.
+        assert!(delays.iter().all(|d| *d <= 80), "retrasos: {delays:?}");
+        // Y el segundo entero de grabacion se cubre con esos fotogramas de 40 ms.
+        assert_eq!(delays.iter().sum::<u32>(), 1_000);
     }
 
     #[test]
     fn el_rango_recortado_manda() {
         let session = session_with(&[50; 8]);
-        let (indices, _) = resample(&session, 2, 4, 20, 1.0);
+        let (indices, _) = resample(&session, 2, 4, 20, 1.0, true);
         assert!(indices.iter().all(|i| (2..=4).contains(i)));
     }
+
+    /// El caso real que reporto el usuario: WGC no entrega fotogramas mientras la pantalla
+    /// esta quieta, asi que un tramo de 16 s queda como UN solo fotograma de 16 s. Si el MP4
+    /// junta ese tramo en un fotograma con retraso de 16 s, el codificador de velocidad fija
+    /// se rompe y la segunda mitad del video desaparece. Con `unir=false` el tramo quieto se
+    /// reparte en fotogramas de `step_ms`, cubriendo todo el tiempo sin perderlo.
+    #[test]
+    fn mp4_tramo_estatico_largo_no_pierde_tiempo() {
+        // 1 s de grabacion que cambia (20 fotogramas de 50 ms) seguido de 16 s quietos
+        // (un unico fotograma de 16000 ms, tal cual lo entrega WGC).
+        let mut dur = vec![50u32; 20];
+        dur.push(16_000);
+        let session = session_with(&dur);
+        let (indices, delays) = resample(&session, 0, session.frames.len() - 1, 25, 1.0, false);
+        // A 25 fps el paso es 40 ms: ningun retraso puede pasarse de ahi.
+        assert!(
+            delays.iter().all(|d| *d <= 80),
+            "hay un retraso enorme, el tramo quieto se junto: {delays:?}"
+        );
+        // El clip entero dura 17 s (1000 + 16000 ms). Los fotogramas de 40 ms lo cubren todo.
+        let total_ms: u32 = delays.iter().sum();
+        assert_eq!(total_ms, 17_000, "se perdio tiempo del tramo estatico");
+        assert_eq!(indices.len() as u32, total_ms / 40, "un fotograma por cada paso de 40 ms");
+    }
+
+    /// Prueba de punta a punta solo en Windows: exporta de verdad el caso del tramo estatico
+    /// con `mp4::encode` y luego deja que ffmpeg lo decodifique. Si el video se hubiera roto
+    /// (un fotograma con retraso de 16 s en un codificador de velocidad fija), ffmpeg no
+    /// recuperaria la segunda mitad. Aqui se comprueba que decodifica todos los fotogramas y
+    /// que el ultimo llega cerca del final del clip.
+    #[cfg(windows)]
+    #[test]
+    fn mp4_estatico_se_exporta_y_decodifica_entero() {
+        use crate::encode::mp4::{self, Mp4Options};
+        use image::RgbaImage;
+        use std::process::Command;
+
+        let ffprobe = "C:\\Program Files\\Bili23 Downloader\\bundle\\ffmpeg.exe";
+        if !std::path::Path::new(ffprobe).exists() {
+            eprintln!("saltando: no hay ffmpeg en {ffprobe}");
+            return;
+        }
+
+        let mut dur = vec![50u32; 20];
+        dur.push(16_000);
+        let session = session_with(&dur);
+        let (indices, delays) = resample(&session, 0, session.frames.len() - 1, 25, 1.0, false);
+
+        // Un lienzo de 64x64 que aguanta cualquier indice (el loader no lee del disco).
+        let lienzo = RgbaImage::from_pixel(64, 64, image::Rgba([120, 80, 200, 255]));
+        let mut loader = |_idx: usize| -> crate::error::Result<RgbaImage> { Ok(lienzo.clone()) };
+
+        let tmp = std::env::temp_dir().join("winshotx_prueba_estatica.mp4");
+        let _ = std::fs::remove_file(&tmp);
+        let opciones = Mp4Options { width: 64, height: 64, fps: 25, quality: 60 };
+        mp4::encode(
+            &indices,
+            &delays,
+            &mut loader,
+            &tmp,
+            &opciones,
+            None,
+            |_, _, _| {},
+        )
+        .expect("la exportacion MP4 fallo");
+
+        // ffmpeg imprime `Duration: 00:00:17.04` en stderr al abrir el archivo; si el tramo
+        // estatico se hubiera roto, el video terminaria cerca de 1 s en vez de 17 s.
+        let salida = Command::new(ffprobe)
+            .args(["-hide_banner", "-i", tmp.to_str().unwrap()])
+            .output()
+            .expect("no se pudo lanzar ffmpeg");
+        let texto = String::from_utf8_lossy(&salida.stderr);
+        let dur_seg = extraer_duracion(&texto);
+        assert!(
+            dur_seg >= 16.0,
+            "el video dura {dur_seg} s, se perdio la mitad estatica (esperado ~17 s)\n{texto}"
+        );
+        let _ = std::fs::remove_file(&tmp);
+    }
+}
+
+/// Saca la duracion del contenedor de la linea `Duration: 00:00:17.04` que imprime ffmpeg.
+/// Solo la usa el test de exportacion MP4, asi que fuera de `cfg(test)` no tiene quien la llame.
+#[cfg(windows)]
+#[allow(dead_code)]
+fn extraer_duracion(informe: &str) -> f64 {
+    for linea in informe.lines() {
+        if let Some(pos) = linea.find("Duration:") {
+            let resto = &linea[pos + 9..];
+            // Formato HH:MM:SS.ss; basta con lo que hay antes del primer espacio.
+            if let Some(trozo) = resto.trim().split_whitespace().next() {
+                let partes: Vec<&str> = trozo.trim_end_matches(',').split(':').collect();
+                if partes.len() == 3 {
+                    let h: f64 = partes[0].parse().unwrap_or(0.0);
+                    let m: f64 = partes[1].parse().unwrap_or(0.0);
+                    let s: f64 = partes[2].parse().unwrap_or(0.0);
+                    return h * 3600.0 + m * 60.0 + s;
+                }
+            }
+        }
+    }
+    0.0
 }
 
 /// El orden entero de exportar una imagen: recortar, escalar, anotar y enmarcar.
