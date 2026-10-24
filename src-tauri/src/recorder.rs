@@ -626,6 +626,19 @@ fn spawn_ticker(app: AppHandle, stop: Arc<AtomicBool>) {
 fn terminar(mut recording: RecordingState) -> Result<SessionData> {
     recording.stop.store(true, Ordering::Relaxed);
 
+    // Si se para EN PAUSA, esa pausa todavia no esta en `paused_ms`: solo se apunta al
+    // reanudar, y aqui ya no se va a reanudar. Sin esto, el tiempo que se estuvo parado
+    // contaba como grabado y el escritor le daba esa duracion de mas al ultimo fotograma,
+    // que sale como un trozo largo y quieto al final del video.
+    {
+        let mut desde = recording.pause_started.lock();
+        if let Some(inicio) = desde.take() {
+            recording
+                .paused_ms
+                .fetch_add(inicio.elapsed().as_millis() as u64, Ordering::Relaxed);
+        }
+    }
+
     // Parar la captura puede tardar en devolver el control; se hace aparte para que
     // el editor no dependa de ello.
     #[cfg(windows)]
