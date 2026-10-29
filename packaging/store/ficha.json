@@ -26,10 +26,10 @@
       "screenshot",
       "screen recorder",
       "gif recorder",
-      "snipping tool alternative",
+      "region capture",
       "screen capture",
       "screen recording",
-      "sharex alternative"
+      "mp4 recorder"
     ]
   },
   "es-es": {
@@ -58,8 +58,7 @@
       "captura de pantalla",
       "grabar pantalla",
       "grabador de gif",
-      "alternativa a recortes",
-      "herramienta de recortes",
+      "captura de ventana",
       "grabador de pantalla",
       "captura de region"
     ]
