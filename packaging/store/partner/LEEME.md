@@ -50,7 +50,14 @@ jurisdiccion». Eso es una declaracion de Munir, no una tarea: la marca el, como
     PERFIL=<...> ENVIO=<id> node .../descripcion.mjs                    textos y novedades
     PERFIL=<...> ENVIO=<id> SOLO_MIRAR=1 node .../caracteristicas.mjs   cuenta las 11
     PERFIL=<...> ENVIO=<id> node .../caracteristicas.mjs                las escribe
+    PERFIL=<...> ENVIO=<id> node .../claves.mjs                         palabras clave
     PERFIL=<...> SOLO_MIRAR=1 node .../reenviar.mjs                     revisa
+
+**Las palabras clave no pueden nombrar productos ajenos** (politica 10.1.3). La 0.3.6 se
+rechazo el 21 de octubre de 2026 por «snipping tool alternative» y «sharex alternative», y el
+aviso llego como «Certificacion con errores» en la pagina general, sin correo que se viera:
+durante una semana parecio que el envio estaba parado. Tras mandar a certificar, se mira la
+pagina general a los tres dias, no se espera al correo.
     PERFIL=<...> node .../reenviar.mjs                                  envia a certificacion
     PERFIL=<...> PULSAR=1 node .../cancelar.mjs                         para la certificacion
 
