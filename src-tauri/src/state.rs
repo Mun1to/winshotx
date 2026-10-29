@@ -33,6 +33,9 @@ pub struct RecordingState {
     pub pause: Arc<AtomicBool>,
     pub paused_ms: Arc<AtomicU64>,
     pub pause_started: Mutex<Option<Instant>>,
+    /// Lo grabado en el instante de parar, sin pausas: lo apunta `terminar` ANTES de avisar
+    /// al escritor, que lo usa como duracion del video. Vale 0 mientras no se ha parado.
+    pub fin_ms: Arc<AtomicU64>,
     pub frames: Arc<AtomicU64>,
     pub bytes: Arc<AtomicU64>,
     pub cabecera: Cabecera,

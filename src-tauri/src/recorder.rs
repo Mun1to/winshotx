@@ -315,6 +315,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     let writer_frames = frames_counter.clone();
     let writer_bytes = bytes_counter.clone();
     let writer_stop = stop.clone();
+    let fin_ms = Arc::new(AtomicU64::new(0));
+    let writer_fin = fin_ms.clone();
     let writer_descartar = descartar.clone();
     // Los bufers de fotograma van y vuelven entre la captura y este hilo: reservar ocho
     // megabytes nuevos treinta veces por segundo era lo mas caro de cada fotograma.
@@ -401,6 +403,25 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             salida.volcar(&mut encoder);
         }
 
+        // Cuanto se grabo de verdad, y NO el instante del ultimo fotograma: Windows no manda
+        // ninguno mientras la pantalla no cambia, y con el final quieto el video se cortaba
+        // donde llego el ultimo. `fin_ms` es el reloj de la barra en el momento de parar
+        // (sin pausas, tambien la que estuviera en marcha). Si la captura se corto sola y
+        // nadie paro, vale 0 y manda el ultimo fotograma, como antes.
+        let grabado_ms = writer_fin.load(Ordering::Relaxed).max(last_ts);
+
+        // La vista previa en vivo tambien acaba donde acaba lo grabado: el ultimo fotograma
+        // se le manda otra vez en ese instante, igual que hace `mp4::encode` al exportar,
+        // porque Media Foundation solo sabe cuando EMPIEZA cada uno.
+        if grabado_ms > last_ts && !dado_la_vuelta.is_empty() {
+            if let Some(enc) = encoder.as_mut() {
+                if let Err(error) = enc.send_frame_buffer(&dado_la_vuelta, grabado_ms as i64 * 10_000)
+                {
+                    eprintln!("[winshotx] la vista previa no ha podido cerrar el final: {error}");
+                }
+            }
+        }
+
         session.audio = salida.cerrar(&mut encoder);
         session.has_audio = session.audio.is_some();
         let vista_previa_cerrada = encoder.take().is_some_and(|enc| enc.finish().is_ok());
@@ -408,7 +429,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             session.mp4_path = None;
         }
 
-        session.frames = cache.finish(last_ts, session.fps)?;
+        session.frames = cache.finish(grabado_ms, session.fps)?;
         let anotaciones = muestreador.terminar();
         session.clics = anotaciones.clics;
         session.teclas = anotaciones.teclas;
@@ -470,6 +491,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         pause: pause.clone(),
         paused_ms: paused_ms.clone(),
         pause_started: parking_lot::Mutex::new(None),
+        fin_ms,
         frames: frames_counter,
         bytes: bytes_counter,
         cabecera,
@@ -624,6 +646,10 @@ fn spawn_ticker(app: AppHandle, stop: Arc<AtomicBool>) {
 /// hace las miniaturas de todos los fotogramas, que con un minuto de grabacion son unos
 /// segundos. Por eso nadie llama a esto desde el hilo principal: ver `stop`.
 fn terminar(mut recording: RecordingState) -> Result<SessionData> {
+    // Lo grabado se apunta ANTES de avisar al escritor: en cuanto ve `stop` puede cerrar,
+    // y tiene que encontrarse ya la duracion buena. `elapsed_ms` descuenta tambien la
+    // pausa que siga en marcha, que es lo que pasa al parar en pausa.
+    recording.fin_ms.store(recording.elapsed_ms(), Ordering::Relaxed);
     recording.stop.store(true, Ordering::Relaxed);
 
     // Parar la captura puede tardar en devolver el control; se hace aparte para que
