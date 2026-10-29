@@ -10,6 +10,26 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { Storage } from "happy-dom";
+
+/**
+ * El `localStorage` de happy-dom, puesto encima del que trae Node.
+ *
+ * Node trae su propio `localStorage` experimental en el global (de serie desde Node 26, y
+ * con `--experimental-webstorage` antes), y como aqui `window` es el global, ese tapa al de
+ * happy-dom. Sin `--localstorage-file` no sirve: en Node 26 vale `undefined` y en Node 24
+ * con la bandera revienta solo con leerlo. Asi que no se le pregunta, se pisa siempre.
+ *
+ * Lo encontro wang13zhe en el pull request #7: con Node 26 caian todas las pruebas que
+ * tocan el almacen, antes y despues de cualquier cambio.
+ */
+for (const almacen of ["localStorage", "sessionStorage"]) {
+  Object.defineProperty(globalThis, almacen, {
+    value: new Storage(),
+    writable: true,
+    configurable: true,
+  });
+}
 
 /** Lo que contesta cada comando de Rust en esta prueba. Se rellena con `responde`. */
 const respuestas = new Map<string, unknown>();
