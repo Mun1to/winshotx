@@ -362,8 +362,13 @@ pub fn calcular_duraciones(entries: &mut [FrameEntry], total_ms: u64, fallback_f
         } else {
             total_ms.max(entries[i].timestamp_ms + fallback)
         };
-        let delta = next_ts.saturating_sub(entries[i].timestamp_ms) as u32;
-        entries[i].duration_ms = delta.clamp(10, 10_000);
+        // Sin techo de verdad: hasta el 28 de octubre de 2026 habia uno de diez segundos, y
+        // una pantalla quieta SI se esta asi (Windows no manda fotograma mientras nada
+        // cambia). Se comia el tiempo sin decirlo, y con sonido dejaba la imagen por delante
+        // de la voz desde ese punto. Las marcas salen de un reloj que no salta, asi que lo
+        // que mide el hueco es lo que paso; el GIF ya pone su propio limite al escribir.
+        let delta = next_ts.saturating_sub(entries[i].timestamp_ms);
+        entries[i].duration_ms = delta.clamp(10, u64::from(u32::MAX)) as u32;
     }
 }
 
@@ -984,5 +989,41 @@ mod tests {
             .map(|e| e.index)
             .collect();
         assert_eq!(enteros, vec![0, 30, 60], "los enteros no caen donde deberían");
+    }
+
+    /// Windows no manda fotograma mientras la pantalla no cambia, asi que un minuto de
+    /// grabacion puede acabar con el ultimo fotograma en el segundo veintinueve. Ese
+    /// ultimo fotograma tiene que durar hasta el final de lo grabado, no diez segundos.
+    #[test]
+    fn una_pantalla_quieta_al_final_dura_lo_que_se_grabo() {
+        let (ancho, alto) = (32u32, 16u32);
+        let dir = carpeta("quieta-al-final");
+        let mut cache = FrameCache::new(&dir).expect("no se ha podido crear la caché");
+        for i in 0..30u32 {
+            cache
+                .push_rgba(&pantalla(ancho, alto, i), ancho, alto, u64::from(i) * 1000)
+                .unwrap();
+        }
+        let frames = cache.finish(60_000, 30).expect("no se ha cerrado");
+        let total: u64 = frames.iter().map(|f| u64::from(f.duration_ms)).sum();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(total, 60_000, "se han grabado sesenta segundos y el video dura {total} ms");
+    }
+
+    /// Lo mismo a mitad: dieciseis segundos sin un fotograma son dieciseis segundos de
+    /// video. Recortarlos deja la imagen por delante del sonido desde ese punto.
+    #[test]
+    fn un_tramo_quieto_a_mitad_conserva_su_tiempo() {
+        let (ancho, alto) = (32u32, 16u32);
+        let dir = carpeta("quieta-a-mitad");
+        let mut cache = FrameCache::new(&dir).expect("no se ha podido crear la caché");
+        for (paso, ts) in [0u64, 50, 16_050, 16_100].into_iter().enumerate() {
+            cache
+                .push_rgba(&pantalla(ancho, alto, paso as u32), ancho, alto, ts)
+                .unwrap();
+        }
+        let frames = cache.finish(16_150, 30).expect("no se ha cerrado");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(frames[1].duration_ms, 16_000, "el tramo quieto ha perdido tiempo");
     }
 }
