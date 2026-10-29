@@ -20,6 +20,24 @@ RAMA="winshotx-$NUEVA"
 CARPETA="manifests/m/Mun1to/winshotx"
 TMP="$(mktemp -d)"
 
+# winget-pkgs es tan grande que GitHub a veces frena sus peticiones con un 429 («gitmon refuses
+# to schedule us»), y no por cuota nuestra: unas pasan y otras no. El 29 de octubre de 2026 la
+# 0.3.7 se quedo tres veces a medias en el paso 3 por UNA peticion frenada, asi que cada llamada
+# que toca winget-pkgs se reintenta por su cuenta en vez de repetir el guion entero.
+reintentar() {
+  local n
+  for n in 1 2 3 4 5 6; do
+    "$@" && return 0
+    echo "    GitHub ha frenado la peticion, reintento $n de 6 en 20 s" >&2
+    sleep 20
+  done
+  return 1
+}
+traer() {
+  gh api "repos/microsoft/winget-pkgs/contents/$CARPETA/$VIEJA/$1" --jq .content > "$TMP/m/$1.b64" &&
+    base64 -d "$TMP/m/$1.b64" > "$TMP/m/$1" && [ -s "$TMP/m/$1" ] && rm -f "$TMP/m/$1.b64"
+}
+
 echo "1/5 · comprobar que el instalador publicado responde y tiene ese hash"
 URL="https://github.com/Mun1to/winshotx/releases/download/v$NUEVA/winshotx_${NUEVA}_x64-setup.exe"
 CODIGO="$(curl -sIL -o /dev/null -w '%{http_code}' "$URL")"
@@ -31,13 +49,18 @@ REAL="$(sha256sum "$TMP/dl/setup.exe" | cut -d' ' -f1 | tr a-z A-Z)"
 echo "    200 y hash correcto"
 
 echo "2/5 · sincronizar el fork y crear la rama $RAMA"
-gh repo sync "$YO/winget-pkgs" --source microsoft/winget-pkgs --branch master >/dev/null
-BASE_SHA="$(gh api "repos/$YO/winget-pkgs/git/ref/heads/master" --jq .object.sha)"
-gh api "repos/$YO/winget-pkgs/git/refs" -f ref="refs/heads/$RAMA" -f sha="$BASE_SHA" --jq .ref
+reintentar gh repo sync "$YO/winget-pkgs" --source microsoft/winget-pkgs --branch master >/dev/null
+BASE_SHA="$(reintentar gh api "repos/$YO/winget-pkgs/git/ref/heads/master" --jq .object.sha)"
+# Una vuelta anterior que se quedo a medias deja la rama creada y vacia: se reaprovecha.
+if gh api "repos/$YO/winget-pkgs/git/ref/heads/$RAMA" --jq .ref >/dev/null 2>&1; then
+  echo "    la rama $RAMA ya estaba, la reaprovecho"
+else
+  reintentar gh api "repos/$YO/winget-pkgs/git/refs" -f ref="refs/heads/$RAMA" -f sha="$BASE_SHA" --jq .ref
+fi
 
 echo "3/5 · manifiestos de la $NUEVA a partir de los de la $VIEJA"
 for NOMBRE in Mun1to.winshotx.yaml Mun1to.winshotx.locale.en-US.yaml Mun1to.winshotx.installer.yaml; do
-  gh api "repos/microsoft/winget-pkgs/contents/$CARPETA/$VIEJA/$NOMBRE" --jq .content | base64 -d > "$TMP/m/$NOMBRE"
+  reintentar traer "$NOMBRE" || { echo "no he podido bajar $NOMBRE de la $VIEJA"; exit 1; }
   sed -i "s/$VIEJA/$NUEVA/g" "$TMP/m/$NOMBRE"
   if [ "$NOMBRE" = "Mun1to.winshotx.installer.yaml" ]; then
     # Con la sangria que lleve cada linea: InstallerSha256 va debajo de Installers.
@@ -56,7 +79,7 @@ winget validate --manifest "$(cygpath -w "$TMP/m")" || { echo "winget validate h
 
 echo "4/5 · subirlos"
 for NOMBRE in Mun1to.winshotx.yaml Mun1to.winshotx.locale.en-US.yaml Mun1to.winshotx.installer.yaml; do
-  TAM="$(gh api "repos/$YO/winget-pkgs/contents/$CARPETA/$NUEVA/$NOMBRE" -X PUT \
+  TAM="$(reintentar gh api "repos/$YO/winget-pkgs/contents/$CARPETA/$NUEVA/$NOMBRE" -X PUT \
     -f message="New version: Mun1to.winshotx version $NUEVA" \
     -f branch="$RAMA" \
     -f content="$(base64 -w0 < "$TMP/m/$NOMBRE")" --jq .content.size)"
@@ -65,7 +88,7 @@ for NOMBRE in Mun1to.winshotx.yaml Mun1to.winshotx.locale.en-US.yaml Mun1to.wins
 done
 
 echo "5/5 · pull request"
-gh pr create --repo microsoft/winget-pkgs --head "$YO:$RAMA" --base master \
+reintentar gh pr create --repo microsoft/winget-pkgs --head "$YO:$RAMA" --base master \
   --title "New version: Mun1to.winshotx version $NUEVA" \
   --body "winshotx is a free and open source screenshot and screen recording tool for Windows.
 
