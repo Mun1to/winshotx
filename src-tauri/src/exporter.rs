@@ -109,6 +109,12 @@ fn resample(
     fps: u32,
     velocidad: f32,
 ) -> (Vec<usize>, Vec<u32>) {
+    // Sin un solo fotograma no hay nada que recortar, y el `&frames[from..=to]` de abajo
+    // revienta con "range end index 0 out of range for slice of length 0". Quien llama
+    // rechaza la lista vacia igual, pero con un error que se puede leer.
+    if session.frames.is_empty() {
+        return (Vec::new(), Vec::new());
+    }
     let from = from.min(session.frames.len().saturating_sub(1));
     let to = to.min(session.frames.len().saturating_sub(1)).max(from);
     let slice = &session.frames[from..=to];
@@ -229,6 +235,11 @@ fn load_session(app: &AppHandle, id: &str) -> Result<SessionData> {
 pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     let started = Instant::now();
     let session = load_session(app, &request.session_id)?;
+    // Sin fotogramas no hay nada que exportar, y los caminos de abajo lo dan por hecho.
+    // Un error aqui se lee; un panic a mitad de exportar deja la ventana esperando.
+    if session.frames.is_empty() {
+        return Err(AppError::Msg("esa grabación no tiene ningún fotograma".into()));
+    }
     let width = request.width.max(1);
     let height = request.height.max(1);
 
@@ -1141,6 +1152,17 @@ mod tests {
         let session = session_with(&[50; 8]);
         let (indices, _) = resample(&session, 2, 4, 20, 1.0);
         assert!(indices.iter().all(|i| (2..=4).contains(i)));
+    }
+
+    /// Una sesion sin fotogramas no puede reventar. `resample` hacia `&frames[0..=0]`
+    /// sobre una lista vacia, que es un panic y no un error: en vez de decir que no hay
+    /// nada que exportar, la exportacion se quedaba sin respuesta.
+    #[test]
+    fn una_sesion_sin_fotogramas_no_revienta() {
+        let vacia = session_with(&[]);
+        let (indices, delays) = resample(&vacia, 0, 0, 30, 1.0);
+        assert!(indices.is_empty(), "de una lista vacia no sale ningun indice");
+        assert!(delays.is_empty(), "ni ninguna duracion");
     }
 }
 
