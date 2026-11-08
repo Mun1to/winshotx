@@ -1,38 +1,102 @@
 <div align="center">
 
-**English** · [Español](README.es.md)
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/logo.svg"><img src=".github/readme/logo-light.svg" alt="winshotx" height="88"></picture>
 
-<img src="frontlaxweb/social-en.png" alt="winshotx: crop the screen before you blink" width="820">
+# winshotx
 
-<br>
-
-[![MIT license](https://img.shields.io/badge/license-MIT-0a9bff?style=flat-square)](LICENSE)
-[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows&logoColor=white)](#status)
-[![Latest release](https://img.shields.io/github/v/release/Mun1to/winshotx?style=flat-square&color=22c55e&label=release)](https://github.com/Mun1to/winshotx/releases/latest)
-[![Installer 2.59 MB](https://img.shields.io/badge/installer-2.59%20MB-22c55e?style=flat-square)](#install)
-[![Microsoft Store](https://img.shields.io/badge/Microsoft%20Store-get%20it-0078d4?style=flat-square&logo=microsoftstore&logoColor=white)](https://apps.microsoft.com/detail/9P1NKWNRXD6Z)
-[![Built with Rust](https://img.shields.io/badge/Rust-1.82%2B-dea584?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
-[![Tauri 2](https://img.shields.io/badge/Tauri-2.11-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
-
-**[⬇ Download for Windows](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)**
-&nbsp;·&nbsp;
-**[▶ Try it in your browser](https://winshotx.com/en/)**
-&nbsp;·&nbsp;
-[Compare with the Snipping Tool](#snipping-tool-against-winshotx)
-
-</div>
-
----
+**Crop the screen before you blink**
 
 A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
 magnifier, **GIF and MP4 screen recording**, and an editor with a studio. It shows the selection
 already painted 114 ms after the shortcut with three screens, uses 33 MB of memory and fits in a
 2.59 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
 
-> **The interface speaks English and Spanish**, and follows whichever one Windows is set to. You
-> can pin it to either in **Settings → The app → Appearance**. The identifiers and comments in the
-> source are in Spanish; the commits, this page and the
-> [home page](https://winshotx.com/en/) are in English.
+<a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.svg"><img src=".github/readme/download-windows-light.svg" alt="Download for Windows"></picture></a>
+<a href="https://winshotx.com/en/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.svg"><img src=".github/readme/download-web-light.svg" alt="Try it in your browser"></picture></a>
+<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Microsoft Store" height="52"></a>
+
+Licence MIT · Windows 10 and 11 · Installer 2.59 MB
+
+[Compare with the Snipping Tool](#snipping-tool-against-winshotx) · [home page](https://winshotx.com/en/) · [Latest version](https://github.com/Mun1to/winshotx/releases/latest) · [Español](README.es.md)
+
+</div>
+
+<p align="center"><img src="frontlaxweb/social-en.png" alt="winshotx: crop the screen before you blink"></p>
+
+**The interface speaks English and Spanish**, and follows whichever one Windows is set to. You
+can pin it to either in **Settings > The app > Appearance**. The identifiers and comments in the
+source are in Spanish; the commits, this page and the
+[home page](https://winshotx.com/en/) are in English.
+
+## What it does
+
+|  |  |
+|---|---|
+| **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex, copied with `C` and snapping to system windows: one click takes the whole window. |
+| **Cover up personal data** | One click in the editor finds the emails, phone numbers, cards, bank accounts and ID numbers in the image and drops a mosaic over each one, which destroys the pixels rather than smudging them. Nothing is matched by shape: a card has to pass its check digit, an IBAN its remainder, an ID the letter it is owed, so an invoice does not come out half covered. |
+| **Record one window** | Press `W` with a window highlighted and that window is what gets recorded, even when something covers it: a notification landing on top no longer ends up in the video. The click rings follow the window if you move it. |
+| **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. A thin red frame shows what is being recorded (amber while paused), the bar below says whether sound is going in, and discarding asks twice. |
+| **Trim on the timeline** | The whole recording fits across the window: drag its two blue edges to keep a piece, and the preview shows the exact cut while you drag. It cuts to the millisecond, even inside a stretch where the screen does not change, and play stops at the end of the cut. One-click aspect ratios (9:16, 4:5, 1:1, 16:9), cropping the image, scaling with locked aspect ratio and a quality control. |
+| **Recording studio** | A Studio panel: eight backgrounds with air, rounded corners and a shadow around the video; the pointer drawn as large as you want without pixelating, with smooth movement that takes the hand shake out and the option to hide it when it stops; the camera moving in on every click and shortcut at the speed you pick, following the mouse while it is there; rings on the clicks, shortcuts on screen and the volume. **All of it decided when exporting**, over frames already on disk, and **all of it shown live in the editor preview**: what you see is what comes out. |
+| **Speed on export** | 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens, and those play at 2× without losing a thing. |
+| **Export** | GIF, MP4, PNG or JPG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
+| **The last few seconds** | It records all the time, drops the old, and one key keeps the last 15, 30 or 60 seconds. The good part of a screen almost always happens **before** anyone thinks of recording it. |
+| **System audio** | What comes out of your speakers goes into the MP4, captured straight from the default output. No extra driver, and you keep hearing it while it records. |
+| **Shoot on a timer** | Wait 3 or 5 seconds before the screen freezes, with the countdown in the middle of the screen. It is the only way to photograph an open menu, because pressing the shortcut closes it. |
+| **Text out of an image** | `T` on a selection, or the button in the editor, reads the text in the picture with Windows' own OCR and copies it. Works on a recording too, on whichever frame you are looking at. |
+| **Your latest shots** | The tray menu shows the last few you saved as thumbnails, and one click puts one back on the clipboard. There is no history file: the folder is the history, so deleting a shot from outside removes it from there too. |
+| **Spanish, English and Chinese** | It follows the Windows language, or you pin the one you want. Chinese came from a contributor. |
+| **Light and dark** | It follows the Windows theme and changes with it, or you pin the one you want. |
+| **Everything stays local** | No account, no telemetry, no uploads. The only network call is checking GitHub for a new version. |
+
+## Screenshots
+
+<p align="center"><img src="docs/img/ajustes.png" alt="winshotx settings panel"></p>
+
+<p align="center">winshotx settings panel</p>
+
+## Snipping Tool against winshotx
+
+Same machine with Windows 11, three runs each, both starting from cold. The clock stops when the
+selection is actually on screen. The [full table](https://winshotx.com/en/#frente-a-frente)
+has the nineteen rows, including the five the Snipping Tool wins.
+
+|  | winshotx | Snipping Tool |
+|---|---|---|
+| From shortcut to the selection on screen, already painted (three screens) | **114 ms** | 920 ms |
+| Memory while capturing | **33 MB** | 253 MB |
+| Memory sitting idle | **31 MB** | 98 MB |
+| Records GIF | **yes** | no |
+| Editor with a timeline and a studio | **yes** | no |
+| Pick your own shortcut | **yes** | no |
+| Draw and annotate on top | **six marks, with numbered steps** | pen, shapes and text |
+| Copy the text out of the image | **yes, with the T key and inside the editor too** | yes |
+| System audio when recording | **yes, and the microphone mixed in** | yes |
+| Timer before capturing | 3 or 5 seconds | **3, 5 or 10 seconds** |
+| Cover up personal data | **one click, and the mosaic destroys the pixels** | automatic, and it blurs |
+
+## Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>2</kbd> | Capture a region |
+| <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd> | Capture a region and open it in the editor, skipping the toolbar |
+| In the editor | A shield covers up the emails, phones, cards, bank accounts and IDs it finds |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>5</kbd> | Record a region · press again to stop |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>6</kbd> | Keep what just happened · while "the last few seconds" is on |
+| <kbd>Print Screen</kbd> | Capture a region · once you take the key from the Snipping Tool |
+| <kbd>Enter</kbd> | Copy the selection to the clipboard |
+| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Save the selection to the shots folder |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd> | Save it wherever you want: Windows asks for the folder and the name |
+| <kbd>E</kbd> | Open the selection in the editor |
+| <kbd>A</kbd> | Pin the selection: it floats on top of everything, where it was |
+| <kbd>T</kbd> | Copy the text inside the selection, read by Windows' own OCR |
+| <kbd>C</kbd> | Copy the colour under the cursor, the one the loupe is showing |
+| <kbd>G</kbd> / <kbd>V</kbd> | Record the selection as GIF / video |
+| <kbd>W</kbd> | Record **only the window under the cursor**, even when something covers it |
+| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select the whole monitor |
+| <kbd>←↑>↓</kbd> | Move the selection · `Shift` for steps of 10 · `Alt` resizes |
+| <kbd>Esc</kbd> | Cancel |
 
 ## Install
 
@@ -57,52 +121,9 @@ it updated, so the app's own updater stays out of the way.
 It lives in the system tray with no window of its own. Windows hides new tray icons, so if you
 cannot see it, look behind the `^` arrow on the taskbar.
 
-**It updates itself.** In **Settings → The app → Updates** a button shows up when a new version is out,
+**It updates itself.** In **Settings > The app > Updates** a button shows up when a new version is out,
 and one click downloads it, installs it and restarts the app. Every download is signed and the
 signature is checked before anything is installed, so a tampered file is rejected.
-
-## What it does
-
-|  |  |
-|---|---|
-| 📸 **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex, copied with `C` and snapping to system windows: one click takes the whole window. |
-| 🛡️ **Cover up personal data** | One click in the editor finds the emails, phone numbers, cards, bank accounts and ID numbers in the image and drops a mosaic over each one, which destroys the pixels rather than smudging them. Nothing is matched by shape: a card has to pass its check digit, an IBAN its remainder, an ID the letter it is owed, so an invoice does not come out half covered. |
-| 🪟 **Record one window** | Press `W` with a window highlighted and that window is what gets recorded, even when something covers it: a notification landing on top no longer ends up in the video. The click rings follow the window if you move it. |
-| 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. A thin red frame shows what is being recorded (amber while paused), the bar below says whether sound is going in, and discarding asks twice. |
-| ✂️ **Trim on the timeline** | The whole recording fits across the window: drag its two blue edges to keep a piece, and the preview shows the exact cut while you drag. It cuts to the millisecond, even inside a stretch where the screen does not change, and play stops at the end of the cut. One-click aspect ratios (9:16, 4:5, 1:1, 16:9), cropping the image, scaling with locked aspect ratio and a quality control. |
-| 🔍 **Recording studio** | A Studio panel: eight backgrounds with air, rounded corners and a shadow around the video; the pointer drawn as large as you want without pixelating, with smooth movement that takes the hand shake out and the option to hide it when it stops; the camera moving in on every click and shortcut at the speed you pick, following the mouse while it is there; rings on the clicks, shortcuts on screen and the volume. **All of it decided when exporting**, over frames already on disk, and **all of it shown live in the editor preview**: what you see is what comes out. |
-| ⏩ **Speed on export** | 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens, and those play at 2× without losing a thing. |
-| 💾 **Export** | GIF, MP4, PNG or JPG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
-| ⏪ **The last few seconds** | It records all the time, drops the old, and one key keeps the last 15, 30 or 60 seconds. The good part of a screen almost always happens **before** anyone thinks of recording it. |
-| 🔊 **System audio** | What comes out of your speakers goes into the MP4, captured straight from the default output. No extra driver, and you keep hearing it while it records. |
-| ⏱️ **Shoot on a timer** | Wait 3 or 5 seconds before the screen freezes, with the countdown in the middle of the screen. It is the only way to photograph an open menu, because pressing the shortcut closes it. |
-| 🔤 **Text out of an image** | `T` on a selection, or the button in the editor, reads the text in the picture with Windows' own OCR and copies it. Works on a recording too, on whichever frame you are looking at. |
-| 🗂️ **Your latest shots** | The tray menu shows the last few you saved as thumbnails, and one click puts one back on the clipboard. There is no history file: the folder is the history, so deleting a shot from outside removes it from there too. |
-| 🌍 **Spanish, English and Chinese** | It follows the Windows language, or you pin the one you want. Chinese came from a contributor. |
-| 🌓 **Light and dark** | It follows the Windows theme and changes with it, or you pin the one you want. |
-| 🔒 **Everything stays local** | No account, no telemetry, no uploads. The only network call is checking GitHub for a new version. |
-
-<img src="docs/img/ajustes.png" alt="winshotx settings panel" width="820">
-
-## Snipping Tool against winshotx
-
-Same machine with Windows 11, three runs each, both starting from cold. The clock stops when the
-selection is actually on screen. The [full table](https://winshotx.com/en/#frente-a-frente)
-has the nineteen rows, including the five the Snipping Tool wins.
-
-| | winshotx | Snipping Tool |
-|---|---|---|
-| From shortcut to the selection on screen, already painted (three screens) | **114 ms** | 920 ms |
-| Memory while capturing | **33 MB** | 253 MB |
-| Memory sitting idle | **31 MB** | 98 MB |
-| Records GIF | **yes** | no |
-| Editor with a timeline and a studio | **yes** | no |
-| Pick your own shortcut | **yes** | no |
-| Draw and annotate on top | **six marks, with numbered steps** | pen, shapes and text |
-| Copy the text out of the image | **yes, with the T key and inside the editor too** | yes |
-| System audio when recording | **yes, and the microphone mixed in** | yes |
-| Timer before capturing | 3 or 5 seconds | **3, 5 or 10 seconds** |
-| Cover up personal data | **one click, and the mosaic destroys the pixels** | automatic, and it blurs |
 
 ## Is this what you were looking for?
 
@@ -122,29 +143,8 @@ has the nineteen rows, including the five the Snipping Tool wins.
 
 ## Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `Ctrl+Shift+2` | Capture a region |
-| `Win+Shift+L` | Capture a region and open it in the editor, skipping the toolbar |
-| In the editor | A shield covers up the emails, phones, cards, bank accounts and IDs it finds |
-| `Ctrl+Shift+5` | Record a region · press again to stop |
-| `Ctrl+Shift+6` | Keep what just happened · while "the last few seconds" is on |
-| `Print Screen` | Capture a region · once you take the key from the Snipping Tool |
-| `Enter` | Copy the selection to the clipboard |
-| `Ctrl+S` | Save the selection to the shots folder |
-| `Ctrl+Shift+S` | Save it wherever you want: Windows asks for the folder and the name |
-| `E` | Open the selection in the editor |
-| `A` | Pin the selection: it floats on top of everything, where it was |
-| `T` | Copy the text inside the selection, read by Windows' own OCR |
-| `C` | Copy the colour under the cursor, the one the loupe is showing |
-| `G` / `V` | Record the selection as GIF / video |
-| `W` | Record **only the window under the cursor**, even when something covers it |
-| `Ctrl+A` | Select the whole monitor |
-| `←↑→↓` | Move the selection · `Shift` for steps of 10 · `Alt` resizes |
-| `Esc` | Cancel |
-
 In the editor: drag the blue edges of the timeline to trim, or press `I` and `O` to cut where the
-preview is; `space` plays the piece you keep, `C` crops the image, `←` `→` step through frames,
+preview is; `space` plays the piece you keep, `C` crops the image, `←` `>` step through frames,
 `Ctrl+S` exports with whatever the panel has set, `Ctrl+Shift+S` asks where to save it first, and
 `Esc` closes, letting go of the crop frame or the drawing tool first, since closing throws the frames
 away.
@@ -193,10 +193,7 @@ Recording honours the profile: with "se copia sola" it starts the moment you let
 "sale la barra" it lets you adjust the rectangle first, because getting a recording wrong costs
 minutes rather than one keystroke.
 
-<details>
-<summary><b>How it is built</b></summary>
-
-<br>
+## How it is built
 
 | Layer | Choice | Why |
 |---|---|---|
@@ -224,12 +221,18 @@ created from a global shortcut thread, window labels that cannot be reused, the 
 eaten by the system, a canvas tainted by the `asset:` protocol, an incomplete CSP that only shows up
 in the installer, and the signing key that is passed one way and not the other.
 
-</details>
+## Status
 
-<details>
-<summary><b>Development</b></summary>
+Runs on Windows 10 1903 or newer. macOS and Linux compile, but every platform specific function
+returns "esta función solo está implementada en Windows": capture, recording, MP4 encoding,
+clipboard and autostart are all behind `#[cfg(windows)]` with a stub for everything else, so
+porting means filling those stubs in.
 
-<br>
+**What is missing:** automatic blurring of personal data (winshotx blurs by hand, with a mosaic),
+a timer longer than five seconds, and any language other than Spanish and English. The full
+comparison on the site says which rows the Snipping Tool still wins.
+
+## Building it yourself
 
 ```bash
 pnpm install
@@ -275,20 +278,11 @@ quietly refuses every download and every installed copy stays where it is.
 
 The winget manifests are in [`packaging/winget`](packaging/winget).
 
-</details>
-
-## Status
-
-Runs on Windows 10 1903 or newer. macOS and Linux compile, but every platform specific function
-returns "esta función solo está implementada en Windows": capture, recording, MP4 encoding,
-clipboard and autostart are all behind `#[cfg(windows)]` with a stub for everything else, so
-porting means filling those stubs in.
-
-**What is missing:** automatic blurring of personal data (winshotx blurs by hand, with a mosaic),
-a timer longer than five seconds, and any language other than Spanish and English. The full
-comparison on the site says which rows the Snipping Tool still wins.
-
-## License
+## Licence
 
 [MIT](LICENSE). Use it, change it and sell it if you want. Built by
 [Munir Torres](https://munito.dev).
+
+<br>
+
+<p align="center">Made by <a href="https://munito.dev"><b>Munir Torres</b></a>. Also by him: <a href="https://adeorq.com">Adeorq</a> · <a href="https://vocript.app">VoCript</a> · <a href="https://github.com/Mun1to/Expoal">Expoal</a> · <a href="https://github.com/Mun1to/hotkeyconfig">hotkeyconfig</a> · <a href="https://github.com/Mun1to/froede">froede</a></p>
