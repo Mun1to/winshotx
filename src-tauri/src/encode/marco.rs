@@ -115,41 +115,87 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
         return imagen.clone();
     }
     let (ancho_f, alto_f) = imagen.dimensions();
+    // El fondo con su sombra es el mismo en todos los fotogramas de una exportación: se
+    // pinta una vez y cada fotograma lo copia. Pintarlo píxel a píxel en cada uno (un
+    // degradado y una sombra sobre tres millones de píxeles a 1080p) era lo que más costaba
+    // de exportar un vídeo con marco.
+    let mut lienzo = (*base(marco, ancho_f, alto_f)).clone();
+    let ancho = lienzo.width() as usize;
+
+    // La captura va centrada. Si el redondeo a par ha dejado un píxel de más, se lo queda
+    // el lado derecho y el de abajo: repartir medio píxel no existe.
+    let izquierda = marco.margen as usize;
+    let arriba = marco.margen as usize;
+
+    // Nunca más que media captura: con más, las dos esquinas de un lado se pisarían.
+    let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
+    let banda = radio.ceil() as u32;
+    // Una captura de pantalla es opaca entera, y entonces una fila que no toca ninguna
+    // esquina se copia de golpe: `sobre` dejaría el píxel de la captura tal cual.
+    let opaca = imagen.as_raw().chunks_exact(4).all(|p| p[3] == 255);
+    let origen = imagen.as_raw();
+    let fila = ancho_f as usize * 4;
+    let destino: &mut [u8] = &mut lienzo;
+    for y in 0..alto_f {
+        let de = &origen[y as usize * fila..(y as usize + 1) * fila];
+        let inicio = ((y as usize + arriba) * ancho + izquierda) * 4;
+        let en_una_esquina = radio > 0.0 && (y < banda || y >= alto_f.saturating_sub(banda));
+        if opaca && !en_una_esquina {
+            destino[inicio..inicio + fila].copy_from_slice(de);
+            continue;
+        }
+        for x in 0..ancho_f {
+            let i = x as usize * 4;
+            let j = inicio + i;
+            let arriba_px = Rgba([de[i], de[i + 1], de[i + 2], de[i + 3]]);
+            let debajo = Rgba([destino[j], destino[j + 1], destino[j + 2], destino[j + 3]]);
+            let encima = sobre(arriba_px, debajo);
+            // Lo que cae fuera del arco de una esquina deja ver el fondo, con el borde
+            // suavizado: un píxel cubierto a medias se mezcla a medias, o sale dentado.
+            let cubre = cobertura(x, y, ancho_f, alto_f, radio);
+            let sale = if cubre >= 1.0 { encima } else { entre(debajo, encima, cubre) };
+            destino[j..j + 4].copy_from_slice(&sale.0);
+        }
+    }
+    lienzo
+}
+
+/// Lo que identifica un fondo ya pintado: el tamaño de la captura y todo lo del marco.
+type Clave = (u32, u32, u32, Fondo, bool, u32);
+
+/// El fondo con su sombra para una captura de ese tamaño, pintado la primera vez que se
+/// pide y guardado para los siguientes fotogramas. Uno solo: se exporta un vídeo cada vez.
+fn base(marco: Marco, ancho_f: u32, alto_f: u32) -> std::sync::Arc<RgbaImage> {
+    static GUARDADO: std::sync::Mutex<Option<(Clave, std::sync::Arc<RgbaImage>)>> =
+        std::sync::Mutex::new(None);
+    let clave = (ancho_f, alto_f, marco.margen, marco.fondo, marco.sombra, marco.esquinas);
+    if let Ok(guardado) = GUARDADO.lock() {
+        if let Some((k, lienzo)) = guardado.as_ref() {
+            if *k == clave {
+                return lienzo.clone();
+            }
+        }
+    }
+    let lienzo = std::sync::Arc::new(pintar_base(marco, ancho_f, alto_f));
+    if let Ok(mut guardado) = GUARDADO.lock() {
+        *guardado = Some((clave, lienzo.clone()));
+    }
+    lienzo
+}
+
+/// El lienzo entero con el degradado del fondo y la sombra de la captura, sin la captura.
+fn pintar_base(marco: Marco, ancho_f: u32, alto_f: u32) -> RgbaImage {
     let (ancho, alto) = marco.medida(ancho_f, alto_f);
     let mut lienzo = RgbaImage::new(ancho, alto);
-
     // El degradado corre en diagonal, así que el punto de cada píxel es lo lejos que está
     // de la esquina de arriba a la izquierda medido sobre esa diagonal.
     let diagonal = (ancho + alto).max(1) as f32;
     for (x, y, pixel) in lienzo.enumerate_pixels_mut() {
         *pixel = marco.fondo.color((x + y) as f32 / diagonal);
     }
-
-    // La captura va centrada. Si el redondeo a par ha dejado un píxel de más, se lo queda
-    // el lado derecho y el de abajo: repartir medio píxel no existe.
-    let izquierda = marco.margen;
-    let arriba = marco.margen;
-
-    // Nunca más que media captura: con más, las dos esquinas de un lado se pisarían.
-    let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
     if marco.sombra {
-        pintar_sombra(&mut lienzo, izquierda, arriba, ancho_f, alto_f, marco.margen, radio);
-    }
-
-    for y in 0..alto_f {
-        for x in 0..ancho_f {
-            let origen = imagen.get_pixel(x, y);
-            let destino = lienzo.get_pixel_mut(x + izquierda, y + arriba);
-            let encima = sobre(*origen, *destino);
-            // Lo que cae fuera del arco de una esquina deja ver el fondo, con el borde
-            // suavizado: un píxel cubierto a medias se mezcla a medias, o sale dentado.
-            let cubre = cobertura(x, y, ancho_f, alto_f, radio);
-            *destino = if cubre >= 1.0 {
-                encima
-            } else {
-                entre(*destino, encima, cubre)
-            };
-        }
+        let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
+        pintar_sombra(&mut lienzo, marco.margen, marco.margen, ancho_f, alto_f, marco.margen, radio);
     }
     lienzo
 }

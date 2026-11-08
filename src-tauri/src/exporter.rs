@@ -2493,6 +2493,64 @@ mod recortar_de_punta_a_punta {
             .min()
     }
 
+    /// Lo que cuesta exportar un tutorial: 1080p, veinte segundos de pagina quieta con el
+    /// raton yendo de un lado a otro, el puntero suave, fondo, esquinas y sombra.
+    ///
+    ///     cargo test --release --lib medir_un_tutorial -- --ignored --nocapture
+    #[test]
+    #[ignore = "mide, no comprueba: pide release y el codificador de Windows"]
+    fn medir_un_tutorial() {
+        let (ancho, alto) = (1920u32, 1080u32);
+        let dir = std::env::temp_dir().join(format!("winshotx-tutorial-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut cache = FrameCache::new(&dir).expect("cache");
+        let pagina: Vec<u8> = (0..ancho * alto).flat_map(|i| {
+            let (x, y) = (i % ancho, i / ancho);
+            let v = if (x / 120 + y / 80) % 2 == 0 { 235 } else { 215 };
+            [v, v, v, 255]
+        }).collect();
+        cache.push_rgba(&pagina, ancho, alto, 0).unwrap();
+        let mut session = super::tests::session_with(&[]);
+        session.frames = cache.finish(20_000, 30).expect("cerrar la cache");
+        session.dir = dir.clone();
+        session.width = ancho;
+        session.height = alto;
+        session.region = crate::capture::Rect { x: 0, y: 0, width: ancho, height: alto };
+        session.fps = 30;
+        // El raton va y viene por la pantalla: la mitad del tiempo moviendose, la otra quieto.
+        session.cursor = (0..1_250u64)
+            .map(|k| {
+                let t = k * 16;
+                let fase = (t / 2_000) % 2;
+                let x = if fase == 0 { 200 + ((t % 2_000) as i32 * 1_400) / 2_000 } else { 1_600 };
+                (t, x, 540)
+            })
+            .collect();
+        let mut peticion = crate::recorder::peticion_por_defecto(&session);
+        peticion.format = "mp4".into();
+        peticion.audio = false;
+        peticion.smooth_cursor = true;
+        peticion.margin = 96;
+        peticion.corners = 23;
+        peticion.background = "noche".into();
+        peticion.shadow = true;
+        let pasos = pasos_de(&session, &peticion);
+        let destino = dir.join("tutorial.mp4");
+        let empieza = Instant::now();
+        escribir(&session, &peticion, &destino, &|_, _, _| {}).expect("exportar");
+        let tardo = empieza.elapsed().as_millis();
+        let pesa = std::fs::metadata(&destino).map(|m| m.len()).unwrap_or(0);
+        let _ = std::fs::remove_dir_all(&dir);
+        println!(
+            "tutorial 1080p de 20 s: {} pasos escritos de {} posibles, {tardo} ms en total, {:.1} ms por paso, {} KB",
+            pasos.indices.len(),
+            20_000 / 33,
+            tardo as f64 / pasos.indices.len().max(1) as f64,
+            pesa / 1024
+        );
+    }
+
     /// El puntero dibujado tiene que cruzar una pantalla quieta en el MP4, no quedarse
     /// clavado: una pagina quieta con el raton yendo al boton es medio tutorial.
     #[test]
