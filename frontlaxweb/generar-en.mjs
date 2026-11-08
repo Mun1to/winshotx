@@ -143,8 +143,8 @@ ${JSON.stringify(bloque, null, 2)}
  * las claves se hayan usado en alguna pagina.
  */
 const ATRIBUTOS = {
-  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y editor fotograma a fotograma. Enseña la selección ya pintada 114 ms después del atajo, con tres pantallas, y gasta 33 MB. Instalador de 2,59 MB, sin cuenta y sin nube."':
-    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and a frame by frame editor. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 2.59 MB installer, no account and no cloud."',
+  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y un editor con línea de tiempo y estudio. Enseña la selección ya pintada 114 ms después del atajo, con tres pantallas, y gasta 33 MB. Instalador de 2,59 MB, sin cuenta y sin nube."':
+    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and an editor with a timeline and a studio. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 2.59 MB installer, no account and no cloud."',
   'content="winshotx · captura y grabación de pantalla para Windows"':
     'content="winshotx · screenshots and screen recording for Windows"',
   'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta la enseña ya pintada en 114 ms con tres pantallas y gasta 33 MB, graba GIF y trae editor. 2,59 MB, código abierto."':
@@ -158,11 +158,11 @@ const ATRIBUTOS = {
   'content="No recoge nada. Las únicas conexiones que hace la aplicación, una por una."':
     'content="It collects nothing. The only connections the app makes, one by one."',
   'content="Privacidad de winshotx"': 'content="winshotx privacy"',
-  'content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, editor fotograma a fotograma, exportación y ajustes."':
-    'content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the frame by frame editor, export and settings."',
+  'content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, el editor con su línea de tiempo y su estudio, exportación y ajustes."':
+    'content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the editor with its timeline and studio, export and settings."',
   'content="Guía de winshotx"': 'content="winshotx documentation"',
-  'content="Instalación, atajos, captura de región, grabación en GIF y MP4, editor fotograma a fotograma y exportación."':
-    'content="Install, shortcuts, region capture, GIF and MP4 recording, the frame by frame editor and export."',
+  'content="Instalación, atajos, captura de región, grabación en GIF y MP4, el editor con su estudio y exportación."':
+    'content="Install, shortcuts, region capture, GIF and MP4 recording, the editor with its studio and export."',
   'content="Instalación, atajos, captura de región, grabación en GIF y MP4, editor y exportación."':
     'content="Install, shortcuts, region capture, GIF and MP4 recording, the editor and export."',
 };

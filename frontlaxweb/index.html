@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title data-en="winshotx · screenshots and screen recording for Windows">winshotx · capturas y grabación de pantalla para Windows</title>
-<meta name="description" content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y editor fotograma a fotograma. Enseña la selección ya pintada 114 ms después del atajo, con tres pantallas, y gasta 33 MB. Instalador de 2,59 MB, sin cuenta y sin nube.">
+<meta name="description" content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y un editor con línea de tiempo y estudio. Enseña la selección ya pintada 114 ms después del atajo, con tres pantallas, y gasta 33 MB. Instalador de 2,59 MB, sin cuenta y sin nube.">
 <link rel="canonical" href="https://winshotx.com/">
 <link rel="alternate" hreflang="es" href="https://winshotx.com/">
 <link rel="alternate" hreflang="en" href="https://winshotx.com/en/">
@@ -28,7 +28,7 @@
 <link rel="icon" href="favicon.ico?v=2" sizes="any">
 <link rel="icon" href="logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="estilos.css?v=226da913">
+<link rel="stylesheet" href="estilos.css?v=cf2a9f38">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -54,7 +54,7 @@
     "Region screenshot with pixel magnifier and hex colour",
     "Window snapping",
     "Screen recording to GIF and MP4",
-    "Frame by frame editor with A and B trim",
+    "Editor that trims on a timeline, with a studio: backgrounds, rounded corners and a smooth pointer",
     "Configurable global shortcuts",
     "Copies GIF and MP4 as files, ready to paste",
     "Fully offline, no account and no telemetry"
@@ -128,7 +128,7 @@
       "name": "¿Qué puede capturar y grabar?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Captura de región con ajuste automático a ventanas y pantalla entera de una tecla; vídeo y GIF a 15, 30 o 60 fps con el audio del sistema y el micrófono; los últimos 15, 30 o 60 segundos sin haber dado a grabar antes; y un editor fotograma a fotograma con recorte A y B, seis marcas para anotar, mosaico, pasos numerados, zoom de cámara a cada clic y exportación a 0,5×, 2× o 4×."
+        "text": "Captura de región con ajuste automático a ventanas y pantalla entera de una tecla; vídeo y GIF a 15, 30 o 60 fps con el audio del sistema y el micrófono; los últimos 15, 30 o 60 segundos sin haber dado a grabar antes; y un editor que recorta en la línea de tiempo, un estudio con fondos, esquinas redondeadas y puntero suave, seis marcas para anotar, mosaico, pasos numerados, zoom de cámara a cada clic y exportación a 0,5×, 2× o 4×."
       }
     },
     {
@@ -238,6 +238,14 @@
     <symbol id="i-crop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>
     </symbol>
+    <symbol id="i-text-select" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 3a2 2 0 0 0-2 2"/><path d="M19 3a2 2 0 0 1 2 2"/><path d="M21 19a2 2 0 0 1-2 2"/><path d="M5 21a2 2 0 0 1-2-2"/>
+      <path d="M9 3h1"/><path d="M9 21h1"/><path d="M14 3h1"/><path d="M14 21h1"/><path d="M3 9v1"/><path d="M21 9v1"/><path d="M3 14v1"/><path d="M21 14v1"/>
+      <path d="M7 8h8"/><path d="M7 12h10"/><path d="M7 16h6"/>
+    </symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>
+    </symbol>
     <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>
     </symbol>
@@ -304,7 +312,7 @@
       <a href="docs/" data-en="Docs">Guía</a>
     </span>
     <span class="acciones">
-      <!-- El contador arranca con el ultimo numero conocido y demo.js?v=5d93558b lo actualiza
+      <!-- El contador arranca con el ultimo numero conocido y demo.js?v=4eab6340 lo actualiza
            con el de verdad; si GitHub no contesta, se queda el que hay. -->
       <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
         <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
@@ -392,7 +400,7 @@
         <ul>
           <li data-en="GIF and MP4 up to 60 fps, no FFmpeg">GIF y MP4 hasta 60 fotogramas, sin FFmpeg</li>
           <li data-en="System audio and your microphone">Audio del sistema y tu micrófono</li>
-          <li data-en="Zoom on every click, and trimming the start and the end">Zoom a cada clic, y recortar el principio y el final</li>
+          <li data-en="Zoom on every click, a studio with backgrounds, and trimming on the timeline">Zoom a cada clic, un estudio con fondos, y recortar en la línea de tiempo</li>
         </ul>
       </div>
       <div class="pilar">
@@ -470,6 +478,8 @@
     <p class="aviso" id="aviso"><svg width="16" height="16"><use href="#i-check"/></svg><span></span></p>
 
     <!-- ========================= 2. editor ========================= -->
+    <!-- Calcado del editor de la 0.3.8: arriba lo que se dibuja, en medio la imagen, abajo
+         la línea de tiempo con sus dos asas, y a la derecha el formato, el Estudio y guardar. -->
     <div class="marco" id="p-edi" hidden>
       <header class="edi-titulo">
         <span class="edi-nombre">Editor <span class="edi-sub" id="edi-sub"></span></span>
@@ -480,16 +490,6 @@
       </header>
       <div class="edi-cuerpo">
         <main class="edi-main">
-          <div class="edi-vista">
-            <canvas id="lienzo-editor"></canvas>
-            <div class="edi-pildora">
-              <button class="redondo" id="reproducir" aria-label="Reproducir" data-aria-en="Play"><svg><use href="#i-play"/></svg></button>
-              <span class="edi-tiempo" id="edi-tiempo">0:00.00</span>
-              <span class="raya"></span>
-              <button class="marca" data-marca="in" title="Empezar el trozo aquí (I)" data-titulo-en="Start the clip here (I)"><svg><use href="#i-scissors"/></svg> <span data-en="Start">Inicio</span></button>
-              <button class="marca" data-marca="out" title="Terminar el trozo aquí (O)" data-titulo-en="End the clip here (O)"><svg class="espejo"><use href="#i-scissors"/></svg> <span data-en="End">Fin</span></button>
-            </div>
-          </div>
           <!-- Las seis marcas van sobre el video tambien, no solo sobre una foto. -->
           <div class="edi-marcas">
             <button class="viva" title="Flecha · 1" data-titulo-en="Arrow · 1"><svg><use href="#i-arrow-mark"/></svg></button>
@@ -497,6 +497,7 @@
             <button title="Texto · 3" data-titulo-en="Text · 3"><svg><use href="#i-type"/></svg></button>
             <button title="Resaltar · 4" data-titulo-en="Highlight · 4"><svg><use href="#i-highlighter"/></svg></button>
             <button title="Paso numerado · 5" data-titulo-en="Numbered step · 5"><svg><use href="#i-circle-1"/></svg></button>
+            <span class="raya"></span>
             <button title="Mosaico · 6" data-titulo-en="Pixelate · 6"><svg><use href="#i-grid"/></svg></button>
             <span class="raya"></span>
             <span class="colores">
@@ -506,92 +507,114 @@
               <button class="color" style="--c:#eab308" aria-label="Amarillo" data-aria-en="Yellow"></button>
               <button class="color" style="--c:#e5e5e5" aria-label="Blanco" data-aria-en="White"></button>
             </span>
+            <span class="raya"></span>
+            <button class="con-nombre" title="Quedarse con un trozo de la imagen (C)" data-titulo-en="Keep just a piece of the image (C)"><svg><use href="#i-crop"/></svg> <span data-en="Crop">Encuadrar</span></button>
+            <span class="edi-derecha">
+              <button class="con-nombre" title="Copiar el texto de la imagen" data-titulo-en="Copy the text out of the image"><svg><use href="#i-text-select"/></svg> <span data-en="Copy text">Copiar texto</span></button>
+              <button class="con-nombre" title="Tapar datos personales" data-titulo-en="Cover up personal data"><svg><use href="#i-shield-check"/></svg> <span data-en="Hide data">Tapar datos</span></button>
+            </span>
           </div>
-          <section class="edi-tira">
-            <div class="tira-cabecera">
-              <span id="tira-izq"></span>
-              <span id="tira-der"></span>
-            </div>
-            <div class="tira-pista" id="tira-pista">
-              <div class="tira-lienzo" id="tira-lienzo"></div>
+          <div class="edi-vista">
+            <div class="edi-fondo" id="edi-fondo"><canvas id="lienzo-editor"></canvas></div>
+          </div>
+          <section class="edi-tiempo">
+            <button class="edi-play" id="reproducir" aria-label="Reproducir" data-aria-en="Play"><svg><use href="#i-play"/></svg></button>
+            <span class="edi-reloj" id="edi-reloj">0:00.0</span>
+            <div class="edi-linea">
+              <div class="tira-pista" id="tira-pista"></div>
+              <div class="tira-pie">
+                <span id="tira-dice"></span>
+                <button class="tira-entero" id="tira-entero" hidden data-en="Use the whole video">Usar el vídeo entero</button>
+                <span id="tira-total"></span>
+              </div>
             </div>
           </section>
         </main>
 
         <aside class="edi-panel">
-          <div>
-            <span class="edi-rotulo" data-en="Format">Formato</span>
-            <div class="segmentado cuatro" id="formatos">
-              <button data-formato="gif" class="viva">GIF</button>
-              <button data-formato="mp4">MP4</button>
-              <button data-formato="png">PNG</button>
-              <button data-formato="jpg">JPG</button>
-            </div>
+          <div class="edi-pestanas" id="formatos">
+            <button data-formato="mp4" class="viva">MP4</button>
+            <button data-formato="gif">GIF</button>
+            <button data-formato="png">PNG</button>
+            <button data-formato="jpg">JPG</button>
+          </div>
+          <p class="edi-para" id="edi-para"></p>
+
+          <div class="edi-plegable abierto" id="edi-estudio">
+            <button class="edi-plegar" aria-expanded="true"><span data-en="Studio">Estudio</span><svg><use href="#i-chevron-down"/></svg></button>
+            <div class="edi-cajon"><div class="edi-dentro">
+              <span class="edi-grupo" data-en="Background">Fondo</span>
+              <div class="edi-fondos" id="edi-fondos">
+                <button class="viva" data-fondo="" aria-label="Sin fondo" data-aria-en="No background"><svg viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg></button>
+                <button data-fondo="rgb(255 255 255)" aria-label="Blanco" data-aria-en="White"></button>
+                <button data-fondo="rgb(232 232 234)" aria-label="Gris" data-aria-en="Grey"></button>
+                <button data-fondo="rgb(18 18 20)" aria-label="Negro" data-aria-en="Black"></button>
+                <button data-fondo="linear-gradient(135deg, rgb(30 41 59), rgb(15 23 42))" aria-label="Noche" data-aria-en="Night"></button>
+                <button data-fondo="linear-gradient(135deg, rgb(88 116 245), rgb(168 85 217))" aria-label="Atardecer" data-aria-en="Sunset"></button>
+                <button data-fondo="linear-gradient(135deg, rgb(34 197 152), rgb(56 132 232))" aria-label="Menta" data-aria-en="Mint"></button>
+                <button data-fondo="linear-gradient(135deg, rgb(14 165 233), rgb(30 64 175))" aria-label="Océano" data-aria-en="Ocean"></button>
+                <button data-fondo="linear-gradient(135deg, rgb(251 113 133), rgb(245 158 11))" aria-label="Coral" data-aria-en="Coral"></button>
+              </div>
+              <div class="campo" id="fila-esquinas" hidden>
+                <div class="campo-cab"><span data-en="Rounded corners">Esquinas redondeadas</span><span id="v-esquinas">12 px</span></div>
+                <input type="range" id="esquinas" min="0" max="40" value="12">
+              </div>
+              <div class="edi-solo-video">
+                <span class="edi-grupo" data-en="Pointer">Puntero</span>
+                <div class="campo">
+                  <div class="campo-cab"><span data-en="Size">Tamaño</span><span>32 px</span></div>
+                  <input type="range" min="0" max="80" value="32">
+                </div>
+                <div class="fila-toggle"><span class="txt"><span data-en="Smooth movement">Movimiento suave</span><small data-en="takes the hand shake out of the pointer">le quita al puntero los temblores de la mano</small></span><button class="palanca" data-on="1"></button></div>
+                <div class="fila-toggle"><span class="txt" data-en="Mark the clicks">Marcar los clics</span><button class="palanca" data-on="0"></button></div>
+                <span class="edi-grupo" data-en="Zoom">Zoom</span>
+                <div class="campo">
+                  <div class="campo-cab"><span data-en="Zoom in on clicks">Acercarse a los clics</span><span class="apagado" data-en="no zoom">sin zoom</span></div>
+                  <input type="range" min="0" max="100" value="0">
+                </div>
+              </div>
+            </div></div>
           </div>
 
-          <div class="campo" data-solo-video>
-            <div class="campo-cab"><span data-en="Quality">Calidad</span><span id="v-calidad">80%</span></div>
-            <input type="range" id="calidad" min="10" max="100" value="80">
+          <div class="edi-plegable" id="edi-mas">
+            <button class="edi-plegar" aria-expanded="false"><span data-en="More settings">Más ajustes</span><svg><use href="#i-chevron-down"/></svg></button>
+            <div class="edi-cajon"><div class="edi-dentro">
+              <div class="campo">
+                <div class="campo-cab"><span data-en="Quality">Calidad</span><span id="v-calidad">80%</span></div>
+                <input type="range" id="calidad" min="10" max="100" value="80">
+              </div>
+              <div class="campo edi-solo-video">
+                <div class="campo-cab"><span data-en="Frames per second">Fotogramas por segundo</span><span id="v-fps">30 fps</span></div>
+                <input type="range" id="fps" min="5" max="30" value="30">
+              </div>
+              <span class="edi-grupo" data-en="Size">Tamaño</span>
+              <div class="dimensiones">
+                <label class="numero"><span data-en="Width">Ancho</span><span><input id="ancho" value="800" inputmode="numeric"><i>px</i></span></label>
+                <button class="candado" id="candado" title="Proporción bloqueada" data-titulo-en="Aspect ratio locked"><svg><use href="#i-link-2"/></svg></button>
+                <label class="numero"><span data-en="Height">Alto</span><span><input id="alto" value="500" inputmode="numeric"><i>px</i></span></label>
+              </div>
+              <div class="porcientos" id="porcientos">
+                <button data-pct="100">100%</button><button data-pct="75">75%</button><button data-pct="50">50%</button>
+              </div>
+              <div class="fila-toggle" id="fila-bucle" hidden><span class="txt" data-en="Loop forever">Bucle infinito</span><button class="palanca" data-on="1"></button></div>
+            </div></div>
           </div>
-          <div class="campo" data-solo-video>
-            <div class="campo-cab"><span data-en="Frames per second">Fotogramas por segundo</span><span id="v-fps">30 fps</span></div>
-            <input type="range" id="fps" min="5" max="30" value="30">
-          </div>
-
-          <div data-solo-video>
-            <span class="edi-rotulo" data-en="Speed">Velocidad</span>
-            <div class="segmentado cuatro" id="velocidades">
-              <button>0,5×</button><button class="viva">1×</button><button>2×</button><button>4×</button>
-            </div>
-          </div>
-
-          <div>
-            <span class="edi-rotulo" data-en="Size">Dimensiones</span>
-            <div class="dimensiones">
-              <label class="numero"><span data-en="Width">Ancho</span><span><input id="ancho" value="800" inputmode="numeric"><i>px</i></span></label>
-              <button class="candado" id="candado" title="Proporción bloqueada" data-titulo-en="Aspect ratio locked"><svg><use href="#i-link-2"/></svg></button>
-              <label class="numero"><span data-en="Height">Alto</span><span><input id="alto" value="500" inputmode="numeric"><i>px</i></span></label>
-            </div>
-            <div class="porcientos" id="porcientos">
-              <button data-pct="100">100%</button><button data-pct="75">75%</button><button data-pct="50">50%</button>
-            </div>
-          </div>
-
-          <div class="edi-separado" data-solo-video>
-            <div class="campo">
-              <div class="campo-cab"><span data-en="Zoom in on clicks">Acercarse a los clics</span><span class="apagado" data-en="no zoom">sin zoom</span></div>
-              <input type="range" min="0" max="100" value="0">
-            </div>
-            <div class="campo">
-              <div class="campo-cab"><span data-en="Drawn pointer">Puntero dibujado</span><span class="apagado" data-en="the Windows one">el de Windows</span></div>
-              <input type="range" min="0" max="100" value="0">
-            </div>
-            <div class="fila-toggle"><span class="txt" data-en="Mark the clicks">Marcar los clics</span><button class="palanca" data-on="0"></button></div>
-            <div class="fila-toggle"><span class="txt"><span data-en="Show the shortcuts">Enseñar los atajos</span><small data-en="only with Ctrl, Alt or Win: what you type does not show up">solo con Ctrl, Alt o Win: lo que escribes no sale</small></span><button class="palanca" data-on="0"></button></div>
-            <p class="edi-nota" data-en="All of this is drawn when exporting, so it can be changed without recording again.">Todo esto se dibuja al exportar, así que se puede cambiar sin volver a grabar.</p>
-          </div>
-
-          <div class="edi-separado">
-            <div class="fila-toggle" id="fila-bucle"><span class="txt" data-en="Loop forever">Bucle infinito</span><button class="palanca" data-on="1"></button></div>
-            <div class="fila-toggle" id="fila-audio" hidden><span class="txt"><span data-en="System audio">Audio del sistema</span><small data-en="this recording was made without audio">esta grabación se hizo sin audio</small></span><button class="palanca" data-on="0"></button></div>
-          </div>
-
-          <button class="carpeta"><svg><use href="#i-folder-open"/></svg><span>C:\Users\tu-usuario\Pictures\winshotx</span></button>
 
           <div class="edi-abajo">
-            <div class="edi-estimado">
-              <span><svg width="14" height="14" class="ambar"><use href="#i-zap"/></svg> <span data-en="Native">Nativo</span></span>
-              <span id="v-peso">≈ 1,4 MB</span>
+            <button class="edi-guardar" id="btn-guardar"><svg><use href="#i-save"/></svg> <span data-en="Save">Guardar</span> <span id="btn-guardar-formato">MP4</span></button>
+            <div class="edi-segundos">
+              <button id="btn-copiar" title="Exportar y copiar al portapapeles" data-titulo-en="Export and copy to the clipboard"><svg><use href="#i-clipboard"/></svg> <span data-en="Copy">Copiar</span></button>
+              <button id="btn-guardar-en" title="Elegir dónde guardar (Ctrl+Mayús+S)" data-titulo-en="Choose where to save it (Ctrl+Shift+S)"><svg><use href="#i-download"/></svg> <span data-en="Save to…">Guardar en…</span></button>
             </div>
-            <div class="edi-acciones">
-              <button class="azul" id="btn-guardar"><svg><use href="#i-save"/></svg> <span data-en="Save">Guardar</span> <span id="btn-guardar-formato">GIF</span></button>
-              <button class="hueco" id="btn-copiar" title="Exportar y copiar al portapapeles" data-titulo-en="Export and copy to the clipboard"><svg><use href="#i-clipboard"/></svg></button>
+            <div class="edi-estimado">
+              <span class="edi-carpeta"><svg><use href="#i-folder-open"/></svg> <span>C:\Users\tu-usuario\Pictures\winshotx</span></span>
+              <span id="v-peso">≈ 1,4 MB</span>
             </div>
             <!-- El aria-live va en un envoltorio que existe siempre: puesto en el propio
                  boton oculto, el lector no lo tiene registrado cuando aparece el texto. -->
             <div aria-live="polite">
             <button class="edi-resultado" id="edi-resultado" hidden>
-              <svg width="14" height="14"><use href="#i-sparkles"/></svg><span></span>
+              <svg width="14" height="14"><use href="#i-folder-open"/></svg><span></span>
             </button>
             </div>
           </div>
@@ -602,7 +625,7 @@
     <!-- ========================= 3. ajustes ========================= -->
     <div class="marco" id="p-set" hidden>
       <header class="cab-set">
-        <span class="ver-set" data-en="Version 0.3.7">Versión 0.3.7</span>
+        <span class="ver-set" data-en="Version 0.3.8">Versión 0.3.8</span>
         <nav class="pes-set" role="tablist">
           <button class="viva" data-set="s-cap" data-en="Capture">Capturar</button>
           <button data-set="s-gra" data-en="Record">Grabar</button>
@@ -904,7 +927,7 @@
             <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes">Sí</span></td>
           </tr>
           <tr>
-            <th scope="row" data-en="Frame by frame editor">Editor fotograma a fotograma</th>
+            <th scope="row" data-en="Editor with a timeline">Editor con línea de tiempo</th>
             <td><b class="no"><svg><use href="#i-x"/></svg></b> <span data-en="No">No</span></td>
             <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span data-en="Yes, trimming start and end">Sí, recortando principio y final</span></td>
           </tr>
@@ -1032,9 +1055,9 @@
         <p data-en="Record the region at 15, 30 or 60 frames and export to GIF or MP4. With no bundled FFmpeg: Windows writes the video in hardware.">Graba la región a 15, 30 o 60 fotogramas y exporta a GIF o MP4. Sin FFmpeg empaquetado:
            el vídeo lo escribe Windows por hardware.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-pencil"/></svg></div>
-        <h3 data-en="Frame by frame editor">Editor fotograma a fotograma</h3>
-        <p data-en="Trim the start and the end with two marks, watch the loop, change the size and the quality, and export. All in the same window.">Recorta el principio y el final con dos marcas, mira el bucle, cambia el tamaño y la
-           calidad, y exporta. Todo en la misma ventana.</p></div>
+        <h3 data-en="Editor with a timeline and a studio">Editor con línea de tiempo y estudio</h3>
+        <p data-en="Drag the edges of the timeline to keep a piece, give it a background with rounded corners and a smooth pointer, and export. All in the same window.">Arrastra los bordes de la línea de tiempo para quedarte con un trozo, dale un fondo con
+           esquinas redondeadas y un puntero suave, y exporta. Todo en la misma ventana.</p></div>
       <div class="caja"><div class="ico"><svg><use href="#i-volume-2"/></svg></div>
         <h3 data-en="With sound">Con sonido</h3>
         <p data-en="The system audio and your microphone, mixed into the same track. Each has its own switch, and either can go alone: narrate a tutorial, or capture only what the machine is playing.">El audio del sistema y tu micrófono, mezclados en la misma pista. Cada uno con su interruptor, y cualquiera puede ir solo: narrar un tutorial, o quedarte solo con lo que suena en la máquina.</p></div>
@@ -1094,7 +1117,7 @@
       </details>
       <details>
         <summary><h3 data-en="What can it capture and record?">¿Qué puede capturar y grabar?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p data-en="Region capture with automatic window snapping and a whole screen with one key; video and GIF at 15, 30 or 60 fps with system audio and microphone; the last 15, 30 or 60 seconds without pressing record beforehand; and a frame by frame editor with A and B trim, six marks to annotate, a mosaic, numbered steps, camera zoom on every click and export at 0.5×, 2× or 4×.">Captura de región con ajuste automático a ventanas y pantalla entera de una tecla; vídeo y GIF a 15, 30 o 60 fps con el audio del sistema y el micrófono; los últimos 15, 30 o 60 segundos sin haber dado a grabar antes; y un editor fotograma a fotograma con recorte A y B, seis marcas para anotar, mosaico, pasos numerados, zoom de cámara a cada clic y exportación a 0,5×, 2× o 4×.</p></div>
+        <div class="faq-cajon"><p data-en="Region capture with automatic window snapping and a whole screen with one key; video and GIF at 15, 30 or 60 fps with system audio and microphone; the last 15, 30 or 60 seconds without pressing record beforehand; and an editor that trims on a timeline, a studio with backgrounds, rounded corners and a smooth pointer, six marks to annotate, a mosaic, numbered steps, camera zoom on every click and export at 0.5×, 2× or 4×.">Captura de región con ajuste automático a ventanas y pantalla entera de una tecla; vídeo y GIF a 15, 30 o 60 fps con el audio del sistema y el micrófono; los últimos 15, 30 o 60 segundos sin haber dado a grabar antes; y un editor que recorta en la línea de tiempo, un estudio con fondos, esquinas redondeadas y puntero suave, seis marcas para anotar, mosaico, pasos numerados, zoom de cámara a cada clic y exportación a 0,5×, 2× o 4×.</p></div>
       </details>
       <details>
         <summary><h3 data-en="What does it still lack compared to the Windows Snipping Tool?">¿Qué le falta frente a la Herramienta de Recortes de Windows?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
@@ -1173,6 +1196,6 @@
   </div>
 </footer>
 
-<script src="demo.js?v=5d93558b"></script>
+<script src="demo.js?v=4eab6340"></script>
 </body>
 </html>

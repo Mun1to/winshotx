@@ -25,7 +25,7 @@
 ---
 
 Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región con lupa de
-píxel, **grabación en GIF y MP4** y editor fotograma a fotograma. Enseña la selección ya pintada
+píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selección ya pintada
 114 ms después del atajo con tres pantallas, gasta 33 MB de memoria y cabe en un instalador de
 2,59 MB. Sin cuenta, sin nube, sin telemetría y sin FFmpeg empaquetado.
 
@@ -68,10 +68,10 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
 | 🛡️ **Tapar datos personales** | Un clic en el editor encuentra los correos, teléfonos, tarjetas, cuentas bancarias y DNI de la imagen y deja un mosaico encima de cada uno, que destruye los píxeles en vez de emborronarlos. Nada se reconoce por la forma: la tarjeta tiene que pasar su dígito de control, el IBAN su resto y el DNI la letra que le toca, así que una factura no sale medio tapada. |
 | 🪟 **Grabar una sola ventana** | Pulsa `W` con una ventana resaltada y se graba ella, aunque algo la tape: un aviso que salta encima ya no acaba dentro del vídeo. Y si mueves la ventana, los aros de los clics van con ella. |
 | 🎬 **Grabación de la región** | A 15, 30 o 60 fps con Windows Graphics Capture, sin que se cuelen overlays en el vídeo. Un marco rojo fino enseña lo que se está grabando (ámbar en pausa), la barra de debajo dice si está entrando el sonido, y descartar pregunta dos veces. |
-| ✂️ **Editor fotograma a fotograma** | Tira de miniaturas, recorte del principio y del final, reproducción en bucle, proporciones de un clic (9:16, 4:5, 1:1, 16:9), escala con proporción bloqueada y control de calidad. |
-| 🔍 **Estudio de grabación** | La cámara se acerca a cada clic y a cada atajo y sigue al ratón mientras está cerca, el puntero se dibuja del tamaño que quieras sin pixelarse (y se encoge en cada clic), y los clics llevan un aro a la medida del vídeo. **Todo se decide al exportar**, sobre fotogramas que ya están en disco, y **todo se ve en vivo en la vista previa del editor** según mueves los deslizadores: lo que ves es lo que sale. |
+| ✂️ **Recortar en la línea de tiempo** | La grabación entera cabe a lo ancho: arrastras sus dos bordes azules para quedarte con un trozo, y la vista previa enseña el corte exacto mientras arrastras. Corta al milisegundo, también dentro de un rato en el que la pantalla no cambia, y el play se para al final del trozo. Proporciones de un clic (9:16, 4:5, 1:1, 16:9), encuadrar la imagen, escala con proporción bloqueada y control de calidad. |
+| 🔍 **Estudio de grabación** | Un panel «Estudio»: ocho fondos con aire, esquinas redondeadas y sombra alrededor del vídeo; el puntero dibujado del tamaño que quieras sin pixelarse, con movimiento suave que le quita los temblores de la mano y la opción de esconderlo cuando se para; la cámara acercándose a cada clic y a cada atajo a la velocidad que elijas, siguiendo al ratón mientras está cerca; aros en los clics, los atajos en pantalla y el volumen. **Todo se decide al exportar**, sobre fotogramas que ya están en disco, y **todo se ve en vivo en la vista previa del editor**: lo que ves es lo que sale. |
 | ⏩ **Velocidad al exportar** | 0,5×, 2× o 4× sobre lo grabado. Un tutorial tiene tramos en los que no pasa nada, y esos se ven a 2× sin perder nada. |
-| 💾 **Exportación** | GIF, MP4 o PNG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como **archivo** en Slack, Discord o el Explorador. |
+| 💾 **Exportación** | GIF, MP4, PNG o JPG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como **archivo** en Slack, Discord o el Explorador. |
 | ⏪ **Los últimos segundos** | Graba siempre, tira lo viejo, y con una tecla se queda con los últimos 15, 30 o 60 segundos. Lo bueno de una pantalla casi siempre pasa **antes** de que a nadie se le ocurra grabarla. |
 | 🔊 **Audio del sistema** | Lo que suena por tus altavoces entra en el MP4, cogido de la salida por defecto. Sin instalar nada, y lo sigues oyendo mientras se graba. |
 | ⏱️ **Capturar con espera** | 3 o 5 segundos antes de que se congele la pantalla, con la cuenta atrás en el centro. Es la única forma de fotografiar un menú abierto, porque al pulsar el atajo se cierra. |
@@ -96,7 +96,7 @@ incluidas las cinco que gana la de Windows.
 | Memoria mientras capturas | **33 MB** | 253 MB |
 | Memoria esperando quieta | **31 MB** | 98 MB |
 | Graba GIF | **sí** | no |
-| Editor fotograma a fotograma | **sí** | no |
+| Editor con línea de tiempo y estudio | **sí** | no |
 | Elegir el atajo de teclado | **sí** | no |
 | Dibujar y anotar encima | **seis marcas, con pasos numerados** | bolígrafo, formas y texto |
 | Copiar el texto de la imagen | **sí, con la tecla T y también dentro del editor** | sí |
@@ -142,9 +142,10 @@ incluidas las cinco que gana la de Windows.
 | `←↑→↓` | Mover la selección · con `Shift` de 10 en 10 · con `Alt` redimensiona |
 | `Esc` | Cancelar |
 
-En el editor: `espacio` reproduce, `I` y `O` marcan inicio y final del recorte, `←` `→` avanzan
-fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel, `Ctrl+Mayús+S` pregunta antes
-dónde guardarlo y `Esc` cierra.
+En el editor: arrastra los bordes azules de la línea de tiempo para recortar, o pulsa `I` y `O` para
+cortar donde está la vista previa; `espacio` reproduce el trozo que te quedas, `C` encuadra la imagen,
+`←` `→` avanzan fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel, `Ctrl+Mayús+S`
+pregunta antes dónde guardarlo y `Esc` cierra.
 
 En el editor, para anotar: `1` flecha, `2` rectángulo, `3` texto, `4` resaltar, `5` paso numerado
 y `6` tapar datos. `Ctrl+Z` deshace la última marca. Los pasos se numeran solos, así que meter uno

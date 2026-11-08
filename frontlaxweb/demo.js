@@ -28,11 +28,17 @@ const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 /* --------------------------------------------------------------- idiomas */
 /* El botón dice a qué idioma cambias: si pone English, la página está en español. */
 const FRASES = {
-  fotograma: ["Fotograma", "Frame"],
-  de: ["de", "of"],
-  teQuedas: ["Te quedas con", "Keeping"],
-  a: ["a", "to"],
-  unidad: ["fotograma", "frame"],
+  teQuedasCon: ["Te quedas con {trozo} de {total}", "Keeping {trozo} of {total}"],
+  arrastra: ["Arrastra los bordes azules para recortar", "Drag the blue edges to trim"],
+  principio: ["Principio: arrástralo para recortar (tecla I)", "Start: drag it to trim (key I)"],
+  final: ["Final: arrástralo para recortar (tecla O)", "End: drag it to trim (key O)"],
+  reproducir: ["Reproducir", "Play"],
+  pausar: ["Pausar", "Pause"],
+  paraMp4: ["Vídeo con sonido. Se abre en cualquier sitio.", "Video with sound. Opens anywhere."],
+  paraGif: ["Se repite solo y sin sonido. Para pegarlo en un chat.", "Loops on its own, with no sound. For pasting into a chat."],
+  paraPng: ["Solo el fotograma que estás viendo, sin perder nada.", "Just the frame you are looking at, with nothing lost."],
+  paraJpg: ["Solo el fotograma que estás viendo, mucho más ligero.", "Just the frame you are looking at, much lighter."],
+  guardado: ["Guardado", "Saved"],
   copiar: ["Copiada al portapapeles", "Copied to the clipboard"],
   guardar: ["Guardada en Pictures\\winshotx", "Saved to Pictures\\winshotx"],
   editar: ["Abriendo el editor", "Opening the editor"],
@@ -46,8 +52,6 @@ const FRASES = {
   cartelGif: ["o clic para grabarla entera en GIF", "or click to record it whole to GIF"],
   copiado: ["copiado", "copied"],
   abrirCarpeta: ["abrir carpeta", "open folder"],
-  inicioTrozo: ["Inicio del trozo (tecla I)", "Start of the clip (key I)"],
-  finTrozo: ["Final del trozo (tecla O)", "End of the clip (key O)"],
   exportar: ["Exportar", "Export"],
   bloqueada: ["Proporción bloqueada", "Aspect ratio locked"],
   libre: ["Proporción libre", "Aspect ratio free"],
@@ -398,32 +402,40 @@ document.addEventListener("keydown", (e) => {
 pintarModo();
 
 /* ========================================================== 2. editor === */
+// Calcado del editor de la 0.3.8: la grabación entera a lo ancho de la línea de tiempo, dos
+// asas para quedarse con un trozo, y el Estudio con los mismos fondos que la app.
 const REGION = { width: 800, height: 500 };
 const FPS_GRABADO = 30;
-const TOTAL = 13;   // los que caben sin que la tira desborde el panel
-const THUMB_W = 56;
-const THUMB_H = 40;
+const TOTAL = 90; // tres segundos de grabación de ejemplo
+const DURACION = Math.round((TOTAL * 1000) / FPS_GRABADO);
+const MINIATURAS = 10;
+const MINIMO = 200; // lo menos que se puede dejar, como en la app
 
 const lienzoEditor = document.getElementById("lienzo-editor");
 lienzoEditor.width = REGION.width;
 lienzoEditor.height = REGION.height;
 const brocha = lienzoEditor.getContext("2d");
 
-const tiraPista = document.getElementById("tira-pista");
-const tiraLienzo = document.getElementById("tira-lienzo");
-const tiraIzq = document.getElementById("tira-izq");
-const tiraDer = document.getElementById("tira-der");
+const pista = document.getElementById("tira-pista");
+const reloj = document.getElementById("edi-reloj");
+const dice = document.getElementById("tira-dice");
+const totalTexto = document.getElementById("tira-total");
+const entero = document.getElementById("tira-entero");
 const ediSub = document.getElementById("edi-sub");
-const ediTiempo = document.getElementById("edi-tiempo");
 const botonPlay = document.getElementById("reproducir");
 
-let actual = 0;
-let dentro = 0;
-let fuera = TOTAL - 1;
+let posicion = 0;
+let desde = 0;
+let hasta = DURACION;
 let reproduciendo = null;
 let agarrado = null;
 
-const tiempoDe = (i) => Math.round((i * 1000) / FPS_GRABADO);
+const indiceEn = (ms) => clamp(Math.floor((ms * FPS_GRABADO) / 1000), 0, TOTAL - 1);
+/** «0:03.2»: minutos, segundos y décimas, como el reloj del editor. */
+function tiempo(ms) {
+  const d = Math.max(0, Math.floor(ms / 100));
+  return `${Math.floor(d / 600)}:${String(Math.floor((d % 600) / 10)).padStart(2, "0")}.${d % 10}`;
+}
 
 /** Un fotograma de la grabación de ejemplo: el cursor llega al botón y lo pulsa. */
 function fotograma(c, w, h, i) {
@@ -480,128 +492,149 @@ function fotograma(c, w, h, i) {
   c.stroke();
 }
 
-/* --- la tira, calcada de FrameStrip: miniaturas, velos, marco y tiradores --- */
-const velos = { izq: null, der: null };
-const marco = document.createElement("div");
-const tiradorA = document.createElement("div");
-const tiradorB = document.createElement("div");
+/* --- la línea de tiempo, calcada de LineaDeTiempo: miniaturas por tiempo, velos, marco,
+       asas y cabezal, todo en tanto por ciento para que quepa entera en cualquier ancho --- */
+const minis = document.createElement("div");
+minis.className = "tira-minis";
+for (let k = 0; k < MINIATURAS; k++) {
+  const mini = document.createElement("canvas");
+  mini.width = 160;
+  mini.height = 100;
+  fotograma(mini.getContext("2d"), mini.width, mini.height, indiceEn(((k + 0.5) / MINIATURAS) * DURACION));
+  minis.appendChild(mini);
+}
+const veloIzq = document.createElement("div");
+const veloDer = document.createElement("div");
+const marcoTira = document.createElement("div");
+const asaA = document.createElement("div");
+const asaB = document.createElement("div");
 const cabezal = document.createElement("div");
+veloIzq.className = "tira-velo izq";
+veloDer.className = "tira-velo der";
+marcoTira.className = "tira-marco";
+asaA.className = "tira-asa a";
+asaB.className = "tira-asa b";
+asaA.title = frase("principio");
+asaB.title = frase("final");
+asaA.innerHTML = asaB.innerHTML = "<i></i>";
+cabezal.className = "tira-cabezal";
+pista.append(minis, veloIzq, veloDer, marcoTira, asaA, asaB, cabezal);
 
-(function montarTira() {
-  tiraLienzo.style.width = `${TOTAL * THUMB_W}px`;
-  for (let i = 0; i < TOTAL; i++) {
-    const mini = document.createElement("canvas");
-    mini.width = THUMB_W * 2;
-    mini.height = THUMB_H * 2;
-    fotograma(mini.getContext("2d"), mini.width, mini.height, i);
-    mini.style.left = `${i * THUMB_W}px`;
-    tiraLienzo.appendChild(mini);
-  }
-  velos.izq = document.createElement("div");
-  velos.der = document.createElement("div");
-  velos.izq.className = velos.der.className = "tira-apagado";
-  marco.className = "tira-marco";
-  tiradorA.className = "tira-tirador a";
-  tiradorB.className = "tira-tirador b";
-  tiradorA.title = frase("inicioTrozo");
-  tiradorB.title = frase("finTrozo");
-  tiradorA.innerHTML = tiradorB.innerHTML = "<i></i>";
-  cabezal.className = "tira-cabezal";
-  tiraLienzo.append(velos.izq, velos.der, marco, tiradorA, tiradorB, cabezal);
-})();
+const pct = (ms) => `${(clamp(ms, 0, DURACION) / DURACION) * 100}%`;
 
 function refrescarEditor() {
-  fotograma(brocha, lienzoEditor.width, lienzoEditor.height, actual);
-
-  velos.izq.style.left = "0px";
-  velos.izq.style.width = `${dentro * THUMB_W}px`;
-  velos.der.style.left = `${(fuera + 1) * THUMB_W}px`;
-  velos.der.style.width = `${Math.max(0, (TOTAL - fuera - 1) * THUMB_W)}px`;
-  marco.style.left = `${dentro * THUMB_W}px`;
-  marco.style.width = `${(fuera - dentro + 1) * THUMB_W}px`;
-  tiradorA.style.left = `${dentro * THUMB_W}px`;
-  tiradorB.style.left = `${(fuera + 1) * THUMB_W}px`;
-  cabezal.style.left = `${actual * THUMB_W + THUMB_W / 2}px`;
-
-  const n = fuera - dentro + 1;
-  const keptMs = tiempoDe(fuera) + Math.round(1000 / FPS_GRABADO) - tiempoDe(dentro);
-  tiraIzq.textContent =
-    `${frase("fotograma")} ${actual + 1} ${frase("de")} ${TOTAL} · ${formatTimecode(tiempoDe(actual))}`;
-  tiraDer.textContent = `${frase("teQuedas")} ${dentro + 1} ${frase("a")} ${fuera + 1} · ` +
-    `${plural(n, frase("unidad"))} · ${formatTimecode(keptMs)}`;
-  ediSub.textContent = `${REGION.width} × ${REGION.height} · ${formatTimecode(keptMs)}`;
-  ediTiempo.innerHTML =
-    `${formatTimecode(tiempoDe(actual))} <span class="edi-tiempo-total">/ ${formatTimecode(keptMs)}</span>`;
+  fotograma(brocha, REGION.width, REGION.height, indiceEn(posicion));
+  veloIzq.style.width = pct(desde);
+  veloDer.style.left = pct(hasta);
+  marcoTira.style.left = pct(desde);
+  marcoTira.style.right = `calc(100% - ${pct(hasta)})`;
+  asaA.style.left = pct(desde);
+  asaB.style.left = pct(hasta);
+  cabezal.style.left = pct(posicion);
+  reloj.textContent = tiempo(posicion);
+  const recortado = desde > 0 || hasta < DURACION;
+  dice.textContent = recortado
+    ? frase("teQuedasCon").replace("{trozo}", tiempo(hasta - desde)).replace("{total}", tiempo(DURACION))
+    : frase("arrastra");
+  totalTexto.textContent = recortado ? "" : tiempo(DURACION);
+  entero.hidden = !recortado;
+  ediSub.textContent = `${REGION.width} × ${REGION.height} · ${tiempo(hasta - desde)}`;
   estimar();
 }
 
-const xEnTira = (clientX) => {
-  const r = tiraPista.getBoundingClientRect();
-  return clientX - r.left + tiraPista.scrollLeft;
+const msEn = (clientX) => {
+  const r = pista.getBoundingClientRect();
+  return Math.round(clamp((clientX - r.left) / Math.max(1, r.width), 0, 1) * DURACION);
 };
-const indiceEn = (clientX) => clamp(Math.floor(xEnTira(clientX) / THUMB_W), 0, TOTAL - 1);
-// el tirador B se dibuja en el borde derecho de su fotograma, así que se redondea al alza
-const indiceFinEn = (clientX) => clamp(Math.ceil(xEnTira(clientX) / THUMB_W) - 1, 0, TOTAL - 1);
 
-tiraPista.addEventListener("pointerdown", (e) => {
-  if (e.target === tiradorA || tiradorA.contains(e.target)) agarrado = "in";
-  else if (e.target === tiradorB || tiradorB.contains(e.target)) agarrado = "out";
+pista.addEventListener("pointerdown", (e) => {
+  if (asaA.contains(e.target)) agarrado = "desde";
+  else if (asaB.contains(e.target)) agarrado = "hasta";
   else {
     agarrado = "cabezal";
-    actual = indiceEn(e.clientX);
-    refrescarEditor();
+    parar();
+    posicion = msEn(e.clientX);
   }
-  tiraPista.setPointerCapture(e.pointerId);
-});
-
-tiraPista.addEventListener("pointermove", (e) => {
-  if (!agarrado) return;
-  if (agarrado === "in") dentro = clamp(indiceEn(e.clientX), 0, fuera);
-  else if (agarrado === "out") fuera = clamp(indiceFinEn(e.clientX), dentro, TOTAL - 1);
-  else actual = indiceEn(e.clientX);
+  if (agarrado === "desde") asaA.classList.add("agarrada");
+  if (agarrado === "hasta") asaB.classList.add("agarrada");
+  pista.setPointerCapture(e.pointerId);
   refrescarEditor();
 });
 
-tiraPista.addEventListener("pointerup", () => (agarrado = null));
+pista.addEventListener("pointermove", (e) => {
+  if (!agarrado) return;
+  const ms = msEn(e.clientX);
+  // Mover un corte enseña ese sitio en la imagen, como en la app; y las asas nunca se
+  // pisan: la que se mueve se para dejando lo mínimo.
+  if (agarrado === "desde") {
+    desde = clamp(ms, 0, hasta - MINIMO);
+    posicion = desde;
+  } else if (agarrado === "hasta") {
+    hasta = clamp(ms, desde + MINIMO, DURACION);
+    posicion = Math.max(desde, hasta - 1);
+  } else {
+    posicion = ms;
+  }
+  refrescarEditor();
+});
+
+const soltar = () => {
+  agarrado = null;
+  asaA.classList.remove("agarrada");
+  asaB.classList.remove("agarrada");
+};
+pista.addEventListener("pointerup", soltar);
+pista.addEventListener("pointercancel", soltar);
+
+entero.addEventListener("click", () => {
+  desde = 0;
+  hasta = DURACION;
+  refrescarEditor();
+});
+
+function parar() {
+  if (!reproduciendo) return;
+  clearInterval(reproduciendo);
+  reproduciendo = null;
+  botonPlay.querySelector("use").setAttribute("href", "#i-play");
+  botonPlay.setAttribute("aria-label", frase("reproducir"));
+}
 
 botonPlay.addEventListener("click", () => {
-  const icono = botonPlay.querySelector("use");
-  if (reproduciendo) {
-    clearInterval(reproduciendo);
-    reproduciendo = null;
-    icono.setAttribute("href", "#i-play");
-    return;
-  }
-  icono.setAttribute("href", "#i-pause");
-  actual = dentro;
+  if (reproduciendo) return parar();
+  // Fuera del trozo o ya en su final: se empieza por su principio.
+  if (posicion < desde || posicion >= hasta - 50) posicion = desde;
+  botonPlay.querySelector("use").setAttribute("href", "#i-pause");
+  botonPlay.setAttribute("aria-label", frase("pausar"));
+  let antes = performance.now();
   reproduciendo = setInterval(() => {
-    actual = actual >= fuera ? dentro : actual + 1;
+    const ahora = performance.now();
+    posicion += ahora - antes;
+    antes = ahora;
+    // Como en la app: se para en el final del trozo, no da la vuelta.
+    if (posicion >= hasta) {
+      posicion = Math.max(desde, hasta - 1);
+      parar();
+    }
     refrescarEditor();
-  }, 1000 / 15);
+  }, 1000 / FPS_GRABADO);
 });
 
-document.querySelectorAll("[data-marca]").forEach((b) => {
-  b.addEventListener("click", () => {
-    if (b.dataset.marca === "in") dentro = Math.min(actual, fuera);
-    else fuera = Math.max(actual, dentro);
-    refrescarEditor();
-  });
-});
-
-/* --- el panel de exportación --- */
+/* --- el panel: el formato, el Estudio, lo demás plegado y guardar --- */
 const formatos = document.getElementById("formatos");
+const para = document.getElementById("edi-para");
 const calidad = document.getElementById("calidad");
 const fpsRango = document.getElementById("fps");
 const ancho = document.getElementById("ancho");
 const alto = document.getElementById("alto");
 const candado = document.getElementById("candado");
 const resultado = document.getElementById("edi-resultado");
-let formato = "gif";
+const PARA = { mp4: "paraMp4", gif: "paraGif", png: "paraPng", jpg: "paraJpg" };
+let formato = "mp4";
 let atado = true;
 
 function estimar() {
-  const n = Math.max(1, fuera - dentro + 1);
-  const segundos = n / FPS_GRABADO;
+  const segundos = Math.max(0.1, (hasta - desde) / 1000);
   const w = Number(ancho.value) || REGION.width;
   const h = Number(alto.value) || REGION.height;
   const q = Number(calidad.value);
@@ -621,14 +654,53 @@ formatos.addEventListener("click", (e) => {
   if (!b) return;
   formato = b.dataset.formato;
   [...formatos.children].forEach((otro) => otro.classList.toggle("viva", otro === b));
-  // PNG y JPG sacan UN fotograma, asi que lo que va por segundos no pinta nada ahi.
+  // PNG y JPG sacan UN fotograma: lo que va con el tiempo no pinta nada ahí.
   const esUnaFoto = formato === "png" || formato === "jpg";
-  document.querySelectorAll("[data-solo-video]").forEach((c) => (c.hidden = esUnaFoto));
+  document.querySelectorAll(".edi-solo-video").forEach((c) => (c.hidden = esUnaFoto));
   document.getElementById("fila-bucle").hidden = formato !== "gif";
-  document.getElementById("fila-audio").hidden = formato !== "mp4";
   document.getElementById("btn-guardar-formato").textContent = formato.toUpperCase();
+  para.textContent = frase(PARA[formato]);
   estimar();
 });
+para.textContent = frase(PARA[formato]);
+
+// Los dos desplegables, como en la app: el Estudio abierto y «Más ajustes» plegado. Lo de
+// dentro de uno cerrado no se puede pulsar ni alcanzar con el tabulador.
+document.querySelectorAll(".edi-plegable").forEach((plegable) => {
+  const boton = plegable.querySelector(".edi-plegar");
+  const dentro = plegable.querySelector(".edi-dentro");
+  const poner = (abierto) => {
+    plegable.classList.toggle("abierto", abierto);
+    boton.setAttribute("aria-expanded", String(abierto));
+    dentro.inert = !abierto;
+  };
+  poner(plegable.classList.contains("abierto"));
+  boton.addEventListener("click", () => poner(!plegable.classList.contains("abierto")));
+});
+
+// Los fondos del Estudio se ven en la imagen, como en la vista previa de la app: el fondo
+// con su aire alrededor y las esquinas de la captura redondeadas.
+const fondos = document.getElementById("edi-fondos");
+const marcoFondo = document.getElementById("edi-fondo");
+const esquinas = document.getElementById("esquinas");
+const filaEsquinas = document.getElementById("fila-esquinas");
+for (const b of fondos.children) if (b.dataset.fondo) b.style.setProperty("--f", b.dataset.fondo);
+
+function ponerEsquinas() {
+  document.getElementById("v-esquinas").textContent = `${esquinas.value} px`;
+  lienzoEditor.style.borderRadius = marcoFondo.classList.contains("con-fondo") ? `${esquinas.value}px` : "";
+}
+fondos.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  [...fondos.children].forEach((otro) => otro.classList.toggle("viva", otro === b));
+  const conFondo = Boolean(b.dataset.fondo);
+  marcoFondo.classList.toggle("con-fondo", conFondo);
+  marcoFondo.style.background = b.dataset.fondo || "";
+  filaEsquinas.hidden = !conFondo;
+  ponerEsquinas();
+});
+esquinas.addEventListener("input", ponerEsquinas);
 
 [calidad, fpsRango].forEach((r) => r.addEventListener("input", estimar));
 
@@ -658,12 +730,12 @@ document.getElementById("porcientos").addEventListener("click", (e) => {
   estimar();
 });
 
-[["btn-guardar", false], ["btn-copiar", true]].forEach(([id, copia]) => {
+[["btn-guardar", false], ["btn-copiar", true], ["btn-guardar-en", false]].forEach(([id, copia]) => {
   document.getElementById(id).addEventListener("click", () => {
     const peso = document.getElementById("v-peso").textContent.replace("≈ ", "");
     resultado.hidden = false;
     resultado.querySelector("span").textContent =
-      `${peso} · ${copia ? frase("copiado") + " · " : ""}${frase("abrirCarpeta")}`;
+      `${frase("guardado")} · ${peso} · ${copia ? frase("copiado") + " · " : ""}${frase("abrirCarpeta")}`;
   });
 });
 

@@ -25,7 +25,7 @@
 ---
 
 A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
-magnifier, **GIF and MP4 screen recording**, and a frame by frame editor. It shows the selection
+magnifier, **GIF and MP4 screen recording**, and an editor with a studio. It shows the selection
 already painted 114 ms after the shortcut with three screens, uses 33 MB of memory and fits in a
 2.59 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
 
@@ -68,19 +68,14 @@ signature is checked before anything is installed, so a tampered file is rejecte
 | 📸 **Region capture** | Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex, copied with `C` and snapping to system windows: one click takes the whole window. |
 | 🛡️ **Cover up personal data** | One click in the editor finds the emails, phone numbers, cards, bank accounts and ID numbers in the image and drops a mosaic over each one, which destroys the pixels rather than smudging them. Nothing is matched by shape: a card has to pass its check digit, an IBAN its remainder, an ID the letter it is owed, so an invoice does not come out half covered. |
 | 🪟 **Record one window** | Press `W` with a window highlighted and that window is what gets recorded, even when something covers it: a notification landing on top no longer ends up in the video. The click rings follow the window if you move it. |
-| 🛡️ **Cover up personal data** | One click in the editor finds the emails, phone numbers, cards, bank accounts and ID numbers in the image and drops a mosaic over each one, which destroys the pixels rather than smudging them. Nothing is matched by shape: a card has to pass its check digit, an IBAN its remainder, an ID the letter it is owed, so an invoice does not come out half covered. |
-| 🪟 **Record one window** | Press `W` with a window highlighted and that window is what gets recorded, even when something covers it: a notification landing on top no longer ends up in the video. The click rings follow the window if you move it. |
 | 🎬 **Region recording** | 15, 30 or 60 fps through Windows Graphics Capture, with no overlays leaking into the video. A thin red frame shows what is being recorded (amber while paused), the bar below says whether sound is going in, and discarding asks twice. |
-| ✂️ **Frame by frame editor** | Thumbnail strip, trimming the start and the end, looped playback, one-click aspect ratios (9:16, 4:5, 1:1, 16:9), cropping the image, scaling with locked aspect ratio and a quality control. |
-| 🔍 **Recording studio** | The camera moves in on every click and shortcut and follows the mouse while it is there, the pointer is drawn as large as you want without pixelating (and squeezes on each click), and clicks get a ring sized to the video. **All of it decided when exporting**, over frames already on disk, and **all of it shown live in the editor preview** as you move the sliders: what you see is what comes out. |
+| ✂️ **Trim on the timeline** | The whole recording fits across the window: drag its two blue edges to keep a piece, and the preview shows the exact cut while you drag. It cuts to the millisecond, even inside a stretch where the screen does not change, and play stops at the end of the cut. One-click aspect ratios (9:16, 4:5, 1:1, 16:9), cropping the image, scaling with locked aspect ratio and a quality control. |
+| 🔍 **Recording studio** | A Studio panel: eight backgrounds with air, rounded corners and a shadow around the video; the pointer drawn as large as you want without pixelating, with smooth movement that takes the hand shake out and the option to hide it when it stops; the camera moving in on every click and shortcut at the speed you pick, following the mouse while it is there; rings on the clicks, shortcuts on screen and the volume. **All of it decided when exporting**, over frames already on disk, and **all of it shown live in the editor preview**: what you see is what comes out. |
 | ⏩ **Speed on export** | 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens, and those play at 2× without losing a thing. |
 | 💾 **Export** | GIF, MP4, PNG or JPG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a **file** into Slack, Discord or Explorer. |
 | ⏪ **The last few seconds** | It records all the time, drops the old, and one key keeps the last 15, 30 or 60 seconds. The good part of a screen almost always happens **before** anyone thinks of recording it. |
 | 🔊 **System audio** | What comes out of your speakers goes into the MP4, captured straight from the default output. No extra driver, and you keep hearing it while it records. |
 | ⏱️ **Shoot on a timer** | Wait 3 or 5 seconds before the screen freezes, with the countdown in the middle of the screen. It is the only way to photograph an open menu, because pressing the shortcut closes it. |
-| 🔤 **Text out of an image** | `T` on a selection, or the button in the editor, reads the text in the picture with Windows' own OCR and copies it. Works on a recording too, on whichever frame you are looking at. |
-| 🗂️ **Your latest shots** | The tray menu shows the last few you saved as thumbnails, and one click puts one back on the clipboard. There is no history file: the folder is the history, so deleting a shot from outside removes it from there too. |
-| 🌍 **Spanish, English and Chinese** | It follows the Windows language, or you pin the one you want. Chinese came from a contributor. |
 | 🔤 **Text out of an image** | `T` on a selection, or the button in the editor, reads the text in the picture with Windows' own OCR and copies it. Works on a recording too, on whichever frame you are looking at. |
 | 🗂️ **Your latest shots** | The tray menu shows the last few you saved as thumbnails, and one click puts one back on the clipboard. There is no history file: the folder is the history, so deleting a shot from outside removes it from there too. |
 | 🌍 **Spanish, English and Chinese** | It follows the Windows language, or you pin the one you want. Chinese came from a contributor. |
@@ -101,7 +96,7 @@ has the nineteen rows, including the five the Snipping Tool wins.
 | Memory while capturing | **33 MB** | 253 MB |
 | Memory sitting idle | **31 MB** | 98 MB |
 | Records GIF | **yes** | no |
-| Frame by frame editor | **yes** | no |
+| Editor with a timeline and a studio | **yes** | no |
 | Pick your own shortcut | **yes** | no |
 | Draw and annotate on top | **six marks, with numbered steps** | pen, shapes and text |
 | Copy the text out of the image | **yes, with the T key and inside the editor too** | yes |
@@ -148,10 +143,11 @@ has the nineteen rows, including the five the Snipping Tool wins.
 | `←↑→↓` | Move the selection · `Shift` for steps of 10 · `Alt` resizes |
 | `Esc` | Cancel |
 
-In the editor: `space` plays, `I` and `O` mark the start and end of the trim, `C` crops the image,
-`←` `→` step through frames, `Ctrl+S` exports with whatever the panel has set, `Ctrl+Shift+S` asks
-where to save it first, and `Esc` closes —
-letting go of the crop frame or the drawing tool first, since closing throws the frames away.
+In the editor: drag the blue edges of the timeline to trim, or press `I` and `O` to cut where the
+preview is; `space` plays the piece you keep, `C` crops the image, `←` `→` step through frames,
+`Ctrl+S` exports with whatever the panel has set, `Ctrl+Shift+S` asks where to save it first, and
+`Esc` closes, letting go of the crop frame or the drawing tool first, since closing throws the frames
+away.
 
 In the editor, to annotate: `1` arrow, `2` box, `3` text, `4` highlight, `5` numbered step and
 `6` hide details. `Ctrl+Z` undoes the last one. Steps number themselves, so adding one in the

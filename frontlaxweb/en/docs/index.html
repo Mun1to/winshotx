@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>winshotx documentation · shortcuts, recording and export</title>
-<meta name="description" content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the frame by frame editor, export and settings.">
+<meta name="description" content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the editor with its timeline and studio, export and settings.">
 <link rel="canonical" href="https://winshotx.com/en/docs/">
 <link rel="alternate" hreflang="es" href="https://winshotx.com/docs/">
 <link rel="alternate" hreflang="en" href="https://winshotx.com/en/docs/">
@@ -16,7 +16,7 @@
 <meta property="og:locale:alternate" content="es_ES">
 <meta property="og:url" content="https://winshotx.com/en/docs/">
 <meta property="og:title" content="winshotx documentation">
-<meta property="og:description" content="Install, shortcuts, region capture, GIF and MP4 recording, the frame by frame editor and export.">
+<meta property="og:description" content="Install, shortcuts, region capture, GIF and MP4 recording, the editor with its studio and export.">
 <meta property="og:image" content="https://winshotx.com/social-en.png?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -28,7 +28,7 @@
 <link rel="icon" href="../../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../../estilos.css?v=226da913">
+<link rel="stylesheet" href="../../estilos.css?v=cf2a9f38">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -216,16 +216,16 @@
 
   <section id="editor">
     <h2>The editor</h2>
-    <p>When the recording stops, the editor opens with the whole clip. It is not a timeline with effects: it is the frames, one by one, so you can throw away what you do not want.</p>
+    <p>When the recording stops, the editor opens with the whole clip: the recording fits across a timeline you trim by dragging its edges, and on the right the studio makes it look good.</p>
     <ul role="list">
-      <li><b>Thumbnail strip.</b> Every frame with its number and its time. Click one to jump there.</li>
-      <li><b>Trimming the start and the end.</b> <kbd>I</kbd> marks where the clip starts and <kbd>O</kbd> where it ends. What falls outside is dimmed and does not reach the file.</li>
-      <li><b>Vertical of one click.</b> 9:16, 4:5, 1:1 and 16:9 place the biggest crop with that shape, centred, and you drag it wherever you want without losing the proportion. What you record off a monitor is always landscape, so getting to 9:16 always means cropping.</li>
-      <li><b>Looped playback.</b> <kbd>Space</kbd> plays and pauses; the arrows step one frame at a time.</li>
+      <li><b>The timeline.</b> The whole recording across the window, laid out by time. Click it to jump there, or drag along it.</li>
+      <li><b>Trimming.</b> Drag the two blue edges to keep a piece, and the preview shows the exact cut while you drag; or press <kbd>I</kbd> and <kbd>O</kbd> to cut where it is. It cuts to the millisecond, even inside a stretch where the screen does not change.</li>
+      <li><b>Vertical of one click.</b> 9:16, 4:5, 1:1 and 16:9 place the biggest crop with that shape, centred, and you drag it wherever you want without losing the proportion. What you record off a monitor is always landscape, so getting to 9:16 always means cropping the image.</li>
+      <li><b>Play what you keep.</b> <kbd>Space</kbd> plays from the start of the piece and stops at its end; the arrows step one frame at a time.</li>
       <li><b>Scale.</b> Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons.</li>
-      <li><b>Zoom on every click.</b> The camera moves in on each click of the recording, and how much you decide <em>after</em> recording: the clicks were written down while it recorded, so raising it, lowering it or dropping it never means recording again.</li>
-      <li><b>Rings, keys and cursor.</b> A ring where you pressed, a badge with the shortcut you just typed (only shortcuts with a modifier, never a lone key: a password has no Ctrl in front) and the pointer drawn at the size you ask for.</li>
-      <li><b>Frame and background.</b> Air around the capture, with a shadow and a background to choose, for when the shot goes into a slide or a post.</li>
+      <li><b>Zoom on every click.</b> The camera moves in on each click of the recording, and how much you decide <em>after</em> recording: the clicks were written down while it recorded, so raising it, lowering it or dropping it never means recording again. And you choose how fast it moves: slow, normal or fast.</li>
+      <li><b>Rings, keys and cursor.</b> A ring where you pressed, a badge with the shortcut you just typed (only shortcuts with a modifier, never a lone key: a password has no Ctrl in front) and the pointer drawn at the size you ask for, with smooth movement that takes the hand shake out and the option to hide it when it stops.</li>
+      <li><b>Background, corners and shadow.</b> Eight backgrounds to pick from, air around the capture, rounded corners and a shadow, shown in the preview as you change them. For when the video goes into a slide or a post.</li>
       <li><b>Speed.</b> 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens.</li>
       <li><b>Six marks to annotate.</b> Arrow, rectangle, text, highlight, numbered step and a mosaic that destroys private data. They go on the video too, not only on a still.</li>
     </ul>
@@ -311,7 +311,7 @@
           <th scope="row"><kbd>Esc</kbd></th><td>Cancel</td></tr>
       </tbody>
     </table>
-    <p>Inside the editor: <kbd>space</kbd> plays, <kbd>I</kbd> and <kbd>O</kbd> mark the trim, <kbd>C</kbd> crops the image, the arrows step through frames, <kbd>Ctrl</kbd>+<kbd>S</kbd> exports with whatever the panel has set, and <kbd>Esc</kbd> closes.</p>
+    <p>Inside the editor: drag the blue edges of the timeline to trim, or <kbd>I</kbd> and <kbd>O</kbd> cut where the preview is; <kbd>space</kbd> plays, <kbd>C</kbd> crops the image, the arrows step through frames, <kbd>Ctrl</kbd>+<kbd>S</kbd> exports with whatever the panel has set, and <kbd>Esc</kbd> closes.</p>
     <p>And to annotate, six marks: <kbd>1</kbd> arrow, <kbd>2</kbd> box, <kbd>3</kbd> text, <kbd>4</kbd> highlight, <kbd>5</kbd> numbered step and <kbd>6</kbd> hide details. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the last one, and the steps number themselves.</p>
   </section>
 

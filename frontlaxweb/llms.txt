@@ -3,7 +3,7 @@
 > Free and open source screenshot and screen recording tool for Windows 10 and 11. It is a
 > lightweight alternative to the built-in Snipping Tool and to ShareX, Greenshot, ScreenToGif
 > and CleanShot X. Region capture with a pixel magnifier, GIF and MP4 recording, a rolling
-> buffer that keeps the last seconds you did not record, and a frame by frame editor. MIT
+> buffer that keeps the last seconds you did not record, and an editor with a studio. MIT
 > licence, 2.59 MB installer, no account, no cloud and no telemetry.
 
 ## Measured facts
@@ -29,9 +29,10 @@ clock stops when the selection is visible on screen.
   records all the time and drops the old, and one key saves what just happened. You pick the
   screen, the quality and the frame rate, and saving does not stop the recording.
 - Records GIF, with a global palette, Floyd-Steinberg dithering and inter-frame differencing.
-- Ships a frame by frame editor with A and B trim marks, looped playback, scaling, six marks
-  to annotate (arrow, rectangle, text, highlight, numbered step and mosaic), a frame and a
-  background, and export at 0.5x, 2x or 4x speed.
+- Ships an editor where you trim by dragging the edges of a timeline, with a studio: eight
+  backgrounds with rounded corners and a shadow, a smooth pointer that can hide when idle,
+  zoom on every click at the speed you pick, six marks to annotate (arrow, rectangle, text,
+  highlight, numbered step and mosaic), scaling, and export at 0.5x, 2x or 4x speed.
 - Moves the camera in on every click of a recording, decided *after* recording: the clicks are
   written down while it records, so changing the zoom never means recording again.
 - Lets you choose your own global shortcuts, and can take the Print Screen and Win+Shift+S keys
@@ -97,6 +98,6 @@ is downloaded at runtime.
 ## Documentation
 
 The guide covers install, region capture with the magnifier, GIF and MP4 recording, the last
-few seconds ring, the frame by frame editor, export, the keyboard shortcuts and the settings.
+few seconds ring, the editor and its studio, export, the keyboard shortcuts and the settings.
 It also answers the questions people actually ask, such as how to record a GIF of the screen on
 Windows and whether the tool uploads anything anywhere (it does not).
