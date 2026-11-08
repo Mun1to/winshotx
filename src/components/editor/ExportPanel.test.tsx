@@ -120,7 +120,7 @@ describe("lo de todos los días a la vista, lo demás plegado", () => {
   it("y el zoom, el puntero y el sonido están a la vista sin abrir nada", () => {
     pintar();
     expect(screen.getByRole("slider", { name: "Acercarse a los clics" })).toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: "Puntero dibujado" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Tamaño" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Sonido" })).toBeInTheDocument();
   });
 
@@ -343,20 +343,20 @@ describe("el zoom que se acerca a los clics", () => {
 describe("el puntero dibujado", () => {
   it("viene encendido al tamanno normal, porque la grabacion ya no lo lleva cocido", () => {
     pintar({ cursorBaked: false, region: { x: 0, y: 0, width: 1920, height: 1080 } });
-    const barra = screen.getByLabelText("Puntero dibujado") as HTMLInputElement;
+    const barra = screen.getByRole("slider", { name: "Tamaño" }) as HTMLInputElement;
     expect(Number(barra.value)).toBe(43);
   });
 
   it("y en una grabacion vieja con el cursor cocido empieza apagado, para no ensennar dos", () => {
     pintar({ cursorBaked: true });
-    const barra = screen.getByLabelText("Puntero dibujado") as HTMLInputElement;
+    const barra = screen.getByRole("slider", { name: "Tamaño" }) as HTMLInputElement;
     expect(Number(barra.value)).toBe(0);
     expect(screen.getByText("el de Windows")).toBeInTheDocument();
   });
 
   it("sale aunque la grabacion no tenga un solo clic: un video sin clics tambien tiene raton", () => {
     pintar({ hasClicks: false });
-    expect(screen.getByLabelText("Puntero dibujado")).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Tamaño" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Acercarse a los clics")).toBeNull();
   });
 
@@ -463,5 +463,96 @@ describe("en inglés", () => {
     expect(screen.getByText("Video with sound. Opens anywhere.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save to…" })).toBeInTheDocument();
+  });
+});
+
+describe("el estudio", () => {
+  it("viene abierto, con el fondo apagado y el movimiento suave puesto", () => {
+    pintar();
+    expect(screen.getByRole("button", { name: "Estudio" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Sin fondo" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("switch", { name: /Movimiento suave/ })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("elegir un fondo pone aire, esquinas y sombra que se vean, y todo viaja a Rust", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Noche" }));
+    // Un 5 % del ancho de aire y algo más del 1 % de radio, sobre los 800 de la grabación.
+    expect(await guardarYEsperar()).toMatchObject({ background: "noche", margin: 40, corners: 10, shadow: true });
+  });
+
+  it("y «Sin fondo» lo quita entero", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Coral" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sin fondo" }));
+    expect(await guardarYEsperar()).toMatchObject({ margin: 0, corners: 0 });
+  });
+
+  it("las esquinas solo salen con fondo: sin fondo no hay nada que asome por ellas", () => {
+    pintar();
+    expect(screen.queryByRole("slider", { name: "Esquinas redondeadas" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Océano" }));
+    expect(screen.getByRole("slider", { name: "Esquinas redondeadas" })).toBeInTheDocument();
+  });
+
+  it("el puntero suave y el que se esconde viajan a Rust, y en una foto no", async () => {
+    const { unmount } = pintar();
+    fireEvent.click(screen.getByRole("switch", { name: /Esconderlo cuando no se mueve/ }));
+    expect(await guardarYEsperar()).toMatchObject({ smoothCursor: true, hideIdleCursor: true });
+    unmount();
+    llamadas.length = 0;
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "PNG" }));
+    expect(await guardarYEsperar()).toMatchObject({ smoothCursor: false, hideIdleCursor: false });
+  });
+
+  it("la velocidad del zoom solo sale con zoom, y viaja a Rust", async () => {
+    pintar();
+    expect(screen.queryByText("Velocidad del zoom")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rápida" }));
+    expect(await guardarYEsperar()).toMatchObject({ zoom: 2, zoomSpeed: 1.6 });
+  });
+
+  it("el volumen viaja a Rust en tanto por uno", async () => {
+    pintar();
+    fireEvent.change(screen.getByRole("slider", { name: "Volumen" }), { target: { value: "50" } });
+    expect(await guardarYEsperar()).toMatchObject({ volume: 0.5 });
+  });
+
+  it("y sin sonido grabado no hay volumen que tocar", () => {
+    pintar({ hasAudio: false });
+    expect(screen.queryByRole("slider", { name: "Volumen" })).toBeNull();
+  });
+
+  it("lo que se decide se avisa hacia arriba con el marco en tanto por uno, para la vista previa", () => {
+    const avisos: unknown[] = [];
+    render(
+      <ExportPanel
+        anotaciones={[]}
+        recorte={null}
+        session={GRABACION}
+        inIndex={10}
+        outIndex={80}
+        currentIndex={42}
+        fpsMax={60}
+        hasFfmpeg={false}
+        saveDirectory="C:\capturas"
+        onEstudio={(e) => avisos.push(e)}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Atardecer" }));
+    const ultimo = avisos.at(-1) as { marco: { aire: number; esquinas: number; fondo: string } };
+    expect(ultimo.marco.fondo).toBe("atardecer");
+    expect(ultimo.marco.aire).toBeCloseTo(40 / 800, 6);
+    expect(ultimo.marco.esquinas).toBeCloseTo(10 / 800, 6);
+  });
+
+  it("en inglés tampoco queda nada en español", () => {
+    aplicarIdioma("en");
+    pintar();
+    expect(screen.getByRole("button", { name: "Studio" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "No background" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /Smooth movement/ })).toBeInTheDocument();
   });
 });

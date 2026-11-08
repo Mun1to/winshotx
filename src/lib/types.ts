@@ -261,6 +261,16 @@ export interface ExportRequest {
   cursor: number;
   /** A qué velocidad se reproduce lo exportado. 1 es la de verdad. */
   speed: number;
+  /** Quitarle al puntero dibujado los temblores de la mano. */
+  smoothCursor?: boolean;
+  /** Apagar el puntero dibujado cuando lleva un rato quieto. */
+  hideIdleCursor?: boolean;
+  /** El radio de las esquinas de la captura sobre su fondo, en píxeles. */
+  corners?: number;
+  /** El volumen del sonido: 1 como se grabó, 0 mudo, 2 el doble. */
+  volume?: number;
+  /** A qué velocidad se acerca el zoom: 1 la de siempre, 2 el doble de rápido. */
+  zoomSpeed?: number;
   /** null = carpeta por defecto de los ajustes. */
   destination: string | null;
   copyToClipboard: boolean;
@@ -270,7 +280,15 @@ import type { Anotacion } from "./anotaciones";
 import type { Recorte } from "./recorte";
 
 /** Los fondos del marco. Unos pocos elegidos, no una rueda de color entera. */
-export type Background = "blanco" | "negro" | "gris" | "atardecer" | "menta";
+export type Background =
+  | "blanco"
+  | "negro"
+  | "gris"
+  | "atardecer"
+  | "menta"
+  | "noche"
+  | "oceano"
+  | "coral";
 
 export interface ExportResult {
   path: string;

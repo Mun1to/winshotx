@@ -135,7 +135,7 @@ describe("la salud del catalogo ingles", () => {
     const iguales = Object.entries(EN)
       .filter(([es, en]) => es === en)
       // Estas se escriben igual en los dos idiomas y no son un olvido.
-      .filter(([es]) => !["GIF", "MP4", "PNG", "FFmpeg", "winshotx", "Editor"].includes(es));
+      .filter(([es]) => !["GIF", "MP4", "PNG", "FFmpeg", "winshotx", "Editor", "Zoom", "Normal", "Coral"].includes(es));
     expect(iguales).toEqual([]);
   });
 

@@ -34,8 +34,8 @@ import { ExportPanel } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
-import { contener } from "../../lib/contener";
-import { ESTUDIO_APAGADO, type Estudio } from "../../lib/estudio";
+import { ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
+import { cssDelFondo } from "../../lib/fondos";
 import { useT } from "../../lib/i18n";
 import { duracionDe, fotogramaVecino, indiceEn, limitarTramo } from "../../lib/tramo";
 
@@ -140,7 +140,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     }
     let vigente = true;
     const espera = window.setTimeout(() => {
-      void sessionCamera(sessionId, estudio.zoom, recorte)
+      void sessionCamera(sessionId, estudio.zoom, recorte, estudio.velocidadZoom)
         .then((muestras) => {
           if (vigente) setCamara(muestras ?? []);
         })
@@ -150,7 +150,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       vigente = false;
       window.clearTimeout(espera);
     };
-  }, [session, sessionId, estudio.zoom, recorte]);
+  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte]);
 
   const totalMs = duracionDe(frames);
   /** El fotograma que se está viendo: el de la foto, el de leer el texto, el de tapar datos. */
@@ -304,20 +304,32 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     return `${width} × ${height}`;
   }, [recorte, session]);
 
-  /** Lo que ocupa la imagen dentro del hueco, sin deformarse y sin salirse. */
+  /**
+   * Lo que ocupa la imagen dentro del hueco, sin deformarse y sin salirse, y con el marco
+   * del estudio puesto, lo que ocupan su aire y el radio de sus esquinas: la imagen se
+   * encoge lo justo para que imagen y marco quepan juntos, como en el archivo.
+   */
   const cajaDeLaVista = useMemo(
     () =>
       session
-        ? contener(
+        ? medidasConMarco(
             // El `p-4` del hueco son 16 px por lado que no puede ocupar la imagen.
             medidaDelHueco.width - 32,
             medidaDelHueco.height - 32,
             session.region.width,
             session.region.height,
+            estudio.marco,
           )
-        : { width: 0, height: 0 },
-    [medidaDelHueco, session],
+        : { width: 0, height: 0, aire: 0, radio: 0 },
+    [medidaDelHueco, session, estudio.marco],
   );
+
+  // El volumen del estudio también se oye en la vista previa. Hasta el 100 %: un vídeo del
+  // navegador no sube de ahí, y por encima solo lo nota el archivo.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) video.volume = Math.min(1, Math.max(0, estudio.volumen));
+  }, [estudio.volumen, session?.mp4Path]);
 
   /** Lo que dura lo que se queda. */
   const keptMs = Math.max(0, hastaMs - desdeMs);
@@ -628,11 +640,30 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               Dándole aquí la proporción de la captura, la imagen llena la caja y las capas
               caen encima con exactitud, sin que nadie tenga que medir nada.
             */}
+            {/*
+              El marco del estudio, en vivo: el fondo con su aire alrededor, y la imagen con
+              sus esquinas y su sombra. Sin marco es una caja que no pinta nada.
+            */}
+            <div
+              data-marco={estudio.marco ? estudio.marco.fondo : undefined}
+              style={
+                estudio.marco && cajaDeLaVista.aire > 0
+                  ? { background: cssDelFondo(estudio.marco.fondo), padding: cajaDeLaVista.aire }
+                  : undefined
+              }
+            >
             <div
               // `overflow-hidden` porque la camara del zoom escala el video dentro de
               // esta caja, y lo que se sale por los lados no tiene que verse.
               className="relative overflow-hidden"
               style={{
+                borderRadius: cajaDeLaVista.radio || undefined,
+                // La misma sombra que pone Rust: cae hacia abajo un 22 % del aire y se
+                // difumina en un 45 %.
+                boxShadow:
+                  estudio.marco?.sombra && cajaDeLaVista.aire > 0
+                    ? `0 ${Math.round(cajaDeLaVista.aire * 0.22)}px ${Math.round(cajaDeLaVista.aire * 0.9)}px rgba(0, 0, 0, 0.42)`
+                    : undefined,
                 aspectRatio: `${session.region.width} / ${session.region.height}`,
                 // El `aspect-ratio` de arriba es el respaldo mientras no se ha medido nada.
                 // Lo que manda son estos dos numeros, calculados sobre el hueco de verdad.
@@ -674,6 +705,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 texto={textoMarca}
               />
               <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
+            </div>
             </div>
             {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo. */}
             {aviso && (

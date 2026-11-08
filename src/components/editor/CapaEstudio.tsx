@@ -6,14 +6,16 @@ import {
   arosEn,
   atajoEn,
   colocar,
-  cursorEn,
   dibujoDe,
   encuadreEn,
   formaEn,
+  movimientos,
   opacidadDelAro,
+  opacidadDelPuntero,
   punteroEn,
   radioDelAro,
   radioMaximo,
+  sitioDelPuntero,
   transformacion,
   type Estudio,
   type Forma,
@@ -74,9 +76,11 @@ export function CapaEstudio({
     }
     return mapa;
   }, [datos]);
+  /** Cuándo se movió el ratón, sacado una vez: con ello se sabe cuánto lleva quieto. */
+  const movs = useMemo(() => movimientos(datos?.cursor ?? []), [datos]);
   // Lo último que se sabe, para que el bucle no tenga que reengancharse a cada cambio.
-  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes });
-  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes };
+  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs });
+  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs };
 
   useEffect(() => {
     let vivo = true;
@@ -87,7 +91,7 @@ export function CapaEstudio({
       peticion = requestAnimationFrame(pintar);
       const canvas = lienzo.current;
       const video = videoRef.current;
-      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes } =
+      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs } =
         estado.current;
       if (!canvas) return;
 
@@ -124,10 +128,13 @@ export function CapaEstudio({
 
       // El puntero va DEBAJO del aro, como al exportar: el aro se abre desde donde se
       // pulsó y taparlo sería tapar justo lo que se señala.
-      if (estudio.cursor > 0) {
-        const raton = cursorEn(datos.cursor, ms);
+      // Suavizado y apagándose como al exportar: las dos cuentas son las de Rust.
+      const opacidad = estudio.esconder ? opacidadDelPuntero(movs, datos.clics, ms) : 1;
+      if (estudio.cursor > 0 && opacidad > 0) {
+        const raton = sitioDelPuntero(datos.cursor, ms, estudio.suave);
         const punta = raton ? aPantalla(raton[0], raton[1]) : null;
         if (punta) {
+          ctx.globalAlpha = opacidad;
           const altoPx = altoDelPuntero(estudio.cursor, datos.clics, ms) * escala;
           const id = punteroEn(datos.cambiosPuntero, ms);
           const leido = id === null ? undefined : datos.punteros.find((p) => p.id === id);
@@ -144,6 +151,7 @@ export function CapaEstudio({
           } else {
             puntero(ctx, punta.x, punta.y, altoPx, formaEn(datos.formas, ms));
           }
+          ctx.globalAlpha = 1;
         }
       }
 

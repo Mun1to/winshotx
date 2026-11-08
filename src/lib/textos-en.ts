@@ -406,7 +406,6 @@ export const EN: Record<string, string> = {
   "sin zoom": "no zoom",
 
   // El puntero dibujado
-  "Puntero dibujado": "Drawn pointer",
   // «el de Windows» ya está arriba, en el idioma: la clave es la frase, así que sirve.
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "This recording already has the Windows cursor baked in: you will see two.",
@@ -423,7 +422,6 @@ export const EN: Record<string, string> = {
 
   // El marco al exportar
   "Aire alrededor": "Padding",
-  "sin marco": "no frame",
   Sombra: "Shadow",
   Blanco: "White",
   Negro: "Black",
@@ -501,7 +499,26 @@ export const EN: Record<string, string> = {
   "Sonido": "Sound",
   "Más ajustes": "More settings",
   "Tamaño": "Size",
-  "Marco": "Border",
   "La imagen tal cual, sin perder nada.": "The image as it is, with nothing lost.",
   "La misma imagen, mucho más ligera.": "The same image, much lighter.",
+  // El desplegable «Estudio» del editor (8-nov-2026)
+  "Estudio": "Studio",
+  "Fondo": "Background",
+  "Sin fondo": "No background",
+  "Noche": "Night",
+  "Océano": "Ocean",
+  "Coral": "Coral",
+  "Esquinas redondeadas": "Rounded corners",
+  "rectas": "square",
+  "Puntero": "Pointer",
+  "Movimiento suave": "Smooth movement",
+  "le quita al puntero los temblores de la mano": "takes the hand shake out of the pointer",
+  "Esconderlo cuando no se mueve": "Hide it when it stops",
+  "se va tras un segundo y medio quieto": "fades out after a second and a half still",
+  "Zoom": "Zoom",
+  "Velocidad del zoom": "Zoom speed",
+  "Lenta": "Slow",
+  "Normal": "Normal",
+  "Rápida": "Fast",
+  "Volumen": "Volume",
 };

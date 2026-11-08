@@ -8,7 +8,7 @@
  * aquí solo se interpola y se dibuja: una sola fuente de verdad para el encuadre, y las
  * formas (aro, flecha, pastilla) repetidas a mano porque un canvas no sabe de `image`.
  */
-import type { AtajoGrabado, ClicGrabado, MuestraCamara } from "./types";
+import type { AtajoGrabado, Background, ClicGrabado, MuestraCamara } from "./types";
 import type { Recorte } from "./recorte";
 
 /** Lo que se decide en el panel y se dibuja en la vista previa. */
@@ -19,9 +19,137 @@ export interface Estudio {
   cursor: number;
   aros: boolean;
   teclas: boolean;
+  /** Quitarle al puntero los temblores de la mano (ver `sitioDelPuntero`). */
+  suave: boolean;
+  /** Apagar el puntero cuando lleva un rato quieto (ver `opacidadDelPuntero`). */
+  esconder: boolean;
+  /** A qué velocidad se acerca el zoom: 1 la de siempre. */
+  velocidadZoom: number;
+  /** El volumen del sonido: 1 como se grabó. */
+  volumen: number;
+  /** El marco de alrededor, para enseñarlo en la vista previa. null es sin marco. */
+  marco: MarcoDeVista | null;
 }
 
-export const ESTUDIO_APAGADO: Estudio = { zoom: 1, cursor: 0, aros: false, teclas: false };
+/**
+ * El marco tal como lo dibuja la vista previa: el aire y las esquinas en tanto por uno del
+ * ancho de lo que se exporta, para que crezcan y encojan con la ventana igual que la imagen.
+ */
+export interface MarcoDeVista {
+  aire: number;
+  esquinas: number;
+  fondo: Background;
+  sombra: boolean;
+}
+
+export const ESTUDIO_APAGADO: Estudio = {
+  zoom: 1,
+  cursor: 0,
+  aros: false,
+  teclas: false,
+  suave: false,
+  esconder: false,
+  velocidadZoom: 1,
+  volumen: 1,
+  marco: null,
+};
+
+/**
+ * Lo que se mira hacia atrás y hacia delante para suavizar el puntero, y lo que tiene que
+ * estar quieto para esconderse y lo que tarda en irse. Las mismas cifras que
+ * `estudio::SUAVE_MS`, `QUIETO_MS` y `DESVANECE_MS` en Rust.
+ */
+export const SUAVE_MS = 120;
+export const QUIETO_MS = 1500;
+export const DESVANECE_MS = 300;
+
+/**
+ * Dónde se dibuja el puntero en ese instante, en píxeles de la región grabada.
+ *
+ * Sin `suave`, donde estaba. Con `suave`, la media de donde estuvo un poco antes y un poco
+ * después, pesando más lo más cercano: quita los temblores sin que vaya por detrás. Es la
+ * misma cuenta que `estudio::sitio_del_puntero`, y sus pruebas comprueban las mismas cifras.
+ */
+export function sitioDelPuntero(
+  rastro: [number, number, number][],
+  ms: number,
+  suave: boolean,
+): [number, number] | null {
+  const aqui = cursorEn(rastro, ms);
+  if (!aqui || !suave) return aqui;
+  const paso = 8;
+  const lado = SUAVE_MS / paso;
+  let sx = 0;
+  let sy = 0;
+  let pesos = 0;
+  for (let k = 0; k <= 2 * lado; k++) {
+    const t = ms + k * paso - SUAVE_MS;
+    if (t < 0) continue;
+    const p = cursorEn(rastro, t);
+    if (!p) continue;
+    const peso = lado + 1 - Math.abs(k - lado);
+    sx += p[0] * peso;
+    sy += p[1] * peso;
+    pesos += peso;
+  }
+  return [sx / pesos, sy / pesos];
+}
+
+/** Los instantes en que el ratón cambió de sitio. La misma cuenta que `estudio::movimientos`. */
+export function movimientos(rastro: [number, number, number][]): number[] {
+  const salen: number[] = [];
+  let antes: string | null = null;
+  for (const [t, x, y] of rastro) {
+    const aqui = `${x},${y}`;
+    if (aqui !== antes) {
+      salen.push(t);
+      antes = aqui;
+    }
+  }
+  return salen;
+}
+
+/**
+ * Lo visible que está el puntero, de 0 a 1: del todo mientras se mueve, y si lleva más de
+ * `QUIETO_MS` sin moverse ni pulsar, se apaga en `DESVANECE_MS`. Un clic cuenta como moverse.
+ * La misma cuenta que `estudio::opacidad_del_puntero`.
+ */
+export function opacidadDelPuntero(movs: number[], clics: ClicGrabado[], ms: number): number {
+  const i = ultimaAntes(movs, ms, (t) => t);
+  if (i < 0) return 1;
+  let pulsado = 0;
+  for (const c of clics) if (c.ms <= ms && c.ms > pulsado) pulsado = c.ms;
+  const quieto = Math.max(0, ms - Math.max(movs[i], pulsado));
+  return quieto <= QUIETO_MS ? 1 : Math.max(0, 1 - (quieto - QUIETO_MS) / DESVANECE_MS);
+}
+
+/**
+ * Lo que mide la vista previa con el marco puesto: la imagen, el aire y el radio de las
+ * esquinas, en píxeles de pantalla, cabiendo entero en el hueco.
+ *
+ * El aire va en tanto por uno del ancho de la imagen, así que lo que cabe es una imagen de
+ * ancho `w` con `aire · w` por cada lado: de ahí salen los dos topes.
+ */
+export function medidasConMarco(
+  huecoAncho: number,
+  huecoAlto: number,
+  ancho: number,
+  alto: number,
+  marco: MarcoDeVista | null,
+): { width: number; height: number; aire: number; radio: number } {
+  const proporcion = ancho / Math.max(1, alto);
+  const m = marco && marco.aire > 0 ? marco.aire : 0;
+  if (huecoAncho <= 0 || huecoAlto <= 0 || ancho <= 0 || alto <= 0) {
+    return { width: 0, height: 0, aire: 0, radio: 0 };
+  }
+  const w = Math.max(1, Math.min(huecoAncho / (1 + 2 * m), huecoAlto / (1 / proporcion + 2 * m)));
+  return {
+    width: Math.round(w),
+    height: Math.round(w / proporcion),
+    aire: Math.round(m * w),
+    radio: m > 0 && marco ? Math.round(marco.esquinas * w) : 0,
+  };
+}
 
 /** Cuánto dura el aro desde que se pulsa. La misma cifra que `realce::DURACION_MS`. */
 export const ARO_MS = 420;

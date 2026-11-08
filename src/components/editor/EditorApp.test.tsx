@@ -478,3 +478,30 @@ describe("recortar desde la línea de tiempo", () => {
     await waitFor(() => expect(titulos.at(-1)).toContain("0:04.00"));
   });
 });
+
+describe("el marco del estudio en la vista previa", () => {
+  it("al elegir un fondo, la vista previa lo enseña alrededor de la imagen, con sus esquinas", async () => {
+    // Sin medidas de pantalla el aire sale a cero: se le da al editor el hueco de una
+    // ventana de verdad.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 1200, height: 700, right: 1200, bottom: 700, x: 0, y: 0, toJSON() {},
+    } as DOMRect);
+    prepararLarga();
+    const { container } = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    expect(container.querySelector("[data-marco]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Océano" }));
+    const marco = await waitFor(() => {
+      const el = container.querySelector('[data-marco="oceano"]') as HTMLElement | null;
+      expect(el).not.toBeNull();
+      return el!;
+    });
+    expect(marco.style.background).toContain("linear-gradient");
+    expect(marco.style.padding).not.toBe("");
+    const imagen = marco.firstElementChild as HTMLElement;
+    expect(imagen.style.borderRadius).not.toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Sin fondo" }));
+    await waitFor(() => expect(container.querySelector("[data-marco]")).toBeNull());
+    vi.restoreAllMocks();
+  });
+});

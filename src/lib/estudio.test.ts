@@ -25,6 +25,10 @@ import {
   ARO_MS,
   PULSANDO_MS,
   TECLA_MS,
+  sitioDelPuntero,
+  movimientos,
+  opacidadDelPuntero,
+  medidasConMarco,
 } from "./estudio";
 import type { MuestraCamara } from "./types";
 
@@ -184,5 +188,79 @@ describe("la pastilla y el puntero", () => {
     expect(punteroNormal(1080)).toBe(43);
     expect(punteroNormal(400)).toBe(24);
     expect(punteroNormal(4320)).toBe(64);
+  });
+});
+
+/**
+ * El puntero suave, el que se esconde y el marco de la vista previa. Las cifras son las de
+ * las pruebas de Rust (`encode::estudio::puntero_de_estudio`): la vista previa y el archivo
+ * tienen que dar lo mismo.
+ */
+describe("el puntero del estudio, con las cifras de Rust", () => {
+  const SALTO: [number, number, number][] = [
+    [0, 0, 0],
+    [100, 100, 0],
+  ];
+
+  it("sin suavizar está donde estaba", () => {
+    expect(sitioDelPuntero(SALTO, 100, false)).toEqual([100, 0]);
+    expect(sitioDelPuntero(SALTO, 99, false)).toEqual([0, 0]);
+  });
+
+  it("suavizado, un salto se reparte en el tiempo: 54,4 a los 100 ms", () => {
+    const [x, y] = sitioDelPuntero(SALTO, 100, true)!;
+    expect(x).toBeCloseTo(54.4, 3);
+    expect(y).toBe(0);
+    expect(sitioDelPuntero(SALTO, 230, true)).toEqual([100, 0]);
+  });
+
+  it("suavizado no va por detrás en un movimiento seguido", () => {
+    const recta = Array.from({ length: 101 }, (_, k) => [k * 8, k * 8, 0] as [number, number, number]);
+    expect(sitioDelPuntero(recta, 400, true)![0]).toBeCloseTo(400, 0);
+  });
+
+  it("suavizado quita el temblor de la mano", () => {
+    const temblor = Array.from(
+      { length: 100 },
+      (_, k) => [k * 8, 200 + (k % 2 === 0 ? 4 : -4), 0] as [number, number, number],
+    );
+    expect(Math.abs(sitioDelPuntero(temblor, 400, true)![0] - 200)).toBeLessThan(0.6);
+  });
+
+  it("los movimientos son los cambios de sitio", () => {
+    expect(
+      movimientos([
+        [0, 1, 1],
+        [16, 1, 1],
+        [32, 2, 1],
+        [48, 2, 1],
+        [64, 1, 1],
+      ]),
+    ).toEqual([0, 32, 64]);
+  });
+
+  it("quieto un rato se va apagando, y un clic lo despierta", () => {
+    const movido = [0, 1000];
+    expect(opacidadDelPuntero(movido, [], 2000)).toBe(1);
+    expect(opacidadDelPuntero(movido, [], 2650)).toBeCloseTo(0.5, 6);
+    expect(opacidadDelPuntero(movido, [], 2900)).toBe(0);
+    expect(opacidadDelPuntero(movido, [{ ms: 2600, x: 0, y: 0, derecho: false }], 2900)).toBe(1);
+  });
+});
+
+describe("la vista previa con el marco puesto", () => {
+  it("sin marco, la imagen ocupa el hueco como siempre", () => {
+    expect(medidasConMarco(800, 500, 1600, 1000, null)).toEqual({ width: 800, height: 500, aire: 0, radio: 0 });
+  });
+
+  it("con marco, imagen y aire caben juntos y el aire va en proporción", () => {
+    const m = medidasConMarco(800, 500, 1600, 1000, { aire: 0.05, esquinas: 0.01, fondo: "noche", sombra: true });
+    // Aquí manda el alto: 500 = w / 1,6 + 0,1 · w, así que la imagen mide 690 de ancho y
+    // el aire 34 por lado.
+    expect(m.width).toBe(690);
+    expect(m.aire).toBe(34);
+    expect(m.width + 2 * m.aire).toBeLessThanOrEqual(800);
+    expect(m.height + 2 * m.aire).toBeLessThanOrEqual(500);
+    expect(m.radio).toBe(7);
   });
 });

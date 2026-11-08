@@ -108,8 +108,12 @@ export const sessionStudio = (sessionId: string) =>
   invoke<StudioData>("session_studio", { sessionId });
 
 /** La cámara del zoom en cada fotograma, con ese zoom y ese recorte. */
-export const sessionCamera = (sessionId: string, zoom: number, crop: Recorte | null) =>
-  invoke<MuestraCamara[]>("session_camera", { sessionId, zoom, crop });
+export const sessionCamera = (
+  sessionId: string,
+  zoom: number,
+  crop: Recorte | null,
+  zoomSpeed = 1,
+) => invoke<MuestraCamara[]>("session_camera", { sessionId, zoom, crop, zoomSpeed });
 
 /** Las últimas capturas guardadas, leídas de la carpeta, de la más nueva a la más vieja. */
 export const ultimasCapturas = (cuantas: number) =>

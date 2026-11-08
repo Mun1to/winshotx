@@ -24,21 +24,7 @@ import {
 } from "../../lib/recorte";
 import type { Anotacion } from "../../lib/anotaciones";
 import { punteroNormal, type Estudio } from "../../lib/estudio";
-
-/**
- * Los fondos del marco, con el color con el que se pintan en el propio botón.
- *
- * Son cinco y no una rueda de color: con dieciséis millones a elegir, la pregunta deja de
- * ser «cuál de estos» y pasa a ser «cuál de todos», que es justo lo que hace que alguien
- * cierre el panel sin exportar nada.
- */
-const FONDOS: { id: Background; label: string; muestra: string }[] = [
-  { id: "blanco", label: "Blanco", muestra: "#ffffff" },
-  { id: "negro", label: "Negro", muestra: "#121214" },
-  { id: "gris", label: "Gris", muestra: "#e8e8ea" },
-  { id: "atardecer", label: "Atardecer", muestra: "linear-gradient(135deg,#5874f5,#a855d9)" },
-  { id: "menta", label: "Menta", muestra: "linear-gradient(135deg,#22c598,#3884e8)" },
-];
+import { FONDOS } from "../../lib/fondos";
 
 /**
  * Los cuatro formatos, con lo que hace cada uno dicho en palabras: «H.264 por hardware»
@@ -70,15 +56,34 @@ const PARA_UNA_CAPTURA: Partial<Record<ExportFormat, string>> = {
 /** Los dos formatos que sacan UN fotograma, no un trozo de grabación. */
 const esUnaFoto = (formato: ExportFormat) => formato === "png" || formato === "jpg";
 
-/** Si «Más ajustes» se quedó abierto la última vez. Es comodidad de quien lo usa, nada más. */
+/**
+ * Si «Más ajustes» y «Estudio» se quedaron abiertos la última vez. Es comodidad de quien lo
+ * usa, nada más: sin almacenamiento, cada uno se abre como viene de fábrica.
+ */
 const CLAVE_MAS = "winshotx.editor.masAjustes";
-function leerMas(): boolean {
+const CLAVE_ESTUDIO = "winshotx.editor.estudio";
+function leerAbierto(clave: string, deFabrica: boolean): boolean {
   try {
-    return localStorage.getItem(CLAVE_MAS) === "1";
+    const guardado = localStorage.getItem(clave);
+    return guardado === null ? deFabrica : guardado === "1";
   } catch {
-    return false;
+    return deFabrica;
   }
 }
+function guardarAbierto(clave: string, abierto: boolean) {
+  try {
+    localStorage.setItem(clave, abierto ? "1" : "0");
+  } catch {
+    // Sin almacenamiento se abre como de fábrica la próxima vez, y ya está.
+  }
+}
+
+/** Lo deprisa que se acerca y se aleja el zoom, en palabras. 1 es como siempre. */
+const VELOCIDADES_DE_ZOOM: { valor: number; nombre: string }[] = [
+  { valor: 0.6, nombre: "Lenta" },
+  { valor: 1, nombre: "Normal" },
+  { valor: 1.6, nombre: "Rápida" },
+];
 
 interface Props {
   /** Lo dibujado encima en el editor, que Rust pinta sobre cada fotograma. */
@@ -179,24 +184,28 @@ export function ExportPanel({
   const [margen, setMargen] = useState(0);
   const [fondo, setFondo] = useState<Background>("blanco");
   const [sombra, setSombra] = useState(true);
+  /** El radio de las esquinas sobre el fondo, en píxeles del archivo. */
+  const [esquinas, setEsquinas] = useState(0);
+  /**
+   * Quitarle al puntero los temblores de la mano. **Encendido de fábrica**, como en Screen
+   * Studio y en Cap: es lo que hace que un vídeo de pantalla se vea hecho a propósito, y
+   * solo mueve el puntero unas centésimas.
+   */
+  const [suave, setSuave] = useState(true);
+  /** Apagar el puntero cuando lleva un rato quieto. Apagado: sorprende si no se pide. */
+  const [esconder, setEsconder] = useState(false);
+  const [velocidadZoom, setVelocidadZoom] = useState(1);
+  const [volumen, setVolumen] = useState(1);
+  const [estudioAbierto, setEstudioAbierto] = useState(() => leerAbierto(CLAVE_ESTUDIO, true));
   const [loop, setLoop] = useState(true);
   const [directory, setDirectory] = useState(saveDirectory);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mas, setMas] = useState(leerMas);
+  const [mas, setMas] = useState(() => leerAbierto(CLAVE_MAS, false));
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(CLAVE_MAS, mas ? "1" : "0");
-    } catch {
-      // Sin almacenamiento se abre plegado la próxima vez, y ya está.
-    }
-  }, [mas]);
-
-  useEffect(() => {
-    onEstudio?.({ zoom, cursor, aros, teclas });
-  }, [zoom, cursor, aros, teclas, onEstudio]);
+  useEffect(() => guardarAbierto(CLAVE_MAS, mas), [mas]);
+  useEffect(() => guardarAbierto(CLAVE_ESTUDIO, estudioAbierto), [estudioAbierto]);
 
   /**
    * Lo que mide de verdad lo que se va a exportar, con el recorte ya aplicado.
@@ -213,6 +222,46 @@ export function ExportPanel({
   );
 
   const aspect = fuente.width / fuente.height;
+
+  useEffect(() => {
+    onEstudio?.({
+      zoom,
+      cursor,
+      aros,
+      teclas,
+      suave,
+      esconder,
+      velocidadZoom,
+      volumen,
+      marco:
+        margen > 0
+          ? {
+              aire: margen / Math.max(1, width),
+              esquinas: esquinas / Math.max(1, width),
+              fondo,
+              sombra,
+            }
+          : null,
+    });
+  }, [zoom, cursor, aros, teclas, suave, esconder, velocidadZoom, volumen, margen, esquinas, fondo, sombra, width, onEstudio]);
+
+  /**
+   * Elegir un fondo sin aire pone el aire, las esquinas y la sombra que se ven bien a ese
+   * tamaño: un fondo sin aire alrededor no se ve, y quien lo elige quiere verlo. Un 5 % del
+   * ancho de aire y algo más del 1 % de radio, que es por donde van los de Screen Studio.
+   */
+  const elegirFondo = (elegido: Background | null) => {
+    if (elegido === null) {
+      setMargen(0);
+      return;
+    }
+    setFondo(elegido);
+    if (margen === 0) {
+      setMargen(Math.min(200, Math.max(16, Math.round(width * 0.05))));
+      setEsquinas(Math.min(48, Math.max(6, Math.round(width * 0.012))));
+      setSombra(true);
+    }
+  };
 
   /**
    * Poner o quitar el recorte devuelve las dimensiones al tamanno nuevo.
@@ -291,6 +340,11 @@ export function ExportPanel({
         clicks: !foto && aros,
         keys: !foto && teclas,
         cursor: foto ? 0 : cursor,
+        smoothCursor: !foto && suave,
+        hideIdleCursor: !foto && esconder,
+        corners: margen > 0 ? esquinas : 0,
+        volume: volumen,
+        zoomSpeed: velocidadZoom,
         loop,
         margin: margen,
         background: fondo,
@@ -403,46 +457,182 @@ export function ExportPanel({
             />
           )}
 
-          {/* Lo del estudio, solo con tiempo dentro: se dibuja al exportar, y se ve en la
-              vista previa según se toca. El zoom solo con clics, que un deslizador que no
-              puede hacer nada es peor que no tenerlo; el puntero sale siempre, porque una
-              grabación sin clics también tiene ratón. */}
+        </div>
+
+        {/*
+          El estudio: cómo se ve lo grabado, como en Screen Studio y en Cap. Abierto de
+          fábrica, porque es lo que hace bonito un vídeo de pantalla, y todo lo que se toca
+          aquí se ve en la vista previa en el momento: lo que ves es lo que sale.
+        */}
+        <Desplegable
+          titulo={t("Estudio")}
+          abierto={estudioAbierto}
+          onCambiar={() => setEstudioAbierto((abierto) => !abierto)}
+        >
+          <Grupo titulo={t("Fondo")}>
+            <div className="grid grid-cols-9 gap-1">
+              <button
+                type="button"
+                onClick={() => elegirFondo(null)}
+                title={t("Sin fondo")}
+                aria-label={t("Sin fondo")}
+                aria-pressed={margen === 0}
+                className={`flex aspect-square w-full items-center justify-center rounded-md border-2 text-neutral-400 transition-colors ${
+                  margen === 0 ? "border-blue-500" : "border-white/15 hover:border-white/40"
+                }`}
+              >
+                <svg viewBox="0 0 20 20" className="size-full p-1" aria-hidden="true">
+                  <line x1="4" y1="16" x2="16" y2="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+              {FONDOS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => elegirFondo(f.id)}
+                  title={t(f.nombre)}
+                  aria-label={t(f.nombre)}
+                  aria-pressed={margen > 0 && fondo === f.id}
+                  style={{ background: f.css }}
+                  className={`aspect-square w-full rounded-md border-2 transition-colors ${
+                    margen > 0 && fondo === f.id ? "border-blue-500" : "border-white/15 hover:border-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+            {/* Lo del marco solo con fondo: aire y esquinas de un marco que no existe son
+                controles que no hacen nada. */}
+            {margen > 0 && (
+              <div className="mt-3 space-y-3">
+                <Slider
+                  label={t("Aire alrededor")}
+                  hint={`${margen} px`}
+                  min={4}
+                  max={200}
+                  value={margen}
+                  onChange={setMargen}
+                />
+                <Slider
+                  label={t("Esquinas redondeadas")}
+                  hint={esquinas === 0 ? t("rectas") : `${esquinas} px`}
+                  min={0}
+                  max={60}
+                  value={esquinas}
+                  onChange={setEsquinas}
+                />
+                <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />
+              </div>
+            )}
+          </Grupo>
+
+          {/* El puntero, el zoom y los atajos solo con tiempo dentro: una foto no tiene
+              ratón que se mueva ni clics a los que acercarse. */}
+          {!foto && (
+            <Grupo titulo={t("Puntero")}>
+              <div className="space-y-3">
+                <div>
+                  <Slider
+                    // Dentro del grupo «Puntero» no hace falta repetir la palabra en cada control.
+                    label={t("Tamaño")}
+                    hint={
+                      cursor === 0
+                        ? session.cursorBaked
+                          ? t("el de Windows")
+                          : t("sin puntero")
+                        : `${cursor} px`
+                    }
+                    min={0}
+                    max={80}
+                    step={4}
+                    value={cursor}
+                    onChange={setCursor}
+                  />
+                  {cursor > 0 && session.cursorBaked && (
+                    <p className="mt-1.5 text-[12px] leading-snug text-amber-300">
+                      {t("Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.")}
+                    </p>
+                  )}
+                </div>
+                {cursor > 0 && (
+                  <div className="space-y-1">
+                    <Toggle
+                      checked={suave}
+                      onChange={setSuave}
+                      label={t("Movimiento suave")}
+                      hint={t("le quita al puntero los temblores de la mano")}
+                    />
+                    <Toggle
+                      checked={esconder}
+                      onChange={setEsconder}
+                      label={t("Esconderlo cuando no se mueve")}
+                      hint={t("se va tras un segundo y medio quieto")}
+                    />
+                  </div>
+                )}
+                {session.hasClicks && (
+                  <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
+                )}
+              </div>
+            </Grupo>
+          )}
+
+          {/* El zoom solo con clics: un deslizador que no puede hacer nada es peor que no
+              tenerlo. */}
           {!foto && session.hasClicks && (
-            <Slider
-              label={t("Acercarse a los clics")}
-              hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
-              min={1}
-              max={3}
-              step={0.1}
-              value={zoom}
-              onChange={setZoom}
+            <Grupo titulo={t("Zoom")}>
+              <Slider
+                label={t("Acercarse a los clics")}
+                hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={setZoom}
+              />
+              {zoom > 1.05 && (
+                <div className="mt-3">
+                  <span className="mb-1 block text-[13px] font-medium text-neutral-200">
+                    {t("Velocidad del zoom")}
+                  </span>
+                  <Opciones>
+                    {VELOCIDADES_DE_ZOOM.map((v) => (
+                      <Opcion
+                        key={v.valor}
+                        puesta={velocidadZoom === v.valor}
+                        onClick={() => setVelocidadZoom(v.valor)}
+                      >
+                        {t(v.nombre)}
+                      </Opcion>
+                    ))}
+                  </Opciones>
+                </div>
+              )}
+            </Grupo>
+          )}
+
+          {!foto && (
+            <Toggle
+              checked={teclas}
+              onChange={setTeclas}
+              label={t("Enseñar los atajos")}
+              // Este aviso viaja con el interruptor: es la regla que impide que una
+              // contraseña tecleada mientras se grababa acabe dentro del vídeo.
+              hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
             />
           )}
-          {!foto && (
-            <div>
-              <Slider
-                label={t("Puntero dibujado")}
-                hint={
-                  cursor === 0
-                    ? session.cursorBaked
-                      ? t("el de Windows")
-                      : t("sin puntero")
-                    : `${cursor} px`
-                }
-                min={0}
-                max={80}
-                step={4}
-                value={cursor}
-                onChange={setCursor}
-              />
-              {cursor > 0 && session.cursorBaked && (
-                <p className="mt-1.5 text-[12px] leading-snug text-amber-300">
-                  {t("Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.")}
-                </p>
-              )}
-            </div>
+
+          {format === "mp4" && session.hasAudio && audio && velocidad === 1 && (
+            <Slider
+              label={t("Volumen")}
+              hint={`${Math.round(volumen * 100)} %`}
+              min={0}
+              max={200}
+              step={5}
+              value={Math.round(volumen * 100)}
+              onChange={(v) => setVolumen(v / 100)}
+            />
           )}
-        </div>
+        </Desplegable>
 
         <button
           type="button"
@@ -579,58 +769,6 @@ export function ExportPanel({
                 </Opciones>
               </Grupo>
 
-              {!foto && (
-                <div className="space-y-1">
-                  {session.hasClicks && (
-                    <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
-                  )}
-                  <Toggle
-                    checked={teclas}
-                    onChange={setTeclas}
-                    label={t("Enseñar los atajos")}
-                    // Este aviso viaja con el interruptor: es la regla que impide que una
-                    // contraseña tecleada mientras se grababa acabe dentro del vídeo.
-                    hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
-                  />
-                </div>
-              )}
-
-              <Grupo titulo={t("Marco")}>
-                <Slider
-                  label={t("Aire alrededor")}
-                  hint={margen === 0 ? t("sin marco") : `${margen} px`}
-                  min={0}
-                  max={160}
-                  value={margen}
-                  onChange={setMargen}
-                />
-                {/* Los fondos solo aparecen cuando hay aire que pintar: cinco botones de
-                    color para el fondo de un marco que no existe son cinco botones de ruido. */}
-                {margen > 0 && (
-                  <>
-                    <div className="mt-2.5 flex gap-1.5">
-                      {FONDOS.map((f) => (
-                        <button
-                          key={f.id}
-                          type="button"
-                          onClick={() => setFondo(f.id)}
-                          title={t(f.label)}
-                          aria-label={t(f.label)}
-                          aria-pressed={fondo === f.id}
-                          style={{ background: f.muestra }}
-                          className={`size-8 rounded-md border-2 transition-colors ${
-                            fondo === f.id ? "border-blue-500" : "border-white/15 hover:border-white/40"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <div className="mt-1.5">
-                      <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />
-                    </div>
-                  </>
-                )}
-              </Grupo>
-
               {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}
               {hasFfmpeg && !foto && (
                 <Toggle
@@ -739,6 +877,47 @@ export function ExportPanel({
       </div>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Un apartado que se pliega: el título con su flecha, y debajo lo de dentro, que crece poco
+ * a poco con la fila de la rejilla de 0fr a 1fr y empuja lo de debajo, en vez de aparecer
+ * de golpe. Cerrado no se puede pulsar ni llegar con el tabulador a nada de dentro.
+ */
+function Desplegable({
+  titulo,
+  abierto,
+  onCambiar,
+  children,
+}: {
+  titulo: string;
+  abierto: boolean;
+  onCambiar: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mt-3 border-t border-white/8 pt-1">
+      <button
+        type="button"
+        onClick={onCambiar}
+        aria-expanded={abierto}
+        className="flex w-full items-center justify-between rounded-md py-2 text-left text-[14px] font-semibold text-neutral-100 transition-colors hover:text-white"
+      >
+        {titulo}
+        <ChevronDown
+          className={`size-[18px] text-neutral-300 transition-transform duration-200 ${abierto ? "rotate-180" : ""}`}
+        />
+      </button>
+      <div
+        className="grid transition-[grid-template-rows] duration-[240ms] ease-in-out"
+        style={{ gridTemplateRows: abierto ? "1fr" : "0fr" }}
+      >
+        <div className="min-h-0 overflow-hidden" inert={!abierto} aria-hidden={!abierto}>
+          <div className="space-y-4 pt-1 pb-2">{children}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 

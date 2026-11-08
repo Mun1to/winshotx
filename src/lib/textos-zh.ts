@@ -398,7 +398,6 @@ export const ZH: Record<string, string> = {
   "sin zoom": "不缩放",
 
   // 绘制的指针
-  "Puntero dibujado": "绘制指针",
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "此录制已包含 Windows 光标：你会看到两个。",
 
@@ -414,7 +413,6 @@ export const ZH: Record<string, string> = {
 
   // 导出时的边框
   "Aire alrededor": "周围留白",
-  "sin marco": "无边框",
   Sombra: "阴影",
   Blanco: "白色",
   Negro: "黑色",
@@ -501,7 +499,26 @@ export const ZH: Record<string, string> = {
   "Sonido": "声音",
   "Más ajustes": "更多设置",
   "Tamaño": "尺寸",
-  "Marco": "边框",
   "La imagen tal cual, sin perder nada.": "原样保存图片，画质无损。",
   "La misma imagen, mucho más ligera.": "同一张图片，文件小得多。",
+  // El desplegable «Estudio» del editor (8-nov-2026)
+  "Estudio": "录屏效果",
+  "Fondo": "背景",
+  "Sin fondo": "无背景",
+  "Noche": "夜色",
+  "Océano": "海洋",
+  "Coral": "珊瑚",
+  "Esquinas redondeadas": "圆角",
+  "rectas": "直角",
+  "Puntero": "指针",
+  "Movimiento suave": "平滑移动",
+  "le quita al puntero los temblores de la mano": "去掉指针的手抖",
+  "Esconderlo cuando no se mueve": "静止时隐藏",
+  "se va tras un segundo y medio quieto": "静止一秒半后淡出",
+  "Zoom": "缩放",
+  "Velocidad del zoom": "缩放速度",
+  "Lenta": "慢",
+  "Normal": "正常",
+  "Rápida": "快",
+  "Volumen": "音量",
 };
