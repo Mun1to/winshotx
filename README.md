@@ -23,6 +23,15 @@ Licence MIT · Windows 10 and 11 · Installer 2.59 MB
 
 <p align="center"><img src="frontlaxweb/social-en.png" alt="winshotx: crop the screen before you blink"></p>
 
+## How it works
+
+<p align="center"><picture>
+<source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset=".github/readme/how-it-works-dark-narrow.svg">
+<source media="(max-width: 600px)" srcset=".github/readme/how-it-works-light-narrow.svg">
+<source media="(prefers-color-scheme: dark)" srcset=".github/readme/how-it-works-dark.svg">
+<img src=".github/readme/how-it-works-light.svg" alt="Press the shortcut: The screen is captured, shown frozen, and the selection happens on top of that image. Drag over the area: Over a frozen screenshot, with a 6× magnifier that shows the exact colour in hex, copied with C and snapping to system windows: one click takes the whole window. Let go: A toolbar appears over the selection: copy, save, edit Export: GIF, MP4, PNG or JPG, to disk and to the clipboard: an image pastes as an image, and a GIF or MP4 pastes as a file into Slack, Discord or Explorer.">
+</picture></p>
+
 **The interface speaks English and Spanish**, and follows whichever one Windows is set to. You
 can pin it to either in **Settings > The app > Appearance**. The identifiers and comments in the
 source are in Spanish; the commits, this page and the
@@ -232,7 +241,8 @@ porting means filling those stubs in.
 a timer longer than five seconds, and any language other than Spanish and English. The full
 comparison on the site says which rows the Snipping Tool still wins.
 
-## Building it yourself
+<details>
+<summary><b>Building it yourself</b></summary>
 
 ```bash
 pnpm install
@@ -277,6 +287,8 @@ signature made with a different key is the one failure that gives no error at al
 quietly refuses every download and every installed copy stays where it is.
 
 The winget manifests are in [`packaging/winget`](packaging/winget).
+
+</details>
 
 ## Licence
 

@@ -23,6 +23,15 @@ píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selecci�
 
 <p align="center"><img src="frontlaxweb/social.png" alt="winshotx: recorta la pantalla antes de que parpadees"></p>
 
+## Cómo funciona
+
+<p align="center"><picture>
+<source media="(prefers-color-scheme: dark) and (max-width: 600px)" srcset=".github/readme/how-it-works-dark-narrow.es.svg">
+<source media="(max-width: 600px)" srcset=".github/readme/how-it-works-light-narrow.es.svg">
+<source media="(prefers-color-scheme: dark)" srcset=".github/readme/how-it-works-dark.es.svg">
+<img src=".github/readme/how-it-works-light.es.svg" alt="Pulsa el atajo: Se captura la pantalla, se muestra congelada y se selecciona encima. Arrastra sobre la zona: Sobre la pantalla congelada, con lupa 6× que da el color exacto en hexadecimal y ajuste a las ventanas: un clic coge la ventana entera. Suelta: Aparece una barra sobre la selección: copiar, guardar, editar Exporta: GIF, MP4, PNG o JPG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como archivo en Slack, Discord o el Explorador.">
+</picture></p>
+
 **La interfaz habla español e inglés**, y arranca en el que tenga puesto Windows. Se puede fijar
 uno de los dos en **Ajustes > La app > Aspecto**. Los identificadores y los comentarios del código
 están en español; los commits y la portada en inglés van aparte.
@@ -226,7 +235,8 @@ para el resto, así que portarlo es rellenar esos stubs.
 temporizador de más de cinco segundos, y cualquier idioma que no sea español o inglés. La
 comparativa entera de la web dice qué filas sigue ganando la Herramienta de Recortes.
 
-## Desarrollo
+<details>
+<summary><b>Desarrollo</b></summary>
 
 ```bash
 pnpm install
@@ -271,6 +281,8 @@ Firmar con otra clave es el fallo que no da ningún error: el actualizador recha
 descarga y ninguna copia instalada se mueve.
 
 Los manifiestos de winget están en [`packaging/winget`](packaging/winget).
+
+</details>
 
 ## Licencia
 
