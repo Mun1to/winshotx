@@ -103,6 +103,11 @@ const video = bandera("video", null);
 // El editor de una CAPTURA, que es un solo fotograma y no se reproduce: sale sin tira de
 // miniaturas y sin nada que prometa un vídeo. Es otra pantalla y hay que poder mirarla.
 const fija = args.includes("--fija");
+// Lo que dura la grabación de mentira, en segundos, a 30 fotogramas por segundo. Con
+// --duracion=600 se mira la línea de tiempo con diez minutos dentro, que es donde la tira
+// de antes medía un millón de píxeles.
+const duracion = Number(bandera("duracion", "1.333"));
+const CUANTOS = fija ? 1 : Math.max(1, Math.round(duracion * 30));
 // El menú de la bandeja, que es su propia ventana y no se puede fotografiar de otro modo
 // sin abrirle la app encima a alguien.
 const menu = args.includes("--menu");
@@ -188,8 +193,8 @@ const SESION = {
   id: "vista",
   region: { x: 0, y: 0, ...REGION },
   fps: 30,
-  frameCount: fija ? 1 : 40,
-  durationMs: fija ? 0 : 1333,
+  frameCount: CUANTOS,
+  durationMs: fija ? 0 : Math.round(duracion * 1000),
   hasAudio: true,
   hasClicks: true,
   cursorBaked: false,
@@ -197,7 +202,7 @@ const SESION = {
   mp4Path: video ? "C:\\\\sesion\\\\preview.mp4" : null,
 };
 
-const FOTOGRAMAS = Array.from({ length: fija ? 1 : 40 }, (_, i) => ({
+const FOTOGRAMAS = Array.from({ length: CUANTOS }, (_, i) => ({
   index: i,
   timestampMs: Math.round((i * 1000) / 30),
   durationMs: 33,
@@ -242,6 +247,9 @@ const RESPUESTAS = {
   session_frames: FOTOGRAMAS,
   frame_image: "/editor.png",
   ffmpeg_available: false,
+  // Guardar contesta como Rust, y lo que se le pidió queda en window.__llamadas para que
+  // una prueba con Playwright compruebe que lo recortado es lo que se manda.
+  export_media: { path: "C:\\Users\\yo\\Videos\\winshotx-prueba.mp4", bytes: 2_400_000, copied: false, copyError: null, elapsedMs: 900 },
 };
 
 const OVERLAY = {
@@ -313,6 +321,7 @@ Object.assign(window.__TAURI_INTERNALS__, {
     if (cmd === "overlay_bootstrap") return Promise.resolve(${JSON.stringify(OVERLAY)});
     // La pantalla congelada viaja por el IPC en PNG; aquí la sirve este mismo servidor.
     if (cmd === "freeze_png") return fetch("/freeze.png").then((r) => r.arrayBuffer());
+    (window.__llamadas ??= []).push({ cmd, args });
     if (cmd in tabla) return Promise.resolve(tabla[cmd]);
     if (cmd === "plugin:event|listen") {
       (this._oyentes[args.event] ??= []).push(args.handler);
@@ -507,7 +516,27 @@ const server = createServer(async (req, res) => {
   // El editor pide sus miniaturas y su fotograma grande, todos el mismo archivo.
   if (ruta === "/editor.mp4" && video) {
     const datos = await readFile(resolve(video));
-    res.writeHead(200, { "content-type": "video/mp4", "content-length": datos.length });
+    // Por trozos, como el protocolo de Tauri: sin `Range` el navegador no puede saltar a
+    // mitad del vídeo, y mover el cabezal o un corte lo deja clavado en el segundo cero.
+    // Parecía un fallo del editor y era del banco.
+    const rango = /bytes=(\d*)-(\d*)/.exec(req.headers.range ?? "");
+    if (rango) {
+      const inicio = rango[1] ? Number(rango[1]) : 0;
+      const fin = rango[2] ? Math.min(Number(rango[2]), datos.length - 1) : datos.length - 1;
+      res.writeHead(206, {
+        "content-type": "video/mp4",
+        "content-length": fin - inicio + 1,
+        "content-range": `bytes ${inicio}-${fin}/${datos.length}`,
+        "accept-ranges": "bytes",
+      });
+      res.end(datos.subarray(inicio, fin + 1));
+      return;
+    }
+    res.writeHead(200, {
+      "content-type": "video/mp4",
+      "content-length": datos.length,
+      "accept-ranges": "bytes",
+    });
     res.end(datos);
     return;
   }

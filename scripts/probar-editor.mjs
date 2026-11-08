@@ -1,0 +1,242 @@
+/**
+ * Prueba el editor en un navegador de verdad: recortar desde la línea de tiempo, reproducir
+ * lo recortado y guardarlo, con un ratón de verdad y un vídeo de verdad.
+ *
+ *   pnpm build
+ *   node scripts/probar-editor.mjs                    genera un vídeo de prueba con ffmpeg
+ *   node scripts/probar-editor.mjs --video=x.mp4 --editor=x.png --duracion=30
+ *   node scripts/probar-editor.mjs --fotos=<carpeta>  deja ahí las fotos de cada paso
+ *
+ * Usa Edge, que es el motor con el que Windows pinta las ventanas de la app (WebView2), y
+ * sin ventana: no se abre nada en el escritorio de nadie ni se le mueve el ratón. Monta la
+ * pantalla con `ver-ventana.mjs --servir`, que sirve el `dist/` de verdad con un Rust de
+ * mentira, y lo que el editor le pide a Rust queda apuntado para comprobarlo.
+ *
+ * Lo que comprueba, y por qué:
+ *  1. Que arrastrar las asas recorta donde se sueltan, y que la vista previa enseña ese
+ *     sitio mientras se arrastra.
+ *  2. Que el play empieza en el principio de lo recortado y se para en su final, sin
+ *     pasarse. Antes se pasaba hasta un cuarto de segundo: el aviso de tiempo del vídeo
+ *     llega cuatro veces por segundo.
+ *  3. Que «Guardar» manda a Rust justo el tramo recortado, en milisegundos.
+ *  4. Que con diez minutos de grabación la línea de tiempo sigue yendo fluida: cuánto
+ *     tarda en salir y cuánto tarda cada movimiento del asa.
+ *
+ * Sale con 0 si todo cuadra y con 1 si algo no.
+ */
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
+
+const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const args = process.argv.slice(2);
+const bandera = (nombre, pordefecto) => {
+  const encontrada = args.find((a) => a.startsWith(`--${nombre}=`));
+  return encontrada ? encontrada.slice(nombre.length + 3) : pordefecto;
+};
+
+const fotos = bandera("fotos", null);
+if (fotos) mkdirSync(fotos, { recursive: true });
+let video = bandera("video", null);
+let fotograma = bandera("editor", null);
+const duracion = Number(bandera("duracion", "30"));
+
+// Sin vídeo dado, se fabrica uno con ffmpeg: una carta de ajuste que se mueve, para que
+// cada instante se distinga del de al lado.
+if (!video || !fotograma) {
+  const carpeta = join(tmpdir(), "winshotx-probar-editor");
+  mkdirSync(carpeta, { recursive: true });
+  video = join(carpeta, `prueba-${duracion}s.mp4`);
+  fotograma = join(carpeta, "fotograma.png");
+  if (!existsSync(video)) {
+    const hecho = spawnSync("ffmpeg", [
+      "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+      "-i", `testsrc2=size=1280x800:rate=30:duration=${duracion}`,
+      "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "veryfast", video,
+    ]);
+    if (hecho.status !== 0) {
+      console.error("no hay vídeo de prueba y ffmpeg no lo ha podido hacer: pasa --video y --editor");
+      process.exit(1);
+    }
+  }
+  if (!existsSync(fotograma)) {
+    spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", "3", "-i", video, "-frames:v", "1", fotograma]);
+  }
+}
+
+/** Levanta la pantalla del editor y devuelve su dirección y cómo apagarla. */
+function servir(segundos) {
+  return new Promise((listo, falla) => {
+    const hijo = spawn(process.execPath, [
+      join(RAIZ, "scripts", "ver-ventana.mjs"),
+      "--servir",
+      `--editor=${fotograma}`,
+      `--video=${video}`,
+      `--duracion=${segundos}`,
+    ]);
+    hijo.stdout.on("data", (trozo) => {
+      const url = String(trozo).match(/http:\/\/\S+/)?.[0];
+      if (url) listo({ url, apagar: () => hijo.kill() });
+    });
+    hijo.on("exit", (codigo) => falla(new Error(`el banco se ha parado con ${codigo}`)));
+  });
+}
+
+const fallos = [];
+const comprueba = (bien, que) => {
+  console.log(`${bien ? "  BIEN" : "  MAL "}  ${que}`);
+  if (!bien) fallos.push(que);
+};
+
+const navegador = await chromium.launch({ channel: "msedge", headless: true });
+
+// ── Recortar, reproducir y guardar, con una grabación de `duracion` segundos ──────────
+{
+  const { url, apagar } = await servir(duracion);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  const pista = pagina.locator("[data-pista]");
+  await pista.waitFor();
+  await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  const caja = await pista.boundingBox();
+  const total = duracion * 1000;
+  const xDe = (parte) => caja.x + caja.width * parte;
+  const yMedio = caja.y + caja.height / 2;
+
+  /** Arrastra un asa hasta esa parte de la tira, en pasos, como una mano. */
+  async function arrastrar(nombre, parte) {
+    const asa = await pagina.getByRole("slider", { name: nombre }).boundingBox();
+    await pagina.mouse.move(asa.x + asa.width / 2, asa.y + asa.height / 2);
+    await pagina.mouse.down();
+    await pagina.mouse.move(xDe(parte), yMedio, { steps: 12 });
+    await pagina.mouse.up();
+  }
+
+  console.log(`\nRecortar una grabación de ${duracion} s en Edge, a 1440 x 842`);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "1-abierto.png") });
+
+  await arrastrar(/Principio/, 0.25);
+  const tiempoEnElCorte = await pagina.evaluate(() => document.querySelector("video").currentTime);
+  comprueba(
+    Math.abs(tiempoEnElCorte * 1000 - total * 0.25) < 150,
+    `al soltar el principio en el 25 %, la vista previa enseña ${tiempoEnElCorte.toFixed(2)} s (debía ${(total * 0.25) / 1000} s)`,
+  );
+  await arrastrar(/Final/, 0.7);
+  const desde = Number(await pagina.getByRole("slider", { name: /Principio/ }).getAttribute("aria-valuenow"));
+  const hasta = Number(await pagina.getByRole("slider", { name: /Final/ }).getAttribute("aria-valuenow"));
+  comprueba(Math.abs(desde - total * 0.25) < 150, `el principio queda en ${desde} ms`);
+  comprueba(Math.abs(hasta - total * 0.7) < 150, `el final queda en ${hasta} ms`);
+  const texto = await pagina.getByText(/Te quedas con/).textContent();
+  comprueba(/Te quedas con 0:13\.\d de 0:30\.0/.test(texto) || duracion !== 30, `debajo dice «${texto}»`);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "2-recortado.png") });
+
+  // Reproducir: se apunta el tiempo del vídeo en cada pintada, desde el clic hasta que
+  // se para solo. Así se ve dónde empezó y hasta dónde llegó de verdad.
+  // Se apunta hasta que se pare solo después de haber sonado, no un número fijo de
+  // pintadas: Edge sin ventana pinta a unas 240 por segundo, y un tope de 2000 se llenaba
+  // a los ocho segundos, parecía que el vídeo se paraba antes de tiempo y era el medidor.
+  await pagina.evaluate(() => {
+    const v = document.querySelector("video");
+    v.currentTime = 0;
+    window.__tiempos = [];
+    const empieza = performance.now();
+    const apuntar = () => {
+      window.__tiempos.push({ t: v.currentTime * 1000, parado: v.paused });
+      const sono = window.__tiempos.some((m) => !m.parado);
+      if (!(sono && v.paused) && performance.now() - empieza < 120_000) requestAnimationFrame(apuntar);
+    };
+    requestAnimationFrame(apuntar);
+  });
+  await pagina.getByRole("button", { name: "Reproducir" }).click();
+  const margen = 3000 + (hasta - desde);
+  await pagina.waitForFunction(
+    () => {
+      const v = document.querySelector("video");
+      return v.paused && window.__tiempos.some((m) => !m.parado);
+    },
+    undefined,
+    { timeout: margen + 5000 },
+  );
+  const tiempos = await pagina.evaluate(() => window.__tiempos);
+  const sonando = tiempos.filter((m) => !m.parado).map((m) => m.t);
+  const empezo = Math.min(...sonando);
+  const llego = Math.max(...tiempos.map((m) => m.t));
+  comprueba(Math.abs(empezo - desde) < 120, `el play empieza en ${Math.round(empezo)} ms (el corte está en ${desde})`);
+  comprueba(llego <= hasta + 40, `y se para en ${Math.round(llego)} ms, sin pasarse del final (${hasta})`);
+  comprueba(llego >= hasta - 150, `y llega hasta el final, no se para antes`);
+
+  await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+  await pagina.waitForFunction(() => (window.__llamadas ?? []).some((l) => l.cmd === "export_media"));
+  const peticion = await pagina.evaluate(
+    () => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request,
+  );
+  comprueba(
+    peticion.desdeMs === desde && peticion.hastaMs === hasta,
+    `«Guardar MP4» manda a Rust el tramo ${peticion.desdeMs}-${peticion.hastaMs} ms`,
+  );
+  await pagina.getByText(/Guardado/).waitFor();
+  if (fotos) await pagina.screenshot({ path: join(fotos, "3-guardado.png") });
+
+  await pagina.getByRole("button", { name: "Más ajustes" }).click();
+  await pagina.waitForTimeout(400);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "4-mas-ajustes.png") });
+
+  await pagina.close();
+  apagar();
+}
+
+// ── Diez minutos de grabación: lo que tarda en salir y lo que cuesta arrastrar ─────────
+{
+  const segundos = 600;
+  const { url, apagar } = await servir(segundos);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  console.log(`\nLa línea de tiempo con ${segundos / 60} minutos dentro (${segundos * 30} fotogramas)`);
+  const empieza = Date.now();
+  await pagina.goto(url);
+  const pista = pagina.locator("[data-pista]");
+  await pista.waitFor();
+  const tardo = Date.now() - empieza;
+  const imagenes = await pagina.evaluate(
+    () => document.querySelectorAll("[data-pista] img, [data-pista] [data-miniatura-pendiente]").length,
+  );
+  comprueba(tardo < 3000, `sale en ${tardo} ms`);
+  comprueba(imagenes < 40, `con ${imagenes} miniaturas en la página, no una por fotograma`);
+
+  // Se arrastra el asa del final de punta a punta y se mide cuánto tarda la página en
+  // pintar cada paso: es lo que se nota como «va fluido» o «va a saltos».
+  const caja = await pista.boundingBox();
+  const asa = await pagina.getByRole("slider", { name: /Final/ }).boundingBox();
+  await pagina.evaluate(() => {
+    window.__pintadas = [];
+    let antes = performance.now();
+    const medir = (ahora) => {
+      window.__pintadas.push(ahora - antes);
+      antes = ahora;
+      if (window.__pintadas.length < 600) requestAnimationFrame(medir);
+    };
+    requestAnimationFrame(medir);
+  });
+  await pagina.mouse.move(asa.x + asa.width / 2, asa.y + asa.height / 2);
+  await pagina.mouse.down();
+  const pasos = 60;
+  const t0 = Date.now();
+  for (let i = 1; i <= pasos; i++) {
+    await pagina.mouse.move(caja.x + caja.width * (1 - (0.8 * i) / pasos), caja.y + caja.height / 2);
+  }
+  await pagina.mouse.up();
+  const porPaso = (Date.now() - t0) / pasos;
+  const pintadas = await pagina.evaluate(() => window.__pintadas.slice(2));
+  const peor = Math.max(...pintadas);
+  comprueba(porPaso < 34, `arrastrar el asa: ${porPaso.toFixed(1)} ms por movimiento`);
+  comprueba(peor < 100, `la pintada más lenta mientras se arrastra tarda ${peor.toFixed(0)} ms`);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "5-diez-minutos.png") });
+  await pagina.close();
+  apagar();
+}
+
+await navegador.close();
+console.log(fallos.length ? `\n${fallos.length} cosas no cuadran` : "\nTodo cuadra");
+process.exit(fallos.length ? 1 : 0);
