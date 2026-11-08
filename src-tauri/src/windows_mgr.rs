@@ -967,12 +967,13 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
         OVERLAY_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     );
     let url = WebviewUrl::App(format!("editor.html?session={session_id}").into());
+    let (ancho, alto) = medida_del_editor(app);
     let window = WebviewWindowBuilder::new(app, &label, url)
         .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx · editor")
         .decorations(true)
         .resizable(true)
-        .inner_size(1080.0, 700.0)
+        .inner_size(ancho, alto)
         .min_inner_size(760.0, 520.0)
         .center()
         .visible(true)
@@ -982,6 +983,32 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     let _ = window.set_min_size(Some(LogicalSize::new(760.0, 520.0)));
     window.set_focus()?;
     Ok(())
+}
+
+/// Lo que mide el editor al abrirse, en pixeles logicos: tres cuartos de la pantalla
+/// principal, sin bajar de 1080 x 700 ni pasarse de ella.
+///
+/// Con 1080 x 700 fijos, en una pantalla de 1920 el video se veia a la mitad de lo que
+/// cabe y la barra de herramientas se partia en dos filas: para afinar un corte en la linea
+/// de tiempo habia que maximizar antes. En un portatil de 1366 se queda como siempre.
+fn medida_del_editor(app: &AppHandle) -> (f64, f64) {
+    match app.primary_monitor() {
+        Ok(Some(m)) => {
+            let escala = m.scale_factor().max(0.5);
+            medida_para(
+                f64::from(m.size().width) / escala,
+                f64::from(m.size().height) / escala,
+            )
+        }
+        _ => (1080.0, 700.0),
+    }
+}
+
+fn medida_para(ancho: f64, alto: f64) -> (f64, f64) {
+    let w = (ancho * 0.75).max(1080.0).min(ancho * 0.95);
+    let h = (alto * 0.78).max(700.0).min(alto * 0.9);
+    // Hacia abajo: redondear hacia arriba podia pasarse un pixel del tope.
+    (w.floor(), h.floor())
 }
 
 /// Deja la captura flotando encima de todo, para tenerla a la vista mientras se trabaja.
@@ -1103,6 +1130,19 @@ fn force_foreground(window: &tauri::WebviewWindow) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn el_editor_abre_a_tres_cuartos_de_una_pantalla_de_1920() {
+        assert_eq!(medida_para(1920.0, 1080.0), (1440.0, 842.0));
+    }
+
+    #[test]
+    fn en_una_pantalla_pequenna_se_queda_como_siempre_sin_salirse() {
+        assert_eq!(medida_para(1366.0, 768.0), (1080.0, 691.0));
+        // Y una pantalla mas estrecha que el minimo no lo saca por los lados.
+        let (ancho, alto) = medida_para(1024.0, 600.0);
+        assert!(ancho <= 1024.0 * 0.95 && alto <= 600.0 * 0.9, "{ancho} x {alto}");
+    }
 
     fn monitor(x: i32, y: i32, ancho: i32, alto: i32) -> MonitorSitio {
         MonitorSitio {
