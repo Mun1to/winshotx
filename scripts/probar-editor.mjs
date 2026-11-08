@@ -183,6 +183,43 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   await pagina.getByRole("button", { name: "Más ajustes" }).click();
   await pagina.waitForTimeout(400);
   if (fotos) await pagina.screenshot({ path: join(fotos, "4-mas-ajustes.png") });
+  await pagina.getByRole("button", { name: "Más ajustes" }).click();
+
+  // El estudio: elegir un fondo lo pinta en la vista previa, con aire y esquinas, y es lo
+  // que viaja a Rust al guardar.
+  await pagina.getByRole("button", { name: "Noche" }).click();
+  await pagina.waitForTimeout(300);
+  const marco = await pagina.evaluate(() => {
+    const el = document.querySelector('[data-marco="noche"]');
+    const imagen = el?.firstElementChild;
+    return el && imagen
+      ? {
+          fondo: getComputedStyle(el).backgroundImage,
+          aire: parseFloat(getComputedStyle(el).paddingLeft),
+          esquinas: parseFloat(getComputedStyle(imagen).borderTopLeftRadius),
+          sombra: getComputedStyle(imagen).boxShadow,
+        }
+      : null;
+  });
+  comprueba(marco !== null && marco.fondo.includes("gradient"), `la vista previa pinta el fondo elegido (${marco?.fondo.slice(0, 40)}…)`);
+  comprueba((marco?.aire ?? 0) > 8, `con aire alrededor: ${marco?.aire} px`);
+  comprueba((marco?.esquinas ?? 0) > 2, `y las esquinas redondeadas: ${marco?.esquinas} px`);
+  comprueba(Boolean(marco?.sombra) && marco.sombra !== "none", "y la sombra");
+  await pagina.getByRole("switch", { name: /Esconderlo cuando no se mueve/ }).click();
+  if (fotos) await pagina.screenshot({ path: join(fotos, "6-estudio.png") });
+  await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+  await pagina.waitForFunction(() => window.__llamadas.filter((l) => l.cmd === "export_media").length >= 2);
+  const conEstudio = await pagina.evaluate(
+    () => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request,
+  );
+  comprueba(
+    conEstudio.background === "noche" && conEstudio.margin > 0 && conEstudio.corners > 0,
+    `«Guardar» manda el fondo noche con ${conEstudio.margin} px de aire y ${conEstudio.corners} de esquinas`,
+  );
+  comprueba(
+    conEstudio.smoothCursor === true && conEstudio.hideIdleCursor === true,
+    "y el puntero suave y que se esconde",
+  );
 
   await pagina.close();
   apagar();
