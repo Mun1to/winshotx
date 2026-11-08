@@ -790,6 +790,8 @@ pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::Ex
         engine: "native".into(),
         from: 0,
         to: session.frames.len().saturating_sub(1),
+        desde_ms: None,
+        hasta_ms: None,
         width: session.width,
         height: session.height,
         fps: session.fps.min(30),

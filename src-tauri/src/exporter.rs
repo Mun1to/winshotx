@@ -21,6 +21,18 @@ pub struct ExportRequest {
     pub engine: String,
     pub from: usize,
     pub to: usize,
+    /// Donde empieza lo que se exporta, en milisegundos de la grabacion. Lo manda la linea
+    /// de tiempo del editor, y con el manda el reloj sobre `from`.
+    ///
+    /// Va en milisegundos y no en fotogramas porque una pantalla quieta es UN fotograma que
+    /// dura lo que dure la quietud: Windows no manda otro mientras nada cambia. Cortando por
+    /// fotogramas, los diez segundos parados del final de una grabacion se quitaban enteros
+    /// o se dejaban enteros, pero no se podian cortar por la mitad.
+    #[serde(default)]
+    pub desde_ms: Option<u64>,
+    /// Y donde acaba, sin incluirlo. Igual que `desde_ms`, manda sobre `to`.
+    #[serde(default)]
+    pub hasta_ms: Option<u64>,
     pub width: u32,
     pub height: u32,
     pub fps: u32,
@@ -102,6 +114,10 @@ struct ExportProgress {
 /// original y cada fotograma elegido sigue durando lo que dura uno a los fps pedidos. Asi
 /// el resultado tiene los fps que se pidieron y la mitad de duracion, en vez de un video
 /// con retardos imposibles de cinco milisegundos que ningun GIF sabe representar.
+///
+/// Por fotogramas enteros, como pedia el editor antes de la linea de tiempo. Ya solo lo usan
+/// las pruebas, que siguen comprobando ese reparto; exportar va por `resample_tramo`.
+#[cfg(test)]
 fn resample(
     session: &SessionData,
     from: usize,
@@ -109,43 +125,58 @@ fn resample(
     fps: u32,
     velocidad: f32,
 ) -> (Vec<usize>, Vec<u32>) {
-    // Sin un solo fotograma no hay nada que recortar, y el `&frames[from..=to]` de abajo
-    // revienta con "range end index 0 out of range for slice of length 0". Quien llama
-    // rechaza la lista vacia igual, pero con un error que se puede leer.
-    if session.frames.is_empty() {
+    let (desde, hasta) = tramo_de(session, from, to, None, None);
+    resample_tramo(session, desde, hasta, fps, velocidad)
+}
+
+/// Lo mismo, pero sobre un tramo de reloj: de `desde_ms` a `hasta_ms`, sin incluirlo.
+///
+/// Cada paso coge el fotograma que SE ESTABA VIENDO en ese instante, que es el ultimo que
+/// empezo antes, no el primero de despues: una pantalla quieta no manda fotogramas, asi
+/// que cortar dentro de una quietud tiene que dar esa quietud, no el fotograma siguiente.
+fn resample_tramo(
+    session: &SessionData,
+    desde_ms: u64,
+    hasta_ms: u64,
+    fps: u32,
+    velocidad: f32,
+) -> (Vec<usize>, Vec<u32>) {
+    let frames = &session.frames;
+    // Sin un solo fotograma no hay nada que recortar. Quien llama rechaza la lista vacia
+    // igual, pero con un error que se puede leer en vez de un panic a mitad de exportar.
+    if frames.is_empty() {
         return (Vec::new(), Vec::new());
     }
-    let from = from.min(session.frames.len().saturating_sub(1));
-    let to = to.min(session.frames.len().saturating_sub(1)).max(from);
-    let slice = &session.frames[from..=to];
     let step_ms = (1000.0 / fps.max(1) as f32).round() as u64;
     // Lo que se avanza por la grabacion en cada paso. A 1x es el mismo paso de siempre.
     let paso_origen = ((step_ms as f32 * velocidad).round() as u64).max(1);
-    let start_ms = slice.first().map(|f| f.timestamp_ms).unwrap_or(0);
-    let end_ms = slice
-        .last()
-        .map(|f| f.timestamp_ms + f.duration_ms as u64)
-        .unwrap_or(start_ms);
+    let mut cursor = frames
+        .partition_point(|f| f.timestamp_ms <= desde_ms)
+        .saturating_sub(1);
+    // Ninguno que empiece en el corte final o despues puede colarse, aunque la duracion
+    // minima de diez milisegundos haga que el anterior parezca llegar hasta el.
+    let ultimo = frames
+        .partition_point(|f| f.timestamp_ms < hasta_ms)
+        .saturating_sub(1)
+        .max(cursor);
 
     let mut indices = Vec::new();
     let mut delays = Vec::new();
-    let mut cursor = 0usize;
-    let mut t = start_ms;
-    while t < end_ms {
-        while cursor + 1 < slice.len() && slice[cursor + 1].timestamp_ms <= t {
+    let mut t = desde_ms;
+    while t < hasta_ms {
+        while cursor < ultimo && frames[cursor + 1].timestamp_ms <= t {
             cursor += 1;
         }
         // El ultimo paso se recorta: el clip exportado dura lo que dura el recorte, y a
         // velocidad distinta de 1 lo que sobra tambien se mide en el tiempo del resultado.
-        let queda = end_ms - t;
+        let queda = hasta_ms - t;
         let slot = if queda >= paso_origen {
             step_ms
         } else {
             ((queda as f32 / velocidad).round() as u64).max(1)
         } as u32;
-        let picked = from + cursor;
-        if indices.last() != Some(&picked) {
-            indices.push(picked);
+        if indices.last() != Some(&cursor) {
+            indices.push(cursor);
             delays.push(slot);
         } else if let Some(last) = delays.last_mut() {
             // El mismo fotograma se queda en pantalla mas tiempo en vez de repetirse.
@@ -155,10 +186,51 @@ fn resample(
     }
 
     if indices.is_empty() {
-        indices.push(from);
+        indices.push(cursor);
         delays.push(step_ms.max(20) as u32);
     }
     (indices, delays)
+}
+
+/// El tramo de reloj que se exporta, metido dentro de la grabacion y nunca vacio.
+///
+/// Con `desde_ms` y `hasta_ms` manda el reloj; sin ellos, los fotogramas `from` y `to`
+/// enteros, que es como pedia el editor antes de la linea de tiempo y como siguen pidiendo
+/// las fotos (un PNG es UN fotograma, no un tramo).
+fn tramo_de(
+    session: &SessionData,
+    from: usize,
+    to: usize,
+    desde_ms: Option<u64>,
+    hasta_ms: Option<u64>,
+) -> (u64, u64) {
+    let frames = &session.frames;
+    let (Some(primero), Some(ultimo)) = (frames.first(), frames.last()) else {
+        return (0, 0);
+    };
+    let inicio = primero.timestamp_ms;
+    let fin = ultimo.timestamp_ms + u64::from(ultimo.duration_ms);
+    let from = from.min(frames.len() - 1);
+    let to = to.min(frames.len() - 1).max(from);
+    let desde = desde_ms
+        .unwrap_or(frames[from].timestamp_ms)
+        .clamp(inicio, fin);
+    let mut hasta = hasta_ms
+        .unwrap_or(frames[to].timestamp_ms + u64::from(frames[to].duration_ms))
+        .clamp(inicio, fin);
+    // Al reves o del mismo tamanno que nada: se exporta lo minimo que se puede ver, en vez
+    // de un archivo vacio que no abre ningun reproductor.
+    if hasta <= desde {
+        hasta = (desde + 1).min(fin);
+    }
+    (desde.min(hasta.saturating_sub(1)), hasta)
+}
+
+impl ExportRequest {
+    /// El tramo de reloj de esta peticion. Ver `tramo_de`.
+    fn tramo(&self, session: &SessionData) -> (u64, u64) {
+        tramo_de(session, self.from, self.to, self.desde_ms, self.hasta_ms)
+    }
 }
 
 /// La velocidad, ya acotada. Fuera de este rango deja de ser un video: a 0,2 son
@@ -309,13 +381,9 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             path
         }
         "gif" => {
-            let (indices, delays) = resample(
-                &session,
-                request.from,
-                request.to,
-                request.fps,
-                request.velocidad(),
-            );
+            let (desde, hasta) = request.tramo(&session);
+            let (indices, delays) =
+                resample_tramo(&session, desde, hasta, request.fps, request.velocidad());
             let path = destination_path(app, &request, "gif")?;
             if request.engine == "ffmpeg" && ffmpeg::available() {
                 let temporary = session.dir.join("export-source.mp4");
@@ -366,13 +434,9 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
             path
         }
         "mp4" => {
-            let (indices, delays) = resample(
-                &session,
-                request.from,
-                request.to,
-                request.fps,
-                request.velocidad(),
-            );
+            let (desde, hasta) = request.tramo(&session);
+            let (indices, delays) =
+                resample_tramo(&session, desde, hasta, request.fps, request.velocidad());
             let path = destination_path(app, &request, "mp4")?;
             if request.engine == "ffmpeg" && ffmpeg::available() {
                 let temporary = session.dir.join("export-source.mp4");
@@ -779,7 +843,10 @@ where
         // tocar el tono es otro problema entero, y dejarla tal cual la despegaria de la
         // imagen desde el primer segundo. El panel lo dice antes de exportar.
         (request.audio && (request.velocidad() - 1.0).abs() < f32::EPSILON)
-            .then(|| pista_de_audio(session, indices))
+            .then(|| {
+                let (desde, hasta) = request.tramo(session);
+                pista_de_audio(session, desde, hasta)
+            })
             .flatten(),
         |stage, done, total| emit(stage, done, total),
     )
@@ -787,17 +854,15 @@ where
 
 /// El trozo de sonido que le toca al recorte que se esta exportando.
 ///
-/// El usuario recorta por fotogramas, asi que el tramo va del primero al ultimo de los
-/// que se exportan. Sin esto el video que guarda sale mudo, aunque la grabacion tuviera
-/// sonido: exportar vuelve a codificar desde los fotogramas, y ahi no hay audio ninguno.
-fn pista_de_audio(session: &SessionData, indices: &[usize]) -> Option<mp4::Pista> {
+/// Es el MISMO tramo de reloj que la imagen (`ExportRequest::tramo`): si el sonido se
+/// midiera por su cuenta, un corte a mitad de una pantalla quieta dejaria la voz
+/// empezando antes que el video. Sin esto el video que guarda sale mudo, aunque la
+/// grabacion tuviera sonido: exportar vuelve a codificar desde los fotogramas, y ahi no
+/// hay audio ninguno.
+fn pista_de_audio(session: &SessionData, desde: u64, hasta: u64) -> Option<mp4::Pista> {
     use std::io::{Seek, SeekFrom};
 
     let info = session.audio?;
-    let primero = session.frames.get(*indices.first()?)?;
-    let ultimo = session.frames.get(*indices.last()?)?;
-    let desde = primero.timestamp_ms;
-    let hasta = ultimo.timestamp_ms + u64::from(ultimo.duration_ms);
     let (inicio, largo) = info.tramo(desde, hasta);
     if largo == 0 {
         return None;
@@ -900,7 +965,7 @@ mod tests {
     use crate::capture::Rect;
     use crate::record::FrameEntry;
 
-    fn session_with(durations: &[u32]) -> SessionData {
+    pub(super) fn session_with(durations: &[u32]) -> SessionData {
         let mut timestamp = 0u64;
         let frames = durations
             .iter()
@@ -1164,6 +1229,91 @@ mod tests {
         assert!(indices.is_empty(), "de una lista vacia no sale ningun indice");
         assert!(delays.is_empty(), "ni ninguna duracion");
     }
+
+    /// Diez segundos de pantalla quieta son UN fotograma. Desde la linea de tiempo se tiene
+    /// que poder cortar por dentro de el, que es el caso normal: quitar el rato que se
+    /// tardo en ir a pulsar parar.
+    #[test]
+    fn se_puede_cortar_por_dentro_de_una_pantalla_quieta() {
+        let session = session_with(&[100, 10_000, 100]);
+        let (indices, delays) = resample_tramo(&session, 3_100, 5_100, 30, 1.0);
+        assert_eq!(indices, vec![1], "solo se ve la quietud");
+        assert_eq!(delays.iter().sum::<u32>(), 2_000, "y dura los dos segundos cortados");
+    }
+
+    #[test]
+    fn el_tramo_dura_exactamente_lo_que_se_corto() {
+        let session = session_with(&[33; 300]);
+        let (_, delays) = resample_tramo(&session, 1_234, 5_678, 30, 1.0);
+        assert_eq!(delays.iter().sum::<u32>(), 5_678 - 1_234);
+    }
+
+    #[test]
+    fn el_primero_es_el_que_se_estaba_viendo_en_el_corte() {
+        let session = session_with(&[100, 100, 100]);
+        let (indices, _) = resample_tramo(&session, 150, 300, 20, 1.0);
+        assert_eq!(indices.first(), Some(&1));
+    }
+
+    #[test]
+    fn ninguno_que_empiece_en_el_corte_final_se_cuela() {
+        let session = session_with(&[100, 100, 100]);
+        let (indices, _) = resample_tramo(&session, 0, 200, 20, 1.0);
+        assert!(!indices.contains(&2), "el tercero empieza en 200: {indices:?}");
+    }
+
+    #[test]
+    fn sin_milisegundos_se_corta_por_fotogramas_como_siempre() {
+        let session = session_with(&[50; 8]);
+        assert_eq!(tramo_de(&session, 2, 4, None, None), (100, 250));
+    }
+
+    #[test]
+    fn con_milisegundos_manda_el_reloj() {
+        let session = session_with(&[50; 8]);
+        assert_eq!(tramo_de(&session, 0, 7, Some(120), Some(330)), (120, 330));
+    }
+
+    #[test]
+    fn un_tramo_que_se_sale_de_la_grabacion_se_mete_dentro() {
+        let session = session_with(&[50; 8]);
+        assert_eq!(tramo_de(&session, 0, 7, Some(0), Some(90_000)), (0, 400));
+        let (desde, hasta) = tramo_de(&session, 0, 7, Some(9_000), Some(9_500));
+        assert!(desde < hasta && hasta <= 400, "{desde}..{hasta}");
+    }
+
+    #[test]
+    fn un_tramo_al_reves_no_deja_un_archivo_vacio() {
+        let session = session_with(&[50; 8]);
+        let (desde, hasta) = tramo_de(&session, 0, 7, Some(300), Some(100));
+        assert!(hasta > desde, "{desde}..{hasta}");
+    }
+
+    /// El sonido sale del MISMO tramo de reloj que la imagen, al milisegundo: cortado a
+    /// mitad de una pantalla quieta, la voz no puede empezar donde empezaba el fotograma.
+    #[test]
+    fn el_sonido_sale_del_mismo_tramo_que_la_imagen() {
+        let dir = std::env::temp_dir().join(format!("winshotx-pista-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut session = session_with(&[100, 10_000, 100]);
+        session.dir = dir.clone();
+        session.audio = Some(record::AudioInfo {
+            channels: 2,
+            sample_rate: 48_000,
+        });
+        // Cada milisegundo lleva escrito su numero, para saber que trozo ha salido.
+        let por_ms = 192usize;
+        let mut pcm = Vec::with_capacity(10_200 * por_ms);
+        for ms in 0..10_200u32 {
+            pcm.extend(std::iter::repeat((ms % 251) as u8).take(por_ms));
+        }
+        std::fs::write(session.audio_path(), &pcm).unwrap();
+
+        let pista = pista_de_audio(&session, 3_100, 5_100).expect("sin pista");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(pista.datos.len(), 2_000 * por_ms, "dura lo que el corte");
+        assert_eq!(pista.datos[0], (3_100 % 251) as u8, "empieza en el corte");
+    }
 }
 
 /// El orden entero de exportar una imagen: recortar, escalar, anotar y enmarcar.
@@ -1192,6 +1342,8 @@ mod el_orden_de_exportar {
             engine: "native".into(),
             from: 0,
             to: 0,
+            desde_ms: None,
+            hasta_ms: None,
             width: 200,
             height: 200,
             fps: 30,
@@ -1507,6 +1659,8 @@ mod la_camara_del_exportador {
             engine: "native".into(),
             from: 0,
             to: 0,
+            desde_ms: None,
+            hasta_ms: None,
             width: 400,
             height: 300,
             fps: 30,
@@ -1980,5 +2134,168 @@ mod medir {
             session.frames.len()
         );
         let _ = std::fs::remove_file(&destino);
+    }
+}
+
+/// El recorte de la linea de tiempo, de punta a punta y con las piezas de verdad: una
+/// grabacion escrita en disco con la cache de siempre, un tramo cortado al milisegundo
+/// (dentro de una pantalla quieta, que es el caso que por fotogramas no se podia), el
+/// codificador de Windows, y el MP4 abierto despues con ffprobe para mirar lo que se lleva
+/// quien lo guarda: cuanto dura la imagen, cuanto dura el sonido y de que color son el
+/// primer y el ultimo fotograma.
+///
+///     cargo test --release --lib recortar_de_punta_a_punta -- --ignored --nocapture
+///
+/// Ignorada porque necesita el codificador por hardware de Windows y ffmpeg en el PATH.
+#[cfg(all(test, windows))]
+mod recortar_de_punta_a_punta {
+    use super::*;
+    use crate::record::FrameCache;
+    use std::process::Command;
+
+    const ANCHO: u32 = 320;
+    const ALTO: u32 = 240;
+    const ROJO: [u8; 3] = [220, 40, 40];
+    const VERDE: [u8; 3] = [40, 200, 60];
+    const AZUL: [u8; 3] = [40, 80, 230];
+    const AMARILLO: [u8; 3] = [230, 210, 40];
+
+    /// Un fondo de un color con un cuadro blanco en `x`, para que haya movimiento de verdad.
+    fn fotograma(color: [u8; 3], x: u32) -> Vec<u8> {
+        let mut rgba = Vec::with_capacity((ANCHO * ALTO * 4) as usize);
+        for fila in 0..ALTO {
+            for col in 0..ANCHO {
+                let blanco = (x..x + 24).contains(&col) && (100..124).contains(&fila);
+                let [r, g, b] = if blanco { [255, 255, 255] } else { color };
+                rgba.extend_from_slice(&[r, g, b, 255]);
+            }
+        }
+        rgba
+    }
+
+    /// El color medio de un fotograma del MP4, sacado con ffmpeg reduciendolo a un pixel.
+    fn color_medio(mp4: &Path, del_final: bool) -> Option<[u8; 3]> {
+        let mut orden = Command::new("ffmpeg");
+        orden.args(["-v", "error"]);
+        if del_final {
+            orden.args(["-sseof", "-0.3"]);
+        }
+        orden.arg("-i").arg(mp4).args([
+            "-vf",
+            "scale=1:1:flags=area",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "-",
+        ]);
+        let salida = orden.output().ok()?.stdout;
+        // Del principio vale el primero; del final, el ultimo de los que salen.
+        let trozo = if del_final { salida.get(salida.len().checked_sub(3)?..)? } else { salida.get(..3)? };
+        Some([trozo[0], trozo[1], trozo[2]])
+    }
+
+    /// Lo que dura cada pista del MP4, segun ffprobe: `(video, sonido)` en segundos.
+    fn duraciones(mp4: &Path) -> Option<(f64, Option<f64>)> {
+        let salida = Command::new("ffprobe")
+            .args(["-v", "error", "-show_entries", "stream=codec_type,duration", "-of", "csv=p=0"])
+            .arg(mp4)
+            .output()
+            .ok()?;
+        let texto = String::from_utf8_lossy(&salida.stdout).to_string();
+        let mut video = None;
+        let mut sonido = None;
+        for linea in texto.lines() {
+            let mut partes = linea.split(',');
+            let tipo = partes.next()?;
+            let segundos: f64 = partes.next()?.trim().parse().ok()?;
+            match tipo {
+                "video" => video = Some(segundos),
+                "audio" => sonido = Some(segundos),
+                _ => {}
+            }
+        }
+        Some((video?, sonido))
+    }
+
+    #[test]
+    #[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
+    fn recortar_de_punta_a_punta() {
+        if Command::new("ffprobe").arg("-version").output().is_err() {
+            eprintln!("sin ffprobe en el PATH no se puede abrir el MP4: no compruebo nada");
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("winshotx-recorte-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Dos segundos moviendose (rojo y verde), SEIS de pantalla quieta en azul, que es
+        // UN solo fotograma, y uno mas moviendose en amarillo.
+        let mut cache = FrameCache::new(&dir).expect("cache");
+        let mut ts = 0u64;
+        while ts < 2_000 {
+            let color = if ts < 1_000 { ROJO } else { VERDE };
+            cache.push_rgba(&fotograma(color, (ts / 10) as u32 % 290), ANCHO, ALTO, ts).unwrap();
+            ts += 33;
+        }
+        cache.push_rgba(&fotograma(AZUL, 150), ANCHO, ALTO, 2_000).unwrap();
+        let mut ts = 8_000u64;
+        while ts < 9_000 {
+            cache.push_rgba(&fotograma(AMARILLO, (ts / 10) as u32 % 290), ANCHO, ALTO, ts).unwrap();
+            ts += 33;
+        }
+        let frames = cache.finish(9_000, 30).expect("cerrar la cache");
+
+        // Nueve segundos de sonido, para comprobar que se corta con la imagen.
+        let audio = record::AudioInfo { channels: 2, sample_rate: 48_000 };
+        let bytes_por_ms = audio.bytes_por_ms() as usize;
+        let pcm: Vec<u8> = (0..9_000 * bytes_por_ms).map(|i| ((i / 7) % 200) as u8).collect();
+
+        let mut session = super::tests::session_with(&[]);
+        session.dir = dir.clone();
+        session.width = ANCHO;
+        session.height = ALTO;
+        session.region = crate::capture::Rect { x: 0, y: 0, width: ANCHO, height: ALTO };
+        session.fps = 30;
+        session.has_audio = true;
+        session.audio = Some(audio);
+        session.frames = frames;
+        std::fs::write(session.audio_path(), &pcm).unwrap();
+        let quieto = session.frames.iter().find(|f| f.timestamp_ms == 2_000).expect("el azul");
+        assert_eq!(quieto.duration_ms, 6_000, "la quietud tiene que ser UN fotograma de seis segundos");
+
+        // Lo que manda la linea de tiempo: de dentro de la quietud a dentro del amarillo.
+        let mut peticion = crate::recorder::peticion_por_defecto(&session);
+        peticion.desde_ms = Some(3_000);
+        peticion.hasta_ms = Some(8_500);
+        peticion.cursor = 0.0;
+        peticion.audio = true;
+        let destino = dir.join("recortado.mp4");
+        let empieza = Instant::now();
+        let (desde, hasta) = peticion.tramo(&session);
+        let (indices, retardos) = resample_tramo(&session, desde, hasta, peticion.fps, 1.0);
+        encode_mp4(&session, &indices, &retardos, &destino, &peticion, &|_, _, _| {})
+            .expect("exportar");
+        let tardo = empieza.elapsed();
+
+        let (video, sonido) = duraciones(&destino).expect("ffprobe no ha leido el MP4");
+        let primero = color_medio(&destino, false).expect("primer fotograma");
+        let ultimo = color_medio(&destino, true).expect("ultimo fotograma");
+        println!(
+            "recortado de 3,0 s a 8,5 s: imagen {video:.3} s, sonido {:?} s, primero {primero:?}, \
+             ultimo {ultimo:?}, {} fotogramas exportados en {} ms",
+            sonido,
+            indices.len(),
+            tardo.as_millis()
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+
+        assert!((video - 5.5).abs() < 0.1, "la imagen dura {video} s y se cortaron 5,5");
+        let sonido = sonido.expect("el MP4 ha salido sin sonido");
+        assert!((sonido - 5.5).abs() < 0.1, "el sonido dura {sonido} s y se cortaron 5,5");
+        let [r, g, b] = primero;
+        assert!(b > r + 60 && b > g + 60, "el primero tenia que ser el azul quieto: {primero:?}");
+        let [r, g, b] = ultimo;
+        assert!(r > b + 60 && g > b + 60, "el ultimo tenia que ser el amarillo: {ultimo:?}");
     }
 }
