@@ -106,11 +106,13 @@ mod tests {
 
         for calidad in [50u8, 80, 100] {
             let nuevo = dir.join("nuevo.gif");
+            let mut muestra = |i: usize| Ok(frames[i].clone());
             let mut loader = |i: usize| Ok(frames[i].clone());
             let t = Instant::now();
             encode(
                 &indices,
                 &delays,
+                &mut muestra,
                 &mut loader,
                 &nuevo,
                 &GifOptions { width: ancho, height: alto, quality: calidad, loop_forever: true },

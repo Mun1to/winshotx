@@ -99,10 +99,12 @@ fn exporta_un_gif_valido_y_mas_pequenno_que_los_fotogramas_crudos() {
     let delays = vec![40u32; frames.len()];
     let path = dir.join("salida.gif");
 
+    let mut muestra = |index: usize| Ok(frames[index].clone());
     let mut loader = |index: usize| Ok(frames[index].clone());
     gif_encoder::encode(
         &indices,
         &delays,
+        &mut muestra,
         &mut loader,
         &path,
         &gif_encoder::GifOptions {
@@ -340,10 +342,12 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
     let delays: Vec<u32> = session.frames.iter().map(|f| f.duration_ms).collect();
 
     let gif_path = dir.join("clip.gif");
+    let mut muestra = |index: usize| record::read_frame(&session, index);
     let mut loader = |index: usize| record::read_frame(&session, index);
     gif_encoder::encode(
         &indices,
         &delays,
+        &mut muestra,
         &mut loader,
         &gif_path,
         &gif_encoder::GifOptions {

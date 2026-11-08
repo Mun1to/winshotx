@@ -84,6 +84,22 @@ pub struct ExportRequest {
     /// grabar, como todo lo demas del estudio.
     #[serde(default = "velocidad_normal")]
     pub speed: f32,
+    /// Quitarle al puntero dibujado los temblores de la mano.
+    #[serde(default)]
+    pub smooth_cursor: bool,
+    /// Apagar el puntero dibujado cuando lleva un rato quieto.
+    #[serde(default)]
+    pub hide_idle_cursor: bool,
+    /// El radio de las esquinas de la captura cuando va sobre un fondo, en pixeles.
+    #[serde(default)]
+    pub corners: u32,
+    /// El volumen del sonido exportado: 1 es como se grabo, 0 mudo y 2 el doble.
+    #[serde(default = "velocidad_normal")]
+    pub volume: f32,
+    /// A que velocidad se acerca y se aleja el zoom: 1 es la de siempre, 2 el doble de
+    /// rapido. Ver `zoom::Ajustes::a_velocidad`.
+    #[serde(default = "velocidad_normal")]
+    pub zoom_speed: f32,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
 }
@@ -129,11 +145,10 @@ fn resample(
     resample_tramo(session, desde, hasta, fps, velocidad)
 }
 
-/// Lo mismo, pero sobre un tramo de reloj: de `desde_ms` a `hasta_ms`, sin incluirlo.
-///
-/// Cada paso coge el fotograma que SE ESTABA VIENDO en ese instante, que es el ultimo que
-/// empezo antes, no el primero de despues: una pantalla quieta no manda fotogramas, asi
-/// que cortar dentro de una quietud tiene que dar esa quietud, no el fotograma siguiente.
+/// Lo mismo, pero sobre un tramo de reloj: de `desde_ms` a `hasta_ms`, sin incluirlo, y
+/// juntando siempre los pasos que repiten fotograma (sin estudio encima se ven igual). Ya
+/// solo lo usan las pruebas del reparto; exportar va por `pasos_de`.
+#[cfg(test)]
 fn resample_tramo(
     session: &SessionData,
     desde_ms: u64,
@@ -141,11 +156,62 @@ fn resample_tramo(
     fps: u32,
     velocidad: f32,
 ) -> (Vec<usize>, Vec<u32>) {
+    let p = pasos(session, desde_ms, hasta_ms, fps, velocidad, &|_, _| true);
+    (p.indices, p.retardos)
+}
+
+/// Lo que se escribe, paso a paso: qué fotograma de la grabacion va en cada uno, cuanto
+/// dura, y en que instante de la grabacion cae.
+///
+/// El instante hace falta porque el estudio (el puntero, los aros, la pastilla, la camara)
+/// se dibuja en el momento del PASO y no en el del fotograma. Una pantalla quieta es UN
+/// fotograma de varios segundos (Windows no manda otro mientras nada cambia, y el puntero
+/// ya no va dentro), asi que dibujarlo en el instante del fotograma dejaba el raton clavado
+/// donde estaba cuando llego, y la camara del zoom igual, aunque se moviera por encima.
+#[derive(Debug, Default)]
+struct Pasos {
+    indices: Vec<usize>,
+    retardos: Vec<u32>,
+    tiempos: Vec<u64>,
+}
+
+impl Pasos {
+    /// Los fotogramas distintos en el orden en que se usan: lo que hay que leer del disco.
+    fn a_leer(&self) -> Vec<usize> {
+        let mut leer = self.indices.clone();
+        leer.dedup();
+        leer
+    }
+
+    /// Las posiciones 0, 1, 2... que reciben los codificadores: cada una es un paso.
+    fn posiciones(&self) -> Vec<usize> {
+        (0..self.indices.len()).collect()
+    }
+}
+
+/// Los pasos de un tramo de reloj, de `desde_ms` a `hasta_ms` sin incluirlo.
+///
+/// Cada paso coge el fotograma que SE ESTABA VIENDO en ese instante, que es el ultimo que
+/// empezo antes, no el primero de despues: una pantalla quieta no manda fotogramas, asi
+/// que cortar dentro de una quietud tiene que dar esa quietud, no el fotograma siguiente.
+///
+/// Un paso se junta con el anterior (que dura mas, en vez de escribirse otra vez) cuando es
+/// el mismo fotograma Y `igual` dice que, vestidos, se ven igual. Asi una pantalla quieta
+/// con el raton quieto sigue costando un fotograma, y con el raton moviendose, los que hagan
+/// falta para verlo moverse.
+fn pasos(
+    session: &SessionData,
+    desde_ms: u64,
+    hasta_ms: u64,
+    fps: u32,
+    velocidad: f32,
+    igual: &dyn Fn(u64, u64) -> bool,
+) -> Pasos {
     let frames = &session.frames;
     // Sin un solo fotograma no hay nada que recortar. Quien llama rechaza la lista vacia
     // igual, pero con un error que se puede leer en vez de un panic a mitad de exportar.
     if frames.is_empty() {
-        return (Vec::new(), Vec::new());
+        return Pasos::default();
     }
     let step_ms = (1000.0 / fps.max(1) as f32).round() as u64;
     // Lo que se avanza por la grabacion en cada paso. A 1x es el mismo paso de siempre.
@@ -160,8 +226,7 @@ fn resample_tramo(
         .saturating_sub(1)
         .max(cursor);
 
-    let mut indices = Vec::new();
-    let mut delays = Vec::new();
+    let mut salen = Pasos::default();
     let mut t = desde_ms;
     while t < hasta_ms {
         while cursor < ultimo && frames[cursor + 1].timestamp_ms <= t {
@@ -175,21 +240,175 @@ fn resample_tramo(
         } else {
             ((queda as f32 / velocidad).round() as u64).max(1)
         } as u32;
-        if indices.last() != Some(&cursor) {
-            indices.push(cursor);
-            delays.push(slot);
-        } else if let Some(last) = delays.last_mut() {
-            // El mismo fotograma se queda en pantalla mas tiempo en vez de repetirse.
-            *last += slot;
+        let se_junta = salen.indices.last() == Some(&cursor)
+            && salen.tiempos.last().is_some_and(|&antes| igual(antes, t));
+        if se_junta {
+            // El mismo fotograma, que se ve igual, se queda mas tiempo en vez de repetirse.
+            if let Some(ultimo) = salen.retardos.last_mut() {
+                *ultimo += slot;
+            }
+        } else {
+            salen.indices.push(cursor);
+            salen.retardos.push(slot);
+            salen.tiempos.push(t);
         }
         t += paso_origen;
     }
 
-    if indices.is_empty() {
-        indices.push(cursor);
-        delays.push(step_ms.max(20) as u32);
+    if salen.indices.is_empty() {
+        salen.indices.push(cursor);
+        salen.retardos.push(step_ms.max(20) as u32);
+        salen.tiempos.push(desde_ms);
     }
-    (indices, delays)
+    salen
+}
+
+/// Los pasos de una peticion: su tramo, a sus fotogramas por segundo y su velocidad, sin
+/// juntar dos pasos que vestidos no se vean igual.
+fn pasos_de(session: &SessionData, request: &ExportRequest) -> Pasos {
+    let (desde, hasta) = request.tramo(session);
+    let camara = Camara::preparar(session, request);
+    let ve = QueSeVe::nuevo(session, request, &camara);
+    pasos(session, desde, hasta, request.fps, request.velocidad(), &|a, b| ve.igual(a, b))
+}
+
+/// Si dos instantes de la grabacion se ven igual una vez vestidos: el puntero en el mismo
+/// sitio y con la misma cara, ningun aro ni pastilla a medias, y la camara sin acercar.
+struct QueSeVe<'a> {
+    session: &'a SessionData,
+    cursor: bool,
+    aros: bool,
+    teclas: bool,
+    tramos: Vec<zoom::Tramo>,
+    suave: bool,
+    /// Con el puntero escondiendose, cuando se movio el raton (ver `estudio::movimientos`).
+    movimientos: Option<Vec<u64>>,
+}
+
+impl<'a> QueSeVe<'a> {
+    fn nuevo(session: &'a SessionData, request: &ExportRequest, camara: &Option<Camara>) -> Self {
+        Self {
+            session,
+            cursor: request.cursor > 0.0 && !session.cursor.is_empty(),
+            aros: request.clicks && !session.clics.is_empty(),
+            teclas: request.keys && !session.teclas.is_empty(),
+            tramos: camara.as_ref().map(|c| c.tramos.clone()).unwrap_or_default(),
+            suave: request.smooth_cursor,
+            movimientos: request
+                .hide_idle_cursor
+                .then(|| estudio::movimientos(&session.cursor)),
+        }
+    }
+
+    fn igual(&self, a: u64, b: u64) -> bool {
+        let s = self.session;
+        if self.cursor {
+            // Al pixel, que es lo que se ve: con el movimiento suave el sitio es una media
+            // y se queda unas decimas acercandose despues de que el raton pare.
+            let sitio = |ms| {
+                estudio::sitio_del_puntero(&s.cursor, ms, self.suave)
+                    .map(|(x, y)| (x.round() as i32, y.round() as i32))
+            };
+            let visible = |ms| {
+                self.movimientos
+                    .as_deref()
+                    .map(|m| (estudio::opacidad_del_puntero(m, &s.clics, ms) * 32.0).round() as i32)
+            };
+            if sitio(a) != sitio(b) || visible(a) != visible(b)
+                || estudio::puntero_en(&s.cambios_puntero, a) != estudio::puntero_en(&s.cambios_puntero, b)
+                || estudio::forma_en(&s.formas, a) != estudio::forma_en(&s.formas, b)
+                || estudio::alto_del_puntero(1.0, &s.clics, a)
+                    != estudio::alto_del_puntero(1.0, &s.clics, b)
+            {
+                return false;
+            }
+        }
+        let vivo = |desde: u64, dura: u64, ms: u64| ms >= desde && ms - desde < dura;
+        let aro = crate::record::realce::DURACION_MS;
+        if self.aros && s.clics.iter().any(|c| vivo(c.ms, aro, a) || vivo(c.ms, aro, b)) {
+            return false;
+        }
+        let pastilla = crate::record::teclas::DURACION_MS;
+        if self.teclas && s.teclas.iter().any(|t| vivo(t.ms, pastilla, a) || vivo(t.ms, pastilla, b)) {
+            return false;
+        }
+        // La camara solo se mueve dentro de sus tramos: fuera enseña la imagen entera.
+        let acercada = |ms: u64| self.tramos.iter().any(|t| (t.desde_ms..=t.hasta_ms).contains(&ms));
+        !acercada(a) && !acercada(b)
+    }
+}
+
+/// El marco que pide una peticion.
+fn marco_de(request: &ExportRequest) -> marco::Marco {
+    marco::Marco {
+        margen: request.margin.min(400),
+        fondo: marco::Fondo::desde(&request.background),
+        sombra: request.shadow,
+        esquinas: request.corners.min(400),
+    }
+}
+
+/// Los fotogramas de una exportacion, ya vestidos y en orden: leidos por delante en otro
+/// hilo, con el recorte, la camara, el estudio y las marcas puestos en el instante de cada
+/// paso. Se piden por posicion (0, 1, 2...), que es lo que reciben los codificadores.
+struct Vestidor<'a> {
+    request: &'a ExportRequest,
+    pasos: &'a Pasos,
+    camara: Option<Camara>,
+    vestir: Option<Estudio<'a>>,
+    lector: record::LectorPorDelante,
+    /// El ultimo fotograma leido, guardado solo cuando el paso siguiente lo repite.
+    guardado: Option<(usize, image::RgbaImage)>,
+    marco: marco::Marco,
+}
+
+impl<'a> Vestidor<'a> {
+    fn nuevo(session: &'a SessionData, request: &'a ExportRequest, pasos: &'a Pasos) -> Self {
+        Self {
+            request,
+            pasos,
+            camara: Camara::preparar(session, request),
+            vestir: estudio_de(session, request),
+            // En orden y no `read_frame`: reconstruir cada uno desde el ultimo entero eran
+            // hasta treinta parches por fotograma en vez de uno. Y por delante, en otro hilo,
+            // para que leer el siguiente no espere a vestir y codificar este.
+            lector: record::LectorPorDelante::nuevo(session.clone(), pasos.a_leer()),
+            guardado: None,
+            marco: marco_de(request),
+        }
+    }
+
+    fn en(&mut self, posicion: usize) -> Result<image::RgbaImage> {
+        let indice = *self
+            .pasos
+            .indices
+            .get(posicion)
+            .ok_or_else(|| AppError::Msg(format!("paso {posicion} inexistente")))?;
+        let ms = self.pasos.tiempos[posicion];
+        let base = match self.guardado.take() {
+            Some((i, imagen)) if i == indice => imagen,
+            _ => self.lector.en(indice)?,
+        };
+        if self.pasos.indices.get(posicion + 1) == Some(&indice) {
+            self.guardado = Some((indice, base.clone()));
+        }
+        let mut recortes: Vec<Recorte> = self.request.crop.into_iter().collect();
+        if let Some(r) = self.camara.en(ms) {
+            recortes.push(r);
+        }
+        if let Some(e) = self.vestir.as_mut() {
+            e.ms = ms;
+        }
+        Ok(enmarcar_y_anotar(
+            base,
+            self.request.width.max(1),
+            self.request.height.max(1),
+            self.marco,
+            &self.request.annotations,
+            &recortes,
+            self.vestir.as_mut(),
+        ))
+    }
 }
 
 /// El tramo de reloj que se exporta, metido dentro de la grabacion y nunca vacio.
@@ -312,18 +531,11 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     if session.frames.is_empty() {
         return Err(AppError::Msg("esa grabación no tiene ningún fotograma".into()));
     }
-    let width = request.width.max(1);
-    let height = request.height.max(1);
-
-    // El marco crece por fuera de lo que se pidio en «Dimensiones»: quien elige 800 de
-    // ancho y 40 de aire quiere la captura a 800, no a 720 con bordes. Asi que el tamanno
-    // que se le pide al codificador es el de despues de enmarcar.
-    let marco = marco::Marco {
-        margen: request.margin.min(400),
-        fondo: marco::Fondo::desde(&request.background),
-        sombra: request.shadow,
+    let extension = match request.format.as_str() {
+        formato @ ("png" | "jpg" | "gif" | "mp4") => formato,
+        other => return Err(AppError::Msg(format!("formato desconocido: {other}"))),
     };
-    let (ancho_final, alto_final) = marco.medida(width, height);
+    let path = destination_path(app, &request, extension)?;
 
     let emit = |stage: &str, done: usize, total: usize| {
         let _ = app.emit(
@@ -336,128 +548,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
         );
     };
 
-    // El zoom, si se ha pedido. Los tramos se calculan una vez para toda la exportacion,
-    // y despues cada fotograma solo pregunta donde mira la camara en su milisegundo.
-    //
-    // Los clics estan en pixeles de la region grabada. Si el usuario recorto, hay que
-    // trasladarlos a ese trozo, que es sobre el que se va a acercar la camara.
-    let camara = Camara::preparar(&session, &request);
-
-    /// Los recortes que le tocan a un fotograma: el del usuario primero y el de la camara
-    /// despues, porque la camara se mueve DENTRO de lo que el usuario dejo.
-    macro_rules! recortes_de {
-        ($ms:expr) => {{
-            let mut v: Vec<Recorte> = Vec::new();
-            if let Some(r) = request.crop {
-                v.push(r);
-            }
-            if let Some(r) = camara.en($ms) {
-                v.push(r);
-            }
-            v
-        }};
-    }
-
-    let path = match request.format.as_str() {
-        "png" => {
-            let path = destination_path(app, &request, "png")?;
-            emit("reading", 0, 1);
-            let image = record::read_frame(&session, request.from)?;
-            // Una foto no tiene zoom: la camara solo tiene sentido con el tiempo pasando.
-            let recortes: Vec<Recorte> = request.crop.into_iter().collect();
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
-            png::save(&image, &path, ancho_final, alto_final)?;
-            path
-        }
-        // El mismo fotograma, pero pesando cinco o diez veces menos. Es lo que hace falta
-        // para mandar una captura por correo o por un chat que la recomprime igual.
-        "jpg" => {
-            let path = destination_path(app, &request, "jpg")?;
-            emit("reading", 0, 1);
-            let image = record::read_frame(&session, request.from)?;
-            let recortes: Vec<Recorte> = request.crop.into_iter().collect();
-            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
-            jpg::save(&image, &path, ancho_final, alto_final, request.quality)?;
-            path
-        }
-        "gif" => {
-            let (desde, hasta) = request.tramo(&session);
-            let (indices, delays) =
-                resample_tramo(&session, desde, hasta, request.fps, request.velocidad());
-            let path = destination_path(app, &request, "gif")?;
-            if request.engine == "ffmpeg" && ffmpeg::available() {
-                let temporary = session.dir.join("export-source.mp4");
-                encode_mp4(&session, &indices, &delays, &temporary, &request, &emit)?;
-                emit("encoding", 0, 1);
-                ffmpeg::gif_from_video(&temporary, &path, request.fps, ancho_final, request.quality)?;
-                let _ = std::fs::remove_file(&temporary);
-            } else {
-                let mut vestir = estudio_de(&session, &request);
-                // En orden y no `read_frame`: los fotogramas se exportan de principio a
-                // fin, y reconstruir cada uno desde el ultimo entero eran hasta treinta
-                // parches por fotograma en vez de uno. Y por delante, en otro hilo, para
-                // que leer el siguiente no espere a vestir y codificar este. Ver
-                // `LectorPorDelante`.
-                let mut lector = record::LectorPorDelante::nuevo(session.clone(), indices.clone());
-                let mut loader = |index: usize| {
-                    let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
-                    let recortes = recortes_de!(ms);
-                    if let Some(e) = vestir.as_mut() {
-                        e.ms = ms;
-                    }
-                    lector.en(index).map(|imagen| {
-                        enmarcar_y_anotar(
-                            imagen,
-                            width,
-                            height,
-                            marco,
-                            &request.annotations,
-                            &recortes,
-                            vestir.as_mut(),
-                        )
-                    })
-                };
-                gif::encode(
-                    &indices,
-                    &delays,
-                    &mut loader,
-                    &path,
-                    &gif::GifOptions {
-                        width: ancho_final,
-                        height: alto_final,
-                        quality: request.quality,
-                        loop_forever: request.loop_forever,
-                    },
-                    |stage, done, total| emit(stage, done, total),
-                )?;
-            }
-            path
-        }
-        "mp4" => {
-            let (desde, hasta) = request.tramo(&session);
-            let (indices, delays) =
-                resample_tramo(&session, desde, hasta, request.fps, request.velocidad());
-            let path = destination_path(app, &request, "mp4")?;
-            if request.engine == "ffmpeg" && ffmpeg::available() {
-                let temporary = session.dir.join("export-source.mp4");
-                encode_mp4(&session, &indices, &delays, &temporary, &request, &emit)?;
-                emit("encoding", 0, 1);
-                ffmpeg::mp4_from_video(
-                    &temporary,
-                    &path,
-                    request.fps,
-                    ancho_final,
-                    alto_final,
-                    request.quality,
-                )?;
-                let _ = std::fs::remove_file(&temporary);
-            } else {
-                encode_mp4(&session, &indices, &delays, &path, &request, &emit)?;
-            }
-            path
-        }
-        other => return Err(AppError::Msg(format!("formato desconocido: {other}"))),
-    };
+    escribir(&session, &request, &path, &emit)?;
 
     emit("done", 1, 1);
 
@@ -481,6 +572,115 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
         copy_error,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
+}
+
+/// Escribe el archivo de la exportacion en `path`. Es todo lo de exportar que no necesita
+/// la aplicacion abierta, y por eso se puede probar de punta a punta con una sesion de
+/// verdad en el disco: lo de antes y lo de despues (elegir el nombre, el portapapeles) vive
+/// en `export`.
+fn escribir(
+    session: &SessionData,
+    request: &ExportRequest,
+    path: &Path,
+    emit: &dyn Fn(&str, usize, usize),
+) -> Result<()> {
+    let width = request.width.max(1);
+    let height = request.height.max(1);
+
+    // El marco crece por fuera de lo que se pidio en «Dimensiones»: quien elige 800 de
+    // ancho y 40 de aire quiere la captura a 800, no a 720 con bordes. Asi que el tamanno
+    // que se le pide al codificador es el de despues de enmarcar.
+    let marco = marco_de(request);
+    let (ancho_final, alto_final) = marco.medida(width, height);
+
+    match request.format.as_str() {
+        "png" => {
+            emit("reading", 0, 1);
+            let image = record::read_frame(session, request.from)?;
+            // Una foto no tiene zoom: la camara solo tiene sentido con el tiempo pasando.
+            let recortes: Vec<Recorte> = request.crop.into_iter().collect();
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
+            png::save(&image, path, ancho_final, alto_final)?;
+        }
+        // El mismo fotograma, pero pesando cinco o diez veces menos. Es lo que hace falta
+        // para mandar una captura por correo o por un chat que la recomprime igual.
+        "jpg" => {
+            emit("reading", 0, 1);
+            let image = record::read_frame(session, request.from)?;
+            let recortes: Vec<Recorte> = request.crop.into_iter().collect();
+            let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
+            jpg::save(&image, path, ancho_final, alto_final, request.quality)?;
+        }
+        "gif" => {
+            let pasos = pasos_de(session, request);
+            if request.engine == "ffmpeg" && ffmpeg::available() {
+                let temporary = session.dir.join("export-source.mp4");
+                encode_mp4(session, &pasos, &temporary, request, emit)?;
+                emit("encoding", 0, 1);
+                ffmpeg::gif_from_video(&temporary, path, request.fps, ancho_final, request.quality)?;
+                let _ = std::fs::remove_file(&temporary);
+            } else {
+                let mut vestidor = Vestidor::nuevo(session, request, &pasos);
+                // La paleta se saca de unos pocos pasos repartidos, leidos cada uno desde su
+                // fotograma entero: el lector de `vestidor` va en orden y solo una vez. Sin
+                // la camara, que tiene inercia y se pide en orden; los colores que se ven
+                // acercado son los mismos que se ven sin acercar.
+                let mut vestir_muestra = estudio_de(session, request);
+                let mut muestra = |posicion: usize| -> Result<image::RgbaImage> {
+                    let base = record::read_frame(session, pasos.indices[posicion])?;
+                    let recortes: Vec<Recorte> = request.crop.into_iter().collect();
+                    if let Some(e) = vestir_muestra.as_mut() {
+                        e.ms = pasos.tiempos[posicion];
+                    }
+                    Ok(enmarcar_y_anotar(
+                        base,
+                        width,
+                        height,
+                        marco,
+                        &request.annotations,
+                        &recortes,
+                        vestir_muestra.as_mut(),
+                    ))
+                };
+                let mut loader = |posicion: usize| vestidor.en(posicion);
+                gif::encode(
+                    &pasos.posiciones(),
+                    &pasos.retardos,
+                    &mut muestra,
+                    &mut loader,
+                    path,
+                    &gif::GifOptions {
+                        width: ancho_final,
+                        height: alto_final,
+                        quality: request.quality,
+                        loop_forever: request.loop_forever,
+                    },
+                    |stage, done, total| emit(stage, done, total),
+                )?;
+            }
+        }
+        "mp4" => {
+            let pasos = pasos_de(session, request);
+            if request.engine == "ffmpeg" && ffmpeg::available() {
+                let temporary = session.dir.join("export-source.mp4");
+                encode_mp4(session, &pasos, &temporary, request, emit)?;
+                emit("encoding", 0, 1);
+                ffmpeg::mp4_from_video(
+                    &temporary,
+                    path,
+                    request.fps,
+                    ancho_final,
+                    alto_final,
+                    request.quality,
+                )?;
+                let _ = std::fs::remove_file(&temporary);
+            } else {
+                encode_mp4(session, &pasos, path, request, emit)?;
+            }
+        }
+        other => return Err(AppError::Msg(format!("formato desconocido: {other}"))),
+    }
+    Ok(())
 }
 
 /// Recorta, escala, dibuja las marcas encima y despues pone el marco.
@@ -510,6 +710,7 @@ struct Estudio<'a> {
     /// Las imagenes de verdad de los punteros, cargadas del disco una vez por exportacion.
     punteros: Vec<estudio::PunteroCargado>,
     cambios_puntero: &'a [(u64, u32)],
+    movimientos: Vec<u64>,
     origen: (u32, u32),
     ajustes: estudio::Ajustes,
     ms: u64,
@@ -525,6 +726,7 @@ impl Estudio<'_> {
             formas: self.formas,
             punteros: &self.punteros,
             cambios_puntero: self.cambios_puntero,
+            movimientos: &self.movimientos,
         };
         estudio::pintar(
             imagen,
@@ -543,6 +745,8 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
         clics: request.clicks,
         teclas: request.keys,
         cursor: request.cursor,
+        suave: request.smooth_cursor,
+        esconder: request.hide_idle_cursor,
     };
     if !ajustes.hay_algo() {
         return None;
@@ -567,6 +771,7 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
         formas: &session.formas,
         punteros,
         cambios_puntero: &session.cambios_puntero,
+        movimientos: estudio::movimientos(&session.cursor),
         origen: (session.width.max(1), session.height.max(1)),
         ajustes,
         ms: 0,
@@ -595,12 +800,12 @@ struct Camara {
 
 impl Camara {
     fn preparar(session: &SessionData, request: &ExportRequest) -> Option<Self> {
-        Self::nueva(session, request.zoom, request.crop)
+        Self::nueva(session, request.zoom, request.crop, request.zoom_speed)
     }
 
     /// La misma camara que usa la exportacion, para quien la quiera preguntar por su
     /// cuenta: la vista previa del editor la usa para ensennar el zoom antes de exportar.
-    fn nueva(session: &SessionData, zoom: f32, crop: Option<Recorte>) -> Option<Self> {
+    fn nueva(session: &SessionData, zoom: f32, crop: Option<Recorte>, velocidad: f32) -> Option<Self> {
         // Menos de 1,05 no se ve y solo cuesta trabajo: es apagado, dicho con un numero.
         if zoom < 1.05 || (session.clics.is_empty() && session.teclas.is_empty()) {
             return None;
@@ -645,10 +850,7 @@ impl Camara {
         if clics.is_empty() {
             return None;
         }
-        let ajustes = zoom::Ajustes {
-            escala: zoom.min(4.0),
-            ..zoom::Ajustes::default()
-        };
+        let ajustes = zoom::Ajustes::a_velocidad(zoom.min(4.0), velocidad);
         let rastro = session
             .cursor
             .iter()
@@ -686,8 +888,17 @@ pub struct MuestraCamara {
 /// Sale de la MISMA camara que usa la exportacion, asi que lo que ensenna la vista previa
 /// es lo que va a salir: antes el zoom solo se veia en el archivo ya exportado, y quien lo
 /// ponia tenia que exportar, abrir el video, volver, tocar y exportar otra vez.
-pub fn muestras_de_camara(session: &SessionData, zoom: f32, crop: Option<Recorte>) -> Vec<MuestraCamara> {
-    let camara = Camara::nueva(session, zoom, crop);
+/// Cada cuánto se pregunta a la cámara para la vista previa: lo mismo que un paso de una
+/// exportación a 30 fotogramas por segundo, que es como se exporta de fábrica.
+const PASO_DE_CAMARA_MS: u64 = 33;
+
+pub fn muestras_de_camara(
+    session: &SessionData,
+    zoom: f32,
+    crop: Option<Recorte>,
+    velocidad: f32,
+) -> Vec<MuestraCamara> {
+    let camara = Camara::nueva(session, zoom, crop, velocidad);
     // El recorte del usuario, como esta en la imagen entera. La camara se mueve dentro.
     let (ux1, uy1, ux2, uy2) = match crop {
         Some(r) => {
@@ -697,11 +908,13 @@ pub fn muestras_de_camara(session: &SessionData, zoom: f32, crop: Option<Recorte
         }
         None => (0.0, 0.0, 1.0, 1.0),
     };
-    session
-        .frames
-        .iter()
-        .map(|f| {
-            let ms = f.timestamp_ms;
+    // A ritmo fijo, como el exportador, y no una muestra por fotograma guardado: sobre una
+    // pantalla quieta (un fotograma de varios segundos) la vista previa del zoom pegaba un
+    // salto de una muestra a la siguiente en vez de seguir al raton.
+    let total = session.duration_ms();
+    let mut muestras: Vec<MuestraCamara> = (0..=total / PASO_DE_CAMARA_MS)
+        .map(|k| {
+            let ms = k * PASO_DE_CAMARA_MS;
             let (x1, y1, x2, y2) = match camara.en(ms) {
                 // El encuadre de la camara se mide sobre el trozo recortado; se lleva a
                 // la imagen entera para que la vista previa lo aplique tal cual.
@@ -715,7 +928,23 @@ pub fn muestras_de_camara(session: &SessionData, zoom: f32, crop: Option<Recorte
             };
             MuestraCamara { ms, x1, y1, x2, y2 }
         })
-        .collect()
+        .collect();
+    // Las rachas quietas se quedan en su primera y su ultima muestra: la vista previa
+    // interpola entre muestras seguidas, asi que lo de en medio no cambia nada y diez
+    // minutos sin zoom no viajan como dieciocho mil muestras iguales.
+    let igual = |a: &MuestraCamara, b: &MuestraCamara| {
+        (a.x1, a.y1, a.x2, a.y2) == (b.x1, b.y1, b.x2, b.y2)
+    };
+    let mut quedan = Vec::with_capacity(muestras.len());
+    for i in 0..muestras.len() {
+        let antes = i > 0 && igual(&muestras[i - 1], &muestras[i]);
+        let despues = i + 1 < muestras.len() && igual(&muestras[i + 1], &muestras[i]);
+        if !(antes && despues) {
+            quedan.push(muestras[i]);
+        }
+    }
+    muestras.clear();
+    quedan
 }
 
 /// Un `Option<Camara>` sabe contestar igual que una: sin zoom, no recorta nada.
@@ -784,52 +1013,21 @@ fn enmarcar_y_anotar(
 
 fn encode_mp4<F>(
     session: &SessionData,
-    indices: &[usize],
-    delays: &[u32],
+    pasos: &Pasos,
     path: &Path,
     request: &ExportRequest,
     emit: &F,
 ) -> Result<()>
 where
-    F: Fn(&str, usize, usize),
+    F: Fn(&str, usize, usize) + ?Sized,
 {
-    let ancho = request.width.max(1);
-    let alto = request.height.max(1);
-    let marco = marco::Marco {
-        margen: request.margin.min(400),
-        fondo: marco::Fondo::desde(&request.background),
-        sombra: request.shadow,
-    };
-    let (ancho_final, alto_final) = marco.medida(ancho, alto);
-    let camara = Camara::preparar(session, request);
-    let mut vestir = estudio_de(session, request);
-    // En orden, igual que el GIF: un parche por fotograma en vez de hasta treinta. Y por
-    // delante, en otro hilo, para que leer no espere a vestir y codificar.
-    let mut lector = record::LectorPorDelante::nuevo(session.clone(), indices.to_vec());
-    let mut loader = |index: usize| {
-        let ms = session.frames.get(index).map(|f| f.timestamp_ms).unwrap_or(0);
-        let mut recortes: Vec<Recorte> = request.crop.into_iter().collect();
-        if let Some(r) = camara.en(ms) {
-            recortes.push(r);
-        }
-        if let Some(e) = vestir.as_mut() {
-            e.ms = ms;
-        }
-        lector.en(index).map(|imagen| {
-            enmarcar_y_anotar(
-                imagen,
-                ancho,
-                alto,
-                marco,
-                &request.annotations,
-                &recortes,
-                vestir.as_mut(),
-            )
-        })
-    };
+    let (ancho_final, alto_final) =
+        marco_de(request).medida(request.width.max(1), request.height.max(1));
+    let mut vestidor = Vestidor::nuevo(session, request, pasos);
+    let mut loader = |posicion: usize| vestidor.en(posicion);
     mp4::encode(
-        indices,
-        delays,
+        &pasos.posiciones(),
+        &pasos.retardos,
         &mut loader,
         path,
         &mp4::Mp4Options {
@@ -845,7 +1043,7 @@ where
         (request.audio && (request.velocidad() - 1.0).abs() < f32::EPSILON)
             .then(|| {
                 let (desde, hasta) = request.tramo(session);
-                pista_de_audio(session, desde, hasta)
+                pista_de_audio(session, desde, hasta).map(|p| con_volumen(p, request.volume))
             })
             .flatten(),
         |stage, done, total| emit(stage, done, total),
@@ -883,6 +1081,22 @@ fn pista_de_audio(session: &SessionData, desde: u64, hasta: u64) -> Option<mp4::
         sample_rate: info.sample_rate,
         datos,
     })
+}
+
+/// La pista a otro volumen. Las muestras son de 16 bits con signo, y lo que se pase del
+/// tope se queda en el tope: subir el volumen satura antes que dar la vuelta, que sonaria
+/// a chasquido.
+fn con_volumen(mut pista: mp4::Pista, volumen: f32) -> mp4::Pista {
+    let v = if volumen.is_finite() { volumen.clamp(0.0, 4.0) } else { 1.0 };
+    if (v - 1.0).abs() < 0.005 {
+        return pista;
+    }
+    for muestra in pista.datos.chunks_exact_mut(2) {
+        let antes = i16::from_le_bytes([muestra[0], muestra[1]]) as f32;
+        let ahora = (antes * v).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+        muestra.copy_from_slice(&ahora.to_le_bytes());
+    }
+    pista
 }
 
 fn leer_lo_que_haya(archivo: &mut std::fs::File, destino: &mut [u8]) -> usize {
@@ -1012,6 +1226,23 @@ mod tests {
         }
     }
 
+    /// Sobre una pantalla quieta (UN fotograma de tres segundos) con el raton moviendose, la
+    /// camara de la vista previa tiene que seguirlo: antes daba una muestra por fotograma
+    /// guardado, o sea una, y la vista previa saltaba de golpe al final.
+    #[test]
+    fn la_camara_de_la_vista_previa_sigue_al_raton_sobre_una_pantalla_quieta() {
+        let mut session = session_with(&[3_000]);
+        session.width = 400;
+        session.height = 300;
+        session.clics.push(zoom::Clic { ms: 600, x: 100, y: 150, derecho: false });
+        session.cursor = (0..=180u64).map(|k| (k * 16, 100 + k as i32, 150)).collect();
+        let muestras = muestras_de_camara(&session, 2.0, None, 1.0);
+        let acercadas: Vec<&MuestraCamara> = muestras.iter().filter(|m| m.x2 - m.x1 < 0.9).collect();
+        assert!(acercadas.len() > 20, "solo {} muestras acercadas", acercadas.len());
+        let (primera, ultima) = (acercadas[0], acercadas[acercadas.len() - 1]);
+        assert!(ultima.x1 > primera.x1, "la camara no ha seguido al raton: {primera:?} -> {ultima:?}");
+    }
+
     /// La camara muestreada para la vista previa dice lo mismo que la de exportar: sin
     /// zoom o sin clics es la imagen entera, y con zoom se acerca en el momento del clic
     /// sin salirse nunca de la imagen ni del recorte del usuario.
@@ -1021,7 +1252,7 @@ mod tests {
         let entera = |m: &MuestraCamara| m.x1 == 0.0 && m.y1 == 0.0 && m.x2 == 1.0 && m.y2 == 1.0;
 
         // Sin clics no hay a donde acercarse, con zoom o sin el.
-        assert!(muestras_de_camara(&session, 2.0, None).iter().all(entera));
+        assert!(muestras_de_camara(&session, 2.0, None, 1.0).iter().all(entera));
 
         session.clics.push(zoom::Clic {
             ms: 200,
@@ -1029,11 +1260,14 @@ mod tests {
             y: 5,
             derecho: false,
         });
-        assert!(muestras_de_camara(&session, 1.0, None).iter().all(entera), "sin zoom, entera");
+        assert!(muestras_de_camara(&session, 1.0, None, 1.0).iter().all(entera), "sin zoom, entera");
 
-        let muestras = muestras_de_camara(&session, 2.0, None);
-        assert_eq!(muestras.len(), session.frames.len(), "una muestra por fotograma");
-        let en_el_clic = muestras.iter().find(|m| m.ms == 200).expect("hay fotograma a 200");
+        let muestras = muestras_de_camara(&session, 2.0, None, 1.0);
+        assert!(muestras.windows(2).all(|p| p[1].ms > p[0].ms), "en orden");
+        let en_el_clic = muestras
+            .iter()
+            .min_by_key(|m| m.ms.abs_diff(200))
+            .expect("hay muestras");
         assert!(!entera(en_el_clic), "en el clic tiene que estar acercada");
         assert!(
             (en_el_clic.x2 - en_el_clic.x1 - 0.5).abs() < 0.11,
@@ -1052,7 +1286,7 @@ mod tests {
             y2: 1.0,
         };
         session.clics[0].x = 8;
-        for m in muestras_de_camara(&session, 2.0, Some(mitad_derecha)) {
+        for m in muestras_de_camara(&session, 2.0, Some(mitad_derecha), 1.0) {
             assert!(m.x1 >= 0.5 - 0.001 && m.x2 <= 1.0, "se sale del recorte: {m:?}");
         }
     }
@@ -1078,7 +1312,7 @@ mod tests {
                 (ms, if ms < 1300 { 150 } else { 1750 }, 500)
             })
             .collect();
-        let muestras = muestras_de_camara(&session, 2.0, None);
+        let muestras = muestras_de_camara(&session, 2.0, None, 1.0);
         let ajustes = zoom::Ajustes::default();
         let tope = ajustes.velocidad_max * 33.0 / 1000.0 + 0.002;
         let mut cruzo = false;
@@ -1155,12 +1389,16 @@ mod tests {
             let session = session_with(&[25; 40]);
             let (indices, delays) = resample(&session, 0, 39, 20, velocidad);
             let salida = dir.join(format!("v{velocidad}.gif"));
+            let mut muestra = |index: usize| {
+                Ok(image::RgbaImage::from_raw(ancho, alto, lienzos[index].clone()).unwrap())
+            };
             let mut loader = |index: usize| {
                 Ok(image::RgbaImage::from_raw(ancho, alto, lienzos[index].clone()).unwrap())
             };
             crate::encode::gif::encode(
                 &indices,
                 &delays,
+                &mut muestra,
                 &mut loader,
                 &salida,
                 &crate::encode::gif::GifOptions {
@@ -1305,7 +1543,7 @@ mod tests {
         let por_ms = 192usize;
         let mut pcm = Vec::with_capacity(10_200 * por_ms);
         for ms in 0..10_200u32 {
-            pcm.extend(std::iter::repeat((ms % 251) as u8).take(por_ms));
+            pcm.extend(std::iter::repeat_n((ms % 251) as u8, por_ms));
         }
         std::fs::write(session.audio_path(), &pcm).unwrap();
 
@@ -1361,6 +1599,11 @@ mod el_orden_de_exportar {
             keys: false,
             cursor: 0.0,
             speed: 1.0,
+            smooth_cursor: false,
+            hide_idle_cursor: false,
+            corners: 0,
+            volume: 1.0,
+            zoom_speed: 1.0,
             destination: None,
             copy_to_clipboard: true,
         }
@@ -1371,6 +1614,7 @@ mod el_orden_de_exportar {
             margen: 0,
             fondo: marco::Fondo::desde("blanco"),
             sombra: false,
+            esquinas: 0,
         }
     }
 
@@ -1539,6 +1783,7 @@ mod el_orden_de_exportar {
                 margen: 20,
                 fondo: marco::Fondo::desde("blanco"),
                 sombra: false,
+                esquinas: 0,
             },
             &[],
             &[mitad_derecha()],
@@ -1678,6 +1923,11 @@ mod la_camara_del_exportador {
             keys: false,
             cursor: 0.0,
             speed: 1.0,
+            smooth_cursor: false,
+            hide_idle_cursor: false,
+            corners: 0,
+            volume: 1.0,
+            zoom_speed: 1.0,
             destination: None,
             copy_to_clipboard: false,
         }
@@ -1899,7 +2149,7 @@ mod medir {
         };
         let indices: Vec<usize> = (0..cuantos).collect();
         let delays = vec![33u32; cuantos];
-        let marco = marco::Marco { margen: 0, fondo: marco::Fondo::desde("blanco"), sombra: false };
+        let marco = marco::Marco { margen: 0, fondo: marco::Fondo::desde("blanco"), sombra: false, esquinas: 0 };
         let opciones = mp4::Mp4Options { width: ancho, height: alto, fps: 30, quality: 75 };
 
         let vestir = |imagen: image::RgbaImage| enmarcar_y_anotar(imagen, ancho, alto, marco, &[], &[], None);
@@ -2218,6 +2468,70 @@ mod recortar_de_punta_a_punta {
         Some((video?, sonido))
     }
 
+    /// El fotograma del MP4 en ese segundo, en RGB, sacado con ffmpeg.
+    fn fotograma_del_mp4(mp4: &Path, segundo: f32) -> Option<Vec<u8>> {
+        let salida = Command::new("ffmpeg")
+            .args(["-v", "error", "-ss", &format!("{segundo:.2}")])
+            .arg("-i")
+            .arg(mp4)
+            .args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+            .output()
+            .ok()?;
+        (salida.stdout.len() == (ANCHO * ALTO * 3) as usize).then_some(salida.stdout)
+    }
+
+    /// La columna mas a la izquierda donde hay algo que no es el fondo azul: el puntero.
+    fn columna_del_puntero(rgb: &[u8]) -> Option<u32> {
+        (0..ALTO)
+            .flat_map(|y| (0..ANCHO).map(move |x| (x, y)))
+            .filter(|(x, y)| {
+                let i = ((y * ANCHO + x) * 3) as usize;
+                let distinto = (0..3).map(|c| (rgb[i + c] as i32 - AZUL[c] as i32).abs()).sum::<i32>();
+                distinto > 150
+            })
+            .map(|(x, _)| x)
+            .min()
+    }
+
+    /// El puntero dibujado tiene que cruzar una pantalla quieta en el MP4, no quedarse
+    /// clavado: una pagina quieta con el raton yendo al boton es medio tutorial.
+    #[test]
+    #[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
+    fn el_puntero_cruza_una_pantalla_quieta_en_el_mp4() {
+        if Command::new("ffprobe").arg("-version").output().is_err() {
+            eprintln!("sin ffmpeg en el PATH no se puede abrir el MP4: no compruebo nada");
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("winshotx-puntero-mp4-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut cache = FrameCache::new(&dir).expect("cache");
+        let azul: Vec<u8> = (0..ANCHO * ALTO).flat_map(|_| [AZUL[0], AZUL[1], AZUL[2], 255]).collect();
+        cache.push_rgba(&azul, ANCHO, ALTO, 0).unwrap();
+        let mut session = super::tests::session_with(&[]);
+        session.frames = cache.finish(3_000, 30).expect("cerrar la cache");
+        session.dir = dir.clone();
+        session.width = ANCHO;
+        session.height = ALTO;
+        session.region = crate::capture::Rect { x: 0, y: 0, width: ANCHO, height: ALTO };
+        session.fps = 30;
+        session.cursor = (0..=187u64).map(|k| (k * 16, 20 + (k as i32 * 260) / 187, 110)).collect();
+
+        let mut peticion = crate::recorder::peticion_por_defecto(&session);
+        // MP4 a proposito: la sesion de prueba nace como GIF y sin esto salia un GIF.
+        peticion.format = "mp4".into();
+        peticion.cursor = 24.0;
+        peticion.audio = false;
+        let destino = dir.join("puntero.mp4");
+        escribir(&session, &peticion, &destino, &|_, _, _| {}).expect("exportar");
+        let al_principio = fotograma_del_mp4(&destino, 0.3).and_then(|f| columna_del_puntero(&f));
+        let al_final = fotograma_del_mp4(&destino, 2.7).and_then(|f| columna_del_puntero(&f));
+        let _ = std::fs::remove_dir_all(&dir);
+        println!("el puntero esta en x = {al_principio:?} a los 0,3 s y en x = {al_final:?} a los 2,7 s");
+        let (a, b) = (al_principio.expect("sin puntero al principio"), al_final.expect("sin puntero al final"));
+        assert!(b > a + 150, "el puntero no ha cruzado la pantalla: de {a} a {b}");
+    }
+
     #[test]
     #[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
     fn recortar_de_punta_a_punta() {
@@ -2266,17 +2580,17 @@ mod recortar_de_punta_a_punta {
 
         // Lo que manda la linea de tiempo: de dentro de la quietud a dentro del amarillo.
         let mut peticion = crate::recorder::peticion_por_defecto(&session);
+        // MP4 a proposito: la sesion de prueba nace como GIF y sin esto salia un GIF.
+        peticion.format = "mp4".into();
         peticion.desde_ms = Some(3_000);
         peticion.hasta_ms = Some(8_500);
         peticion.cursor = 0.0;
         peticion.audio = true;
         let destino = dir.join("recortado.mp4");
         let empieza = Instant::now();
-        let (desde, hasta) = peticion.tramo(&session);
-        let (indices, retardos) = resample_tramo(&session, desde, hasta, peticion.fps, 1.0);
-        encode_mp4(&session, &indices, &retardos, &destino, &peticion, &|_, _, _| {})
-            .expect("exportar");
+        escribir(&session, &peticion, &destino, &|_, _, _| {}).expect("exportar");
         let tardo = empieza.elapsed();
+        let indices = pasos_de(&session, &peticion).indices;
 
         let (video, sonido) = duraciones(&destino).expect("ffprobe no ha leido el MP4");
         let primero = color_medio(&destino, false).expect("primer fotograma");
@@ -2297,5 +2611,197 @@ mod recortar_de_punta_a_punta {
         assert!(b > r + 60 && b > g + 60, "el primero tenia que ser el azul quieto: {primero:?}");
         let [r, g, b] = ultimo;
         assert!(r > b + 60 && g > b + 60, "el ultimo tenia que ser el amarillo: {ultimo:?}");
+    }
+}
+
+/// Exportar por el camino de verdad: una sesion escrita en disco con la cache de siempre y
+/// `escribir`, que es lo mismo que corre al pulsar «Guardar» menos elegir el nombre.
+///
+/// Las de GIF no necesitan nada de Windows (el GIF es Rust de punta a punta), asi que corren
+/// siempre, y abren el archivo escrito para mirar lo que se lleva quien lo guarda.
+#[cfg(test)]
+mod exportar_de_verdad {
+    use super::*;
+    use crate::record::FrameCache;
+
+    const ANCHO: u32 = 96;
+    const ALTO: u32 = 64;
+    const AZUL: [u8; 3] = [40, 80, 230];
+
+    fn fondo(color: [u8; 3]) -> Vec<u8> {
+        (0..ANCHO * ALTO).flat_map(|_| [color[0], color[1], color[2], 255]).collect()
+    }
+
+    /// Una sesion de verdad en una carpeta temporal, con estos fotogramas `(ms, color)`.
+    fn sesion(nombre: &str, fotogramas: &[(u64, [u8; 3])], total_ms: u64) -> SessionData {
+        let dir = std::env::temp_dir().join(format!("winshotx-{nombre}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut cache = FrameCache::new(&dir).expect("cache");
+        for (ms, color) in fotogramas {
+            cache.push_rgba(&fondo(*color), ANCHO, ALTO, *ms).unwrap();
+        }
+        let mut session = super::tests::session_with(&[]);
+        session.frames = cache.finish(total_ms, 30).expect("cerrar la cache");
+        session.dir = dir;
+        session.width = ANCHO;
+        session.height = ALTO;
+        session.region = crate::capture::Rect { x: 0, y: 0, width: ANCHO, height: ALTO };
+        session.fps = 30;
+        session
+    }
+
+    fn peticion_gif(session: &SessionData) -> ExportRequest {
+        let mut peticion = crate::recorder::peticion_por_defecto(session);
+        peticion.format = "gif".into();
+        peticion.fps = 20;
+        peticion.cursor = 0.0;
+        peticion.audio = false;
+        peticion
+    }
+
+    /// Los fotogramas del GIF ya montados, como los ve quien lo abre: cada uno se pega
+    /// encima del anterior en su sitio, porque el codificador solo guarda lo que cambia.
+    fn fotogramas_del_gif(ruta: &Path) -> Vec<(u16, image::RgbaImage)> {
+        let mut opciones = ::gif::DecodeOptions::new();
+        opciones.set_color_output(::gif::ColorOutput::RGBA);
+        let mut lector = opciones
+            .read_info(std::fs::File::open(ruta).expect("abrir el GIF"))
+            .expect("el GIF no se puede leer");
+        let (ancho, alto) = (u32::from(lector.width()), u32::from(lector.height()));
+        let mut lienzo = image::RgbaImage::new(ancho, alto);
+        let mut salen = Vec::new();
+        while let Some(f) = lector.read_next_frame().expect("fotograma roto") {
+            for y in 0..u32::from(f.height) {
+                for x in 0..u32::from(f.width) {
+                    let i = ((y * u32::from(f.width) + x) * 4) as usize;
+                    let p = &f.buffer[i..i + 4];
+                    if p[3] > 0 {
+                        lienzo.put_pixel(u32::from(f.left) + x, u32::from(f.top) + y, image::Rgba([p[0], p[1], p[2], 255]));
+                    }
+                }
+            }
+            salen.push((f.delay, lienzo.clone()));
+        }
+        salen
+    }
+
+    /// Dónde está lo que no es fondo: el puntero, en estas pruebas. `None` si no hay nada.
+    fn donde_hay_algo(imagen: &image::RgbaImage, fondo: [u8; 3]) -> Option<(u32, u32)> {
+        let distinto = |p: &image::Rgba<u8>| {
+            (0..3).map(|i| (p.0[i] as i32 - fondo[i] as i32).abs()).sum::<i32>() > 120
+        };
+        imagen
+            .enumerate_pixels()
+            .filter(|(_, _, p)| distinto(p))
+            .map(|(x, y, _)| (x, y))
+            .min_by_key(|(x, y)| (*x, *y))
+    }
+
+    /// El GIF por el motor de casa: la paleta se saca leyendo una muestra de fotogramas y
+    /// despues se escriben todos, o sea que se leen DOS veces.
+    #[test]
+    fn un_gif_se_escribe_entero_y_se_abre() {
+        let colores = [[220, 40, 40], [40, 200, 60], AZUL, [230, 210, 40]];
+        let fotogramas: Vec<(u64, [u8; 3])> =
+            (0..60).map(|i| (i * 50, colores[(i as usize / 15) % 4])).collect();
+        let session = sesion("gif-entero", &fotogramas, 3_000);
+        let destino = session.dir.join("salida.gif");
+        let resultado = escribir(&session, &peticion_gif(&session), &destino, &|_, _, _| {});
+        let salen = resultado.as_ref().ok().map(|_| fotogramas_del_gif(&destino));
+        let _ = std::fs::remove_dir_all(&session.dir);
+        resultado.expect("exportar a GIF ha fallado");
+        let salen = salen.unwrap();
+        assert!(salen.len() >= 4, "el GIF ha salido con {} fotogramas", salen.len());
+        let dura: u32 = salen.iter().map(|(d, _)| u32::from(*d) * 10).sum();
+        assert!((2_800..=3_200).contains(&dura), "el GIF dura {dura} ms y la grabacion 3000");
+    }
+
+    /// El marco del estudio de punta a punta: fondo, aire y esquinas redondeadas en el GIF
+    /// que se lleva quien lo guarda.
+    #[test]
+    fn el_marco_con_esquinas_redondeadas_sale_en_el_gif() {
+        let rojo = [220, 30, 30];
+        let session = sesion("gif-marco", &[(0, rojo), (500, rojo)], 1_000);
+        let mut peticion = peticion_gif(&session);
+        peticion.margin = 12;
+        peticion.corners = 10;
+        peticion.background = "negro".into();
+        peticion.shadow = false;
+        let destino = session.dir.join("marco.gif");
+        let resultado = escribir(&session, &peticion, &destino, &|_, _, _| {});
+        let salen = resultado.as_ref().ok().map(|_| fotogramas_del_gif(&destino));
+        let _ = std::fs::remove_dir_all(&session.dir);
+        resultado.expect("exportar a GIF ha fallado");
+        let (_, imagen) = &salen.unwrap()[0];
+        assert_eq!(imagen.dimensions(), (ANCHO + 24, ALTO + 24), "el marco crece por fuera");
+        let oscuro = |p: &image::Rgba<u8>| p.0[0] < 60 && p.0[1] < 60 && p.0[2] < 60;
+        assert!(oscuro(imagen.get_pixel(2, 2)), "el aire es el fondo negro");
+        assert!(oscuro(imagen.get_pixel(12, 12)), "la esquina de la captura deja ver el fondo");
+        let centro = imagen.get_pixel(12 + ANCHO / 2, 12 + ALTO / 2);
+        assert!(centro.0[0] > 180 && centro.0[1] < 80, "el centro es la captura: {centro:?}");
+    }
+
+    #[test]
+    fn el_volumen_baja_sube_y_satura_en_vez_de_dar_la_vuelta() {
+        let pista = |muestras: &[i16]| mp4::Pista {
+            channels: 1,
+            sample_rate: 48_000,
+            datos: muestras.iter().flat_map(|m| m.to_le_bytes()).collect(),
+        };
+        let leer = |p: &mp4::Pista| -> Vec<i16> {
+            p.datos.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]])).collect()
+        };
+        assert_eq!(leer(&con_volumen(pista(&[1_000, -1_000, 30_000]), 0.5)), vec![500, -500, 15_000]);
+        assert_eq!(leer(&con_volumen(pista(&[1_000, -1_000, 30_000]), 2.0)), vec![2_000, -2_000, 32_767]);
+        assert_eq!(leer(&con_volumen(pista(&[1_000]), 1.0)), vec![1_000], "a 1 no se toca");
+        assert_eq!(leer(&con_volumen(pista(&[1_000]), 0.0)), vec![0], "a 0, mudo");
+    }
+
+    /// Lo quieto sigue siendo barato: sin mover el raton, tres segundos de pantalla quieta
+    /// con el puntero dibujado son UN paso, no noventa fotogramas iguales que codificar.
+    #[test]
+    fn quieto_y_con_el_raton_quieto_sigue_siendo_un_paso() {
+        let mut session = super::tests::session_with(&[3_000]);
+        session.cursor = vec![(0, 40, 30), (1_500, 40, 30)];
+        let mut peticion = crate::recorder::peticion_por_defecto(&session);
+        peticion.cursor = 16.0;
+        let pasos = pasos_de(&session, &peticion);
+        assert_eq!(pasos.indices.len(), 1, "salen {} pasos", pasos.indices.len());
+        assert_eq!(pasos.retardos.iter().sum::<u32>(), 3_000);
+        // Y moviendolo, salen los que hagan falta para verlo moverse.
+        session.cursor = (0..=100u64).map(|k| (k * 30, 10 + k as i32, 30)).collect();
+        let pasos = pasos_de(&session, &peticion);
+        assert!(pasos.indices.len() > 50, "con el raton moviendose salen {} pasos", pasos.indices.len());
+        assert_eq!(pasos.retardos.iter().sum::<u32>(), 3_000, "y el tiempo no cambia");
+    }
+
+    /// Una pantalla quieta es UN fotograma guardado, pero el raton se movio por encima: el
+    /// puntero dibujado tiene que moverse en lo exportado, no quedarse clavado donde estaba
+    /// cuando llego el fotograma. Es lo que hace un tutorial: la pagina quieta y el raton
+    /// yendo al boton.
+    #[test]
+    fn el_puntero_se_mueve_aunque_la_pantalla_este_quieta() {
+        let session = {
+            let mut s = sesion("puntero-quieto", &[(0, AZUL)], 3_000);
+            // De izquierda a derecha en tres segundos, una muestra cada 16 ms.
+            s.cursor = (0..=187u64).map(|k| (k * 16, 6 + (k as i32 * 70) / 187, 30)).collect();
+            s
+        };
+        let mut peticion = peticion_gif(&session);
+        peticion.cursor = 16.0;
+        let destino = session.dir.join("salida.gif");
+        let resultado = escribir(&session, &peticion, &destino, &|_, _, _| {});
+        let salen = resultado.as_ref().ok().map(|_| fotogramas_del_gif(&destino));
+        let _ = std::fs::remove_dir_all(&session.dir);
+        resultado.expect("exportar a GIF ha fallado");
+        let salen = salen.unwrap();
+        let primero = donde_hay_algo(&salen.first().unwrap().1, AZUL).expect("sin puntero al principio");
+        let ultimo = donde_hay_algo(&salen.last().unwrap().1, AZUL).expect("sin puntero al final");
+        assert!(
+            ultimo.0 > primero.0 + 40,
+            "el puntero no se ha movido: empieza en {primero:?} y acaba en {ultimo:?}, en {} fotogramas",
+            salen.len()
+        );
     }
 }

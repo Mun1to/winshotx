@@ -542,9 +542,15 @@ pub async fn session_camera(
     session_id: String,
     zoom: f32,
     crop: Option<crate::encode::recorte::Recorte>,
+    zoom_speed: Option<f32>,
 ) -> Result<Vec<crate::exporter::MuestraCamara>> {
     let session = session_of(&app, &session_id)?;
-    Ok(crate::exporter::muestras_de_camara(&session, zoom, crop))
+    Ok(crate::exporter::muestras_de_camara(
+        &session,
+        zoom,
+        crop,
+        zoom_speed.unwrap_or(1.0),
+    ))
 }
 
 #[tauri::command]

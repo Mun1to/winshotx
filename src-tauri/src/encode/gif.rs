@@ -93,15 +93,23 @@ impl GifOptions {
 }
 
 /// Codifica el GIF leyendo los fotogramas bajo demanda: nunca se cargan todos en RAM.
-pub fn encode<L, P>(
+///
+/// `muestra` da los fotogramas con los que se saca la paleta, unos cuantos repartidos por
+/// el clip y en cualquier orden; `loader` da TODOS, una vez y en orden. Van separados porque
+/// quien exporta lee en orden con un lector por delante que solo sabe darlos una vez: con
+/// uno solo para las dos cosas, la paleta se lo gastaba y exportar a GIF fallaba siempre
+/// con «el lector se ha cerrado antes de tiempo» (de la 0.2.26 a noviembre de 2026).
+pub fn encode<M, L, P>(
     indices: &[usize],
     delays_ms: &[u32],
+    muestra: &mut M,
     loader: &mut L,
     path: &Path,
     options: &GifOptions,
     mut progress: P,
 ) -> Result<()>
 where
+    M: FnMut(usize) -> Result<RgbaImage>,
     L: FnMut(usize) -> Result<RgbaImage>,
     P: FnMut(&str, usize, usize),
 {
@@ -120,7 +128,7 @@ where
     let por_fotograma = ((width as usize) * (height as usize)).div_ceil(zancada);
     let mut sample: Vec<u8> = Vec::with_capacity(por_fotograma * muestreados * 4);
     for (n, index) in indices.iter().step_by(step).enumerate() {
-        let frame = scaled(loader(*index)?, width, height);
+        let frame = scaled(muestra(*index)?, width, height);
         for pixel in frame.as_raw().chunks_exact(4).step_by(zancada) {
             sample.extend_from_slice(pixel);
         }
@@ -641,10 +649,12 @@ mod tests {
 
         let codificar = |nombre: &str| -> Vec<u8> {
             let path = dir.join(nombre);
+            let mut muestra = |i: usize| Ok(frames[i].clone());
             let mut loader = |i: usize| Ok(frames[i].clone());
             encode(
                 &indices,
                 &delays,
+                &mut muestra,
                 &mut loader,
                 &path,
                 &GifOptions { width: ancho, height: alto, quality: 80, loop_forever: true },

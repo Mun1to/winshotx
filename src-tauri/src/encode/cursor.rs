@@ -160,7 +160,20 @@ pub fn pintar(imagen: &mut RgbaImage, x: i32, y: i32, alto: f32) {
 
 /// Dibuja el puntero de esa forma, con su punto caliente en `(x, y)`.
 pub fn pintar_forma(imagen: &mut RgbaImage, x: i32, y: i32, alto: f32, forma: Forma) {
-    if alto < 4.0 {
+    pintar_forma_con(imagen, x, y, alto, forma, 1.0);
+}
+
+/// Lo mismo, con el puntero a esa opacidad (de 0 a 1): es como se va apagando cuando lleva
+/// un rato quieto.
+pub fn pintar_forma_con(
+    imagen: &mut RgbaImage,
+    x: i32,
+    y: i32,
+    alto: f32,
+    forma: Forma,
+    opacidad: f32,
+) {
+    if alto < 4.0 || opacidad <= 0.0 {
         return;
     }
     let (puntos, (cu, cv), clara) = forma.dibujo();
@@ -189,13 +202,13 @@ pub fn pintar_forma(imagen: &mut RgbaImage, x: i32, y: i32, alto: f32, forma: Fo
             if dentro(u, v, puntos) {
                 // Dentro: el relleno, y el contorno pegado al borde por la parte de adentro.
                 if d < borde * 0.5 {
-                    mezclar(imagen, px, py, contorno, (borde * 0.5 - d).min(1.0));
+                    mezclar(imagen, px, py, contorno, (borde * 0.5 - d).min(1.0) * opacidad);
                 } else {
-                    mezclar(imagen, px, py, relleno, 1.0);
+                    mezclar(imagen, px, py, relleno, opacidad);
                 }
             } else if d < borde {
                 // Fuera pero cerca: el contorno, que se apaga medio píxel más allá.
-                mezclar(imagen, px, py, contorno, (borde - d).min(1.0));
+                mezclar(imagen, px, py, contorno, (borde - d).min(1.0) * opacidad);
             }
         }
     }

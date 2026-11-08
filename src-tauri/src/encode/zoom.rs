@@ -56,6 +56,23 @@ pub struct Ajustes {
     pub velocidad_max: f32,
 }
 
+impl Ajustes {
+    /// Los de siempre a otra velocidad: con 2,0 se acerca y se aleja en la mitad de tiempo
+    /// y sigue al ratón el doble de ligero; con 0,5, al revés. Lo que se queda quieto
+    /// después del último clic no cambia: eso es cuánto se mira, no lo deprisa que se va.
+    pub fn a_velocidad(escala: f32, velocidad: f32) -> Self {
+        let v = if velocidad.is_finite() { velocidad.clamp(0.4, 2.5) } else { 1.0 };
+        let base = Self::default();
+        Self {
+            escala,
+            transicion_ms: (base.transicion_ms as f32 / v).round() as u64,
+            inercia_ms: (base.inercia_ms as f32 / v).round() as u64,
+            velocidad_max: base.velocidad_max * v,
+            ..base
+        }
+    }
+}
+
 impl Default for Ajustes {
     fn default() -> Self {
         Self {
@@ -675,5 +692,28 @@ mod tests {
         puntos.push((9000, 1500, 800));
         let c = siguiendo(&t, &rastro(&puntos), 9000, 1920, 1080, &a);
         assert!(c.x > 1200, "se ha ido al pasado antiguo: {}", c.x);
+    }
+}
+
+#[cfg(test)]
+mod velocidad {
+    use super::*;
+
+    #[test]
+    fn el_doble_de_rapido_tarda_la_mitad_y_la_de_siempre_no_cambia_nada() {
+        let rapido = Ajustes::a_velocidad(2.0, 2.0);
+        assert_eq!(rapido.transicion_ms, 225);
+        assert_eq!(rapido.inercia_ms, 110);
+        assert!((rapido.velocidad_max - 2.6).abs() < 1e-6);
+        assert_eq!(rapido.quieto_ms, Ajustes::default().quieto_ms, "lo que se mira no cambia");
+        let normal = Ajustes::a_velocidad(2.0, 1.0);
+        assert_eq!(normal.transicion_ms, Ajustes::default().transicion_ms);
+        assert_eq!(normal.escala, 2.0);
+    }
+
+    #[test]
+    fn una_velocidad_disparatada_se_queda_en_sus_topes() {
+        assert_eq!(Ajustes::a_velocidad(2.0, 100.0).transicion_ms, 180);
+        assert_eq!(Ajustes::a_velocidad(2.0, f32::NAN).transicion_ms, 450);
     }
 }

@@ -815,6 +815,11 @@ pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::Ex
             crate::encode::estudio::puntero_normal(session.height)
         },
         speed: 1.0,
+        smooth_cursor: false,
+        hide_idle_cursor: false,
+        corners: 0,
+        volume: 1.0,
+        zoom_speed: 1.0,
         destination: None,
         copy_to_clipboard: false,
     }

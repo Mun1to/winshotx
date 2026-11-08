@@ -1,9 +1,11 @@
 //! Poner la captura sobre un fondo, con aire alrededor y una sombra debajo.
 //!
 //! Es lo que separa un pantallazo de algo que se puede colgar en una publicación sin que
-//! parezca un recorte pegado. Tres controles y ni uno más: **cuánto aire, de qué color el
-//! fondo, y si lleva sombra o no.** Todo lo demás (bordes redondeados configurables,
-//! ángulos, reflejos) es un editor de imagen, y el editor de imagen no es el producto.
+//! parezca un recorte pegado: **cuánto aire, de qué fondo, si lleva sombra, y cuánto se
+//! redondean las esquinas.** Las esquinas entraron el 8 de noviembre de 2026, cuando Munir
+//! pidió el estudio «parecido a los competidores»: Screen Studio, Cap y CleanShot las
+//! traen todos, y sin ellas el vídeo enmarcado parecía un recorte pegado sobre un fondo.
+//! Ángulos, reflejos y perspectivas siguen fuera: eso ya es un editor de imagen.
 //!
 //! Vive aparte del exportador y sin tocar disco para poder comprobarlo con números: cada
 //! prueba mira píxeles concretos de una imagen pequeña.
@@ -24,6 +26,12 @@ pub enum Fondo {
     Atardecer,
     /// Verde a azul, en diagonal.
     Menta,
+    /// Pizarra casi negra, para que el color lo pongan la captura y no el fondo.
+    Noche,
+    /// Celeste a azul marino.
+    Oceano,
+    /// Rosa a ámbar, el cálido.
+    Coral,
 }
 
 impl Fondo {
@@ -35,6 +43,9 @@ impl Fondo {
             "gris" => Fondo::Gris,
             "atardecer" => Fondo::Atardecer,
             "menta" => Fondo::Menta,
+            "noche" => Fondo::Noche,
+            "oceano" => Fondo::Oceano,
+            "coral" => Fondo::Coral,
             _ => Fondo::Blanco,
         }
     }
@@ -56,6 +67,9 @@ impl Fondo {
             Fondo::Gris => Rgba([232, 232, 234, 255]),
             Fondo::Atardecer => mezcla([88, 116, 245], [168, 85, 217]),
             Fondo::Menta => mezcla([34, 197, 152], [56, 132, 232]),
+            Fondo::Noche => mezcla([30, 41, 59], [15, 23, 42]),
+            Fondo::Oceano => mezcla([14, 165, 233], [30, 64, 175]),
+            Fondo::Coral => mezcla([251, 113, 133], [245, 158, 11]),
         }
     }
 }
@@ -67,6 +81,9 @@ pub struct Marco {
     pub margen: u32,
     pub fondo: Fondo,
     pub sombra: bool,
+    /// El radio de las esquinas de la captura, en píxeles. Solo se nota con aire alrededor:
+    /// sin fondo detrás no hay nada que asome por la esquina.
+    pub esquinas: u32,
 }
 
 impl Marco {
@@ -113,18 +130,60 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
     let izquierda = marco.margen;
     let arriba = marco.margen;
 
+    // Nunca más que media captura: con más, las dos esquinas de un lado se pisarían.
+    let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
     if marco.sombra {
-        pintar_sombra(&mut lienzo, izquierda, arriba, ancho_f, alto_f, marco.margen);
+        pintar_sombra(&mut lienzo, izquierda, arriba, ancho_f, alto_f, marco.margen, radio);
     }
 
     for y in 0..alto_f {
         for x in 0..ancho_f {
             let origen = imagen.get_pixel(x, y);
             let destino = lienzo.get_pixel_mut(x + izquierda, y + arriba);
-            *destino = sobre(*origen, *destino);
+            let encima = sobre(*origen, *destino);
+            // Lo que cae fuera del arco de una esquina deja ver el fondo, con el borde
+            // suavizado: un píxel cubierto a medias se mezcla a medias, o sale dentado.
+            let cubre = cobertura(x, y, ancho_f, alto_f, radio);
+            *destino = if cubre >= 1.0 {
+                encima
+            } else {
+                entre(*destino, encima, cubre)
+            };
         }
     }
     lienzo
+}
+
+/// Cuánto de un píxel de la captura queda dentro de sus esquinas redondeadas: 1 en todo lo
+/// que no es esquina, 0 fuera del arco, y lo de en medio en el borde.
+fn cobertura(x: u32, y: u32, ancho: u32, alto: u32, radio: f32) -> f32 {
+    if radio <= 0.0 {
+        return 1.0;
+    }
+    let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
+    let (w, h) = (ancho as f32, alto as f32);
+    let cx = if px < radio {
+        radio
+    } else if px > w - radio {
+        w - radio
+    } else {
+        return 1.0;
+    };
+    let cy = if py < radio {
+        radio
+    } else if py > h - radio {
+        h - radio
+    } else {
+        return 1.0;
+    };
+    let d = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
+    (radio - d + 0.5).clamp(0.0, 1.0)
+}
+
+/// De `a` hacia `b` en `t` (de 0 a 1), canal a canal.
+fn entre(a: Rgba<u8>, b: Rgba<u8>, t: f32) -> Rgba<u8> {
+    let c = |i: usize| (a.0[i] as f32 + (b.0[i] as f32 - a.0[i] as f32) * t).round() as u8;
+    Rgba([c(0), c(1), c(2), 255])
 }
 
 /// Una mancha oscura debajo de la captura, desplazada y con los bordes difuminados.
@@ -140,6 +199,7 @@ fn pintar_sombra(
     ancho_f: u32,
     alto_f: u32,
     margen: u32,
+    radio: f32,
 ) {
     let caida = (margen as f32 * SOMBRA_CAIDA).round() as i32;
     let borrosa = (margen as f32 * SOMBRA_BORROSA).max(1.0);
@@ -152,10 +212,12 @@ fn pintar_sombra(
 
     for y in 0..alto as i32 {
         for x in 0..ancho as i32 {
-            // Lo lejos que está el píxel del rectángulo de la sombra, por fuera.
-            let fuera_x = (x0 - x).max(x - x1 + 1).max(0) as f32;
-            let fuera_y = (y0 - y).max(y - y1 + 1).max(0) as f32;
-            let distancia = (fuera_x * fuera_x + fuera_y * fuera_y).sqrt();
+            // Lo lejos que está el píxel del rectángulo de la sombra, por fuera. Con las
+            // esquinas redondeadas la sombra también lo es: se mide al rectángulo encogido
+            // el radio, y se le resta el radio.
+            let fuera_x = ((x0 as f32 + radio) - x as f32).max(x as f32 - (x1 - 1) as f32 + radio).max(0.0);
+            let fuera_y = ((y0 as f32 + radio) - y as f32).max(y as f32 - (y1 - 1) as f32 + radio).max(0.0);
+            let distancia = ((fuera_x * fuera_x + fuera_y * fuera_y).sqrt() - radio).max(0.0);
             if distancia >= borrosa {
                 continue;
             }
@@ -214,6 +276,7 @@ mod tests {
                 margen: 0,
                 fondo: Fondo::Atardecer,
                 sombra: true,
+                esquinas: 0,
             },
         );
         assert_eq!(fuera.dimensions(), (40, 30));
@@ -228,6 +291,7 @@ mod tests {
                 margen: 10,
                 fondo: Fondo::Blanco,
                 sombra: false,
+                esquinas: 0,
             },
         );
         assert_eq!(fuera.dimensions(), (60, 50));
@@ -239,6 +303,7 @@ mod tests {
             margen: 8,
             fondo: Fondo::Blanco,
             sombra: false,
+            esquinas: 0,
         };
         let fuera = poner(&cuadro(20, 20), marco);
         // Las cuatro esquinas de la captura, y ni un píxel más allá.
@@ -257,6 +322,7 @@ mod tests {
                 margen: 7,
                 fondo: Fondo::Negro,
                 sombra: false,
+                esquinas: 0,
             };
             let (a, b) = marco.medida(ancho, alto);
             assert_eq!(a % 2, 0, "el ancho {a} es impar (venía de {ancho})");
@@ -273,6 +339,7 @@ mod tests {
                 margen: 6,
                 fondo: Fondo::Negro,
                 sombra: false,
+                esquinas: 0,
             },
         );
         let (ancho, alto) = fuera.dimensions();
@@ -290,6 +357,7 @@ mod tests {
                 margen: 20,
                 fondo: Fondo::Atardecer,
                 sombra: false,
+                esquinas: 0,
             },
         );
         let (ancho, alto) = fuera.dimensions();
@@ -304,6 +372,7 @@ mod tests {
             margen: 20,
             fondo: Fondo::Blanco,
             sombra: true,
+            esquinas: 0,
         };
         let fuera = poner(&cuadro(40, 40), marco);
         let claro = |p: Rgba<u8>| p.0[0] as u32 + p.0[1] as u32 + p.0[2] as u32;
@@ -324,6 +393,7 @@ mod tests {
                 margen: 20,
                 fondo: Fondo::Blanco,
                 sombra: false,
+                esquinas: 0,
             },
         );
         assert_eq!(*fuera.get_pixel(30, 62), Rgba([255, 255, 255, 255]));
@@ -341,6 +411,7 @@ mod tests {
                 margen: 4,
                 fondo: Fondo::Negro,
                 sombra: false,
+                esquinas: 0,
             },
         );
         assert_eq!(*fuera.get_pixel(14, 14), Rgba([255, 0, 0, 255]));
@@ -356,6 +427,7 @@ mod tests {
             margen: 40,
             fondo: Fondo::Blanco,
             sombra: false,
+            esquinas: 0,
         };
         // Una captura de 400 x 400 exportada a 100 x 100, con 40 px de aire.
         let fuera = enmarcar(cuadro(400, 400), 100, 100, marco);
@@ -375,6 +447,7 @@ mod tests {
                 margen: 0,
                 fondo: Fondo::Blanco,
                 sombra: false,
+                esquinas: 0,
             },
         );
         assert_eq!(fuera.dimensions(), (100, 100));
@@ -413,6 +486,7 @@ mod tests {
                 margen: 44,
                 fondo,
                 sombra: true,
+                esquinas: 0,
             };
             let fuera = poner(&captura, marco);
             let ruta = carpeta.join(format!("{nombre}.png"));
@@ -435,6 +509,7 @@ mod tests {
             margen: 12,
             fondo: Fondo::Negro,
             sombra: false,
+            esquinas: 0,
         };
         let enmarcada = enmarcar(cuadro(60, 40), 60, 40, marco);
         let (ancho, alto) = marco.medida(60, 40);
@@ -452,5 +527,62 @@ mod tests {
         // La esquina es fondo, y el centro sigue siendo la captura.
         assert_eq!(releida.get_pixel(0, 0).0[0], 18);
         assert_eq!(*releida.get_pixel(42, 32), Rgba([255, 0, 0, 255]));
+    }
+}
+
+/// Las esquinas redondeadas y los fondos nuevos del estudio.
+#[cfg(test)]
+mod esquinas {
+    use super::*;
+
+    const ROJO: Rgba<u8> = Rgba([220, 30, 30, 255]);
+
+    fn redondeada(esquinas: u32, sombra: bool) -> RgbaImage {
+        poner(
+            &RgbaImage::from_pixel(40, 30, ROJO),
+            Marco { margen: 10, fondo: Fondo::Blanco, sombra, esquinas },
+        )
+    }
+
+    #[test]
+    fn la_esquina_deja_ver_el_fondo_y_el_resto_de_la_captura_sigue_entero() {
+        let lienzo = redondeada(8, false);
+        assert_eq!(*lienzo.get_pixel(10, 10), Rgba([255, 255, 255, 255]), "la esquina tiene que ser fondo");
+        assert_eq!(*lienzo.get_pixel(30, 25), ROJO, "el centro es la captura");
+        assert_eq!(*lienzo.get_pixel(19, 10), ROJO, "el borde de arriba, fuera de la esquina, tambien");
+    }
+
+    #[test]
+    fn el_borde_del_arco_sale_suavizado_y_no_dentado() {
+        let lienzo = redondeada(8, false);
+        // Algun pixel del arco queda a medias entre el rojo y el blanco.
+        let a_medias = (10..18).flat_map(|x| (10..18).map(move |y| (x, y))).any(|(x, y)| {
+            let p = lienzo.get_pixel(x, y);
+            p.0[1] > 40 && p.0[1] < 230
+        });
+        assert!(a_medias, "el arco sale dentado");
+    }
+
+    #[test]
+    fn sin_esquinas_la_esquina_es_captura_como_siempre() {
+        assert_eq!(*redondeada(0, false).get_pixel(10, 10), ROJO);
+    }
+
+    #[test]
+    fn la_sombra_sigue_la_esquina_redondeada() {
+        // Justo fuera de la esquina de abajo a la derecha, en diagonal: con el rectangulo
+        // recto ahi habria sombra fuerte; con la esquina redondeada, mas suave.
+        let recta = redondeada(0, true);
+        let curva = redondeada(12, true);
+        let (x, y) = (50, 42);
+        assert!(curva.get_pixel(x, y).0[0] > recta.get_pixel(x, y).0[0], "la sombra no sigue la curva");
+    }
+
+    #[test]
+    fn los_fondos_nuevos_tienen_nombre() {
+        assert_eq!(Fondo::desde("noche"), Fondo::Noche);
+        assert_eq!(Fondo::desde("oceano"), Fondo::Oceano);
+        assert_eq!(Fondo::desde("coral"), Fondo::Coral);
+        assert_eq!(Fondo::desde("no-existe"), Fondo::Blanco);
     }
 }

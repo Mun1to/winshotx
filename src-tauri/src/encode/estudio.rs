@@ -38,6 +38,8 @@ pub struct Fuente<'a> {
     /// Las imagenes de verdad de los punteros, y cual estaba puesta desde cuando.
     pub punteros: &'a [PunteroCargado],
     pub cambios_puntero: &'a [(u64, u32)],
+    /// Cuándo se movió el ratón (ver `movimientos`), para saber cuánto lleva quieto.
+    pub movimientos: &'a [u64],
 }
 
 impl Fuente<'static> {
@@ -49,6 +51,7 @@ impl Fuente<'static> {
         formas: &[],
         punteros: &[],
         cambios_puntero: &[],
+        movimientos: &[],
     };
 }
 
@@ -72,6 +75,10 @@ pub struct Ajustes {
     /// Se dibuja aquí en vez de usar el que capturó Windows porque así **se puede hacer
     /// grande sin pixelarlo**: no se amplía una imagen, se dibuja la forma a otra escala.
     pub cursor: f32,
+    /// Quitarle al puntero los temblores de la mano (ver `sitio_del_puntero`).
+    pub suave: bool,
+    /// Esconder el puntero cuando lleva un rato quieto (ver `opacidad_del_puntero`).
+    pub esconder: bool,
 }
 
 impl Ajustes {
@@ -85,6 +92,80 @@ impl Ajustes {
 /// sin tapar lo que se sennala; el de Windows a ese tamanno mide 32 y se pierde.
 pub fn puntero_normal(alto_video: u32) -> f32 {
     (alto_video as f32 * 0.04).clamp(24.0, 64.0).round()
+}
+
+/// Lo que se mira hacia atrás y hacia delante para suavizar el puntero: un cuarto de
+/// segundo en total. Con menos se siguen viendo los temblores; con más, el puntero corta
+/// las curvas y llega redondeado a donde se pulsó.
+pub const SUAVE_MS: u64 = 120;
+
+/// Lo que tiene que estar quieto el puntero para empezar a esconderse, y lo que tarda en irse.
+pub const QUIETO_MS: u64 = 1_500;
+pub const DESVANECE_MS: u64 = 300;
+
+/// Dónde se dibuja el puntero en ese instante, en píxeles de la región grabada.
+///
+/// Sin `suave`, donde estaba. Con `suave`, la media de donde estuvo un poco antes y un poco
+/// después (`SUAVE_MS` a cada lado, cada 8 ms, pesando más lo más cercano): quita los
+/// temblores de la mano sin que el puntero vaya por detrás, que es lo que pasa con una
+/// media solo hacia atrás. Es lo que hacen Screen Studio y Cap con su «movimiento suave».
+///
+/// `src/lib/estudio.ts` hace la misma cuenta para la vista previa, con las mismas cifras.
+pub fn sitio_del_puntero(rastro: &[(u64, i32, i32)], ms: u64, suave: bool) -> Option<(f32, f32)> {
+    let (_, x, y) = donde_estaba(rastro, ms)?;
+    if !suave {
+        return Some((x as f32, y as f32));
+    }
+    const PASO: u64 = 8;
+    let lado = SUAVE_MS / PASO;
+    let (mut sx, mut sy, mut pesos) = (0.0f32, 0.0f32, 0.0f32);
+    for k in 0..=2 * lado {
+        let Some(t) = (ms + k * PASO).checked_sub(SUAVE_MS) else {
+            continue;
+        };
+        let Some((_, px, py)) = donde_estaba(rastro, t) else {
+            continue;
+        };
+        let peso = (lado + 1 - k.abs_diff(lado)) as f32;
+        sx += px as f32 * peso;
+        sy += py as f32 * peso;
+        pesos += peso;
+    }
+    Some((sx / pesos, sy / pesos))
+}
+
+/// Los instantes en que el ratón cambió de sitio, sacados del rastro una vez por
+/// exportación: con ellos, saber cuánto lleva quieto es una búsqueda y no recorrer hacia
+/// atrás todo el rato que lleva parado.
+pub fn movimientos(rastro: &[(u64, i32, i32)]) -> Vec<u64> {
+    let mut salen = Vec::new();
+    let mut antes: Option<(i32, i32)> = None;
+    for &(t, x, y) in rastro {
+        if antes != Some((x, y)) {
+            salen.push(t);
+            antes = Some((x, y));
+        }
+    }
+    salen
+}
+
+/// Lo visible que está el puntero, de 0 a 1.
+///
+/// Del todo mientras se mueve. Si lleva más de `QUIETO_MS` sin moverse ni pulsar, se va
+/// apagando en `DESVANECE_MS`, y vuelve entero en cuanto se mueve. Un clic cuenta como
+/// moverse: quien pulsa está señalando algo, y es justo cuando hay que ver el puntero.
+pub fn opacidad_del_puntero(movimientos: &[u64], clics: &[Clic], ms: u64) -> f32 {
+    let movido = match movimientos.partition_point(|t| *t <= ms) {
+        0 => return 1.0,
+        i => movimientos[i - 1],
+    };
+    let pulsado = clics.iter().filter(|c| c.ms <= ms).map(|c| c.ms).max().unwrap_or(0);
+    let quieto = ms.saturating_sub(movido.max(pulsado));
+    if quieto <= QUIETO_MS {
+        1.0
+    } else {
+        (1.0 - (quieto - QUIETO_MS) as f32 / DESVANECE_MS as f32).max(0.0)
+    }
 }
 
 /// Cuanto dura el apreton del puntero tras un clic: se encoge un poco y vuelve, que es
@@ -162,21 +243,34 @@ pub fn pintar(
         formas,
         punteros,
         cambios_puntero,
+        movimientos,
     } = *fuente;
 
     // El puntero va DEBAJO del aro: el aro se abre desde donde se pulsó, y tapar el
     // cursor con él sería tapar justo lo que se está señalando.
-    if ajustes.cursor > 0.0 {
-        if let Some((_, x, y)) = donde_estaba(rastro, ms) {
-            if let Some((px, py)) = colocar(x, y, origen, recortes, destino) {
+    let opacidad = if ajustes.esconder {
+        opacidad_del_puntero(movimientos, clics, ms)
+    } else {
+        1.0
+    };
+    if ajustes.cursor > 0.0 && opacidad > 0.0 {
+        if let Some((fx, fy)) = sitio_del_puntero(rastro, ms, ajustes.suave) {
+            if let Some((px, py)) = colocar(fx.round() as i32, fy.round() as i32, origen, recortes, destino) {
                 let alto = alto_del_puntero(ajustes.cursor, clics, ms);
                 // Con la imagen de verdad del puntero si se pudo leer al grabar; si no,
                 // la forma dibujada a mano, que es lo que habia antes.
                 let leido = puntero_en(cambios_puntero, ms)
                     .and_then(|id| punteros.iter().find(|p| p.id == id));
                 match leido {
-                    Some(p) => pegar_puntero(imagen, p, px, py, alto, &mut caches.punteros),
-                    None => super::cursor::pintar_forma(imagen, px, py, alto, forma_en(formas, ms)),
+                    Some(p) => pegar_puntero(imagen, p, px, py, alto, opacidad, &mut caches.punteros),
+                    None => super::cursor::pintar_forma_con(
+                        imagen,
+                        px,
+                        py,
+                        alto,
+                        forma_en(formas, ms),
+                        opacidad,
+                    ),
                 }
             }
         }
@@ -242,6 +336,7 @@ fn pegar_puntero(
     x: i32,
     y: i32,
     alto: f32,
+    opacidad: f32,
     cache: &mut HashMap<(u32, u32), RgbaImage>,
 ) {
     if alto < 4.0 {
@@ -270,7 +365,7 @@ fn pegar_puntero(
             if dx < 0 || dx >= ancho as i32 {
                 continue;
             }
-            let alfa = pixel.0[3] as f32 / 255.0;
+            let alfa = pixel.0[3] as f32 / 255.0 * opacidad;
             if alfa <= 0.0 {
                 continue;
             }
@@ -378,6 +473,7 @@ mod tests {
             clics: true,
             teclas: false,
             cursor: 0.0,
+            ..Ajustes::default()
         };
         let mut cache = Caches::default();
         let mut tocado = |ms: u64| {
@@ -441,6 +537,7 @@ mod tests {
             clics: false,
             teclas: false,
             cursor: 8.0,
+            ..Ajustes::default()
         };
         let mut caches = Caches::default();
         let fondo = image::Rgba([0, 0, 0, 255]);
@@ -533,6 +630,7 @@ mod tests {
             clics: true,
             teclas: false,
             cursor: 0.0,
+            ..Ajustes::default()
         };
         let mut cache = Caches::default();
         let mut cuantos = |recortes: &[Recorte]| {
@@ -591,6 +689,7 @@ mod tests {
             clics: true,
             teclas: false,
             cursor: 40.0,
+            ..Ajustes::default()
         };
         let mut cache = Caches::default();
         let mut imagen = RgbaImage::from_pixel(1280, 800, image::Rgba([30, 30, 30, 255]));
@@ -765,6 +864,7 @@ mod tests {
             clics: true,
             teclas: true,
             cursor: 44.0,
+            ..Ajustes::default()
         };
         let mut cache = Caches::default();
         let destino = std::env::temp_dir().join("winshotx-ver-zoom");
@@ -808,6 +908,7 @@ mod tests {
                     formas: &sesion.formas,
                     punteros: &[],
                     cambios_puntero: &sesion.cambios_puntero,
+                    movimientos: &[],
                 },
                 (sesion.width, sesion.height),
                 &recortes,
@@ -819,5 +920,78 @@ mod tests {
             eprintln!("[ver] {ms} ms, escala {:.2} -> {}", camara.escala, ruta.display());
         }
         eprintln!("[ver] mira la carpeta {}", destino.display());
+    }
+}
+
+/// El puntero suave y el que se esconde. Las cifras son las mismas que comprueba
+/// `src/lib/estudio.test.ts`: la vista previa y el archivo tienen que dar lo mismo.
+#[cfg(test)]
+mod puntero_de_estudio {
+    use super::*;
+
+    /// Un salto de x = 0 a x = 100 justo a los 100 ms.
+    const SALTO: [(u64, i32, i32); 2] = [(0, 0, 0), (100, 100, 0)];
+
+    #[test]
+    fn sin_suavizar_esta_donde_estaba() {
+        assert_eq!(sitio_del_puntero(&SALTO, 100, false), Some((100.0, 0.0)));
+        assert_eq!(sitio_del_puntero(&SALTO, 99, false), Some((0.0, 0.0)));
+    }
+
+    #[test]
+    fn suavizado_un_salto_se_reparte_en_el_tiempo() {
+        let (x, y) = sitio_del_puntero(&SALTO, 100, true).unwrap();
+        assert!((x - 54.4).abs() < 1e-3, "{x}");
+        assert_eq!(y, 0.0);
+        // Un cuarto de segundo despues ya ha llegado del todo.
+        assert_eq!(sitio_del_puntero(&SALTO, 230, true), Some((100.0, 0.0)));
+    }
+
+    #[test]
+    fn suavizado_no_va_por_detras_en_un_movimiento_seguido() {
+        // A velocidad constante, la media hacia los dos lados cae justo donde esta.
+        let recta: Vec<(u64, i32, i32)> = (0..=100u64).map(|k| (k * 8, (k * 8) as i32, 0)).collect();
+        let (x, _) = sitio_del_puntero(&recta, 400, true).unwrap();
+        assert!((x - 400.0).abs() < 1.0, "va por detras: {x}");
+    }
+
+    #[test]
+    fn suavizado_quita_el_temblor_de_la_mano() {
+        let temblor: Vec<(u64, i32, i32)> =
+            (0..100u64).map(|k| (k * 8, 200 + if k % 2 == 0 { 4 } else { -4 }, 0)).collect();
+        let (x, _) = sitio_del_puntero(&temblor, 400, true).unwrap();
+        assert!((x - 200.0).abs() < 0.6, "el temblor sigue ahi: {x}");
+    }
+
+    #[test]
+    fn los_movimientos_son_los_cambios_de_sitio() {
+        let rastro = [(0, 1, 1), (16, 1, 1), (32, 2, 1), (48, 2, 1), (64, 1, 1)];
+        assert_eq!(movimientos(&rastro), vec![0, 32, 64]);
+    }
+
+    #[test]
+    fn quieto_un_rato_se_va_apagando_y_un_clic_lo_despierta() {
+        let movido = [0u64, 1_000];
+        assert_eq!(opacidad_del_puntero(&movido, &[], 2_000), 1.0);
+        assert!((opacidad_del_puntero(&movido, &[], 2_650) - 0.5).abs() < 1e-6);
+        assert_eq!(opacidad_del_puntero(&movido, &[], 2_900), 0.0);
+        let clic = [Clic { ms: 2_600, x: 0, y: 0, derecho: false }];
+        assert_eq!(opacidad_del_puntero(&movido, &clic, 2_900), 1.0);
+    }
+
+    #[test]
+    fn apagandose_se_dibuja_a_medias_y_del_todo_apagado_no_se_dibuja() {
+        let rastro = [(0u64, 50i32, 50i32)];
+        let movs = movimientos(&rastro);
+        let fuente = Fuente { rastro: &rastro, movimientos: &movs, ..Fuente::VACIA };
+        let ajustes = Ajustes { cursor: 30.0, esconder: true, ..Ajustes::default() };
+        let gris = image::Rgba([128, 128, 128, 255]);
+        let tocados = |ms: u64| {
+            let mut imagen = RgbaImage::from_pixel(120, 120, gris);
+            pintar(&mut imagen, ms, &fuente, (120, 120), &[], &ajustes, &mut Caches::default());
+            imagen.pixels().filter(|p| **p != gris).count()
+        };
+        assert!(tocados(500) > 50, "moviendose se ve");
+        assert_eq!(tocados(3_000), 0, "quieto tres segundos ya no se ve");
     }
 }
