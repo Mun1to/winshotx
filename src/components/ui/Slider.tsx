@@ -24,8 +24,8 @@ export function Slider({
     <label className={`block ${disabled ? "opacity-40" : ""}`}>
       {label && (
         <div className="mb-1.5 flex items-baseline justify-between">
-          <span className="text-xs font-medium text-suave">{label}</span>
-          {hint && <span className="text-xs tabular-nums text-tenue">{hint}</span>}
+          <span className="text-[13px] font-medium text-texto">{label}</span>
+          {hint && <span className="text-[13px] tabular-nums text-suave">{hint}</span>}
         </div>
       )}
       <input
@@ -42,7 +42,7 @@ export function Slider({
         style={{
           background: `linear-gradient(to right, rgb(59 130 246) ${percent}%, rgb(255 255 255 / 0.12) ${percent}%)`,
         }}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
       />
     </label>
   );

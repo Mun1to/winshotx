@@ -16,12 +16,12 @@ interface Props {
   posterUrl: string | null;
   /** Si la grabación trae sonido. Sin esto la vista previa siempre salía muda. */
   conSonido: boolean;
-  inMs: number;
+  /** Donde acaba lo que se queda. */
   outMs: number;
-  /** Cambia cuando el usuario arrastra el playhead; provoca un seek. */
+  /** Cambia cuando el usuario mueve el cabezal o un corte; provoca un seek. */
   seekMs: number;
-  onTime: (ms: number) => void;
-  onEnded: () => void;
+  /** Se ha pasado del final de lo que se queda. */
+  onFinal: () => void;
   onPlaying: (reproduciendo: boolean) => void;
   /** Lo que diga el vídeo cuando no puede con el archivo, para poder enseñarlo. */
   onFallo: (motivo: string) => void;
@@ -32,11 +32,9 @@ export function PreviewCanvas({
   videoUrl,
   posterUrl,
   conSonido,
-  inMs,
   outMs,
   seekMs,
-  onTime,
-  onEnded,
+  onFinal,
   onPlaying,
   onFallo,
 }: Props) {
@@ -86,15 +84,11 @@ export function PreviewCanvas({
         const codigo = videoRef.current?.error;
         onFallo(codigo?.message || t("el vídeo de vista previa no se ha podido abrir"));
       }}
+      // Quien para en el corte es la línea de tiempo, en cada pintada. Esto es la red: el
+      // aviso de tiempo del vídeo llega aunque la ventana esté minimizada y no pinte, y
+      // sin él el vídeo seguiría sonando más allá de lo que se queda.
       onTimeUpdate={(e) => {
-        const ms = e.currentTarget.currentTime * 1000;
-        // El recorte manda: al llegar a la marca B se vuelve a la A.
-        if (ms >= outMs) {
-          e.currentTarget.currentTime = inMs / 1000;
-          onEnded();
-          return;
-        }
-        onTime(ms);
+        if (e.currentTarget.currentTime * 1000 >= outMs) onFinal();
       }}
     />
   );

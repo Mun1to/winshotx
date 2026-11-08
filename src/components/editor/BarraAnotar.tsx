@@ -1,6 +1,7 @@
 import {
   ArrowUpRight,
   Circle,
+  Crop,
   Highlighter,
   ShieldCheck,
   Square,
@@ -13,15 +14,19 @@ import { COLORES, type Herramienta } from "../../lib/anotaciones";
 import { useT } from "../../lib/i18n";
 
 /**
- * Las seis herramientas de anotar, el color y deshacer.
+ * Lo que se hace sobre la imagen: dibujar, encuadrar, leer su texto y tapar datos.
  *
- * Va debajo de la vista previa, junto a los controles de reproducción, y no en una columna
- * aparte: una barra lateral más se lleva doscientos píxeles de ancho, que es justo lo que
- * hace falta para ver la captura.
+ * Va ARRIBA de la vista previa, y el tiempo abajo: así cada cosa vive donde se busca, y el
+ * vídeo queda pegado a su línea de tiempo. Antes iba entre los dos, y el encuadre flotaba
+ * encima de la imagen en una pastilla con los mandos del tiempo.
  *
  * El difuminado lleva su propio icono y su propio sitio, separado de los demás por una
  * raya: los otros cuatro señalan algo y este **tapa** algo, que es lo contrario. Mezclarlo
  * en la fila hacía que se pulsara por error.
+ *
+ * Las herramientas de dibujar van solo con su icono, que es como las reconoce cualquiera,
+ * y su nombre al pasar el ratón. Lo demás lleva su nombre escrito: «encuadrar», «copiar
+ * texto» o «tapar datos» no tienen un icono que se entienda solo.
  */
 interface Props {
   activa: Herramienta | null;
@@ -39,6 +44,12 @@ interface Props {
   onCopiarTexto: () => void;
   /** Mientras el lector de texto trabaja, que son unas decimas sobre una captura grande. */
   buscandoDatos: boolean;
+  /** Si el marco de encuadrar está puesto para moverlo. */
+  encuadrando: boolean;
+  /** Lo que mide el trozo encuadrado («640 × 360»), o null si se exporta entera. */
+  encuadre: string | null;
+  onEncuadrar: () => void;
+  onQuitarEncuadre: () => void;
 }
 
 const HERRAMIENTAS: {
@@ -68,10 +79,14 @@ export function BarraAnotar({
   onTaparDatos,
   onCopiarTexto,
   buscandoDatos,
+  encuadrando,
+  encuadre,
+  onEncuadrar,
+  onQuitarEncuadre,
 }: Props) {
   const t = useT();
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-t border-white/8 bg-black/25 px-3 py-2">
+    <div className="@container flex shrink-0 flex-wrap items-center gap-1 border-b border-white/8 bg-black/25 px-3 py-2">
       {HERRAMIENTAS.map((h) => (
         <Boton
           key={h.id}
@@ -82,9 +97,9 @@ export function BarraAnotar({
         />
       ))}
 
-      <span className="mx-0.5 h-5 w-px bg-white/10" />
+      <Raya />
 
-      {/* Tapar datos va aparte: los otros cuatro señalan, este esconde. */}
+      {/* Tapar va aparte: los otros cuatro señalan, este esconde. */}
       <Boton
         icono={Difuminar}
         etiqueta={`${t("Mosaico")} · 6`}
@@ -92,26 +107,27 @@ export function BarraAnotar({
         onClick={() => onElegir(activa === "blur" ? null : "blur")}
       />
 
-      <span className="mx-0.5 h-5 w-px bg-white/10" />
-
       {/* El color no sale con el difuminado: ahí no pinta nada. */}
       {activa !== "blur" && (
-        <span className="flex gap-1">
-          {COLORES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => onColor(c)}
-              title={c}
-              aria-label={c}
-              aria-pressed={color === c}
-              style={{ background: c }}
-              className={`size-5 rounded-full border-2 transition-colors ${
-                color === c ? "border-white" : "border-white/20 hover:border-white/50"
-              }`}
-            />
-          ))}
-        </span>
+        <>
+          <Raya />
+          <span className="flex gap-1.5 px-1">
+            {COLORES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onColor(c)}
+                title={c}
+                aria-label={c}
+                aria-pressed={color === c}
+                style={{ background: c }}
+                className={`size-6 rounded-full border-2 transition-colors ${
+                  color === c ? "border-white" : "border-white/20 hover:border-white/50"
+                }`}
+              />
+            ))}
+          </span>
+        </>
       )}
 
       {/* El campo solo aparece con el texto elegido: es lo único que se escribe. */}
@@ -120,37 +136,60 @@ export function BarraAnotar({
           value={texto}
           onChange={(e) => onTexto(e.target.value)}
           placeholder={t("Escribe y pulsa en la imagen")}
-          className="h-7 min-w-[190px] flex-1 rounded-md border border-white/10 bg-black/40 px-2 text-[12px] text-neutral-200 placeholder:text-neutral-600 focus:border-blue-500/70 focus:outline-none"
+          className="h-[34px] min-w-[200px] flex-1 rounded-md border border-white/10 bg-black/40 px-2.5 text-[13px] text-neutral-100 placeholder:text-neutral-500 focus:border-blue-500/70 focus:outline-none"
         />
+      )}
+
+      <Raya />
+
+      {/*
+        Encuadrar es quedarse con un trozo de la IMAGEN; recortar, en la línea de tiempo,
+        con un trozo del TIEMPO. Antes los dos se llamaban «recortar», y en un vídeo no se
+        sabía cuál de los dos iba a pasar.
+      */}
+      <BotonConNombre
+        icono={Crop}
+        nombre={encuadre ?? t("Encuadrar")}
+        titulo={t("Quedarse con un trozo de la imagen (C)")}
+        activa={encuadrando || encuadre !== null}
+        onClick={onEncuadrar}
+      />
+      {encuadre !== null && (
+        <Boton icono={X} etiqueta={t("Quitar el recorte")} activa={false} onClick={onQuitarEncuadre} />
       )}
 
       <span className="ml-auto flex items-center gap-1">
         {/*
-          Tapar datos va al lado del difuminado porque es lo mismo, hecho solo: encuentra
-          los correos, los telefonos, las tarjetas, las cuentas y los DNI de la imagen y
-          deja un mosaico encima de cada uno. Lo que deja son marcas normales, asi que se
-          ven antes de exportar y se quitan con Ctrl+Z.
+          Leer el texto de la imagen ya existía en la captura, con la tecla T, y se quedaba
+          fuera del editor: para copiar una frase de una captura que ya estabas editando
+          había que salir y volver a capturar lo mismo. De un vídeo, directamente no había
+          forma.
         */}
-        {/*
-          Leer el texto de la imagen ya existia en la captura, con la tecla T, y se
-          quedaba fuera del editor: para copiar una frase de una captura que ya estabas
-          editando habia que salir y volver a capturar lo mismo. De un video, directamente
-          no habia forma.
-        */}
-        <Boton
+        <BotonConNombre
           icono={TextSelect}
-          etiqueta={t("Copiar el texto de la imagen")}
+          nombre={t("Copiar texto")}
+          titulo={t("Copiar el texto de la imagen")}
+          estrecho
           activa={false}
           onClick={onCopiarTexto}
           apagada={buscandoDatos}
         />
-        <Boton
+        {/*
+          Tapar datos es el difuminado hecho solo: encuentra los correos, los teléfonos,
+          las tarjetas, las cuentas y los DNI de la imagen y deja un mosaico encima de cada
+          uno. Lo que deja son marcas normales, así que se ven antes de exportar y se
+          quitan con Ctrl+Z.
+        */}
+        <BotonConNombre
           icono={ShieldCheck}
-          etiqueta={t("Tapar datos personales")}
+          nombre={t("Tapar datos")}
+          titulo={t("Tapar datos personales")}
+          estrecho
           activa={false}
           onClick={onTaparDatos}
           apagada={buscandoDatos}
         />
+        <Raya />
         <Boton
           icono={Undo2}
           etiqueta={t("Deshacer la última (Ctrl+Z)")}
@@ -168,6 +207,10 @@ export function BarraAnotar({
       </span>
     </div>
   );
+}
+
+function Raya() {
+  return <span className="mx-1 h-5 w-px bg-white/10" />;
 }
 
 function Boton({
@@ -192,11 +235,49 @@ function Boton({
       title={etiqueta}
       aria-label={etiqueta}
       aria-pressed={activa}
-      className={`flex size-7 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
-        activa ? "bg-blue-500 text-white" : "text-neutral-400 hover:bg-white/10 hover:text-white"
+      className={`flex size-[34px] items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
+        activa ? "bg-blue-500 text-white" : "text-neutral-300 hover:bg-white/10 hover:text-white"
       }`}
     >
-      <Icono className="size-4" />
+      <Icono className="size-[18px]" />
+    </button>
+  );
+}
+
+function BotonConNombre({
+  icono: Icono,
+  nombre,
+  titulo,
+  activa,
+  onClick,
+  apagada = false,
+  estrecho = false,
+}: {
+  icono: React.ComponentType<{ className?: string }>;
+  nombre: string;
+  titulo: string;
+  /** Si en una ventana estrecha se queda solo con el icono. */
+  estrecho?: boolean;
+  activa: boolean;
+  onClick: () => void;
+  apagada?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={apagada}
+      title={titulo}
+      aria-label={nombre}
+      aria-pressed={activa}
+      className={`flex h-[34px] items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium whitespace-nowrap tabular-nums transition-colors disabled:opacity-30 ${
+        activa ? "bg-blue-500 text-white" : "text-neutral-200 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <Icono className="size-[18px]" />
+      {/* En una ventana estrecha se queda el icono, con su nombre al pasar el ratón: mejor
+          eso que la barra partida en dos filas comiéndose la imagen. */}
+      <span className={estrecho ? "hidden @[52rem]:inline" : undefined}>{nombre}</span>
     </button>
   );
 }
@@ -207,9 +288,9 @@ function Boton({
  * Dibujado a mano porque ninguno de los de lucide dice «mosaico»: el de gota dice
  * «desenfoque», y esto no desenfoca, tira la información.
  */
-function Difuminar() {
+function Difuminar({ className = "size-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
       {[4, 9, 14, 19].map((y) =>
         [4, 9, 14, 19].map((x) => (
           <rect

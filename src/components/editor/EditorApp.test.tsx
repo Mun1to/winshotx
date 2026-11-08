@@ -11,10 +11,15 @@ import { aplicarIdioma } from "../../lib/i18n";
 import { emite, llamadas, responde } from "../../test/preparar";
 
 const destruir = vi.fn();
+/** Los títulos que el editor le ha puesto a su ventana, en orden. */
+const titulos: string[] = [];
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     destroy: destruir,
-    setTitle: () => Promise.resolve(),
+    setTitle: (titulo: string) => {
+      titulos.push(titulo);
+      return Promise.resolve();
+    },
     onCloseRequested: () => Promise.resolve(() => {}),
   }),
 }));
@@ -279,8 +284,8 @@ describe("el botón de reproducir", () => {
     expect(screen.queryByText("Preparando el vídeo…")).toBeNull();
     expect(hayPlay()).toBeNull();
     expect(screen.queryByRole("button", { name: /Inicio|Start/ })).toBeNull();
-    // Lo que sí sigue estando en una captura es el recorte.
-    expect(screen.getByRole("button", { name: /Recortar|Crop/ })).toBeInTheDocument();
+    // Lo que sí sigue estando en una captura es encuadrar, que recorta la IMAGEN.
+    expect(screen.getByRole("button", { name: /Encuadrar|Crop/ })).toBeInTheDocument();
   });
 
   it("una captura tampoco enseña la tira de fotogramas", async () => {
@@ -340,16 +345,136 @@ describe("el botón de reproducir", () => {
     suena.mockRestore();
   });
 
-  it("el reloj dice dónde estás Y cuánto dura lo que te quedas", async () => {
+  it("el reloj dice dónde estás, y debajo cuánto dura", async () => {
     // Un reloj suelto no distingue el principio de algo largo del final de algo corto.
-    preparar(VERTICAL, "C:\\t\\preview.mp4", "mp4");
+    prepararLarga();
     render(<EditorApp sessionId="s1" />);
     await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
-    // La tira de abajo también escribe la hora del fotograma, así que se mira el
-    // reloj de los mandos entre todos los que la llevan.
-    const relojes = screen
-      .getAllByText(/0:00\.00/)
-      .map((el) => el.closest("span")?.textContent ?? "");
-    expect(relojes.some((texto) => /0:00\.00\s*\/\s*0:00\.\d\d/.test(texto))).toBe(true);
+    expect(screen.getByText("0:00.0")).toBeInTheDocument();
+    expect(screen.getByText("0:10.0")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Diez segundos de vídeo, a diez fotogramas por segundo, con su vista previa escrita.
+ * Es la grabación sobre la que se prueba recortar desde la línea de tiempo.
+ */
+function prepararLarga() {
+  responde("session_info", {
+    id: "s1",
+    region: { x: 0, y: 0, width: 1280, height: 800 },
+    fps: 10,
+    frameCount: 100,
+    durationMs: 10_000,
+    hasAudio: true,
+    hasClicks: false,
+    cursorBaked: false,
+    format: "mp4",
+    mp4Path: "C:\t\preview.mp4",
+  });
+  responde(
+    "session_frames",
+    Array.from({ length: 100 }, (_, i) => ({
+      index: i,
+      timestampMs: i * 100,
+      durationMs: 100,
+      thumbPath: `C:\t\${i}.png`,
+    })),
+  );
+  responde("get_settings", { saveDirectory: "C:\capturas", theme: "oscuro", language: "es" });
+  responde("ffmpeg_available", false);
+  responde("session_studio", null);
+}
+
+describe("recortar desde la línea de tiempo", () => {
+  /** La tira empieza en x = 100 y mide 1000 px: cada píxel son diez milisegundos. */
+  const x = (parte: number) => 100 + parte * 1000;
+  const original = HTMLElement.prototype.getBoundingClientRect;
+
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.hasAttribute("data-pista")) {
+        return { left: 100, top: 0, width: 1000, height: 56, right: 1100, bottom: 56, x: 100, y: 0, toJSON() {} } as DOMRect;
+      }
+      return original.call(this);
+    });
+  });
+
+  async function abrirLarga() {
+    prepararLarga();
+    const vista = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    return vista;
+  }
+
+  /** Arrastra un asa hasta esa parte de la tira, como haría el ratón. */
+  function arrastrar(asa: RegExp, parte: number) {
+    fireEvent.pointerDown(screen.getByRole("slider", { name: asa }));
+    fireEvent.pointerMove(window, { clientX: x(parte) });
+    fireEvent.pointerUp(window);
+  }
+
+  it("lo que se recorta con las asas es lo que se guarda, al milisegundo", async () => {
+    await abrirLarga();
+    arrastrar(/Principio/, 0.25);
+    arrastrar(/Final/, 0.7);
+    expect(screen.getByText("Te quedas con 0:04.5 de 0:10.0")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar MP4" }));
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "export_media")).toBe(true));
+    const peticion = (llamadas.find((l) => l.comando === "export_media")?.args as {
+      request: Record<string, unknown>;
+    }).request;
+    // Los fotogramas viajan también, para quien todavía los use: el 25 empieza en 2,5 s
+    // y el 69 es el último que empieza antes de los 7.
+    expect(peticion).toMatchObject({ desdeMs: 2_500, hastaMs: 7_000, from: 25, to: 69 });
+  });
+
+  it("mover un asa enseña en la vista previa el sitio exacto del corte", async () => {
+    const { container } = await abrirLarga();
+    const video = container.querySelector("video") as HTMLVideoElement;
+    arrastrar(/Principio/, 0.25);
+    expect(video.currentTime).toBeCloseTo(2.5, 2);
+    // Del final se enseña lo último que se queda, no lo primero que se va.
+    arrastrar(/Final/, 0.7);
+    expect(video.currentTime).toBeCloseTo(6.999, 2);
+  });
+
+  it("el play empieza por el principio de lo que se queda", async () => {
+    const suena = vi.spyOn(window.HTMLMediaElement.prototype, "play").mockResolvedValue();
+    const { container } = await abrirLarga();
+    const video = container.querySelector("video") as HTMLVideoElement;
+    arrastrar(/Principio/, 0.3);
+    video.currentTime = 0;
+    fireEvent.click(screen.getByRole("button", { name: "Reproducir" }));
+    expect(video.currentTime).toBeCloseTo(3, 2);
+    expect(suena).toHaveBeenCalled();
+    suena.mockRestore();
+  });
+
+  it("I y O cortan donde está la vista previa", async () => {
+    await abrirLarga();
+    for (let i = 0; i < 5; i++) fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "i" });
+    expect(screen.getByText("Te quedas con 0:09.5 de 0:10.0")).toBeInTheDocument();
+    for (let i = 0; i < 20; i++) fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "o" });
+    expect(screen.getByText("Te quedas con 0:02.0 de 0:10.0")).toBeInTheDocument();
+  });
+
+  it("«Usar el vídeo entero» deshace el recorte", async () => {
+    await abrirLarga();
+    arrastrar(/Principio/, 0.5);
+    fireEvent.click(screen.getByRole("button", { name: "Usar el vídeo entero" }));
+    expect(screen.getByText("Arrastra los bordes azules para recortar")).toBeInTheDocument();
+  });
+
+  it("y la ventana dice en su título lo que dura lo que se queda", async () => {
+    await abrirLarga();
+    arrastrar(/Final/, 0.4);
+    // Es lo que se ve en la barra de tareas y con Alt+Tab.
+    await waitFor(() => expect(titulos.at(-1)).toContain("0:04.00"));
   });
 });

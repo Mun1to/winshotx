@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Crop, Pause, Play, Scissors, VideoOff } from "lucide-react";
+import { Pause, Play, VideoOff } from "lucide-react";
 import {
   discardSession,
   ffmpegAvailable,
@@ -15,7 +15,7 @@ import {
   sessionStudio,
   tapaDatos,
 } from "../../lib/ipc";
-import { clamp, formatTimecode } from "../../lib/format";
+import { formatTimecode } from "../../lib/format";
 import {
   EVENTS,
   type AvisoVistaPrevia,
@@ -31,12 +31,13 @@ import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
 import { COLORES, COLOR_RESALTADO, type Anotacion, type Herramienta } from "../../lib/anotaciones";
 import { ExportPanel } from "./ExportPanel";
-import { FrameStrip } from "./FrameStrip";
+import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import { contener } from "../../lib/contener";
 import { ESTUDIO_APAGADO, type Estudio } from "../../lib/estudio";
 import { useT } from "../../lib/i18n";
+import { duracionDe, fotogramaVecino, indiceEn, limitarTramo } from "../../lib/tramo";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -44,9 +45,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [frames, setFrames] = useState<FrameMeta[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [hasFfmpeg, setHasFfmpeg] = useState(false);
-  const [inIndex, setInIndex] = useState(0);
-  const [outIndex, setOutIndex] = useState(0);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  /**
+   * Lo que se queda, en milisegundos de la grabación, y dónde está la vista previa.
+   *
+   * Por reloj y no por fotogramas: una pantalla quieta es UN fotograma que dura lo que
+   * dure la quietud, y por fotogramas no se podía cortar dentro de ella. Los índices que
+   * siguen haciendo falta (la foto de un fotograma, leer su texto) salen de aquí.
+   */
+  const [desdeMs, setDesdeMs] = useState(0);
+  const [hastaMs, setHastaMs] = useState(0);
+  const [posicionMs, setPosicionMs] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [seekMs, setSeekMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +115,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         setFrames(frameList);
         setSettings(config);
         setHasFfmpeg(ffmpeg);
-        setOutIndex(Math.max(0, frameList.length - 1));
+        setHastaMs(duracionDe(frameList));
       })
       .catch((e) => setError(String(e)));
   }, [sessionId]);
@@ -144,26 +152,61 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     };
   }, [session, sessionId, estudio.zoom, recorte]);
 
-  /** El marcador A nunca puede caer fuera de la tira ni pasarse del B. */
-  const markIn = useCallback(
-    (index: number) => setInIndex(clamp(index, 0, outIndex)),
-    [outIndex],
-  );
+  const totalMs = duracionDe(frames);
+  /** El fotograma que se está viendo: el de la foto, el de leer el texto, el de tapar datos. */
+  const currentIndex = indiceEn(frames, posicionMs);
+  /** Y los fotogramas de los dos cortes, para lo que todavía va por fotogramas. */
+  const inIndex = indiceEn(frames, desdeMs);
+  const outIndex = indiceEn(frames, Math.max(desdeMs, hastaMs - 1));
 
-  /** Y el B, ni por debajo del A ni mas alla del ultimo fotograma. */
-  const markOut = useCallback(
-    (index: number) => setOutIndex(clamp(index, inIndex, Math.max(0, frames.length - 1))),
-    [inIndex, frames.length],
-  );
+  /** Lleva la vista previa a ese instante, parándola. */
+  const ir = useCallback((ms: number) => {
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.currentTime = ms / 1000;
+    }
+    setPosicionMs(ms);
+    setSeekMs(ms);
+  }, []);
 
-  const scrub = useCallback(
-    (index: number) => {
-      setCurrentIndex(index);
-      setSeekMs(frames[index]?.timestampMs ?? 0);
-      videoRef.current?.pause();
+  /**
+   * Mover un corte lleva la vista previa a él: lo que se ve mientras se arrastra el asa es
+   * el sitio exacto del corte, que es lo único que se quiere mirar en ese momento. Del
+   * final se enseña lo último que se queda, no lo primero que se va.
+   */
+  const cambiarTramo = useCallback(
+    (desde: number, hasta: number, mueve: "desde" | "hasta" | "las dos") => {
+      setDesdeMs(desde);
+      setHastaMs(hasta);
+      if (mueve === "desde") ir(desde);
+      else if (mueve === "hasta") ir(Math.max(desde, hasta - 1));
     },
-    [frames],
+    [ir],
   );
+
+  /** I y O cortan donde está la vista previa, sin mover el otro corte. */
+  const markIn = useCallback(() => {
+    const nuevo = limitarTramo(posicionMs, hastaMs, totalMs, "desde");
+    setDesdeMs(nuevo.desdeMs);
+    setHastaMs(nuevo.hastaMs);
+  }, [posicionMs, hastaMs, totalMs]);
+
+  const markOut = useCallback(() => {
+    const nuevo = limitarTramo(desdeMs, posicionMs, totalMs, "hasta");
+    setDesdeMs(nuevo.desdeMs);
+    setHastaMs(nuevo.hastaMs);
+  }, [posicionMs, desdeMs, totalMs]);
+
+  /** Al llegar al final de lo que se queda, se para ahí, enseñando lo último que entra. */
+  const alFinal = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.pause();
+    const ultimo = Math.max(desdeMs, hastaMs - 1);
+    video.currentTime = ultimo / 1000;
+    setPosicionMs(ultimo);
+  }, [desdeMs, hastaMs]);
 
   /**
    * Reproducir o parar, hablándole al vídeo directamente.
@@ -180,15 +223,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       video.pause();
       return;
     }
-    if (currentIndex >= outIndex) {
-      const vuelta = frames[inIndex]?.timestampMs ?? 0;
-      setCurrentIndex(inIndex);
-      setSeekMs(vuelta);
-      video.currentTime = vuelta / 1000;
+    // Fuera de lo que se queda, o ya en su final: se empieza por su principio. Es lo que
+    // hace falta para mirar el recorte entero de un vistazo.
+    const ms = video.currentTime * 1000;
+    if (ms < desdeMs - 1 || ms >= hastaMs - 50) {
+      video.currentTime = desdeMs / 1000;
+      setPosicionMs(desdeMs);
     }
     setFalloDeVideo(null);
     void video.play().catch((fallo: unknown) => setFalloDeVideo(String(fallo)));
-  }, [currentIndex, outIndex, inIndex, frames]);
+  }, [desdeMs, hastaMs]);
 
 
   /**
@@ -275,11 +319,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     [medidaDelHueco, session],
   );
 
-  /** Lo que dura el recorte de A a B, que es lo unico que se ensenna del tiempo. */
-  const keptMs =
-    (frames[outIndex]?.timestampMs ?? 0) +
-    (frames[outIndex]?.durationMs ?? 0) -
-    (frames[inIndex]?.timestampMs ?? 0);
+  /** Lo que dura lo que se queda. */
+  const keptMs = Math.max(0, hastaMs - desdeMs);
 
   // El marco del sistema pinta el titulo, asi que lo que decia la barra propia (el tamanno
   // del recorte y lo que dura) se escribe ahi. Ademas es lo que sale en la barra de tareas
@@ -322,7 +363,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         e.preventDefault();
         togglePlay();
       } else if (key === "i") {
-        markIn(currentIndex);
+        markIn();
       } else if (key === "z" && (e.ctrlKey || e.metaKey)) {
         // Deshacer la última marca. Va antes que las teclas sueltas para que `Ctrl+Z` no
         // caiga en ninguna otra rama.
@@ -339,11 +380,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         setRecortando((puesto) => !puesto);
         setHerramienta(null);
       } else if (key === "o") {
-        markOut(currentIndex);
+        markOut();
       } else if (e.key === "ArrowLeft") {
-        scrub(Math.max(0, currentIndex - 1));
+        ir(fotogramaVecino(frames, posicionMs, -1));
       } else if (e.key === "ArrowRight") {
-        scrub(Math.min(frames.length - 1, currentIndex + 1));
+        ir(fotogramaVecino(frames, posicionMs, 1));
       } else if (e.key === "Escape") {
         // Escape sale primero de lo que se este haciendo. Cerrar el editor tira los
         // fotogramas, asi que no puede ser lo que pase al pulsar Escape sin querer
@@ -358,7 +399,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     // `recortando` y `herramienta` entran aqui porque Escape los mira: sin ellos el
   // manejador se queda con la foto vieja del estado y cierra el editor, tirando los
   // fotogramas, en vez de soltar lo que se estuviera haciendo.
-  }, [currentIndex, frames.length, togglePlay, scrub, markIn, markOut, recortando, herramienta, cerrar]);
+  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
@@ -461,16 +502,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     return () => observador.disconnect();
   }, [session]);
 
-  const onTime = useCallback(
-    (ms: number) => {
-      // El video manda el tiempo; se traduce al frame mas cercano de la tira.
-      let index = currentIndex;
-      while (index + 1 < frames.length && frames[index + 1].timestampMs <= ms) index++;
-      while (index > 0 && frames[index].timestampMs > ms) index--;
-      if (index !== currentIndex) setCurrentIndex(index);
-    },
-    [frames, currentIndex],
-  );
+  /**
+   * Lo que dice el vídeo de si suena. Al pararse, la vista previa se queda donde se quedó
+   * el vídeo: mientras suena no se toca el estado (el cabezal lo mueve la línea de tiempo
+   * por su cuenta), y repintar el editor cuatro veces por segundo no le hace falta a nadie.
+   */
+  const onPlaying = useCallback((suena: boolean) => {
+    setPlaying(suena);
+    const video = videoRef.current;
+    if (!suena && video) setPosicionMs(Math.round(video.currentTime * 1000));
+  }, []);
 
   if (error) {
     return (
@@ -492,10 +533,84 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   // fotogramas. Los mandos que no puede usar no se ensennan apagados, se quitan.
   const esFoto = session.format === "still";
 
+  /**
+   * El sitio del play cuenta en qué punto está el vídeo.
+   *
+   * Mientras se escribe la vista previa no hay nada que reproducir, así que ahí va el
+   * anillo con lo que lleva hecho, en vez de un botón apagado que nadie sabe si está roto
+   * o esperando. Y si no va a llegar, lo dice y punto: el recorte y la exportación
+   * funcionan igual sin vista previa.
+   */
+  const sitioDelPlay = videoUrl ? (
+    <button
+      type="button"
+      onClick={togglePlay}
+      aria-label={playing ? t("Pausar") : t("Reproducir")}
+      title={playing ? t("Pausar") : t("Reproducir")}
+      className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+    >
+      {playing ? (
+        <Pause className="size-[22px]" fill="currentColor" />
+      ) : (
+        <Play className="size-[22px] pl-0.5" fill="currentColor" />
+      )}
+    </button>
+  ) : previaFallida ? (
+    <span
+      className="flex items-center gap-1.5 px-1 text-[13px] whitespace-nowrap text-amber-300"
+      title={t("Se puede recortar y exportar igual: lo que no va a funcionar es el play")}
+    >
+      <VideoOff className="size-5" />
+      {t("Sin vista previa")}
+    </span>
+  ) : (
+    <span className="flex items-center gap-2 px-1 text-[13px] whitespace-nowrap text-neutral-200">
+      <AnilloDeEspera porCiento={porCiento} />
+      {porCiento > 0 ? `${t("Preparando el vídeo…")} ${porCiento}%` : t("Preparando el vídeo…")}
+    </span>
+  );
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
+          {/*
+            Arriba lo que se dibuja sobre la imagen, en medio la imagen, y abajo el tiempo.
+
+            Las herramientas vivían entre el vídeo y la tira, y el play flotaba encima de la
+            imagen en una pastilla con «Inicio», «Fin» y «Recortar»: tres sitios distintos
+            para lo mismo, y uno de ellos tapando lo que se estaba mirando. Ahora el play,
+            el reloj y los cortes están juntos, pegados a la línea de tiempo, que es donde
+            los busca cualquiera que haya usado un editor de vídeo.
+          */}
+          <BarraAnotar
+            activa={herramienta}
+            onElegir={(cual) => {
+              setHerramienta(cual);
+              if (cual) setRecortando(false);
+            }}
+            color={colorMarca}
+            onColor={setColorMarca}
+            texto={textoMarca}
+            onTexto={setTextoMarca}
+            cuantas={anotaciones.length}
+            onDeshacer={() => setAnotaciones((previas) => previas.slice(0, -1))}
+            onBorrarTodo={() => setAnotaciones([])}
+            onTaparDatos={() => void taparDatos()}
+            onCopiarTexto={() => void copiarTexto()}
+            buscandoDatos={buscandoDatos}
+            encuadrando={recortando}
+            encuadre={recorte ? recorteEnPixeles : null}
+            onEncuadrar={() => {
+              setRecortando((puesto) => !puesto);
+              setHerramienta(null);
+            }}
+            onQuitarEncuadre={() => {
+              setRecorte(null);
+              setRecortando(false);
+            }}
+          />
+
           <div
             ref={hueco}
             className="relative grid min-h-0 flex-1 place-items-center bg-[repeating-conic-gradient(#18181a_0%_25%,#1d1d20_0%_50%)] bg-[length:24px_24px] p-4"
@@ -531,12 +646,10 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 videoUrl={videoUrl}
                 posterUrl={posterUrl}
                 conSonido={session?.hasAudio ?? false}
-                inMs={frames[inIndex]?.timestampMs ?? 0}
-                outMs={(frames[outIndex]?.timestampMs ?? 0) + (frames[outIndex]?.durationMs ?? 0)}
+                outMs={hastaMs}
                 seekMs={seekMs}
-                onTime={onTime}
-                onEnded={() => setCurrentIndex(inIndex)}
-                onPlaying={setPlaying}
+                onFinal={alFinal}
+                onPlaying={onPlaying}
                 onFallo={setFalloDeVideo}
               />
               {session.format !== "still" && (
@@ -547,7 +660,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   estudio={estudio}
                   ancho={session.region.width}
                   alto={session.region.height}
-                  msParado={frames[currentIndex]?.timestampMs ?? 0}
+                  msParado={posicionMs}
                   reproduciendo={playing}
                   sinEncuadre={herramienta !== null || recortando}
                 />
@@ -562,150 +675,40 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               />
               <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
             </div>
-            {/*
-              Los avisos van ARRIBA y los mandos abajo, y nunca en el mismo sitio.
-
-              Antes los dos vivían pegados al borde de abajo: el cartel de «preparando la
-              reproducción» aterrizaba justo encima de la barra de mandos, tapaba la imagen
-              por el medio y parecía un fallo de dibujo. Lo que pasa AHORA se cuenta arriba,
-              donde no hay nada que mirar, y lo que se pulsa vive abajo.
-            */}
+            {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo. */}
             {aviso && (
               <div className="pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2">
-                <span className="block truncate rounded-full bg-black/85 px-3 py-1.5 text-[12px] text-neutral-100 shadow-lg backdrop-blur-md">
+                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-neutral-100 shadow-lg backdrop-blur-md">
                   {aviso}
                 </span>
               </div>
             )}
             {videoUrl && falloDeVideo && (
               <div className="pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2">
-                <span className="block truncate rounded-full bg-red-950/85 px-3 py-1.5 text-[12px] text-red-200 shadow-lg backdrop-blur-md">
+                <span className="block truncate rounded-lg bg-red-950/85 px-3 py-1.5 text-[13px] text-red-200 shadow-lg backdrop-blur-md">
                   {t("Este vídeo no se puede reproducir")} · {falloDeVideo}
                 </span>
               </div>
             )}
-
-            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-900/90 px-2 py-1.5 shadow-xl backdrop-blur-md">
-              {/*
-                El sitio del play cuenta en qué punto está el vídeo.
-
-                Mientras se escribe la vista previa no hay nada que reproducir, así que ahí
-                va el anillo con lo que lleva hecho, en vez de un botón apagado que nadie
-                sabe si está roto o esperando. Y si no va a llegar, lo dice y punto: el
-                recorte y la exportación funcionan igual sin vista previa.
-              */}
-              {!esFoto && (
-                <>
-                  {videoUrl ? (
-                    <button
-                      type="button"
-                      onClick={togglePlay}
-                      aria-label={playing ? t("Pausar") : t("Reproducir")}
-                      className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                    >
-                      {playing ? <Pause className="size-4" /> : <Play className="size-4 pl-px" />}
-                    </button>
-                  ) : previaFallida ? (
-                    <span
-                      className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] whitespace-nowrap text-amber-300/90"
-                      title={t("Se puede recortar y exportar igual: lo que no va a funcionar es el play")}
-                    >
-                      <VideoOff className="size-4" />
-                      {t("Sin vista previa")}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2 rounded-full px-1.5 py-1 text-[11px] whitespace-nowrap text-neutral-300">
-                      <AnilloDeEspera porCiento={porCiento} />
-                      {porCiento > 0
-                        ? `${t("Preparando el vídeo…")} ${porCiento}%`
-                        : t("Preparando el vídeo…")}
-                    </span>
-                  )}
-                  {/*
-                    Dónde se está y cuánto dura lo que se queda, juntos: un reloj suelto no
-                    dice si 0:03 es el principio de algo largo o el final de algo corto.
-                  */}
-                  <span className="px-1.5 font-mono text-[11px] whitespace-nowrap tabular-nums text-neutral-300">
-                    {formatTimecode(frames[currentIndex]?.timestampMs ?? 0)}
-                    <span className="text-neutral-500"> / {formatTimecode(keptMs)}</span>
-                  </span>
-                  <span className="mx-0.5 h-4 w-px bg-white/10" />
-                  <button
-                    type="button"
-                    onClick={() => markIn(currentIndex)}
-                    className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] whitespace-nowrap text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                    title={t("Empezar el trozo aquí (I)")}
-                  >
-                    <Scissors className="size-3.5" /> {t("Inicio")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => markOut(currentIndex)}
-                    className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] whitespace-nowrap text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                    title={t("Terminar el trozo aquí (O)")}
-                  >
-                    <Scissors className="size-3.5 -scale-x-100" /> {t("Fin")}
-                  </button>
-                  <span className="mx-0.5 h-4 w-px bg-white/10" />
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setRecortando((puesto) => !puesto);
-                  setHerramienta(null);
-                }}
-                aria-pressed={recortando}
-                className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] whitespace-nowrap transition-colors ${
-                  recortando || recorte
-                    ? "bg-blue-500 text-white"
-                    : "text-neutral-300 hover:bg-white/10 hover:text-white"
-                }`}
-                title={t("Quedarse con un trozo de la imagen (C)")}
-              >
-                <Crop className="size-3.5" />
-                {recorte ? recorteEnPixeles : t("Recortar")}
-              </button>
-              {recorte && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRecorte(null);
-                    setRecortando(false);
-                  }}
-                  className="rounded-full px-1.5 py-1 text-[11px] text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
-                  title={t("Quitar el recorte")}
-                >
-                  ×
-                </button>
-              )}
-            </div>
           </div>
 
-          <BarraAnotar
-            activa={herramienta}
-            onElegir={setHerramienta}
-            color={colorMarca}
-            onColor={setColorMarca}
-            texto={textoMarca}
-            onTexto={setTextoMarca}
-            cuantas={anotaciones.length}
-            onDeshacer={() => setAnotaciones((previas) => previas.slice(0, -1))}
-            onBorrarTodo={() => setAnotaciones([])}
-            onTaparDatos={() => void taparDatos()}
-            onCopiarTexto={() => void copiarTexto()}
-            buscandoDatos={buscandoDatos}
-          />
-
+          {/*
+            Una captura suelta no tiene tiempo dentro: ni se reproduce, ni se recorta por
+            tiempo. Los mandos que no puede usar no se enseñan apagados, se quitan.
+          */}
           {!esFoto && (
-            <FrameStrip
+            <LineaDeTiempo
               frames={frames}
-              inIndex={inIndex}
-              outIndex={outIndex}
-              currentIndex={currentIndex}
-              onChangeIn={markIn}
-              onChangeOut={markOut}
-              onScrub={scrub}
+              desdeMs={desdeMs}
+              hastaMs={hastaMs}
+              posicionMs={posicionMs}
+              videoRef={videoRef}
+              reproduciendo={playing}
+              proporcion={session.region.width / Math.max(1, session.region.height)}
+              delante={sitioDelPlay}
+              onTramo={cambiarTramo}
+              onIr={ir}
+              onFinal={alFinal}
             />
           )}
         </main>
@@ -716,6 +719,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           session={session}
           inIndex={inIndex}
           outIndex={outIndex}
+          desdeMs={desdeMs}
+          hastaMs={hastaMs}
           currentIndex={currentIndex}
           fpsMax={Math.max(15, session.fps)}
           hasFfmpeg={hasFfmpeg}

@@ -86,7 +86,6 @@ export const EN: Record<string, string> = {
   "Guardar en…": "Save to…",
   "Ctrl+Mayús+S": "Ctrl+Shift+S",
   "Elegir dónde guardar (Ctrl+Mayús+S)": "Choose where to save (Ctrl+Shift+S)",
-  "Elegir dónde guardar": "Choose where to save",
   "fotogramas por segundo": "frames per second",
   Nativa: "Native",
   "abre el editor con lo último, sin dejar de grabar":
@@ -342,15 +341,9 @@ export const EN: Record<string, string> = {
   "Este vídeo no se puede reproducir": "This video will not play",
   Inicio: "Start",
   Fin: "End",
-  "Empezar el trozo aquí (I)": "Start the clip here (I)",
-  "Terminar el trozo aquí (O)": "End the clip here (O)",
   "Quedarse con un trozo de la imagen (C)": "Keep just a piece of the image (C)",
   "Elegir dónde se guarda": "Choose where it gets saved",
-  "Lo que se dibuja encima": "Drawn on top",
-  "El marco de alrededor": "The frame around it",
   "El archivo": "The file",
-  "La vista previa ya enseña todo esto: lo que ves es lo que sale.":
-    "The preview already shows all of this: what you see is what you get.",
   Formato: "Format",
   Dimensiones: "Size",
   Proporción: "Aspect ratio",
@@ -367,10 +360,7 @@ export const EN: Record<string, string> = {
   "abrir carpeta": "open folder",
 
   // El panel de exportar del editor
-  "bucle, sin audio": "loops, no sound",
   "H.264 por hardware": "H.264 on the graphics card",
-  "el fotograma actual, sin perder nada": "the frame you are on, losing nothing",
-  "el fotograma actual, mucho más ligero": "the frame you are on, far lighter",
   "calidad máxima, más lento": "top quality, slower",
   "esta grabación se hizo sin audio": "this recording was made without sound",
 
@@ -388,17 +378,10 @@ export const EN: Record<string, string> = {
   "Ajustes de winshotx": "winshotx settings",
 
   // La tira de miniaturas del editor
-  "Fotograma {actual} de {total}": "Frame {actual} of {total}",
-  "Te quedas con {desde} a {hasta}": "Keeping {desde} to {hasta}",
-  "Inicio del trozo (tecla I)": "Start of the clip (key I)",
-  "Final del trozo (tecla O)": "End of the clip (key O)",
-  "{n} fotograma": "{n} frame",
-  "{n} fotogramas": "{n} frames",
   "Falta el identificador de sesión": "The session id is missing",
 
   // Sueltos del panel de exportar
   "Elegir carpeta…": "Choose a folder…",
-  Nativo: "Built-in",
 
   // Sueltos de la bienvenida
   "o prueba": "or try",
@@ -425,8 +408,6 @@ export const EN: Record<string, string> = {
   // El puntero dibujado
   "Puntero dibujado": "Drawn pointer",
   // «el de Windows» ya está arriba, en el idioma: la clave es la frase, así que sirve.
-  "Es la flecha estándar, no la que tengas puesta.":
-    "It is the standard arrow, not the one you have set.",
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "This recording already has the Windows cursor baked in: you will see two.",
 
@@ -504,4 +485,23 @@ export const EN: Record<string, string> = {
   "El código": "The code",
   "abierto, con licencia MIT": "open, MIT licensed",
   "Contar un fallo": "Report a bug",
+  // El editor: la línea de tiempo, encuadrar y el panel de guardar (8-nov-2026)
+  "Principio: arrástralo para recortar (tecla I)": "Start: drag it to trim (key I)",
+  "Final: arrástralo para recortar (tecla O)": "End: drag it to trim (key O)",
+  "Arrastra los bordes azules para recortar": "Drag the blue edges to trim",
+  "Te quedas con {trozo} de {total}": "Keeping {trozo} of {total}",
+  "Usar el vídeo entero": "Use the whole video",
+  "Encuadrar": "Crop",
+  "Copiar texto": "Copy text",
+  "Tapar datos": "Hide personal data",
+  "Vídeo con sonido. Se abre en cualquier sitio.": "Video with sound. Opens anywhere.",
+  "Se repite solo y sin sonido. Para pegarlo en un chat.": "Loops on its own, with no sound. For pasting into a chat.",
+  "Solo el fotograma que estás viendo, sin perder nada.": "Just the frame you are looking at, with nothing lost.",
+  "Solo el fotograma que estás viendo, mucho más ligero.": "Just the frame you are looking at, much lighter.",
+  "Sonido": "Sound",
+  "Más ajustes": "More settings",
+  "Tamaño": "Size",
+  "Marco": "Border",
+  "La imagen tal cual, sin perder nada.": "The image as it is, with nothing lost.",
+  "La misma imagen, mucho más ligera.": "The same image, much lighter.",
 };

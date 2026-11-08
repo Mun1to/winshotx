@@ -57,7 +57,9 @@ describe("t, el traductor", () => {
 
   it("los marcadores tambien funcionan sobre la frase ya traducida", () => {
     aplicarIdioma("en");
-    expect(t("Fotograma {actual} de {total}", { actual: 3, total: 82 })).toBe("Frame 3 of 82");
+    expect(t("Te quedas con {trozo} de {total}", { trozo: "0:03.2", total: "0:30.0" })).toBe(
+      "Keeping 0:03.2 of 0:30.0",
+    );
   });
 
   it("un marcador que no se le pasa se queda escrito, para que se vea el olvido", () => {

@@ -343,25 +343,16 @@ export const ZH: Record<string, string> = {
   "Este vídeo no se puede reproducir": "无法播放此视频",
   Inicio: "起点",
   Fin: "终点",
-  "Empezar el trozo aquí (I)": "从这里开始片段 (I)",
-  "Terminar el trozo aquí (O)": "在这里结束片段 (O)",
   "Quedarse con un trozo de la imagen (C)": "只保留图像的一部分 (C)",
   "Elegir dónde se guarda": "选择保存位置",
-  "Lo que se dibuja encima": "叠加内容",
-  "El marco de alrededor": "外框",
   "El archivo": "文件",
-  "La vista previa ya enseña todo esto: lo que ves es lo que sale.":
-    "预览里已经能看到这一切：所见即所得。",
   "el vídeo de vista previa no se ha podido abrir": "无法打开预览视频",
   "Exportar a la carpeta elegida (Ctrl+S)": "导出到所选文件夹 (Ctrl+S)",
   "Exportar y copiar al portapapeles": "导出并复制到剪贴板",
   "abrir carpeta": "打开文件夹",
 
   // 编辑器导出面板
-  "bucle, sin audio": "循环，无音频",
   "H.264 por hardware": "硬件 H.264",
-  "el fotograma actual, sin perder nada": "当前帧，无损",
-  "el fotograma actual, mucho más ligero": "当前帧，体积小得多",
   "calidad máxima, más lento": "最高质量，较慢",
   "esta grabación se hizo sin audio": "此录制没有音频",
 
@@ -379,17 +370,10 @@ export const ZH: Record<string, string> = {
   "Ajustes de winshotx": "winshotx 设置",
 
   // 编辑器缩略图条
-  "Fotograma {actual} de {total}": "第 {actual} 帧，共 {total} 帧",
-  "Te quedas con {desde} a {hasta}": "保留 {desde} 到 {hasta}",
-  "Inicio del trozo (tecla I)": "片段起点（I 键）",
-  "Final del trozo (tecla O)": "片段终点（O 键）",
-  "{n} fotograma": "{n} 帧",
-  "{n} fotogramas": "{n} 帧",
   "Falta el identificador de sesión": "缺少会话 ID",
 
   // 导出面板零星文本
   "Elegir carpeta…": "选择文件夹…",
-  Nativo: "内置",
 
   // 欢迎页零星文本
   "o prueba": "或者试试",
@@ -415,8 +399,6 @@ export const ZH: Record<string, string> = {
 
   // 绘制的指针
   "Puntero dibujado": "绘制指针",
-  "Es la flecha estándar, no la que tengas puesta.":
-    "这是标准箭头，不是当前系统指针。",
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "此录制已包含 Windows 光标：你会看到两个。",
 
@@ -498,10 +480,28 @@ export const ZH: Record<string, string> = {
   // Lo que entro despues de la traduccion original (0.2.26 a 0.2.28).
   "Capturar y abrir el editor": "截图并打开编辑器",
   "Ctrl+Mayús+S": "Ctrl+Shift+S",
-  "Elegir dónde guardar": "选择保存位置",
   "Elegir dónde guardar (Ctrl+Mayús+S)": "选择保存位置（Ctrl+Shift+S）",
   "Guardar en…": "保存到…",
   "La misma captura, pero al soltar el ratón se abre el editor en vez de la barra de siempre. Para la captura que hay que trabajar: señalar algo con una flecha, tapar un dato o recortar antes de mandarla.": "同样的截图，但松开鼠标后直接打开编辑器，而不是平时那条工具栏。适合需要动手处理的截图：用箭头指出重点、遮住敏感信息，或者发出去之前先裁一下。",
   "esta combinación midió el 17% de un núcleo con el escritorio quieto": "此组合在桌面静止时测得约占一个核心的 17%",
   "esta combinación midió el 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento": "此组合在桌面静止时测得约占一个核心的 22%，画面移动时最高到 60%",
+  // El editor: la línea de tiempo, encuadrar y el panel de guardar (8-nov-2026)
+  "Principio: arrástralo para recortar (tecla I)": "起点：拖动即可剪辑（I 键）",
+  "Final: arrástralo para recortar (tecla O)": "终点：拖动即可剪辑（O 键）",
+  "Arrastra los bordes azules para recortar": "拖动蓝色边缘即可剪辑",
+  "Te quedas con {trozo} de {total}": "保留 {trozo}，共 {total}",
+  "Usar el vídeo entero": "使用完整视频",
+  "Encuadrar": "裁剪画面",
+  "Copiar texto": "复制文字",
+  "Tapar datos": "遮盖个人信息",
+  "Vídeo con sonido. Se abre en cualquier sitio.": "带声音的视频，在哪里都能打开。",
+  "Se repite solo y sin sonido. Para pegarlo en un chat.": "自动循环播放，没有声音。适合粘贴到聊天里。",
+  "Solo el fotograma que estás viendo, sin perder nada.": "只保存你正在看的这一帧，画质无损。",
+  "Solo el fotograma que estás viendo, mucho más ligero.": "只保存你正在看的这一帧，文件小得多。",
+  "Sonido": "声音",
+  "Más ajustes": "更多设置",
+  "Tamaño": "尺寸",
+  "Marco": "边框",
+  "La imagen tal cual, sin perder nada.": "原样保存图片，画质无损。",
+  "La misma imagen, mucho más ligera.": "同一张图片，文件小得多。",
 };

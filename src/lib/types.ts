@@ -225,6 +225,13 @@ export interface ExportRequest {
   /** Rango de frames incluido, ambos extremos. */
   from: number;
   to: number;
+  /**
+   * El tramo de la línea de tiempo, en milisegundos de la grabación: manda sobre
+   * `from` y `to`, porque un corte a mitad de una pantalla quieta solo cabe en
+   * milisegundos. null en una foto, que es un fotograma y no un tramo.
+   */
+  desdeMs?: number | null;
+  hastaMs?: number | null;
   width: number;
   height: number;
   fps: number;

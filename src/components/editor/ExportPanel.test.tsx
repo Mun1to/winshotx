@@ -26,7 +26,11 @@ const GRABACION: SessionInfo = {
   mp4Path: null,
 };
 
-function pintar(session: Partial<SessionInfo> = {}, recorte: Recorte | null = null) {
+function pintar(
+  session: Partial<SessionInfo> = {},
+  recorte: Recorte | null = null,
+  tramo: { desdeMs?: number; hastaMs?: number } = {},
+) {
   return render(
     <ExportPanel
       anotaciones={[]}
@@ -34,6 +38,7 @@ function pintar(session: Partial<SessionInfo> = {}, recorte: Recorte | null = nu
       session={{ ...GRABACION, ...session }}
       inIndex={10}
       outIndex={80}
+      {...tramo}
       currentIndex={42}
       fpsMax={60}
       hasFfmpeg={false}
@@ -52,35 +57,111 @@ function loExportado() {
   return (llamada?.args as { request: Record<string, unknown> })?.request;
 }
 
+/** El botón grande de guardar, que dice el formato: «Guardar MP4». */
+const guardar = () => screen.getByRole("button", { name: /^Guardar (MP4|GIF|PNG|JPG)$/ });
+
+/** Guarda y espera a que la petición haya salido hacia Rust. */
+async function guardarYEsperar() {
+  fireEvent.click(guardar());
+  await waitFor(() => expect(loExportado()).toBeTruthy());
+  return loExportado();
+}
+
+/** Lo que no se toca todos los días vive plegado en «Más ajustes». */
+const abrirMas = () => fireEvent.click(screen.getByRole("button", { name: "Más ajustes" }));
+
 beforeEach(() => {
   aplicarIdioma("es");
   alRecorte.mockClear();
+  localStorage.removeItem("winshotx.editor.masAjustes");
 });
 
 describe("elegir el formato", () => {
   it("una grabacion empieza en MP4 y una captura suelta en PNG", () => {
     const { unmount } = pintar();
-    expect(screen.getByText("MP4").className).toContain("bg-white/15");
+    expect(screen.getByRole("button", { name: "MP4" })).toHaveAttribute("aria-pressed", "true");
     unmount();
     pintar({ format: "still", frameCount: 1 });
-    expect(screen.getByText("PNG").className).toContain("bg-white/15");
-  });
-
-  it("un titulo de seccion sin nada debajo no sale", () => {
-    // Con PNG no hay audio, ni bucle, ni motor que elegir: «El archivo» se quedaba de
-    // rotulo suelto encima de un hueco.
-    const { unmount } = pintar();
-    expect(screen.getByText("El archivo")).toBeInTheDocument();
-    unmount();
-    pintar({ format: "still", frameCount: 1 });
-    expect(screen.queryByText("El archivo")).toBeNull();
+    expect(screen.getByRole("button", { name: "PNG" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("estan los cuatro, GIF, MP4, PNG y JPG", () => {
     pintar();
     for (const f of ["GIF", "MP4", "PNG", "JPG"]) {
-      expect(screen.getByText(f)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: f })).toBeInTheDocument();
     }
+  });
+
+  it("una captura suelta solo ofrece los dos de foto: un MP4 de un fotograma no es nada", () => {
+    pintar({ format: "still", frameCount: 1 });
+    expect(screen.getByRole("button", { name: "PNG" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "JPG" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "MP4" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "GIF" })).toBeNull();
+  });
+
+  it("cada formato dice lo que hace en palabras, no en siglas", () => {
+    pintar();
+    expect(screen.getByText("Vídeo con sonido. Se abre en cualquier sitio.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "GIF" }));
+    expect(screen.getByText(/Se repite solo y sin sonido/)).toBeInTheDocument();
+  });
+});
+
+describe("lo de todos los días a la vista, lo demás plegado", () => {
+  it("la calidad y los fotogramas por segundo no se ven hasta abrir «Más ajustes»", () => {
+    pintar();
+    expect(screen.queryByRole("slider", { name: "Calidad" })).toBeNull();
+    abrirMas();
+    expect(screen.getByRole("slider", { name: "Calidad" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Fotogramas por segundo" })).toBeInTheDocument();
+  });
+
+  it("y el zoom, el puntero y el sonido están a la vista sin abrir nada", () => {
+    pintar();
+    expect(screen.getByRole("slider", { name: "Acercarse a los clics" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Puntero dibujado" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Sonido" })).toBeInTheDocument();
+  });
+
+  it("«Más ajustes» se queda como lo dejaste la próxima vez", () => {
+    const { unmount } = pintar();
+    abrirMas();
+    unmount();
+    pintar();
+    expect(screen.getByRole("button", { name: "Más ajustes" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("los botones de guardar están siempre, con su nombre escrito", () => {
+    pintar();
+    expect(guardar()).toHaveTextContent("Guardar MP4");
+    expect(screen.getByRole("button", { name: "Copiar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar en…" })).toBeInTheDocument();
+  });
+});
+
+describe("el tramo de la línea de tiempo", () => {
+  it("viaja a Rust en milisegundos, que es lo que permite cortar dentro de una quietud", async () => {
+    pintar({}, null, { desdeMs: 2_500, hastaMs: 7_000 });
+    const req = await guardarYEsperar();
+    expect(req).toMatchObject({ desdeMs: 2_500, hastaMs: 7_000, from: 10, to: 80 });
+  });
+
+  it("en una foto no viaja: una foto es un fotograma, no un tramo", async () => {
+    pintar({}, null, { desdeMs: 2_500, hastaMs: 7_000 });
+    fireEvent.click(screen.getByRole("button", { name: "PNG" }));
+    const req = await guardarYEsperar();
+    expect(req).toMatchObject({ desdeMs: null, hastaMs: null, from: 42, to: 42 });
+  });
+
+  it("lo que va a pesar sale de lo que dura el tramo, en milisegundos", () => {
+    // A la calidad de fábrica un MP4 son unos 1,2 MB por segundo. Los fotogramas 10 a 80
+    // son 2,4 segundos a 30 fps; el tramo de 1 a 3 segundos son 2, y es lo que se guarda.
+    const { unmount } = pintar();
+    expect(screen.getByText("≈ 2.8 MB")).toBeInTheDocument();
+    unmount();
+    pintar({}, null, { desdeMs: 1_000, hastaMs: 3_000 });
+    expect(screen.getByText("≈ 2.3 MB")).toBeInTheDocument();
   });
 });
 
@@ -91,7 +172,7 @@ describe("guardar donde uno quiera", () => {
     // un proyecto concreto, y tiene que llegar a Rust con el archivo exacto.
     responde("pick_save_file", "C:\\proyectos\\demo\\portada.mp4");
     pintar();
-    fireEvent.click(screen.getByLabelText("Elegir dónde guardar"));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar en…" }));
     await waitFor(() => expect(loExportado()).toBeTruthy());
     const pregunta = llamadas.find((l) => l.comando === "pick_save_file")?.args as {
       extension: string;
@@ -117,6 +198,13 @@ describe("guardar donde uno quiera", () => {
     expect(llamadas.some((l) => l.comando === "pick_save_file")).toBe(false);
     expect(loExportado().file).toBeNull();
   });
+
+  it("«Copiar» guarda y además lo deja en el portapapeles", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Copiar" }));
+    await waitFor(() => expect(loExportado()).toBeTruthy());
+    expect(loExportado().copyToClipboard).toBe(true);
+  });
 });
 
 describe("JPG, la captura que se puede mandar por correo", () => {
@@ -124,10 +212,8 @@ describe("JPG, la captura que se puede mandar por correo", () => {
     // Es la diferencia entera entre una foto y un video: `from` y `to` tienen que ser el
     // fotograma actual, no el recorte de A a B.
     pintar();
-    fireEvent.click(screen.getByText("JPG"));
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    const req = loExportado();
+    fireEvent.click(screen.getByRole("button", { name: "JPG" }));
+    const req = await guardarYEsperar();
     expect(req.format).toBe("jpg");
     expect(req.from).toBe(42);
     expect(req.to).toBe(42);
@@ -135,24 +221,28 @@ describe("JPG, la captura que se puede mandar por correo", () => {
 
   it("lleva barra de calidad, que es su razon de existir", () => {
     pintar();
-    fireEvent.click(screen.getByText("JPG"));
+    fireEvent.click(screen.getByRole("button", { name: "JPG" }));
+    abrirMas();
     expect(screen.getByText("Calidad")).toBeInTheDocument();
   });
 
   it("y no lleva fotogramas por segundo, que una foto no tiene", () => {
     pintar();
-    fireEvent.click(screen.getByText("JPG"));
+    fireEvent.click(screen.getByRole("button", { name: "JPG" }));
+    abrirMas();
     expect(screen.queryByText("Fotogramas por segundo")).toBeNull();
   });
 
   it("el PNG sigue sin barra de calidad, porque no pierde nada", () => {
     pintar();
-    fireEvent.click(screen.getByText("PNG"));
+    fireEvent.click(screen.getByRole("button", { name: "PNG" }));
+    abrirMas();
     expect(screen.queryByText("Calidad")).toBeNull();
   });
 
   it("el video si lleva las dos barras", () => {
     pintar();
+    abrirMas();
     expect(screen.getByText("Calidad")).toBeInTheDocument();
     expect(screen.getByText("Fotogramas por segundo")).toBeInTheDocument();
   });
@@ -161,17 +251,19 @@ describe("JPG, la captura que se puede mandar por correo", () => {
 describe("lo que no debe colarse en una foto", () => {
   it("el audio no viaja en un JPG aunque la grabacion lo tuviera", async () => {
     pintar();
-    fireEvent.click(screen.getByText("JPG"));
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    expect(loExportado().audio).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "JPG" }));
+    expect((await guardarYEsperar()).audio).toBe(false);
   });
 
   it("y en un MP4 si", async () => {
     pintar();
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    expect(loExportado().audio).toBe(true);
+    expect((await guardarYEsperar()).audio).toBe(true);
+  });
+
+  it("y si se apaga el sonido, el MP4 sale mudo", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("switch", { name: "Sonido" }));
+    expect((await guardarYEsperar()).audio).toBe(false);
   });
 });
 
@@ -182,31 +274,30 @@ describe("recortar la imagen", () => {
     // Ensennar 800 x 600 despues de recortar la mitad seria ensennar el tamanno de algo
     // que ya no se va a exportar.
     pintar({}, MITAD_DERECHA);
+    abrirMas();
     expect(screen.getByLabelText("Ancho")).toHaveValue(400);
     expect(screen.getByLabelText("Alto")).toHaveValue(600);
   });
 
   it("y el recorte viaja a Rust tal cual, en tanto por uno", async () => {
     pintar({}, MITAD_DERECHA);
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    expect(loExportado().crop).toEqual(MITAD_DERECHA);
+    expect((await guardarYEsperar()).crop).toEqual(MITAD_DERECHA);
   });
 
   it("el 50 % es la mitad del trozo, no la mitad de la captura entera", async () => {
     // Con el recorte puesto, escalar sobre la captura entera estiraria el trozo al doble.
     pintar({}, MITAD_DERECHA);
-    fireEvent.click(screen.getByText("50%"));
+    abrirMas();
+    fireEvent.click(screen.getByRole("button", { name: "50%" }));
     expect(screen.getByLabelText("Ancho")).toHaveValue(200);
     expect(screen.getByLabelText("Alto")).toHaveValue(300);
   });
 
   it("sin recorte se manda null y salen las medidas de la region grabada", async () => {
     pintar();
+    abrirMas();
     expect(screen.getByLabelText("Ancho")).toHaveValue(800);
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    expect(loExportado().crop).toBeNull();
+    expect((await guardarYEsperar()).crop).toBeNull();
   });
 });
 
@@ -220,7 +311,7 @@ describe("el zoom que se acerca a los clics", () => {
 
   it("no sale en una foto, que no tiene tiempo dentro", () => {
     pintar();
-    fireEvent.click(screen.getByText("JPG"));
+    fireEvent.click(screen.getByRole("button", { name: "JPG" }));
     expect(screen.queryByText("Acercarse a los clics")).toBeNull();
   });
 
@@ -232,26 +323,20 @@ describe("el zoom que se acerca a los clics", () => {
 
   it("apagado se manda 1, que en Rust significa no acercarse", async () => {
     pintar();
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    expect(loExportado().zoom).toBe(1);
+    expect((await guardarYEsperar()).zoom).toBe(1);
   });
 
   it("y en una foto se manda 1 aunque estuviera puesto", async () => {
     pintar();
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
-    fireEvent.click(screen.getByText("PNG"));
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    expect(loExportado().zoom).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: "PNG" }));
+    expect((await guardarYEsperar()).zoom).toBe(1);
   });
 
   it("puesto a 2 se manda 2", async () => {
     pintar();
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByText(/Guardar/);
-    expect(loExportado().zoom).toBe(2);
+    expect((await guardarYEsperar()).zoom).toBe(2);
   });
 });
 
@@ -304,28 +389,30 @@ describe("la velocidad", () => {
 
   it("empieza en 1x, que es como se grabo", () => {
     pintar();
+    abrirMas();
     expect(boton("1")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("no sale en una foto, que no tiene tiempo dentro", () => {
     pintar({ format: "still", frameCount: 1 });
+    abrirMas();
     expect(screen.queryByText("Velocidad")).not.toBeInTheDocument();
   });
 
   it("a 2x viaja a Rust, y el video se queda sin sonido", async () => {
     pintar();
+    abrirMas();
     fireEvent.click(boton("2"));
-    fireEvent.click(screen.getByRole("button", { name: /Guardar/ }));
-    await screen.findByRole("button", { name: /Guardar/ });
     // Acelerar la pista sin cambiarle el tono es otro problema entero, y dejarla tal cual
     // la despegaría de la imagen desde el primer segundo. Se dice y se quita.
-    expect(loExportado()).toMatchObject({ speed: 2, audio: false });
+    expect(await guardarYEsperar()).toMatchObject({ speed: 2, audio: false });
   });
 
   it("y lo avisa antes de exportar, no despues", () => {
     pintar();
+    abrirMas();
     fireEvent.click(boton("2"));
-    expect(screen.getByText(/sale sin sonido/)).toBeInTheDocument();
+    expect(screen.getAllByText(/sale sin sonido|sale mudo/).length).toBeGreaterThan(0);
   });
 });
 
@@ -334,7 +421,8 @@ describe("la proporcion de un clic", () => {
     // Lo que se graba de un monitor sale apaisado SIEMPRE: para subir algo vertical hay
     // que recortar, y a ojo no se acierta un 9:16 exacto.
     pintar();
-    fireEvent.click(screen.getByText("9:16"));
+    abrirMas();
+    fireEvent.click(screen.getByRole("button", { name: "9:16" }));
     const puesto = alRecorte.mock.calls.at(-1)?.[0] as Recorte;
     // La sesion de prueba es de 800x600.
     expect(medida(puesto, 800, 600)).toEqual({ width: 338, height: 600 });
@@ -344,21 +432,36 @@ describe("la proporcion de un clic", () => {
   it("y el boton se queda marcado mientras ese recorte siga puesto", () => {
     const vertical = conProporcion(9 / 16, 800, 600);
     pintar({}, vertical);
-    expect(screen.getByText("9:16")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("1:1")).toHaveAttribute("aria-pressed", "false");
+    abrirMas();
+    expect(screen.getByRole("button", { name: "9:16" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "1:1" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("las dimensiones salen del trozo, no de la captura entera", () => {
     // El fallo que esto evita: exportar un 9:16 con el ancho de la pantalla, que estira
     // la imagen hasta dejarla irreconocible.
     pintar({}, conProporcion(9 / 16, 800, 600));
+    abrirMas();
     expect(screen.getByLabelText("Ancho")).toHaveValue(338);
     expect(screen.getByLabelText("Alto")).toHaveValue(600);
   });
 
   it("y la × lo quita entero", () => {
     pintar({}, conProporcion(1, 800, 600));
-    fireEvent.click(screen.getByLabelText("Quitar el recorte"));
+    abrirMas();
+    fireEvent.click(screen.getByRole("button", { name: "Quitar el recorte" }));
     expect(alRecorte).toHaveBeenCalledWith(null);
+  });
+});
+
+describe("en inglés", () => {
+  it("el panel no se deja ni una palabra en español", () => {
+    aplicarIdioma("en");
+    pintar();
+    expect(screen.getByRole("button", { name: "More settings" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Sound" })).toBeInTheDocument();
+    expect(screen.getByText("Video with sound. Opens anywhere.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save to…" })).toBeInTheDocument();
   });
 });
