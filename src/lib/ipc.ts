@@ -366,3 +366,6 @@ export const scrollIniciar = (region: Rect) => invoke<void>("scroll_iniciar", { 
 export const scrollTerminar = () => invoke<void>("scroll_terminar");
 /** Para la captura con scroll y la tira. */
 export const scrollDescartar = () => invoke<void>("scroll_descartar");
+// S7 (cursor)
+// S8 (cámara en el Estudio)
+// S9 (presets y tapar)

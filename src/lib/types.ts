@@ -381,6 +381,9 @@ export interface Settings {
   miniatura?: boolean;
   /** Cuántos segundos se queda la miniatura. 0 es hasta cerrarla. */
   miniaturaSegundos?: number;
+  // S7 (cursor)
+  // S8 (cámara en el Estudio)
+  // S9 (presets y tapar)
 }
 
 export interface ShortcutStatus {

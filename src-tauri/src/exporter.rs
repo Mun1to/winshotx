@@ -474,6 +474,8 @@ struct Vestidor<'a> {
     /// El ultimo fotograma leido, guardado solo cuando el paso siguiente lo repite.
     guardado: Option<(usize, image::RgbaImage)>,
     marco: marco::Marco,
+    // S8 (cámara en el Estudio)
+    // S9 (presets y tapar)
 }
 
 impl<'a> Vestidor<'a> {
@@ -489,6 +491,8 @@ impl<'a> Vestidor<'a> {
             lector: record::LectorPorDelante::nuevo(session.clone(), pasos.a_leer()),
             guardado: None,
             marco: marco_de(request),
+            // S8 (cámara en el Estudio)
+            // S9 (presets y tapar)
         }
     }
 
@@ -506,6 +510,7 @@ impl<'a> Vestidor<'a> {
         if self.pasos.indices.get(posicion + 1) == Some(&indice) {
             self.guardado = Some((indice, base.clone()));
         }
+        // S9 (presets y tapar): lo que se tapa va sobre la imagen grabada, antes del zoom.
         let mut recortes: Vec<Recorte> = self.request.crop.into_iter().collect();
         if let Some(r) = self.camara.en(ms) {
             recortes.push(r);
@@ -513,7 +518,7 @@ impl<'a> Vestidor<'a> {
         if let Some(e) = self.vestir.as_mut() {
             e.ms = ms;
         }
-        Ok(enmarcar_y_anotar(
+        let vestida = enmarcar_y_anotar(
             base,
             self.request.width.max(1),
             self.request.height.max(1),
@@ -522,7 +527,9 @@ impl<'a> Vestidor<'a> {
             &self.request.annotations,
             &recortes,
             self.vestir.as_mut(),
-        ))
+        );
+        // S8 (cámara en el Estudio): la webcam va encima de todo lo vestido.
+        Ok(vestida)
     }
 }
 

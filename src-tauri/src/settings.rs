@@ -168,6 +168,9 @@ pub struct Settings {
     pub miniatura: bool,
     /// Cuántos segundos se queda la miniatura antes de irse sola. Cero es hasta cerrarla.
     pub miniatura_segundos: u32,
+    // S7 (cursor)
+    // S8 (cámara en el Estudio)
+    // S9 (presets y tapar)
 }
 
 impl Default for Settings {
@@ -216,6 +219,9 @@ impl Default for Settings {
             // función que hay que ir a buscar a los ajustes no la encuentra nadie.
             miniatura: true,
             miniatura_segundos: 10,
+            // S7 (cursor)
+            // S8 (cámara en el Estudio)
+            // S9 (presets y tapar)
         }
     }
 }

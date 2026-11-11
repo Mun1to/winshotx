@@ -656,4 +656,7 @@ export const ZH: Record<string, string> = {
   "Otra vez para tirar la captura": "再按一次丢弃这次截图",
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "这个区域太小，无法滚动：请框选大一点的区域。",
   "Ya hay una captura con scroll en marcha.": "已经有一个滚动截图在进行中。",
+  // S7 (cursor)
+  // S8 (cámara en el Estudio)
+  // S9 (presets y tapar)
 };

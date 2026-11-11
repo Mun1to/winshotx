@@ -28,6 +28,9 @@ mod historial;
 mod miniatura;
 mod qr;
 // S5 (scroll)
+// S7 (cursor)
+// S8 (cámara en el Estudio)
+// S9 (presets y tapar)
 
 use std::time::{Duration, SystemTime};
 
@@ -333,6 +336,9 @@ pub fn run() {
             capture::scroll::scroll_iniciar,
             capture::scroll::scroll_terminar,
             capture::scroll::scroll_descartar,
+            // S7 (cursor)
+            // S8 (cámara en el Estudio)
+            // S9 (presets y tapar)
         ])
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")

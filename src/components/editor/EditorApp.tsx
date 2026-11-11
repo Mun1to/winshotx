@@ -789,6 +789,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   }}
                 />
               )}
+              {/* S8 (cámara en el Estudio) */}
+              {/* S9 (presets y tapar) */}
               <CapaAnotaciones
                 herramienta={herramienta}
                 // El resaltado es un marcador, y un marcador es amarillo: no se elige.
@@ -843,6 +845,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               piezas={piezas}
               onPiezas={setPiezas}
               escritura={datosEstudio?.escritura ?? []}
+              // S9 (presets y tapar)
             />
           )}
         </main>

@@ -656,4 +656,7 @@ export const EN: Record<string, string> = {
   "Otra vez para tirar la captura": "Again to throw the capture away",
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "That area is too small to scroll: select something bigger.",
   "Ya hay una captura con scroll en marcha.": "A scrolling capture is already running.",
+  // S7 (cursor)
+  // S8 (cámara en el Estudio)
+  // S9 (presets y tapar)
 };
