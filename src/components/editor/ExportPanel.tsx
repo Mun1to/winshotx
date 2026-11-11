@@ -24,7 +24,7 @@ import {
 } from "../../lib/recorte";
 import type { Anotacion } from "../../lib/anotaciones";
 import { punteroNormal, type Estudio } from "../../lib/estudio";
-import { FONDOS } from "../../lib/fondos";
+import { FondoPicker } from "./FondoPicker";
 import type { Edicion } from "../../lib/contrato";
 
 /**
@@ -146,6 +146,7 @@ export function ExportPanel({
   onEstudio,
   onRecorte,
   edicion,
+  onEdicion,
 }: Props) {
   const t = useT();
   const esCaptura = session.format === "still";
@@ -481,36 +482,20 @@ export function ExportPanel({
           onCambiar={() => setEstudioAbierto((abierto) => !abierto)}
         >
           <Grupo titulo={t("Fondo")}>
-            <div className="grid grid-cols-9 gap-1">
-              <button
-                type="button"
-                onClick={() => elegirFondo(null)}
-                title={t("Sin fondo")}
-                aria-label={t("Sin fondo")}
-                aria-pressed={margen === 0}
-                className={`flex aspect-square w-full items-center justify-center rounded-md border-2 text-neutral-400 transition-colors ${
-                  margen === 0 ? "border-blue-500" : "border-white/15 hover:border-white/40"
-                }`}
-              >
-                <svg viewBox="0 0 20 20" className="size-full p-1" aria-hidden="true">
-                  <line x1="4" y1="16" x2="16" y2="4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </button>
-              {FONDOS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => elegirFondo(f.id)}
-                  title={t(f.nombre)}
-                  aria-label={t(f.nombre)}
-                  aria-pressed={margen > 0 && fondo === f.id}
-                  style={{ background: f.css }}
-                  className={`aspect-square w-full rounded-md border-2 transition-colors ${
-                    margen > 0 && fondo === f.id ? "border-blue-500" : "border-white/15 hover:border-white/40"
-                  }`}
-                />
-              ))}
-            </div>
+            <FondoPicker
+              fondo={fondo}
+              conMarco={margen > 0}
+              elegido={edicion?.fondo ?? null}
+              onFondo={(f) => {
+                onEdicion?.({ fondo: null });
+                elegirFondo(f);
+              }}
+              onElegido={(e) => {
+                onEdicion?.({ fondo: e });
+                // Pone el aire si estaba a cero: un fondo propio sin aire no se ve.
+                elegirFondo(fondo);
+              }}
+            />
             {/* Lo del marco solo con fondo: aire y esquinas de un marco que no existe son
                 controles que no hacen nada. */}
             {margen > 0 && (

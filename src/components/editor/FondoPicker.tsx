@@ -154,7 +154,8 @@ export function FondoPicker({ fondo, conMarco, elegido, onFondo, onElegido }: Pr
         ))}
       </div>
 
-      <div className="grid grid-cols-4 gap-1">
+      {/* Dos por fila: a cuatro, «Vídeo o GIF» y «Más colores» no cabían y la letra tocaba el borde. */}
+      <div className="grid grid-cols-2 gap-1.5">
         <Propio
           puesto={propio?.tipo === "imagen"}
           vista={propio?.tipo === "imagen" ? cssDelFondo(fondo, propio) : null}
@@ -294,7 +295,7 @@ function Propio({
       title={titulo}
       aria-pressed={puesto}
       aria-expanded={abierto}
-      className={`flex flex-col items-center justify-center gap-1 rounded-md border-2 px-1 py-1.5 text-[12px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
+      className={`flex items-center gap-2 rounded-md border-2 px-2.5 py-2 text-left text-[13px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
         puesto ? "border-blue-500 text-white" : "border-white/15 text-neutral-200 hover:border-white/40 hover:text-white"
       }`}
     >
