@@ -38,6 +38,7 @@ import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import { cursorEn, ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
 import { cssDelFondo } from "../../lib/fondos";
+import { FondoVivo } from "./FondoVivo";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
 import { useT } from "../../lib/i18n";
 import {
@@ -728,10 +729,17 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               data-marco={estudio.marco ? estudio.marco.fondo : undefined}
               style={
                 estudio.marco && cajaDeLaVista.aire > 0
-                  ? { background: cssDelFondo(estudio.marco.fondo), padding: cajaDeLaVista.aire }
+                  ? {
+                      background: cssDelFondo(estudio.marco.fondo, edicion.fondo),
+                      padding: cajaDeLaVista.aire,
+                      // El vídeo de fondo va dentro con `-z-10`: sin esto se iría detrás de la página.
+                      position: "relative",
+                      isolation: "isolate",
+                    }
                   : undefined
               }
             >
+            {estudio.marco && cajaDeLaVista.aire > 0 && <FondoVivo elegido={edicion.fondo} />}
             <div
               // `overflow-hidden` porque la camara del zoom escala el video dentro de
               // esta caja, y lo que se sale por los lados no tiene que verse.
