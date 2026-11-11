@@ -465,9 +465,12 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     comprueba(peticion.sonidoClic > 0 && peticion.sonidoClic <= 0.3, `y el sonido de clic, que nace bajo: ${peticion.sonidoClic}`);
     comprueba(Math.abs(peticion.estela - 0.6) < 0.01, `y la estela: ${peticion.estela}`);
     comprueba(peticion.zoomAlEscribir === true && peticion.zooms === null, "y acercarse al escribir, con la pista sin tocar");
-    const pedidos = await pagina.evaluate(() =>
-      window.__llamadas.filter((l) => l.cmd === "session_zooms" && l.args.alEscribir === true).length,
-    );
+    // El editor pide los zooms con un respiro de 120 ms: se espera a la llamada en vez de
+    // contarla al momento (sin `--fotos`, que tarda en hacer la foto, se contaba antes).
+    const pidioLosDeEscribir = () =>
+      window.__llamadas.filter((l) => l.cmd === "session_zooms" && l.args.alEscribir === true).length;
+    await pagina.waitForFunction(pidioLosDeEscribir, null, { timeout: 3000 }).catch(() => undefined);
+    const pedidos = await pagina.evaluate(pidioLosDeEscribir);
     comprueba(pedidos > 0, `la pista pide a Rust los zooms de escribir (${pedidos} veces)`);
   }
   await pagina.close();

@@ -144,6 +144,9 @@ const RESPUESTAS = {
 const MINIATURAS_DEL_HISTORIAL = Object.fromEntries(HISTORIAL.map((h) => [h.entrada.ruta, h.mini]));
 
 const MOCK = `<script>
+// Soltar un oyente de eventos al cerrar un componente: la app de verdad lo hace con este
+// objeto de Tauri, y sin él la página da un error que en la app no existe.
+window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
 window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "miniaturas" }, currentWebview: { windowLabel: "miniaturas", label: "miniaturas" } },
   convertFileSrc: (p) => p,

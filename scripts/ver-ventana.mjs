@@ -364,6 +364,14 @@ Object.assign(window.__TAURI_INTERNALS__, {
     return Promise.resolve(null);
   },
 });
+// Soltar un oyente al cerrar un componente: la app de verdad lo hace con este objeto de
+// Tauri, y sin él la página da un error que en la app no existe.
+window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+  unregisterListener: (evento, id) => {
+    const lista = window.__TAURI_INTERNALS__._oyentes[evento];
+    if (lista) lista.splice(id - 1, 1, undefined);
+  },
+};
 </script>`;
 
 // Sin ratón no hay hover, y lo que solo se ve al pasar por encima no sale en la foto.
