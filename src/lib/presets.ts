@@ -296,6 +296,10 @@ export function edicionDe(estilo: Estilo): Partial<Edicion> {
  * 4 en 4 píxeles, el aire a píxeles enteros) y, recién puesto, tiene que seguir diciendo su
  * nombre. Y lo que no se ve no cuenta: sin aire no hay fondo, sin puntero no hay suavizado,
  * y sin zoom da igual a qué velocidad iría.
+ *
+ * La cámara solo cuenta si los dos la traen. Un estilo guardado sin cámara no dice nada de
+ * ella: aplicado a una grabación con cámara, la deja como estaba (`aplicarEstilo` en el
+ * panel), y tiene que seguir diciendo su nombre, no «Sin guardar».
  */
 export function esElMismo(a: Estilo, b: Estilo): boolean {
   const visible = (e: Estilo): Estilo => {
@@ -308,6 +312,7 @@ export function esElMismo(a: Estilo, b: Estilo): boolean {
   const [x, y] = [visible(a), visible(b)];
   return (Object.keys(x) as (keyof Estilo)[]).every((k) => {
     const [p, q] = [x[k], y[k]];
+    if (k === "camara" && (p === null || q === null)) return true;
     if (typeof p === "number" && typeof q === "number") return Math.abs(p - q) <= Math.max(0.002, Math.abs(p) * 0.05);
     return JSON.stringify(p) === JSON.stringify(q);
   });

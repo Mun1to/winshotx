@@ -151,6 +151,25 @@ describe("saber qué estilo hay puesto", () => {
     expect(esElMismo(estilo({ puntero: 1 }), estilo({ puntero: 1.5 }))).toBe(false);
     expect(esElMismo(estilo({ aros: true }), estilo())).toBe(false);
   });
+
+  it("guardado sin cámara y puesto en una grabación con cámara, sigue diciendo su nombre", () => {
+    // Probado en pantalla: «Prueba de noche» se aplicaba bien, pero el botón decía «Sin guardar».
+    const guardado = estilo({ fondo: "oceano", aire: 0.05, estela: 0.6, ondaClic: true });
+    const camara: Estilo["camara"] = {
+      forma: "circulo",
+      recorte: { x1: 0, y1: 0, x2: 1, y2: 1 },
+      tam: 0.18,
+      x: 0.9,
+      y: 0.85,
+      borde: false,
+    };
+    const { camara: _sin, ...resto } = edicionDe(guardado);
+    const puesto = estiloDe(panelDe(guardado, GRANDE), { ...resto, camara }, GRANDE);
+    expect(esElMismo(guardado, puesto)).toBe(true);
+    // Pero dos cámaras distintas sí son dos estilos distintos.
+    const otra: Estilo["camara"] = { ...camara!, forma: "cuadrado" };
+    expect(esElMismo(estilo({ camara }), estilo({ camara: otra }))).toBe(false);
+  });
 });
 
 describe("el estilo en las capturas", () => {
