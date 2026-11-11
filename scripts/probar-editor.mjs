@@ -357,6 +357,65 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   apagar();
 }
 
+// ── S4: las marcas nuevas, dibujadas con el ratón y mandadas a Rust al guardar ─────────
+{
+  const { url, apagar } = await servir(duracion);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  console.log("\nLas marcas nuevas: flecha curva, línea, elipse, lápiz y foco");
+
+  /** Elige una herramienta y hace un trazo sobre la vista previa, de parte a parte (0 a 1). */
+  async function dibujar(nombre, camino) {
+    await pagina.getByRole("button", { name: nombre, exact: true }).click();
+    const capa = await pagina.locator("svg.cursor-crosshair").boundingBox();
+    const en = ([x, y]) => [capa.x + capa.width * x, capa.y + capa.height * y];
+    await pagina.mouse.move(...en(camino[0]));
+    await pagina.mouse.down();
+    for (const p of camino.slice(1)) await pagina.mouse.move(...en(p), { steps: 4 });
+    await pagina.mouse.up();
+  }
+  const arco = Array.from({ length: 13 }, (_, i) => [0.1 + (i / 12) * 0.35, 0.85 - Math.sin((i / 12) * Math.PI) * 0.4]);
+  const onda = Array.from({ length: 25 }, (_, i) => [0.55 + (i / 24) * 0.35, 0.15 + Math.sin(i / 2) * 0.04]);
+  await dibujar("Foco", [[0.52, 0.35], [0.95, 0.68]]);
+  await dibujar("Elipse", [[0.56, 0.4], [0.9, 0.62]]);
+  await dibujar("Línea", [[0.52, 0.8], [0.95, 0.8]]);
+  await dibujar("Flecha curva", arco);
+  await dibujar("Lápiz", onda);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "11-marcas-nuevas.png") });
+
+  const pintadas = await pagina.evaluate(() =>
+    ["focus", "ellipse", "line", "curve", "pen"].filter((k) => document.querySelector(`[data-marca="${k}"]`)),
+  );
+  comprueba(pintadas.length === 5, `la vista previa enseña las cinco: ${pintadas.join(", ")}`);
+
+  await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+  await pagina.waitForFunction(() => (window.__llamadas ?? []).some((l) => l.cmd === "export_media"));
+  const marcas = await pagina.evaluate(
+    () => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request.annotations,
+  );
+  const de = (k) => marcas.find((m) => m.kind === k);
+  comprueba(
+    ["focus", "ellipse", "line", "curve", "pen"].every((k) => de(k)),
+    `«Guardar» manda las cinco a Rust: ${marcas.map((m) => m.kind).join(", ")}`,
+  );
+  comprueba(de("curve")?.puntos?.length === 1, "la curva viaja con su punto de control");
+  const medio = de("curve") && (() => {
+    const { x1, y1, x2, y2, puntos: [[cx, cy]] } = de("curve");
+    return [0.25 * x1 + 0.5 * cx + 0.25 * x2, 0.25 * y1 + 0.5 * cy + 0.25 * y2];
+  })();
+  comprueba(
+    medio && Math.abs(medio[0] - 0.275) < 0.03 && Math.abs(medio[1] - 0.45) < 0.03,
+    `y pasa a la mitad por donde pasó el ratón (${medio?.map((v) => v.toFixed(3))}, debía 0.275, 0.450)`,
+  );
+  comprueba(
+    (de("pen")?.puntos?.length ?? 0) >= 10 && de("pen").puntos.length < 100,
+    `el lápiz viaja con su trazo aclarado: ${de("pen")?.puntos?.length} puntos`,
+  );
+  await pagina.close();
+  apagar();
+}
+
 // ── Diez minutos de grabación: lo que tarda en salir y lo que cuesta arrastrar ─────────
 {
   const segundos = 600;

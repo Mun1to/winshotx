@@ -385,6 +385,8 @@ addEventListener("load", () => {
 const ROTULOS = {
   capturar: "Capturar",
   grabar: "Grabar",
+  // S4 (capturas): la pestaña del historial va aquí, y el orden es el de la cabecera.
+  historial: "Historial",
   teclas: "Teclas de Windows",
   app: "La app",
 };

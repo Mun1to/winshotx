@@ -22,6 +22,7 @@ pub mod window_style;
 // S3 (fondos)
 pub mod escritorio;
 // S4 (capturas)
+pub mod arrastrar;
 // S5 (scroll)
 
 use std::path::Path;

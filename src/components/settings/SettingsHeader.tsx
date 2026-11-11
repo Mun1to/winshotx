@@ -12,6 +12,8 @@ import { Segmented } from "../ui/Segmented";
 export const SECCIONES = [
   { value: "capturar", label: "Capturar" },
   { value: "grabar", label: "Grabar" },
+  // S4 (capturas): lo guardado, al lado de cómo se captura y se graba.
+  { value: "historial", label: "Historial" },
   { value: "teclas", label: "Teclas de Windows" },
   { value: "app", label: "La app" },
 ] as const satisfies readonly { value: string; label: string }[];

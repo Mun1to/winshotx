@@ -1,4 +1,4 @@
-import { Check, Circle, Copy, Download, FolderOpen, Pencil, Pin, Type, X } from "lucide-react";
+import { Check, Circle, Copy, Download, FolderOpen, Pencil, Pin, ScanQrCode, Type, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { GlassPanel } from "../ui/GlassPanel";
 import { IconButton } from "../ui/IconButton";
@@ -21,6 +21,11 @@ interface Props {
   onPin: () => void;
   /** Lee el texto de la captura y lo copia, sin la imagen. */
   onText: () => void;
+  /**
+   * Lee los códigos QR de la captura y copia lo que dicen. Sin esto el botón no sale: lo
+   * engancha quien monta la barra (`SelectionCanvas.tsx`), con `runStill("qr")`.
+   */
+  onQr?: () => void;
   onRecord: () => void;
   onCancel: () => void;
 }
@@ -44,6 +49,7 @@ export function FloatingToolbar({
   onEdit,
   onPin,
   onText,
+  onQr,
   onRecord,
   onCancel,
 }: Props) {
@@ -101,6 +107,16 @@ export function FloatingToolbar({
               onClick={onText}
               disabled={busy}
             />
+            {/* Al lado de «Copiar el texto», que es su hermano: los dos leen lo que hay en
+                la imagen y dejan en el portapapeles lo que dice, no la imagen. */}
+            {onQr && (
+              <IconButton
+                icon={ScanQrCode}
+                label={t("Leer el código QR")}
+                onClick={onQr}
+                disabled={busy}
+              />
+            )}
           </>
         ) : (
           // Un botón, y grande: aquí ya está elegido si es vídeo o GIF. Lo que falta es

@@ -302,6 +302,60 @@ export const EVENTO_PROGRESO_FONDO = "winshotx://fondo-progreso";
 /** El error con el que acaba una importación cancelada: no es un fallo y no se enseña. */
 export const FONDO_CANCELADO = "importación cancelada";
 // S4 (capturas)
+/** Una miniatura de la esquina, tal como la manda Rust: sin rutas que se puedan pedir de vuelta. */
+export interface MiniaturaVista {
+  id: number;
+  /** La imagen pequeña que se enseña, en el temporal. */
+  vista: string;
+  /** Si ya está en la carpeta de capturas: entonces «Guardar» la enseña en el Explorador. */
+  guardada: boolean;
+}
+
+/** La pila de miniaturas y cuántos segundos se queda cada una (0 = hasta cerrarla). */
+export interface PilaMiniaturas {
+  lista: MiniaturaVista[];
+  segundos: number;
+}
+
+/** El aviso de Rust a la ventana de las miniaturas: la pila ha cambiado. */
+export const EVENTO_MINIATURAS = "miniaturas-cambian";
+
+export const miniaturasLista = () => invoke<PilaMiniaturas>("miniaturas_lista");
+export const miniaturaCerrar = (id: number) => invoke<void>("miniatura_cerrar", { id });
+export const miniaturaCopiar = (id: number) => invoke<void>("miniatura_copiar", { id });
+/** La guarda en la carpeta de capturas, o la enseña en el Explorador si ya lo estaba. */
+export const miniaturaGuardar = (id: number) => invoke<string>("miniatura_guardar", { id });
+export const miniaturaEditar = (id: number) => invoke<void>("miniatura_editar", { id });
+export const miniaturaAnclar = (id: number) => invoke<void>("miniatura_anclar", { id });
+/** Empieza a arrastrar su archivo a otra app. Se llama con el botón del ratón pulsado. */
+export const miniaturaArrastrar = (id: number) => invoke<void>("miniatura_arrastrar", { id });
+
+/** Una foto o un vídeo de la carpeta de capturas. */
+export interface EntradaHistorial {
+  ruta: string;
+  nombre: string;
+  /** Un GIF es un vídeo: es una grabación. */
+  tipo: "foto" | "video";
+  bytes: number;
+  /** Cuándo se guardó, en milisegundos desde 1970. */
+  cuandoMs: number;
+}
+
+export interface PaginaHistorial {
+  entradas: EntradaHistorial[];
+  /** Cuántas hay con ese filtro, para saber si quedan más por cargar. */
+  total: number;
+}
+
+export const historialLista = (filtro: "foto" | "video" | null, desde: number, cuantas: number) =>
+  invoke<PaginaHistorial>("historial_lista", { filtro, desde, cuantas });
+/** La miniatura del archivo, en el temporal: la da Windows, la misma del Explorador. */
+export const historialMiniatura = (ruta: string) => invoke<string>("historial_miniatura", { ruta });
+export const historialAbrir = (ruta: string) => invoke<void>("historial_abrir", { ruta });
+export const historialMostrar = (ruta: string) => invoke<void>("historial_mostrar", { ruta });
+export const historialCopiar = (ruta: string) => invoke<void>("historial_copiar", { ruta });
+/** A la papelera de Windows, de donde se puede recuperar. */
+export const historialBorrar = (ruta: string) => invoke<void>("historial_borrar", { ruta });
 // S5 (scroll)
 /**
  * Empieza la captura con scroll de esa zona, en píxeles del escritorio virtual. Rust

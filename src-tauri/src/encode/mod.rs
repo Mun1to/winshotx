@@ -20,3 +20,4 @@ pub mod lupa;
 // S3 (fondos)
 pub mod fondo_video;
 // S4 (capturas)
+pub mod marco_captura;

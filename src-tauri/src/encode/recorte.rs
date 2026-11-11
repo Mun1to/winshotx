@@ -84,6 +84,13 @@ impl Recorte {
             kind: marca.kind.clone(),
             color: marca.color.clone(),
             text: marca.text.clone(),
+            // El trazo del lápiz y el punto de control de la curva se miden igual que las
+            // esquinas: sin esto, al encuadrar, la curva tiraría hacia otro sitio.
+            puntos: marca
+                .puntos
+                .iter()
+                .map(|p| [(p[0] - x1) / ancho, (p[1] - y1) / alto])
+                .collect(),
         }
     }
 }
@@ -107,6 +114,7 @@ mod tests {
             y2,
             color: "#ef4444".into(),
             text: String::new(),
+            puntos: Vec::new(),
         }
     }
 
@@ -259,5 +267,23 @@ mod tests {
         let salida = entero.reencuadrar(&marca(0.3, 0.4, 0.6, 0.7));
         assert!((salida.x1 - 0.3).abs() < 1e-5);
         assert!((salida.y2 - 0.7).abs() < 1e-5);
+    }
+
+    /// El trazo del lápiz y el control de la curva se mueven con el encuadre, igual que las
+    /// esquinas: si no, la curva tiraría hacia el sitio de la captura entera.
+    #[test]
+    fn los_puntos_de_mas_se_reencuadran_como_las_esquinas() {
+        let mitad_derecha = Recorte {
+            x1: 0.5,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+        };
+        let mut curva = marca(0.6, 0.5, 0.9, 0.5);
+        curva.kind = "curve".into();
+        curva.puntos = vec![[0.75, 0.2]];
+        let salida = mitad_derecha.reencuadrar(&curva);
+        assert!((salida.puntos[0][0] - 0.5).abs() < 1e-5, "{:?}", salida.puntos);
+        assert!((salida.puntos[0][1] - 0.2).abs() < 1e-5, "{:?}", salida.puntos);
     }
 }

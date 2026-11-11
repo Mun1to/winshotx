@@ -24,6 +24,9 @@ mod windows_mgr;
 // S3 (fondos)
 mod fondos;
 // S4 (capturas)
+mod historial;
+mod miniatura;
+mod qr;
 // S5 (scroll)
 
 use std::time::{Duration, SystemTime};
@@ -313,6 +316,19 @@ pub fn run() {
             fondos::importar_fondo_animado,
             fondos::cancelar_fondo_animado,
             // S4 (capturas)
+            miniatura::miniaturas_lista,
+            miniatura::miniatura_cerrar,
+            miniatura::miniatura_copiar,
+            miniatura::miniatura_guardar,
+            miniatura::miniatura_editar,
+            miniatura::miniatura_anclar,
+            miniatura::miniatura_arrastrar,
+            historial::historial_lista,
+            historial::historial_miniatura,
+            historial::historial_abrir,
+            historial::historial_mostrar,
+            historial::historial_copiar,
+            historial::historial_borrar,
             // S5 (scroll)
             capture::scroll::scroll_iniciar,
             capture::scroll::scroll_terminar,

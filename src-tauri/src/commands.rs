@@ -172,6 +172,9 @@ fn entregar(
     action: &str,
 ) -> Result<StillResult> {
     let state = app.state::<AppState>();
+    // S4 (capturas): el fondo de las capturas (E1), en lo que se copia y se guarda.
+    let marco_capturas = state.settings.read().marco_capturas.clone();
+    let image = marco_capturas.para_la_accion(image, action);
     let (width, height) = (image.width(), image.height());
     let (copy_after, con_sonido) = {
         let ajustes = state.settings.read();
@@ -244,6 +247,18 @@ fn entregar(
             crate::platform::clipboard::copy_text(&texto)?;
             result.copied = true;
         }
+        // S4 (capturas): lo que dice el código QR de la captura, al portapapeles (E5). Si
+        // hay varios, uno por línea.
+        "qr" => {
+            let textos = crate::qr::leer(&image);
+            if textos.is_empty() {
+                return Err(AppError::Msg(
+                    "No he encontrado ningún código QR en esa captura.".into(),
+                ));
+            }
+            crate::platform::clipboard::copy_text(&textos.join("\n"))?;
+            result.copied = true;
+        }
         // Dejar la captura flotando encima de todo. El PNG va a la carpeta temporal y no
         // a la de capturas del usuario: anclar es mirar algo un rato, no guardarlo, y
         // llenarle la carpeta de recortes que no ha pedido seria un mal negocio.
@@ -263,6 +278,10 @@ fn entregar(
         other => return Err(AppError::Msg(format!("acción desconocida: {other}"))),
     }
 
+    // S4 (capturas): la miniatura de la esquina (E2), después de copiar o guardar.
+    if matches!(action, "copy" | "save" | "save_as") {
+        crate::miniatura::despues_de_capturar(app, &image, region, result.path.as_ref().map(PathBuf::from));
+    }
     windows_mgr::close_overlays(app);
     Ok(result)
 }
@@ -766,6 +785,7 @@ fn caja_de(
         y2: ((y2 + margen) / alto).clamp(0.0, 1.0),
         color: String::new(),
         text: String::new(),
+        puntos: Vec::new(),
     })
 }
 

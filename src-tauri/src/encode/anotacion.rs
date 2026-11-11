@@ -1,15 +1,23 @@
-//! Las cinco cosas que se pueden dibujar encima de una captura antes de exportarla.
+//! Las marcas que se pueden dibujar encima de una captura antes de exportarla.
 //!
-//! Flecha, rectángulo, texto, resaltado y difuminado. **Cinco y ni una más**: el editor de
-//! imagen no es el producto, y cada herramienta que se añade es una fila más en una barra
-//! que hoy se lee de un vistazo. Lo que hace falta para señalar algo o para tapar un dato
-//! está aquí; lo demás es otro programa.
+//! Flecha, flecha curva, línea, rectángulo, elipse, lápiz, texto, resaltado, paso
+//! numerado, foco y mosaico. Las seis primeras de siempre estuvieron solas hasta el 11 de
+//! noviembre de 2026, cuando Munir marcó en el plan de CleanShot X las que faltaban para
+//! explicar algo sin salir de winshotx. **Y aquí se para**: el editor de imagen no es el
+//! producto. Lo que hace falta para señalar algo, tapar un dato o explicar un orden está
+//! aquí; capas, pinceles y filtros ya son otro programa.
 //!
 //! **Las coordenadas van de 0 a 1, no en píxeles.** Quien dibuja lo hace sobre una vista
 //! previa que casi nunca mide lo que va a medir el archivo, y el mismo dibujo tiene que
 //! valer si después se exporta al 50 % o con el doble de ancho. Guardarlas en píxeles
 //! obligaría a recalcularlas cada vez que alguien toca «Dimensiones», y bastaría con
 //! olvidarse una para que una flecha señalara al sitio equivocado.
+//!
+//! **Lo que pinta la vista previa y lo que sale aquí tiene que ser lo mismo.** La vista
+//! previa es SVG (`src/components/editor/CapaAnotaciones.tsx`) y esto son píxeles, así que
+//! la geometría de las marcas nuevas (la curva, el trazo, el foco) se calcula igual en los
+//! dos lados, y las pruebas de los dos lados leen las mismas marcas de
+//! `src/lib/marcas-de-prueba.json`.
 
 use image::{Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
@@ -18,10 +26,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// Tambien se serializa, porque tapar datos personales las devuelve hechas: el editor las
 /// recibe y las annade a las que ya hubiera, como si las hubiera dibujado alguien.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Anotacion {
-    /// `arrow`, `box`, `text`, `highlight`, `blur` o `step`.
+    /// `arrow`, `curve`, `line`, `box`, `ellipse`, `pen`, `text`, `highlight`, `step`,
+    /// `focus` o `blur`.
     pub kind: String,
     /// Desde dónde y hasta dónde, de 0 a 1 sobre el ancho y el alto de la imagen.
     pub x1: f32,
@@ -34,6 +43,13 @@ pub struct Anotacion {
     /// Lo que dice, si es un texto.
     #[serde(default)]
     pub text: String,
+    /// Los puntos de más que necesitan dos marcas, de 0 a 1 como las esquinas.
+    ///
+    /// En el lápiz es el trazo entero, de principio a fin. En la flecha curva es uno solo:
+    /// el punto de control, que es de donde «tira» la curva. Las demás no llevan ninguno, y
+    /// en el JSON ni aparece: una marca de las de antes se lee y se escribe igual.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub puntos: Vec<[f32; 2]>,
 }
 
 impl Anotacion {
@@ -80,13 +96,35 @@ fn grosor(ancho: u32) -> i32 {
 }
 
 /// Pinta todas las anotaciones sobre la imagen, en el orden en que se hicieron.
+///
+/// **Menos el foco, que va antes que todas.** Oscurece lo que queda fuera de su zona, y en
+/// su turno oscurecería también las flechas y los textos dibujados antes, que son justo lo
+/// que se quiere que se lea. Y los focos se juntan: con dos zonas se ven las dos claras,
+/// en vez de que cada una oscurezca la de la otra.
 pub fn pintar(imagen: &mut RgbaImage, anotaciones: &[Anotacion]) {
+    let (ancho, alto) = imagen.dimensions();
+    let focos: Vec<(i32, i32, i32, i32)> = anotaciones
+        .iter()
+        .filter(|a| a.kind == "focus")
+        .map(|a| a.caja(ancho, alto))
+        .collect();
+    if !focos.is_empty() {
+        foco(imagen, &focos);
+    }
     for anotacion in anotaciones {
         let (ancho, alto) = imagen.dimensions();
         let (x1, y1, x2, y2) = anotacion.caja(ancho, alto);
         match anotacion.kind.as_str() {
             "box" => marco(imagen, x1, y1, x2, y2, anotacion.rgb()),
             "arrow" => flecha(imagen, &anotacion.caja_sin_ordenar(ancho, alto), anotacion.rgb()),
+            "curve" => flecha_curva(imagen, anotacion, anotacion.rgb()),
+            "line" => {
+                let (x1, y1, x2, y2) = anotacion.caja_sin_ordenar(ancho, alto);
+                let radio = grosor(ancho) as f32 / 2.0;
+                linea(imagen, x1, y1, x2, y2, radio, anotacion.rgb());
+            }
+            "ellipse" => elipse(imagen, x1, y1, x2, y2, anotacion.rgb()),
+            "pen" => trazo(imagen, anotacion, anotacion.rgb()),
             "highlight" => resaltar(imagen, x1, y1, x2, y2, anotacion.rgb()),
             "blur" => difuminar(imagen, x1, y1, x2, y2),
             // El texto y el paso se ponen con un clic, asi que su segunda esquina no
@@ -307,15 +345,187 @@ fn flecha(imagen: &mut RgbaImage, caja: &(i32, i32, i32, i32), color: [u8; 3]) {
     let (x1, y1, x2, y2) = *caja;
     let radio = grosor(imagen.width()) as f32 / 2.0;
     linea(imagen, x1, y1, x2, y2, radio, color);
-
-    // La punta: dos rayas hacia atrás, abiertas treinta grados a cada lado.
     let angulo = ((y2 - y1) as f32).atan2((x2 - x1) as f32);
+    punta(imagen, x2, y2, angulo, color);
+}
+
+/// Lo que se abre cada raya de la punta, en radianes: treinta grados.
+const ABRE_LA_PUNTA: f32 = 0.52;
+
+/// La punta de una flecha en (x, y), mirando hacia `angulo`: dos rayas hacia atrás,
+/// abiertas treinta grados a cada lado. La comparten la flecha recta y la curva, para que
+/// las dos se vean de la misma familia.
+fn punta(imagen: &mut RgbaImage, x: i32, y: i32, angulo: f32, color: [u8; 3]) {
+    let radio = grosor(imagen.width()) as f32 / 2.0;
     let largo = (grosor(imagen.width()) * 4).max(12) as f32;
-    for lado in [-0.52f32, 0.52] {
+    for lado in [-ABRE_LA_PUNTA, ABRE_LA_PUNTA] {
         let a = angulo + std::f32::consts::PI + lado;
-        let x = x2 as f32 + a.cos() * largo;
-        let y = y2 as f32 + a.sin() * largo;
-        linea(imagen, x2, y2, x.round() as i32, y.round() as i32, radio, color);
+        let px = x as f32 + a.cos() * largo;
+        let py = y as f32 + a.sin() * largo;
+        linea(imagen, x, y, px.round() as i32, py.round() as i32, radio, color);
+    }
+}
+
+/// Un punto de la flecha curva, con `t` de 0 (el origen) a 1 (la punta).
+///
+/// Es una curva de Bézier cuadrática: sale de `p0`, llega a `p2`, y el punto de control
+/// `c` tira de ella hacia su lado sin que la curva llegue a tocarlo. La misma fórmula está
+/// en `src/lib/anotaciones.ts` (`puntoDeCurva`), y la vista previa la dibuja con la `Q` del
+/// SVG, que es esta misma curva.
+pub fn punto_de_curva(p0: [f32; 2], c: [f32; 2], p2: [f32; 2], t: f32) -> [f32; 2] {
+    let u = 1.0 - t;
+    [
+        u * u * p0[0] + 2.0 * u * t * c[0] + t * t * p2[0],
+        u * u * p0[1] + 2.0 * u * t * c[1] + t * t * p2[1],
+    ]
+}
+
+/// Una flecha que se dobla: la curva entera y la punta mirando hacia donde llega.
+///
+/// La punta sigue la TANGENTE del final, que en una cuadrática es la recta del punto de
+/// control a la punta. Con la dirección del origen a la punta, en una curva cerrada la
+/// punta saldría torcida, señalando un sitio por donde la curva no pasa.
+///
+/// Sin punto de control (una marca rara, o escrita a mano) sale recta.
+fn flecha_curva(imagen: &mut RgbaImage, marca: &Anotacion, color: [u8; 3]) {
+    let (ancho, alto) = imagen.dimensions();
+    let Some(control) = marca.puntos.first().copied() else {
+        flecha(imagen, &marca.caja_sin_ordenar(ancho, alto), color);
+        return;
+    };
+    let px = |p: [f32; 2]| {
+        [
+            p[0].clamp(-8.0, 8.0) * ancho as f32,
+            p[1].clamp(-8.0, 8.0) * alto as f32,
+        ]
+    };
+    let (p0, c, p2) = (px([marca.x1, marca.y1]), px(control), px([marca.x2, marca.y2]));
+    let radio = grosor(ancho) as f32 / 2.0;
+    // Un tramo cada tres píxeles de recorrido: con menos se ven las esquinas de la línea
+    // quebrada, y con más se pintan los mismos discos dos veces.
+    let largo = (c[0] - p0[0]).hypot(c[1] - p0[1]) + (p2[0] - c[0]).hypot(p2[1] - c[1]);
+    let pasos = ((largo / 3.0).ceil() as usize).clamp(8, 4000);
+    let mut antes = p0;
+    for i in 1..=pasos {
+        let ahora = punto_de_curva(p0, c, p2, i as f32 / pasos as f32);
+        linea(
+            imagen,
+            antes[0].round() as i32,
+            antes[1].round() as i32,
+            ahora[0].round() as i32,
+            ahora[1].round() as i32,
+            radio,
+            color,
+        );
+        antes = ahora;
+    }
+    let (dx, dy) = if (p2[0] - c[0]).hypot(p2[1] - c[1]) > 0.5 {
+        (p2[0] - c[0], p2[1] - c[1])
+    } else {
+        (p2[0] - p0[0], p2[1] - p0[1])
+    };
+    punta(imagen, p2[0].round() as i32, p2[1].round() as i32, dy.atan2(dx), color);
+}
+
+/// Una elipse hueca, metida en la caja: el rectángulo de señalar, para lo que es redondo.
+///
+/// Se dibuja como el resto de trazos, con discos a lo largo del borde, para que tenga el
+/// mismo grosor y los mismos bordes suaves que el rectángulo.
+fn elipse(imagen: &mut RgbaImage, x1: i32, y1: i32, x2: i32, y2: i32, color: [u8; 3]) {
+    let radio = grosor(imagen.width()) as f32 / 2.0;
+    let (cx, cy) = ((x1 + x2) as f32 / 2.0, (y1 + y2) as f32 / 2.0);
+    let (rx, ry) = ((x2 - x1) as f32 / 2.0, (y2 - y1) as f32 / 2.0);
+    // El perímetro, con la aproximación de Ramanujan, para dar un paso cada dos píxeles.
+    let h = ((rx - ry) / (rx + ry).max(f32::EPSILON)).powi(2);
+    let perimetro =
+        std::f32::consts::PI * (rx + ry) * (1.0 + 3.0 * h / (10.0 + (4.0 - 3.0 * h).sqrt()));
+    let pasos = ((perimetro / 2.0).ceil() as usize).clamp(16, 8000);
+    let en = |i: usize| {
+        let a = i as f32 / pasos as f32 * std::f32::consts::TAU;
+        ((cx + rx * a.cos()).round() as i32, (cy + ry * a.sin()).round() as i32)
+    };
+    let mut antes = en(0);
+    for i in 1..=pasos {
+        let ahora = en(i);
+        linea(imagen, antes.0, antes.1, ahora.0, ahora.1, radio, color);
+        antes = ahora;
+    }
+}
+
+/// Lo dibujado a mano con el lápiz: el trazo tal cual, punto a punto.
+///
+/// Los puntos ya vienen aclarados de la vista previa (`simplificarTrazo`), así que aquí se
+/// unen sin más. Las juntas salen redondas solas, porque cada tramo es una fila de discos.
+fn trazo(imagen: &mut RgbaImage, marca: &Anotacion, color: [u8; 3]) {
+    let (ancho, alto) = imagen.dimensions();
+    let radio = grosor(ancho) as f32 / 2.0;
+    let px = |p: [f32; 2]| {
+        (
+            (p[0].clamp(-8.0, 8.0) * ancho as f32).round() as i32,
+            (p[1].clamp(-8.0, 8.0) * alto as f32).round() as i32,
+        )
+    };
+    let puntos: Vec<(i32, i32)> = if marca.puntos.is_empty() {
+        vec![px([marca.x1, marca.y1]), px([marca.x2, marca.y2])]
+    } else {
+        marca.puntos.iter().map(|p| px(*p)).collect()
+    };
+    if let [solo] = puntos.as_slice() {
+        if pisa_la_imagen(imagen, solo.0, solo.1) {
+            disco(imagen, solo.0, solo.1, radio, color);
+        }
+        return;
+    }
+    for par in puntos.windows(2) {
+        linea(imagen, par[0].0, par[0].1, par[1].0, par[1].1, radio, color);
+    }
+}
+
+/// Cuánto se oscurece lo que queda fuera del foco: algo más de la mitad.
+///
+/// Lo bastante para que la vista vaya sola a la zona clara, y no tanto como para que lo de
+/// alrededor deje de leerse: el foco dice «mira aquí», no «lo demás no existe». La vista
+/// previa pinta el velo con esta misma opacidad, y `marcas-de-prueba.json` la lleva escrita
+/// para que las pruebas se pongan rojas si alguien cambia una sin la otra.
+pub const FOCO_OSCURECE: f32 = 0.55;
+
+/// El foco: oscurece todo menos sus zonas.
+///
+/// Se recorre fila a fila, y dentro de cada fila se salta lo que cae en alguna zona. Es lo
+/// que lo deja en unos milisegundos sobre un fotograma de 1080p, que en un vídeo se paga en
+/// cada uno.
+fn foco(imagen: &mut RgbaImage, zonas: &[(i32, i32, i32, i32)]) {
+    let (ancho, alto) = imagen.dimensions();
+    let fila = ancho as usize * 4;
+    let queda = 1.0 - FOCO_OSCURECE;
+    let crudo: &mut [u8] = imagen;
+    let mut claros: Vec<(i32, i32)> = Vec::with_capacity(zonas.len());
+    for y in 0..alto as i32 {
+        claros.clear();
+        claros.extend(
+            zonas
+                .iter()
+                .filter(|(_, y1, _, y2)| y >= *y1 && y <= *y2)
+                .map(|(x1, _, x2, _)| (*x1, *x2)),
+        );
+        claros.sort_unstable();
+        let inicio = y as usize * fila;
+        let mut oscurecer = |desde: i32, hasta: i32| {
+            for x in desde.max(0)..hasta.min(ancho as i32) {
+                let i = inicio + x as usize * 4;
+                for canal in &mut crudo[i..i + 3] {
+                    *canal = (*canal as f32 * queda).round() as u8;
+                }
+            }
+        };
+        let mut x = 0i32;
+        for (x1, x2) in claros.iter().copied() {
+            if x1 > x {
+                oscurecer(x, x1);
+            }
+            x = x.max(x2 + 1);
+        }
+        oscurecer(x, ancho as i32);
     }
 }
 
@@ -517,6 +727,7 @@ mod tests {
             y2,
             color: "#ef4444".into(),
             text: String::new(),
+            puntos: Vec::new(),
         }
     }
 
@@ -778,6 +989,7 @@ mod tests {
                     y2: 0.26,
                     color: "#fbbf24".into(),
                     text: String::new(),
+                    puntos: Vec::new(),
                 },
                 Anotacion {
                     kind: "box".into(),
@@ -787,6 +999,7 @@ mod tests {
                     y2: 0.46,
                     color: "#ef4444".into(),
                     text: String::new(),
+                    puntos: Vec::new(),
                 },
                 Anotacion {
                     kind: "arrow".into(),
@@ -796,6 +1009,7 @@ mod tests {
                     y2: 0.45,
                     color: "#0a9bff".into(),
                     text: String::new(),
+                    puntos: Vec::new(),
                 },
                 Anotacion {
                     kind: "blur".into(),
@@ -805,6 +1019,7 @@ mod tests {
                     y2: 0.7,
                     color: String::new(),
                     text: String::new(),
+                    puntos: Vec::new(),
                 },
                 Anotacion {
                     kind: "text".into(),
@@ -814,6 +1029,7 @@ mod tests {
                     y2: 0.85,
                     color: "#ef4444".into(),
                     text: "esto es lo que falla".into(),
+                    puntos: Vec::new(),
                 },
             ],
         );
@@ -979,6 +1195,7 @@ mod tests {
                 y2: 0.0,
                 color: "#ef4444".into(),
                 text: "1".into(),
+                puntos: Vec::new(),
             },
             Anotacion {
                 kind: "step".into(),
@@ -988,6 +1205,7 @@ mod tests {
                 y2: 1.0,
                 color: "#0a9bff".into(),
                 text: "2".into(),
+                puntos: Vec::new(),
             },
             Anotacion {
                 kind: "text".into(),
@@ -997,6 +1215,7 @@ mod tests {
                 y2: 0.06,
                 color: "#111827".into(),
                 text: "pegado al borde".into(),
+                puntos: Vec::new(),
             },
             // Un rectángulo del que solo entra un trozo.
             Anotacion {
@@ -1007,6 +1226,7 @@ mod tests {
                 y2: 0.55,
                 color: "#22c55e".into(),
                 text: String::new(),
+                puntos: Vec::new(),
             },
             // Una flecha que apunta fuera: tiene que salir con su ángulo.
             Anotacion {
@@ -1017,6 +1237,7 @@ mod tests {
                 y2: 0.85,
                 color: "#ef4444".into(),
                 text: String::new(),
+                puntos: Vec::new(),
             },
             // Un resaltado que se sale por abajo.
             Anotacion {
@@ -1027,6 +1248,7 @@ mod tests {
                 y2: 1.3,
                 color: "#fbbf24".into(),
                 text: String::new(),
+                puntos: Vec::new(),
             },
         ];
 
@@ -1060,5 +1282,203 @@ mod tests {
         let mut imagen = lienzo(80, 80);
         pintar(&mut imagen, &[]);
         assert_eq!(tocados(&imagen), 0);
+    }
+
+    // --- Las marcas nuevas (elipse, línea, lápiz, foco y flecha curva) ---
+
+    /// Las marcas de `src/lib/marcas-de-prueba.json`, las mismas que mira la prueba de la
+    /// vista previa en `CapaAnotaciones.test.tsx`.
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Prueba {
+        ancho: u32,
+        alto: u32,
+        foco_oscurece: f32,
+        casos: Vec<Caso>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Caso {
+        nombre: String,
+        marca: Anotacion,
+        #[serde(default)]
+        pasa_por: Vec<[f32; 2]>,
+        #[serde(default)]
+        limpio: Vec<[f32; 2]>,
+        #[serde(default)]
+        claro: Vec<[f32; 2]>,
+        #[serde(default)]
+        oscuro: Vec<[f32; 2]>,
+    }
+
+    fn la_prueba_compartida() -> Prueba {
+        serde_json::from_str(include_str!("../../../src/lib/marcas-de-prueba.json"))
+            .expect("marcas-de-prueba.json no se lee")
+    }
+
+    /// Lo que dibuja la vista previa es lo que sale en el archivo.
+    ///
+    /// La vista previa es SVG y aquí son píxeles, así que no se pueden comparar las dos
+    /// imágenes. Lo que se comparte es la prueba: los puntos por donde tiene que pasar cada
+    /// marca y los que tienen que quedar limpios. Esta mira los píxeles; la de la vista
+    /// previa, la geometría del SVG. Si una de las dos dibuja otra curva, se pone roja.
+    #[test]
+    fn mismas_marcas_que_la_vista_previa() {
+        let prueba = la_prueba_compartida();
+        assert_eq!(
+            prueba.foco_oscurece, FOCO_OSCURECE,
+            "la vista previa oscurece el foco con otra opacidad que la del archivo"
+        );
+        let gris = Rgba([200, 200, 200, 255]);
+        for caso in &prueba.casos {
+            let mut imagen = RgbaImage::from_pixel(prueba.ancho, prueba.alto, gris);
+            pintar(&mut imagen, std::slice::from_ref(&caso.marca));
+            let en = |p: &[f32; 2]| {
+                let x = (p[0] * prueba.ancho as f32).round() as u32;
+                let y = (p[1] * prueba.alto as f32).round() as u32;
+                *imagen.get_pixel(x.min(prueba.ancho - 1), y.min(prueba.alto - 1))
+            };
+            for p in &caso.pasa_por {
+                // Rojo de verdad: el verde baja de 200 hacia 68 con el trazo encima.
+                let pixel = en(p);
+                assert!(
+                    pixel.0[1] < 150 && pixel.0[0] > 200,
+                    "«{}» tenía que pasar por {p:?} y ahí hay {:?}",
+                    caso.nombre,
+                    pixel.0
+                );
+            }
+            for p in &caso.limpio {
+                assert_eq!(en(p), gris, "«{}» ha pintado en {p:?}, que es de fuera", caso.nombre);
+            }
+            for p in &caso.claro {
+                assert_eq!(en(p), gris, "el foco ha oscurecido {p:?}, que es su zona clara");
+            }
+            let oscuro = (200.0 * (1.0 - FOCO_OSCURECE)).round() as u8;
+            for p in &caso.oscuro {
+                assert_eq!(
+                    en(p).0,
+                    [oscuro, oscuro, oscuro, 255],
+                    "el foco tenía que oscurecer {p:?}"
+                );
+            }
+        }
+    }
+
+    /// Dos focos dejan claras las dos zonas: no se oscurecen la una a la otra.
+    #[test]
+    fn los_focos_se_juntan() {
+        let mut imagen = RgbaImage::from_pixel(200, 100, Rgba([200, 200, 200, 255]));
+        pintar(
+            &mut imagen,
+            &[
+                marca("focus", 0.05, 0.1, 0.3, 0.9),
+                marca("focus", 0.6, 0.1, 0.95, 0.9),
+            ],
+        );
+        assert_eq!(imagen.get_pixel(30, 50).0[0], 200, "la primera zona tenía que quedar clara");
+        assert_eq!(imagen.get_pixel(150, 50).0[0], 200, "y la segunda también");
+        assert_eq!(imagen.get_pixel(90, 50).0[0], 90, "y lo de en medio, oscuro");
+    }
+
+    /// El foco va debajo de todo: una flecha dibujada antes no se oscurece.
+    #[test]
+    fn el_foco_no_apaga_lo_que_se_dibujo_antes() {
+        let mut imagen = lienzo(200, 100);
+        pintar(
+            &mut imagen,
+            &[
+                marca("line", 0.05, 0.1, 0.05, 0.9),
+                marca("focus", 0.5, 0.2, 0.9, 0.8),
+            ],
+        );
+        assert_eq!(
+            imagen.get_pixel(10, 50).0,
+            [239, 68, 68, 255],
+            "la línea de fuera del foco tenía que seguir con su color"
+        );
+    }
+
+    /// La punta de la curva mira por donde LLEGA la curva, no por donde está el origen.
+    ///
+    /// Una curva que sale de la izquierda, sube y baja en vertical sobre la punta: la
+    /// punta tiene que abrirse hacia arriba, que es de donde viene el trazo. Con el ángulo
+    /// del origen a la punta se abriría hacia la izquierda.
+    #[test]
+    fn la_punta_de_la_curva_sigue_su_final() {
+        let mut imagen = lienzo(400, 400);
+        let mut curva = marca("curve", 0.1, 0.9, 0.8, 0.8);
+        curva.puntos = vec![[0.8, 0.1]];
+        pintar(&mut imagen, &[curva]);
+        // Tangente final: de (320, 40) a (320, 320), hacia abajo. Las rayas de la punta
+        // suben desde (320, 320) abiertas treinta grados: a 12 px por encima y 6 a cada
+        // lado tiene que haber color; a la izquierda de la punta, en su misma fila, no.
+        let rojo = |x: u32, y: u32| imagen.get_pixel(x, y).0[1] < 150;
+        assert!(rojo(314, 309) || rojo(326, 309), "la punta no se abre hacia arriba");
+        assert!(!rojo(300, 320), "la punta se ha abierto hacia el origen");
+    }
+
+    /// Un clic con el lápiz deja un punto, no nada.
+    #[test]
+    fn el_lapiz_de_un_punto_pinta_un_punto() {
+        let mut imagen = lienzo(100, 100);
+        let mut punto = marca("pen", 0.5, 0.5, 0.5, 0.5);
+        punto.puntos = vec![[0.5, 0.5]];
+        pintar(&mut imagen, &[punto]);
+        assert_ne!(*imagen.get_pixel(50, 50), Rgba([255, 255, 255, 255]));
+    }
+
+    /// Una marca de las de antes, sin `puntos`, se lee igual; y una sin puntos no los
+    /// escribe, para que lo que devuelve «Tapar datos» no cambie.
+    #[test]
+    fn los_puntos_no_cambian_las_marcas_de_antes() {
+        let vieja: Anotacion = serde_json::from_str(
+            r##"{"kind":"box","x1":0.1,"y1":0.1,"x2":0.5,"y2":0.5,"color":"#ef4444","text":""}"##,
+        )
+        .unwrap();
+        assert!(vieja.puntos.is_empty());
+        let escrita = serde_json::to_string(&vieja).unwrap();
+        assert!(!escrita.contains("puntos"), "{escrita}");
+    }
+
+    /// Las marcas nuevas, para mirarlas con los ojos:
+    /// `cargo test --lib ver_las_marcas_nuevas -- --ignored --nocapture`
+    #[test]
+    #[ignore = "no comprueba nada: deja un PNG para mirar"]
+    fn ver_las_marcas_nuevas() {
+        let mut imagen = RgbaImage::from_pixel(720, 420, Rgba([246, 246, 248, 255]));
+        for fila in 0..8 {
+            let y0 = 40 + fila * 44;
+            for y in y0..y0 + 12 {
+                for x in 40..(120 + (fila * 83) % 520) {
+                    imagen.put_pixel(x, y, Rgba([60, 64, 72, 255]));
+                }
+            }
+        }
+        let mut curva = marca("curve", 0.08, 0.85, 0.42, 0.35);
+        curva.puntos = vec![[0.1, 0.3]];
+        curva.color = "#0a9bff".into();
+        let mut lapiz = marca("pen", 0.55, 0.15, 0.9, 0.2);
+        lapiz.puntos = (0..60)
+            .map(|i| {
+                let t = i as f32 / 59.0;
+                [0.55 + t * 0.35, 0.15 + (t * 12.0).sin() * 0.04]
+            })
+            .collect();
+        lapiz.color = "#22c55e".into();
+        pintar(
+            &mut imagen,
+            &[
+                marca("focus", 0.5, 0.35, 0.95, 0.65),
+                marca("ellipse", 0.55, 0.38, 0.9, 0.62),
+                marca("line", 0.5, 0.8, 0.95, 0.8),
+                curva,
+                lapiz,
+            ],
+        );
+        let ruta = std::env::temp_dir().join("winshotx-marcas-nuevas.png");
+        imagen.save(&ruta).unwrap();
+        println!("míralo en {}", ruta.display());
     }
 }
