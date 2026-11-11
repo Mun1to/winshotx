@@ -26,6 +26,7 @@ import {
   importarImagenDeFondo,
 } from "../../lib/ipc";
 import { PaletaDeColor } from "./PaletaDeColor";
+import { Opcion } from "../ui/Opcion";
 
 interface Props {
   /** El fondo de nombre que hay puesto. */
@@ -306,22 +307,6 @@ function Propio({
           {icono}
         </span>
       )}
-      {children}
-    </button>
-  );
-}
-
-/** Una opción en texto, con la elegida subrayada: la misma que usa el panel. */
-function Opcion({ puesta, onClick, children }: { puesta: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={puesta}
-      className={`border-b-2 py-1 text-[14px] font-semibold transition-colors ${
-        puesta ? "border-blue-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-100"
-      }`}
-    >
       {children}
     </button>
   );

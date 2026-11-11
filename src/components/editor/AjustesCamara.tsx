@@ -3,7 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { CapaRecorte } from "./CapaRecorte";
-import type { Edicion, Forma, MarcoCamara } from "../../lib/contrato";
+import type { Edicion, MarcoCamara } from "../../lib/contrato";
 import { camaraDeLaSesion } from "../../lib/ipc";
 import {
   marcoDeFabrica,
@@ -15,14 +15,7 @@ import {
   type CamaraDeLaSesion,
 } from "../../lib/camara";
 import { useT } from "../../lib/i18n";
-
-/** Las cuatro formas, en el orden y con los nombres de las de la lupa. */
-const FORMAS: { forma: Forma; nombre: string }[] = [
-  { forma: "circulo", nombre: "Círculo" },
-  { forma: "cuadrado", nombre: "Cuadrado" },
-  { forma: "rectangulo", nombre: "Rectángulo" },
-  { forma: "redondeado", nombre: "Rectángulo redondeado" },
-];
+import { DibujoDeForma, FORMAS } from "./AjustesDeLaPista";
 
 interface Props {
   sessionId: string;
@@ -154,18 +147,5 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
         </div>
       )}
     </div>
-  );
-}
-
-/** La forma dibujada a trazo, como la de la lupa en la línea de tiempo. */
-function DibujoDeForma({ forma, puesta }: { forma: Forma; puesta: boolean }) {
-  const trazo = { fill: "none", stroke: "currentColor", strokeWidth: puesta ? 2.2 : 1.9 };
-  return (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
-      {forma === "circulo" && <circle cx="12" cy="12" r="8" {...trazo} />}
-      {forma === "cuadrado" && <rect x="4" y="4" width="16" height="16" {...trazo} />}
-      {forma === "rectangulo" && <rect x="2.5" y="7" width="19" height="10.5" {...trazo} />}
-      {forma === "redondeado" && <rect x="2.5" y="7" width="19" height="10.5" rx="3.5" {...trazo} />}
-    </svg>
   );
 }

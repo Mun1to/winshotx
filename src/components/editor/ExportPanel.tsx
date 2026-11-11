@@ -30,6 +30,7 @@ import { AjustesCamara } from "./AjustesCamara";
 import { Presets } from "./Presets";
 import { edicionDe, estiloDe, panelDe } from "../../lib/presets";
 import type { Edicion } from "../../lib/contrato";
+import { Opcion, Opciones } from "../ui/Opcion";
 
 /**
  * Los cuatro formatos, con lo que hace cada uno dicho en palabras: «H.264 por hardware»
@@ -993,34 +994,6 @@ function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
       <span className="mb-2 block text-[13px] font-medium text-neutral-200">{titulo}</span>
       {children}
     </div>
-  );
-}
-
-/** Una fila de opciones en texto, con la elegida subrayada: nada de pastillas. */
-function Opciones({ children }: { children: ReactNode }) {
-  return <div className="flex items-center gap-4">{children}</div>;
-}
-
-function Opcion({
-  puesta,
-  onClick,
-  children,
-}: {
-  puesta: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={puesta}
-      className={`border-b-2 py-1 text-[14px] font-semibold tabular-nums transition-colors ${
-        puesta ? "border-blue-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-100"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

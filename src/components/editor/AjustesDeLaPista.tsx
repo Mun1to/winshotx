@@ -5,6 +5,7 @@ import type { Forma, TramoZoom } from "../../lib/contrato";
 import { LUPA_NUEVA, NIVEL_MAXIMO } from "../../lib/zooms";
 import { VELOCIDADES_DE_TROZO, type Pieza } from "../../lib/tramo";
 import { useT } from "../../lib/i18n";
+import { Opcion } from "../ui/Opcion";
 
 /**
  * Los mandos de lo que está elegido en la línea de tiempo: un bloque de la pista de zooms
@@ -15,7 +16,7 @@ import { useT } from "../../lib/i18n";
  */
 
 /** Las cuatro formas de la lupa, en el orden en que se ofrecen. */
-const FORMAS: { forma: Forma; nombre: string }[] = [
+export const FORMAS: { forma: Forma; nombre: string }[] = [
   { forma: "circulo", nombre: "Círculo" },
   { forma: "cuadrado", nombre: "Cuadrado" },
   { forma: "rectangulo", nombre: "Rectángulo" },
@@ -171,22 +172,6 @@ export function AjustesDelTrozo({
   );
 }
 
-/** Una opción en texto, con la elegida subrayada: nada de pastillas. La misma del panel. */
-function Opcion({ puesta, onClick, children }: { puesta: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={puesta}
-      className={`border-b-2 py-1 text-[14px] font-semibold whitespace-nowrap tabular-nums transition-colors ${
-        puesta ? "border-blue-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-100"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Boton({ onClick, apagado = false, children }: { onClick: () => void; apagado?: boolean; children: ReactNode }) {
   return (
     <button
@@ -201,7 +186,7 @@ function Boton({ onClick, apagado = false, children }: { onClick: () => void; ap
 }
 
 /** La forma dibujada a trazo, como los iconos de la barra de anotar. */
-function DibujoDeForma({ forma, puesta }: { forma: Forma; puesta: boolean }) {
+export function DibujoDeForma({ forma, puesta }: { forma: Forma; puesta: boolean }) {
   const trazo = { fill: "none", stroke: "currentColor", strokeWidth: puesta ? 2.2 : 1.9 };
   return (
     <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">

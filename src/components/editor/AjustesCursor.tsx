@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { useT } from "../../lib/i18n";
 import type { Edicion, Suavizado } from "../../lib/contrato";
+import { Opcion } from "../ui/Opcion";
 
 /**
  * Los mandos del cursor y los clics del Estudio (S7): el suavizado de tres opciones, esconder
@@ -146,21 +146,5 @@ export function AjustesCursor({
         />
       )}
     </div>
-  );
-}
-
-/** Una opción en texto, con la elegida subrayada: nada de pastillas. La misma del panel. */
-function Opcion({ puesta, onClick, children }: { puesta: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={puesta}
-      className={`border-b-2 py-1 text-[14px] font-semibold whitespace-nowrap transition-colors ${
-        puesta ? "border-blue-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-100"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
