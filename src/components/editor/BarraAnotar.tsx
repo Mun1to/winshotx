@@ -2,8 +2,11 @@ import {
   ArrowUpRight,
   Circle,
   Crop,
+  Focus,
   Highlighter,
+  Pencil,
   ShieldCheck,
+  Slash,
   Square,
   TextSelect,
   Type,
@@ -52,19 +55,35 @@ interface Props {
   onQuitarEncuadre: () => void;
 }
 
+/**
+ * Las que señalan, en el orden de la barra: cada una al lado de su pariente (la flecha con
+ * la curva y la línea, el rectángulo con la elipse) para que se encuentren sin leer.
+ *
+ * Las teclas del 1 al 6 son las de siempre y las pone el editor (`EditorApp.tsx`); las
+ * marcas que entraron el 11 de noviembre no tienen tecla todavía.
+ */
 const HERRAMIENTAS: {
   id: Herramienta;
   icono: React.ComponentType<{ className?: string }>;
   etiqueta: string;
-  tecla: string;
+  tecla?: string;
 }[] = [
   { id: "arrow", icono: ArrowUpRight, etiqueta: "Flecha", tecla: "1" },
+  { id: "curve", icono: FlechaCurva, etiqueta: "Flecha curva" },
+  { id: "line", icono: Slash, etiqueta: "Línea" },
   { id: "box", icono: Square, etiqueta: "Rectángulo", tecla: "2" },
+  { id: "ellipse", icono: Circle, etiqueta: "Elipse" },
+  { id: "pen", icono: Pencil, etiqueta: "Lápiz" },
   { id: "text", icono: Type, etiqueta: "Texto", tecla: "3" },
   { id: "highlight", icono: Highlighter, etiqueta: "Resaltar", tecla: "4" },
   // El paso numerado va con los que señalan: es la marca de «primero esto, luego esto».
-  { id: "step", icono: Circle, etiqueta: "Paso numerado", tecla: "5" },
+  { id: "step", icono: Paso, etiqueta: "Paso numerado", tecla: "5" },
+  // El foco también señala, aunque lo haga oscureciendo lo demás: «mira aquí».
+  { id: "focus", icono: Focus, etiqueta: "Foco" },
 ];
+
+/** Las que no se pintan de un color: el mosaico tapa y el foco oscurece. */
+const SIN_COLOR: (Herramienta | null)[] = ["blur", "focus"];
 
 export function BarraAnotar({
   activa,
@@ -91,7 +110,7 @@ export function BarraAnotar({
         <Boton
           key={h.id}
           icono={h.icono}
-          etiqueta={`${t(h.etiqueta)} · ${h.tecla}`}
+          etiqueta={h.tecla ? `${t(h.etiqueta)} · ${h.tecla}` : t(h.etiqueta)}
           activa={activa === h.id}
           onClick={() => onElegir(activa === h.id ? null : h.id)}
         />
@@ -107,8 +126,8 @@ export function BarraAnotar({
         onClick={() => onElegir(activa === "blur" ? null : "blur")}
       />
 
-      {/* El color no sale con el difuminado: ahí no pinta nada. */}
-      {activa !== "blur" && (
+      {/* El color no sale con el mosaico ni con el foco: ahí no pinta nada. */}
+      {!SIN_COLOR.includes(activa) && (
         <>
           <Raya />
           <span className="flex gap-1.5 px-1">
@@ -279,6 +298,48 @@ function BotonConNombre({
           eso que la barra partida en dos filas comiéndose la imagen. */}
       <span className={estrecho ? "hidden @[52rem]:inline" : undefined}>{nombre}</span>
     </button>
+  );
+}
+
+/**
+ * El icono de la flecha curva: un arco con su punta. El `Spline` de lucide son dos puntos
+ * de control unidos, que dice «curva de Bézier» a quien sabe qué es eso y nada a los demás.
+ */
+function FlechaCurva({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 19C5 10 10 6 18 6" />
+      <path d="M14 3l4 3-3 4" />
+    </svg>
+  );
+}
+
+/**
+ * El icono del paso numerado: un disco con un 1. Antes era el círculo de lucide, pero ese
+ * es ahora el de la elipse, y dos botones con el mismo dibujo no se distinguen.
+ */
+function Paso({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill="currentColor" />
+      <path
+        d="M10.5 9.5L12.5 8v8"
+        fill="none"
+        stroke="var(--color-neutral-900, #171717)"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

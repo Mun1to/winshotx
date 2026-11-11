@@ -1687,6 +1687,7 @@ mod el_orden_de_exportar {
             y2: 0.75,
             color: "#00ff00".into(),
             text: String::new(),
+            puntos: Vec::new(),
         };
         let anotada = enmarcar_y_anotar(
             image::RgbaImage::from_pixel(200, 200, AZUL),
@@ -1762,6 +1763,7 @@ mod el_orden_de_exportar {
             y2: 0.9,
             color: "#000000".into(),
             text: String::new(),
+            puntos: Vec::new(),
         };
         let salida = enmarcar_y_anotar(
             dos_mitades(400, 300),
@@ -1839,6 +1841,7 @@ mod el_orden_de_exportar {
             y2: 0.9,
             color: "#000000".into(),
             text: String::new(),
+            puntos: Vec::new(),
         };
         let entero = Recorte {
             x1: 0.0,

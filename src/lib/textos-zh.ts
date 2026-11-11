@@ -526,5 +526,11 @@ export const ZH: Record<string, string> = {
   // S2 (grabación)
   // S3 (fondos)
   // S4 (capturas)
+  // Las marcas nuevas del editor
+  "Flecha curva": "曲线箭头",
+  "Línea": "直线",
+  Elipse: "椭圆",
+  Lápiz: "画笔",
+  Foco: "聚光灯",
   // S5 (scroll)
 };

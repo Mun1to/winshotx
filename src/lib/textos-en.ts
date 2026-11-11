@@ -526,5 +526,11 @@ export const EN: Record<string, string> = {
   // S2 (grabación)
   // S3 (fondos)
   // S4 (capturas)
+  // Las marcas nuevas del editor
+  "Flecha curva": "Curved arrow",
+  "Línea": "Line",
+  Elipse: "Ellipse",
+  Lápiz: "Pen",
+  Foco: "Spotlight",
   // S5 (scroll)
 };

@@ -1,5 +1,12 @@
-import { useRef, useState } from "react";
-import type { Anotacion, Herramienta } from "../../lib/anotaciones";
+import { useId, useRef, useState } from "react";
+import {
+  controlDeCurva,
+  FOCO_OSCURECE,
+  simplificarTrazo,
+  type Anotacion,
+  type Herramienta,
+  type Punto,
+} from "../../lib/anotaciones";
 
 /**
  * La capa donde se dibuja encima de la vista previa.
@@ -27,6 +34,14 @@ interface Props {
 export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, texto }: Props) {
   const marco = useRef<SVGSVGElement>(null);
   const [dibujando, setDibujando] = useState<Anotacion | null>(null);
+  /**
+   * Por dónde ha pasado el ratón, para el lápiz y la flecha curva. Va en una ref y no en
+   * el estado porque cambia en cada movimiento y no se pinta tal cual: el lápiz pinta su
+   * versión aclarada y la curva, la curva que sale de él.
+   */
+  const camino = useRef<Punto[]>([]);
+  // Los `:` de useId no valen dentro de un `url(#...)` en todos los motores.
+  const idDelVelo = `velo-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   /** El punto del ratón, en tanto por uno sobre la capa. */
   const punto = (e: React.PointerEvent): [number, number] => {
@@ -54,26 +69,43 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, tex
       onAnadir({ kind: "step", x1: x, y1: y, x2: x, y2: y, color, text: String(siguiente) });
       return;
     }
+    camino.current = [[x, y]];
     setDibujando({ kind: herramienta, x1: x, y1: y, x2: x, y2: y, color, text: "" });
   };
 
   const mover = (e: React.PointerEvent) => {
     if (!dibujando) return;
     const [x, y] = punto(e);
-    setDibujando({ ...dibujando, x2: x, y2: y });
+    if (dibujando.kind === "pen" || dibujando.kind === "curve") {
+      const ultimo = camino.current[camino.current.length - 1];
+      // Un punto cada poco: el ratón manda muchos más de los que cambian el dibujo.
+      if (!ultimo || Math.hypot(x - ultimo[0], y - ultimo[1]) > 0.002) {
+        camino.current = [...camino.current, [x, y]];
+      }
+    }
+    setDibujando(conCamino({ ...dibujando, x2: x, y2: y }, camino.current));
   };
 
   const soltar = () => {
     if (!dibujando) return;
     // Un clic sin arrastre no es una marca, es un clic: sin esto, cada vez que alguien
     // pulsa sin querer queda un rectángulo de cero píxeles imposible de ver y de borrar.
-    const ancho = Math.abs(dibujando.x2 - dibujando.x1);
-    const alto = Math.abs(dibujando.y2 - dibujando.y1);
-    if (ancho > 0.01 || alto > 0.01) onAnadir(dibujando);
+    // En el lápiz cuenta todo lo que se ha movido, no solo dónde acaba: un círculo a mano
+    // termina donde empezó.
+    const puntos = dibujando.kind === "pen" ? camino.current : [[dibujando.x1, dibujando.y1], [dibujando.x2, dibujando.y2]];
+    const xs = puntos.map((p) => p[0]);
+    const ys = puntos.map((p) => p[1]);
+    const ancho = Math.max(...xs) - Math.min(...xs);
+    const alto = Math.max(...ys) - Math.min(...ys);
+    if (ancho > 0.01 || alto > 0.01) onAnadir(conCamino(dibujando, camino.current, true));
+    camino.current = [];
     setDibujando(null);
   };
 
   const todas = dibujando ? [...anotaciones, dibujando] : anotaciones;
+  // El foco va debajo de todo y todos juntos en un velo, igual que al exportar
+  // (`encode::anotacion::pintar`): así no oscurece lo dibujado ni se tapan entre ellos.
+  const focos = todas.filter((a) => a.kind === "focus");
 
   return (
     <svg
@@ -88,11 +120,57 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, tex
         herramienta ? "cursor-crosshair" : "pointer-events-none"
       }`}
     >
+      {focos.length > 0 && (
+        <g data-marca="focus">
+          <mask id={idDelVelo}>
+            <rect x={0} y={0} width={1000} height={1000} fill="#ffffff" />
+            {focos.map((f, i) => (
+              <rect
+                key={i}
+                data-zona-clara=""
+                x={Math.min(f.x1, f.x2) * 1000}
+                y={Math.min(f.y1, f.y2) * 1000}
+                width={Math.abs(f.x2 - f.x1) * 1000}
+                height={Math.abs(f.y2 - f.y1) * 1000}
+                fill="#000000"
+              />
+            ))}
+          </mask>
+          <rect
+            data-velo=""
+            x={0}
+            y={0}
+            width={1000}
+            height={1000}
+            fill="#000000"
+            opacity={FOCO_OSCURECE}
+            mask={`url(#${idDelVelo})`}
+          />
+        </g>
+      )}
       {todas.map((a, i) => (
         <Marca key={i} anotacion={a} />
       ))}
     </svg>
   );
+}
+
+/**
+ * Lo que guarda el lápiz y la flecha curva además de las dos esquinas.
+ *
+ * El lápiz se queda con su trazo (aclarado al soltar, que es cuando ya no cambia), y la
+ * curva con el punto de control que sale del camino: quien dibuja una curva no quiere
+ * colocar puntos de control, quiere dibujar la curva.
+ */
+function conCamino(marca: Anotacion, camino: Punto[], final = false): Anotacion {
+  if (marca.kind === "pen") {
+    return { ...marca, puntos: final ? simplificarTrazo(camino) : camino };
+  }
+  if (marca.kind === "curve") {
+    const extremos: Punto[] = [[marca.x1, marca.y1], ...camino.slice(1, -1), [marca.x2, marca.y2]];
+    return { ...marca, puntos: [controlDeCurva(extremos)] };
+  }
+  return marca;
 }
 
 /** Lo que mide el aro de un paso, en el sistema de 1000 del SVG. */
@@ -168,6 +246,66 @@ function Marca({ anotacion: a }: { anotacion: Anotacion }) {
           ))}
         </g>
       );
+    case "curve": {
+      // La misma cuadrática que pinta Rust (`punto_de_curva`): la `Q` del SVG es esa curva.
+      // La punta mira desde el punto de control, que es hacia donde llega la curva.
+      const [cx, cy] = a.puntos?.[0] ? [a.puntos[0][0] * 1000, a.puntos[0][1] * 1000] : [(x1 + x2) / 2, (y1 + y2) / 2];
+      const [dx, dy] = Math.hypot(x2 - cx, y2 - cy) > 0.5 ? [cx, cy] : [x1, y1];
+      return (
+        <g data-marca="curve" stroke={a.color} strokeWidth={6} fill="none" strokeLinecap="round">
+          <path d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`} vectorEffect="non-scaling-stroke" />
+          {puntaDeFlecha(dx, dy, x2, y2).map(([px, py], i) => (
+            <line key={i} x1={x2} y1={y2} x2={px} y2={py} vectorEffect="non-scaling-stroke" />
+          ))}
+        </g>
+      );
+    }
+    case "line":
+      return (
+        <line
+          data-marca="line"
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke={a.color}
+          strokeWidth={6}
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      );
+    case "ellipse":
+      return (
+        <ellipse
+          data-marca="ellipse"
+          cx={izq + ancho / 2}
+          cy={arr + alto / 2}
+          rx={ancho / 2}
+          ry={alto / 2}
+          fill="none"
+          stroke={a.color}
+          strokeWidth={6}
+          vectorEffect="non-scaling-stroke"
+        />
+      );
+    case "pen":
+      return (
+        <polyline
+          data-marca="pen"
+          points={(a.puntos?.length ? a.puntos : [[a.x1, a.y1], [a.x2, a.y2]])
+            .map(([px, py]) => `${px * 1000},${py * 1000}`)
+            .join(" ")}
+          fill="none"
+          stroke={a.color}
+          strokeWidth={6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      );
+    case "focus":
+      // Lo pinta el velo de arriba, todos los focos juntos y por debajo de las demás.
+      return null;
     case "text":
       return (
         <text x={x1} y={y1} fill={a.color} fontSize={34} fontWeight={600} dominantBaseline="hanging">

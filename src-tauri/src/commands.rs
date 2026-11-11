@@ -743,6 +743,7 @@ fn caja_de(
         y2: ((y2 + margen) / alto).clamp(0.0, 1.0),
         color: String::new(),
         text: String::new(),
+        puntos: Vec::new(),
     })
 }
 
