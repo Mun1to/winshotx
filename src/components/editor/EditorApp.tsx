@@ -42,6 +42,7 @@ import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import { cursorEn, ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
 import { cssDelFondo } from "../../lib/fondos";
 import { FondoVivo } from "./FondoVivo";
+import { CapaCamara } from "./CapaCamara";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
 import { useT } from "../../lib/i18n";
 import {
@@ -803,6 +804,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 />
               )}
               {/* S8 (cámara en el Estudio) */}
+              {session.format !== "still" && (
+                <CapaCamara
+                  sessionId={sessionId}
+                  videoRef={videoRef}
+                  marco={edicion.camara}
+                  onMarco={(camara) => setEdicion((antes) => ({ ...antes, camara }))}
+                  hueco={hueco}
+                  aire={estudio.marco ? cajaDeLaVista.aire : 0}
+                  quieta={herramienta !== null || recortando}
+                  msParado={posicionMs}
+                />
+              )}
               {/* S9 (presets y tapar) */}
               <CapaAnotaciones
                 herramienta={herramienta}

@@ -387,4 +387,7 @@ export const sessionCameraAlEscribir = (
   alEscribir: boolean,
 ) => invoke<MuestraCamara[]>("session_camera", { sessionId, zoom, crop, zoomSpeed, alEscribir });
 // S8 (cámara en el Estudio)
+/** La webcam de la sesión, si se grabó: dónde está su archivo y cuándo arrancó. `null` si no. */
+export const camaraDeLaSesion = (sessionId: string) =>
+  invoke<import("./camara").CamaraDeLaSesion | null>("camara_de_la_sesion", { sessionId });
 // S9 (presets y tapar)

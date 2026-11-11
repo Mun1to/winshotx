@@ -287,6 +287,8 @@ fn pasos_de(session: &SessionData, request: &ExportRequest) -> Pasos {
     let ve = QueSeVe::nuevo(session, request, &camara);
     // Con un fondo animado no hay dos instantes iguales: cada paso lleva su fotograma (S3).
     let animado = marco_de(request).animado();
+    // S8 (cámara en el Estudio): con la webcam encima tampoco, que la cara se mueve sola.
+    let animado = animado || crate::encode::camara_estudio::hay(session, request.edicion.camara.as_ref());
     pasos(session, &trozos, request.fps, &|a, b| !animado && ve.igual(a, b))
 }
 
@@ -495,6 +497,11 @@ mod pruebas_de_fondos;
 #[path = "exporter_cursor.rs"]
 mod pruebas_del_cursor;
 
+/// Las de la webcam en el Estudio (S8), por `escribir` y aparte por lo mismo.
+#[cfg(test)]
+#[path = "exporter_camara.rs"]
+mod pruebas_de_camara;
+
 /// Los fotogramas de una exportacion, ya vestidos y en orden: leidos por delante en otro
 /// hilo, con el recorte, la camara, el estudio y las marcas puestos en el instante de cada
 /// paso. Se piden por posicion (0, 1, 2...), que es lo que reciben los codificadores.
@@ -508,6 +515,8 @@ struct Vestidor<'a> {
     guardado: Option<(usize, image::RgbaImage)>,
     marco: marco::Marco,
     // S8 (cámara en el Estudio)
+    /// La webcam encima de todo, si la sesión la grabó y la petición la pide.
+    webcam: Option<crate::encode::camara_estudio::Webcam>,
     // S9 (presets y tapar)
 }
 
@@ -525,6 +534,11 @@ impl<'a> Vestidor<'a> {
             guardado: None,
             marco: marco_de(request),
             // S8 (cámara en el Estudio)
+            webcam: crate::encode::camara_estudio::Webcam::nueva(
+                session,
+                request.edicion.camara.as_ref(),
+                marco_de(request).medida(request.width.max(1), request.height.max(1)),
+            ),
             // S9 (presets y tapar)
         }
     }
@@ -562,6 +576,10 @@ impl<'a> Vestidor<'a> {
             self.vestir.as_mut(),
         );
         // S8 (cámara en el Estudio): la webcam va encima de todo lo vestido.
+        let mut vestida = vestida;
+        if let Some(webcam) = self.webcam.as_mut() {
+            webcam.pintar(&mut vestida, ms);
+        }
         Ok(vestida)
     }
 }
@@ -832,6 +850,19 @@ fn escribir(
                         &recortes,
                         vestir_muestra.as_mut(),
                     ))
+                };
+                // S8 (cámara en el Estudio): la paleta también ve la cara, o sale a manchas.
+                let mut webcam_muestra = crate::encode::camara_estudio::Webcam::nueva(
+                    session,
+                    request.edicion.camara.as_ref(),
+                    (ancho_final, alto_final),
+                );
+                let mut muestra = |posicion: usize| -> Result<image::RgbaImage> {
+                    let mut imagen = muestra(posicion)?;
+                    if let Some(webcam) = webcam_muestra.as_mut() {
+                        webcam.pintar(&mut imagen, pasos.tiempos[posicion]);
+                    }
+                    Ok(imagen)
                 };
                 let mut loader = |posicion: usize| vestidor.en(posicion);
                 gif::encode(

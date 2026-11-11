@@ -1,0 +1,171 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { Slider } from "../ui/Slider";
+import { Toggle } from "../ui/Toggle";
+import { CapaRecorte } from "./CapaRecorte";
+import type { Edicion, Forma, MarcoCamara } from "../../lib/contrato";
+import { camaraDeLaSesion } from "../../lib/ipc";
+import {
+  marcoDeFabrica,
+  recorta,
+  recorteLimpio,
+  SIN_RECORTE,
+  TAM_MANDO_MAXIMO,
+  TAM_MANDO_MINIMO,
+  type CamaraDeLaSesion,
+} from "../../lib/camara";
+import { useT } from "../../lib/i18n";
+
+/** Las cuatro formas, en el orden y con los nombres de las de la lupa. */
+const FORMAS: { forma: Forma; nombre: string }[] = [
+  { forma: "circulo", nombre: "Círculo" },
+  { forma: "cuadrado", nombre: "Cuadrado" },
+  { forma: "rectangulo", nombre: "Rectángulo" },
+  { forma: "redondeado", nombre: "Rectángulo redondeado" },
+];
+
+interface Props {
+  sessionId: string;
+  edicion?: Edicion;
+  onEdicion?: (cambio: Partial<Edicion>) => void;
+}
+
+/**
+ * Los mandos de la webcam en el Estudio: enseñarla o no, su forma, su tamaño, el trozo de
+ * la cámara que se ve y el borde. Dónde va se decide arrastrándola en la vista previa.
+ *
+ * Solo sale si la grabación trae cámara: un mando que no puede hacer nada no se enseña.
+ */
+export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
+  const t = useT();
+  const [camara, setCamara] = useState<CamaraDeLaSesion | null>(null);
+  /** La última que hubo puesta, para volver a ella al encenderla otra vez. */
+  const ultimo = useRef<MarcoCamara | null>(null);
+
+  useEffect(() => {
+    let vigente = true;
+    void camaraDeLaSesion(sessionId)
+      .then((c) => {
+        if (vigente) setCamara(c ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      vigente = false;
+    };
+  }, [sessionId]);
+
+  const url = useMemo(() => (camara ? convertFileSrc(camara.ruta) : null), [camara]);
+  if (!camara || !url) return null;
+
+  const marco = edicion?.camara;
+  // Sin tocar todavía (`undefined`) sale puesta: la de fábrica la coloca la vista previa.
+  const puesta = marco !== null;
+  const m = marco ?? ultimo.current ?? marcoDeFabrica(16, 9);
+  const cambiar = (cambio: Partial<MarcoCamara>) => onEdicion?.({ camara: { ...m, ...cambio } });
+  const recortada = recorta(m.recorte);
+
+  return (
+    <div data-ajustes-camara>
+      <Toggle
+        checked={puesta}
+        onChange={(si) => {
+          if (si) {
+            onEdicion?.({ camara: ultimo.current ?? marcoDeFabrica(16, 9) });
+          } else {
+            ultimo.current = marco ?? null;
+            onEdicion?.({ camara: null });
+          }
+        }}
+        label={t("La cámara")}
+        hint={t("arrástrala en la vista previa para moverla")}
+      />
+      {puesta && (
+        <div className="mt-2 space-y-3">
+          <div role="group" aria-label={t("Forma de la cámara")} className="flex items-center gap-1">
+            {FORMAS.map((f) => (
+              <button
+                key={f.forma}
+                type="button"
+                aria-label={t(f.nombre)}
+                title={t(f.nombre)}
+                aria-pressed={m.forma === f.forma}
+                onClick={() => cambiar({ forma: f.forma })}
+                className={`grid size-9 place-items-center rounded-md transition-colors ${
+                  m.forma === f.forma ? "text-white" : "text-neutral-400 hover:bg-white/10 hover:text-neutral-100"
+                }`}
+              >
+                <DibujoDeForma forma={f.forma} puesta={m.forma === f.forma} />
+              </button>
+            ))}
+          </div>
+          <Slider
+            label={t("Tamaño")}
+            hint={`${Math.round(m.tam * 100)} %`}
+            min={Math.round(TAM_MANDO_MINIMO * 100)}
+            max={Math.round(TAM_MANDO_MAXIMO * 100)}
+            step={1}
+            value={Math.round(m.tam * 100)}
+            onChange={(v) => cambiar({ tam: v / 100 })}
+          />
+          <div>
+            <span className="mb-1.5 block text-[13px] font-medium text-texto">{t("Recorte de la cámara")}</span>
+            {/* La imagen de la cámara con el marco de recortar encima: el mismo que el de la
+                captura, que se arrastra igual. */}
+            <div
+              className="relative overflow-hidden rounded-md bg-black"
+              style={{ aspectRatio: `${camara.ancho} / ${camara.alto}` }}
+            >
+              <video
+                src={url}
+                muted
+                playsInline
+                preload="auto"
+                disablePictureInPicture
+                aria-hidden="true"
+                onLoadedMetadata={(e) => {
+                  // A un segundo: la primera imagen de una cámara suele salir oscura.
+                  const v = e.currentTarget;
+                  v.currentTime = Math.min(1, (Number.isFinite(v.duration) ? v.duration : 0) / 2);
+                }}
+                className="absolute inset-0 size-full object-fill"
+              />
+              <CapaRecorte
+                activa
+                recorte={recortada ? m.recorte : null}
+                onRecorte={(r) => cambiar({ recorte: r ? recorteLimpio(r) : SIN_RECORTE })}
+              />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between gap-3">
+              <span className="text-[12px] leading-snug text-suave">
+                {t("Arrastra encima para recortarla")}
+              </span>
+              {recortada && (
+                <button
+                  type="button"
+                  onClick={() => cambiar({ recorte: SIN_RECORTE })}
+                  className="flex h-8 shrink-0 items-center rounded-lg bg-white/10 px-3 text-[13px] font-medium whitespace-nowrap text-neutral-100 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  {t("Quitar el recorte")}
+                </button>
+              )}
+            </div>
+          </div>
+          <Toggle checked={m.borde} onChange={(borde) => cambiar({ borde })} label={t("Con borde")} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** La forma dibujada a trazo, como la de la lupa en la línea de tiempo. */
+function DibujoDeForma({ forma, puesta }: { forma: Forma; puesta: boolean }) {
+  const trazo = { fill: "none", stroke: "currentColor", strokeWidth: puesta ? 2.2 : 1.9 };
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true">
+      {forma === "circulo" && <circle cx="12" cy="12" r="8" {...trazo} />}
+      {forma === "cuadrado" && <rect x="4" y="4" width="16" height="16" {...trazo} />}
+      {forma === "rectangulo" && <rect x="2.5" y="7" width="19" height="10.5" {...trazo} />}
+      {forma === "redondeado" && <rect x="2.5" y="7" width="19" height="10.5" rx="3.5" {...trazo} />}
+    </svg>
+  );
+}

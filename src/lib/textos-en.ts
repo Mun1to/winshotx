@@ -669,5 +669,12 @@ export const EN: Record<string, string> = {
   "Acercarse mientras escribes": "Zoom in while you type",
   "al cursor de texto, o al ratón si no se ve": "to the text cursor, or to the mouse if it can't be seen",
   // S8 (cámara en el Estudio)
+  "arrástrala en la vista previa para moverla": "drag it in the preview to move it",
+  "Forma de la cámara": "Camera shape",
+  "Con borde": "With a border",
+  "Recorte de la cámara": "Camera crop",
+  "Arrastra encima para recortarla": "Drag over it to crop it",
+  "Mover la cámara": "Move the camera",
+  "Cambiar el tamaño de la cámara": "Resize the camera",
   // S9 (presets y tapar)
 };

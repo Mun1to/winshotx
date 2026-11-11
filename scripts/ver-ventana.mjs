@@ -266,6 +266,11 @@ const RESPUESTAS = {
     escritura: [{ desdeMs: 8000, hastaMs: 10000, caret: [300, 200] }],
   },
   session_info: SESION,
+  // S8 (cámara en el Estudio): con --camara-estudio, la sesión trae webcam. Su vídeo lo sirve
+  // el mismo `/editor.mp4`, que es a donde va cualquier `.mp4` en este banco.
+  camara_de_la_sesion: args.includes("--camara-estudio")
+    ? { ruta: "C:\\sesion\\camara.mp4", ancho: 1280, alto: 800, desfaseMs: 0, primerMs: 0 }
+    : null,
   session_frames: FOTOGRAMAS,
   frame_image: "/editor.png",
   ffmpeg_available: false,
