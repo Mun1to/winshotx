@@ -2,6 +2,8 @@
 mod bench_freeze;
 #[cfg(windows)]
 mod wgc;
+// S5 (scroll): la captura con scroll, que cose las fotos de una zona mientras baja.
+pub mod scroll;
 use std::sync::Arc;
 
 use image::RgbaImage;
