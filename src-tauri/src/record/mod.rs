@@ -12,6 +12,8 @@ use crate::error::{AppError, Result};
 #[cfg(windows)]
 pub mod anotador;
 #[cfg(windows)]
+pub mod camara;
+#[cfg(windows)]
 pub mod punteros;
 #[cfg(windows)]
 pub mod audio;
@@ -797,6 +799,40 @@ mod tests {
             escritura: Vec::new(),
             frames,
         }
+    }
+
+    /// Lo que apunta S2 al grabar (las marcas de la tecla de zoom, los ratos de escritura
+    /// y la pista de la cámara) llega a `session.json` y se relee tal cual, que es como lo
+    /// abre el editor. Y una sesión de antes, sin esos campos, se sigue leyendo.
+    #[test]
+    fn la_grabacion_nueva_llega_a_la_sesion_y_vuelve() {
+        use crate::contrato::{CamaraGrabada, MarcaZoom, TramoEscritura};
+        let dir = carpeta("s2-sesion");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut sesion = sesion_de(&dir, Vec::new(), 64, 40);
+        sesion.marcas_zoom = vec![MarcaZoom { ms: 100, x: 10, y: 20 }, MarcaZoom { ms: 500, x: 30, y: 40 }];
+        sesion.escritura = vec![TramoEscritura { desde_ms: 1_000, hasta_ms: 2_300, caret: Some((12, 8)) }];
+        sesion.camara = Some(CamaraGrabada {
+            archivo: "camara.mp4".into(),
+            ancho: 1280,
+            alto: 720,
+            desfase_ms: 810,
+        });
+        sesion.persist().unwrap();
+
+        let leida: SessionData =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("session.json")).unwrap()).unwrap();
+        assert_eq!(leida.marcas_zoom, sesion.marcas_zoom);
+        assert_eq!(leida.escritura, sesion.escritura);
+        assert_eq!(leida.camara, sesion.camara);
+
+        let mut vieja = serde_json::to_value(&sesion).unwrap();
+        for campo in ["marcasZoom", "escritura", "camara"] {
+            vieja.as_object_mut().unwrap().remove(campo);
+        }
+        let vieja: SessionData = serde_json::from_value(vieja).expect("una sesión de antes");
+        assert!(vieja.marcas_zoom.is_empty() && vieja.escritura.is_empty() && vieja.camara.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Lo unico que no se puede negociar: lo que se lee tiene que ser exactamente lo que

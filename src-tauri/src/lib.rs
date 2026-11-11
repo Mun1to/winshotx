@@ -303,6 +303,7 @@ pub fn run() {
             // Las órdenes nuevas del plan de CleanShot X y Screen Studio, debajo de su marca.
             // S1 (línea de tiempo)
             // S2 (grabación)
+            record::camara::list_cameras,
             // S3 (fondos)
             // S4 (capturas)
             // S5 (scroll)

@@ -149,6 +149,17 @@ pub struct Settings {
     pub disabled_hotkeys_restore: Option<String>,
     // Los ajustes nuevos del plan de CleanShot X y Screen Studio, debajo de su marca.
     // S2 (grabación)
+    /// La tecla que, mientras se graba, deja una marca de zoom donde está el ratón. No se
+    /// registra en Windows: se lee como los atajos de la pastilla (`record::teclas`), así
+    /// que solo hace algo mientras se graba y nunca le quita la tecla a nadie.
+    #[serde(default = "atajo_de_zoom")]
+    pub zoom_shortcut: String,
+    /// Grabar también la webcam, aparte, en la carpeta de la sesión.
+    #[serde(default)]
+    pub record_camera: bool,
+    /// Qué cámara, por el identificador que le da Windows. `None` es la primera que haya.
+    #[serde(default)]
+    pub camera_device: Option<String>,
     // S3 (fondos)
     // S4 (capturas)
 }
@@ -189,6 +200,9 @@ impl Default for Settings {
             snipping_key_restore: None,
             disabled_hotkeys_restore: None,
             // S2 (grabación)
+            zoom_shortcut: atajo_de_zoom(),
+            record_camera: false,
+            camera_device: None,
             // S3 (fondos)
             // S4 (capturas)
         }
@@ -222,6 +236,19 @@ fn atajo_de_repeticion() -> String {
 /// conseguido en vez de dejar una tecla muerta.
 fn atajo_de_editar() -> String {
     "Super+Shift+KeyL".into()
+}
+
+/// La tecla de zoom al grabar (S2). `Ctrl+Mayús+9`, por tres motivos:
+///
+/// - es de la familia de las de winshotx (capturar es la 2, grabar la 5, repetición la 6);
+/// - queda lejos de la 5 en el teclado, y fallar por una tecla al acercar no puede PARAR
+///   la grabación (la 4 y la 6 están pegadas a la 5);
+/// - la pulsación llega también a la aplicación que se graba, y Ctrl+Mayús+9 casi no la usa
+///   nadie. No es Ctrl+Mayús+0, que Windows se guarda para cambiar el idioma del teclado,
+///   ni Ctrl+Mayús+7, que en un teclado español es Ctrl+/ (comentar en los editores), ni
+///   Ctrl+Mayús+Z, que es rehacer. Excel la usa para enseñar filas escondidas.
+fn atajo_de_zoom() -> String {
+    "CmdOrCtrl+Shift+9".into()
 }
 
 fn default_save_dir() -> String {
@@ -326,6 +353,22 @@ mod tests {
         assert!(!settings.show_magnifier);
         assert_eq!(settings.capture_delay_seconds, 0, "el temporizador nace apagado");
         assert!(!settings.hide_desktop_icons, "los iconos no se tocan sin pedirlo");
+    }
+
+    /// Quien actualice desde una version sin la grabacion de S2 se encuentra la tecla de
+    /// zoom puesta y la camara apagada, sin perder lo suyo.
+    #[test]
+    fn unos_ajustes_de_antes_de_la_tecla_de_zoom_la_traen_de_fabrica() {
+        let viejos = serde_json::json!({ "recordShortcut": "Alt+KeyV" });
+        let settings: Settings = serde_json::from_value(viejos).expect("leer los ajustes");
+        assert_eq!(settings.zoom_shortcut, "CmdOrCtrl+Shift+9");
+        assert!(!settings.record_camera, "la cámara nace apagada");
+        assert_eq!(settings.camera_device, None);
+        assert_eq!(settings.record_shortcut, "Alt+KeyV");
+        assert!(
+            crate::record::teclas::TeclaZoom::de_atajo(&settings.zoom_shortcut).is_some(),
+            "la de fábrica se tiene que entender"
+        );
     }
 
     /// Las tres opciones que ofrece la interfaz tienen que caber en el tipo del campo.
