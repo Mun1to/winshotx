@@ -1107,6 +1107,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             onEdit={() => void runStill("edit")}
             onPin={() => void runStill("pin")}
             onText={() => void runStill("text")}
+            onQr={() => void runStill("qr")}
             onRecord={() => {
               if (selection && modo !== "still") void grabarRegion(selection, modo);
             }}
