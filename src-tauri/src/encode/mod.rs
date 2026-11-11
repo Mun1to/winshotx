@@ -23,4 +23,5 @@ pub mod fondo_video;
 pub mod marco_captura;
 // S7 (cursor)
 // S8 (cámara en el Estudio)
+pub mod camara_estudio;
 // S9 (presets y tapar)

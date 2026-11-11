@@ -338,6 +338,7 @@ pub fn run() {
             capture::scroll::scroll_descartar,
             // S7 (cursor)
             // S8 (cámara en el Estudio)
+            encode::camara_estudio::camara_de_la_sesion,
             // S9 (presets y tapar)
         ])
         .build(tauri::generate_context!())
