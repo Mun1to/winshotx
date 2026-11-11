@@ -79,6 +79,7 @@ import {
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
 import { Row, RowButton, Section } from "./Section";
+import { OtrosGrabadores } from "./OtrosGrabadores";
 import { SettingsHeader, type SeccionId } from "./SettingsHeader";
 import { GuidedTour } from "./GuidedTour";
 import { BarraRapida } from "./BarraRapida";
@@ -754,6 +755,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                  <OtrosGrabadores />
                   <Row
                     icon={<Timer className="size-4" />}
                     label={t("Cuánto se guarda")}

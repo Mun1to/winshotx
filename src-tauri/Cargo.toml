@@ -58,7 +58,7 @@ windows-future = "0.3"
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [
-  "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_System_Registry", "Win32_Graphics_Dwm", "Win32_Globalization", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Threading", "Win32_System_LibraryLoader", "Win32_Storage_Xps", "Win32_Media_KernelStreaming", "Win32_Media_Multimedia", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Media_Ocr", "Graphics_Imaging", "Storage_Streams", "Globalization", "Foundation_Collections", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_HiDpi", "Graphics_Capture", "Graphics_DirectX_Direct3D11", "Win32_Graphics_Direct3D11", "Win32_System_WinRT_Direct3D11", "Win32_System_WinRT_Graphics_Capture", "Win32_Storage_Packaging_Appx", "ApplicationModel",
+  "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_System_Registry", "Win32_Graphics_Dwm", "Win32_Globalization", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_System_LibraryLoader", "Win32_Storage_Xps", "Win32_Media_KernelStreaming", "Win32_Media_Multimedia", "Win32_System_Com_StructuredStorage", "Win32_System_Variant", "Media_Ocr", "Graphics_Imaging", "Storage_Streams", "Globalization", "Foundation_Collections", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_HiDpi", "Graphics_Capture", "Graphics_DirectX_Direct3D11", "Win32_Graphics_Direct3D11", "Win32_System_WinRT_Direct3D11", "Win32_System_WinRT_Graphics_Capture", "Win32_Storage_Packaging_Appx", "ApplicationModel",
   # S1 (línea de tiempo)
   # S2 (grabación)
   # La webcam: se graba aparte con Media Foundation (`record/camara.rs`).

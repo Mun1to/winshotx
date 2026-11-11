@@ -26,6 +26,7 @@ mod fondos;
 // S4 (capturas)
 mod historial;
 mod miniatura;
+mod otros_grabadores;
 mod qr;
 // S5 (scroll)
 // S7 (cursor)
@@ -321,6 +322,8 @@ pub fn run() {
             fondos::importar_fondo_animado,
             fondos::cancelar_fondo_animado,
             // S4 (capturas)
+            otros_grabadores::otros_grabadores,
+            otros_grabadores::abrir_capturas_de_windows,
             miniatura::miniaturas_lista,
             miniatura::miniatura_cerrar,
             miniatura::miniatura_copiar,

@@ -217,6 +217,16 @@ export const openFolder = (path: string) => invoke<void>("open_folder", { path }
 /** Abre en el navegador uno de los enlaces de `lib/enlaces.ts`. Rust rechaza los demás. */
 export const openUrl = (url: string) => invoke<void>("open_url", { url });
 
+/** Los otros programas que graban la pantalla todo el rato, como el anillo. */
+export interface OtrosGrabadoresVistos {
+  /** El panel de NVIDIA está en marcha: puede tener la Repetición instantánea puesta. */
+  nvidia: boolean;
+  /** La Barra de juego de Windows graba en segundo plano. */
+  barraDeJuego: boolean;
+}
+export const otrosGrabadores = () => invoke<OtrosGrabadoresVistos>("otros_grabadores");
+export const abrirCapturasDeWindows = () => invoke<void>("abrir_capturas_de_windows");
+
 /** Lleva a la lista de aplicaciones de Windows, donde se quita la Herramienta de Recortes. */
 export const openWindowsApps = () => invoke<void>("open_windows_apps");
 
