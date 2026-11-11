@@ -9,10 +9,18 @@
 //! registro son valores binarios sin nombre), y escribirlos a ciegas es romperle el programa
 //! a alguien en la próxima actualización suya. Lo que sí se puede saber:
 //!
-//! - **La Barra de juego**, con certeza: Windows lo guarda en el registro, y su página de
-//!   ajustes se abre con una dirección oficial (`ms-settings:gaming-gamedvr`).
-//! - **NVIDIA**, solo si su panel está en marcha (`NVIDIA Overlay.exe`). Si la repetición
-//!   está encendida o no, no se ve desde fuera, así que el aviso lo dice con un «si».
+//! - **La Barra de juego**, por dos valores de `HKCU\...\GameDVR` (`AppCaptureEnabled` y
+//!   `HistoricalCaptureEnabled`) que Microsoft NO documenta: comprobados en Windows 11
+//!   10.0.26200 el 11-nov-2026. Lo documentado es la política `AllowGameDVR` (de
+//!   administrador, para toda la máquina) y la página de ajustes, que es la que se abre
+//!   (`ms-settings:gaming-gamedvr`).
+//! - **NVIDIA**, solo si su panel está en marcha (`NVIDIA Overlay.exe`), y por eso el aviso
+//!   lo dice con un «si». No hay forma oficial de apagar su Repetición instantánea ni de
+//!   saber si está encendida: NVIDIA no documenta API, línea de órdenes, política ni registro
+//!   para eso (mirado en su documentación el 11-nov-2026). Lo que sí es oficial es saber si
+//!   NVIDIA está codificando vídeo ahora mismo, con NVAPI (`NvAPI_GPU_GetEncoderSessionsInfo`,
+//!   las sesiones de NVENC con el proceso dueño): falta comprobar con la Repetición encendida
+//!   qué proceso sale antes de fiarse de eso.
 
 use serde::Serialize;
 
