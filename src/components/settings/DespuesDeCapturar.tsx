@@ -1,7 +1,6 @@
-import { Frame, PanelBottomOpen } from "lucide-react";
-import { FONDOS } from "../../lib/fondos";
+import { PanelBottomOpen } from "lucide-react";
 import { useT } from "../../lib/i18n";
-import type { Background, Settings } from "../../lib/types";
+import type { Settings } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
 import { Row, Section } from "./Section";
 
@@ -27,14 +26,6 @@ const DURACIONES: { value: Duracion; label: string }[] = [
   { value: "10", label: "10 s" },
   { value: "30", label: "30 s" },
   { value: "siempre", label: "Hasta cerrarla" },
-];
-
-/** El aire del fondo, en tanto por ciento del lado corto: los mismos de `marco_captura::AIRES`. */
-const AIRES: { value: number; label: string }[] = [
-  { value: 0, label: "Sin fondo" },
-  { value: 4, label: "Poco" },
-  { value: 8, label: "Normal" },
-  { value: 14, label: "Mucho" },
 ];
 
 export function duracionDe(settings: Settings): Duracion {
@@ -77,55 +68,5 @@ export function DespuesDeCapturar({ settings, patch }: Props) {
   );
 }
 
-/**
- * El fondo para todas las capturas (E1): una fila de «La captura», porque dice cómo sale
- * la foto, igual que el cursor de esa misma lista.
- *
- * El color va dentro de la misma fila, debajo del aire, y solo con fondo puesto. Como fila
- * aparte con su nombre, la pestaña de Capturar dejaba de caber en la ventana y pedía rueda,
- * y los ajustes se leen enteros sin bajar.
- */
-export function FondoEnLasCapturas({ settings, patch }: Props) {
-  const t = useT();
-  const marco = settings.marcoCapturas ?? { aire: 0, fondo: "atardecer" as Background };
-  return (
-    <Row
-      icon={<Frame className="size-4" />}
-      label={t("Fondo en las capturas")}
-      explicacion={t(
-        "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.",
-      )}
-      hint={marco.aire === 0 ? t("las capturas salen tal cual") : t("se pone al copiar y al guardar")}
-      stacked
-      control={
-        <div className="flex flex-col gap-2.5" data-tour="fondo-en-las-capturas">
-          <Segmented
-            value={marco.aire}
-            options={AIRES.map((o) => ({ ...o, label: t(o.label) }))}
-            onChange={(aire) => patch({ marcoCapturas: { ...marco, aire } })}
-            etiqueta={t("Fondo en las capturas")}
-          />
-          {marco.aire > 0 && (
-            <div role="radiogroup" aria-label={t("Color del fondo")} className="flex flex-wrap gap-2">
-              {FONDOS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={marco.fondo === f.id}
-                  aria-label={t(f.nombre)}
-                  title={t(f.nombre)}
-                  onClick={() => patch({ marcoCapturas: { ...marco, fondo: f.id } })}
-                  style={{ background: f.css }}
-                  className={`size-7 rounded-md border-2 transition-colors ${
-                    marco.fondo === f.id ? "border-marca" : "border-linea hover:border-suave"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      }
-    />
-  );
-}
+// S9 (presets y tapar): el fondo de las capturas vive en su archivo, con los estilos guardados.
+export { FondoEnLasCapturas } from "./FondoEnLasCapturas";

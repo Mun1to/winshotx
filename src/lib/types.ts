@@ -384,6 +384,8 @@ export interface Settings {
   // S7 (cursor)
   // S8 (cámara en el Estudio)
   // S9 (presets y tapar)
+  /** Los estilos guardados con nombre. Solo los cambia `presetsGuardar`. Lo lee `presets.ts`. */
+  presets?: import("./ipc").PresetGuardado[];
 }
 
 export interface ShortcutStatus {

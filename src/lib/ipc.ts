@@ -387,3 +387,16 @@ export const tapaDatosVideo = (sessionId: string) => invoke<DatosEnVideo>("tapar
 
 /** El aviso de por dónde va la búsqueda: `{ hechos, total }` en fotogramas. */
 export const AVISO_TAPAR_VIDEO = "winshotx://tapar-video";
+
+/** Un estilo guardado tal cual va a Rust. Lo de dentro lo lee `presets.ts`. */
+export interface PresetGuardado {
+  nombre: string;
+  estilo: unknown;
+}
+
+/** Guarda la lista entera de estilos (solo esa lista) y avisa a las ventanas. */
+export const presetsGuardar = (presets: PresetGuardado[]) =>
+  invoke<PresetGuardado[]>("presets_guardar", { presets });
+
+/** El aviso de que la lista de estilos ha cambiado, con la lista nueva. */
+export const AVISO_PRESETS = "winshotx://presets";
