@@ -274,6 +274,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         formas: Vec::new(),
         punteros: Vec::new(),
         cambios_puntero: Vec::new(),
+        marcas_zoom: Vec::new(),
+        camara: None,
         frames: Vec::new(),
     };
 
@@ -820,6 +822,7 @@ pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::Ex
         corners: 0,
         volume: 1.0,
         zoom_speed: 1.0,
+        edicion: Default::default(),
         destination: None,
         copy_to_clipboard: false,
     }
@@ -898,6 +901,8 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         formas: Vec::new(),
         punteros: Vec::new(),
         cambios_puntero: Vec::new(),
+        marcas_zoom: Vec::new(),
+        camara: None,
         teclas: Vec::new(),
         cursor: Vec::new(),
         width: image.width(),

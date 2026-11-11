@@ -980,6 +980,8 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
         formas: Vec::new(),
         punteros: Vec::new(),
         cambios_puntero: Vec::new(),
+        marcas_zoom: Vec::new(),
+        camara: None,
         frames,
     };
     session.persist()?;
@@ -1295,6 +1297,8 @@ mod tests {
                 formas: Vec::new(),
                 punteros: Vec::new(),
                 cambios_puntero: Vec::new(),
+                marcas_zoom: Vec::new(),
+                camara: None,
                 frames,
             };
             let salida = escribir_vista_previa(&mut session, |_, _| {});
@@ -1362,6 +1366,8 @@ mod tests {
             formas: Vec::new(),
             punteros: Vec::new(),
             cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
             frames,
         };
 
@@ -1472,6 +1478,8 @@ mod tests {
             formas: Vec::new(),
             punteros: Vec::new(),
             cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
             frames,
         };
 

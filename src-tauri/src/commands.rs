@@ -519,6 +519,10 @@ pub struct StudioDto {
     pub punteros: Vec<record::PunteroGrabado>,
     /// `[ms, id]` cada vez que cambio el puntero puesto. `4294967295` es uno ilegible.
     pub cambios_puntero: Vec<(u64, u32)>,
+    /// Donde se pulsó la tecla de zoom al grabar: cada una sale como un zoom en la pista.
+    pub marcas_zoom: Vec<crate::contrato::MarcaZoom>,
+    /// La webcam, si se grabó.
+    pub camara: Option<crate::contrato::CamaraGrabada>,
 }
 
 #[tauri::command]
@@ -531,6 +535,8 @@ pub async fn session_studio(app: AppHandle, session_id: String) -> Result<Studio
         formas: session.formas,
         punteros: session.punteros,
         cambios_puntero: session.cambios_puntero,
+        marcas_zoom: session.marcas_zoom,
+        camara: session.camara,
     })
 }
 

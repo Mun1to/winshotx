@@ -102,6 +102,11 @@ pub struct ExportRequest {
     pub zoom_speed: f32,
     pub destination: Option<String>,
     pub copy_to_clipboard: bool,
+    /// Lo nuevo del plan de CleanShot X y Screen Studio: los zooms a mano, los tramos, los
+    /// fondos propios, la webcam... Va aplanado, así que en el JSON son campos sueltos, y
+    /// sin ellos todo sale como antes. Ver `contrato::Edicion`.
+    #[serde(flatten)]
+    pub edicion: crate::contrato::Edicion,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1222,6 +1227,8 @@ mod tests {
             formas: Vec::new(),
             punteros: Vec::new(),
             cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
             frames,
         }
     }
@@ -1604,6 +1611,7 @@ mod el_orden_de_exportar {
             corners: 0,
             volume: 1.0,
             zoom_speed: 1.0,
+            edicion: Default::default(),
             destination: None,
             copy_to_clipboard: true,
         }
@@ -1893,6 +1901,8 @@ mod la_camara_del_exportador {
             formas: Vec::new(),
             punteros: Vec::new(),
             cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
             frames: Vec::new(),
         }
     }
@@ -1928,6 +1938,7 @@ mod la_camara_del_exportador {
             corners: 0,
             volume: 1.0,
             zoom_speed: 1.0,
+            edicion: Default::default(),
             destination: None,
             copy_to_clipboard: false,
         }
@@ -2145,6 +2156,8 @@ mod medir {
             formas: Vec::new(),
             punteros: Vec::new(),
             cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
             frames,
         };
         let indices: Vec<usize> = (0..cuantos).collect();

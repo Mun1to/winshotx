@@ -82,6 +82,8 @@ fn el_cache_deduplica_y_devuelve_los_fotogramas_intactos() {
         formas: Vec::new(),
         punteros: Vec::new(),
         cambios_puntero: Vec::new(),
+        marcas_zoom: Vec::new(),
+        camara: None,
         frames,
     };
 
@@ -329,6 +331,8 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
         formas: Vec::new(),
         punteros: Vec::new(),
         cambios_puntero: Vec::new(),
+        marcas_zoom: Vec::new(),
+        camara: None,
         frames,
     };
     record::generate_thumbnails(&mut session).expect("las miniaturas han fallado");

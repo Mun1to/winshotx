@@ -164,6 +164,10 @@ export interface StudioData {
   punteros: PunteroGrabado[];
   /** `[ms, id]` cada vez que cambió el puntero puesto. `4294967295` es uno que no se pudo leer. */
   cambiosPuntero: [number, number][];
+  /** Donde se pulsó la tecla de zoom al grabar: cada una sale como un zoom en la pista. */
+  marcasZoom: MarcaZoom[];
+  /** La webcam, si se grabó. */
+  camara: CamaraGrabada | null;
 }
 
 /** Un puntero leído de Windows durante la grabación, guardado como PNG con transparencia. */
@@ -218,7 +222,8 @@ export interface RecordingTick {
 export type ExportFormat = "gif" | "mp4" | "png" | "jpg";
 export type ExportEngine = "native" | "ffmpeg";
 
-export interface ExportRequest {
+/** Lo de siempre, más lo nuevo del plan (`Edicion`, en `contrato.ts`), todo opcional. */
+export interface ExportRequest extends Edicion {
   sessionId: string;
   format: ExportFormat;
   engine: ExportEngine;
@@ -278,6 +283,7 @@ export interface ExportRequest {
 
 import type { Anotacion } from "./anotaciones";
 import type { Recorte } from "./recorte";
+import type { CamaraGrabada, Edicion, MarcaZoom } from "./contrato";
 
 /** Los fondos del marco. Unos pocos elegidos, no una rueda de color entera. */
 export type Background =
@@ -353,6 +359,10 @@ export interface Settings {
   snippingKeyRestore: number | null;
   /** Interno: y las letras que el shell tenía apagadas antes de tocar nada. */
   disabledHotkeysRestore: string | null;
+  // Los ajustes nuevos del plan de CleanShot X y Screen Studio, debajo de su marca.
+  // S2 (grabación)
+  // S3 (fondos)
+  // S4 (capturas)
 }
 
 export interface ShortcutStatus {

@@ -147,6 +147,10 @@ pub struct Settings {
     /// Y lo que valia la lista de atajos de la tecla Windows. Misma idea: se guarda lo que
     /// hubiera para devolverlo tal cual, sin pisar las letras que apagara el usuario.
     pub disabled_hotkeys_restore: Option<String>,
+    // Los ajustes nuevos del plan de CleanShot X y Screen Studio, debajo de su marca.
+    // S2 (grabación)
+    // S3 (fondos)
+    // S4 (capturas)
 }
 
 impl Default for Settings {
@@ -184,6 +188,9 @@ impl Default for Settings {
             last_version: None,
             snipping_key_restore: None,
             disabled_hotkeys_restore: None,
+            // S2 (grabación)
+            // S3 (fondos)
+            // S4 (capturas)
         }
     }
 }

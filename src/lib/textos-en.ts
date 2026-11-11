@@ -521,4 +521,10 @@ export const EN: Record<string, string> = {
   "Normal": "Normal",
   "Rápida": "Fast",
   "Volumen": "Volume",
+  // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
+  // S1 (línea de tiempo)
+  // S2 (grabación)
+  // S3 (fondos)
+  // S4 (capturas)
+  // S5 (scroll)
 };

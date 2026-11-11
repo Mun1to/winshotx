@@ -174,6 +174,13 @@ pub struct SessionData {
     /// `u32::MAX` es «uno que no se pudo leer»: se dibuja la flecha de siempre.
     #[serde(default)]
     pub cambios_puntero: Vec<(u64, u32)>,
+    /// Donde se pulsó la tecla de zoom mientras se grababa (A3). Cada una es un zoom en la
+    /// pista del editor.
+    #[serde(default)]
+    pub marcas_zoom: Vec<crate::contrato::MarcaZoom>,
+    /// La webcam, si se grabó (F2).
+    #[serde(default)]
+    pub camara: Option<crate::contrato::CamaraGrabada>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -782,6 +789,8 @@ mod tests {
             formas: Vec::new(),
             punteros: Vec::new(),
             cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
             frames,
         }
     }

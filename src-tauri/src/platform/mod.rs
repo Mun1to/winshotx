@@ -17,6 +17,11 @@ pub mod snipping;
 pub mod sonido;
 pub mod webview;
 pub mod window_style;
+// Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
+// S2 (grabación)
+// S3 (fondos)
+// S4 (capturas)
+// S5 (scroll)
 
 use std::path::Path;
 

@@ -242,3 +242,10 @@ export const trayMenuAction = (action: TrayMenuAction) =>
 /** El alto que ha medido el menú, para que su ventana se ajuste al contenido. */
 export const resizeTrayMenu = (height: number) =>
   invoke<void>("resize_tray_menu", { height });
+
+// Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
+// S1 (línea de tiempo)
+// S2 (grabación)
+// S3 (fondos)
+// S4 (capturas)
+// S5 (scroll)

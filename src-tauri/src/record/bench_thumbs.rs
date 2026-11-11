@@ -62,6 +62,8 @@ mod tests {
             formas: Vec::new(),
             punteros: Vec::new(),
             cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
             frames,
         };
         let t = Instant::now();

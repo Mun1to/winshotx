@@ -1,6 +1,7 @@
 pub mod archivos;
 pub mod capture;
 pub(crate) mod commands;
+pub mod contrato;
 pub mod crono;
 pub mod encode;
 pub mod enlaces;
@@ -17,6 +18,12 @@ pub mod sensibles;
 mod state;
 mod tray;
 mod windows_mgr;
+// Los módulos nuevos del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
+// S1 (línea de tiempo)
+// S2 (grabación)
+// S3 (fondos)
+// S4 (capturas)
+// S5 (scroll)
 
 use std::time::{Duration, SystemTime};
 
@@ -293,6 +300,12 @@ pub fn run() {
             commands::tray_menu_state,
             commands::tray_menu_action,
             commands::resize_tray_menu,
+            // Las órdenes nuevas del plan de CleanShot X y Screen Studio, debajo de su marca.
+            // S1 (línea de tiempo)
+            // S2 (grabación)
+            // S3 (fondos)
+            // S4 (capturas)
+            // S5 (scroll)
         ])
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")
