@@ -287,8 +287,28 @@ fn pasos_de(session: &SessionData, request: &ExportRequest) -> Pasos {
     let ve = QueSeVe::nuevo(session, request, &camara);
     // Con un fondo animado no hay dos instantes iguales: cada paso lleva su fotograma (S3).
     let animado = marco_de(request).animado();
-    pasos(session, &trozos, request.fps, &|a, b| !animado && ve.igual(a, b))
+    // S9 (presets y tapar): un mosaico que empieza o acaba a mitad de una pantalla quieta
+    // parte ahí el paso; si no, el dato saldría al aire hasta el fotograma siguiente.
+    let tapas = &request.edicion.tapar;
+    pasos(session, &trozos, request.fps, &|a, b| {
+        !animado && ve.igual(a, b) && crate::encode::tapar::igual(tapas, a, b)
+    })
 }
+
+/// S9 (presets y tapar): la foto (PNG o JPG) de un fotograma de vídeo lleva tapado todo lo
+/// que se tapa mientras ese fotograma está en pantalla. Sin tapas, la imagen sale tal cual.
+fn tapar_foto(session: &SessionData, request: &ExportRequest, mut imagen: image::RgbaImage) -> image::RgbaImage {
+    if let Some(f) = session.frames.get(request.from) {
+        let hasta = f.timestamp_ms + u64::from(f.duration_ms.max(1));
+        crate::encode::tapar::pintar_durante(&mut imagen, &request.edicion.tapar, f.timestamp_ms, hasta);
+    }
+    imagen
+}
+
+/// S9 (presets y tapar): tapar datos en un vídeo, por `escribir` y hasta el MP4.
+#[cfg(test)]
+#[path = "exporter_tapar.rs"]
+mod pruebas_de_tapar;
 
 /// Si dos instantes de la grabacion se ven igual una vez vestidos: el puntero en el mismo
 /// sitio y con la misma cara, ningun aro ni pastilla a medias, y la camara sin acercar.
@@ -511,6 +531,8 @@ impl<'a> Vestidor<'a> {
             self.guardado = Some((indice, base.clone()));
         }
         // S9 (presets y tapar): lo que se tapa va sobre la imagen grabada, antes del zoom.
+        let mut base = base;
+        crate::encode::tapar::pintar(&mut base, &self.request.edicion.tapar, ms);
         let mut recortes: Vec<Recorte> = self.request.crop.into_iter().collect();
         if let Some(r) = self.camara.en(ms) {
             recortes.push(r);
@@ -753,6 +775,8 @@ fn escribir(
         "png" => {
             emit("reading", 0, 1);
             let image = record::read_frame(session, request.from)?;
+            // S9 (presets y tapar): una foto de un vídeo lleva tapado lo de su instante.
+            let image = tapar_foto(session, request, image);
             // Una foto no tiene zoom: la camara solo tiene sentido con el tiempo pasando.
             let recortes: Vec<Recorte> = request.crop.into_iter().collect();
             let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
@@ -763,6 +787,8 @@ fn escribir(
         "jpg" => {
             emit("reading", 0, 1);
             let image = record::read_frame(session, request.from)?;
+            // S9 (presets y tapar)
+            let image = tapar_foto(session, request, image);
             let recortes: Vec<Recorte> = request.crop.into_iter().collect();
             let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
             jpg::save(&image, path, ancho_final, alto_final, request.quality)?;
@@ -783,7 +809,9 @@ fn escribir(
                 // acercado son los mismos que se ven sin acercar.
                 let mut vestir_muestra = estudio_de(session, request);
                 let mut muestra = |posicion: usize| -> Result<image::RgbaImage> {
-                    let base = record::read_frame(session, pasos.indices[posicion])?;
+                    let mut base = record::read_frame(session, pasos.indices[posicion])?;
+                    // S9 (presets y tapar): los colores del mosaico también van en la paleta.
+                    crate::encode::tapar::pintar(&mut base, &request.edicion.tapar, pasos.tiempos[posicion]);
                     let recortes: Vec<Recorte> = request.crop.into_iter().collect();
                     if let Some(e) = vestir_muestra.as_mut() {
                         e.ms = pasos.tiempos[posicion];

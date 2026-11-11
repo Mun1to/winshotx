@@ -24,3 +24,4 @@ pub mod marco_captura;
 // S7 (cursor)
 // S8 (cámara en el Estudio)
 // S9 (presets y tapar)
+pub mod tapar;
