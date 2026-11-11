@@ -19,6 +19,7 @@ import {
   setSettings,
   trayMenuAction,
   trayMenuState,
+  historialMiniatura,
   ultimasCapturas,
 } from "../../lib/ipc";
 import { partesDeAtajo } from "../../lib/teclas";
@@ -200,11 +201,7 @@ export function TrayMenu() {
                     onClick={() => void copiar(foto)}
                     className="group relative h-12 flex-1 overflow-hidden rounded-md border border-linea bg-black/30 transition hover:border-marca focus:border-marca focus:outline-none"
                   >
-                    <img
-                      src={convertFileSrc(foto.path)}
-                      alt=""
-                      className="size-full object-cover opacity-90 transition group-hover:opacity-100"
-                    />
+                    <VistaReciente ruta={foto.path} />
                   </button>
                 ))}
               </div>
@@ -312,4 +309,24 @@ function Interruptor({
       </span>
     </button>
   );
+}
+
+/**
+ * La miniatura de una captura guardada. Se le pide a Rust (la misma del historial) en vez de
+ * leer el archivo: la carpeta de capturas no está en el permiso `asset`, que solo deja el
+ * temporal y los datos de winshotx, y leída de ahí la foto salía rota en la app instalada.
+ */
+function VistaReciente({ ruta }: { ruta: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    historialMiniatura(ruta)
+      .then((vista) => vivo && vista && setSrc(convertFileSrc(vista)))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [ruta]);
+  if (!src) return null;
+  return <img src={src} alt="" className="size-full object-cover opacity-90 transition group-hover:opacity-100" />;
 }

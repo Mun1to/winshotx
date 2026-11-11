@@ -143,6 +143,23 @@ describe("las ultimas capturas", () => {
     expect(args.path).toBe(FOTOS[1].path);
   });
 
+  /**
+   * La carpeta de capturas (Imágenes) no está en el permiso `asset` de `tauri.conf.json`,
+   * que solo deja el temporal y los datos de winshotx: una foto leída de ahí sale rota en la
+   * app instalada. La miniatura se le pide a Rust, que la deja en el temporal.
+   */
+  it("las miniaturas salen del temporal, no de la carpeta de capturas", async () => {
+    responde("ultimas_capturas", FOTOS);
+    responde("historial_miniatura", "C:/temp/winshotx/historial/vista.png");
+    await abrirMenu();
+    const boton = await screen.findByLabelText(`Copiar ${FOTOS[0].nombre}`);
+    await waitFor(() =>
+      expect(boton.querySelector("img")?.getAttribute("src")).toBe("asset://C:/temp/winshotx/historial/vista.png"),
+    );
+    const pedidas = llamadas.filter((l) => l.comando === "historial_miniatura").map((l) => l.args);
+    expect(pedidas).toContainEqual({ ruta: FOTOS[0].path });
+  });
+
   it("sin nada guardado todavia, el menu no ensenna la seccion", async () => {
     responde("ultimas_capturas", []);
     await abrirMenu();
