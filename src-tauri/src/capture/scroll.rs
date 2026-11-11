@@ -22,6 +22,8 @@
 //! mismo sitio. Coger de menos es repetir la barra de abajo en medio de la imagen, que es
 //! justo la costura que se ve. Por eso el pie que se quita es el mayor que se ha visto.
 
+use std::time::Duration;
+
 use image::RgbaImage;
 
 /// Lo que puede cambiar un canal entre dos fotos de lo mismo sin contar como distinto.
@@ -369,6 +371,249 @@ fn firmar(pixeles: &[u8], ancho: u32, alto: u32, trozos: usize) -> Vec<u8> {
         }
     }
     firma
+}
+
+/// Lo que se espera entre foto y foto mientras la página baja.
+const ENTRE_FOTOS: Duration = Duration::from_millis(40);
+/// Lo que se espera entre foto y foto cuando desplaza quien captura.
+const MIRAR_A_MANO: Duration = Duration::from_millis(60);
+/// Lo más que se espera a que la página se quede quieta tras girar la rueda: una página
+/// con algo animado no se queda quieta nunca.
+const ESPERA_MAXIMA: Duration = Duration::from_millis(1500);
+/// Lo que se espera antes de dar por quieta una página que no se ha movido nada: el
+/// desplazamiento suave tarda un poco en arrancar.
+const ARRANQUE: Duration = Duration::from_millis(300);
+/// Lo que se espera a una página que carga más al llegar abajo.
+const CRECER: Duration = Duration::from_millis(400);
+/// Lo más que se gira de una vez.
+const MUESCAS_MAXIMAS: i32 = 8;
+/// Las veces que se sube tras perderse antes de dejarle la rueda a quien captura.
+const RESCATES: u32 = 3;
+
+/// Lo que la captura necesita de la pantalla mientras baja. En Windows son las fotos, la
+/// rueda y el ratón de verdad (`en_vivo`); en las pruebas, una página de mentira con su
+/// propio reloj, para probar el bucle entero sin tocar la pantalla de nadie.
+pub(crate) trait Pantalla {
+    /// La foto de la zona.
+    fn foto(&mut self) -> crate::error::Result<RgbaImage>;
+    /// Gira la rueda: las muescas positivas bajan la página y las negativas la suben.
+    fn rueda(&mut self, muescas: i32);
+    fn esperar(&mut self, tiempo: Duration);
+    /// El tiempo que lleva la captura.
+    fn reloj(&self) -> Duration;
+    /// Si quien captura ha cogido el ratón: entonces la rueda la pone él.
+    fn raton_movido(&mut self) -> bool;
+    /// Si se ha pedido parar: «Parar», Esc o la X.
+    fn parar(&mut self) -> bool;
+    /// Cómo va, para la barra.
+    fn avisar(&mut self, alto: u32, estado: &'static str);
+}
+
+/// Cómo acaba una vuelta de la rueda.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Fin {
+    /// La página se ha quedado quieta y lo que se ve encaja con lo cosido.
+    Encaja,
+    /// Se ha quedado quieta lejos de lo cosido: ha bajado más de lo que se puede coser.
+    Perdida,
+    /// Se ha pedido parar, la imagen está llena o la pantalla ya no da fotos.
+    Parar,
+}
+
+struct Vuelta {
+    bajado: u32,
+    /// Si lo cosido ha visto moverse la página, hacia abajo o hacia arriba.
+    movida: bool,
+    fin: Fin,
+}
+
+/// Mira fotos seguidas hasta que la página se queda quieta: dos iguales a la anterior, o
+/// lo más que se espera si algo se mueve dentro de ella.
+struct Asiento {
+    inicio: Duration,
+    anterior: Option<RgbaImage>,
+    iguales: u32,
+    ha_cambiado: bool,
+}
+
+impl Asiento {
+    fn nuevo(inicio: Duration) -> Self {
+        Self { inicio, anterior: None, iguales: 0, ha_cambiado: false }
+    }
+
+    /// Cuenta una foto y dice si la página ya está quieta.
+    fn quieta(&mut self, foto: &RgbaImage, ahora: Duration) -> bool {
+        match &self.anterior {
+            Some(anterior) if casi_iguales(anterior, foto) => self.iguales += 1,
+            Some(_) => {
+                self.iguales = 0;
+                self.ha_cambiado = true;
+            }
+            None => {}
+        }
+        self.anterior = Some(foto.clone());
+        let tiempo = ahora.saturating_sub(self.inicio);
+        (self.iguales >= 2 && (self.ha_cambiado || tiempo > ARRANQUE)) || tiempo > ESPERA_MAXIMA
+    }
+}
+
+/// Si dos fotos seguidas son la misma, aguantando un cursor de texto que parpadea.
+fn casi_iguales(a: &RgbaImage, b: &RgbaImage) -> bool {
+    if a.dimensions() != b.dimensions() {
+        return false;
+    }
+    if a.as_raw() == b.as_raw() {
+        return true;
+    }
+    let aguante = (a.width() as usize * a.height() as usize) / 1000 + 16;
+    pixeles_distintos(a.as_raw(), b.as_raw()) <= aguante
+}
+
+/// Baja la página y va cosiendo hasta que se pide parar o se llega al final.
+///
+/// **Cuánto se gira cada vez.** Lo que baja una muesca lo decide el programa de debajo, y no
+/// es siempre lo mismo: en Edge al 125 %, tres muescas bajaron 250 px y cuatro, 500. Se gira
+/// para bajar media zona contando con lo MÁS que ha bajado una muesca, y como mucho el doble
+/// que la vez anterior. Así se perdía el 11 de noviembre de 2026: con lo que había bajado la
+/// última vuelta, la siguiente bajaba 500 px de golpe en una zona de 630, más de lo que se
+/// puede coser, y la imagen se quedaba en el principio de la página.
+///
+/// **Si se pierde igual**, sube lo mismo que bajó hasta que lo que se ve vuelve a encajar
+/// con lo cosido, y sigue de muesca en muesca. El final de la página es girar y que no se
+/// mueva nada; una vuelta perdida ya no lo parece.
+pub(crate) fn bajar(p: &mut impl Pantalla, cosedor: &mut Cosedor) {
+    let mut sola = true;
+    let mut estado: &'static str = "bajando";
+    let mut muescas: i32 = 1;
+    let mut por_muesca: u32 = 0;
+    let mut giros_en_vano = 0;
+    p.avisar(cosedor.alto(), estado);
+
+    loop {
+        if p.parar() {
+            return;
+        }
+        if sola && p.raton_movido() {
+            sola = false;
+            estado = "tu";
+        }
+        p.avisar(cosedor.alto(), estado);
+
+        if !sola {
+            // La rueda la pone quien captura: se mira lo que haya y se cose si ha bajado.
+            p.esperar(MIRAR_A_MANO);
+            let Ok(foto) = p.foto() else { return };
+            match cosedor.anadir(foto) {
+                Paso::Cosida(_) => estado = "tu",
+                Paso::Perdida => estado = "perdida",
+                Paso::Llena => return,
+                Paso::Quieta | Paso::Atras => {}
+            }
+            continue;
+        }
+
+        let vuelta = girar(p, cosedor, muescas, estado);
+        match vuelta.fin {
+            Fin::Parar => return,
+            Fin::Perdida => {
+                if volver(p, cosedor, muescas) {
+                    muescas = 1;
+                } else {
+                    sola = false;
+                    estado = "perdida";
+                }
+                continue;
+            }
+            Fin::Encaja => {}
+        }
+
+        if !vuelta.movida {
+            giros_en_vano += 1;
+            if giros_en_vano >= 2 {
+                if cosedor.cosidas() > 0 {
+                    // Ha bajado y ya no baja: es el final de la página.
+                    return;
+                }
+                // No ha bajado nunca: la rueda ha caído en algo que no se desplaza.
+                sola = false;
+                estado = "no-baja";
+            } else {
+                p.esperar(CRECER);
+            }
+            continue;
+        }
+        giros_en_vano = 0;
+        if vuelta.bajado > 0 {
+            por_muesca = por_muesca.max(vuelta.bajado.div_ceil(muescas as u32));
+            let caben = (cosedor.zona() / 2 / por_muesca) as i32;
+            muescas = caben.clamp(1, (muescas * 2).min(MUESCAS_MAXIMAS));
+        }
+    }
+}
+
+/// Gira la rueda y fotografía hasta que la página se queda quieta, cosiendo lo que baje por
+/// el camino.
+fn girar(p: &mut impl Pantalla, cosedor: &mut Cosedor, muescas: i32, estado: &'static str) -> Vuelta {
+    p.rueda(muescas);
+    let mut asiento = Asiento::nuevo(p.reloj());
+    let mut vuelta = Vuelta { bajado: 0, movida: false, fin: Fin::Encaja };
+    loop {
+        p.esperar(ENTRE_FOTOS);
+        if p.parar() {
+            vuelta.fin = Fin::Parar;
+            return vuelta;
+        }
+        let Ok(foto) = p.foto() else {
+            vuelta.fin = Fin::Parar;
+            return vuelta;
+        };
+        let quieta = asiento.quieta(&foto, p.reloj());
+        let paso = cosedor.anadir(foto);
+        match paso {
+            Paso::Cosida(d) => {
+                vuelta.bajado += d;
+                vuelta.movida = true;
+                p.avisar(cosedor.alto(), estado);
+            }
+            Paso::Atras => vuelta.movida = true,
+            Paso::Llena => {
+                vuelta.fin = Fin::Parar;
+                return vuelta;
+            }
+            Paso::Quieta | Paso::Perdida => {}
+        }
+        if quieta {
+            if paso == Paso::Perdida {
+                vuelta.fin = Fin::Perdida;
+            }
+            return vuelta;
+        }
+    }
+}
+
+/// Tras perderse: sube lo mismo que bajó hasta que lo que se ve vuelve a encajar con lo
+/// cosido, o queda por encima (y entonces se alcanza bajando de poco en poco).
+fn volver(p: &mut impl Pantalla, cosedor: &mut Cosedor, muescas: i32) -> bool {
+    for _ in 0..RESCATES {
+        p.rueda(-muescas);
+        let mut asiento = Asiento::nuevo(p.reloj());
+        let foto = loop {
+            p.esperar(ENTRE_FOTOS);
+            if p.parar() {
+                return false;
+            }
+            let Ok(foto) = p.foto() else { return false };
+            if asiento.quieta(&foto, p.reloj()) {
+                break foto;
+            }
+        };
+        match cosedor.anadir(foto) {
+            Paso::Perdida => continue,
+            Paso::Llena => return false,
+            Paso::Cosida(_) | Paso::Quieta | Paso::Atras => return true,
+        }
+    }
+    false
 }
 
 #[cfg(windows)]
@@ -759,5 +1004,185 @@ mod pruebas {
         assert_eq!(sitio_de_la_barra(zona(100, 500), pantalla, 380, 52, 12), (610, 612));
         assert_eq!(sitio_de_la_barra(zona(400, 660), pantalla, 380, 52, 12), (610, 336));
         assert_eq!(sitio_de_la_barra(zona(0, 1080), pantalla, 380, 52, 12), (610, 1016));
+    }
+
+    /// Lo que tarda el desplazamiento suave en llegar, como el de Edge.
+    const ANIMACION: f64 = 0.2;
+
+    /// Una página de mentira que baja como un navegador: con desplazamiento suave, lo que
+    /// baje cada giro a su manera, y fotos que tardan. El reloj es suyo, así que la prueba
+    /// no espera nada de verdad.
+    struct Simulada {
+        pagina: RgbaImage,
+        alto: u32,
+        /// Lo que bajan esas muescas en el giro número tantos, en píxeles.
+        bajada: Box<dyn FnMut(usize, i32) -> i32>,
+        desde: f64,
+        hasta: f64,
+        empezo: Duration,
+        reloj: Duration,
+        tarda_foto: Duration,
+        parar_en: Option<Duration>,
+        raton_en: Option<Duration>,
+        /// Cada giro: cuándo y cuántas muescas.
+        giros: Vec<(Duration, i32)>,
+    }
+
+    impl Simulada {
+        fn nueva(pagina: RgbaImage, alto: u32, bajada: impl FnMut(usize, i32) -> i32 + 'static) -> Self {
+            Self {
+                pagina,
+                alto,
+                bajada: Box::new(bajada),
+                desde: 0.0,
+                hasta: 0.0,
+                empezo: Duration::ZERO,
+                reloj: Duration::ZERO,
+                tarda_foto: Duration::from_millis(30),
+                parar_en: None,
+                raton_en: None,
+                giros: Vec::new(),
+            }
+        }
+
+        fn donde(&self) -> f64 {
+            let t = ((self.reloj.saturating_sub(self.empezo)).as_secs_f64() / ANIMACION).clamp(0.0, 1.0);
+            let suave = 1.0 - (1.0 - t).powi(3);
+            self.desde + (self.hasta - self.desde) * suave
+        }
+
+        fn empezar(&mut self) -> Cosedor {
+            Cosedor::nuevo(self.foto().unwrap())
+        }
+    }
+
+    impl Pantalla for Simulada {
+        fn foto(&mut self) -> crate::error::Result<RgbaImage> {
+            self.reloj += self.tarda_foto;
+            let y = self.donde().round() as u32;
+            Ok(image::imageops::crop_imm(&self.pagina, 0, y, self.pagina.width(), self.alto).to_image())
+        }
+
+        fn rueda(&mut self, muescas: i32) {
+            let ahora = self.donde();
+            let tope = f64::from(self.pagina.height() - self.alto);
+            let px = (self.bajada)(self.giros.len(), muescas);
+            self.giros.push((self.reloj, muescas));
+            self.hasta = (self.hasta + f64::from(px)).clamp(0.0, tope);
+            self.desde = ahora;
+            self.empezo = self.reloj;
+        }
+
+        fn esperar(&mut self, tiempo: Duration) {
+            self.reloj += tiempo;
+        }
+
+        fn reloj(&self) -> Duration {
+            self.reloj
+        }
+
+        fn raton_movido(&mut self) -> bool {
+            self.raton_en.is_some_and(|t| self.reloj >= t)
+        }
+
+        fn parar(&mut self) -> bool {
+            // Y a los cinco minutos de reloj de mentira, siempre: una prueba que se queda
+            // esperando a quien captura no puede colgarse.
+            self.parar_en.is_some_and(|t| self.reloj >= t) || self.reloj > Duration::from_secs(300)
+        }
+
+        fn avisar(&mut self, _alto: u32, _estado: &'static str) {}
+    }
+
+    /// Como Edge al 125 %: 125 px por muesca, salvo que tres bajan 250 y cuatro, 500.
+    fn como_edge(_giro: usize, muescas: i32) -> i32 {
+        let px = match muescas.abs() {
+            3 => 250,
+            4 => 500,
+            n => 125 * n,
+        };
+        px * muescas.signum()
+    }
+
+    #[test]
+    fn baja_sola_hasta_el_final_y_sale_la_pagina_entera() {
+        let p = pagina(240, 6000);
+        let mut pantalla = Simulada::nueva(p.clone(), 630, como_edge);
+        let mut cosedor = pantalla.empezar();
+        bajar(&mut pantalla, &mut cosedor);
+        let imagen = cosedor.imagen();
+        assert_eq!(imagen.dimensions(), (240, 6000), "giros: {:?}", pantalla.giros);
+        assert_eq!(imagen.as_raw(), p.as_raw(), "la página cosida no es la página");
+        assert!(
+            pantalla.giros.iter().all(|&(_, m)| m > 0 && m <= 2),
+            "con 125 px por muesca y 630 de zona, más de dos muescas se pasa de media zona: {:?}",
+            pantalla.giros
+        );
+    }
+
+    /// Lo que pasó el 11 de noviembre de 2026: una vuelta baja mucho más de lo que se puede
+    /// coser. Antes se perdía, y dos vueltas perdidas parecían el final de la página: la
+    /// imagen se quedaba en las dos primeras pantallas.
+    #[test]
+    fn si_una_vuelta_se_pasa_sube_y_sigue_hasta_el_final() {
+        let p = pagina(240, 5000);
+        // El cuarto giro baja cuatro veces más de la cuenta: 1000 px en una zona de 630.
+        let mut pantalla = Simulada::nueva(p.clone(), 630, |giro, muescas| {
+            let px = como_edge(giro, muescas);
+            if giro == 3 { px * 4 } else { px }
+        });
+        pantalla.tarda_foto = Duration::from_millis(120);
+        let mut cosedor = pantalla.empezar();
+        bajar(&mut pantalla, &mut cosedor);
+        assert!(pantalla.giros.iter().any(|&(_, m)| m < 0), "no ha subido: {:?}", pantalla.giros);
+        let imagen = cosedor.imagen();
+        assert_eq!(imagen.dimensions(), (240, 5000), "giros: {:?}", pantalla.giros);
+        assert_eq!(imagen.as_raw(), p.as_raw(), "la página cosida no es la página");
+    }
+
+    #[test]
+    fn se_para_cuando_se_pide_y_se_queda_con_lo_que_lleva() {
+        let p = pagina(240, 20_000);
+        let mut pantalla = Simulada::nueva(p.clone(), 630, como_edge);
+        pantalla.parar_en = Some(Duration::from_secs(3));
+        let mut cosedor = pantalla.empezar();
+        bajar(&mut pantalla, &mut cosedor);
+        assert!(
+            pantalla.reloj < Duration::from_millis(3200),
+            "ha tardado {:?} en parar",
+            pantalla.reloj
+        );
+        let imagen = cosedor.imagen();
+        assert!(imagen.height() > 630 && imagen.height() < 20_000, "{}", imagen.height());
+        let principio = image::imageops::crop_imm(&p, 0, 0, 240, imagen.height()).to_image();
+        assert_eq!(imagen.as_raw(), principio.as_raw(), "lo que lleva no es el principio de la página");
+    }
+
+    #[test]
+    fn si_quien_captura_coge_el_raton_la_rueda_deja_de_girar() {
+        let p = pagina(240, 20_000);
+        let mut pantalla = Simulada::nueva(p, 630, como_edge);
+        pantalla.raton_en = Some(Duration::from_secs(1));
+        pantalla.parar_en = Some(Duration::from_secs(4));
+        let mut cosedor = pantalla.empezar();
+        bajar(&mut pantalla, &mut cosedor);
+        assert!(!pantalla.giros.is_empty());
+        // El giro que ya estaba en marcha acaba; después de esa vuelta no gira más.
+        assert!(
+            pantalla.giros.iter().all(|&(t, _)| t < Duration::from_millis(1600)),
+            "{:?}",
+            pantalla.giros
+        );
+    }
+
+    #[test]
+    fn una_rueda_que_no_mueve_nada_no_cose_nada() {
+        let p = pagina(240, 3000);
+        let mut pantalla = Simulada::nueva(p, 630, |_, _| 0);
+        pantalla.parar_en = Some(Duration::from_secs(10));
+        let mut cosedor = pantalla.empezar();
+        bajar(&mut pantalla, &mut cosedor);
+        assert_eq!(cosedor.alto(), 630);
+        assert_eq!(pantalla.giros.len(), 2, "tras dos giros en vano, la rueda la pone quien captura");
     }
 }

@@ -3,19 +3,17 @@
 //!
 //! **Cómo baja sola.** Se deja el ratón dentro de la zona (lo más cerca posible de donde
 //! estaba: al soltar el recorte ya está en su esquina) y se manda la rueda como si la
-//! girara quien captura, una muesca o varias. Windows le da la rueda a la ventana que hay
-//! debajo del ratón, así que no hace falta saber qué programa es. Se fotografía hasta que
-//! la página se queda quieta y se vuelve a girar; cada muesca baja lo que diga ese
-//! programa, así que lo que baja la primera se mide y las siguientes se ajustan para bajar
-//! algo más de media zona de una vez.
+//! girara quien captura. Windows le da la rueda a la ventana que hay debajo del ratón, así
+//! que no hace falta saber qué programa es. Cuánto se gira y qué se hace si se pierde lo
+//! decide `bajar`, en el módulo de arriba, que se prueba con una página de mentira.
 //!
 //! **Si quien captura mueve el ratón, la rueda la pone él**: se deja de girar y se sigue
 //! fotografiando lo que haga. Y si la página no baja sola (la rueda ha caído en algo que
 //! no se desplaza), pasa lo mismo, y la barra se lo dice.
 //!
-//! **Se para cuando se pide, y se queda con lo que lleve**: «Terminar» en la barra, Esc
-//! en cualquier sitio, el final de la página bajando sola, o el alto máximo. Solo la X de
-//! la barra lo tira.
+//! **Se para cuando se pide, y se queda con lo que lleve**: «Parar» en la barra, Esc en
+//! cualquier sitio, el final de la página bajando sola, o el alto máximo. Solo la X de la
+//! barra lo tira.
 //!
 //! Las fotos son las de siempre (la captura moderna, o GDI de reserva), que no llevan el
 //! ratón dentro. El marco va por fuera de la zona y la barra se aparta de la captura, así
@@ -40,7 +38,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GA_ROOT, MSG, PM_REMOVE, WM_HOTKEY,
 };
 
-use super::{sitio_de_la_barra, Cosedor, Paso, BARRA_LABEL, EVENTO_PROGRESO};
+use super::{bajar, sitio_de_la_barra, Cosedor, Pantalla, BARRA_LABEL, EVENTO_PROGRESO};
 use crate::capture::{MonitorInfo, Rect};
 use crate::error::{AppError, Result};
 
@@ -57,14 +55,6 @@ const BARRA_ALTO: f64 = 52.0;
 
 /// Una muesca de la rueda, hacia abajo.
 const MUESCA: i32 = -120;
-/// Lo que se espera entre foto y foto mientras la página baja.
-const ENTRE_FOTOS: Duration = Duration::from_millis(40);
-/// Lo más que se espera a que la página se quede quieta tras girar la rueda: una página
-/// con algo animado no se queda quieta nunca.
-const ESPERA_MAXIMA: Duration = Duration::from_millis(1500);
-/// Lo que se espera antes de dar por quieta la página: el desplazamiento suave tarda
-/// un poco en arrancar.
-const ARRANQUE: Duration = Duration::from_millis(200);
 
 /// Cómo va la captura, para la barra.
 #[derive(Debug, Clone, Serialize)]
@@ -272,22 +262,24 @@ fn se_ha_movido(desde: POINT) -> bool {
     (ahora.x - desde.x).abs() + (ahora.y - desde.y).abs() > 6
 }
 
-/// Gira la rueda hacia abajo tantas muescas, una detrás de otra, como una rueda de verdad.
-fn rueda(muescas: u32) {
+/// Gira la rueda tantas muescas, una detrás de otra, como una rueda de verdad: hacia abajo
+/// si son positivas y hacia arriba si son negativas.
+fn rueda(muescas: i32) {
+    let paso = if muescas >= 0 { MUESCA } else { -MUESCA };
     let una = INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
             mi: MOUSEINPUT {
                 dx: 0,
                 dy: 0,
-                mouseData: MUESCA as u32,
+                mouseData: paso as u32,
                 dwFlags: MOUSEEVENTF_WHEEL,
                 time: 0,
                 dwExtraInfo: 0,
             },
         },
     };
-    let todas = vec![una; muescas.max(1) as usize];
+    let todas = vec![una; muescas.unsigned_abs().max(1) as usize];
     unsafe {
         SendInput(&todas, std::mem::size_of::<INPUT>() as i32);
     }
@@ -323,6 +315,46 @@ impl<'a> Aviso<'a> {
     }
 }
 
+/// La pantalla de verdad, para `bajar`.
+struct EnVivo<'a> {
+    fotografo: Fotografo,
+    orden: &'a AtomicU8,
+    esc: Esc,
+    objetivo: POINT,
+    empezo: Instant,
+    avisar: Box<dyn FnMut(u32, &'static str) + 'a>,
+}
+
+impl Pantalla for EnVivo<'_> {
+    fn foto(&mut self) -> Result<RgbaImage> {
+        self.fotografo.foto()
+    }
+
+    fn rueda(&mut self, muescas: i32) {
+        rueda(muescas);
+    }
+
+    fn esperar(&mut self, tiempo: Duration) {
+        std::thread::sleep(tiempo);
+    }
+
+    fn reloj(&self) -> Duration {
+        self.empezo.elapsed()
+    }
+
+    fn raton_movido(&mut self) -> bool {
+        se_ha_movido(self.objetivo)
+    }
+
+    fn parar(&mut self) -> bool {
+        hay_que_parar(self.orden, &self.esc)
+    }
+
+    fn avisar(&mut self, alto: u32, estado: &'static str) {
+        (self.avisar)(alto, estado);
+    }
+}
+
 /// La captura entera. Devuelve la imagen cosida, o nada si se ha descartado.
 fn capturar(
     app: &AppHandle,
@@ -345,85 +377,18 @@ fn capturar(
 
     let objetivo = punto_dentro(region, raton());
     poner_el_raton(objetivo);
-
-    let mut sola = true;
-    let mut estado: &'static str = "bajando";
-    let mut muescas: u32 = 1;
-    let mut giros_en_vano = 0;
-    aviso.contar(cosedor.alto(), estado);
-
-    'captura: loop {
-        if hay_que_parar(orden, &esc) {
-            break;
-        }
-        if sola && se_ha_movido(objetivo) {
-            sola = false;
-            estado = "tu";
-        }
-        aviso.contar(cosedor.alto(), estado);
-
-        if !sola {
-            // La rueda la pone quien captura: se mira lo que haya y se cose si ha bajado.
-            std::thread::sleep(Duration::from_millis(60));
-            let Ok(foto) = fotografo.foto() else { break };
-            match cosedor.anadir(foto) {
-                Paso::Cosida(_) => estado = "tu",
-                Paso::Perdida => estado = "perdida",
-                Paso::Llena => break,
-                Paso::Quieta | Paso::Atras => {}
-            }
-            continue;
-        }
-
-        rueda(muescas);
-        let inicio = Instant::now();
-        let mut bajado = 0u32;
-        let mut quietas = 0;
-        loop {
-            std::thread::sleep(ENTRE_FOTOS);
-            if hay_que_parar(orden, &esc) {
-                break 'captura;
-            }
-            let Ok(foto) = fotografo.foto() else { break 'captura };
-            match cosedor.anadir(foto) {
-                Paso::Cosida(d) => {
-                    bajado += d;
-                    quietas = 0;
-                    aviso.contar(cosedor.alto(), estado);
-                }
-                Paso::Quieta => quietas += 1,
-                Paso::Atras | Paso::Perdida => quietas = 0,
-                Paso::Llena => break 'captura,
-            }
-            if (quietas >= 2 && inicio.elapsed() > ARRANQUE) || inicio.elapsed() > ESPERA_MAXIMA {
-                break;
-            }
-        }
-
-        if bajado > 0 {
-            giros_en_vano = 0;
-            // Lo que baja cada muesca lo decide el programa de debajo: se mide, y la
-            // siguiente vez se gira lo justo para bajar algo más de media zona.
-            let por_muesca = (bajado / muescas).max(1);
-            muescas = (cosedor.zona() * 3 / 5 / por_muesca).clamp(1, 8);
-        } else {
-            giros_en_vano += 1;
-            if giros_en_vano >= 2 {
-                if cosedor.cosidas() > 0 {
-                    // Ha bajado y ya no baja: es el final de la página.
-                    break;
-                }
-                // No ha bajado nunca: la rueda ha caído en algo que no se desplaza.
-                sola = false;
-                estado = "no-baja";
-            } else {
-                // Una página que carga más al llegar abajo tarda un poco en crecer.
-                std::thread::sleep(Duration::from_millis(400));
-            }
-        }
+    {
+        let mut pantalla = EnVivo {
+            fotografo,
+            orden,
+            esc,
+            objetivo,
+            empezo: Instant::now(),
+            avisar: Box::new(|alto, estado| aviso.contar(alto, estado)),
+        };
+        bajar(&mut pantalla, &mut cosedor);
     }
 
-    drop(esc);
     drop(marco);
     if orden.load(Ordering::SeqCst) == DESCARTAR {
         return Ok(None);
@@ -487,11 +452,11 @@ fn abrir_barra(app: &AppHandle, region: Rect) -> Result<()> {
     };
 
     let (cx, cy) = region.center();
-    let sitio = crate::windows_mgr::monitor_de(cx, cy);
-    let escala = sitio.map(|m| m.escala).unwrap_or(1.0);
+    let sitio = area_de_trabajo(cx, cy);
+    let escala = sitio.map(|(_, escala)| escala).unwrap_or(1.0);
     let (x, y) = sitio_de_la_barra(
         region,
-        sitio.map(|m| (m.x, m.y, m.ancho, m.alto)),
+        sitio.map(|(area, _)| area),
         (BARRA_ANCHO * escala) as i32,
         (BARRA_ALTO * escala) as i32,
         (12.0 * escala) as i32,
@@ -499,6 +464,32 @@ fn abrir_barra(app: &AppHandle, region: Rect) -> Result<()> {
     let _ = ventana.set_position(PhysicalPosition::new(x, y));
     ventana.show()?;
     Ok(())
+}
+
+/// La pantalla de ese punto sin la barra de tareas, y su escalado. Con la pantalla entera,
+/// una zona que llega abajo dejaba la barra encima de la barra de tareas, donde no se ve.
+fn area_de_trabajo(x: i32, y: i32) -> Option<((i32, i32, i32, i32), f64)> {
+    use windows::Win32::Graphics::Gdi::{
+        GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    };
+    use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
+    unsafe {
+        let monitor = MonitorFromPoint(POINT { x, y }, MONITOR_DEFAULTTONEAREST);
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        if !GetMonitorInfoW(monitor, &mut info).as_bool() {
+            return None;
+        }
+        let (mut dpi_x, mut dpi_y) = (96u32, 96u32);
+        let _ = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y);
+        let r = info.rcWork;
+        Some((
+            (r.left, r.top, r.right - r.left, r.bottom - r.top),
+            f64::from(dpi_x) / 96.0,
+        ))
+    }
 }
 
 fn cerrar_barra(app: &AppHandle) {
@@ -542,6 +533,90 @@ mod pruebas {
         };
         let r = dentro_de(Rect { x: 1800, y: -10, width: 400, height: 500 }, &monitor);
         assert_eq!((r.x, r.y, r.width, r.height), (1800, 0, 120, 490));
+    }
+
+    /// Lo que hace la rueda de verdad encima de una página: cuánto baja cada muesca, cuánto
+    /// tarda en pararse, y qué le parece cada foto al cosedor. Mueve el ratón y gira la rueda
+    /// en la pantalla, así que solo con quien la usa avisado.
+    /// `WINSHOTX_ZONA=x,y,ancho,alto cargo test --release --lib traza_de_la_rueda -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn traza_de_la_rueda() {
+        crate::capture::wgc::como_la_app();
+        let zona: Vec<i32> = std::env::var("WINSHOTX_ZONA")
+            .expect("WINSHOTX_ZONA=x,y,ancho,alto")
+            .split(',')
+            .map(|v| v.trim().parse().expect("número"))
+            .collect();
+        let region = Rect { x: zona[0], y: zona[1], width: zona[2] as u32, height: zona[3] as u32 };
+        let monitores = crate::capture::monitors().unwrap();
+        let (cx, cy) = region.center();
+        let monitor = monitores.iter().find(|m| m.contains(cx, cy)).unwrap().clone();
+        println!("captura moderna: {}", crate::capture::moderna_disponible());
+        let fotografo = Fotografo::nuevo(&monitor, region).unwrap();
+        poner_el_raton(punto_dentro(region, POINT { x: cx, y: cy }));
+        for muescas in [1, 1, 2, 4, 8] {
+            let mut cosedor = Cosedor::nuevo(fotografo.foto().unwrap());
+            rueda(muescas);
+            let inicio = Instant::now();
+            let mut linea = Vec::new();
+            while inicio.elapsed() < Duration::from_millis(1500) {
+                let t = Instant::now();
+                let foto = fotografo.foto().unwrap();
+                let tarda = t.elapsed().as_millis();
+                let paso = cosedor.anadir(foto);
+                linea.push(format!("{}+{tarda}:{paso:?}", inicio.elapsed().as_millis()));
+                std::thread::sleep(Duration::from_millis(40));
+            }
+            println!("{muescas} muescas ({} px cosidos): {}", cosedor.alto() - region.height, linea.join(" "));
+        }
+    }
+
+    /// La captura entera en la pantalla de verdad, con el mismo `bajar` que la app y sin
+    /// overlay ni barra: deja la imagen cosida en la carpeta temporal y cuenta cada aviso.
+    /// Mueve el ratón y gira la rueda, así que solo con quien usa la pantalla avisado.
+    /// `WINSHOTX_ZONA=x,y,ancho,alto cargo test --release --lib la_captura_de_verdad -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn la_captura_de_verdad() {
+        crate::capture::wgc::como_la_app();
+        let zona: Vec<i32> = std::env::var("WINSHOTX_ZONA")
+            .expect("WINSHOTX_ZONA=x,y,ancho,alto")
+            .split(',')
+            .map(|v| v.trim().parse().expect("número"))
+            .collect();
+        let region = Rect { x: zona[0], y: zona[1], width: zona[2] as u32, height: zona[3] as u32 };
+        let monitores = crate::capture::monitors().unwrap();
+        let (cx, cy) = region.center();
+        let monitor = monitores.iter().find(|m| m.contains(cx, cy)).unwrap().clone();
+        let fotografo = Fotografo::nuevo(&monitor, region).unwrap();
+        let mut cosedor = Cosedor::nuevo(fotografo.foto().unwrap());
+        let objetivo = punto_dentro(
+            region,
+            POINT { x: region.x + region.width as i32, y: region.y + region.height as i32 },
+        );
+        poner_el_raton(objetivo);
+        let orden = AtomicU8::new(SEGUIR);
+        let empezo = Instant::now();
+        let mut ultimo = None;
+        let mut pantalla = EnVivo {
+            fotografo,
+            orden: &orden,
+            esc: Esc::coger(),
+            objetivo,
+            empezo,
+            avisar: Box::new(|alto, estado| {
+                if ultimo != Some((alto, estado)) {
+                    ultimo = Some((alto, estado));
+                    println!("{:>6} ms  {estado:<8} {alto} px", empezo.elapsed().as_millis());
+                }
+            }),
+        };
+        bajar(&mut pantalla, &mut cosedor);
+        drop(pantalla);
+        let ruta = std::env::temp_dir().join("winshotx-captura-de-verdad.png");
+        cosedor.imagen().save(&ruta).unwrap();
+        println!("{} fotos cosidas, {} px -> {}", cosedor.cosidas(), cosedor.alto(), ruta.display());
     }
 
     #[test]
