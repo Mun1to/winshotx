@@ -68,7 +68,7 @@ if (!video || !fotograma) {
 }
 
 /** Levanta la pantalla del editor y devuelve su dirección y cómo apagarla. */
-function servir(segundos) {
+function servir(segundos, mas = []) {
   return new Promise((listo, falla) => {
     const hijo = spawn(process.execPath, [
       join(RAIZ, "scripts", "ver-ventana.mjs"),
@@ -76,6 +76,7 @@ function servir(segundos) {
       `--editor=${fotograma}`,
       `--video=${video}`,
       `--duracion=${segundos}`,
+      ...mas,
     ]);
     hijo.stdout.on("data", (trozo) => {
       const url = String(trozo).match(/http:\/\/\S+/)?.[0];
@@ -412,6 +413,85 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     (de("pen")?.puntos?.length ?? 0) >= 10 && de("pen").puntos.length < 100,
     `el lápiz viaja con su trazo aclarado: ${de("pen")?.puntos?.length} puntos`,
   );
+  await pagina.close();
+  apagar();
+}
+
+// ── S8: la webcam en la vista previa, arrastrada y estirada, llega a Rust ─────────────
+{
+  const { url, apagar } = await servir(duracion, ["--camara-estudio"]);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  const burbuja = pagina.locator("[data-camara]");
+  await burbuja.waitFor();
+  console.log("\nLa webcam en la vista previa");
+  /** Pulsa «Guardar MP4» y devuelve lo que le llega a Rust. */
+  const guardar = async () => {
+    const antes = await pagina.evaluate(() => (window.__llamadas ?? []).filter((l) => l.cmd === "export_media").length);
+    await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+    await pagina.waitForFunction(
+      (n) => window.__llamadas.filter((l) => l.cmd === "export_media").length > n,
+      antes,
+    );
+    return pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request);
+  };
+  if (fotos) await pagina.screenshot({ path: join(fotos, "12-camara-de-fabrica.png") });
+
+  let peticion = await guardar();
+  const fabrica = peticion.camara;
+  comprueba(
+    fabrica?.forma === "circulo" && Math.abs(fabrica.tam - 0.18) < 1e-6 && fabrica.x > 0.8 && fabrica.y > 0.7,
+    `sin tocar nada, «Guardar» manda la cámara de fábrica, pequeña y abajo a la derecha: ${JSON.stringify(fabrica)}`,
+  );
+
+  // Arrastrada por el medio hasta arriba a la izquierda.
+  const lienzo = await pagina.locator("[data-capa-camara]").boundingBox();
+  let caja = await burbuja.boundingBox();
+  await pagina.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2);
+  await pagina.mouse.down();
+  await pagina.mouse.move(lienzo.x + lienzo.width * 0.25, lienzo.y + lienzo.height * 0.3, { steps: 10 });
+  await pagina.mouse.up();
+  peticion = await guardar();
+  comprueba(
+    Math.abs(peticion.camara.x - 0.25) < 0.01 && Math.abs(peticion.camara.y - 0.3) < 0.01,
+    `arrastrarla la deja en ${peticion.camara.x.toFixed(3)}, ${peticion.camara.y.toFixed(3)} (soltada en 0.25, 0.3)`,
+  );
+
+  // Estirada por la esquina que mira al centro, que ahora es la de abajo a la derecha.
+  caja = await burbuja.boundingBox();
+  await pagina.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2);
+  const asa = await pagina.locator("[data-asa-camara]").boundingBox();
+  await pagina.mouse.move(asa.x + asa.width / 2, asa.y + asa.height / 2);
+  await pagina.mouse.down();
+  await pagina.mouse.move(asa.x + asa.width / 2 + 80, asa.y + asa.height / 2 + 80, { steps: 8 });
+  await pagina.mouse.up();
+  peticion = await guardar();
+  const despues = await burbuja.boundingBox();
+  comprueba(
+    peticion.camara.tam > fabrica.tam + 0.03 && Math.abs(despues.x - caja.x) < 2 && Math.abs(despues.y - caja.y) < 2,
+    `la esquina la estira de ${fabrica.tam} a ${peticion.camara.tam.toFixed(3)} con la de enfrente quieta (se movió ${(despues.x - caja.x).toFixed(1)}, ${(despues.y - caja.y).toFixed(1)} px)`,
+  );
+  if (fotos) await pagina.screenshot({ path: join(fotos, "13-camara-movida.png") });
+
+  // Reproduciendo, la cara va con la pantalla (aquí las dos son el mismo vídeo, sin desfase).
+  await pagina.getByRole("button", { name: "Reproducir" }).click();
+  await pagina.waitForTimeout(1500);
+  const [pantalla, cara] = await pagina.evaluate(() => [
+    document.querySelector("video").currentTime,
+    document.querySelector("[data-camara] video").currentTime,
+  ]);
+  await pagina.getByRole("button", { name: "Pausar" }).click();
+  comprueba(
+    pantalla > 0.5 && Math.abs(pantalla - cara) < 0.2,
+    `reproduciendo, la cara va con la pantalla: ${pantalla.toFixed(2)} s y ${cara.toFixed(2)} s`,
+  );
+
+  // Con una herramienta de dibujar puesta, la cámara no se agarra: lo que se arrastra es la marca.
+  await pagina.getByRole("button", { name: /^Flecha · / }).click();
+  const quieta = await burbuja.evaluate((b) => getComputedStyle(b).pointerEvents);
+  comprueba(quieta === "none", `con la flecha puesta, la cámara deja pasar el ratón (pointer-events: ${quieta})`);
   await pagina.close();
   apagar();
 }
