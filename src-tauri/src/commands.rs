@@ -1055,6 +1055,11 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings> {
 pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings> {
     let state = app.state::<AppState>();
     let previous = state.settings.read().clone();
+    // S9 (presets y tapar): los estilos guardados solo los cambia `presets_guardar`. La
+    // ventana de ajustes manda los suyos de cuando se abrió, y sin esto borraría los que
+    // se hayan guardado desde el editor mientras tanto.
+    let mut settings = settings;
+    settings.presets = previous.presets.clone();
     *state.settings.write() = settings.clone();
     crate::settings::save(&app, &settings)?;
 

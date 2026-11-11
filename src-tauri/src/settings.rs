@@ -171,6 +171,8 @@ pub struct Settings {
     // S7 (cursor)
     // S8 (cámara en el Estudio)
     // S9 (presets y tapar)
+    /// Los estilos guardados con nombre (D2). Solo los cambia `presets::presets_guardar`.
+    pub presets: Vec<crate::presets::Preset>,
 }
 
 impl Default for Settings {
@@ -222,6 +224,7 @@ impl Default for Settings {
             // S7 (cursor)
             // S8 (cámara en el Estudio)
             // S9 (presets y tapar)
+            presets: Vec::new(),
         }
     }
 }

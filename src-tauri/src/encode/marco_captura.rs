@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use super::marco::{self, Fondo, Marco};
 
 /// Lo que se guarda en los ajustes.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct MarcoCaptura {
     /// Cuánto aire alrededor, en tantos por ciento del lado corto de la captura. **Cero es
@@ -28,6 +28,10 @@ pub struct MarcoCaptura {
     pub aire: u32,
     /// El fondo, por su nombre: los mismos del Estudio (`blanco`, `atardecer`...).
     pub fondo: String,
+    /// S9 (presets y tapar): un fondo propio (un color, una imagen...) que manda sobre el de
+    /// nombre, igual que en el Estudio. Lo pone elegir un estilo guardado para las capturas;
+    /// sin él, el de nombre de siempre.
+    pub elegido: Option<crate::contrato::FondoElegido>,
 }
 
 impl Default for MarcoCaptura {
@@ -35,6 +39,7 @@ impl Default for MarcoCaptura {
         Self {
             aire: 0,
             fondo: "atardecer".into(),
+            elegido: None,
         }
     }
 }
@@ -62,7 +67,7 @@ impl MarcoCaptura {
         let esquinas = (corto * 0.02).round().clamp(4.0, 32.0) as u32;
         Some(Marco {
             margen,
-            fondo: Fondo::desde(&self.fondo),
+            fondo: Fondo::elegido(&self.fondo, self.elegido.as_ref()),
             sombra: true,
             esquinas,
         })
@@ -117,6 +122,7 @@ mod pruebas {
         let ajuste = MarcoCaptura {
             aire: 8,
             fondo: "negro".into(),
+            elegido: None,
         };
         let salida = ajuste.aplicar(&captura(400, 200)).unwrap();
         // 8 % de 200 son 16 píxeles por lado.
@@ -132,6 +138,7 @@ mod pruebas {
         let ajuste = MarcoCaptura {
             aire: 8,
             fondo: "blanco".into(),
+            elegido: None,
         };
         let pequena = ajuste.para(300, 120).unwrap().margen;
         let grande = ajuste.para(3840, 2160).unwrap().margen;
@@ -148,6 +155,7 @@ mod pruebas {
         let ajuste = MarcoCaptura {
             aire: 14,
             fondo: "blanco".into(),
+            elegido: None,
         };
         let marco = ajuste.para(400, 300).unwrap();
         assert!(marco.sombra);
@@ -167,6 +175,7 @@ mod pruebas {
         let ajuste = MarcoCaptura {
             aire: 8,
             fondo: "menta".into(),
+            elegido: None,
         };
         for accion in ["copy", "save", "save_as"] {
             let salida = ajuste.para_la_accion(captura(200, 100), accion);
@@ -184,7 +193,27 @@ mod pruebas {
         let ajuste = MarcoCaptura {
             aire: 4,
             fondo: "fucsia".into(),
+            elegido: None,
         };
         assert_eq!(ajuste.para(100, 100).unwrap().fondo, Fondo::Blanco);
+    }
+
+    /// S9: un estilo guardado con un color propio pone ese color en las capturas, no el de
+    /// nombre que llevaba de respaldo. Y lo que no se lee de unos ajustes viejos, sin él.
+    #[test]
+    fn un_fondo_propio_manda_sobre_el_de_nombre() {
+        let ajuste = MarcoCaptura {
+            aire: 8,
+            fondo: "atardecer".into(),
+            elegido: Some(crate::contrato::FondoElegido::Color { rgb: [10, 200, 30] }),
+        };
+        let salida = ajuste.aplicar(&captura(400, 200)).unwrap();
+        assert_eq!(salida.get_pixel(2, 2).0, [10, 200, 30, 255], "la esquina es el color propio");
+        let leido: MarcoCaptura = serde_json::from_str(r#"{"aire": 8, "fondo": "menta"}"#).unwrap();
+        assert!(leido.elegido.is_none());
+        let con: MarcoCaptura =
+            serde_json::from_str(r#"{"aire": 8, "fondo": "menta", "elegido": {"tipo": "color", "rgb": [1, 2, 3]}}"#)
+                .unwrap();
+        assert_eq!(con.elegido, Some(crate::contrato::FondoElegido::Color { rgb: [1, 2, 3] }));
     }
 }
