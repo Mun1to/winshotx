@@ -88,7 +88,8 @@ describe("las filas de la pista", () => {
 });
 
 it("el mosaico tiene el tamaño de cuadrado de Rust", () => {
-  expect(ladoDelMosaico(200, 30)).toBe(6);
+  // Una línea de texto: dos filas de cuadros, no cuatro (con 6 se leían los números).
+  expect(ladoDelMosaico(200, 30)).toBe(15);
   expect(ladoDelMosaico(400, 160)).toBe(20);
   expect(ladoDelMosaico(2000, 1000)).toBe(40);
 });

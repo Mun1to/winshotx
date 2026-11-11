@@ -542,8 +542,15 @@ fn resaltar(imagen: &mut RgbaImage, x1: i32, y1: i32, x2: i32, y2: i32, color: [
 }
 
 /// Cuánto lado tiene cada cuadrado del difuminado, según lo grande que sea la zona.
+///
+/// La octava parte del lado corto, pero **nunca menos de la mitad del lado corto** (hasta
+/// 20 px): una línea de texto tapada queda en dos filas de cuadros como mucho. Con la octava
+/// parte sola, un correo o un teléfono de 25 px de alto salía con cuadros de 6, unos cuatro
+/// por letra, y se adivinaban los números (probado en pantalla el 11 de noviembre de 2026).
+/// Las zonas grandes no cambian: ahí ya mandaba la octava parte.
 fn lado_del_mosaico(ancho: i32, alto: i32) -> i32 {
-    (ancho.min(alto) / 8).clamp(6, 40)
+    let corto = ancho.min(alto);
+    (corto / 8).max(((corto + 1) / 2).min(20)).clamp(6, 40)
 }
 
 /// Tapa una zona con cuadrados gordos del color medio de lo que había.
@@ -880,6 +887,26 @@ mod tests {
         assert!(lado_del_mosaico(40, 20) < lado_del_mosaico(800, 400));
         assert!(lado_del_mosaico(8, 8) >= 6, "nunca por debajo de seis");
         assert!(lado_del_mosaico(5000, 5000) <= 40, "ni por encima de cuarenta");
+    }
+
+    /// Una línea de texto tapada no se lee: como mucho dos filas de cuadros en su alto. Antes
+    /// salían cuatro, y en un vídeo de prueba se adivinaban el teléfono y la cuenta.
+    #[test]
+    fn una_linea_de_texto_queda_en_dos_filas_de_cuadros() {
+        for alto in 12..=40 {
+            let lado = lado_del_mosaico(400, alto);
+            assert!(lado * 2 >= alto, "una línea de {alto} px sale con cuadros de {lado}: se lee");
+        }
+        // Y tapada de verdad: el teléfono escrito con la letra del sistema, debajo del
+        // mosaico, deja como mucho dos colores distintos en cada columna de la línea.
+        let mut imagen = lienzo(300, 30);
+        texto(&mut imagen, 4, 4, "600 12 34 56", [0, 0, 0]);
+        pintar(&mut imagen, &[marca("blur", 0.0, 0.0, 1.0, 1.0)]);
+        for x in 0..300 {
+            let mut colores: Vec<Rgba<u8>> = (0..30).map(|y| *imagen.get_pixel(x, y)).collect();
+            colores.dedup();
+            assert!(colores.len() <= 2, "la columna {x} tiene {} filas de cuadros", colores.len());
+        }
     }
 
     #[test]

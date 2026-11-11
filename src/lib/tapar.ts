@@ -82,8 +82,12 @@ export function carriles(tapas: Tapa[], maximo = 3): { carril: number[]; cuantos
 
 /**
  * El lado de cada cuadrado del mosaico, en píxeles de la imagen grabada. Es el de Rust
- * (`anotacion::lado_del_mosaico`): la octava parte del lado corto de la zona, entre 6 y 40.
+ * (`anotacion::lado_del_mosaico`): la octava parte del lado corto de la zona, pero nunca
+ * menos de su mitad (hasta 20), para que una línea de texto quede en dos filas de cuadros;
+ * siempre entre 6 y 40.
  */
 export function ladoDelMosaico(anchoPx: number, altoPx: number): number {
-  return Math.min(40, Math.max(6, Math.floor(Math.min(anchoPx, altoPx) / 8)));
+  const corto = Math.floor(Math.min(anchoPx, altoPx));
+  const lado = Math.max(Math.floor(corto / 8), Math.min(Math.ceil(corto / 2), 20));
+  return Math.min(40, Math.max(6, lado));
 }
