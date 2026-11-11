@@ -1,4 +1,4 @@
-:root {
+:root, .marco {
   --azul: #0a9bff;          /* el azul de la marca, para texto y acentos sobre el fondo */
   --azul-claro: #4fb8ff;
   /* El de marca con texto blanco encima da 2,94 de contraste y hace falta 4,5. Este es el
@@ -12,9 +12,83 @@
   --panel: #141418;
   --borde: #ffffff14;
   --texto: #e9e9ee;
-  --suave: #8e8e9a;
-  --apagado: #84848f;
+  /* El texto que se lee (bajadas, entradillas, respuestas) no va en gris apagado: la
+     jerarquia la dan el tamanno y el peso. Este gris da 9,3 de contraste sobre el fondo. */
+  --suave: #abacb8;
+  --apagado: #8e8e9a;
   --radio: 16px;
+
+  /* Los colores por su OFICIO y no por su tono, como en la app: `--realce` quiere decir
+     lo mismo en claro y en oscuro, y `#ffffff08` no. Asi el tema claro es un bloque de
+     abajo y no cien cambios repartidos. */
+  --marca-x: #fff;             /* el aspa del logo */
+  --panel-vivo: #17171c;       /* una tarjeta al pasar por encima o abierta */
+  --cabeza-tabla: #191920;
+  --linea: #ffffff1a;          /* un borde que tiene que verse */
+  --linea-viva: #ffffff33;
+  --realce: #ffffff08;         /* un relleno que apenas se nota */
+  --realce-medio: #ffffff12;
+  --realce-fuerte: #ffffff1f;  /* al pasar el raton */
+  --vidrio: #14141ccc;         /* la barra de arriba */
+  --sombra-barra: 0 14px 34px #00000059;
+  --sombra-boton: #0a9bff40;
+  --gana: #34d99914;           /* la casilla que gana en la comparativa */
+  --gana-fuerte: #34d9991f;
+  --si: #6ee7b7;
+  --no: #7c7c88;
+  --nuestra: #0a9bff1a;        /* la columna de winshotx */
+  --nuestra-suave: #0a9bff08;
+  --nota-borde: #f0b42933;
+  --nota-fondo: #f0b4290f;
+  --nota-texto: #e8cf9a;
+  --halo: #0a9bff26;           /* la luz azul detras del titular */
+  --brillo-icono: #0a9bff73;   /* el resplandor de un icono suelto */
+  --brillo-icono-vivo: #0a9bffb3;
+  color-scheme: dark;
+}
+
+/* Tema claro: lo decide el sistema, sin boton y sin JavaScript. El navegador vuelve a
+   mirar la consulta solo, asi que si Windows pasa a claro al amanecer, la pagina abierta
+   cambia con el. Lo oscuro de arriba es lo de siempre y no se ha movido ni un pixel.
+   Las demos se quedan oscuras a proposito (mas abajo, en `.marco`): son la app tal cual,
+   con su tema oscuro elegido en la barra de los Ajustes, como una captura. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    /* El azul de la marca sobre blanco da 2,9 de contraste y para texto hacen falta 4,5:
+       este es el mismo que usa la app en su tema claro, y da 4,7. */
+    --azul: #0a76c9;
+    --azul-claro: #0a6cb8;
+    --fondo: #f7f7f9;
+    --panel: #ffffff;
+    --borde: #0000001a;
+    --texto: #16161a;
+    --suave: #45454f;
+    --apagado: #5c5c68;
+    --marca-x: #16161a;
+    --panel-vivo: #f3f7fc;
+    --cabeza-tabla: #f0f0f3;
+    --linea: #00000021;
+    --linea-viva: #0000003d;
+    --realce: #0000000a;
+    --realce-medio: #00000012;
+    --realce-fuerte: #0000001a;
+    --vidrio: #ffffffd9;
+    --sombra-barra: 0 12px 30px #0000001a;
+    --sombra-boton: #0077cc33;
+    --gana: #10b9811a;
+    --gana-fuerte: #10b98124;
+    --si: #047857;
+    --no: #6b6b76;
+    --nuestra: #0a76c914;
+    --nuestra-suave: #0a76c908;
+    --nota-borde: #b4530940;
+    --nota-fondo: #f59e0b14;
+    --nota-texto: #7c4a03;
+    --halo: #0a9bff1f;
+    --brillo-icono: #0a9bff40;
+    --brillo-icono-vivo: #0a9bff73;
+  }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,9 +121,9 @@ nav .env {
   /* 1fr a los lados para que el menú caiga en el centro exacto de la barra */
   display: grid; grid-template-columns: 1fr auto 1fr;
   align-items: center; gap: 16px; height: 58px; padding: 0 8px 0 18px;
-  border-radius: 999px; border: 1px solid #ffffff1a;
-  background: #14141ccc; backdrop-filter: blur(18px);
-  box-shadow: 0 14px 34px #00000059;
+  border-radius: 999px; border: 1px solid var(--linea);
+  background: var(--vidrio); backdrop-filter: blur(18px);
+  box-shadow: var(--sombra-barra);
 }
 .marca { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
 .marca svg { width: 26px; height: 26px; }
@@ -61,14 +135,14 @@ nav .enlaces a {
   color: var(--suave); padding: 9px 15px; border-radius: 999px;
   transition: background .14s, color .14s;
 }
-nav .enlaces a:hover { color: var(--texto); background: #ffffff14; text-decoration: none; }
+nav .enlaces a:hover { color: var(--texto); background: var(--realce-medio); text-decoration: none; }
 nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px; }
 .idioma {
-  padding: 9px 18px; border-radius: 999px; border: 1px solid #ffffff1a;
-  background: #ffffff0d; color: var(--texto); font-size: 13.5px; font-weight: 600;
+  padding: 9px 18px; border-radius: 999px; border: 1px solid var(--linea);
+  background: var(--realce); color: var(--texto); font-size: 13.5px; font-weight: 600;
   cursor: pointer; transition: background .14s, border-color .14s;
 }
-.idioma:hover { background: #ffffff1f; border-color: #ffffff33; }
+.idioma:hover { background: var(--realce-fuerte); border-color: var(--linea-viva); }
 
 /* Solo el logo, en un circulo del mismo alto y el mismo borde que el boton de idioma,
    para que la esquina derecha de la barra sea una pieza y no dos cosas distintas. */
@@ -77,10 +151,10 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
    ese tamano exacto para que los dos circulos de la esquina sean del mismo alto. */
 .gh {
   display: grid; place-items: center; width: 41.6px; height: 41.6px;
-  border-radius: 999px; border: 1px solid #ffffff1a; background: #ffffff0d;
+  border-radius: 999px; border: 1px solid var(--linea); background: var(--realce);
   color: var(--texto); transition: background .14s, border-color .14s, color .14s;
 }
-.gh:hover { background: #ffffff1f; border-color: #ffffff33; }
+.gh:hover { background: var(--realce-fuerte); border-color: var(--linea-viva); }
 .gh-marca { width: 22px; height: 22px; }
 @media (max-width: 900px) {
   nav .env { grid-template-columns: 1fr auto; padding-right: 10px; }
@@ -91,7 +165,7 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
 .portada { position: relative; padding: 86px 0 60px; text-align: center; }
 .portada::before {
   content: ""; position: absolute; inset: -180px 0 auto; height: 520px; z-index: -1;
-  background: radial-gradient(ellipse 60% 50% at 50% 40%, #0a9bff26, transparent 70%);
+  background: radial-gradient(ellipse 60% 50% at 50% 40%, var(--halo), transparent 70%);
 }
 .marca.solo-logo svg { width: 30px; height: 30px; }
 .firma { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 24px; }
@@ -110,9 +184,9 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
 .duelo th, .duelo td { padding: 13px 18px; border-bottom: 1px solid var(--borde); text-align: left; }
 .duelo tr:last-child th, .duelo tr:last-child td { border-bottom: 0; }
 .duelo thead th {
-  position: sticky; top: 0; z-index: 1; background: #191920;
+  position: sticky; top: 0; z-index: 1; background: var(--cabeza-tabla);
   font-size: 14px; font-weight: 650; text-transform: none; letter-spacing: -0.01em; color: var(--texto);
-  border-bottom: 1px solid #ffffff1f;
+  border-bottom: 1px solid var(--linea);
 }
 /* Los dos contendientes ocupan lo mismo: si una columna es mas ancha que la otra, la
    comparacion ya parece inclinada antes de leer ni un dato. */
@@ -127,19 +201,19 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
 .duelo th:nth-child(2), .duelo td:nth-child(2) { border-left: 1px solid var(--borde); }
 .duelo th:last-child, .duelo td:last-child { border-left: 1px solid var(--borde); }
 /* Y la columna de winshotx, un poco de azul de fondo para que se siga sin perderse. */
-.duelo thead th:last-child { background: #0a9bff1a; }
-.duelo tbody td:last-child { background: #0a9bff08; }
+.duelo thead th:last-child { background: var(--nuestra); }
+.duelo tbody td:last-child { background: var(--nuestra-suave); }
 
 .duelo tbody th {
   font-weight: 650; font-size: 13.5px; text-transform: none; letter-spacing: -0.01em;
   color: var(--texto);
 }
 .duelo tbody td { color: var(--apagado); white-space: nowrap; }
-.duelo tbody td.gana { color: var(--texto); font-weight: 650; background: #34d99914; }
-.duelo tbody td:last-child.gana { background: #34d9991f; }
+.duelo tbody td.gana { color: var(--texto); font-weight: 650; background: var(--gana); }
+.duelo tbody td:last-child.gana { background: var(--gana-fuerte); }
 .duelo tbody td.empate { color: var(--texto); }
-.duelo tbody tr:hover td:not(.gana) { background: #ffffff08; }
-.duelo tbody tr:hover td:last-child:not(.gana) { background: #0a9bff14; }
+.duelo tbody tr:hover td:not(.gana) { background: var(--realce); }
+.duelo tbody tr:hover td:last-child:not(.gana) { background: var(--nuestra); }
 /* Los tres primeros son los numeros medidos: el argumento entero de la pagina esta ahi,
    asi que se leen mas grandes que el resto de la tabla. */
 .duelo tbody tr.cifras td { font-size: 17px; padding-top: 15px; padding-bottom: 15px; }
@@ -160,8 +234,8 @@ nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px;
   display: inline-grid; place-items: center; width: 17px; height: 17px;
   border-radius: 5px; margin-right: 5px; vertical-align: -3px;
 }
-.duelo b.si { background: #34d99926; color: #6ee7b7; }
-.duelo b.no { background: #ffffff12; color: #7c7c88; }
+.duelo b.si { color: var(--si); }
+.duelo b.no { color: var(--no); }
 .duelo b svg { width: 11px; height: 11px; }
 h1 { font-size: clamp(34px, 6vw, 60px); line-height: 1.06; letter-spacing: -0.035em; font-weight: 700; }
 h1 em { font-style: normal; color: var(--azul); }
@@ -173,16 +247,16 @@ h1 em { font-style: normal; color: var(--azul); }
   font-weight: 600; font-size: 15px; border: 1px solid transparent;
   transition: background .16s, transform .16s;
 }
-.btn.primario { background: var(--azul-boton); color: #fff; box-shadow: 0 8px 30px #0a9bff40; }
+.btn.primario { background: var(--azul-boton); color: #fff; box-shadow: 0 8px 30px var(--sombra-boton); }
 /* En fondo oscuro lo natural seria aclarar al pasar por encima, pero eso tumba el
    contraste del texto blanco. Se oscurece y el movimiento lo marca la sombra. */
 .btn.primario:hover {
   background: #0072c4; text-decoration: none; transform: translateY(-1px);
   box-shadow: 0 10px 34px #0a9bff59;
 }
-.btn.fantasma { border-color: var(--borde); color: var(--texto); background: #ffffff08; }
-.btn.fantasma:hover { background: #ffffff12; text-decoration: none; }
-.letra-chica { margin-top: 14px; font-size: 13px; color: var(--apagado); }
+.btn.fantasma { border-color: var(--linea); color: var(--texto); background: var(--realce); }
+.btn.fantasma:hover { background: var(--realce-medio); text-decoration: none; }
+.letra-chica { margin-top: 14px; font-size: 13.5px; color: var(--suave); }
 /* Mismo motivo que en el pie: el azul de marca sobre el gris de esta linea se queda en 1,22
    de contraste, muy por debajo del 3 que pide la norma para distinguir un enlace por color.
    Con subrayado se ve sin depender del color. */
@@ -228,10 +302,9 @@ h1 em { font-style: normal; color: var(--azul); }
    debajo, y apilarlos le sumaba tres lineas de alto a cada una para no decir nada mas. */
 .cabeza-pilar { display: flex; align-items: center; gap: 11px; }
 .pilar h2 {
-  font-size: 17px;
+  font-size: 18px;
   letter-spacing: -0.01em;
   margin: 0;
-  text-transform: uppercase;
 }
 .pilar ul {
   margin: 14px 0 0;
@@ -260,17 +333,10 @@ h1 em { font-style: normal; color: var(--azul); }
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
-.ico-pilar {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: #0a9bff1f;
-  color: var(--azul);
-}
-.ico-pilar svg { width: 17px; height: 17px; }
+/* El icono va suelto, con un resplandor de su color, y no metido en su cuadradito de
+   fondo azul: una caja alrededor de un icono es una «carcel» (GUSTOS-DE-DISENO, 1). */
+.ico-pilar { display: grid; place-items: center; flex: none; color: var(--azul); }
+.ico-pilar svg { width: 22px; height: 22px; filter: drop-shadow(0 0 8px var(--brillo-icono)); }
 @media (max-width: 900px) {
   .pilares { grid-template-columns: 1fr; gap: 14px; margin-top: 40px; }
 }
@@ -278,6 +344,11 @@ h1 em { font-style: normal; color: var(--azul); }
 /* ---------- secciones ---------- */
 /* solo las secciones de la página; dentro de las demos hay <section> propias */
 body > section { padding: 74px 0; }
+/* Lo que esta fuera de la pantalla no se pinta hasta que llega. Ademas de ahorrar trabajo al
+   cargar, sin esto los lienzos de la demo se volvian a copiar en cada fotograma de la cruceta
+   aunque no se vieran: con la CPU a 4x la portada bajaba de 60 a 50 fotogramas. `auto` en el
+   tamano hace que, una vez vista, cada seccion recuerde lo que mide y el scroll no salte. */
+body > section { content-visibility: auto; contain-intrinsic-size: auto 900px; }
 h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03em; margin: 0 0 12px; font-weight: 700; }
 .entradilla { color: var(--suave); max-width: 65ch; }
 
@@ -288,26 +359,31 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 }
 .cabecera-demo .entradilla { margin-bottom: 2px; }
 @media (max-width: 860px) { .cabecera-demo { flex-direction: column; align-items: stretch; gap: 16px; } }
-.pestanas {
-  display: flex; gap: 4px; flex: none; padding: 4px; border-radius: 12px;
-  background: #ffffff08; border: 1px solid var(--borde);
-}
+/* Pestañas de texto con su raya debajo, no un control segmentado con la activa rellena:
+   «pestañas y filtros en texto, nunca en píldora» (GUSTOS-DE-DISENO, 6). */
+.pestanas { display: flex; gap: 24px; flex: none; border-bottom: 1px solid var(--borde); }
 .pestana {
-  display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 9px;
-  font-size: 13.5px; font-weight: 550; cursor: pointer; white-space: nowrap;
-  background: transparent; border: 0; color: var(--suave);
-  transition: background .14s, color .14s;
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: -1px; padding: 6px 0 10px;
+  font-size: 16px; font-weight: 650; cursor: pointer; white-space: nowrap;
+  background: transparent; border: 0; border-bottom: 3px solid transparent; color: var(--suave);
+  transition: color .14s, border-color .14s;
 }
-.pestana svg { width: 15px; height: 15px; opacity: .85; }
+.pestana svg { width: 17px; height: 17px; }
 .pestana:hover { color: var(--texto); }
-.pestana[aria-selected="true"] {
-  background: var(--azul-boton); color: #fff; box-shadow: 0 4px 14px #0a9bff40;
-}
-.pestana[aria-selected="true"] svg { opacity: 1; }
-@media (max-width: 520px) { .pestana { padding: 8px 10px; font-size: 12.5px; } }
+.pestana[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--azul); }
+.pestana:focus-visible { outline: 2px solid var(--azul); outline-offset: 4px; border-radius: 4px; }
+@media (max-width: 520px) { .pestanas { gap: 18px; } .pestana { font-size: 15px; } }
 .marco {
   position: relative; border: 1px solid var(--borde); border-radius: var(--radio);
   overflow: hidden; background: #161618; box-shadow: 0 30px 80px #0008;
+  /* Lleva sus propios colores (los oscuros, arriba en `:root, .marco`), y el color del
+     texto se vuelve a calcular aqui: heredado del body, en el tema claro seria casi negro
+     sobre la ventana oscura. */
+  color: var(--texto);
+}
+/* Sobre la pagina clara, la ventana oscura pide una sombra mas suave y un borde que se vea. */
+@media (prefers-color-scheme: light) {
+  .marco { border-color: #00000029; box-shadow: 0 30px 70px #00000038; }
 }
 .barra-falsa {
   display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 14px;
@@ -338,7 +414,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .medida {
   position: absolute; display: none; padding: 3px 8px; border-radius: 6px;
   background: #0f0f14ee; border: 1px solid var(--borde);
-  font: 600 11.5px/1 ui-monospace, monospace; color: #fff;
+  font: 600 12.5px/1 ui-monospace, monospace; color: #fff;
   pointer-events: none; white-space: nowrap;
 }
 .lupa { position: absolute; width: 116px; pointer-events: none; display: none; z-index: 4; }
@@ -347,7 +423,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   image-rendering: pixelated; box-shadow: 0 10px 30px #000a; display: block;
 }
 .lupa .hex {
-  margin-top: 5px; text-align: center; font: 600 11px/1.7 ui-monospace, monospace;
+  margin-top: 5px; text-align: center; font: 600 12px/1.7 ui-monospace, monospace;
   background: #0f0f14ee; border: 1px solid var(--borde); border-radius: 6px; color: #fff;
 }
 /* GlassPanel + IconButton, con las medidas del componente */
@@ -414,7 +490,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 }
 .cartel-pantalla kbd {
   padding: 2px 6px; border-radius: 5px; border: 1px solid #ffffff26; background: #ffffff1a;
-  font: inherit; font-size: 11px;
+  font: inherit; font-size: 12px;
 }
 .cartel-pantalla em { font-style: normal; color: #a3a3a3; }
 
@@ -424,7 +500,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   padding: 0 14px;
 }
 .herramientas button.grabar:hover { background: #f87171; color: #fff; }
-.aviso { display: none; align-items: center; gap: 8px; margin-top: 12px; font-size: 13.5px; color: #6ee7b7; }
+.aviso { display: none; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; color: var(--si); }
 
 /* ---------- 2. editor ---------- */
 .edi-titulo {
@@ -432,7 +508,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   height: 44px; padding: 0 12px; border-bottom: 1px solid var(--borde);
 }
 .edi-nombre { display: flex; align-items: baseline; gap: 8px; padding-left: 4px; font-size: 13px; font-weight: 600; color: #fff; }
-.edi-sub { font-size: 11px; font-weight: 400; color: #737373; font-variant-numeric: tabular-nums; }
+.edi-sub { font-size: 12px; font-weight: 400; color: #a3a3a3; font-variant-numeric: tabular-nums; }
 .edi-controles { display: flex; align-items: center; gap: 4px; }
 .edi-controles button {
   display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px;
@@ -457,7 +533,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--app-azul);
   border: 2px solid #fff; cursor: grab;
 }
-.numero { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; font-size: 11px; color: #737373; }
+.numero { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; font-size: 12px; color: #a3a3a3; }
 .numero > span {
   display: flex; align-items: center; gap: 4px; padding: 5px 8px;
   border: 1px solid var(--borde); border-radius: 8px; background: #00000066;
@@ -466,7 +542,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   width: 100%; min-width: 0; border: 0; background: transparent; color: #e5e5e5;
   font: 500 12px/1 ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; outline: none;
 }
-.numero i { font-style: normal; font-size: 10px; color: #737373; }
+.numero i { font-style: normal; font-size: 12px; color: #a3a3a3; }
 
 /* ---------- 2. editor: el de la 0.3.8, con la línea de tiempo y el Estudio ---------- */
 .edi-vista {
@@ -653,7 +729,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; }
 .fila + .fila { border-top: 1px solid #ffffff0f; }
 .fila .txt { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 13px; color: #e5e5e5; }
-.fila .txt small { display: block; font-size: 11px; color: #737373; }
+.fila .txt small { display: block; font-size: 12px; color: #a3a3a3; }
 .ico-fila { width: 16px; height: 16px; flex: none; color: #737373; }
 .ico-fila.verde { color: #34d399; }
 .fila.apilada { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -663,14 +739,14 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   border: 1px solid #ffffff1a; border-radius: 8px; background: #00000066;
 }
 .campo-atajo kbd, .llave kbd {
-  font: 500 11px/1 ui-monospace, monospace; padding: 4px 6px; border-radius: 5px;
+  font: 500 12px/1 ui-monospace, monospace; padding: 4px 6px; border-radius: 5px;
   background: #ffffff1a; border: 1px solid #ffffff1a; color: #e5e5e5;
 }
 .botoncitos { display: flex; gap: 4px; flex: none; }
 .botoncitos button {
   display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px;
   border: 1px solid #ffffff1a; border-radius: 6px; background: transparent;
-  color: #d4d4d4; font-size: 11px; cursor: pointer; transition: background .12s, color .12s;
+  color: #d4d4d4; font-size: 12px; cursor: pointer; transition: background .12s, color .12s;
 }
 .botoncitos button:hover:not(:disabled) { background: #ffffff1a; color: #fff; }
 .botoncitos button:disabled { opacity: .4; cursor: default; }
@@ -679,10 +755,10 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .segmentado.dos { grid-template-columns: repeat(2, 1fr); }
 .segmentado.cuatro { grid-template-columns: repeat(4, 1fr); }
 /* La otra forma de instalarlo, para quien vive en la terminal. */
-.por-terminal { margin: 10px 0 0; font-size: 12.5px; color: var(--apagado); }
+.por-terminal { margin: 10px 0 0; font-size: 13.5px; color: var(--suave); }
 .por-terminal code {
   padding: 3px 8px; border: 1px solid var(--borde); border-radius: 7px;
-  background: #ffffff0a; color: var(--suave);
+  background: var(--realce); color: var(--suave);
   font: 500 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 /* La barra de las seis marcas, entre la vista previa y la tira de fotogramas. */
@@ -691,7 +767,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   height: 48px; padding: 0 14px; border-bottom: 1px solid var(--borde);
 }
-.ver-set { font-size: 11px; color: #737373; flex: 1; }
+.ver-set { font-size: 12px; color: #a3a3a3; flex: 1; }
 .pes-set { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: #ffffff0a; }
 .pes-set button {
   border: 0; border-radius: 7px; padding: 5px 10px; background: transparent;
@@ -701,7 +777,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .pes-set button.viva { background: #ffffff1f; color: #fff; }
 .cab-set .salir {
   flex: 1; text-align: right; border: 0; background: transparent;
-  color: #a3a3a3; font-size: 11px; cursor: pointer; transition: color .12s;
+  color: #a3a3a3; font-size: 12px; cursor: pointer; transition: color .12s;
 }
 .cab-set .salir:hover { color: #fca5a5; }
 
@@ -713,17 +789,17 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .mini-seg { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff0a; }
 .mini-seg button {
   display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 6px;
-  padding: 4px 8px; background: transparent; color: #a3a3a3; font-size: 11px;
+  padding: 4px 8px; background: transparent; color: #a3a3a3; font-size: 12px;
   cursor: pointer; transition: background .12s, color .12s;
 }
 .mini-seg button:hover { color: #fff; }
 .mini-seg button.viva { background: #ffffff1f; color: #fff; }
 .mini-seg svg { width: 14px; height: 14px; }
 .mini-seg.tema button { padding: 4px 7px; }
-.mini-etiqueta { font-size: 11px; color: #737373; }
+.mini-etiqueta { font-size: 12px; color: #a3a3a3; }
 .mini-boton {
   display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 7px;
-  padding: 5px 9px; background: transparent; color: #a3a3a3; font-size: 11px;
+  padding: 5px 9px; background: transparent; color: #a3a3a3; font-size: 12px;
   cursor: pointer; transition: background .12s, color .12s;
 }
 .mini-boton:hover { background: #ffffff14; color: #fff; }
@@ -761,18 +837,18 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   padding: 24px; transition: border-color .18s, transform .18s, background .18s, box-shadow .18s;
 }
 .caja:hover {
-  border-color: #0a9bff5c; background: #17171c; transform: translateY(-3px);
+  border-color: #0a9bff5c; background: var(--panel-vivo); transform: translateY(-3px);
   box-shadow: 0 16px 32px -20px #0006;
 }
-.caja .ico {
-  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none;
-  background: linear-gradient(155deg, #0a9bff3d, #0a9bff14); color: var(--azul);
-  border: 1px solid #0a9bff26; margin-bottom: 16px;
+/* Suelto y con su resplandor, igual que en los pilares: sin el cuadradito alrededor. */
+.caja .ico { display: block; margin-bottom: 14px; color: var(--azul); }
+.caja .ico svg {
+  display: block; width: 26px; height: 26px;
+  filter: drop-shadow(0 0 8px var(--brillo-icono)); transition: filter .18s;
 }
-.caja .ico svg { width: 22px; height: 22px; }
 /* El icono se ilumina con su tarjeta: sin esto el hover mueve la caja entera y el icono
    se queda igual, que es lo que hace que un hover parezca a medio hacer. */
-.caja:hover .ico { background: linear-gradient(155deg, #0a9bff5c, #0a9bff1f); border-color: #0a9bff45; }
+.caja:hover .ico svg { filter: drop-shadow(0 0 12px var(--brillo-icono-vivo)); }
 .caja h3 { font-size: 16.5px; margin-bottom: 7px; letter-spacing: -0.015em; }
 /* `pretty` evita que la ultima linea se quede con una palabra suelta, que con parrafos
    de tres o cuatro lineas pasa en casi todas y hace que la rejilla se vea sucia. */
@@ -795,9 +871,6 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .faq-grid { display: grid; grid-template-columns: 280px 1fr; gap: 48px; align-items: start; }
 .faq-lateral { position: sticky; top: 100px; }
 .faq-marca { width: 40px; height: 40px; margin-bottom: 16px; }
-.faq-etiqueta {
-  color: var(--azul); font-size: 13px; font-weight: 650; letter-spacing: .02em; margin-bottom: 8px;
-}
 .faq-lateral h2 { font-size: 26px; margin-bottom: 10px; }
 .faq-lateral .entradilla { font-size: 14px; margin-bottom: 20px; }
 
@@ -807,7 +880,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
   padding: 18px 22px; transition: border-color .18s, background .18s;
 }
 .faq details:hover { border-color: #0a9bff5c; }
-.faq details[data-abierta], .faq details[open] { background: #17171c; border-color: #0a9bff3d; }
+.faq details[data-abierta], .faq details[open] { background: var(--panel-vivo); border-color: #0a9bff3d; }
 .faq summary {
   cursor: pointer; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
   list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -830,7 +903,7 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 }
 .faq details[data-abierta] .faq-cajon { grid-template-rows: 1fr; opacity: 1; margin-top: 14px; }
 .faq-cajon > p { overflow: hidden; font-size: 14px; color: var(--suave); max-width: 60ch; margin: 0; }
-.faq details code { background: #ffffff14; padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+.faq details code { background: var(--realce-medio); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
 
 @media (prefers-reduced-motion: reduce) {
   .faq-cajon, .faq-chevron { transition-duration: 140ms; }
@@ -848,14 +921,14 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 
 table { width: 100%; border-collapse: collapse; margin-top: 26px; font-size: 14.5px; }
 th, td { padding: 12px 14px; border-bottom: 1px solid var(--borde); text-align: left; }
-th { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #7c7c88; font-weight: 650; }
-tbody tr:hover { background: #ffffff06; }
+th { font-size: 14px; color: var(--texto); font-weight: 650; }
+tbody tr:hover { background: var(--realce); }
 .llave-tabla kbd {
   font: 500 12px/1 ui-monospace, monospace; padding: 5px 7px; border-radius: 6px;
-  background: #ffffff12; border: 1px solid #ffffff1a; color: #dcdce4; margin-right: 3px;
+  background: var(--realce-medio); border: 1px solid var(--linea); color: var(--texto); margin-right: 3px;
 }
 
-footer { border-top: 1px solid var(--borde); padding: 40px 0 60px; color: var(--apagado); font-size: 14px; }
+footer { border-top: 1px solid var(--borde); padding: 40px 0 60px; color: var(--suave); font-size: 14px; }
 footer .env { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
 
 /* Un enlace metido dentro de una frase no se puede distinguir solo por el color. Sobre el gris
@@ -899,26 +972,23 @@ footer a.cafe svg { width: 15px; height: 15px; }
 .guia .botones { justify-content: flex-start; margin-top: 22px; }
 .guia .nota {
   margin-top: 18px; padding: 14px 16px; border-radius: 12px;
-  border: 1px solid #f0b42933; background: #f0b4290f; color: #e8cf9a; font-size: 14.5px;
+  border: 1px solid var(--nota-borde); background: var(--nota-fondo); color: var(--nota-texto); font-size: 14.5px;
 }
 .guia code {
-  padding: 2px 6px; border-radius: 6px; background: #ffffff12;
+  padding: 2px 6px; border-radius: 6px; background: var(--realce-medio);
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .9em; color: var(--texto);
 }
 
 /* el indice: una fila de fichas que se parte sola en pantallas estrechas */
-.indice { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 30px; }
-.indice a {
-  padding: 7px 13px; border-radius: 999px; border: 1px solid #ffffff1a;
-  background: #ffffff08; color: var(--suave); font-size: 13.5px;
-  transition: background .14s, color .14s;
-}
-.indice a:hover { background: #ffffff1a; color: var(--texto); text-decoration: none; }
+/* El indice va en texto, sin fichas: cada apartado en su color de enlace y separados por
+   el aire. Una ficha alrededor de cada palabra es una pildora (GUSTOS-DE-DISENO, 1). */
+.indice { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 26px; }
+.indice a { padding: 4px 0; color: var(--azul-claro); font-size: 15px; font-weight: 600; }
 
 .tabla-guia { width: 100%; margin-top: 18px; border-collapse: collapse; font-size: 14.5px; }
 .tabla-guia th {
-  text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 650;
-  text-transform: uppercase; letter-spacing: .06em; color: var(--apagado);
+  text-align: left; padding: 10px 12px; font-size: 14px; font-weight: 650;
+  color: var(--texto);
   border-bottom: 1px solid var(--borde);
 }
 .tabla-guia td { padding: 12px; color: var(--suave); border-bottom: 1px solid var(--borde); vertical-align: top; }
@@ -927,10 +997,10 @@ footer a.cafe svg { width: 15px; height: 15px; }
 
 .guia kbd {
   display: inline-block; padding: 2px 7px; border-radius: 6px;
-  border: 1px solid #ffffff26; border-bottom-width: 2px; background: #ffffff12;
+  border: 1px solid var(--linea-viva); border-bottom-width: 2px; background: var(--realce-medio);
   font-family: inherit; font-size: .85em; font-weight: 600; color: var(--texto);
 }
-nav .enlaces a.aqui { color: var(--texto); background: #ffffff14; }
+nav .enlaces a.aqui { color: var(--texto); background: var(--realce-medio); }
 
 @media (max-width: 720px) {
   .tabla-guia { display: block; overflow-x: auto; }
@@ -956,3 +1026,73 @@ nav .enlaces a.aqui { color: var(--texto); background: #ffffff14; }
   flex: 0 0 auto;
   padding-inline: 0.7rem;
 }
+
+/* ---------- la cruceta de la portada (cruceta.js) ----------
+   Va dentro de la cabecera, que la recorta, y las lineas por DETRAS de su contenido: pasan
+   por debajo del texto y de los botones, nunca encima. No recibe ni un clic. Cada pieza solo
+   se mueve con transform y opacity, que es lo que la tarjeta grafica mueve sin molestar a
+   la pagina; `contain` deja todo lo que pasa aqui dentro sin tocar el resto. */
+.portada > .env { position: relative; z-index: 1; }
+.cruceta {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  contain: strict; color: var(--azul);
+  /* El fundido hacia los bordes: la linea llega a ellos con el 30 % de su color. */
+  --cr-fundido: color-mix(in srgb, currentColor 30%, transparent);
+}
+/* Las etiquetas, las esquinas y la onda, por encima: son pequeñas, solo salen mientras
+   apuntas, y por detras del texto no se leian. */
+.cruceta-arriba { z-index: 2; }
+.cr-lineas, .cr-enganche { position: absolute; inset: 0; opacity: 0; will-change: opacity; }
+.cr-h, .cr-v { position: absolute; left: 0; top: 0; will-change: transform; }
+.cr-h { width: 100%; height: 1px; }
+.cr-v { width: 1px; height: 100%; }
+.cr-izq { transform-origin: 0 0; background: linear-gradient(to right, var(--cr-fundido), currentColor); }
+.cr-der { transform-origin: 100% 0; background: linear-gradient(to left, var(--cr-fundido), currentColor); }
+.cr-arr { transform-origin: 0 0; background: linear-gradient(to bottom, var(--cr-fundido), currentColor); }
+.cr-aba { transform-origin: 0 100%; background: linear-gradient(to top, var(--cr-fundido), currentColor); }
+/* Las etiquetas: en el azul de los botones, que con letra blanca da 4,7 de contraste. */
+/* Ancho fijo y aisladas con `contain`: cambiar el numero en cada fotograma no puede obligar a
+   recolocar nada, solo a repintar la propia etiqueta. Con ancho automatico, medido con la
+   CPU a 4x, eran lo que mas pesaba de la cruceta. */
+.cr-etq {
+  position: absolute; left: 0; top: 0; width: 48px; height: 20px; border-radius: 4px;
+  contain: strict; text-align: center;
+  background: var(--azul-boton); color: #fff; white-space: nowrap;
+  font: 600 12px/20px ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums;
+  opacity: 0; will-change: transform, opacity;
+}
+.cr-enganche .cr-etq { width: 92px; opacity: 1; }
+/* Las cuatro esquinas del enganche, como las del logo. */
+.cr-esq {
+  position: absolute; left: 0; top: 0; width: 14px; height: 14px; opacity: .85;
+  border: 0 solid currentColor; transform-origin: 0 0; will-change: transform;
+}
+.cr-ai { border-top-width: 2px; border-left-width: 2px; }
+.cr-ad { border-top-width: 2px; border-right-width: 2px; }
+.cr-bd { border-bottom-width: 2px; border-right-width: 2px; }
+.cr-bi { border-bottom-width: 2px; border-left-width: 2px; }
+/* La onda del clic: crece de 3 a 33 px de radio y se apaga en 0,55 s, como la original. */
+.cr-onda {
+  position: absolute; width: 66px; height: 66px; margin: -33px 0 0 -33px; border-radius: 50%;
+  border: 1.5px solid currentColor; opacity: 0;
+  animation: cr-onda .55s cubic-bezier(.33, 1, .68, 1) forwards;
+}
+@keyframes cr-onda {
+  from { transform: scale(.09); opacity: .75; }
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* La valvula del movimiento, en el pie: un enlace normal, y el que se ve depende de si ya
+   esta puesta. Sin JavaScript no hay nada que parar, asi que se queda el primero. */
+.valvula.con-mov, html.quieto .valvula.sin-mov { display: none; }
+html.quieto .valvula.con-mov { display: inline; }
+
+/* ---------- novedades (generar-novedades.mjs) ----------
+   La misma pagina que la guia, con las versiones mas juntas: son muchas y cortas. */
+.novedades section { margin-top: 44px; }
+.novedades h2 { font-size: 22px; padding-bottom: 0; border-bottom: 0; margin-bottom: 4px; }
+.novedades .version { margin-top: 0; font-size: 14px; color: var(--suave); }
+.novedades .version a { font-weight: 600; }
+.novedades ul { margin-top: 12px; gap: 9px; }
+.novedades li b { color: var(--texto); }
+.foto-version { display: block; width: 100%; margin-top: 14px; border-radius: 10px; border: 1px solid var(--borde); }
