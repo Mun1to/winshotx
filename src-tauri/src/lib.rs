@@ -22,6 +22,7 @@ mod windows_mgr;
 // S1 (línea de tiempo)
 // S2 (grabación)
 // S3 (fondos)
+mod fondos;
 // S4 (capturas)
 // S5 (scroll)
 
@@ -305,6 +306,11 @@ pub fn run() {
             // S2 (grabación)
             record::camara::list_cameras,
             // S3 (fondos)
+            fondos::elegir_archivo_de_fondo,
+            fondos::importar_imagen_de_fondo,
+            fondos::fondo_escritorio,
+            fondos::importar_fondo_animado,
+            fondos::cancelar_fondo_animado,
             // S4 (capturas)
             // S5 (scroll)
             capture::scroll::scroll_iniciar,

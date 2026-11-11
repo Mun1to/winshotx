@@ -62,6 +62,7 @@ features = [
   # La webcam: se graba aparte con Media Foundation (`record/camara.rs`).
   "Win32_Media_MediaFoundation",
   # S3 (fondos)
+  "Win32_Media_MediaFoundation",
   # S4 (capturas)
   # S5 (scroll)
 ]
