@@ -5,7 +5,7 @@
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DespuesDeCapturar, ajustesDeDuracion, duracionDe } from "./DespuesDeCapturar";
+import { DespuesDeCapturar, FondoEnLasCapturas, ajustesDeDuracion, duracionDe } from "./DespuesDeCapturar";
 import { aplicarIdioma } from "../../lib/i18n";
 import type { Settings } from "../../lib/types";
 
@@ -14,7 +14,13 @@ const VIEJOS = {} as Settings;
 
 function pintar(ajustes: Partial<Settings> = {}) {
   const patch = vi.fn();
-  render(<DespuesDeCapturar settings={{ ...VIEJOS, ...ajustes }} patch={patch} />);
+  const settings = { ...VIEJOS, ...ajustes };
+  render(
+    <>
+      <DespuesDeCapturar settings={settings} patch={patch} />
+      <FondoEnLasCapturas settings={settings} patch={patch} />
+    </>,
+  );
   return patch;
 }
 

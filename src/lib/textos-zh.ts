@@ -546,8 +546,6 @@ export const ZH: Record<string, string> = {
   "Miniatura en la esquina": "角落缩略图",
   "Después de copiar o guardar una foto sale abajo a la derecha. Arrástrala a un chat, a un correo o a una carpeta y llega como archivo; al pasar el ratón la copias, la guardas, la editas o la anclas. Se va sola, salvo mientras tienes el ratón encima.":
     "复制或保存截图后，它会出现在右下角。把它拖到聊天、邮件或文件夹里，就会以文件的形式送达；鼠标移上去可以复制、保存、编辑或置顶。它会自动消失，鼠标停在上面时除外。",
-  "no sale nada después de capturar": "截图后不显示任何东西",
-  "arrástrala a cualquier app para mandarla": "拖到任意应用即可发送",
   No: "不",
   "5 s": "5 秒",
   "10 s": "10 秒",

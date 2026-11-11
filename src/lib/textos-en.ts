@@ -546,8 +546,6 @@ export const EN: Record<string, string> = {
   "Miniatura en la esquina": "Corner thumbnail",
   "Después de copiar o guardar una foto sale abajo a la derecha. Arrástrala a un chat, a un correo o a una carpeta y llega como archivo; al pasar el ratón la copias, la guardas, la editas o la anclas. Se va sola, salvo mientras tienes el ratón encima.":
     "After you copy or save a shot it shows up at the bottom right. Drag it into a chat, an email or a folder and it arrives as a file; hover it to copy, save, edit or pin it. It goes away on its own, except while your mouse is over it.",
-  "no sale nada después de capturar": "nothing shows up after capturing",
-  "arrástrala a cualquier app para mandarla": "drag it into any app to send it",
   No: "Off",
   "5 s": "5 sec",
   "10 s": "10 sec",

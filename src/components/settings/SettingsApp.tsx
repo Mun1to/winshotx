@@ -57,7 +57,7 @@ import { formatBytes } from "../../lib/format";
 import { aplicarTema } from "../../lib/tema";
 import { aplicarIdioma, useT } from "../../lib/i18n";
 // S4 (capturas)
-import { DespuesDeCapturar } from "./DespuesDeCapturar";
+import { DespuesDeCapturar, FondoEnLasCapturas } from "./DespuesDeCapturar";
 import { Historial } from "../historial/Historial";
 import {
   EVENTS,
@@ -610,6 +610,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                  {/* S4 (capturas): el fondo para todas las capturas (E1). */}
+                  <FondoEnLasCapturas settings={settings} patch={patch} />
                 </Section>
               </>
             )}

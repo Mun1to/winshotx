@@ -235,7 +235,7 @@ function Carta({
         onClick={onAbrir}
         title={entrada.nombre}
         aria-label={t("Abrir {nombre}", { nombre: entrada.nombre })}
-        className="block aspect-video w-full overflow-hidden rounded-md border-2 border-linea bg-black/40 transition-colors hover:border-marca focus:border-marca focus:outline-none"
+        className="block aspect-video w-full overflow-hidden rounded-md border-2 border-linea bg-hueco transition-colors hover:border-marca focus:border-marca focus:outline-none"
       >
         {miniatura ? (
           <img src={miniatura} alt="" draggable={false} className="size-full object-contain" />
