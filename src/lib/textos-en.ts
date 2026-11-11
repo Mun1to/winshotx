@@ -525,6 +525,20 @@ export const EN: Record<string, string> = {
   // S1 (línea de tiempo)
   // S2 (grabación)
   // S3 (fondos)
+  "Poner una imagen tuya de fondo": "Use one of your images as the background",
+  "Imagen": "Image",
+  "Poner tu fondo de escritorio": "Use your desktop wallpaper",
+  "Escritorio": "Desktop",
+  "Poner un vídeo o un GIF tuyo de fondo, que se repite": "Use one of your videos or GIFs as the background, looping",
+  "Vídeo o GIF": "Video or GIF",
+  "Elegir cualquier color": "Pick any colour",
+  "Más colores": "More colours",
+  "Importando el fondo": "Importing the background",
+  "Liso": "Solid",
+  "Degradado": "Gradient",
+  "Saturación y brillo": "Saturation and brightness",
+  "Tono": "Hue",
+  "Código del color": "Colour code",
   // S4 (capturas)
   // S5 (scroll)
 };

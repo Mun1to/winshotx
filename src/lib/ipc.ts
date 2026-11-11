@@ -247,5 +247,39 @@ export const resizeTrayMenu = (height: number) =>
 // S1 (línea de tiempo)
 // S2 (grabación)
 // S3 (fondos)
+/** El diálogo de abrir de Windows para un fondo: `imagen` o `video` (que también es GIF). */
+export const elegirArchivoDeFondo = (tipo: "imagen" | "video") =>
+  invoke<string | null>("elegir_archivo_de_fondo", { tipo });
+
+/** Copia una imagen a la carpeta de fondos y devuelve la ruta de la copia. */
+export const importarImagenDeFondo = (origen: string) =>
+  invoke<string>("importar_imagen_de_fondo", { origen });
+
+/** Lo que tiene puesto el escritorio de Windows, para la vista previa. */
+export const fondoEscritorio = () =>
+  invoke<{ tipo: "imagen"; vista: string } | { tipo: "color"; rgb: [number, number, number] }>(
+    "fondo_escritorio",
+  );
+
+/** Un vídeo o un GIF convertido en fondo animado. El progreso llega por `EVENTO_PROGRESO_FONDO`. */
+export interface FondoImportado {
+  ruta: string;
+  vista: string;
+  ancho: number;
+  alto: number;
+  duraMs: number;
+}
+
+export const importarFondoAnimado = (origen: string) =>
+  invoke<FondoImportado>("importar_fondo_animado", { origen });
+
+/** Para la importación en marcha; esa importación acaba con `FONDO_CANCELADO`. */
+export const cancelarFondoAnimado = () => invoke<void>("cancelar_fondo_animado");
+
+/** El evento con el progreso de importar, `{ hecho }` de 0 a 1. */
+export const EVENTO_PROGRESO_FONDO = "winshotx://fondo-progreso";
+
+/** El error con el que acaba una importación cancelada: no es un fallo y no se enseña. */
+export const FONDO_CANCELADO = "importación cancelada";
 // S4 (capturas)
 // S5 (scroll)

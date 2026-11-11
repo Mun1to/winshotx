@@ -525,6 +525,20 @@ export const ZH: Record<string, string> = {
   // S1 (línea de tiempo)
   // S2 (grabación)
   // S3 (fondos)
+  "Poner una imagen tuya de fondo": "用你自己的图片作背景",
+  "Imagen": "图片",
+  "Poner tu fondo de escritorio": "用你的桌面壁纸",
+  "Escritorio": "桌面",
+  "Poner un vídeo o un GIF tuyo de fondo, que se repite": "用你自己的视频或 GIF 作背景，循环播放",
+  "Vídeo o GIF": "视频或 GIF",
+  "Elegir cualquier color": "选择任意颜色",
+  "Más colores": "更多颜色",
+  "Importando el fondo": "正在导入背景",
+  "Liso": "纯色",
+  "Degradado": "渐变",
+  "Saturación y brillo": "饱和度和亮度",
+  "Tono": "色相",
+  "Código del color": "颜色代码",
   // S4 (capturas)
   // S5 (scroll)
 };
