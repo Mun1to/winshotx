@@ -21,10 +21,12 @@ const QUE_PASA: Record<EstadoScroll, string> = {
 /**
  * La barrita que acompaña a la captura con scroll, debajo de la zona.
  *
- * Dice qué está pasando y cuánto mide ya la imagen, y tiene las dos salidas: «Terminar»,
- * que se queda con lo que lleve y lo abre en el editor, y la X, que lo tira. Esc hace lo
- * mismo que «Terminar» desde cualquier sitio: la ventana no coge el foco nunca (lo tiene
- * la página que baja), así que la tecla la escucha Rust.
+ * Dice qué está pasando y cuánto mide ya la imagen, y tiene las dos salidas: «Parar», que
+ * se queda con lo que lleve y lo abre en el editor, y la X, que lo tira. Esc hace lo mismo
+ * que «Parar» desde cualquier sitio, y por eso va escrito en el botón: la ventana no coge
+ * el foco nunca (lo tiene la página que baja), así que la tecla la escucha Rust. Se llamaba
+ * «Terminar», y el 11 de noviembre de 2026 Munir pidió poder pararla cuando quisiera sin
+ * saber que ya se podía.
  *
  * **La X pide dos toques**, igual que la de grabar: una captura larga no se pierde por un
  * clic despistado.
@@ -89,7 +91,7 @@ export function BarraScroll() {
       <span
         data-tauri-drag-region
         role="status"
-        className={`truncate text-[14px] leading-none font-semibold ${
+        className={`truncate text-[14px] leading-5 font-semibold ${
           aviso ? "text-amber-300" : "text-white"
         }`}
       >
@@ -110,12 +112,15 @@ export function BarraScroll() {
           type="button"
           onClick={terminar}
           disabled={terminando}
-          title={`${t("Terminar y abrir en el editor")} · Esc`}
-          aria-label={t("Terminar")}
+          title={`${t("Parar y abrir en el editor lo que lleva")} · Esc`}
+          aria-label={t("Parar")}
           className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-blue-500 px-3 text-sm font-medium text-white transition-colors duration-100 hover:bg-blue-400 disabled:pointer-events-none disabled:opacity-40"
         >
           <Check className="size-[18px] shrink-0" strokeWidth={2} />
-          {t("Terminar")}
+          {t("Parar")}
+          <kbd className="rounded bg-white/20 px-1 py-px font-sans text-[11px] leading-none font-semibold">
+            Esc
+          </kbd>
         </button>
         <button
           type="button"

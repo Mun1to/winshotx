@@ -157,10 +157,11 @@ describe("la barrita mientras baja", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Sube un poco, me he perdido");
   });
 
-  it("Terminar se pide una vez y deja la barra en Cosiendo", () => {
+  it("Parar se pide una vez y deja la barra en Cosiendo", () => {
     render(<BarraScroll />);
-    fireEvent.click(screen.getByLabelText("Terminar"));
-    fireEvent.click(screen.getByLabelText("Terminar"));
+    expect(screen.getByLabelText("Parar")).toHaveTextContent("Esc");
+    fireEvent.click(screen.getByLabelText("Parar"));
+    fireEvent.click(screen.getByLabelText("Parar"));
     expect(comandos().filter((c) => c === "scroll_terminar")).toHaveLength(1);
     expect(screen.getByRole("status")).toHaveTextContent("Cosiendo…");
     expect(screen.getByLabelText("Descartar")).toBeDisabled();
@@ -189,7 +190,7 @@ describe("la barrita mientras baja", () => {
     render(<BarraScroll />);
     await progreso({ alto: 900, estado: "no-baja" });
     expect(screen.getByRole("status")).toHaveTextContent("It won't scroll by itself: scroll it yourself");
-    expect(screen.getByLabelText("Finish")).toBeInTheDocument();
+    expect(screen.getByLabelText("Stop")).toBeInTheDocument();
     expect(screen.getByLabelText("Discard")).toBeInTheDocument();
   });
 });

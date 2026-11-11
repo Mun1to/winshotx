@@ -9,6 +9,7 @@
  *   node scripts/ver-ventana.mjs pendiente.png --tecla-pendiente
  *   node scripts/ver-ventana.mjs grabar.png --seccion=grabar --anillo
  *   node scripts/ver-ventana.mjs otros.png --seccion=grabar --anillo --otros-grabadores
+ *   node scripts/ver-ventana.mjs barra.png --barra-scroll --escala=2
  *
  * Sirve el bundle DE VERDAD de `dist/` y le cuela un `__TAURI_INTERNALS__` de mentira en
  * el <head>, antes del script de la app, para que los `invoke` contesten datos fijos.
@@ -99,6 +100,9 @@ const idioma = bandera("idioma", "es");
 const cuenta = bandera("cuenta", null);
 // Un PNG que hará de captura anclada; si viene, se fotografía esa ventana flotante.
 const anclada = bandera("anclada", null);
+// La barrita de la captura con scroll («Parar», Esc y la X). Mide 420x52, pero el navegador
+// sin ventana no baja de unos 500 de ancho, así que sale algo más ancha que de verdad.
+const barraScroll = args.includes("--barra-scroll");
 // Y otro que hará de fotograma del editor, con una sesión de mentira alrededor.
 const editor = bandera("editor", null);
 // Un MP4 de verdad que haga de vista previa ya escrita. Sin él, el editor sale como
@@ -625,6 +629,10 @@ server.listen(0, () => {
   if (anclada !== null) {
     // La ventana anclada sale del tamaño del recorte, así que aquí manda --ancho/--alto.
     pagina = `pin.html?imagen=${encodeURIComponent(resolve(anclada))}`;
+  }
+  if (barraScroll) {
+    pagina = "overlay.html?barra=scroll";
+    [w, h] = ["500", "52"];
   }
   if (menu) {
     pagina = "tray-menu.html";
