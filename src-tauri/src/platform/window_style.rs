@@ -63,8 +63,9 @@ pub fn never_focus(_window: &tauri::WebviewWindow) {}
 /// **Tauri no se entera de que la ventana se ve.** Sigue creyendo que esta escondida, y su
 /// `hide()` compara con lo que cree y no hace nada: la ventana se queda en pantalla. Quien
 /// la ensenne asi, o llama a `show()` despues para ponerle al dia (los overlays), o la
-/// esconde con [`esconder`] (la miniatura, que no puede llamar a `show()` porque cogeria el
-/// foco). Paso con la miniatura de la 0.4.0: las cartas se iban y el recuadro se quedaba.
+/// esconde con [`esconder_hwnd`] (la miniatura, que no puede llamar a `show()` porque
+/// cogeria el foco). Paso con la miniatura de la 0.4.0: las cartas se iban y el recuadro se
+/// quedaba.
 #[cfg(windows)]
 pub fn colocar_y_ensennar(window: &tauri::WebviewWindow, x: i32, y: i32) -> bool {
     let Ok(handle) = window.hwnd() else { return false };
@@ -99,17 +100,12 @@ pub fn colocar_y_ensennar(_window: &tauri::WebviewWindow, _x: i32, _y: i32) -> b
 }
 
 /// Esconde la ventana por el mismo camino por el que la ensenna [`colocar_y_ensennar`]:
-/// directamente con Windows, sin pasar por lo que Tauri cree. Y luego el `hide()` de
-/// Tauri, que no hace nada si Tauri ya la creia escondida y la pone al dia si no.
-#[cfg(windows)]
-pub fn esconder(window: &tauri::WebviewWindow) {
-    if let Ok(handle) = window.hwnd() {
-        esconder_hwnd(handle.0 as isize);
-    }
-    let _ = window.hide();
-}
-
-/// Lo mismo, sobre una ventana de Windows a pelo, para poder probarlo.
+/// directamente con Windows, sin pasar por lo que Tauri cree. Quien llama hace despues el
+/// `hide()` de Tauri, que no hace nada si Tauri ya la creia escondida y la pone al dia si no.
+///
+/// Recibe la ventana a pelo y no un `WebviewWindow` a proposito: sacar el `hwnd()` de una
+/// ventana de Tauri desde otro hilo es una pregunta que espera sin plazo (trampa 34), y la
+/// miniatura se esconde desde los hilos de sus ordenes.
 #[cfg(windows)]
 pub fn esconder_hwnd(ventana: isize) {
     use windows::Win32::Foundation::HWND;
@@ -120,9 +116,55 @@ pub fn esconder_hwnd(ventana: isize) {
 }
 
 #[cfg(not(windows))]
-pub fn esconder(window: &tauri::WebviewWindow) {
-    let _ = window.hide();
+pub fn esconder_hwnd(_ventana: isize) {}
+
+/// La ventana que esta delante ahora mismo (la que recibe el teclado), o 0 si no hay.
+#[cfg(windows)]
+pub fn primer_plano() -> isize {
+    use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+    unsafe { GetForegroundWindow() }.0 as isize
 }
+
+#[cfg(not(windows))]
+pub fn primer_plano() -> isize {
+    0
+}
+
+/// La clase de una ventana de Windows («Shell_TrayWnd» es la barra de tareas), para el
+/// registro: dice quien se ha quedado delante sin tener que adivinarlo.
+#[cfg(windows)]
+pub fn clase_de(ventana: isize) -> String {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::GetClassNameW;
+
+    if ventana == 0 {
+        return "ninguna".into();
+    }
+    let mut texto = [0u16; 128];
+    let largo = unsafe { GetClassNameW(HWND(ventana as *mut core::ffi::c_void), &mut texto) };
+    String::from_utf16_lossy(&texto[..largo.max(0) as usize])
+}
+
+#[cfg(not(windows))]
+pub fn clase_de(_ventana: isize) -> String {
+    String::new()
+}
+
+/// Le devuelve el foco del teclado a la ventana de arriba, que se lo pasa a su pagina.
+///
+/// Solo vale desde el hilo de la ventana (el principal) y con la app delante. Sirve para
+/// que Tauri vuelva a saber que la ventana tiene el foco despues de que el navegador de
+/// dentro se lo llevara por su cuenta: sin eso, Tauri ya no avisa cuando lo pierde de verdad.
+#[cfg(windows)]
+pub fn devolver_el_foco(ventana: isize) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
+
+    let _ = unsafe { SetFocus(Some(HWND(ventana as *mut core::ffi::c_void))) };
+}
+
+#[cfg(not(windows))]
+pub fn devolver_el_foco(_ventana: isize) {}
 
 /// Deja la ventana fuera de lo que se graba, sin esconderla.
 ///

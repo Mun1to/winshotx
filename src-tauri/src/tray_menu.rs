@@ -117,16 +117,86 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     // transparente: eso deja un halo negro alrededor. Trampa conocida de esta app.
     crate::platform::window_style::rounded_corners(&window);
 
+    // Aqui se esta en el hilo principal (lo llama el clic de la bandeja), asi que preguntar
+    // por la ventana a pelo no espera a nadie.
+    let menu = window.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+
     // Un menu se cierra al pulsar en otro sitio. El del sistema lo hacia solo; aqui se
-    // hace al perder el foco, que es lo mismo visto desde dentro.
+    // hace al perder el foco, que es lo mismo visto desde dentro... casi siempre.
     let suyo = app.clone();
     window.on_window_event(move |evento| {
-        if let tauri::WindowEvent::Focused(false) = evento {
-            *ESCONDIDO_EN.lock() = Some(Instant::now());
-            esconder(&suyo);
+        if let tauri::WindowEvent::Focused(enfocado) = evento {
+            apuntar(&suyo, if *enfocado { "coge el foco" } else { "pierde el foco" });
+            if !*enfocado {
+                al_perder_el_foco(&suyo, menu);
+            }
         }
     });
     Ok(window)
+}
+
+/// Lo que se espera antes de mirar quien ha quedado delante.
+const MIRAR_DELANTE_EN: Duration = Duration::from_millis(80);
+
+/// El menu solo se cierra si de verdad hay otra ventana delante.
+///
+/// **La primera vez que se abria, se cerraba solo.** Munir, 11-nov-2026: *«la primera vez
+/// que le das al icono con click derecho no funciona, solo la segunda; la primera como que
+/// parpadea pero no se abre bien»*. La ventana se crea en ese primer clic, y cuando su
+/// navegador termina de arrancar se lleva el foco del teclado a su pagina. Para Tauri eso
+/// es «la ventana ha perdido el foco» aunque el menu siga delante, y lo cerraba. Las
+/// siguientes veces la pagina ya esta cargada y el foco pasa dentro sin que Tauri lo cuente.
+///
+/// Por eso se mira un momento despues quien esta delante: si sigue siendo el menu, el foco
+/// se ha ido a su propia pagina, y se le devuelve a la ventana para que Tauri vuelva a avisar
+/// cuando lo pierda de verdad (si no, un clic fuera ya no lo cerraria). Todo en el hilo
+/// principal: el de fondo solo duerme (trampa 34).
+fn al_perder_el_foco(app: &AppHandle, menu: isize) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(MIRAR_DELANTE_EN);
+        let en_el_principal = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            let app = en_el_principal;
+            let delante = crate::platform::window_style::primer_plano();
+            if menu != 0 && delante == menu {
+                apuntar(&app, "sigue delante: el foco se fue a su pagina, se le devuelve");
+                crate::platform::window_style::devolver_el_foco(menu);
+                return;
+            }
+            apuntar(
+                &app,
+                &format!(
+                    "delante esta otra ({}): se esconde",
+                    crate::platform::window_style::clase_de(delante)
+                ),
+            );
+            *ESCONDIDO_EN.lock() = Some(Instant::now());
+            esconder(&app);
+        });
+    });
+}
+
+/// Un registro corto de lo que le pasa al foco del menu, en el temporal de la app
+/// (`bandeja.log`). Lo que falla aqui solo pasa con el clic de verdad de Munir en su
+/// bandeja, y sin esto cada intento es adivinar. Nunca pasa de 32 KB.
+fn apuntar(app: &AppHandle, que: &str) {
+    use std::io::Write;
+    use std::sync::OnceLock;
+
+    static ARRANQUE: OnceLock<Instant> = OnceLock::new();
+    let desde = ARRANQUE.get_or_init(Instant::now).elapsed().as_secs_f64();
+    let ruta = app.state::<crate::state::AppState>().temp_root.join("bandeja.log");
+    let lleno = std::fs::metadata(&ruta).is_ok_and(|m| m.len() > 32 * 1024);
+    let archivo = std::fs::OpenOptions::new()
+        .create(true)
+        .append(!lleno)
+        .write(true)
+        .truncate(lleno)
+        .open(&ruta);
+    if let Ok(mut archivo) = archivo {
+        let _ = writeln!(archivo, "{desde:9.3} s  {que}");
+    }
 }
 
 pub fn esconder(app: &AppHandle) {
@@ -162,6 +232,8 @@ fn esta_a_la_vista(app: &AppHandle) -> bool {
 
 /// Lo coloca sobre el icono de la bandeja y lo ensenna.
 fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
+    let nueva = app.get_webview_window(TRAY_MENU_LABEL).is_none();
+    apuntar(app, if nueva { "clic: se abre por primera vez" } else { "clic: se abre" });
     let window = ventana(app)?;
     let escala = window.scale_factor().unwrap_or(1.0);
     let medida = window

@@ -20,7 +20,7 @@
 //! guardada (`winshotx-AAAAMMDD-HHMMSS.png`), que es lo que verá quien la reciba en el chat.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use image::RgbaImage;
 use parking_lot::Mutex;
@@ -86,6 +86,10 @@ pub struct Pila {
 
 static PILA: Mutex<Vec<Miniatura>> = Mutex::new(Vec::new());
 static SIGUIENTE: AtomicU64 = AtomicU64::new(1);
+/// La ventana a pelo, apuntada al crearla. La miniatura se enseña y se esconde desde los
+/// hilos de sus órdenes, y preguntarle a Tauri por el `hwnd()` desde otro hilo es una
+/// pregunta que espera sin plazo (trampa 34): así se pregunta una vez y no a cada carta.
+static VENTANA: AtomicIsize = AtomicIsize::new(0);
 
 /// Después de copiar o guardar una foto: prepara su miniatura y la enseña.
 ///
@@ -270,6 +274,10 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
         .build()?;
     crate::platform::window_style::rounded_corners(&window);
     crate::platform::window_style::never_focus(&window);
+    #[cfg(windows)]
+    if let Ok(handle) = window.hwnd() {
+        VENTANA.store(handle.0 as isize, Ordering::Relaxed);
+    }
     Ok(window)
 }
 
@@ -279,10 +287,14 @@ fn ensennar(app: &AppHandle, segundos: u32) {
     let cuantas = PILA.lock().len();
     let Ok(window) = ventana(app) else { return };
     let _ = app.emit_to(ETIQUETA, EVENTO, vista_de_la_pila(segundos));
+    let hwnd = VENTANA.load(Ordering::Relaxed);
     if cuantas == 0 {
         // Se enseña por fuera de Tauri (`colocar_y_ensennar`), así que el `hide()` de Tauri
         // sola la cree ya escondida y no hace nada: el recuadro vacío se quedaba en pantalla.
-        crate::platform::window_style::esconder(&window);
+        if hwnd != 0 {
+            crate::platform::window_style::esconder_hwnd(hwnd);
+        }
+        let _ = window.hide();
         return;
     }
     let (trabajo, escala) = pantalla_del_raton().unwrap_or(((0, 0, 1920, 1040), 1.0));
@@ -292,7 +304,11 @@ fn ensennar(app: &AppHandle, segundos: u32) {
     let (x, y) = sitio(trabajo, ancho, alto, escala);
     // Sin activarla: `show()` le daría el foco a la ventana, y el foco es de la app donde
     // se va a pegar.
-    if !crate::platform::window_style::colocar_y_ensennar(&window, x, y) {
+    #[cfg(windows)]
+    let ensennada = hwnd != 0 && crate::platform::window_style::colocar_y_ensennar_hwnd(hwnd, x, y);
+    #[cfg(not(windows))]
+    let ensennada = false;
+    if !ensennada {
         let _ = window.set_position(PhysicalPosition::new(x, y));
         let _ = window.show();
     }
