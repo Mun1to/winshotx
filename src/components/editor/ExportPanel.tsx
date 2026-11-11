@@ -298,11 +298,21 @@ export function ExportPanel({
     };
   }, []);
 
-  /** Lo que dura lo que se va a guardar, en segundos de la grabación. */
+  /**
+   * Lo que dura lo que se va a guardar, en segundos, antes de la velocidad general. Con
+   * tijeras, los trozos que se quedan, cada uno a su velocidad (`duracionQueSale`): lo
+   * quitado no pesa, y un trozo al doble pesa la mitad.
+   */
+  const tramos = edicion?.tramos;
   const segundos = useMemo(() => {
+    if (tramos && tramos.length > 0) {
+      return tramos.reduce((total, tramo) => total + (tramo.hastaMs - tramo.desdeMs) / tramo.velocidad, 0) / 1000;
+    }
     if (desdeMs !== undefined && hastaMs !== undefined) return Math.max(0, hastaMs - desdeMs) / 1000;
     return Math.max(1, outIndex - inIndex + 1) / Math.max(1, session.fps);
-  }, [desdeMs, hastaMs, inIndex, outIndex, session.fps]);
+  }, [tramos, desdeMs, hastaMs, inIndex, outIndex, session.fps]);
+  /** Algún trozo va acelerado: ese trozo sale sin sonido y el resto suena. */
+  const trozosAcelerados = !!tramos?.some((tramo) => tramo.velocidad !== 1);
 
   const estimate = useMemo(() => {
     // A 2x el vídeo dura la mitad, así que también pesa la mitad.
@@ -464,7 +474,9 @@ export function ExportPanel({
                   ? t("esta grabación se hizo sin audio")
                   : velocidad !== 1
                     ? t("a otra velocidad el vídeo sale mudo")
-                    : undefined
+                    : trozosAcelerados
+                      ? t("los trozos acelerados salen sin sonido")
+                      : undefined
               }
             />
           )}

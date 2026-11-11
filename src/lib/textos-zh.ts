@@ -58,6 +58,7 @@ export const ZH: Record<string, string> = {
   "dura {n} veces menos, y sale sin sonido": "时长缩短 {n} 倍，且没有声音",
   "dura el doble, y sale sin sonido": "时长变为两倍，且没有声音",
   "a otra velocidad el vídeo sale mudo": "其他速度下视频会没有声音",
+  "los trozos acelerados salen sin sonido": "加速的片段没有声音",
 
   "Paso numerado": "编号步骤",
 

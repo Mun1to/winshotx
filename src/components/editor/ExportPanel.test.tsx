@@ -5,7 +5,7 @@
  * lo que se le manda a Rust, no en lo que se ve. Una casilla que se queda pegada del
  * formato anterior no se nota mirando: se nota cuando alguien abre el archivo.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExportPanel } from "./ExportPanel";
 import { aplicarIdioma } from "../../lib/i18n";
@@ -201,6 +201,34 @@ describe("lo nuevo del plan (zooms a mano, tramos, fondos propios)", () => {
     fireEvent.click(screen.getByRole("button", { name: "PNG" }));
     const req = await guardarYEsperar();
     expect(req).toMatchObject({ zooms: null, tramos: null, fondo: EDICION.fondo });
+  });
+
+  /** El peso estimado, en bytes, tal como lo enseña el panel («≈ 2.4 MB»). */
+  function pesoEstimado() {
+    const [, numero, unidad] = /≈ ([\d.]+) (B|KB|MB|GB)/.exec(screen.getByText(/^≈ /).textContent ?? "") ?? [];
+    return Number(numero) * 1024 ** ["B", "KB", "MB", "GB"].indexOf(unidad);
+  }
+
+  it("el peso cuenta solo lo que sale: lo quitado no pesa y un trozo al doble, la mitad", () => {
+    pintarCon({});
+    const entero = pesoEstimado();
+    cleanup();
+    // Del tramo de 71 fotogramas a 30 fps (2,37 s) sale un segundo al doble: medio segundo.
+    pintarCon({ tramos: [{ desdeMs: 0, hastaMs: 1_000, velocidad: 2 }] });
+    const recortado = pesoEstimado();
+    expect(recortado / entero).toBeGreaterThan(0.19);
+    expect(recortado / entero).toBeLessThan(0.23);
+  });
+
+  it("con un trozo acelerado avisa de que ese trozo sale sin sonido, no el vídeo entero", () => {
+    pintarCon({
+      tramos: [
+        { desdeMs: 0, hastaMs: 1_000, velocidad: 1 },
+        { desdeMs: 1_000, hastaMs: 2_000, velocidad: 2 },
+      ],
+    });
+    expect(screen.getByText("los trozos acelerados salen sin sonido")).toBeInTheDocument();
+    expect(screen.queryByText("a otra velocidad el vídeo sale mudo")).toBeNull();
   });
 });
 
