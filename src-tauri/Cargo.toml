@@ -60,6 +60,7 @@ features = [
   # S1 (línea de tiempo)
   # S2 (grabación)
   # S3 (fondos)
+  "Win32_Media_MediaFoundation",
   # S4 (capturas)
   # S5 (scroll)
 ]

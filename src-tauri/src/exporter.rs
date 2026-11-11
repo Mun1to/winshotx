@@ -274,7 +274,9 @@ fn pasos_de(session: &SessionData, request: &ExportRequest) -> Pasos {
     let (desde, hasta) = request.tramo(session);
     let camara = Camara::preparar(session, request);
     let ve = QueSeVe::nuevo(session, request, &camara);
-    pasos(session, desde, hasta, request.fps, request.velocidad(), &|a, b| ve.igual(a, b))
+    // Con un fondo animado no hay dos instantes iguales: cada paso lleva su fotograma (S3).
+    let animado = marco_de(request).animado();
+    pasos(session, desde, hasta, request.fps, request.velocidad(), &|a, b| !animado && ve.igual(a, b))
 }
 
 /// Si dos instantes de la grabacion se ven igual una vez vestidos: el puntero en el mismo
@@ -343,15 +345,21 @@ impl<'a> QueSeVe<'a> {
     }
 }
 
-/// El marco que pide una peticion.
+/// El marco que pide una peticion. El fondo propio (`edicion.fondo`: un color, una imagen,
+/// el escritorio o un video) manda sobre el de nombre cuando viene.
 fn marco_de(request: &ExportRequest) -> marco::Marco {
     marco::Marco {
         margen: request.margin.min(400),
-        fondo: marco::Fondo::desde(&request.background),
+        fondo: marco::Fondo::elegido(&request.background, request.edicion.fondo.as_ref()),
         sombra: request.shadow,
         esquinas: request.corners.min(400),
     }
 }
+
+/// Las pruebas de los fondos propios (S3) por `escribir`, aparte para no pisar las de aqui.
+#[cfg(test)]
+#[path = "exporter_fondos.rs"]
+mod pruebas_de_fondos;
 
 /// Los fotogramas de una exportacion, ya vestidos y en orden: leidos por delante en otro
 /// hilo, con el recorte, la camara, el estudio y las marcas puestos en el instante de cada
@@ -408,7 +416,8 @@ impl<'a> Vestidor<'a> {
             base,
             self.request.width.max(1),
             self.request.height.max(1),
-            self.marco,
+            // Con fondo animado, el del instante de este paso en el video exportado.
+            self.marco.tras(&self.pasos.retardos[..posicion]),
             &self.request.annotations,
             &recortes,
             self.vestir.as_mut(),
@@ -641,7 +650,9 @@ fn escribir(
                         base,
                         width,
                         height,
-                        marco,
+                        // Con fondo animado, el de ese instante: si no, los colores del
+                        // resto del video no entran en la paleta y salen cambiados.
+                        marco.tras(&pasos.retardos[..posicion]),
                         &request.annotations,
                         &recortes,
                         vestir_muestra.as_mut(),
