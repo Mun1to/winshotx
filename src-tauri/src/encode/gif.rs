@@ -159,6 +159,12 @@ where
     let mut previous: Option<RgbaImage> = None;
     let mut reloj = Reloj::default();
     let mut escritos = 0usize;
+    // Cada fotograma se escribe cuando llega el siguiente que cambia algo, y no antes: lo
+    // que se ve en el GIF entre dos cambios es el primero, así que el tiempo de los que no
+    // cambian nada es suyo. Escribiéndolo enseguida, ese tiempo se iba al siguiente (que
+    // salía antes de hora), y el de los que no cambiaban al final se perdía: un vídeo con
+    // un zoom y después cinco segundos quietos salía cinco segundos más corto.
+    let mut pendiente: Option<gif::Frame<'static>> = None;
 
     for (numero_lote, trozo) in indices.chunks(lote).enumerate() {
         progress("encoding", numero_lote * lote, total);
@@ -180,10 +186,15 @@ where
             let position = numero_lote * lote + k;
             let delay_ms = delays_ms.get(position).copied().unwrap_or(40);
             let Some((left, top, w, h)) = rect else {
-                // Nada ha cambiado: el tiempo se acumula en el fotograma siguiente.
+                // Nada ha cambiado: se sigue viendo el que espera, y este tiempo es suyo.
                 reloj.acumular(delay_ms);
                 continue;
             };
+            // El que esperaba ya sabe cuánto se ve: hasta ahora, con lo que no cambió detrás.
+            if let Some(mut anterior) = pendiente.take() {
+                anterior.delay = reloj.retardo();
+                encoder.write_frame(&anterior)?;
+            }
             reloj.acumular(delay_ms);
 
             let mut gif_frame = gif::Frame {
@@ -194,13 +205,16 @@ where
                 buffer: Cow::Owned(buffer),
                 ..Default::default()
             };
-            gif_frame.delay = reloj.retardo();
             gif_frame.dispose = gif::DisposalMethod::Keep;
             gif_frame.transparent = if escritos == 0 { None } else { Some(TRANSPARENT) };
-            encoder.write_frame(&gif_frame)?;
+            pendiente = Some(gif_frame);
             escritos += 1;
         }
         previous = frames.into_iter().last();
+    }
+    if let Some(mut ultimo) = pendiente.take() {
+        ultimo.delay = reloj.retardo();
+        encoder.write_frame(&ultimo)?;
     }
 
     progress("done", total, total);
@@ -680,5 +694,37 @@ mod tests {
         // 12 x 33 ms = 396 ms, que son 40 centesimas redondeando.
         assert_eq!(total_cs, 40, "el GIF no dura lo que duraba la grabacion");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Lo que no cambia nada sigue enseñando el de antes, y su tiempo es de ese: el rojo
+    /// dura lo suyo, el azul aparece a su hora, y los tres azules del final no se pierden.
+    #[test]
+    fn los_que_no_cambian_alargan_el_de_antes_y_no_se_pierden() {
+        let (ancho, alto) = (32u32, 24u32);
+        let liso = |c: [u8; 3]| RgbaImage::from_pixel(ancho, alto, Rgba([c[0], c[1], c[2], 255]));
+        let frames = [liso([220, 30, 30]), liso([30, 60, 220]), liso([30, 60, 220]), liso([30, 60, 220])];
+        let dir = std::env::temp_dir().join(format!("winshotx-gif-quietos-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("quietos.gif");
+        let mut muestra = |i: usize| Ok(frames[i].clone());
+        let mut loader = |i: usize| Ok(frames[i].clone());
+        encode(
+            &[0, 1, 2, 3],
+            &[100, 100, 100, 100],
+            &mut muestra,
+            &mut loader,
+            &path,
+            &GifOptions { width: ancho, height: alto, quality: 80, loop_forever: true },
+            |_, _, _| {},
+        )
+        .expect("no se ha podido codificar");
+        let bytes = std::fs::read(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut decoder = gif::DecodeOptions::new().read_info(std::io::Cursor::new(&bytes)).unwrap();
+        let mut retardos = Vec::new();
+        while let Some(frame) = decoder.read_next_frame().unwrap() {
+            retardos.push(frame.delay);
+        }
+        assert_eq!(retardos, vec![10, 30], "el rojo una décima y el azul las tres que quedan");
     }
 }
