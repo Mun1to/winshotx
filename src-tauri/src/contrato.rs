@@ -31,6 +31,23 @@ pub struct MarcaZoom {
     pub y: i32,
 }
 
+/// Un rato en el que se escribió: de aquí salen acercarse al escribir (A5), esconder el
+/// puntero al escribir (C2) y acelerar lo escrito (D3).
+///
+/// **Solo cuándo, nunca qué.** `SessionData::teclas` guarda únicamente atajos con Ctrl, Alt
+/// o Win, para que una contraseña tecleada no acabe en el disco, y por eso de ahí no se
+/// puede sacar cuándo se escribía. Esto guarda el rato y nada más: ni una tecla, ni cuántas.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TramoEscritura {
+    pub desde_ms: u64,
+    pub hasta_ms: u64,
+    /// Dónde estaba el cursor de texto al empezar, en píxeles de la región grabada, si
+    /// Windows lo dio. En navegadores y apps de Electron muchas veces no lo da.
+    #[serde(default)]
+    pub caret: Option<(i32, i32)>,
+}
+
 /// La webcam, grabada aparte como una pista más de la sesión (F2).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

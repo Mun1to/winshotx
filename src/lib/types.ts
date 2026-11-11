@@ -168,6 +168,8 @@ export interface StudioData {
   marcasZoom: MarcaZoom[];
   /** La webcam, si se grabó. */
   camara: CamaraGrabada | null;
+  /** Los ratos en los que se escribió, sin ninguna tecla dentro. */
+  escritura: TramoEscritura[];
 }
 
 /** Un puntero leído de Windows durante la grabación, guardado como PNG con transparencia. */
@@ -283,7 +285,7 @@ export interface ExportRequest extends Edicion {
 
 import type { Anotacion } from "./anotaciones";
 import type { Recorte } from "./recorte";
-import type { CamaraGrabada, Edicion, MarcaZoom } from "./contrato";
+import type { CamaraGrabada, Edicion, MarcaZoom, TramoEscritura } from "./contrato";
 
 /** Los fondos del marco. Unos pocos elegidos, no una rueda de color entera. */
 export type Background =

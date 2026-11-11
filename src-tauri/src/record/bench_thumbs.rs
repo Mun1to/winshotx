@@ -64,6 +64,7 @@ mod tests {
             cambios_puntero: Vec::new(),
             marcas_zoom: Vec::new(),
             camara: None,
+            escritura: Vec::new(),
             frames,
         };
         let t = Instant::now();

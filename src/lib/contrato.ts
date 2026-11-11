@@ -19,6 +19,17 @@ export interface MarcaZoom {
   y: number;
 }
 
+/**
+ * Un rato en el que se escribió. Solo cuándo, nunca qué: ni una tecla, ni cuántas. De aquí
+ * salen acercarse al escribir, esconder el puntero al escribir y acelerar lo escrito.
+ */
+export interface TramoEscritura {
+  desdeMs: number;
+  hastaMs: number;
+  /** Dónde estaba el cursor de texto al empezar, si Windows lo dio. */
+  caret: [number, number] | null;
+}
+
 /** La webcam, grabada aparte como una pista más de la sesión. */
 export interface CamaraGrabada {
   /** El nombre del archivo dentro de la carpeta de la sesión. */

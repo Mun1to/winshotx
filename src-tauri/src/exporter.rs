@@ -1229,6 +1229,7 @@ mod tests {
             cambios_puntero: Vec::new(),
             marcas_zoom: Vec::new(),
             camara: None,
+            escritura: Vec::new(),
             frames,
         }
     }
@@ -1903,6 +1904,7 @@ mod la_camara_del_exportador {
             cambios_puntero: Vec::new(),
             marcas_zoom: Vec::new(),
             camara: None,
+            escritura: Vec::new(),
             frames: Vec::new(),
         }
     }
@@ -2158,6 +2160,7 @@ mod medir {
             cambios_puntero: Vec::new(),
             marcas_zoom: Vec::new(),
             camara: None,
+            escritura: Vec::new(),
             frames,
         };
         let indices: Vec<usize> = (0..cuantos).collect();

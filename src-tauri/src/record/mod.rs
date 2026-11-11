@@ -181,6 +181,9 @@ pub struct SessionData {
     /// La webcam, si se grabó (F2).
     #[serde(default)]
     pub camara: Option<crate::contrato::CamaraGrabada>,
+    /// Los ratos en los que se escribió, sin ninguna tecla dentro. Ver `TramoEscritura`.
+    #[serde(default)]
+    pub escritura: Vec<crate::contrato::TramoEscritura>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -791,6 +794,7 @@ mod tests {
             cambios_puntero: Vec::new(),
             marcas_zoom: Vec::new(),
             camara: None,
+            escritura: Vec::new(),
             frames,
         }
     }

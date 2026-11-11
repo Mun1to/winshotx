@@ -276,6 +276,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         cambios_puntero: Vec::new(),
         marcas_zoom: Vec::new(),
         camara: None,
+        escritura: Vec::new(),
         frames: Vec::new(),
     };
 
@@ -903,6 +904,7 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         cambios_puntero: Vec::new(),
         marcas_zoom: Vec::new(),
         camara: None,
+        escritura: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
         width: image.width(),

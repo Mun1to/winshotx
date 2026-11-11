@@ -523,6 +523,8 @@ pub struct StudioDto {
     pub marcas_zoom: Vec<crate::contrato::MarcaZoom>,
     /// La webcam, si se grabó.
     pub camara: Option<crate::contrato::CamaraGrabada>,
+    /// Los ratos en los que se escribió, sin ninguna tecla dentro.
+    pub escritura: Vec<crate::contrato::TramoEscritura>,
 }
 
 #[tauri::command]
@@ -537,6 +539,7 @@ pub async fn session_studio(app: AppHandle, session_id: String) -> Result<Studio
         cambios_puntero: session.cambios_puntero,
         marcas_zoom: session.marcas_zoom,
         camara: session.camara,
+        escritura: session.escritura,
     })
 }
 
