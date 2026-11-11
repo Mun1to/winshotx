@@ -302,6 +302,7 @@ pub fn run() {
             commands::resize_tray_menu,
             // Las órdenes nuevas del plan de CleanShot X y Screen Studio, debajo de su marca.
             // S1 (línea de tiempo)
+            commands::session_zooms,
             // S2 (grabación)
             // S3 (fondos)
             // S4 (capturas)

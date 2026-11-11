@@ -545,6 +545,8 @@ pub async fn session_studio(app: AppHandle, session_id: String) -> Result<Studio
 
 /// La camara del zoom en cada fotograma, con ese zoom y ese recorte: la misma que usara la
 /// exportacion, para que la vista previa ensenne exactamente lo que va a salir.
+///
+/// Con `zooms`, los de la pista de la linea de tiempo, tal cual se exportan.
 #[tauri::command]
 pub async fn session_camera(
     app: AppHandle,
@@ -552,9 +554,30 @@ pub async fn session_camera(
     zoom: f32,
     crop: Option<crate::encode::recorte::Recorte>,
     zoom_speed: Option<f32>,
+    zooms: Option<Vec<crate::contrato::TramoZoom>>,
 ) -> Result<Vec<crate::exporter::MuestraCamara>> {
     let session = session_of(&app, &session_id)?;
     Ok(crate::exporter::muestras_de_camara(
+        &session,
+        zoom,
+        crop,
+        zoom_speed.unwrap_or(1.0),
+        zooms.as_deref(),
+    ))
+}
+
+/// Los zooms que salen solos (los de los clics con ese nivel, y los de la tecla de zoom),
+/// como bloques de la pista: es lo que enseña la línea de tiempo antes de que nadie la toque.
+#[tauri::command]
+pub async fn session_zooms(
+    app: AppHandle,
+    session_id: String,
+    zoom: f32,
+    crop: Option<crate::encode::recorte::Recorte>,
+    zoom_speed: Option<f32>,
+) -> Result<Vec<crate::contrato::TramoZoom>> {
+    let session = session_of(&app, &session_id)?;
+    Ok(crate::exporter::zooms_de_la_sesion(
         &session,
         zoom,
         crop,

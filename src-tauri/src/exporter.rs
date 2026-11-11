@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::encode::{
-    anotacion, escalar, estudio, ffmpeg, gif, jpg, marco, mp4, png, recorte::Recorte, zoom,
+    anotacion, escalar, estudio, ffmpeg, gif, jpg, lupa, marco, mp4, png, recorte::Recorte, zoom,
 };
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
@@ -161,7 +161,7 @@ fn resample_tramo(
     fps: u32,
     velocidad: f32,
 ) -> (Vec<usize>, Vec<u32>) {
-    let p = pasos(session, desde_ms, hasta_ms, fps, velocidad, &|_, _| true);
+    let p = pasos(session, &[(desde_ms, hasta_ms, velocidad)], fps, &|_, _| true);
     (p.indices, p.retardos)
 }
 
@@ -178,6 +178,10 @@ struct Pasos {
     indices: Vec<usize>,
     retardos: Vec<u32>,
     tiempos: Vec<u64>,
+    /// Lo que dura en el vídeo exportado cada trozo que se queda, en su orden. El sonido de
+    /// cada uno se corta a esta medida exacta: si se midiera por su cuenta, cada corte
+    /// despegaría la voz unos milisegundos de la imagen, y tras unos cuantos se notaría.
+    duraciones: Vec<u64>,
 }
 
 impl Pasos {
@@ -194,7 +198,8 @@ impl Pasos {
     }
 }
 
-/// Los pasos de un tramo de reloj, de `desde_ms` a `hasta_ms` sin incluirlo.
+/// Los pasos de unos trozos de reloj, cada uno `(desde_ms, hasta_ms, velocidad)` y sin
+/// incluir su final, uno detrás de otro: lo que cae entre dos trozos no sale.
 ///
 /// Cada paso coge el fotograma que SE ESTABA VIENDO en ese instante, que es el ultimo que
 /// empezo antes, no el primero de despues: una pantalla quieta no manda fotogramas, asi
@@ -203,64 +208,70 @@ impl Pasos {
 /// Un paso se junta con el anterior (que dura mas, en vez de escribirse otra vez) cuando es
 /// el mismo fotograma Y `igual` dice que, vestidos, se ven igual. Asi una pantalla quieta
 /// con el raton quieto sigue costando un fotograma, y con el raton moviendose, los que hagan
-/// falta para verlo moverse.
+/// falta para verlo moverse. Vale tambien a traves de un corte: si a los dos lados se ve lo
+/// mismo, el corte no se nota y tampoco cuesta un fotograma mas.
 fn pasos(
     session: &SessionData,
-    desde_ms: u64,
-    hasta_ms: u64,
+    trozos: &[(u64, u64, f32)],
     fps: u32,
-    velocidad: f32,
     igual: &dyn Fn(u64, u64) -> bool,
 ) -> Pasos {
     let frames = &session.frames;
+    let mut salen = Pasos::default();
     // Sin un solo fotograma no hay nada que recortar. Quien llama rechaza la lista vacia
     // igual, pero con un error que se puede leer en vez de un panic a mitad de exportar.
     if frames.is_empty() {
-        return Pasos::default();
+        return salen;
     }
     let step_ms = (1000.0 / fps.max(1) as f32).round() as u64;
-    // Lo que se avanza por la grabacion en cada paso. A 1x es el mismo paso de siempre.
-    let paso_origen = ((step_ms as f32 * velocidad).round() as u64).max(1);
-    let mut cursor = frames
-        .partition_point(|f| f.timestamp_ms <= desde_ms)
-        .saturating_sub(1);
-    // Ninguno que empiece en el corte final o despues puede colarse, aunque la duracion
-    // minima de diez milisegundos haga que el anterior parezca llegar hasta el.
-    let ultimo = frames
-        .partition_point(|f| f.timestamp_ms < hasta_ms)
-        .saturating_sub(1)
-        .max(cursor);
+    let mut cursor = 0;
+    for &(desde_ms, hasta_ms, velocidad) in trozos {
+        // Lo que se avanza por la grabacion en cada paso. A 1x es el mismo paso de siempre.
+        let paso_origen = ((step_ms as f32 * velocidad).round() as u64).max(1);
+        cursor = frames
+            .partition_point(|f| f.timestamp_ms <= desde_ms)
+            .saturating_sub(1);
+        // Ninguno que empiece en el corte final o despues puede colarse, aunque la duracion
+        // minima de diez milisegundos haga que el anterior parezca llegar hasta el.
+        let ultimo = frames
+            .partition_point(|f| f.timestamp_ms < hasta_ms)
+            .saturating_sub(1)
+            .max(cursor);
 
-    let mut salen = Pasos::default();
-    let mut t = desde_ms;
-    while t < hasta_ms {
-        while cursor < ultimo && frames[cursor + 1].timestamp_ms <= t {
-            cursor += 1;
-        }
-        // El ultimo paso se recorta: el clip exportado dura lo que dura el recorte, y a
-        // velocidad distinta de 1 lo que sobra tambien se mide en el tiempo del resultado.
-        let queda = hasta_ms - t;
-        let slot = if queda >= paso_origen {
-            step_ms
-        } else {
-            ((queda as f32 / velocidad).round() as u64).max(1)
-        } as u32;
-        let se_junta = salen.indices.last() == Some(&cursor)
-            && salen.tiempos.last().is_some_and(|&antes| igual(antes, t));
-        if se_junta {
-            // El mismo fotograma, que se ve igual, se queda mas tiempo en vez de repetirse.
-            if let Some(ultimo) = salen.retardos.last_mut() {
-                *ultimo += slot;
+        let mut dura = 0u64;
+        let mut t = desde_ms;
+        while t < hasta_ms {
+            while cursor < ultimo && frames[cursor + 1].timestamp_ms <= t {
+                cursor += 1;
             }
-        } else {
-            salen.indices.push(cursor);
-            salen.retardos.push(slot);
-            salen.tiempos.push(t);
+            // El ultimo paso se recorta: el clip exportado dura lo que dura el recorte, y a
+            // velocidad distinta de 1 lo que sobra tambien se mide en el tiempo del resultado.
+            let queda = hasta_ms - t;
+            let slot = if queda >= paso_origen {
+                step_ms
+            } else {
+                ((queda as f32 / velocidad).round() as u64).max(1)
+            } as u32;
+            dura += u64::from(slot);
+            let se_junta = salen.indices.last() == Some(&cursor)
+                && salen.tiempos.last().is_some_and(|&antes| igual(antes, t));
+            if se_junta {
+                // El mismo fotograma, que se ve igual, se queda mas tiempo en vez de repetirse.
+                if let Some(ultimo) = salen.retardos.last_mut() {
+                    *ultimo += slot;
+                }
+            } else {
+                salen.indices.push(cursor);
+                salen.retardos.push(slot);
+                salen.tiempos.push(t);
+            }
+            t += paso_origen;
         }
-        t += paso_origen;
+        salen.duraciones.push(dura);
     }
 
     if salen.indices.is_empty() {
+        let desde_ms = trozos.first().map_or(0, |t| t.0);
         salen.indices.push(cursor);
         salen.retardos.push(step_ms.max(20) as u32);
         salen.tiempos.push(desde_ms);
@@ -268,13 +279,13 @@ fn pasos(
     salen
 }
 
-/// Los pasos de una peticion: su tramo, a sus fotogramas por segundo y su velocidad, sin
+/// Los pasos de una peticion: sus trozos, a sus fotogramas por segundo y su velocidad, sin
 /// juntar dos pasos que vestidos no se vean igual.
 fn pasos_de(session: &SessionData, request: &ExportRequest) -> Pasos {
-    let (desde, hasta) = request.tramo(session);
+    let trozos = request.trozos(session);
     let camara = Camara::preparar(session, request);
     let ve = QueSeVe::nuevo(session, request, &camara);
-    pasos(session, desde, hasta, request.fps, request.velocidad(), &|a, b| ve.igual(a, b))
+    pasos(session, &trozos, request.fps, &|a, b| ve.igual(a, b))
 }
 
 /// Si dos instantes de la grabacion se ven igual una vez vestidos: el puntero en el mismo
@@ -285,6 +296,8 @@ struct QueSeVe<'a> {
     aros: bool,
     teclas: bool,
     tramos: Vec<zoom::Tramo>,
+    /// Los ratos con una lupa encima: ahi cada paso se escribe, como con la camara acercada.
+    lupas: Vec<(u64, u64)>,
     suave: bool,
     /// Con el puntero escondiendose, cuando se movio el raton (ver `estudio::movimientos`).
     movimientos: Option<Vec<u64>>,
@@ -298,6 +311,7 @@ impl<'a> QueSeVe<'a> {
             aros: request.clicks && !session.clics.is_empty(),
             teclas: request.keys && !session.teclas.is_empty(),
             tramos: camara.as_ref().map(|c| c.tramos.clone()).unwrap_or_default(),
+            lupas: lupas_de(request).iter().map(|l| (l.desde_ms, l.hasta_ms)).collect(),
             suave: request.smooth_cursor,
             movimientos: request
                 .hide_idle_cursor
@@ -339,7 +353,94 @@ impl<'a> QueSeVe<'a> {
         }
         // La camara solo se mueve dentro de sus tramos: fuera enseña la imagen entera.
         let acercada = |ms: u64| self.tramos.iter().any(|t| (t.desde_ms..=t.hasta_ms).contains(&ms));
-        !acercada(a) && !acercada(b)
+        let con_lupa = |ms: u64| self.lupas.iter().any(|&(d, h)| (d..=h).contains(&ms));
+        !acercada(a) && !acercada(b) && !con_lupa(a) && !con_lupa(b)
+    }
+}
+
+/// Una lupa de la pista, lista para pintarse en cada fotograma (A6).
+#[derive(Debug, Clone, Copy)]
+struct LupaDeLaPista {
+    desde_ms: u64,
+    hasta_ms: u64,
+    lupa: crate::contrato::Lupa,
+    /// Donde mira, de 0 a 1 sobre la imagen grabada. Siguiendo al raton es solo el sitio
+    /// de respaldo, para una grabacion sin el raton apuntado.
+    x: f32,
+    y: f32,
+    sigue: bool,
+    instantaneo: bool,
+}
+
+/// Lo que tarda una lupa en abrirse y en cerrarse, si no es de golpe.
+const LUPA_APARECE_MS: u64 = 220;
+
+/// Las lupas de la pista de zooms. Sin pista (los zooms automaticos) no hay ninguna.
+fn lupas_de(request: &ExportRequest) -> Vec<LupaDeLaPista> {
+    request
+        .edicion
+        .zooms
+        .iter()
+        .flatten()
+        .filter_map(|z| {
+            let lupa = z.lupa?;
+            (z.hasta_ms > z.desde_ms).then_some(LupaDeLaPista {
+                desde_ms: z.desde_ms,
+                hasta_ms: z.hasta_ms,
+                lupa,
+                x: if z.x.is_finite() { z.x.clamp(0.0, 1.0) } else { 0.5 },
+                y: if z.y.is_finite() { z.y.clamp(0.0, 1.0) } else { 0.5 },
+                sigue: z.modo == crate::contrato::ModoZoom::Sigue,
+                instantaneo: z.instantaneo,
+            })
+        })
+        .collect()
+}
+
+impl LupaDeLaPista {
+    /// Lo abierta que esta en ese instante, de 0 a 1: se abre al principio de su bloque y
+    /// se cierra al final, con la misma curva que el zoom. `None` fuera de su bloque.
+    fn abierta(&self, ms: u64) -> Option<f32> {
+        if ms < self.desde_ms || ms > self.hasta_ms {
+            return None;
+        }
+        if self.instantaneo {
+            return Some(1.0);
+        }
+        let rampa = LUPA_APARECE_MS.min((self.hasta_ms - self.desde_ms) / 3).max(1) as f32;
+        let t = ((ms - self.desde_ms) as f32 / rampa)
+            .min((self.hasta_ms - ms) as f32 / rampa)
+            .clamp(0.0, 1.0);
+        Some(t * t * (3.0 - 2.0 * t))
+    }
+
+    /// La lente en un fotograma de `destino`, o `None` si su punto no se ve.
+    fn lente(
+        &self,
+        ms: u64,
+        rastro: &[(u64, i32, i32)],
+        origen: (u32, u32),
+        recortes: &[Recorte],
+        destino: (u32, u32),
+    ) -> Option<lupa::Lente> {
+        let abierta = self.abierta(ms)?;
+        let raton = self
+            .sigue
+            .then(|| estudio::sitio_del_puntero(rastro, ms, true))
+            .flatten()
+            .map(|(x, y)| (x / origen.0.max(1) as f32, y / origen.1.max(1) as f32));
+        let (u, v) = raton.unwrap_or((self.x, self.y));
+        let (u, v) = lupa::colocar(u, v, recortes)?;
+        let (ancho, alto) = lupa::medidas(self.lupa.forma, self.lupa.tam, destino.0, destino.1);
+        Some(lupa::Lente {
+            cx: u * destino.0 as f32,
+            cy: v * destino.1 as f32,
+            forma: self.lupa.forma,
+            marco: self.lupa.marco,
+            ancho: ancho * abierta,
+            alto: alto * abierta,
+            aumento: 1.0 + (self.lupa.aumento - 1.0) * abierta,
+        })
     }
 }
 
@@ -454,6 +555,40 @@ impl ExportRequest {
     /// El tramo de reloj de esta peticion. Ver `tramo_de`.
     fn tramo(&self, session: &SessionData) -> (u64, u64) {
         tramo_de(session, self.from, self.to, self.desde_ms, self.hasta_ms)
+    }
+
+    /// Lo que se queda del video, trozo a trozo y cada uno a su velocidad final: los
+    /// `tramos` de la linea de tiempo si vienen (D1 y D3), y si no, el tramo de siempre a
+    /// la velocidad del panel.
+    ///
+    /// Los tramos se meten dentro de la grabacion, se ordenan y no se pisan: si dos se
+    /// pisan, el segundo empieza donde acaba el primero. Su velocidad se multiplica por la
+    /// del panel y se queda entre 0,25 y 8. Si no queda ninguno con largo, se exporta el
+    /// tramo de siempre en vez de un archivo vacio.
+    fn trozos(&self, session: &SessionData) -> Vec<(u64, u64, f32)> {
+        let general = self.velocidad();
+        let Some(tramos) = self.edicion.tramos.as_deref() else {
+            let (desde, hasta) = self.tramo(session);
+            return vec![(desde, hasta, general)];
+        };
+        let (inicio, fin) = tramo_de(session, 0, usize::MAX, None, None);
+        let mut orden: Vec<_> = tramos.to_vec();
+        orden.sort_by_key(|t| (t.desde_ms, t.hasta_ms));
+        let mut salen: Vec<(u64, u64, f32)> = Vec::with_capacity(orden.len());
+        for t in orden {
+            let antes = salen.last().map_or(inicio, |s| s.1);
+            let desde = t.desde_ms.clamp(inicio, fin).max(antes);
+            let hasta = t.hasta_ms.clamp(inicio, fin);
+            let propia = if t.velocidad.is_finite() && t.velocidad > 0.0 { t.velocidad } else { 1.0 };
+            if hasta > desde {
+                salen.push((desde, hasta, (propia * general).clamp(0.25, 8.0)));
+            }
+        }
+        if salen.is_empty() {
+            let (desde, hasta) = self.tramo(session);
+            salen.push((desde, hasta, general));
+        }
+        salen
     }
 }
 
@@ -720,10 +855,25 @@ struct Estudio<'a> {
     ajustes: estudio::Ajustes,
     ms: u64,
     caches: estudio::Caches,
+    /// Las lupas de la pista, que van encima de lo demas del estudio: lo que amplian es el
+    /// fotograma ya vestido, puntero incluido, como una lupa de verdad.
+    lupas: Vec<LupaDeLaPista>,
 }
 
 impl Estudio<'_> {
     fn pintar(&mut self, imagen: &mut image::RgbaImage, recortes: &[Recorte]) {
+        if self.ajustes.hay_algo() {
+            self.pintar_estudio(imagen, recortes);
+        }
+        let destino = imagen.dimensions();
+        for l in &self.lupas {
+            if let Some(lente) = l.lente(self.ms, self.rastro, self.origen, recortes, destino) {
+                lupa::pintar(imagen, &lente);
+            }
+        }
+    }
+
+    fn pintar_estudio(&mut self, imagen: &mut image::RgbaImage, recortes: &[Recorte]) {
         let fuente = estudio::Fuente {
             clics: self.clics,
             atajos: self.teclas,
@@ -753,7 +903,8 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
         suave: request.smooth_cursor,
         esconder: request.hide_idle_cursor,
     };
-    if !ajustes.hay_algo() {
+    let lupas = lupas_de(request);
+    if !ajustes.hay_algo() && lupas.is_empty() {
         return None;
     }
     // Los punteros que se leyeron al grabar. Uno que no se pueda abrir se queda fuera y
@@ -781,6 +932,7 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
         ajustes,
         ms: 0,
         caches: estudio::Caches::default(),
+        lupas,
     })
 }
 
@@ -803,43 +955,115 @@ struct Camara {
     alto: u32,
 }
 
+/// Lo que se acerca la camara a una marca de la tecla de zoom cuando el panel no tiene el
+/// zoom de los clics puesto: la tecla se pulso para acercarse, asi que se acerca igual.
+const NIVEL_DE_LA_TECLA: f32 = 2.0;
+
 impl Camara {
     fn preparar(session: &SessionData, request: &ExportRequest) -> Option<Self> {
-        Self::nueva(session, request.zoom, request.crop, request.zoom_speed)
+        Self::nueva(
+            session,
+            request.zoom,
+            request.crop,
+            request.zoom_speed,
+            request.edicion.zooms.as_deref(),
+        )
     }
 
     /// La misma camara que usa la exportacion, para quien la quiera preguntar por su
     /// cuenta: la vista previa del editor la usa para ensennar el zoom antes de exportar.
-    fn nueva(session: &SessionData, zoom: f32, crop: Option<Recorte>, velocidad: f32) -> Option<Self> {
-        // Menos de 1,05 no se ve y solo cuesta trabajo: es apagado, dicho con un numero.
-        if zoom < 1.05 || (session.clics.is_empty() && session.teclas.is_empty()) {
-            return None;
-        }
-        let (ancho, alto) = (session.width.max(1), session.height.max(1));
+    ///
+    /// Con `zooms` (la pista del editor) manda la pista, bloque a bloque, y las lupas no
+    /// mueven la camara. Sin ella, los de siempre: los clics y los atajos con el nivel del
+    /// panel, y las marcas de la tecla de zoom (A3), que se acercan aunque el panel no.
+    fn nueva(
+        session: &SessionData,
+        zoom: f32,
+        crop: Option<Recorte>,
+        velocidad: f32,
+        zooms: Option<&[crate::contrato::TramoZoom]>,
+    ) -> Option<Self> {
+        let (entero_ancho, entero_alto) = (session.width.max(1), session.height.max(1));
         // Los clics estan en pixeles de la region grabada. Si el usuario recorto, la camara
         // se mueve dentro de ESE trozo, asi que hay que trasladarlos y descartar los que
         // se quedaron fuera: acercarse a un clic que ya no se ve seria acercarse a nada.
         let (dx, dy, ancho, alto) = match crop {
             Some(r) => {
-                let (x, y, w, h) = r.en_pixeles(ancho, alto);
+                let (x, y, w, h) = r.en_pixeles(entero_ancho, entero_alto);
                 (x as i32, y as i32, w, h)
             }
-            None => (0, 0, ancho, alto),
+            None => (0, 0, entero_ancho, entero_alto),
         };
+        let rastro = || -> Vec<(u64, i32, i32)> {
+            session
+                .cursor
+                .iter()
+                .map(|(t, x, y)| (*t, x - dx, y - dy))
+                .collect()
+        };
+        let camara = |tramos: Vec<zoom::Tramo>, ajustes: zoom::Ajustes| {
+            (!tramos.is_empty()).then(|| Self {
+                tramos,
+                rastro: rastro(),
+                ajustes,
+                ancho,
+                alto,
+                seguimiento: std::cell::RefCell::new(zoom::Seguimiento::default()),
+            })
+        };
+
+        if let Some(zooms) = zooms {
+            // La pista: cada bloque con su nivel y su punto. El punto se queda dentro del
+            // recorte aunque el usuario lo pusiera fuera: lo puso a proposito, y acercarse
+            // al borde mas cercano es lo mas parecido a lo que pidio.
+            let bloques: Vec<zoom::ZoomAMano> = zooms
+                .iter()
+                .filter(|z| z.lupa.is_none())
+                .map(|z| {
+                    let u = if z.x.is_finite() { z.x.clamp(0.0, 1.0) } else { 0.5 };
+                    let v = if z.y.is_finite() { z.y.clamp(0.0, 1.0) } else { 0.5 };
+                    zoom::ZoomAMano {
+                        desde_ms: z.desde_ms,
+                        hasta_ms: z.hasta_ms,
+                        escala: z.nivel,
+                        x: ((u * entero_ancho as f32).round() as i32 - dx).clamp(0, ancho as i32 - 1),
+                        y: ((v * entero_alto as f32).round() as i32 - dy).clamp(0, alto as i32 - 1),
+                        fijo: z.modo == crate::contrato::ModoZoom::Fijo,
+                        instantaneo: z.instantaneo,
+                    }
+                })
+                .collect();
+            let ajustes = zoom::Ajustes::a_velocidad(2.0, velocidad);
+            return camara(zoom::tramos_a_mano(&bloques, &ajustes), ajustes);
+        }
+
+        // Menos de 1,05 no se ve y solo cuesta trabajo: es apagado, dicho con un numero.
+        let con_clics = zoom >= 1.05;
         // La camara se acerca a los clics **y a los atajos**: quien pulsa Ctrl+C esta
         // mirando a algun lado, y ese lado es donde tiene el raton. Un atajo sin sitio
         // propio dejaria la mitad de un tutorial sin acercarse a nada.
-        let mut puntos: Vec<zoom::Clic> = session
-            .clics
-            .iter()
-            .copied()
-            .chain(session.teclas.iter().map(|a| zoom::Clic {
-                ms: a.ms,
-                x: a.x,
-                y: a.y,
-                derecho: false,
-            }))
-            .collect();
+        let mut puntos: Vec<zoom::Clic> = if con_clics {
+            session
+                .clics
+                .iter()
+                .copied()
+                .chain(session.teclas.iter().map(|a| zoom::Clic {
+                    ms: a.ms,
+                    x: a.x,
+                    y: a.y,
+                    derecho: false,
+                }))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        // Y a las marcas de la tecla de zoom, que se pulso justo para eso.
+        puntos.extend(session.marcas_zoom.iter().map(|m| zoom::Clic {
+            ms: m.ms,
+            x: m.x,
+            y: m.y,
+            derecho: false,
+        }));
         // Van mezclados en el tiempo, y agrupar en tramos exige que vengan en orden.
         puntos.sort_by_key(|c| c.ms);
         let clics: Vec<zoom::Clic> = puntos
@@ -852,24 +1076,46 @@ impl Camara {
             })
             .filter(|c| c.x >= 0 && c.y >= 0 && c.x < ancho as i32 && c.y < alto as i32)
             .collect();
-        if clics.is_empty() {
-            return None;
-        }
-        let ajustes = zoom::Ajustes::a_velocidad(zoom.min(4.0), velocidad);
-        let rastro = session
-            .cursor
-            .iter()
-            .map(|(t, x, y)| (*t, x - dx, y - dy))
-            .collect();
-        Some(Self {
-            tramos: zoom::tramos(&clics, &ajustes),
-            rastro,
-            ajustes,
-            ancho,
-            alto,
-            seguimiento: std::cell::RefCell::new(zoom::Seguimiento::default()),
-        })
+        let nivel = if con_clics { zoom.min(zoom::ESCALA_MAXIMA) } else { NIVEL_DE_LA_TECLA };
+        let ajustes = zoom::Ajustes::a_velocidad(nivel, velocidad);
+        camara(zoom::tramos(&clics, &ajustes), ajustes)
     }
+}
+
+/// Los zooms que salen solos, como bloques de la pista: los de los clics y los atajos con
+/// el nivel del panel, y los de la tecla de zoom. Es lo que enseña la pista antes de que
+/// nadie la toque, y si se exporta tal cual sale lo mismo que sin pista.
+pub fn zooms_de_la_sesion(
+    session: &SessionData,
+    zoom: f32,
+    crop: Option<Recorte>,
+    velocidad: f32,
+) -> Vec<crate::contrato::TramoZoom> {
+    let Some(camara) = Camara::nueva(session, zoom, crop, velocidad, None) else {
+        return Vec::new();
+    };
+    let (ancho, alto) = (session.width.max(1) as f32, session.height.max(1) as f32);
+    let (dx, dy) = match crop {
+        Some(r) => {
+            let (x, y, _, _) = r.en_pixeles(session.width.max(1), session.height.max(1));
+            (x as f32, y as f32)
+        }
+        None => (0.0, 0.0),
+    };
+    camara
+        .tramos
+        .iter()
+        .map(|t| crate::contrato::TramoZoom {
+            desde_ms: t.desde_ms,
+            hasta_ms: t.hasta_ms,
+            nivel: t.escala,
+            modo: crate::contrato::ModoZoom::Sigue,
+            x: (t.x as f32 + dx) / ancho,
+            y: (t.y as f32 + dy) / alto,
+            instantaneo: false,
+            lupa: None,
+        })
+        .collect()
 }
 
 /// Donde mira la camara en un fotograma, como trozo de la imagen ENTERA (de 0 a 1).
@@ -897,13 +1143,16 @@ pub struct MuestraCamara {
 /// exportación a 30 fotogramas por segundo, que es como se exporta de fábrica.
 const PASO_DE_CAMARA_MS: u64 = 33;
 
+///
+/// Con `zooms`, los de la pista del editor, igual que al exportar con ellos.
 pub fn muestras_de_camara(
     session: &SessionData,
     zoom: f32,
     crop: Option<Recorte>,
     velocidad: f32,
+    zooms: Option<&[crate::contrato::TramoZoom]>,
 ) -> Vec<MuestraCamara> {
-    let camara = Camara::nueva(session, zoom, crop, velocidad);
+    let camara = Camara::nueva(session, zoom, crop, velocidad, zooms);
     // El recorte del usuario, como esta en la imagen entera. La camara se mueve dentro.
     let (ux1, uy1, ux2, uy2) = match crop {
         Some(r) => {
@@ -961,10 +1210,15 @@ impl EnElInstante for Option<Camara> {
     fn en(&self, ms: u64) -> Option<Recorte> {
         let c = self.as_ref()?;
         let objetivo = zoom::siguiendo(&c.tramos, &c.rastro, ms, c.ancho, c.alto, &c.ajustes);
-        let mirando = c
-            .seguimiento
-            .borrow_mut()
-            .avanzar(objetivo, ms, c.ancho, &c.ajustes);
+        // Un zoom fijo se queda en su punto sin recorrido: con la inercia, el centro se
+        // arrastraria unos fotogramas desde donde estaba antes (A2).
+        let fijo = zoom::tramo_en(&c.tramos, ms).is_some_and(|t| t.fijo);
+        let mut seguimiento = c.seguimiento.borrow_mut();
+        let mirando = if fijo {
+            seguimiento.colocar(objetivo, ms)
+        } else {
+            seguimiento.avanzar(objetivo, ms, c.ancho, &c.ajustes)
+        };
         (mirando.escala > 1.001).then(|| mirando.como_recorte(c.ancho, c.alto))
     }
 }
@@ -1045,14 +1299,68 @@ where
         // velocidad distinta de la real no hay sonido que valga: acelerar la pista sin
         // tocar el tono es otro problema entero, y dejarla tal cual la despegaria de la
         // imagen desde el primer segundo. El panel lo dice antes de exportar.
-        (request.audio && (request.velocidad() - 1.0).abs() < f32::EPSILON)
-            .then(|| {
-                let (desde, hasta) = request.tramo(session);
-                pista_de_audio(session, desde, hasta).map(|p| con_volumen(p, request.volume))
-            })
-            .flatten(),
+        //
+        // Con los tramos de la linea de tiempo, cada trozo lleva el suyo: el que va a su
+        // velocidad de verdad suena, y el acelerado va en silencio y no despega a los demas.
+        match (request.audio, request.edicion.tramos.is_some()) {
+            (false, _) => None,
+            (true, true) => pista_de_trozos(session, &request.trozos(session), &pasos.duraciones)
+                .map(|p| con_volumen(p, request.volume)),
+            (true, false) => ((request.velocidad() - 1.0).abs() < f32::EPSILON)
+                .then(|| {
+                    let (desde, hasta) = request.tramo(session);
+                    pista_de_audio(session, desde, hasta).map(|p| con_volumen(p, request.volume))
+                })
+                .flatten(),
+        },
         |stage, done, total| emit(stage, done, total),
     )
+}
+
+/// El sonido de los trozos que se quedan, uno detras de otro y cada uno cortado a lo que
+/// dura en el video exportado (`Pasos::duraciones`): asi un corte no despega la voz de la
+/// imagen, por muchos cortes que haya.
+///
+/// **Un trozo acelerado o a camara lenta va en silencio** (D3). Lo que se acelera es lo
+/// que aburre (algo que carga, un formulario que se escribe), y ahi el sonido a otra
+/// velocidad sobra: con el mismo tono se entrecorta, y sin el, es una voz de dibujo
+/// animado. En silencio, los trozos de alrededor siguen sonando en su sitio. Si no queda
+/// ningun trozo que suene, el video sale mudo, como hasta ahora a otra velocidad.
+///
+/// Se cuenta en muestras y no en bytes por milisegundo: a 44,1 kHz un milisegundo son
+/// 44,1 muestras, y redondear a 44 en cada uno despegaba el sonido segundo y pico en diez
+/// minutos de grabacion.
+fn pista_de_trozos(
+    session: &SessionData,
+    trozos: &[(u64, u64, f32)],
+    duraciones: &[u64],
+) -> Option<mp4::Pista> {
+    use std::io::{Seek, SeekFrom};
+
+    let info = session.audio?;
+    let bloque = u64::from(info.channels) * 2;
+    let bytes_hasta = |ms: u64| ms * u64::from(info.sample_rate) / 1000 * bloque;
+    let mut archivo = std::fs::File::open(session.audio_path()).ok()?;
+    let mut datos: Vec<u8> = Vec::new();
+    let mut suena = false;
+    let mut hecho_ms = 0u64;
+    for (&(desde, _, velocidad), &dura) in trozos.iter().zip(duraciones) {
+        let largo = (bytes_hasta(hecho_ms + dura) - bytes_hasta(hecho_ms)) as usize;
+        hecho_ms += dura;
+        let empieza = datos.len();
+        datos.resize(empieza + largo, 0);
+        if (velocidad - 1.0).abs() < 0.001 && archivo.seek(SeekFrom::Start(bytes_hasta(desde))).is_ok() {
+            // Lo que haya: si la grabacion acabo antes de lo que dicen los fotogramas, lo
+            // que falta se queda en silencio en vez de fallar por unos milisegundos.
+            leer_lo_que_haya(&mut archivo, &mut datos[empieza..]);
+            suena = true;
+        }
+    }
+    (suena && !datos.is_empty()).then_some(mp4::Pista {
+        channels: info.channels,
+        sample_rate: info.sample_rate,
+        datos,
+    })
 }
 
 /// El trozo de sonido que le toca al recorte que se esta exportando.
@@ -1062,30 +1370,14 @@ where
 /// empezando antes que el video. Sin esto el video que guarda sale mudo, aunque la
 /// grabacion tuviera sonido: exportar vuelve a codificar desde los fotogramas, y ahi no
 /// hay audio ninguno.
+///
+/// Es un trozo solo, a su velocidad de verdad: la misma cuenta que con los tramos de la
+/// linea de tiempo (`pista_de_trozos`), que mide en muestras y no despega a 44,1 kHz.
 fn pista_de_audio(session: &SessionData, desde: u64, hasta: u64) -> Option<mp4::Pista> {
-    use std::io::{Seek, SeekFrom};
-
-    let info = session.audio?;
-    let (inicio, largo) = info.tramo(desde, hasta);
-    if largo == 0 {
+    if hasta <= desde {
         return None;
     }
-
-    let mut archivo = std::fs::File::open(session.audio_path()).ok()?;
-    archivo.seek(SeekFrom::Start(inicio)).ok()?;
-    let mut datos = vec![0u8; largo as usize];
-    // Lo que haya: si la grabacion acabo antes de lo que dicen los fotogramas, se exporta
-    // el sonido que exista en vez de fallar por unos milisegundos de menos.
-    let leidos = leer_lo_que_haya(&mut archivo, &mut datos);
-    datos.truncate(leidos);
-    if datos.is_empty() {
-        return None;
-    }
-    Some(mp4::Pista {
-        channels: info.channels,
-        sample_rate: info.sample_rate,
-        datos,
-    })
+    pista_de_trozos(session, &[(desde, hasta, 1.0)], &[hasta - desde])
 }
 
 /// La pista a otro volumen. Las muestras son de 16 bits con signo, y lo que se pase del
@@ -1244,7 +1536,7 @@ mod tests {
         session.height = 300;
         session.clics.push(zoom::Clic { ms: 600, x: 100, y: 150, derecho: false });
         session.cursor = (0..=180u64).map(|k| (k * 16, 100 + k as i32, 150)).collect();
-        let muestras = muestras_de_camara(&session, 2.0, None, 1.0);
+        let muestras = muestras_de_camara(&session, 2.0, None, 1.0, None);
         let acercadas: Vec<&MuestraCamara> = muestras.iter().filter(|m| m.x2 - m.x1 < 0.9).collect();
         assert!(acercadas.len() > 20, "solo {} muestras acercadas", acercadas.len());
         let (primera, ultima) = (acercadas[0], acercadas[acercadas.len() - 1]);
@@ -1260,7 +1552,7 @@ mod tests {
         let entera = |m: &MuestraCamara| m.x1 == 0.0 && m.y1 == 0.0 && m.x2 == 1.0 && m.y2 == 1.0;
 
         // Sin clics no hay a donde acercarse, con zoom o sin el.
-        assert!(muestras_de_camara(&session, 2.0, None, 1.0).iter().all(entera));
+        assert!(muestras_de_camara(&session, 2.0, None, 1.0, None).iter().all(entera));
 
         session.clics.push(zoom::Clic {
             ms: 200,
@@ -1268,9 +1560,9 @@ mod tests {
             y: 5,
             derecho: false,
         });
-        assert!(muestras_de_camara(&session, 1.0, None, 1.0).iter().all(entera), "sin zoom, entera");
+        assert!(muestras_de_camara(&session, 1.0, None, 1.0, None).iter().all(entera), "sin zoom, entera");
 
-        let muestras = muestras_de_camara(&session, 2.0, None, 1.0);
+        let muestras = muestras_de_camara(&session, 2.0, None, 1.0, None);
         assert!(muestras.windows(2).all(|p| p[1].ms > p[0].ms), "en orden");
         let en_el_clic = muestras
             .iter()
@@ -1294,7 +1586,7 @@ mod tests {
             y2: 1.0,
         };
         session.clics[0].x = 8;
-        for m in muestras_de_camara(&session, 2.0, Some(mitad_derecha), 1.0) {
+        for m in muestras_de_camara(&session, 2.0, Some(mitad_derecha), 1.0, None) {
             assert!(m.x1 >= 0.5 - 0.001 && m.x2 <= 1.0, "se sale del recorte: {m:?}");
         }
     }
@@ -1320,7 +1612,7 @@ mod tests {
                 (ms, if ms < 1300 { 150 } else { 1750 }, 500)
             })
             .collect();
-        let muestras = muestras_de_camara(&session, 2.0, None, 1.0);
+        let muestras = muestras_de_camara(&session, 2.0, None, 1.0, None);
         let ajustes = zoom::Ajustes::default();
         let tope = ajustes.velocidad_max * 33.0 / 1000.0 + 0.002;
         let mut cruzo = false;
@@ -2736,7 +3028,7 @@ mod exportar_de_verdad {
 
     /// Los fotogramas del GIF ya montados, como los ve quien lo abre: cada uno se pega
     /// encima del anterior en su sitio, porque el codificador solo guarda lo que cambia.
-    fn fotogramas_del_gif(ruta: &Path) -> Vec<(u16, image::RgbaImage)> {
+    pub(super) fn fotogramas_del_gif(ruta: &Path) -> Vec<(u16, image::RgbaImage)> {
         let mut opciones = ::gif::DecodeOptions::new();
         opciones.set_color_output(::gif::ColorOutput::RGBA);
         let mut lector = opciones
@@ -2877,5 +3169,492 @@ mod exportar_de_verdad {
             "el puntero no se ha movido: empieza en {primero:?} y acaba en {ultimo:?}, en {} fotogramas",
             salen.len()
         );
+    }
+}
+
+/// La línea de tiempo del editor, de punta a punta por `escribir`: los zooms de la pista,
+/// la lupa, los trozos cortados y los acelerados, mirados en el archivo que se lleva quien
+/// guarda. Van en GIF porque el GIF es Rust entero y estas corren siempre; lo mismo en un
+/// MP4 de verdad está en `la_linea_de_tiempo_en_mp4`, que pide el codificador de Windows.
+#[cfg(test)]
+mod la_linea_de_tiempo {
+    use super::*;
+    use crate::contrato::{Forma, Lupa, ModoZoom, TramoVelocidad, TramoZoom};
+    use crate::record::FrameCache;
+
+    pub(super) const ANCHO: u32 = 120;
+    pub(super) const ALTO: u32 = 80;
+    pub(super) const ROJO: [u8; 3] = [220, 30, 30];
+    pub(super) const AZUL: [u8; 3] = [30, 60, 220];
+    pub(super) const VERDE: [u8; 3] = [40, 200, 60];
+
+    /// La mitad izquierda roja y la derecha azul: acercarse a la izquierda la pone roja
+    /// entera, y así se ve desde fuera si la cámara se acercó y dónde.
+    pub(super) fn mitades() -> Vec<u8> {
+        (0..ANCHO * ALTO)
+            .flat_map(|i| {
+                let [r, g, b] = if i % ANCHO < ANCHO / 2 { ROJO } else { AZUL };
+                [r, g, b, 255]
+            })
+            .collect()
+    }
+
+    pub(super) fn liso(color: [u8; 3]) -> Vec<u8> {
+        (0..ANCHO * ALTO).flat_map(|_| [color[0], color[1], color[2], 255]).collect()
+    }
+
+    /// Una sesión de verdad en disco con estos fotogramas `(ms, rgba)`.
+    pub(super) fn sesion(nombre: &str, fotogramas: &[(u64, Vec<u8>)], total_ms: u64) -> SessionData {
+        let dir = std::env::temp_dir().join(format!("winshotx-linea-{nombre}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut cache = FrameCache::new(&dir).expect("cache");
+        for (ms, rgba) in fotogramas {
+            cache.push_rgba(rgba, ANCHO, ALTO, *ms).unwrap();
+        }
+        let mut session = super::tests::session_with(&[]);
+        session.frames = cache.finish(total_ms, 30).expect("cerrar la cache");
+        session.dir = dir;
+        session.width = ANCHO;
+        session.height = ALTO;
+        session.region = crate::capture::Rect { x: 0, y: 0, width: ANCHO, height: ALTO };
+        session.fps = 30;
+        session
+    }
+
+    fn peticion(session: &SessionData) -> ExportRequest {
+        let mut p = crate::recorder::peticion_por_defecto(session);
+        p.format = "gif".into();
+        p.fps = 20;
+        p.cursor = 0.0;
+        p.audio = false;
+        p
+    }
+
+    pub(super) fn zoom_fijo(desde_ms: u64, hasta_ms: u64, x: f32, y: f32) -> TramoZoom {
+        TramoZoom { desde_ms, hasta_ms, nivel: 2.0, modo: ModoZoom::Fijo, x, y, instantaneo: false, lupa: None }
+    }
+
+    /// Exporta a GIF y devuelve cada fotograma con el instante del vídeo en que empieza.
+    fn gif(session: &SessionData, peticion: &ExportRequest, nombre: &str) -> Vec<(u64, u64, image::RgbaImage)> {
+        let destino = session.dir.join(format!("{nombre}.gif"));
+        escribir(session, peticion, &destino, &|_, _, _| {}).expect("exportar a GIF ha fallado");
+        let mut t = 0u64;
+        super::exportar_de_verdad::fotogramas_del_gif(&destino)
+            .into_iter()
+            .map(|(retardo, imagen)| {
+                let empieza = t;
+                t += u64::from(retardo) * 10;
+                (empieza, t, imagen)
+            })
+            .collect()
+    }
+
+    /// El fotograma que se ve en ese instante del GIF.
+    fn en(gif: &[(u64, u64, image::RgbaImage)], ms: u64) -> &image::RgbaImage {
+        &gif.iter().find(|(d, h, _)| ms >= *d && ms < *h).unwrap_or_else(|| gif.last().unwrap()).2
+    }
+
+    /// Lo que hay de rojo en una imagen, de 0 a 1.
+    fn rojo(imagen: &image::RgbaImage) -> f32 {
+        let rojos = imagen.pixels().filter(|p| p.0[0] > 150 && p.0[2] < 100).count();
+        rojos as f32 / (imagen.width() * imagen.height()) as f32
+    }
+
+    fn cuanto_dura(gif: &[(u64, u64, image::RgbaImage)]) -> u64 {
+        gif.last().map_or(0, |f| f.1)
+    }
+
+    /// A1, el criterio de «hecho»: mover un bloque de la pista mueve dónde se acerca el
+    /// vídeo exportado, y fuera del bloque se ve la imagen entera.
+    #[test]
+    fn mover_un_zoom_mueve_donde_se_acerca() {
+        let session = sesion("mover", &[(0, mitades())], 4_000);
+        let mut p = peticion(&session);
+        p.edicion.zooms = Some(vec![zoom_fijo(500, 1_500, 0.25, 0.5)]);
+        let antes = gif(&session, &p, "antes");
+        p.edicion.zooms = Some(vec![zoom_fijo(2_500, 3_500, 0.25, 0.5)]);
+        let despues = gif(&session, &p, "despues");
+        let _ = std::fs::remove_dir_all(&session.dir);
+
+        assert!(rojo(en(&antes, 1_000)) > 0.95, "dentro del bloque se acerca a lo rojo: {}", rojo(en(&antes, 1_000)));
+        assert!((rojo(en(&antes, 3_000)) - 0.5).abs() < 0.05, "fuera, la imagen entera");
+        assert!((rojo(en(&despues, 1_000)) - 0.5).abs() < 0.05, "movido, ahí ya no se acerca");
+        assert!(rojo(en(&despues, 3_000)) > 0.95, "y se acerca donde se ha puesto");
+        assert!((cuanto_dura(&antes) as i64 - 4_000).abs() <= 60, "y no cambia lo que dura: {} ms", cuanto_dura(&antes));
+    }
+
+    /// Sin tocar la pista sale lo de siempre, y los automáticos hechos bloques (lo que
+    /// enseña la pista al abrir) sacan el mismo GIF que sin pista.
+    #[test]
+    fn los_automaticos_hechos_bloques_sacan_el_mismo_gif() {
+        let mut session = sesion("automaticos", &[(0, mitades())], 4_000);
+        session.clics = vec![
+            zoom::Clic { ms: 1_000, x: 30, y: 40, derecho: false },
+            zoom::Clic { ms: 3_400, x: 90, y: 20, derecho: false },
+        ];
+        session.cursor = (0..250u64).map(|k| (k * 16, 20 + (k as i32 % 80), 40)).collect();
+        let mut p = peticion(&session);
+        p.zoom = 2.0;
+        let sin_pista = gif(&session, &p, "sin-pista");
+        let bloques = zooms_de_la_sesion(&session, p.zoom, p.crop, p.zoom_speed);
+        p.edicion.zooms = Some(bloques.clone());
+        let con_pista = gif(&session, &p, "con-pista");
+        let _ = std::fs::remove_dir_all(&session.dir);
+
+        assert_eq!(bloques.len(), 2, "un bloque por grupo de clics: {bloques:?}");
+        assert_eq!(sin_pista.len(), con_pista.len(), "los mismos fotogramas");
+        for (a, b) in sin_pista.iter().zip(&con_pista) {
+            assert_eq!((a.0, a.1), (b.0, b.1), "los mismos tiempos");
+            assert!(a.2 == b.2, "el fotograma de {} ms ha cambiado", a.0);
+        }
+    }
+
+    /// A3 visto desde la pista: dos pulsaciones de la tecla de zoom son dos bloques, y se
+    /// acercan aunque el panel tenga el zoom de los clics apagado.
+    #[test]
+    fn dos_marcas_de_la_tecla_dan_dos_bloques() {
+        let mut session = super::tests::session_with(&[5_000]);
+        session.width = 400;
+        session.height = 300;
+        session.marcas_zoom = vec![
+            crate::contrato::MarcaZoom { ms: 1_000, x: 100, y: 150 },
+            crate::contrato::MarcaZoom { ms: 4_000, x: 300, y: 60 },
+        ];
+        let bloques = zooms_de_la_sesion(&session, 1.0, None, 1.0);
+        assert_eq!(bloques.len(), 2, "{bloques:?}");
+        assert_eq!(bloques[0].nivel, NIVEL_DE_LA_TECLA);
+        assert!((bloques[1].x - 0.75).abs() < 1e-6 && (bloques[1].y - 0.2).abs() < 1e-6);
+        assert!(bloques[0].desde_ms < 1_000 && bloques[0].hasta_ms > 1_000, "el bloque rodea la marca");
+    }
+
+    /// A2, el criterio de «hecho»: con el ratón cruzando la pantalla, el centro de la
+    /// cámara de un zoom fijo no se mueve en todo su tramo, medido en `Camara`.
+    #[test]
+    fn el_centro_del_zoom_fijo_no_se_mueve() {
+        let mut session = super::tests::session_with(&[4_000]);
+        session.width = 400;
+        session.height = 300;
+        session.cursor = (0..250u64).map(|k| (k * 16, 10 + k as i32, 290 - k as i32)).collect();
+        let mut p = crate::recorder::peticion_por_defecto(&session);
+        p.edicion.zooms = Some(vec![zoom_fijo(500, 3_500, 0.5, 0.5)]);
+        let camara = Camara::preparar(&session, &p);
+        assert!(camara.is_some(), "la pista tiene un zoom");
+        let mut acercados = 0;
+        for ms in (0..4_000).step_by(33) {
+            if let Some(r) = camara.en(ms) {
+                acercados += 1;
+                let (cx, cy) = ((r.x1 + r.x2) / 2.0, (r.y1 + r.y2) / 2.0);
+                assert!(
+                    (cx - 0.5).abs() < 0.004 && (cy - 0.5).abs() < 0.004,
+                    "en el ms {ms} el centro se ha ido a {cx},{cy}"
+                );
+            }
+        }
+        assert!(acercados > 80, "solo {acercados} fotogramas acercados");
+        // Y en «Sigue al ratón» el mismo bloque sí se mueve: la prueba mide algo.
+        p.edicion.zooms = Some(vec![TramoZoom { modo: ModoZoom::Sigue, ..zoom_fijo(500, 3_500, 0.5, 0.5) }]);
+        let sigue = Camara::preparar(&session, &p);
+        let mut centros = Vec::new();
+        for ms in (0..4_000).step_by(33) {
+            if let Some(r) = sigue.en(ms) {
+                centros.push((r.x1 + r.x2) / 2.0);
+            }
+        }
+        let (a, b) = (centros[10], centros[centros.len() - 10]);
+        assert!(b > a + 0.1, "siguiendo al ratón el centro tenía que moverse: {a} y {b}");
+    }
+
+    /// De golpe: el primer fotograma del bloque ya está acercado del todo.
+    #[test]
+    fn el_zoom_de_golpe_entra_en_el_primer_fotograma() {
+        let session = sesion("de-golpe", &[(0, mitades())], 3_000);
+        let mut p = peticion(&session);
+        p.edicion.zooms = Some(vec![TramoZoom { instantaneo: true, ..zoom_fijo(1_000, 2_000, 0.25, 0.5) }]);
+        let salen = gif(&session, &p, "de-golpe");
+        let _ = std::fs::remove_dir_all(&session.dir);
+        assert!(rojo(en(&salen, 1_010)) > 0.95, "a los 10 ms del bloque ya está cerca");
+        assert!((rojo(en(&salen, 990)) - 0.5).abs() < 0.05, "y justo antes, entera");
+    }
+
+    /// A6: la lupa amplía su trozo sin mover la vista. Lo de fuera de la lente sigue
+    /// como estaba y fuera de su bloque no hay lupa.
+    #[test]
+    fn la_lupa_amplia_sin_mover_la_vista() {
+        // Un cuadro blanco de 6 píxeles en medio de la mitad roja.
+        let mut rgba = mitades();
+        for y in 37..43 {
+            for x in 27..33 {
+                let i = ((y * ANCHO + x) * 4) as usize;
+                rgba[i..i + 4].copy_from_slice(&[255, 255, 255, 255]);
+            }
+        }
+        let session = sesion("lupa", &[(0, rgba)], 3_000);
+        let mut p = peticion(&session);
+        let lupa = Lupa { forma: Forma::Circulo, marco: false, tam: 0.4, aumento: 3.0 };
+        p.edicion.zooms = Some(vec![TramoZoom { lupa: Some(lupa), ..zoom_fijo(1_000, 2_500, 0.25, 0.5) }]);
+        let salen = gif(&session, &p, "lupa");
+        let _ = std::fs::remove_dir_all(&session.dir);
+        let blancos = |imagen: &image::RgbaImage| {
+            imagen.pixels().filter(|p| p.0.iter().take(3).all(|&c| c > 200)).count()
+        };
+        let (fuera, dentro) = (en(&salen, 500), en(&salen, 1_800));
+        assert!((30..=42).contains(&blancos(fuera)), "sin lupa, el cuadro de 36: {}", blancos(fuera));
+        assert!(blancos(dentro) > 36 * 6, "con la lupa, ampliado: {}", blancos(dentro));
+        // La vista no se ha movido: la esquina de la derecha sigue siendo la azul de siempre.
+        let esquina = dentro.get_pixel(ANCHO - 3, 3).0;
+        assert!(esquina[2] > 150 && esquina[0] < 100, "la vista se ha movido: {esquina:?}");
+        assert!((rojo(dentro) - 0.5).abs() < 0.08, "la mitad sigue siendo roja: {}", rojo(dentro));
+    }
+
+    /// D1: cortar un trozo del medio lo quita del vídeo, y lo que queda dura lo que suman
+    /// los trozos que se quedan.
+    #[test]
+    fn cortar_un_trozo_lo_quita_del_gif() {
+        let session = sesion("cortar", &[(0, liso(ROJO)), (1_000, liso(VERDE)), (2_000, liso(AZUL))], 3_000);
+        let mut p = peticion(&session);
+        p.edicion.tramos = Some(vec![
+            TramoVelocidad { desde_ms: 0, hasta_ms: 1_000, velocidad: 1.0 },
+            TramoVelocidad { desde_ms: 2_000, hasta_ms: 3_000, velocidad: 1.0 },
+        ]);
+        let salen = gif(&session, &p, "cortar");
+        let _ = std::fs::remove_dir_all(&session.dir);
+        let verde = |i: &image::RgbaImage| i.get_pixel(5, 5).0[1] > 150;
+        assert!(!salen.iter().any(|(_, _, i)| verde(i)), "el trozo cortado sigue saliendo");
+        assert!((cuanto_dura(&salen) as i64 - 2_000).abs() <= 60, "dura {} ms y quedaban 2000", cuanto_dura(&salen));
+        assert!(rojo(en(&salen, 500)) > 0.95 && en(&salen, 1_500).get_pixel(5, 5).0[2] > 150, "rojo y luego azul");
+    }
+
+    /// D3: un trozo al doble dura la mitad, y el resto sigue a su velocidad.
+    #[test]
+    fn acelerar_un_trozo_lo_acorta() {
+        let session = sesion("acelerar", &[(0, liso(ROJO)), (1_000, liso(AZUL))], 3_000);
+        let mut p = peticion(&session);
+        p.edicion.tramos = Some(vec![
+            TramoVelocidad { desde_ms: 0, hasta_ms: 1_000, velocidad: 1.0 },
+            TramoVelocidad { desde_ms: 1_000, hasta_ms: 3_000, velocidad: 2.0 },
+        ]);
+        let salen = gif(&session, &p, "acelerar");
+        let _ = std::fs::remove_dir_all(&session.dir);
+        assert!((cuanto_dura(&salen) as i64 - 2_000).abs() <= 60, "dura {} ms y tenía que durar 2000", cuanto_dura(&salen));
+        assert!(rojo(en(&salen, 900)) > 0.95, "el primer segundo sigue entero a su velocidad");
+    }
+
+    /// Los tramos mal puestos no rompen nada: se meten en la grabación, no se pisan, y sin
+    /// ninguno con largo se exporta lo de siempre.
+    #[test]
+    fn los_tramos_se_ordenan_y_se_meten_dentro() {
+        let session = super::tests::session_with(&[1_000, 1_000, 1_000]);
+        let mut p = crate::recorder::peticion_por_defecto(&session);
+        p.edicion.tramos = Some(vec![
+            TramoVelocidad { desde_ms: 2_500, hasta_ms: 9_000, velocidad: 1.0 },
+            TramoVelocidad { desde_ms: 0, hasta_ms: 1_000, velocidad: f32::NAN },
+            TramoVelocidad { desde_ms: 500, hasta_ms: 1_500, velocidad: 20.0 },
+        ]);
+        assert_eq!(p.trozos(&session), vec![(0, 1_000, 1.0), (1_000, 1_500, 8.0), (2_500, 3_000, 1.0)]);
+        p.edicion.tramos = Some(vec![TramoVelocidad { desde_ms: 5_000, hasta_ms: 6_000, velocidad: 1.0 }]);
+        assert_eq!(p.trozos(&session), vec![(0, 3_000, 1.0)], "fuera de la grabación: lo de siempre");
+        p.edicion.tramos = None;
+        p.speed = 2.0;
+        assert_eq!(p.trozos(&session), vec![(0, 3_000, 2.0)], "sin tramos, el tramo y la velocidad del panel");
+    }
+
+    /// El sonido de los trozos: el de su velocidad suena con su trozo exacto, el acelerado
+    /// va en silencio, y entre los dos duran lo que dura el vídeo.
+    #[test]
+    fn el_trozo_acelerado_va_en_silencio() {
+        let dir = std::env::temp_dir().join(format!("winshotx-trozos-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut session = super::tests::session_with(&[4_000]);
+        session.dir = dir.clone();
+        session.audio = Some(record::AudioInfo { channels: 2, sample_rate: 48_000 });
+        // Cada milisegundo lleva escrito su número (más uno, para que ninguno sea silencio).
+        let por_ms = 192usize;
+        let pcm: Vec<u8> = (0..4_000u32).flat_map(|ms| std::iter::repeat_n((ms % 250 + 1) as u8, por_ms)).collect();
+        std::fs::write(session.audio_path(), &pcm).unwrap();
+        let trozos = [(0, 1_000, 1.0), (1_000, 3_000, 2.0), (3_500, 4_000, 1.0)];
+        let pista = pista_de_trozos(&session, &trozos, &[1_000, 1_000, 500]);
+        let todos_acelerados = pista_de_trozos(&session, &[(0, 2_000, 2.0)], &[1_000]);
+        let _ = std::fs::remove_dir_all(&dir);
+        let pista = pista.expect("sin pista");
+        assert_eq!(pista.datos.len(), 2_500 * por_ms, "dura lo que el vídeo");
+        assert_eq!(pista.datos[999 * por_ms], (999 % 250 + 1) as u8, "el primero suena entero");
+        assert!(pista.datos[1_000 * por_ms..2_000 * por_ms].iter().all(|&b| b == 0), "el acelerado, en silencio");
+        assert_eq!(pista.datos[2_000 * por_ms], (3_500 % 250 + 1) as u8, "y el de después, desde su sitio");
+        assert!(todos_acelerados.is_none(), "todos acelerados: mudo, como hasta ahora a otra velocidad");
+    }
+
+    /// A 44,1 kHz un milisegundo son 44,1 muestras. Medido en bytes por milisegundo (176
+    /// en vez de 176,4), un corte a los diez minutos empezaba el sonido segundo y pico tarde.
+    #[test]
+    fn a_44_1_khz_el_sonido_no_se_despega() {
+        let dir = std::env::temp_dir().join(format!("winshotx-44k-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut session = super::tests::session_with(&[700_000]);
+        session.dir = dir.clone();
+        session.audio = Some(record::AudioInfo { channels: 2, sample_rate: 44_100 });
+        // Diez minutos de silencio y una muestra marcada justo en el segundo 600.
+        let mut pcm = vec![0u8; 44_100 * 4 * 601];
+        let marca = 44_100 * 4 * 600;
+        pcm[marca..marca + 4].copy_from_slice(&[7, 7, 7, 7]);
+        std::fs::write(session.audio_path(), &pcm).unwrap();
+        let pista = pista_de_audio(&session, 600_000, 600_500);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(&pista.expect("sin pista").datos[..4], &[7, 7, 7, 7], "el corte tiene que empezar en su muestra");
+    }
+}
+
+/// Lo mismo que `la_linea_de_tiempo`, en un MP4 de verdad: el codificador de Windows y el
+/// archivo leído con ffmpeg. Se corre a mano:
+///
+///     cargo test --release --lib la_linea_de_tiempo_en_mp4 -- --ignored --nocapture
+#[cfg(test)]
+mod la_linea_de_tiempo_en_mp4 {
+    use super::la_linea_de_tiempo::{liso, mitades, sesion, zoom_fijo, AZUL, ROJO, VERDE};
+    use super::*;
+    use crate::contrato::TramoVelocidad;
+    use std::process::Command;
+
+    fn hay_ffmpeg() -> bool {
+        Command::new("ffprobe").arg("-version").output().is_ok()
+    }
+
+    /// El color medio de lo que se VE en ese segundo del MP4.
+    ///
+    /// No con `-ss`: una pantalla quieta es un fotograma que dura segundos, y `-ss` da el
+    /// primero que empieza después del instante, o sea el siguiente. El filtro `fps` saca
+    /// diez por segundo con lo que se está viendo en cada uno, y se coge el que toca.
+    fn color_en(mp4: &Path, segundo: f32) -> Option<[u8; 3]> {
+        let salida = Command::new("ffmpeg")
+            .args(["-v", "error", "-i"])
+            .arg(mp4)
+            .args(["-vf", "fps=10,scale=1:1:flags=area", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+            .output()
+            .ok()?
+            .stdout;
+        let i = (segundo * 10.0).round() as usize * 3;
+        salida.get(i..i + 3).map(|c| [c[0], c[1], c[2]])
+    }
+
+    /// Lo que dura cada pista según ffprobe: `(imagen, sonido)` en segundos.
+    fn duraciones(mp4: &Path) -> (f64, Option<f64>) {
+        let salida = Command::new("ffprobe")
+            .args(["-v", "error", "-show_entries", "stream=codec_type,duration", "-of", "csv=p=0"])
+            .arg(mp4)
+            .output()
+            .expect("ffprobe");
+        let (mut video, mut sonido) = (0.0, None);
+        for linea in String::from_utf8_lossy(&salida.stdout).lines() {
+            let mut partes = linea.split(',');
+            let tipo = partes.next().unwrap_or("");
+            let segundos: Option<f64> = partes.next().and_then(|s| s.trim().parse().ok());
+            match (tipo, segundos) {
+                ("video", Some(s)) => video = s,
+                ("audio", Some(s)) => sonido = Some(s),
+                _ => {}
+            }
+        }
+        (video, sonido)
+    }
+
+    fn mp4(session: &SessionData, peticion: &ExportRequest, nombre: &str) -> PathBuf {
+        let destino = session.dir.join(format!("{nombre}.mp4"));
+        escribir(session, peticion, &destino, &|_, _, _| {}).expect("exportar a MP4 ha fallado");
+        destino
+    }
+
+    fn peticion(session: &SessionData) -> ExportRequest {
+        let mut p = crate::recorder::peticion_por_defecto(session);
+        p.format = "mp4".into();
+        p.cursor = 0.0;
+        p.audio = session.audio.is_some();
+        p
+    }
+
+    /// Lo rojo que es un color medio: con la mitad roja y la mitad azul sale a medias.
+    fn rojez(c: [u8; 3]) -> f32 {
+        c[0] as f32 / (c[0] as f32 + c[2] as f32).max(1.0)
+    }
+
+    /// A1, el criterio de «hecho» en el MP4: mover un bloque cambia el vídeo en ese tramo.
+    #[test]
+    #[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
+    fn mover_un_zoom_cambia_el_mp4_en_ese_tramo() {
+        if !hay_ffmpeg() {
+            eprintln!("sin ffmpeg en el PATH no se puede abrir el MP4: no compruebo nada");
+            return;
+        }
+        let session = sesion("mp4-zoom", &[(0, mitades())], 4_000);
+        let mut p = peticion(&session);
+        p.edicion.zooms = Some(vec![zoom_fijo(500, 1_500, 0.25, 0.5)]);
+        let antes = mp4(&session, &p, "antes");
+        p.edicion.zooms = Some(vec![zoom_fijo(2_500, 3_500, 0.25, 0.5)]);
+        let despues = mp4(&session, &p, "despues");
+        let medir = |f: &Path| (rojez(color_en(f, 1.0).unwrap()), rojez(color_en(f, 3.0).unwrap()));
+        let ((a1, a3), (d1, d3)) = (medir(&antes), medir(&despues));
+        let _ = std::fs::remove_dir_all(&session.dir);
+        println!("rojo a 1 s y a 3 s: antes {a1:.2} y {a3:.2}, con el bloque movido {d1:.2} y {d3:.2}");
+        // El rojo puro da 0,88 y las dos mitades, 0,5.
+        assert!(a1 > 0.8 && (a3 - 0.5).abs() < 0.1, "antes: {a1} y {a3}");
+        assert!((d1 - 0.5).abs() < 0.1 && d3 > 0.8, "después: {d1} y {d3}");
+    }
+
+    /// D1 y D3 en el MP4 con sonido: cortar el trozo verde y acelerar el azul al doble deja
+    /// imagen y sonido de la misma medida, sin verde.
+    #[test]
+    #[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
+    fn cortar_y_acelerar_en_el_mp4_con_sonido() {
+        if !hay_ffmpeg() {
+            eprintln!("sin ffmpeg en el PATH no se puede abrir el MP4: no compruebo nada");
+            return;
+        }
+        let mut session = sesion("mp4-tramos", &[(0, liso(ROJO)), (2_000, liso(VERDE)), (4_000, liso(AZUL))], 6_000);
+        let info = record::AudioInfo { channels: 2, sample_rate: 48_000 };
+        let pcm: Vec<u8> = (0..6_000 * info.bytes_por_ms() as usize).map(|i| ((i / 7) % 200) as u8).collect();
+        session.audio = Some(info);
+        session.has_audio = true;
+        std::fs::write(session.audio_path(), &pcm).unwrap();
+        let mut p = peticion(&session);
+        p.edicion.tramos = Some(vec![
+            TramoVelocidad { desde_ms: 0, hasta_ms: 2_000, velocidad: 1.0 },
+            TramoVelocidad { desde_ms: 4_000, hasta_ms: 6_000, velocidad: 2.0 },
+        ]);
+        let archivo = mp4(&session, &p, "tramos");
+        let (video, sonido) = duraciones(&archivo);
+        let colores: Vec<[u8; 3]> = [0.5f32, 1.5, 2.5].iter().map(|&s| color_en(&archivo, s).unwrap()).collect();
+        let _ = std::fs::remove_dir_all(&session.dir);
+        println!("cortado y acelerado: imagen {video:.3} s, sonido {sonido:?} s, colores {colores:?}");
+        assert!((video - 3.0).abs() < 0.1, "la imagen dura {video} s y tenía que durar 3");
+        let sonido = sonido.expect("el MP4 ha salido sin sonido");
+        assert!((sonido - 3.0).abs() < 0.1, "el sonido dura {sonido} s y la imagen 3");
+        assert!(colores.iter().all(|c| c[1] < 120), "el verde cortado ha salido: {colores:?}");
+        let mas = |a: u8, b: u8| i32::from(a) > i32::from(b) + 60;
+        assert!(colores[..2].iter().all(|c| mas(c[0], c[2])), "los dos primeros segundos, rojos: {colores:?}");
+        assert!(mas(colores[2][2], colores[2][0]), "a los 2,5 s tenía que verse el azul: {:?}", colores[2]);
+    }
+
+    /// Una pantalla quieta se ve en el MP4 hasta que cambia, y no el fotograma de después.
+    /// Hasta el 11 de noviembre de 2026, rojo dos segundos, verde dos y azul dos salían como
+    /// 33 ms de rojo, dos segundos de verde y cuatro de azul: el codificador rellena cada
+    /// hueco con el fotograma siguiente. Pasa en cualquier exportación con la pantalla y el
+    /// ratón quietos, y con los cortes y los zooms de la pista, mucho más.
+    #[test]
+    #[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
+    fn una_pantalla_quieta_se_ve_hasta_que_cambia() {
+        if !hay_ffmpeg() {
+            eprintln!("sin ffmpeg en el PATH no se puede abrir el MP4: no compruebo nada");
+            return;
+        }
+        let session = sesion("mp4-quieta", &[(0, liso(ROJO)), (2_000, liso(VERDE)), (4_000, liso(AZUL))], 6_000);
+        let mut p = peticion(&session);
+        p.audio = false;
+        let archivo = mp4(&session, &p, "quieta");
+        let colores: Vec<[u8; 3]> = [1.0f32, 1.9, 3.0, 5.0].iter().map(|&s| color_en(&archivo, s).unwrap()).collect();
+        let _ = std::fs::remove_dir_all(&session.dir);
+        println!("a 1, 1,9, 3 y 5 s: {colores:?}");
+        let mas = |a: u8, b: u8| i32::from(a) > i32::from(b) + 60;
+        assert!(colores[..2].iter().all(|c| mas(c[0], c[1]) && mas(c[0], c[2])), "rojo hasta los 2 s: {colores:?}");
+        assert!(mas(colores[2][1], colores[2][0]), "verde a los 3 s: {:?}", colores[2]);
+        assert!(mas(colores[3][2], colores[3][0]), "azul a los 5 s: {:?}", colores[3]);
     }
 }

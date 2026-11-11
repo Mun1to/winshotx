@@ -139,6 +139,14 @@ impl Seguimiento {
             escala: objetivo.escala,
         }
     }
+
+    /// La cámara justo donde se le pide, sin recorrido: la de un zoom fijo, que no se mueve
+    /// de su punto. Lo apunta como sitio de partida, para que lo que venga detrás salga de
+    /// ahí y no de donde estaba antes del tramo fijo.
+    pub fn colocar(&mut self, objetivo: Camara, ms: u64) -> Camara {
+        self.ultimo = (objetivo.escala > 1.001).then_some((objetivo.x as f32, objetivo.y as f32, ms));
+        objetivo
+    }
 }
 
 /// Un rato en el que la cámara está acercada a un sitio.
@@ -153,10 +161,81 @@ pub struct Tramo {
     pub hasta_ms: u64,
     /// El primer clic del grupo, que es cuando ya tiene que estar cerca.
     pub cerca_ms: u64,
-    /// El último clic del grupo: hasta aquí se queda quieto.
+    /// El último clic del grupo.
     pub fin_cerca_ms: u64,
+    /// Cuándo empieza a alejarse: hasta aquí se queda quieto. En los de los clics es el
+    /// último clic más el rato quieto; en los puestos a mano, el final del bloque menos lo
+    /// que tarda en alejarse.
+    pub lejos_ms: u64,
     pub x: i32,
     pub y: i32,
+    /// Cuánto se acerca este tramo: 2 es el doble. Los de los clics llevan todos el del
+    /// panel; cada bloque de la pista lleva el suyo.
+    pub escala: f32,
+    /// Anclado en `(x, y)`: la cámara no sigue al ratón y el centro no se mueve (A2).
+    pub fijo: bool,
+    /// Entra y sale de golpe, sin acercarse poco a poco.
+    pub instantaneo: bool,
+}
+
+/// Un zoom de la pista del editor, ya en píxeles de la imagen sobre la que se mide la
+/// cámara (la grabada, o el trozo que recortó el usuario).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ZoomAMano {
+    pub desde_ms: u64,
+    pub hasta_ms: u64,
+    pub escala: f32,
+    pub x: i32,
+    pub y: i32,
+    pub fijo: bool,
+    pub instantaneo: bool,
+}
+
+/// El tope de lo que se acerca un zoom: más allá, un píxel grabado ocupa una baldosa.
+pub const ESCALA_MAXIMA: f32 = 4.0;
+
+/// Los tramos de los zooms puestos a mano.
+///
+/// **El bloque es el rato entero en que la cámara no enseña la imagen entera**: se acerca
+/// al principio del bloque, se queda, y se aleja antes de que acabe. Así lo que se ve en la
+/// pista es lo que pasa en el vídeo, y un bloque hecho con un tramo de los clics (que
+/// empieza a acercarse antes del clic y acaba de alejarse después) vuelve a dar ese mismo
+/// tramo.
+///
+/// Van en orden y sin pisarse: si dos se pisan, el segundo empieza donde acaba el primero,
+/// y uno que se queda sin largo, o que no acerca nada, no cuenta.
+pub fn tramos_a_mano(zooms: &[ZoomAMano], ajustes: &Ajustes) -> Vec<Tramo> {
+    let mut orden: Vec<ZoomAMano> = zooms.to_vec();
+    orden.sort_by_key(|z| (z.desde_ms, z.hasta_ms));
+    let mut salida: Vec<Tramo> = Vec::with_capacity(orden.len());
+    for z in orden {
+        let desde = salida.last().map_or(z.desde_ms, |t| z.desde_ms.max(t.hasta_ms));
+        let escala = if z.escala.is_finite() { z.escala.min(ESCALA_MAXIMA) } else { 1.0 };
+        if z.hasta_ms <= desde || escala < 1.01 {
+            continue;
+        }
+        // En un bloque corto, acercarse y alejarse se comen como mucho un tercio cada uno:
+        // siempre queda un rato quieto encima, que es para lo que se pone.
+        let transicion = ajustes.transicion_ms.min((z.hasta_ms - desde) / 3);
+        salida.push(Tramo {
+            desde_ms: desde,
+            hasta_ms: z.hasta_ms,
+            cerca_ms: desde + transicion,
+            fin_cerca_ms: desde + transicion,
+            lejos_ms: z.hasta_ms - transicion,
+            x: z.x,
+            y: z.y,
+            escala,
+            fijo: z.fijo,
+            instantaneo: z.instantaneo,
+        });
+    }
+    salida
+}
+
+/// El tramo que hay en ese milisegundo, si hay alguno.
+pub fn tramo_en(tramos: &[Tramo], ms: u64) -> Option<&Tramo> {
+    tramos.iter().find(|t| ms >= t.desde_ms && ms <= t.hasta_ms)
 }
 
 /// Dónde mira la cámara en un instante.
@@ -227,15 +306,20 @@ pub fn tramos(clics: &[Clic], ajustes: &Ajustes) -> Vec<Tramo> {
             // acabe de alejarse: se alarga en vez de abrir otro que se pisaria con el.
             Some(ultimo) if clic.ms <= ultimo.hasta_ms + ajustes.transicion_ms => {
                 ultimo.fin_cerca_ms = clic.ms;
+                ultimo.lejos_ms = clic.ms + ajustes.quieto_ms;
                 ultimo.hasta_ms = clic.ms + ajustes.quieto_ms + ajustes.transicion_ms;
             }
             _ => salida.push(Tramo {
                 desde_ms: clic.ms.saturating_sub(ajustes.transicion_ms),
                 cerca_ms: clic.ms,
                 fin_cerca_ms: clic.ms,
+                lejos_ms: clic.ms + ajustes.quieto_ms,
                 hasta_ms: clic.ms + ajustes.quieto_ms + ajustes.transicion_ms,
                 x: clic.x,
                 y: clic.y,
+                escala: ajustes.escala,
+                fijo: false,
+                instantaneo: false,
             }),
         }
     }
@@ -269,7 +353,9 @@ pub fn siguiendo(
     ajustes: &Ajustes,
 ) -> Camara {
     let base = camara(tramos, ms, ancho, alto, ajustes);
-    if base.escala <= 1.001 || rastro.is_empty() {
+    // Un zoom fijo no mira el ratón: se queda en su punto el tramo entero.
+    let fijo = tramo_en(tramos, ms).is_some_and(|t| t.fijo);
+    if base.escala <= 1.001 || rastro.is_empty() || fijo {
         return base;
     }
     // El ratón, suavizado: la media de donde ha estado en el último tramo de tiempo, con
@@ -302,32 +388,35 @@ pub fn siguiendo(
 }
 
 /// Dónde mira la cámara en ese milisegundo, sin mirar el ratón.
-pub fn camara(tramos: &[Tramo], ms: u64, ancho: u32, alto: u32, ajustes: &Ajustes) -> Camara {
+///
+/// Los ajustes ya no hacen falta aquí: cada tramo lleva su nivel y sus tiempos, porque los
+/// de la pista los pone cada uno. Se siguen pidiendo para no cambiar a quien la llama.
+pub fn camara(tramos: &[Tramo], ms: u64, ancho: u32, alto: u32, _ajustes: &Ajustes) -> Camara {
     let entera = Camara::entera(ancho, alto);
-    let Some(tramo) = tramos
-        .iter()
-        .find(|t| ms >= t.desde_ms && ms <= t.hasta_ms)
-    else {
+    let Some(tramo) = tramo_en(tramos, ms) else {
         return entera;
     };
 
     let cerca = |cuanto: f32| Camara {
         x: tramo.x,
         y: tramo.y,
-        escala: 1.0 + (ajustes.escala - 1.0) * cuanto,
+        escala: 1.0 + (tramo.escala - 1.0) * cuanto,
     };
 
-    if ms < tramo.cerca_ms {
+    if tramo.instantaneo {
+        // De golpe: cerca del todo desde el primer milisegundo del tramo hasta el último.
+        cerca(1.0)
+    } else if ms < tramo.cerca_ms {
         // Acercándose.
         let dentro = (ms - tramo.desde_ms) as f32;
         let total = (tramo.cerca_ms - tramo.desde_ms).max(1) as f32;
         cerca(suave(dentro / total))
-    } else if ms <= tramo.fin_cerca_ms + ajustes.quieto_ms {
+    } else if ms <= tramo.lejos_ms {
         // Quieto encima.
         cerca(1.0)
     } else {
         // Alejándose.
-        let empieza = tramo.fin_cerca_ms + ajustes.quieto_ms;
+        let empieza = tramo.lejos_ms;
         let dentro = (ms - empieza) as f32;
         let total = (tramo.hasta_ms - empieza).max(1) as f32;
         cerca(1.0 - suave(dentro / total))
@@ -715,5 +804,139 @@ mod velocidad {
     fn una_velocidad_disparatada_se_queda_en_sus_topes() {
         assert_eq!(Ajustes::a_velocidad(2.0, 100.0).transicion_ms, 180);
         assert_eq!(Ajustes::a_velocidad(2.0, f32::NAN).transicion_ms, 450);
+    }
+}
+
+#[cfg(test)]
+mod a_mano {
+    use super::*;
+
+    fn bloque(desde_ms: u64, hasta_ms: u64, escala: f32) -> ZoomAMano {
+        ZoomAMano { desde_ms, hasta_ms, escala, x: 400, y: 300, fijo: false, instantaneo: false }
+    }
+
+    /// El bloque es el rato entero acercado: entra al principio, sale antes del final, y
+    /// fuera de él se ve la imagen entera.
+    #[test]
+    fn el_bloque_es_el_rato_entero_acercado() {
+        let a = Ajustes::default();
+        let t = tramos_a_mano(&[bloque(1_000, 4_000, 2.5)], &a);
+        let en = |ms| camara(&t, ms, 1920, 1080, &a).escala;
+        assert_eq!(en(999), 1.0);
+        assert_eq!(en(1_000), 1.0, "empieza acercándose desde la imagen entera");
+        assert_eq!(en(1_000 + a.transicion_ms), 2.5, "acaba de acercarse");
+        assert_eq!(en(2_500), 2.5);
+        assert_eq!(en(4_000 - a.transicion_ms), 2.5, "todavía no se aleja");
+        assert_eq!(en(4_000), 1.0, "y acaba de alejarse en el final del bloque");
+        assert_eq!(en(4_001), 1.0);
+    }
+
+    /// Cada bloque lleva su nivel: dos bloques seguidos se acercan cada uno lo suyo.
+    #[test]
+    fn cada_bloque_se_acerca_lo_suyo() {
+        let a = Ajustes::default();
+        let t = tramos_a_mano(&[bloque(0, 2_000, 1.5), bloque(3_000, 5_000, 3.0)], &a);
+        assert_eq!(camara(&t, 1_000, 1920, 1080, &a).escala, 1.5);
+        assert_eq!(camara(&t, 4_000, 1920, 1080, &a).escala, 3.0);
+    }
+
+    /// De golpe: cerca del todo desde el primer milisegundo y entera justo después.
+    #[test]
+    fn el_instantaneo_entra_y_sale_de_golpe() {
+        let a = Ajustes::default();
+        let mut b = bloque(1_000, 3_000, 2.0);
+        b.instantaneo = true;
+        let t = tramos_a_mano(&[b], &a);
+        assert_eq!(camara(&t, 999, 1920, 1080, &a).escala, 1.0);
+        assert_eq!(camara(&t, 1_000, 1920, 1080, &a).escala, 2.0);
+        assert_eq!(camara(&t, 3_000, 1920, 1080, &a).escala, 2.0);
+        assert_eq!(camara(&t, 3_001, 1920, 1080, &a).escala, 1.0);
+    }
+
+    /// Dos bloques que se pisan no dan dos cámaras a la vez: el segundo empieza donde acaba
+    /// el primero. Y uno al revés, vacío o que no acerca nada, no cuenta.
+    #[test]
+    fn los_que_se_pisan_se_ordenan_y_los_vacios_no_cuentan() {
+        let a = Ajustes::default();
+        let t = tramos_a_mano(
+            &[bloque(2_000, 5_000, 2.0), bloque(0, 3_000, 2.0), bloque(6_000, 6_000, 2.0), bloque(7_000, 9_000, 1.0)],
+            &a,
+        );
+        assert_eq!(t.len(), 2, "{t:?}");
+        assert_eq!((t[0].desde_ms, t[0].hasta_ms), (0, 3_000));
+        assert_eq!((t[1].desde_ms, t[1].hasta_ms), (3_000, 5_000));
+    }
+
+    /// Un bloque corto sigue teniendo su rato quieto encima.
+    #[test]
+    fn un_bloque_corto_se_queda_quieto_un_rato() {
+        let a = Ajustes::default();
+        let t = tramos_a_mano(&[bloque(0, 600, 2.0)], &a);
+        assert_eq!(t[0].cerca_ms, 200);
+        assert_eq!(t[0].lejos_ms, 400);
+        assert_eq!(camara(&t, 300, 1920, 1080, &a).escala, 2.0);
+    }
+
+    /// Un tramo de los clics hecho bloque vuelve a dar el mismo tramo: los automáticos
+    /// salen en la pista como bloques, y tocarlos no puede cambiar lo que ya hacían.
+    #[test]
+    fn un_tramo_de_los_clics_hecho_bloque_es_el_mismo_tramo() {
+        let a = Ajustes::a_velocidad(2.0, 1.0);
+        let clics = [
+            Clic { ms: 2_000, x: 100, y: 100, derecho: false },
+            Clic { ms: 2_600, x: 300, y: 200, derecho: false },
+        ];
+        let auto = tramos(&clics, &a);
+        let bloques: Vec<ZoomAMano> = auto
+            .iter()
+            .map(|t| ZoomAMano {
+                desde_ms: t.desde_ms,
+                hasta_ms: t.hasta_ms,
+                escala: t.escala,
+                x: t.x,
+                y: t.y,
+                fijo: false,
+                instantaneo: false,
+            })
+            .collect();
+        let otra_vez = tramos_a_mano(&bloques, &a);
+        for ms in (0..6_000).step_by(10) {
+            assert_eq!(
+                camara(&auto, ms, 1920, 1080, &a),
+                camara(&otra_vez, ms, 1920, 1080, &a),
+                "en el ms {ms}"
+            );
+        }
+    }
+
+    /// Fijo: con el ratón cruzando la pantalla, el centro no se mueve en todo el tramo.
+    #[test]
+    fn el_fijo_no_sigue_al_raton() {
+        let a = Ajustes::default();
+        let mut b = bloque(0, 3_000, 2.0);
+        b.fijo = true;
+        let t = tramos_a_mano(&[b], &a);
+        let rastro: Vec<(u64, i32, i32)> = (0..200u64).map(|k| (k * 16, 50 + k as i32 * 9, 900)).collect();
+        let mut sigue = Seguimiento::default();
+        for ms in (0..=3_000).step_by(33) {
+            let objetivo = siguiendo(&t, &rastro, ms, 1920, 1080, &a);
+            let c = sigue.colocar(objetivo, ms);
+            if c.escala > 1.001 {
+                assert_eq!((c.x, c.y), (400, 300), "en el ms {ms} el centro se ha ido a {c:?}");
+            }
+        }
+    }
+
+    /// Después de un tramo fijo, la inercia sale de donde estaba la cámara, no de antes.
+    #[test]
+    fn colocar_deja_apuntado_el_sitio_de_partida() {
+        let a = Ajustes::default();
+        let mut s = Seguimiento::default();
+        s.colocar(Camara { x: 400, y: 300, escala: 2.0 }, 1_000);
+        let despues = s.avanzar(Camara { x: 1_400, y: 300, escala: 2.0 }, 1_033, 1920, &a);
+        assert!(despues.x > 400 && despues.x < 1_400, "ha salido de {despues:?}");
+        assert_eq!(s.colocar(Camara::entera(1920, 1080), 2_000).escala, 1.0);
+        let de_nuevo = s.avanzar(Camara { x: 1_400, y: 300, escala: 2.0 }, 2_033, 1920, &a);
+        assert_eq!(de_nuevo.x, 1_400, "con la imagen entera se olvida de dónde estaba");
     }
 }
