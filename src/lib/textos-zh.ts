@@ -524,6 +524,20 @@ export const ZH: Record<string, string> = {
   // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
   // S1 (línea de tiempo)
   // S2 (grabación)
+  "Tecla de zoom": "缩放键",
+  "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "录制时按下它，画面会在那一刻放大到鼠标所在的位置。它会作为一个缩放出现在编辑器的时间线上，之后可以移动或删除。按键也会传给正在录制的程序，所以默认选了一个几乎没有程序使用的组合。",
+  "acerca el vídeo al ratón": "把视频放大到鼠标处",
+  "es la de grabar: al pulsarla pararías la grabación": "这是录制键：按下会停止录制",
+  "es la de capturar: al pulsarla abrirías una captura": "这是截图键：按下会开始截图",
+  "es la de los últimos segundos": "这是最近几秒的快捷键",
+  "es la de capturar y editar": "这是截图并编辑的快捷键",
+  "La cámara": "摄像头",
+  "Grabar también la cámara": "同时录制摄像头",
+  "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "同时录制你的摄像头，单独保存为一个文件放在视频旁边，之后可以在编辑器里把它放到角落。摄像头指示灯只在录制时亮起。如果其他程序正在使用它，或 Windows 不允许（隐私，摄像头），则在没有摄像头的情况下继续录制。",
+  "no hay ninguna cámara conectada": "没有连接摄像头",
+  "tu cara en su propio archivo": "你的画面单独保存为一个文件",
+  "Qué cámara": "使用哪个摄像头",
+  "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "录制你选择的那个。如果某天它没有连接，就使用第一个可用的。",
   // S3 (fondos)
   // S4 (capturas)
   // S5 (scroll)

@@ -246,6 +246,14 @@ export const resizeTrayMenu = (height: number) =>
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S1 (línea de tiempo)
 // S2 (grabación)
+/** Una cámara conectada: con qué la reconoce Windows y cómo se llama. */
+export interface CamaraConectada {
+  id: string;
+  nombre: string;
+}
+
+/** Las cámaras que hay. No enciende ninguna: solo lee sus nombres. */
+export const listCameras = () => invoke<CamaraConectada[] | null>("list_cameras");
 // S3 (fondos)
 // S4 (capturas)
 // S5 (scroll)

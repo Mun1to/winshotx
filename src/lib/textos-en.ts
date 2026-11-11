@@ -524,6 +524,20 @@ export const EN: Record<string, string> = {
   // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
   // S1 (línea de tiempo)
   // S2 (grabación)
+  "Tecla de zoom": "Zoom key",
+  "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "While you record, press it and the camera will move in to wherever your mouse is at that moment. It shows up as a zoom on the editor's timeline, which you can move or remove later. The key press also reaches the program you are recording: that's why it comes set to one hardly any program uses.",
+  "acerca el vídeo al ratón": "zooms the video to your mouse",
+  "es la de grabar: al pulsarla pararías la grabación": "it's the record key: pressing it would stop the recording",
+  "es la de capturar: al pulsarla abrirías una captura": "it's the capture key: pressing it would start a capture",
+  "es la de los últimos segundos": "it's the last-seconds key",
+  "es la de capturar y editar": "it's the capture-and-edit key",
+  "La cámara": "The camera",
+  "Grabar también la cámara": "Record the camera too",
+  "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "Records your webcam at the same time, in its own file next to the video, so you can put it in a corner later from the editor. The camera light only comes on while you record. If another program is using it or Windows doesn't allow it (Privacy, Camera), the recording goes ahead without it.",
+  "no hay ninguna cámara conectada": "no camera is connected",
+  "tu cara en su propio archivo": "your face in its own file",
+  "Qué cámara": "Which camera",
+  "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "The one you choose is recorded. If it isn't connected one day, the first one available is used.",
   // S3 (fondos)
   // S4 (capturas)
   // S5 (scroll)

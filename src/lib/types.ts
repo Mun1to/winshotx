@@ -363,6 +363,12 @@ export interface Settings {
   disabledHotkeysRestore: string | null;
   // Los ajustes nuevos del plan de CleanShot X y Screen Studio, debajo de su marca.
   // S2 (grabación)
+  /** La tecla que, mientras grabas, deja una marca de zoom donde está el ratón. */
+  zoomShortcut: string;
+  /** Grabar también la webcam, aparte, en la carpeta de la sesión. */
+  recordCamera: boolean;
+  /** Qué cámara, por el identificador que le da Windows. null = la primera que haya. */
+  cameraDevice: string | null;
   // S3 (fondos)
   // S4 (capturas)
 }
