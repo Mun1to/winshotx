@@ -25,6 +25,7 @@ import {
 import type { Anotacion } from "../../lib/anotaciones";
 import { punteroNormal, type Estudio } from "../../lib/estudio";
 import { FONDOS } from "../../lib/fondos";
+import type { Edicion } from "../../lib/contrato";
 
 /**
  * Los cuatro formatos, con lo que hace cada uno dicho en palabras: «H.264 por hardware»
@@ -111,6 +112,14 @@ interface Props {
   onEstudio?: (estudio: Estudio) => void;
   /** Poner o quitar el marco de recorte desde aquí, con una proporción ya hecha. */
   onRecorte?: (recorte: Recorte | null) => void;
+  /**
+   * Lo nuevo del plan de CleanShot X y Screen Studio (zooms a mano, tramos, fondos propios,
+   * webcam...), que el editor junta de sus piezas. Va tal cual en la petición; en una foto,
+   * sin zooms ni tramos, que son cosas del tiempo.
+   */
+  edicion?: Edicion;
+  /** Para las piezas que viven dentro de este panel (el fondo, el cursor): cambian lo suyo. */
+  onEdicion?: (cambio: Partial<Edicion>) => void;
 }
 
 /**
@@ -136,6 +145,7 @@ export function ExportPanel({
   saveDirectory,
   onEstudio,
   onRecorte,
+  edicion,
 }: Props) {
   const t = useT();
   const esCaptura = session.format === "still";
@@ -317,6 +327,7 @@ export function ExportPanel({
     try {
       const foto = esUnaFoto(format);
       const res = await exportMedia({
+        ...(foto ? { ...edicion, zooms: null, tramos: null } : edicion),
         sessionId: session.id,
         format,
         engine: useFfmpeg && hasFfmpeg ? "ffmpeg" : "native",

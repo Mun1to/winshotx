@@ -12,6 +12,7 @@ import { aplicarIdioma } from "../../lib/i18n";
 import { llamadas, responde } from "../../test/preparar";
 import type { SessionInfo } from "../../lib/types";
 import { conProporcion, medida, type Recorte } from "../../lib/recorte";
+import type { Edicion } from "../../lib/contrato";
 
 const GRABACION: SessionInfo = {
   id: "s1",
@@ -162,6 +163,44 @@ describe("el tramo de la línea de tiempo", () => {
     unmount();
     pintar({}, null, { desdeMs: 1_000, hastaMs: 3_000 });
     expect(screen.getByText("≈ 2.3 MB")).toBeInTheDocument();
+  });
+});
+
+describe("lo nuevo del plan (zooms a mano, tramos, fondos propios)", () => {
+  const EDICION: Edicion = {
+    zooms: [{ desdeMs: 100, hastaMs: 900, nivel: 2, modo: "fijo", x: 0.5, y: 0.5, instantaneo: false }],
+    tramos: [{ desdeMs: 0, hastaMs: 1_000, velocidad: 2 }],
+    fondo: { tipo: "color", rgb: [10, 20, 30] },
+  };
+
+  function pintarCon(edicion: Edicion) {
+    render(
+      <ExportPanel
+        anotaciones={[]}
+        recorte={null}
+        session={GRABACION}
+        inIndex={10}
+        outIndex={80}
+        currentIndex={42}
+        fpsMax={60}
+        hasFfmpeg={false}
+        saveDirectory="C:\\capturas"
+        edicion={edicion}
+      />,
+    );
+  }
+
+  it("viaja a Rust tal cual, como campos sueltos de la petición", async () => {
+    pintarCon(EDICION);
+    const req = await guardarYEsperar();
+    expect(req).toMatchObject(EDICION);
+  });
+
+  it("en una foto se queda el fondo, pero no los zooms ni los tramos, que son del tiempo", async () => {
+    pintarCon(EDICION);
+    fireEvent.click(screen.getByRole("button", { name: "PNG" }));
+    const req = await guardarYEsperar();
+    expect(req).toMatchObject({ zooms: null, tramos: null, fondo: EDICION.fondo });
   });
 });
 

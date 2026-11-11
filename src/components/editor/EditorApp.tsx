@@ -36,6 +36,7 @@ import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import { ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
 import { cssDelFondo } from "../../lib/fondos";
+import type { Edicion } from "../../lib/contrato";
 import { useT } from "../../lib/i18n";
 import { duracionDe, fotogramaVecino, indiceEn, limitarTramo } from "../../lib/tramo";
 
@@ -80,6 +81,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [datosEstudio, setDatosEstudio] = useState<StudioData | null>(null);
   /** La camara del zoom, una muestra por fotograma, con el zoom y el recorte puestos. */
   const [camara, setCamara] = useState<MuestraCamara[]>([]);
+  /**
+   * Lo nuevo del plan de CleanShot X y Screen Studio que se manda al exportar (los zooms de
+   * la pista, los tramos, el fondo propio...). Lo juntan la línea de tiempo y el panel.
+   */
+  const [edicion, setEdicion] = useState<Edicion>({});
   /** Lo dibujado encima, en el orden en que se hizo. */
   const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
@@ -758,6 +764,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           hasFfmpeg={hasFfmpeg}
           saveDirectory={settings.saveDirectory}
           onEstudio={setEstudio}
+          edicion={edicion}
+          onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}
           onRecorte={(nuevo) => {
             setRecorte(nuevo);
             // Puesta la proporción, el marco se enciende para poder moverlo de sitio: es
