@@ -416,6 +416,93 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   apagar();
 }
 
+// ── S9: tapar datos en un vídeo, en la línea de tiempo y en la vista previa ─────────────
+{
+  const { url, apagar } = await servir(duracion);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  const pista = pagina.locator("[data-pista]");
+  await pista.waitFor();
+  await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  console.log("\nTapar datos en un vídeo: los mosaicos en la línea de tiempo y en la imagen");
+
+  // Rust de mentira para la búsqueda: avisa de por dónde va y encuentra dos datos.
+  const TAPAS = [
+    { desdeMs: 5000, hastaMs: 9000, x: 0.3, y: 0.3, ancho: 0.25, alto: 0.08 },
+    { desdeMs: 12000, hastaMs: 15000, x: 0.1, y: 0.6, ancho: 0.2, alto: 0.06 },
+  ];
+  await pagina.evaluate((tapas) => {
+    const tauri = window.__TAURI_INTERNALS__;
+    const original = tauri.invoke;
+    tauri.invoke = function (cmd, args) {
+      if (cmd !== "tapar_datos_video") return original.call(this, cmd, args);
+      (window.__llamadas ??= []).push({ cmd, args });
+      for (const id of this._oyentes["winshotx://tapar-video"] ?? []) {
+        window["_" + id]?.({ event: "winshotx://tapar-video", id: 0, payload: { hechos: 50, total: 100 } });
+      }
+      return new Promise((listo) =>
+        setTimeout(() => listo({ tapas, resumen: [["correo", 1], ["teléfono", 1]], lecturas: 12, fotogramas: 900, ms: 700 }), 150),
+      );
+    };
+  }, TAPAS);
+
+  await pagina.getByRole("button", { name: /Tapar datos/ }).first().click();
+  await pagina.locator("[data-tapa]").nth(1).waitFor();
+  const aviso = await pagina.getByText(/Tapado en el vídeo/).textContent();
+  comprueba(aviso.includes("correo (1)") && aviso.includes("teléfono (1)"), `dice qué ha tapado: «${aviso.trim()}»`);
+  const enElVideo = await pagina.evaluate(() => document.querySelector("video").currentTime);
+  comprueba(Math.abs(enElVideo - 5) < 0.15, `la vista previa se va al primero: ${enElVideo.toFixed(2)} s`);
+
+  // El mosaico de verdad en la imagen: celdas de un solo color, y nada transparente.
+  await pagina.waitForFunction(() => document.querySelector("[data-capa-tapar]")?.dataset.puestas === "1");
+  // Recién saltado, el vídeo tarda un poco en tener la imagen: hasta entonces la capa tapa
+  // la zona en oscuro (nunca la enseña sin tapar), y lo que se mira aquí es el mosaico.
+  await pagina.waitForFunction(() => document.querySelector("video").readyState >= 2);
+  await pagina.waitForTimeout(150);
+  const mosaico = await pagina.evaluate(({ x, y, ancho, alto }) => {
+    const lienzo = document.querySelector("[data-capa-tapar]");
+    const ctx = lienzo.getContext("2d");
+    const px = Math.round((x + ancho / 2) * lienzo.width);
+    const py = Math.round((y + alto / 2) * lienzo.height);
+    const trozo = ctx.getImageData(px - 2, py - 2, 5, 5).data;
+    const fuera = ctx.getImageData(5, 5, 1, 1).data;
+    let iguales = 0;
+    for (let i = 4; i < trozo.length; i += 4) if (trozo[i] === trozo[0] && trozo[i + 1] === trozo[1] && trozo[i + 2] === trozo[2]) iguales++;
+    // El respaldo oscuro es (15, 15, 18) y no del todo opaco: el mosaico es la imagen.
+    const respaldo = trozo[0] === 15 && trozo[1] === 15 && trozo[2] === 18;
+    return { opaco: trozo[3] === 255 && !respaldo, iguales, total: trozo.length / 4 - 1, fuera: fuera[3] };
+  }, TAPAS[0]);
+  comprueba(mosaico.opaco && mosaico.iguales >= mosaico.total * 0.6, `la imagen lleva el mosaico encima del dato (${mosaico.iguales} de ${mosaico.total} píxeles de una misma celda)`);
+  comprueba(mosaico.fuera === 0, "y fuera del dato no pinta nada");
+  if (fotos) await pagina.screenshot({ path: join(fotos, "12-tapar-en-video.png") });
+
+  // Alargar el primero tirando de su borde derecho, con el ratón.
+  const caja = await pista.boundingBox();
+  const total = duracion * 1000;
+  const xEn = (ms) => caja.x + (caja.width * ms) / total;
+  const bloque = await pagina.locator("[data-tapa]").first().boundingBox();
+  await pagina.mouse.move(bloque.x + bloque.width - 3, bloque.y + bloque.height / 2);
+  await pagina.mouse.down();
+  await pagina.mouse.move(xEn(11000), bloque.y + bloque.height / 2, { steps: 10 });
+  await pagina.mouse.up();
+  const alargado = await pagina.locator("[data-tapa]").first().getAttribute("aria-label");
+  comprueba(/a 0:1[01]\./.test(alargado), `tirar del borde lo alarga: «${alargado}»`);
+
+  // Quitar el segundo con el clic derecho.
+  await pagina.locator("[data-tapa]").nth(1).click({ button: "right" });
+  comprueba((await pagina.locator("[data-tapa]").count()) === 1, "el clic derecho quita un mosaico");
+
+  await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+  await pagina.waitForFunction(() => (window.__llamadas ?? []).some((l) => l.cmd === "export_media"));
+  const tapar = await pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request.tapar);
+  comprueba(
+    tapar?.length === 1 && Math.abs(tapar[0].hastaMs - 11000) < 200 && tapar[0].desdeMs === 5000 && tapar[0].x === 0.3,
+    `«Guardar» manda lo que queda: ${JSON.stringify(tapar?.map((t) => [t.desdeMs, t.hastaMs]))}`,
+  );
+  await pagina.close();
+  apagar();
+}
+
 // ── Diez minutos de grabación: lo que tarda en salir y lo que cuesta arrastrar ─────────
 {
   const segundos = 600;

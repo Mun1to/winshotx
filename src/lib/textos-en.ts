@@ -659,4 +659,18 @@ export const EN: Record<string, string> = {
   // S7 (cursor)
   // S8 (cámara en el Estudio)
   // S9 (presets y tapar)
+  "Pista de lo tapado": "Masked track",
+  "Mosaico de {desde} a {hasta}": "Mosaic from {desde} to {hasta}",
+  "Tira de un borde para alargarlo; clic derecho o Supr para quitarlo": "Drag an edge to make it longer; right-click or Delete to remove it",
+  "Tira de un borde para que tape más rato": "Drag an edge to cover it for longer",
+  "Quitar el mosaico": "Remove the mosaic",
+  "Quitar todos ({n})": "Remove all ({n})",
+  "Buscando datos personales en el vídeo… {n} %": "Looking for personal data in the video… {n} %",
+  "No he encontrado datos personales en el vídeo": "I found no personal data in the video",
+  "Tapado en el vídeo: {detalle}": "Masked in the video: {detalle}",
+  "correo": "email",
+  "tarjeta": "card",
+  "cuenta bancaria": "bank account",
+  "documento de identidad": "ID document",
+  "teléfono": "phone",
 };

@@ -12,7 +12,7 @@ import {
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Gauge, Pin, Scissors, Search } from "lucide-react";
 import type { FrameMeta } from "../../lib/types";
-import type { TramoZoom } from "../../lib/contrato";
+import type { Tapa, TramoZoom } from "../../lib/contrato";
 import {
   acelerarEscritura,
   cambiarPieza,
@@ -30,6 +30,8 @@ import {
 import { anadir, bloqueNuevo, cambiar, estirar, mover, NIVEL_NUEVO, quitar } from "../../lib/zooms";
 import { useT } from "../../lib/i18n";
 import { AjustesDelTrozo, AjustesDelZoom } from "./AjustesDeLaPista";
+import { AjustesDeLaTapa, PistaDeTapar } from "./PistaDeTapar";
+import { quitarTapa } from "../../lib/tapar";
 
 /** Lo que se está arrastrando: una de las dos asas o el cabezal. */
 type Arrastre = "desde" | "hasta" | "cabezal" | null;
@@ -89,6 +91,12 @@ interface Props {
   onPiezas?: (piezas: Pieza[]) => void;
   /** Los ratos en que se escribió, para acelerarlos de una vez. */
   escritura?: { desdeMs: number; hastaMs: number }[];
+  /** Lo tapado con mosaico (D4), en su pista. Sin `onTapas` no hay pista. */
+  tapas?: Tapa[];
+  onTapas?: (tapas: Tapa[]) => void;
+  /** El mosaico elegido, cuyos mandos salen debajo. */
+  tapaElegida?: number | null;
+  onElegirTapa?: (indice: number | null) => void;
 }
 
 /**
@@ -123,6 +131,10 @@ export function LineaDeTiempo({
   piezas,
   onPiezas,
   escritura = [],
+  tapas = [],
+  onTapas,
+  tapaElegida = null,
+  onElegirTapa,
 }: Props) {
   const t = useT();
   const pista = useRef<HTMLDivElement>(null);
@@ -358,6 +370,7 @@ export function LineaDeTiempo({
     const { zooms: lista, indice } = anadir(zooms, nuevo);
     onZooms(lista);
     onElegir?.(indice);
+    onElegirTapa?.(null);
   };
 
   return (
@@ -501,6 +514,7 @@ export function LineaDeTiempo({
                   arrastrando={zoomCogido === i}
                   onCoger={(clientX, que) => {
                     onElegir?.(i);
+                    onElegirTapa?.(null);
                     arrastreDeZoom.current = { indice: i, que, inicioX: clientX, bloque: z, movido: false };
                     setZoomCogido(i);
                   }}
@@ -511,6 +525,23 @@ export function LineaDeTiempo({
                 />
               ))}
             </div>
+          )}
+
+          {onTapas && (
+            <PistaDeTapar
+              tapas={tapas}
+              onTapas={onTapas}
+              elegida={tapaElegida}
+              onElegir={(i) => {
+                onElegirTapa?.(i);
+                // Un mosaico y un zoom elegidos a la vez se pelearían por Supr y por el sitio
+                // de los mandos: elegir uno suelta el otro.
+                if (i !== null) onElegir?.(null);
+              }}
+              total={total}
+              msEn={msEn}
+              onIr={onIr}
+            />
           )}
 
           <div className="mt-2 flex min-h-8 items-center justify-between gap-3 text-[13px]">
@@ -524,6 +555,22 @@ export function LineaDeTiempo({
                     onElegir?.(null);
                   }}
                   onListo={() => onElegir?.(null)}
+                />
+              </div>
+            ) : tapaElegida !== null && onTapas && tapas[tapaElegida] ? (
+              <div className="min-w-0 flex-1">
+                <AjustesDeLaTapa
+                  tapa={tapas[tapaElegida]}
+                  cuantas={tapas.length}
+                  onQuitar={() => {
+                    onTapas(quitarTapa(tapas, tapaElegida));
+                    onElegirTapa?.(null);
+                  }}
+                  onQuitarTodas={() => {
+                    onTapas([]);
+                    onElegirTapa?.(null);
+                  }}
+                  onListo={() => onElegirTapa?.(null)}
                 />
               </div>
             ) : (

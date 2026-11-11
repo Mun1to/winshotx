@@ -369,3 +369,21 @@ export const scrollDescartar = () => invoke<void>("scroll_descartar");
 // S7 (cursor)
 // S8 (cámara en el Estudio)
 // S9 (presets y tapar)
+import type { Tapa } from "./contrato";
+
+/** Lo que encuentra «Tapar datos» en un vídeo: dónde y cuándo taparlo, y qué es. */
+export interface DatosEnVideo {
+  tapas: Tapa[];
+  /** Cuántos datos distintos de cada clase: `[["correo", 2], ["teléfono", 1]]`. */
+  resumen: [string, number][];
+  /** Cuántas veces se pasó el lector, sobre cuántos fotogramas, y lo que tardó. */
+  lecturas: number;
+  fotogramas: number;
+  ms: number;
+}
+
+/** Busca datos personales en toda la grabación. No tapa nada: devuelve las tapas. */
+export const tapaDatosVideo = (sessionId: string) => invoke<DatosEnVideo>("tapar_datos_video", { sessionId });
+
+/** El aviso de por dónde va la búsqueda: `{ hechos, total }` en fotogramas. */
+export const AVISO_TAPAR_VIDEO = "winshotx://tapar-video";

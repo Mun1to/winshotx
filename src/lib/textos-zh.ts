@@ -659,4 +659,18 @@ export const ZH: Record<string, string> = {
   // S7 (cursor)
   // S8 (cámara en el Estudio)
   // S9 (presets y tapar)
+  "Pista de lo tapado": "遮挡轨道",
+  "Mosaico de {desde} a {hasta}": "马赛克：{desde} 至 {hasta}",
+  "Tira de un borde para alargarlo; clic derecho o Supr para quitarlo": "拖动边缘可延长；右键或按 Delete 可移除",
+  "Tira de un borde para que tape más rato": "拖动边缘可遮挡更长时间",
+  "Quitar el mosaico": "移除马赛克",
+  "Quitar todos ({n})": "全部移除（{n}）",
+  "Buscando datos personales en el vídeo… {n} %": "正在视频中查找个人信息… {n} %",
+  "No he encontrado datos personales en el vídeo": "视频中未发现个人信息",
+  "Tapado en el vídeo: {detalle}": "已在视频中遮挡：{detalle}",
+  "correo": "邮箱",
+  "tarjeta": "银行卡",
+  "cuenta bancaria": "银行账户",
+  "documento de identidad": "身份证件",
+  "teléfono": "电话",
 };
