@@ -817,7 +817,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                         ajustado
                         etiqueta={t("Calidad")}
                         value={settings.replayHeight}
-                        options={ALTO_ANILLO}
+                        options={ALTO_ANILLO.map((o) => ({ ...o, label: t(o.label) }))}
                         onChange={(v) => patch({ replayHeight: v })}
                       />
                     }
