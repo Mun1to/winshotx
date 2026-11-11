@@ -532,5 +532,8 @@ export const EN: Record<string, string> = {
   Elipse: "Ellipse",
   Lápiz: "Pen",
   Foco: "Spotlight",
+  // Leer los códigos QR
+  "Leer el código QR": "Read the QR code",
+  "No he encontrado ningún código QR en esa captura.": "I found no QR code in that shot.",
   // S5 (scroll)
 };

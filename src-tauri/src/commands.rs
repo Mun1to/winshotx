@@ -244,6 +244,18 @@ fn entregar(
             crate::platform::clipboard::copy_text(&texto)?;
             result.copied = true;
         }
+        // S4 (capturas): lo que dice el código QR de la captura, al portapapeles (E5). Si
+        // hay varios, uno por línea.
+        "qr" => {
+            let textos = crate::qr::leer(&image);
+            if textos.is_empty() {
+                return Err(AppError::Msg(
+                    "No he encontrado ningún código QR en esa captura.".into(),
+                ));
+            }
+            crate::platform::clipboard::copy_text(&textos.join("\n"))?;
+            result.copied = true;
+        }
         // Dejar la captura flotando encima de todo. El PNG va a la carpeta temporal y no
         // a la de capturas del usuario: anclar es mirar algo un rato, no guardarlo, y
         // llenarle la carpeta de recortes que no ha pedido seria un mal negocio.

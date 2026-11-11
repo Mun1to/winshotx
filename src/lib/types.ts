@@ -66,7 +66,7 @@ export interface OverlayPayload {
   lastRegion: Rect | null;
 }
 
-export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text";
+export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text" | /* S4 (capturas) */ "qr";
 
 export interface StillResult {
   path: string | null;

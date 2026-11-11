@@ -532,5 +532,8 @@ export const ZH: Record<string, string> = {
   Elipse: "椭圆",
   Lápiz: "画笔",
   Foco: "聚光灯",
+  // Leer los códigos QR
+  "Leer el código QR": "读取二维码",
+  "No he encontrado ningún código QR en esa captura.": "未在截图中找到二维码。",
   // S5 (scroll)
 };

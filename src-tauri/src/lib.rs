@@ -23,6 +23,7 @@ mod windows_mgr;
 // S2 (grabación)
 // S3 (fondos)
 // S4 (capturas)
+mod qr;
 // S5 (scroll)
 
 use std::time::{Duration, SystemTime};

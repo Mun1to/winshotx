@@ -42,6 +42,8 @@ chrono = "0.4"
 # S2 (grabación)
 # S3 (fondos)
 # S4 (capturas)
+# Leer los códigos QR de una captura (E5). Rust puro, MIT, y +33 KB en el .exe (rqrr eran +178).
+quircs = "0.10"
 # S5 (scroll)
 
 [target.'cfg(windows)'.dependencies]
