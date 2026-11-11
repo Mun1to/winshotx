@@ -1086,3 +1086,13 @@ nav .enlaces a.aqui { color: var(--texto); background: var(--realce-medio); }
    esta puesta. Sin JavaScript no hay nada que parar, asi que se queda el primero. */
 .valvula.con-mov, html.quieto .valvula.sin-mov { display: none; }
 html.quieto .valvula.con-mov { display: inline; }
+
+/* ---------- novedades (generar-novedades.mjs) ----------
+   La misma pagina que la guia, con las versiones mas juntas: son muchas y cortas. */
+.novedades section { margin-top: 44px; }
+.novedades h2 { font-size: 22px; padding-bottom: 0; border-bottom: 0; margin-bottom: 4px; }
+.novedades .version { margin-top: 0; font-size: 14px; color: var(--suave); }
+.novedades .version a { font-weight: 600; }
+.novedades ul { margin-top: 12px; gap: 9px; }
+.novedades li b { color: var(--texto); }
+.foto-version { display: block; width: 100%; margin-top: 14px; border-radius: 10px; border: 1px solid var(--borde); }

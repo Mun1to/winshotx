@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="What's new in winshotx, version by version">Novedades de winshotx, versión a versión</title>
+<meta name="description" content="Lo que trae cada versión de winshotx, de la más nueva a la primera, con el enlace a su publicación en GitHub.">
+<link rel="canonical" href="https://winshotx.com/novedades/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/novedades/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/changelog/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/novedades/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://winshotx.com/novedades/">
+<meta property="og:title" content="Novedades de winshotx">
+<meta property="og:description" content="Lo que trae cada versión de winshotx, de la más nueva a la primera, con el enlace a su publicación en GitHub.">
+<meta property="og:image" content="https://winshotx.com/social.png?v=2">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx: 114 ms contra 920 ms de la Herramienta de Recortes">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Novedades de winshotx">
+<meta name="twitter:description" content="Lo que trae cada versión de winshotx, de la más nueva a la primera, con el enlace a su publicación en GitHub.">
+<meta name="twitter:image" content="https://winshotx.com/social.png?v=2">
+<link rel="icon" href="../favicon.ico?v=2" sizes="any">
+<link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
+<link rel="stylesheet" href="../estilos.css?v=f43f3f9d">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Novedades", "item": "https://winshotx.com/novedades/" }
+  ]
+}
+</script>
+</head>
+<body>
+
+<!-- Esta página la escribe generar-novedades.mjs a partir de novedades/versiones.json: no se
+     edita a mano, que se pisa la próxima vez. -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
+      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+    </g>
+    <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
+  </symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
+  </symbol>
+  <symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+</svg>
+
+<nav>
+  <div class="env">
+    <a class="marca solo-logo" href="../" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
+    <span class="enlaces">
+      <a href="../#numeros" data-en="Numbers">Números</a>
+      <a href="../#demo" data-en="Try it">Pruébalo</a>
+      <a href="../#frente-a-frente" data-en="Head to head">Comparativa</a>
+      <a href="../#que-hace" data-en="Features">Qué hace</a>
+      <a href="../#atajos" data-en="Shortcuts">Atajos</a>
+      <a href="../docs/" data-en="Docs">Guía</a>
+      <a class="aqui" href="../novedades/" data-en="What's new">Novedades</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
+        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
+      </a>
+      <a class="idioma" id="idioma" href="../en/changelog/" hreflang="en" lang="en">English</a>
+    </span>
+  </div>
+</nav>
+
+<main class="env guia novedades">
+
+<h1 data-en="What's new">Novedades</h1>
+
+<p class="entradilla" data-html data-en="What each version brings, newest first. The app updates itself from &lt;b&gt;Settings&lt;/b&gt;, and the latest is &lt;b&gt;0.3.8&lt;/b&gt;.">Lo que trae cada versión, de la más nueva a la primera. La app se actualiza sola desde <b>Ajustes</b>, y la última es la <b>0.3.8</b>.</p>
+
+<section id="v0-3-8">
+  <h2 data-en="Trim on the timeline">Recortar en la línea de tiempo</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.8&quot; rel=&quot;noopener&quot;&gt;Version 0.3.8&lt;/a&gt; · 8 November 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.8" rel="noopener">Versión 0.3.8</a> · 8 de noviembre de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Trim&lt;/b&gt; on the timeline: drag its two blue edges and the preview shows the exact cut, down to the millisecond."><b>Recorta</b> en la línea de tiempo: arrastras sus dos bordes azules y la vista previa enseña el corte exacto, al milisegundo.</li>
+    <li data-html data-en="A new &lt;b&gt;Studio&lt;/b&gt; panel: eight backgrounds, rounded corners and a shadow, a smooth pointer that loses the hand shake, the zoom speed and the volume.">Nuevo panel <b>Estudio</b>: ocho fondos, esquinas redondeadas y sombra, un puntero suave que pierde el temblor de la mano, la velocidad del zoom y el volumen.</li>
+    <li data-html data-en="A &lt;b&gt;simpler&lt;/b&gt; editor: drawing tools on top, play and time next to the timeline, and the save buttons named.">Un editor más <b>sencillo</b>: las herramientas de dibujo arriba, el play y el tiempo junto a la línea de tiempo, y los botones de guardar con su nombre.</li>
+    <li data-html data-en="&lt;b&gt;Saving as GIF&lt;/b&gt; failed every time since 0.2.26: not any more."><b>Guardar en GIF</b> fallaba siempre desde la 0.2.26: ya no.</li>
+    <li data-html data-en="Over a still screen, the &lt;b&gt;pointer&lt;/b&gt; no longer freezes and then jumps in the saved video, and saving with a background is twice as fast.">Sobre una pantalla quieta, el <b>puntero</b> ya no se congela y luego salta en el vídeo guardado, y guardar con fondo va el doble de rápido.</li>
+  </ul>
+</section>
+
+<section id="v0-3-7">
+  <h2 data-en="Recordings keep their ending">Las grabaciones no pierden el final</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.7&quot; rel=&quot;noopener&quot;&gt;Version 0.3.7&lt;/a&gt; · 29 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.7" rel="noopener">Versión 0.3.7</a> · 29 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="Recordings no longer lose their &lt;b&gt;ending&lt;/b&gt; when the screen stops changing: they last exactly what the recording bar said, pauses left out.">Las grabaciones ya no pierden el <b>final</b> cuando la pantalla deja de cambiar: duran justo lo que marcaba la barra, sin contar las pausas.</li>
+    <li data-html data-en="A &lt;b&gt;still&lt;/b&gt; stretch in the middle of a recording keeps its full length, where before it was cut to 10 seconds.">Un tramo <b>quieto</b> a mitad de grabación conserva su duración entera, cuando antes se cortaba a los 10 segundos.</li>
+    <li data-html data-en="Hovering highlights the &lt;b&gt;window you can see&lt;/b&gt;, not a smaller one hidden behind it.">Al pasar el ratón se resalta la <b>ventana que ves</b>, no una más pequeña escondida detrás.</li>
+    <li data-html data-en="With several screens, the magnifier, the highlight and the mode bar only show on the one with the cursor, and the settings no longer say a &lt;b&gt;shortcut&lt;/b&gt; is taken by another app when it was winshotx itself.">Con varias pantallas, la lupa, el resalte y la barra de modos solo salen en la del ratón, y los ajustes ya no dicen que un <b>atajo</b> lo tiene otra aplicación cuando era el propio winshotx.</li>
+    <li data-html data-en="The &lt;b&gt;Chinese&lt;/b&gt; translation is complete again, and thanks to Tyrone and wang13zhe, who found these bugs.">La traducción al <b>chino</b> vuelve a estar completa, y gracias a Tyrone y a wang13zhe, que encontraron estos fallos.</li>
+  </ul>
+</section>
+
+<section id="v0-3-6">
+  <h2 data-en="The toolbar no longer gets recorded">La barra ya no sale grabada</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.6&quot; rel=&quot;noopener&quot;&gt;Version 0.3.6&lt;/a&gt; · 21 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.6" rel="noopener">Versión 0.3.6</a> · 21 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="The &lt;b&gt;recording toolbar&lt;/b&gt; no longer ends up inside the video, not even when recording the whole screen: you still see it and click it, and the video shows what is behind.">La <b>barra de grabación</b> ya no acaba dentro del vídeo, ni siquiera grabando la pantalla entera: tú la sigues viendo y pulsando, y en el vídeo sale lo que hay detrás.</li>
+    <li data-html data-en="If your Windows does not support the &lt;b&gt;modern capture&lt;/b&gt;, the settings say so, instead of leaving you guessing why photos of some windows come out with black patches.">Si tu Windows no admite la <b>captura moderna</b>, los ajustes lo dicen, en vez de dejarte adivinando por qué las fotos de algunas ventanas salen con trozos negros.</li>
+  </ul>
+</section>
+
+<section id="v0-3-5">
+  <h2 data-en="Shots without black holes">Capturas sin agujeros negros</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.5&quot; rel=&quot;noopener&quot;&gt;Version 0.3.5&lt;/a&gt; · 21 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.5" rel="noopener">Versión 0.3.5</a> · 21 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="Shots of windows drawn by the &lt;b&gt;graphics card&lt;/b&gt; no longer come out with black holes.">Las capturas de ventanas que pinta la <b>tarjeta gráfica</b> ya no salen con agujeros negros.</li>
+    <li data-html data-en="Photos now use the same modern capture as recordings: in the test, 19 to 34 of every 80 photos used to come out wrong, and now &lt;b&gt;none&lt;/b&gt; do.">Las fotos usan ya la misma captura moderna que las grabaciones: en la prueba, antes salían mal entre 19 y 34 de cada 80 fotos, y ahora <b>ninguna</b>.</li>
+    <li data-html data-en="Where Windows cannot use it without adding a yellow border, the &lt;b&gt;old capture&lt;/b&gt; is still used, and taking a photo is no slower.">Donde Windows no puede usarla sin poner un borde amarillo se sigue usando la <b>captura de antes</b>, y sacar una foto no tarda más.</li>
+  </ul>
+</section>
+
+<section id="v0-3-4">
+  <h2 data-en="A clearer editor">Un editor más claro</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.4&quot; rel=&quot;noopener&quot;&gt;Versions 0.3.3 to 0.3.4&lt;/a&gt; · 17 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.4" rel="noopener">Versiones 0.3.3 a 0.3.4</a> · 17 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="Recording a &lt;b&gt;small&lt;/b&gt; strip, under 64 pixels a side, gives you a video again.">Grabar un trozo <b>pequeño</b>, de menos de 64 píxeles de lado, vuelve a dejar vídeo.</li>
+    <li data-html data-en="One-click &lt;b&gt;aspect ratios&lt;/b&gt;: 9:16, 4:5, 1:1 and 16:9, with the crop already placed and centred."><b>Proporciones</b> de un clic: 9:16, 4:5, 1:1 y 16:9, con el recorte ya colocado y centrado.</li>
+    <li data-html data-en="The editor opens &lt;b&gt;right away&lt;/b&gt; when you rescue the last few seconds, and saving is 22% faster.">El editor se abre <b>al momento</b> al rescatar los últimos segundos, y guardar va un 22 % más rápido.</li>
+    <li data-html data-en="A clearer screen: save always in view, controls with names (&lt;b&gt;Start&lt;/b&gt; and &lt;b&gt;End&lt;/b&gt; instead of A and B) and settings that fit without scrolling.">Pantalla más clara: guardar siempre a la vista, controles con nombre (<b>Inicio</b> y <b>Fin</b> en vez de A y B) y ajustes que caben sin bajar con la rueda.</li>
+    <li data-html data-en="The &lt;b&gt;play&lt;/b&gt; button no longer waits forever if the notice saying the video is ready never arrives.">El botón de <b>reproducir</b> ya no se queda esperando para siempre si no llega el aviso de que el vídeo está listo.</li>
+  </ul>
+</section>
+
+<section id="v0-3-2">
+  <h2 data-en="The marks follow the window">Las marcas siguen a la ventana</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.2&quot; rel=&quot;noopener&quot;&gt;Version 0.3.2&lt;/a&gt; · 16 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.2" rel="noopener">Versión 0.3.2</a> · 16 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="The click &lt;b&gt;rings&lt;/b&gt; and the mouse trail no longer stay behind when you move the window you are recording: they go with it.">Los <b>aros</b> de los clics y el rastro del ratón ya no se quedan atrás cuando mueves la ventana que estás grabando: van con ella.</li>
+  </ul>
+</section>
+
+<section id="v0-3-1">
+  <h2 data-en="Record a single window">Grabar una sola ventana</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.1&quot; rel=&quot;noopener&quot;&gt;Version 0.3.1&lt;/a&gt; · 16 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.1" rel="noopener">Versión 0.3.1</a> · 16 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="Press &lt;b&gt;W&lt;/b&gt; with a window highlighted and only that window gets recorded.">Pulsa <b>W</b> con una ventana resaltada y se graba solo esa ventana.</li>
+    <li data-html data-en="Whatever passes &lt;b&gt;in front of it&lt;/b&gt; (a notification, another window, the file explorer) no longer lands in the video.">Lo que pase <b>por delante</b> (un aviso, otra ventana, el explorador) ya no sale en el vídeo.</li>
+  </ul>
+</section>
+
+<section id="v0-3-0">
+  <h2 data-en="Cover personal data in one click">Tapar datos personales con un clic</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.3.0&quot; rel=&quot;noopener&quot;&gt;Version 0.3.0&lt;/a&gt; · 16 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.0" rel="noopener">Versión 0.3.0</a> · 16 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="The editor's &lt;b&gt;shield&lt;/b&gt; looks for emails, phone numbers, cards, bank accounts and ID numbers, and drops a mosaic over each one.">El <b>escudo</b> del editor busca correos, teléfonos, tarjetas, cuentas bancarias y DNI, y pone un mosaico encima de cada uno.</li>
+    <li data-html data-en="It does not go by shape alone: it checks the &lt;b&gt;check digit&lt;/b&gt; of the card and the IBAN, and the letter of the ID number, so it will not cover half a document by mistake.">No se fía solo de la forma: comprueba el <b>dígito de control</b> de la tarjeta y del IBAN, y la letra del DNI, así que no tapa medio documento por error.</li>
+    <li data-html data-en="&lt;b&gt;Copy the text&lt;/b&gt; out of an image from inside the editor too, and from a recording."><b>Copia el texto</b> de una imagen también desde el editor, y de una grabación.</li>
+    <li data-html data-en="Your &lt;b&gt;latest shots&lt;/b&gt; live in the tray menu: a thumbnail and one click to put it back on the clipboard.">Las <b>últimas capturas</b> están en el menú de la bandeja: una miniatura y un clic para volver a copiarla.</li>
+    <li data-html data-en="winshotx speaks &lt;b&gt;Chinese&lt;/b&gt;, thanks to the translation wang13zhe sent in.">winshotx habla <b>chino</b>, gracias a la traducción que aportó wang13zhe.</li>
+  </ul>
+</section>
+
+<section id="v0-2-28">
+  <h2 data-en="Capture straight into the editor">Capturar directo al editor</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.28&quot; rel=&quot;noopener&quot;&gt;Version 0.2.28&lt;/a&gt; · 15 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.28" rel="noopener">Versión 0.2.28</a> · 15 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Win+Shift+L&lt;/b&gt; captures and opens the editor in one go, skipping the selection toolbar."><b>Win+Mayús+L</b> captura y abre el editor de una vez, sin pasar por la barra de la selección.</li>
+    <li data-en="Handy when you already know you are going to point at something, cover up a detail or crop before sending it.">Viene bien cuando ya sabes que vas a señalar algo, tapar un dato o recortar antes de mandarla.</li>
+    <li data-html data-en="Your &lt;b&gt;usual shortcut&lt;/b&gt; is untouched, and if another program has taken that combination, you can set your own in the settings.">El <b>atajo de siempre</b> no cambia, y si otro programa tiene esa combinación, puedes poner la que quieras en los ajustes.</li>
+  </ul>
+</section>
+
+<section id="v0-2-27">
+  <h2 data-en="Marks stay inside the image">Las marcas, dentro de la imagen</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.27&quot; rel=&quot;noopener&quot;&gt;Version 0.2.27&lt;/a&gt; · 15 October 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.27" rel="noopener">Versión 0.2.27</a> · 15 de octubre de 2026</p>
+  <ul>
+    <li data-html data-en="The marks you draw on a shot (arrow, box, highlight, blur, numbered steps and text) no longer &lt;b&gt;land outside&lt;/b&gt; the image.">Lo que dibujas sobre una captura (flecha, recuadro, resaltado, difuminado, pasos numerados y texto) ya no se <b>sale</b> de la imagen.</li>
+    <li data-html data-en="If you &lt;b&gt;crop&lt;/b&gt; the shot, whatever falls outside now disappears instead of showing up squashed against the border.">Si <b>recortas</b> la captura, lo que queda fuera desaparece en vez de salir aplastado contra el borde.</li>
+    <li data-html data-en="An arrow pointing outwards keeps its direction, and a step or a text against the edge fits &lt;b&gt;whole&lt;/b&gt;.">Una flecha que apunta hacia fuera mantiene su dirección, y un paso o un texto contra el filo caben <b>enteros</b>.</li>
+  </ul>
+</section>
+
+<section id="v0-2-26">
+  <h2 data-en="Save wherever you want">Guardar donde quieras</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.26&quot; rel=&quot;noopener&quot;&gt;Version 0.2.26&lt;/a&gt; · 20 September 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.26" rel="noopener">Versión 0.2.26</a> · 20 de septiembre de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Ctrl+Shift+S&lt;/b&gt; saves each shot wherever you want, with the folder and name you choose, and Ctrl+S still goes to your usual folder."><b>Ctrl+Mayús+S</b> guarda cada captura donde quieras, con la carpeta y el nombre que elijas, y Ctrl+S sigue yendo a la carpeta de siempre.</li>
+    <li data-html data-en="If you record while &lt;b&gt;narrating&lt;/b&gt; with nothing playing on the speakers, your voice now makes it into the video.">Si grabas <b>narrando</b> sin que suene nada por los altavoces, tu voz ya sale en el vídeo.</li>
+    <li data-html data-en="The &lt;b&gt;tray menu&lt;/b&gt; no longer sneaks into the video while you record.">El <b>menú de la bandeja</b> ya no se cuela en el vídeo mientras grabas.</li>
+    <li data-html data-en="It runs lighter: the &lt;b&gt;last few seconds&lt;/b&gt; use four times less of your computer, and saving a video takes a third less time.">Va más ligero: los <b>últimos segundos</b> gastan cuatro veces menos ordenador, y guardar un vídeo tarda un tercio menos.</li>
+  </ul>
+</section>
+
+<section id="v0-2-25">
+  <h2 data-en="See what is being recorded">Se ve lo que se graba</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.25&quot; rel=&quot;noopener&quot;&gt;Version 0.2.25&lt;/a&gt; · 12 September 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.25" rel="noopener">Versión 0.2.25</a> · 12 de septiembre de 2026</p>
+  <ul>
+    <li data-html data-en="A thin &lt;b&gt;red frame&lt;/b&gt; surrounds what is being recorded, and the bar says whether it goes to MP4 or GIF and whether sound is coming in.">Un <b>marco rojo</b> fino rodea lo que se está grabando, y la barra dice si sale en MP4 o en GIF y si está entrando sonido.</li>
+    <li data-html data-en="The &lt;b&gt;pointer&lt;/b&gt; in the video is your real cursor, with its own shape, and it can be drawn bigger without looking blocky or showing two.">El <b>puntero</b> del vídeo es tu cursor de verdad, con su forma, y se puede dibujar más grande sin que se pixele ni salgan dos.</li>
+    <li data-html data-en="The click &lt;b&gt;zoom&lt;/b&gt; moves with inertia instead of jumping, and it shows live in the editor before you save.">El <b>zoom</b> a los clics se mueve con inercia y sin saltos, y se ve en directo en el editor antes de guardar.</li>
+    <li data-html data-en="&lt;b&gt;Stopping&lt;/b&gt; a recording no longer makes you wait, because the editor opens right away, and pausing no longer pushes the sound out of sync."><b>Parar</b> de grabar ya no hace esperar, porque el editor se abre al momento, y la pausa ya no descuadra el sonido.</li>
+  </ul>
+</section>
+
+<section id="v0-2-24">
+  <h2 data-en="The magnifier stays clear">La lupa ya no estorba</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.24&quot; rel=&quot;noopener&quot;&gt;Version 0.2.24&lt;/a&gt; · 9 September 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.24" rel="noopener">Versión 0.2.24</a> · 9 de septiembre de 2026</p>
+  <ul>
+    <li data-html data-en="The &lt;b&gt;magnifier&lt;/b&gt; no longer sits on top of what you are looking at: near an edge it flips to the other side.">La <b>lupa</b> ya no se pone encima de lo que estás mirando: cerca de un borde se cambia de lado.</li>
+    <li data-html data-en="The &lt;b&gt;action bar&lt;/b&gt; no longer ends up off screen: when the selection is as tall as the display, it moves inside, against the bottom edge.">La <b>barra de acciones</b> ya no se queda fuera de la pantalla: si el recorte ocupa todo el alto, se mete dentro, pegada abajo.</li>
+    <li data-html data-en="With full screen and the action bar turned on, the bar now appears so you can copy, save, edit or pin, the same as with &lt;b&gt;Ctrl+A&lt;/b&gt;.">Con la pantalla entera y la barra activada, ahora sale la barra para copiar, guardar, editar o anclar, igual que con <b>Ctrl+A</b>.</li>
+  </ul>
+</section>
+
+<section id="v0-2-23">
+  <h2 data-en="The selection opens instantly">La selección sale al instante</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.23&quot; rel=&quot;noopener&quot;&gt;Version 0.2.23&lt;/a&gt; · 5 September 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.23" rel="noopener">Versión 0.2.23</a> · 5 de septiembre de 2026</p>
+  <ul>
+    <li data-html data-en="With three screens, the selection is already painted &lt;b&gt;114 milliseconds&lt;/b&gt; after the shortcut, against 590 before.">Con tres pantallas, la selección aparece ya pintada <b>114 milisegundos</b> después del atajo, contra los 590 de antes.</li>
+    <li data-html data-en="The “Getting the capture ready” screen is gone: no screen shows until its image is in place, and the one under the mouse goes &lt;b&gt;first&lt;/b&gt;.">Adiós a la pantalla de «Preparando la captura»: ninguna pantalla se enseña hasta tener su imagen, y la del ratón va <b>primero</b>.</li>
+  </ul>
+</section>
+
+<section id="v0-2-22">
+  <h2 data-en="Much faster GIFs">GIF mucho más rápido</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.22&quot; rel=&quot;noopener&quot;&gt;Version 0.2.22&lt;/a&gt; · 5 September 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.22" rel="noopener">Versión 0.2.22</a> · 5 de septiembre de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Saving as GIF&lt;/b&gt; is 4 to 36 times faster depending on quality, with truer colours."><b>Guardar en GIF</b> va entre 4 y 36 veces más rápido según la calidad, y con colores más fieles.</li>
+    <li data-html data-en="A GIF now lasts exactly as long as the recording did: it used to come out 10% &lt;b&gt;too fast&lt;/b&gt;.">El GIF dura exactamente lo que duró la grabación: antes salía un 10 % <b>acelerado</b>.</li>
+    <li data-html data-en="&lt;b&gt;Cropping and copying&lt;/b&gt; answer sooner, because they no longer read the screen back from disk."><b>Recortar y copiar</b> responden antes, porque ya no vuelven a leer la pantalla del disco.</li>
+  </ul>
+</section>
+
+<section id="v0-2-21">
+  <h2 data-en="Options at hand while capturing">Opciones a mano al capturar</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.21&quot; rel=&quot;noopener&quot;&gt;Versions 0.2.19 to 0.2.21&lt;/a&gt; · 4 September 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.21" rel="noopener">Versiones 0.2.19 a 0.2.21</a> · 4 de septiembre de 2026</p>
+  <ul>
+    <li data-html data-en="Whether the &lt;b&gt;action bar&lt;/b&gt; appears when you let go of the mouse is now chosen on the top bar (or with B), and it is remembered for next time.">Si sale la <b>barra de acciones</b> al soltar el ratón se decide en la barra de arriba (o con la B), y se queda guardado para la próxima.</li>
+    <li data-html data-en="The &lt;b&gt;last few seconds&lt;/b&gt; step aside for half a second while a capture opens, so the shortcut is not slowed down, and the rescued clip has no gap in it.">Los <b>últimos segundos</b> se apartan medio segundo mientras se abre una captura, para que el atajo no vaya lento, y lo rescatado no se queda con un hueco.</li>
+    <li data-html data-en="The &lt;b&gt;Smoothness&lt;/b&gt; row says what the measured combinations cost, and the most expensive one says it in amber.">La fila <b>Fluidez</b> dice lo que gastan las combinaciones medidas, y la más cara lo dice en ámbar.</li>
+    <li data-html data-en="&lt;b&gt;Start with Windows&lt;/b&gt; launches the installed copy, not an old one that asked to update every time you turned the computer on."><b>Arrancar con Windows</b> abre la copia instalada, y no una vieja que pedía actualizar cada vez que encendías el ordenador.</li>
+    <li data-html data-en="If your Windows lacks the &lt;b&gt;component&lt;/b&gt; winshotx draws its windows with, it now says so in a dialog instead of opening an error page.">Si a tu Windows le falta el <b>componente</b> con el que winshotx dibuja sus ventanas, ahora lo dice en un aviso en vez de abrir una página de error.</li>
+  </ul>
+</section>
+
+<section id="v0-2-18">
+  <h2 data-en="Captures open sooner">La captura abre antes</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.18&quot; rel=&quot;noopener&quot;&gt;Versions 0.2.13 to 0.2.18&lt;/a&gt; · 31 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.18" rel="noopener">Versiones 0.2.13 a 0.2.18</a> · 31 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="With several screens, they are all frozen &lt;b&gt;at once&lt;/b&gt; instead of one after another, so the selection shows up sooner and more steadily.">Con varias pantallas, todas se congelan <b>a la vez</b> y no una detrás de otra, así que la selección sale antes y sin altibajos.</li>
+    <li data-html data-en="&lt;b&gt;Back to back&lt;/b&gt; captures open sooner and no longer get slower one after another.">Las capturas <b>seguidas</b> abren antes y ya no se vuelven más lentas una tras otra.</li>
+    <li data-html data-en="The &lt;b&gt;first capture&lt;/b&gt; of the day opens sooner too, because the selection windows get ready while the app starts.">La <b>primera captura</b> del día también abre antes, porque las ventanas de selección se preparan mientras la app arranca.</li>
+    <li data-html data-en="0.2.13 could &lt;b&gt;freeze&lt;/b&gt; right after installing: fixed in 0.2.14.">La 0.2.13 podía quedarse <b>colgada</b> nada más instalarla: arreglado en la 0.2.14.</li>
+  </ul>
+</section>
+
+<section id="v0-2-12">
+  <h2 data-en="Leave with a single Esc">Salir con un solo Esc</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.12&quot; rel=&quot;noopener&quot;&gt;Version 0.2.12&lt;/a&gt; · 31 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.12" rel="noopener">Versión 0.2.12</a> · 31 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="A single &lt;b&gt;Esc&lt;/b&gt; closes the capture, where the first one used to just clear the selection.">Un solo <b>Esc</b> cierra la captura, cuando antes el primero solo borraba la selección.</li>
+    <li data-html data-en="You can start a crop by &lt;b&gt;dragging&lt;/b&gt; under the top bar, and with the pointer over it the bar steps aside so you can see what is underneath.">Se puede empezar un recorte <b>arrastrando</b> por debajo de la barra de arriba, y al pasar el ratón la barra se aparta para dejar ver lo que hay debajo.</li>
+  </ul>
+</section>
+
+<section id="v0-2-11">
+  <h2 data-en="About, and how to help">Acerca de, y cómo ayudar</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.11&quot; rel=&quot;noopener&quot;&gt;Version 0.2.11&lt;/a&gt; · 30 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.11" rel="noopener">Versión 0.2.11</a> · 30 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="Settings → The app now has an &lt;b&gt;About&lt;/b&gt; section: who makes winshotx, the site, the code and where to report a bug.">En Ajustes → La app hay un apartado <b>Acerca de</b>: quién hace winshotx, la web, el código y dónde contar un fallo.</li>
+    <li data-html data-en="The &lt;b&gt;guided tour&lt;/b&gt; ends on how you can help: a coffee, a star on GitHub or a bug report.">La <b>visita guiada</b> termina contando cómo se puede ayudar: un café, una estrella en GitHub o contar un fallo.</li>
+  </ul>
+</section>
+
+<section id="v0-2-10">
+  <h2 data-en="The shutter makes a sound">El obturador suena</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.10&quot; rel=&quot;noopener&quot;&gt;Version 0.2.10&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.10" rel="noopener">Versión 0.2.10</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The &lt;b&gt;Shutter sound&lt;/b&gt; setting finally does something: a camera click plays when you capture, copy, save, open in the editor, pin or read the text.">El ajuste <b>Sonido de obturador</b> por fin hace algo: suena un clic de cámara al capturar, copiar, guardar, abrir en el editor, anclar o leer el texto.</li>
+    <li data-html data-en="It comes &lt;b&gt;off&lt;/b&gt;, as before, and its row now has an explanation on hover.">Viene <b>apagado</b>, como estaba, y su fila ya tiene explicación al pasar el ratón.</li>
+  </ul>
+</section>
+
+<section id="v0-2-9">
+  <h2 data-en="Saving videos 4.5 times faster">Guardar vídeos 4,5 veces más rápido</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.9&quot; rel=&quot;noopener&quot;&gt;Version 0.2.9&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.9" rel="noopener">Versión 0.2.9</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="A 50 second recording took &lt;b&gt;two minutes&lt;/b&gt; to save, and now it takes &lt;b&gt;27 seconds&lt;/b&gt;.">Una grabación de 50 segundos tardaba <b>dos minutos</b> en guardarse, y ahora tarda <b>27 segundos</b>.</li>
+    <li data-html data-en="Shrinking a video no longer makes some &lt;b&gt;letters&lt;/b&gt; thinner than others.">Reducir el tamaño de un vídeo ya no deja unas <b>letras</b> más finas que otras.</li>
+    <li data-html data-en="&lt;b&gt;Copying&lt;/b&gt; a video leaves the file and its path too: where files can be dropped you paste the video, and in a text box, the path."><b>Copiar</b> un vídeo deja el archivo y también su ruta: donde se pueden soltar archivos se pega el vídeo, y en una caja de texto, la ruta.</li>
+  </ul>
+</section>
+
+<section id="v0-2-8">
+  <h2 data-en="A quieter bottom bar">La barra de abajo, más callada</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.8&quot; rel=&quot;noopener&quot;&gt;Version 0.2.8&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.8" rel="noopener">Versión 0.2.8</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="When you are up to date, updates are just a &lt;b&gt;green tick&lt;/b&gt; in the bottom bar, which is also the button to check again.">Estando al día, las actualizaciones son un <b>tick verde</b> en la barra de abajo, que además es el botón para volver a mirar.</li>
+    <li data-html data-en="The full sentence comes back when there is something to say: a &lt;b&gt;new version&lt;/b&gt;, a download under way, a pending restart or an error.">La frase entera vuelve cuando hay algo que contar: una <b>versión nueva</b>, una descarga en marcha, un reinicio pendiente o un fallo.</li>
+  </ul>
+</section>
+
+<section id="v0-2-7">
+  <h2 data-en="A new tray menu">Un menú de bandeja nuevo</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.7&quot; rel=&quot;noopener&quot;&gt;Version 0.2.7&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.7" rel="noopener">Versión 0.2.7</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The &lt;b&gt;tray menu&lt;/b&gt; is now a small winshotx window, with the same colours as the rest of the app.">El <b>menú de la bandeja</b> es ahora una ventanita de winshotx, con los colores del resto de la app.</li>
+    <li data-html data-en="The last few seconds turn on with a &lt;b&gt;switch&lt;/b&gt; right there, each entry shows its shortcut and the version sits on top.">Los últimos segundos se encienden con un <b>interruptor</b> ahí mismo, cada entrada enseña su atajo y arriba sale la versión.</li>
+    <li data-html data-en="While you record, the record entry says &lt;b&gt;Stop&lt;/b&gt;, and a second right click closes the menu.">Mientras grabas, la entrada de grabar dice <b>Parar</b>, y un segundo clic derecho cierra el menú.</li>
+    <li data-html data-en="In the settings, a &lt;b&gt;bottom bar&lt;/b&gt; with what you touch often: theme, language, what happens when you let go of the mouse, the guided tour and updates.">En los ajustes, una <b>barra abajo</b> con lo que se toca a menudo: tema, idioma, qué pasa al soltar el ratón, la visita guiada y las actualizaciones.</li>
+  </ul>
+</section>
+
+<section id="v0-2-6">
+  <h2 data-en="Every setting, explained">Cada ajuste, explicado</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.6&quot; rel=&quot;noopener&quot;&gt;Version 0.2.6&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.6" rel="noopener">Versión 0.2.6</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="Rest the mouse on a setting's &lt;b&gt;icon&lt;/b&gt; and it explains what it does, what it costs and when to turn it on.">Deja el ratón en el <b>icono</b> de un ajuste y te explica qué hace, qué cuesta y cuándo conviene encenderlo.</li>
+    <li data-html data-en="&lt;b&gt;28 of the 29&lt;/b&gt; rows have an explanation, in Spanish and in English.">Tienen explicación <b>28 de las 29</b> filas, en español y en inglés.</li>
+    <li data-html data-en="It also shows with the &lt;b&gt;keyboard&lt;/b&gt;, reaching the icon with Tab, and Escape hides it, so it works with a screen reader.">También sale con el <b>teclado</b>, llegando al icono con Tab, y se quita con Escape, así que sirve con lector de pantalla.</li>
+  </ul>
+</section>
+
+<section id="v0-2-5">
+  <h2 data-en="Copy takes what you drew">Copiar lleva lo dibujado</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.5&quot; rel=&quot;noopener&quot;&gt;Version 0.2.5&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.5" rel="noopener">Versión 0.2.5</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="When you &lt;b&gt;copy&lt;/b&gt; a shot, what you paste now carries the arrows and boxes you drew, the crop, the frame, the scale and the zoom, as saving always did.">Al <b>copiar</b> una captura, lo pegado ya lleva las flechas y recuadros que dibujaste, el recorte, el marco, la escala y el zoom, como ya pasaba al guardar.</li>
+  </ul>
+</section>
+
+<section id="v0-2-4">
+  <h2 data-en="Play, for real this time">El play, de verdad esta vez</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.4&quot; rel=&quot;noopener&quot;&gt;Version 0.2.4&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.4" rel="noopener">Versión 0.2.4</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The preview of what you rescue gets ready in &lt;b&gt;half the time&lt;/b&gt; (from 21 to 11 seconds), and saving still comes out at the quality you ask for.">La vista previa de lo rescatado se prepara en <b>la mitad</b> de tiempo (de 21 a 11 segundos), y guardar sigue saliendo a la calidad que pidas.</li>
+    <li data-html data-en="While it gets ready, the button shows the &lt;b&gt;percentage&lt;/b&gt; and looks disabled: “Preparing playback… 45%”.">Mientras se prepara, el botón dice el <b>porcentaje</b> y se ve apagado: «Preparando la reproducción… 45 %».</li>
+    <li data-html data-en="If the preview does not come out, it says so too, instead of leaving you &lt;b&gt;waiting&lt;/b&gt;.">Si la vista previa no sale, también se dice, en vez de dejarte <b>esperando</b>.</li>
+    <li data-html data-en="A &lt;b&gt;still screen&lt;/b&gt; is no longer saved empty: thirty seconds without movement came out as a 66 millisecond video.">Una <b>pantalla quieta</b> ya no se guarda vacía: treinta segundos sin movimiento salían en un vídeo de 66 milisegundos.</li>
+  </ul>
+</section>
+
+<section id="v0-2-3">
+  <h2 data-en="Play works on rescued clips">El play en lo rescatado</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.3&quot; rel=&quot;noopener&quot;&gt;Version 0.2.3&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.3" rel="noopener">Versión 0.2.3</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The &lt;b&gt;play&lt;/b&gt; button now works on what you rescue from the last few seconds.">El botón de <b>reproducir</b> ya funciona en lo que rescatas de los últimos segundos.</li>
+    <li data-html data-en="The editor opens &lt;b&gt;right away&lt;/b&gt; with what is ready, and play turns on by itself as soon as the preview video is done.">El editor se abre <b>al momento</b> con lo que ya está, y el play se enciende solo en cuanto el vídeo de vista previa está listo.</li>
+    <li data-html data-en="Meanwhile the button shows up &lt;b&gt;disabled&lt;/b&gt; with “preparing playback…” instead of just sitting there.">Mientras tanto, el botón sale <b>apagado</b> con «preparando la reproducción…» en vez de quedarse quieto.</li>
+    <li data-html data-en="Writing a whole video from a recording is &lt;b&gt;faster&lt;/b&gt;, because each frame is no longer rebuilt from scratch.">Escribir un vídeo entero desde lo grabado va <b>más rápido</b>, porque ya no se rehace cada fotograma desde cero.</li>
+  </ul>
+</section>
+
+<section id="v0-2-2">
+  <h2 data-en="Quality, by size">La calidad, por tamaño</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.2&quot; rel=&quot;noopener&quot;&gt;Version 0.2.2&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.2" rel="noopener">Versión 0.2.2</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The last few seconds row says where it records from, at what size and how many &lt;b&gt;megabytes per second&lt;/b&gt; it writes to disk.">La fila de los últimos segundos dice de dónde graba, a qué tamaño y cuántos <b>megabytes por segundo</b> escribe en el disco.</li>
+    <li data-html data-en="Quality is picked by &lt;b&gt;size&lt;/b&gt;: 720p, 1080p or the screen's own, and dropping to 720p keeps 30 seconds in 438 MB instead of 987 MB.">La calidad se elige por <b>tamaño</b>: 720p, 1080p o la de la pantalla, y bajar a 720p deja 30 segundos en 438 MB en vez de 987 MB.</li>
+    <li data-html data-en="When you pick a screen, its &lt;b&gt;number&lt;/b&gt; shows on that screen for two seconds.">Al elegir una pantalla, su <b>número</b> sale en esa pantalla durante dos segundos.</li>
+    <li data-html data-en="The whole section fits without &lt;b&gt;scrolling&lt;/b&gt;.">La sección entera cabe sin <b>bajar con la rueda</b>.</li>
+  </ul>
+</section>
+
+<section id="v0-2-1">
+  <h2 data-en="Pick the screen and quality">Elige pantalla y calidad</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.1&quot; rel=&quot;noopener&quot;&gt;Version 0.2.1&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.1" rel="noopener">Versión 0.2.1</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="Pick which &lt;b&gt;screen&lt;/b&gt; the last few seconds watch: the one with the mouse or a specific one, and if you unplug it, it falls back to the mouse's.">Elige qué <b>pantalla</b> vigilan los últimos segundos: la del ratón o una concreta, y si la desenchufas vuelve a la del ratón.</li>
+    <li data-html data-en="Pick the &lt;b&gt;quality&lt;/b&gt;: 15, 30 or 60 frames per second.">Elige la <b>calidad</b>: 15, 30 o 60 fotogramas por segundo.</li>
+    <li data-html data-en="Before you turn it on, it says how much &lt;b&gt;disk&lt;/b&gt; it can take up, and that number is the real cap.">Antes de encenderlo, dice cuánto <b>disco</b> puede llegar a ocupar, y ese número es el tope de verdad.</li>
+    <li data-html data-en="The save key no longer shows in &lt;b&gt;red&lt;/b&gt; with the feature off, as if another program had it.">La tecla de guardar ya no sale en <b>rojo</b> con la función apagada, como si otro programa la tuviera.</li>
+    <li data-html data-en="Large sizes are counted in &lt;b&gt;gigabytes&lt;/b&gt;, and the option pickers tell screen readers which one is selected.">Los tamaños grandes se cuentan en <b>gigabytes</b>, y los selectores dicen cuál está elegido a los lectores de pantalla.</li>
+  </ul>
+</section>
+
+<section id="v0-2-0">
+  <h2 data-en="The last few seconds, always recorded">Los últimos segundos, siempre grabados</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.2.0&quot; rel=&quot;noopener&quot;&gt;Version 0.2.0&lt;/a&gt; · 29 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.0" rel="noopener">Versión 0.2.0</a> · 29 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;The last few seconds&lt;/b&gt;: winshotx keeps recording and throws away the old, and &lt;b&gt;Ctrl+Shift+6&lt;/b&gt; keeps the last 15, 30 or 60 seconds without stopping."><b>Los últimos segundos</b>: winshotx graba sin parar tirando lo viejo, y con <b>Ctrl+Mayús+6</b> te quedas con los últimos 15, 30 o 60 segundos sin dejar de grabar.</li>
+    <li data-html data-en="It comes &lt;b&gt;off&lt;/b&gt; and is turned on in Settings → Record, and the row always says which screen it is watching and how much disk it uses.">Viene <b>apagado</b> y se enciende en Ajustes → Grabar, y la fila dice siempre qué pantalla mira y cuánto ocupa en disco.</li>
+    <li data-html data-en="Pick the &lt;b&gt;speed&lt;/b&gt; when saving a video (0.5×, 2× or 4×), and the panel warns beforehand that at any other speed it comes out silent.">Elige la <b>velocidad</b> al guardar un vídeo (0,5×, 2× o 4×), y el panel avisa antes de que a otra velocidad sale sin sonido.</li>
+    <li data-html data-en="&lt;b&gt;Numbered steps&lt;/b&gt; in the editor, with the 5 key: they number themselves, and hiding details moves to the 6 key."><b>Pasos numerados</b> en el editor, con la tecla 5: se numeran solos, y tapar datos pasa a la tecla 6.</li>
+  </ul>
+</section>
+
+<section id="v0-1-19">
+  <h2 data-en="Zoom on clicks">Zoom a los clics</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.19&quot; rel=&quot;noopener&quot;&gt;Version 0.1.19&lt;/a&gt; · 28 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.19" rel="noopener">Versión 0.1.19</a> · 28 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Zoom on clicks&lt;/b&gt;: when saving, the camera moves in on where you click and follows the mouse smoothly, and it comes off by default."><b>Zoom a los clics</b>: al guardar, la cámara se acerca a donde haces clic y sigue al ratón con suavidad, y viene apagado de fábrica.</li>
+    <li data-html data-en="A big, sharp &lt;b&gt;pointer&lt;/b&gt; can be drawn on the video, and the editor warns if the recording already has the Windows one, so you do not get two.">Se puede dibujar un <b>puntero</b> grande y nítido en el vídeo, y el editor avisa si la grabación ya trae el de Windows, para que no salgan dos.</li>
+    <li data-html data-en="The click &lt;b&gt;rings&lt;/b&gt; and the shortcuts are decided in the editor when saving, so you can drop them without recording again.">Los <b>aros</b> de los clics y los atajos se deciden en el editor, al guardar, así que se pueden quitar sin volver a grabar.</li>
+    <li data-html data-en="Two shots saved in the same second no longer &lt;b&gt;overwrite&lt;/b&gt; each other: the first one used to be lost.">Dos capturas guardadas en el mismo segundo ya no se <b>pisan</b>: antes se perdía la primera.</li>
+    <li data-html data-en="If copying the video to the &lt;b&gt;clipboard&lt;/b&gt; fails, it now says so instead of doing nothing.">Si copiar el vídeo al <b>portapapeles</b> falla, ahora lo dice en vez de no hacer nada.</li>
+  </ul>
+</section>
+
+<section id="v0-1-18">
+  <h2 data-en="Crop and save as JPG">Recortar y guardar en JPG</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.18&quot; rel=&quot;noopener&quot;&gt;Version 0.1.18&lt;/a&gt; · 27 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.18" rel="noopener">Versión 0.1.18</a> · 27 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Crop&lt;/b&gt; the framing of a shot or a recording in the editor, not only its length."><b>Recorta</b> el encuadre de una captura o de una grabación en el editor, no solo su duración.</li>
+    <li data-html data-en="Save a shot as &lt;b&gt;JPG&lt;/b&gt;, which weighs far less when you send it by email.">Guarda una captura en <b>JPG</b>, que pesa mucho menos para mandarla por correo.</li>
+    <li data-html data-en="&lt;b&gt;C&lt;/b&gt; copies the colour under the cursor, and the selection stays open in case you want more.">Con <b>C</b> copias el color que hay bajo el cursor, y la selección sigue abierta por si quieres más.</li>
+    <li data-html data-en="A &lt;b&gt;pinned&lt;/b&gt; shot can now be saved and have its text read, and the shots folder is in the tray menu.">Una captura <b>anclada</b> ya se puede guardar y leer su texto, y la carpeta de capturas está en el menú de la bandeja.</li>
+    <li data-html data-en="What you draw near the &lt;b&gt;edge&lt;/b&gt; no longer comes out shifted in the saved file.">Lo dibujado cerca del <b>borde</b> ya no sale desplazado en el archivo guardado.</li>
+  </ul>
+</section>
+
+<section id="v0-1-17">
+  <h2 data-en="Draw on your shots">Dibujar sobre la captura</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.17&quot; rel=&quot;noopener&quot;&gt;Version 0.1.17&lt;/a&gt; · 27 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.17" rel="noopener">Versión 0.1.17</a> · 27 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Draw&lt;/b&gt; on a shot before saving it: arrow, box, text, highlight and hide details, with keys 1 to 5 and Ctrl+Z to undo."><b>Dibuja</b> sobre una captura antes de guardarla: flecha, recuadro, texto, resaltado y tapar datos, con las teclas 1 a 5 y Ctrl+Z para deshacer.</li>
+    <li data-html data-en="&lt;b&gt;Pin&lt;/b&gt; a shot on top of everything with A, and &lt;b&gt;T&lt;/b&gt; copies the text out of the image without it leaving your computer."><b>Ancla</b> una captura encima de todo con la A, y con la <b>T</b> copias el texto de la imagen sin que salga de tu ordenador.</li>
+    <li data-html data-en="Put the shot on a &lt;b&gt;background&lt;/b&gt; when saving, with margin and shadow.">Pon la captura sobre un <b>fondo</b> al guardarla, con margen y sombra.</li>
+    <li data-html data-en="Record the &lt;b&gt;microphone&lt;/b&gt; too, mixed in with the system sound.">Graba también el <b>micrófono</b>, mezclado con el sonido del sistema.</li>
+    <li data-html data-en="In the recording, a &lt;b&gt;ring&lt;/b&gt; marks every click and the shortcuts you press are shown, only the shortcuts, so a password never shows up.">En la grabación, un <b>aro</b> marca cada clic y salen los atajos que pulsas, solo los atajos, para que nunca se vea una contraseña.</li>
+  </ul>
+</section>
+
+<section id="v0-1-15">
+  <h2 data-en="Records the system sound">Graba el sonido del sistema</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.15&quot; rel=&quot;noopener&quot;&gt;Versions 0.1.14 to 0.1.15&lt;/a&gt; · 27 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.15" rel="noopener">Versiones 0.1.14 a 0.1.15</a> · 27 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="It records the &lt;b&gt;system sound&lt;/b&gt;, which reaches the saved video and plays in the editor.">Graba el <b>sonido del sistema</b>, que llega al vídeo guardado y se oye en el editor.</li>
+    <li data-html data-en="Long recordings take up &lt;b&gt;far less&lt;/b&gt; disk: only what changes between frames is stored.">Las grabaciones largas ocupan <b>mucho menos</b> en disco: solo se guarda lo que cambia entre fotogramas.</li>
+    <li data-html data-en="The &lt;b&gt;recording bar&lt;/b&gt; stays on the screen you are recording.">La <b>barra de grabación</b> se queda en la pantalla que estás grabando.</li>
+  </ul>
+</section>
+
+<section id="v0-1-13">
+  <h2 data-en="Now in English too">Ahora también en inglés</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.13&quot; rel=&quot;noopener&quot;&gt;Version 0.1.13&lt;/a&gt; · 27 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.13" rel="noopener">Versión 0.1.13</a> · 27 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="winshotx speaks &lt;b&gt;English&lt;/b&gt;, and picks the language from Windows.">winshotx habla <b>inglés</b>, y elige el idioma según el de Windows.</li>
+    <li data-html data-en="It is translated &lt;b&gt;in full&lt;/b&gt;, tray menu included.">Está traducida <b>entera</b>, menú de la bandeja incluido.</li>
+  </ul>
+</section>
+
+<section id="v0-1-12">
+  <h2 data-en="Light theme">Tema claro</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.12&quot; rel=&quot;noopener&quot;&gt;Version 0.1.12&lt;/a&gt; · 26 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.12" rel="noopener">Versión 0.1.12</a> · 26 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="A &lt;b&gt;light theme&lt;/b&gt; arrives, following the Windows one by default.">Llega el <b>tema claro</b>, que de fábrica sigue al de Windows.</li>
+    <li data-html data-en="After an update, the app opens &lt;b&gt;Settings&lt;/b&gt; instead of quietly going back to the tray.">Después de actualizar, la app abre los <b>Ajustes</b> en vez de volver callada a la bandeja.</li>
+  </ul>
+</section>
+
+<section id="v0-1-11">
+  <h2 data-en="Countdown and repeat capture">Cuenta atrás y repetir captura</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.11&quot; rel=&quot;noopener&quot;&gt;Version 0.1.11&lt;/a&gt; · 26 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.11" rel="noopener">Versión 0.1.11</a> · 26 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;R&lt;/b&gt; takes the last capture again in the same spot, and &lt;b&gt;0&lt;/b&gt; takes every screen at once in a single image.">Con <b>R</b> repites la última captura en el mismo sitio, y con <b>0</b> te llevas todas las pantallas en una sola imagen.</li>
+    <li data-html data-en="A &lt;b&gt;countdown&lt;/b&gt; of 3 or 5 seconds before capturing, so you can shoot an open menu, and an option to hide the desktop icons in the shot."><b>Cuenta atrás</b> de 3 o 5 segundos antes de capturar, para poder fotografiar un menú abierto, y opción de esconder los iconos del escritorio en la foto.</li>
+    <li data-html data-en="Two &lt;b&gt;guide lines&lt;/b&gt; cross the screen while you aim, to line the crop up with whatever is on the far side.">Dos <b>guías</b> cruzan la pantalla mientras apuntas, para alinear el recorte con lo que hay al otro lado.</li>
+    <li data-html data-en="&lt;b&gt;Saving and copying&lt;/b&gt; a shot is three to six times faster."><b>Guardar y copiar</b> una captura va de tres a seis veces más rápido.</li>
+    <li data-html data-en="Settings have the sections on top, with one on screen at a time, and a &lt;b&gt;guided tour&lt;/b&gt; that walks through them.">Los ajustes llevan las secciones arriba, con una sola a la vista, y una <b>visita guiada</b> que las recorre.</li>
+  </ul>
+</section>
+
+<section id="v0-1-10">
+  <h2 data-en="Each screen shows its own">Cada pantalla, la suya</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.10&quot; rel=&quot;noopener&quot;&gt;Version 0.1.10&lt;/a&gt; · 26 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.10" rel="noopener">Versión 0.1.10</a> · 26 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="With two or three monitors, the other screens showed the &lt;b&gt;main one repeated&lt;/b&gt; and the crop came from it: not any more.">Con dos o tres monitores, las otras pantallas enseñaban la <b>principal repetida</b> y el recorte salía de ella: ya no.</li>
+    <li data-html data-en="&lt;b&gt;Capturing is faster&lt;/b&gt;: the selection windows get ready at startup and are reused, instead of being built for every capture."><b>Capturar va más rápido</b>: las ventanas de selección se preparan al arrancar y se reutilizan, en vez de crearse en cada captura.</li>
+    <li data-html data-en="In exchange, the app takes a little longer to &lt;b&gt;start&lt;/b&gt;, which happens once a day.">A cambio, la app tarda un poco más en <b>arrancar</b>, que es algo que pasa una vez al día.</li>
+  </ul>
+</section>
+
+<section id="v0-1-9">
+  <h2 data-en="A bar on top when capturing">Una barra arriba al capturar</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.9&quot; rel=&quot;noopener&quot;&gt;Version 0.1.9&lt;/a&gt; · 25 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.9" rel="noopener">Versión 0.1.9</a> · 25 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="Selecting brings up a &lt;b&gt;bar on top&lt;/b&gt;, where Windows puts its own, to pick photo, video or GIF before cropping (keys F, V and G).">Al seleccionar sale una <b>barra arriba</b>, donde la pone Windows, para elegir foto, vídeo o GIF antes de recortar (teclas F, V y G).</li>
+    <li data-html data-en="With several monitors, each screen shows its &lt;b&gt;number&lt;/b&gt;, and 1, 2 or 3 takes that whole screen, wherever the mouse is.">Con varios monitores, cada pantalla saca su <b>número</b>, y con 1, 2 o 3 te llevas esa pantalla entera, esté donde esté el ratón.</li>
+    <li data-html data-en="Highlighted windows carry &lt;b&gt;their name&lt;/b&gt; on top, so it is clear a click captures them whole.">Las ventanas resaltadas llevan <b>su nombre</b> encima, para que se vea que con un clic se capturan enteras.</li>
+    <li data-html data-en="&lt;b&gt;Recording&lt;/b&gt; follows the capture profile, and with “Copy it for me” you can now record, which used to be impossible."><b>Grabar</b> respeta el perfil de captura, y con «Se copia sola» ya se puede grabar, cosa que antes no había forma de hacer.</li>
+    <li data-html data-en="The &lt;b&gt;Settings&lt;/b&gt; window comes to the front when opened from the tray, instead of staying hidden.">La ventana de <b>Ajustes</b> se pone delante al abrirla desde la bandeja, en vez de quedarse escondida.</li>
+  </ul>
+</section>
+
+<section id="v0-1-8">
+  <h2 data-en="Win+Shift+S without signing out">Win+Mayús+S sin cerrar sesión</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.8&quot; rel=&quot;noopener&quot;&gt;Version 0.1.8&lt;/a&gt; · 25 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.8" rel="noopener">Versión 0.1.8</a> · 25 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="Taking &lt;b&gt;Win+Shift+S&lt;/b&gt; no longer needs you to sign out: the &lt;b&gt;Apply&lt;/b&gt; button restarts Explorer and it is ready in two seconds.">Para quedarte con <b>Win+Mayús+S</b> ya no hace falta cerrar sesión: el botón <b>Aplicar</b> reinicia el Explorador y en dos segundos está listo.</li>
+    <li data-html data-en="Simpler settings: &lt;b&gt;four groups&lt;/b&gt; instead of five, and eleven of the eighteen rows on a single line.">Ajustes más simples: <b>cuatro grupos</b> en vez de cinco, y once de las dieciocho filas en una sola línea.</li>
+    <li data-html data-en="A warning no longer reads like a fact: &lt;b&gt;amber&lt;/b&gt; for what to read before touching, green for what is already sorted.">Un aviso ya no se lee igual que un dato: en <b>ámbar</b> lo que hay que leer antes de tocar, y en verde lo que ya está resuelto.</li>
+    <li data-html data-en="The welcome no longer flickers when it opens, and the app honours the Windows &lt;b&gt;reduced motion&lt;/b&gt; setting.">La bienvenida ya no parpadea al abrirse, y la app respeta el <b>reducir movimiento</b> de Windows.</li>
+    <li data-html data-en="The mark carries the &lt;b&gt;X&lt;/b&gt; everywhere, the icon included.">La marca lleva la <b>X</b> en todas partes, también en el icono.</li>
+  </ul>
+</section>
+
+<section id="v0-1-7">
+  <h2 data-en="Welcome and capture profiles">Bienvenida y perfiles de captura</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.7&quot; rel=&quot;noopener&quot;&gt;Version 0.1.7&lt;/a&gt; · 25 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.7" rel="noopener">Versión 0.1.7</a> · 25 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The first time, a &lt;b&gt;welcome&lt;/b&gt; walks you through what cannot be guessed: how to capture, the shortcuts and whether it starts with Windows.">La primera vez sale una <b>bienvenida</b> con lo que no se puede adivinar: cómo capturar, los atajos y si arranca con Windows.</li>
+    <li data-html data-en="Two capture &lt;b&gt;profiles&lt;/b&gt;: the selection copies itself when you let go of the mouse, or a bar with options comes up.">Dos <b>perfiles</b> de captura: que la selección se copie sola al soltar el ratón, o que salga una barra con opciones.</li>
+    <li data-html data-en="The &lt;b&gt;Print Screen&lt;/b&gt; key can open winshotx instead of the Snipping Tool.">La tecla <b>Impr Pant</b> puede abrir winshotx en vez de la Herramienta de Recortes.</li>
+    <li data-html data-en="&lt;b&gt;Win+Shift+S&lt;/b&gt; can be winshotx's too, with the price stated up front: you lose Win+S, the search, and you have to sign out."><b>Win+Mayús+S</b> también puede ser de winshotx, avisando antes de lo que cuesta: se pierde Win+S, la búsqueda, y hace falta cerrar sesión.</li>
+    <li data-html data-en="Setting a shortcut with the &lt;b&gt;Windows&lt;/b&gt; key saved Ctrl instead: not any more.">Grabar un atajo con la tecla <b>Windows</b> guardaba Ctrl en su lugar: ya no.</li>
+  </ul>
+</section>
+
+<section id="v0-1-6">
+  <h2 data-en="New logo and icon">Logo e icono nuevos</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.6&quot; rel=&quot;noopener&quot;&gt;Version 0.1.6&lt;/a&gt; · 24 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.6" rel="noopener">Versión 0.1.6</a> · 24 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="winshotx gets a new &lt;b&gt;logo&lt;/b&gt;, which is also the app icon and reads well in the system tray.">winshotx estrena <b>logo</b>, que también es el icono de la app y se lee bien en la bandeja del sistema.</li>
+    <li data-html data-en="The &lt;b&gt;shortcut&lt;/b&gt; field no longer keeps waiting for keys after saving one, nor saves combinations Windows cannot use.">El campo de los <b>atajos</b> ya no se queda esperando teclas después de guardar uno, ni guarda combinaciones que Windows no puede usar.</li>
+  </ul>
+</section>
+
+<section id="v0-1-5">
+  <h2 data-en="More reliable settings and recording">Ajustes y grabación más fiables</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.5&quot; rel=&quot;noopener&quot;&gt;Versions 0.1.4 to 0.1.5&lt;/a&gt; · 23 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.5" rel="noopener">Versiones 0.1.4 a 0.1.5</a> · 23 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The &lt;b&gt;Settings&lt;/b&gt; window now fits on small displays or with enlarged text, and it refreshes every time you open it.">La ventana de <b>Ajustes</b> ya cabe en pantallas pequeñas o con el texto ampliado, y se pone al día cada vez que la abres.</li>
+    <li data-html data-en="The &lt;b&gt;recording bar&lt;/b&gt; no longer stays floating with no buttons when something fails while stopping.">La <b>barra de grabación</b> ya no se queda flotando sin botones cuando algo falla al parar.</li>
+    <li data-html data-en="Moving the end of the &lt;b&gt;trim&lt;/b&gt; no longer skips a frame, which also ended up in the saved file.">Mover el final del <b>recorte</b> ya no se salta un fotograma, que además acababa en el archivo guardado.</li>
+    <li data-html data-en="The Spanish texts in the app and the installer now carry their &lt;b&gt;accents&lt;/b&gt;.">Los textos de la app y del instalador, en español con sus <b>tildes</b>.</li>
+    <li data-html data-en="The &lt;b&gt;microphone&lt;/b&gt; says “not available yet” instead of pretending to record.">El <b>micrófono</b> dice «todavía no disponible» en vez de fingir que graba.</li>
+  </ul>
+</section>
+
+<section id="v0-1-3">
+  <h2 data-en="Update with one button">Actualizar con un botón</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.3&quot; rel=&quot;noopener&quot;&gt;Versions 0.1.2 to 0.1.3&lt;/a&gt; · 21 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.3" rel="noopener">Versiones 0.1.2 a 0.1.3</a> · 21 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="The app &lt;b&gt;updates&lt;/b&gt; from Settings with one button: it checks for a new version on its own and installs nothing until you press it.">La app se <b>actualiza</b> desde Ajustes con un botón: mira sola si hay versión nueva y no instala nada hasta que lo pulsas.</li>
+    <li data-html data-en="Every download is checked against a &lt;b&gt;signature&lt;/b&gt;, so a tampered installer is rejected.">Cada descarga se comprueba con una <b>firma</b>, así que un instalador manipulado se rechaza.</li>
+    <li data-html data-en="Anyone on 0.1.1 or older has to install this one &lt;b&gt;by hand&lt;/b&gt;, because those versions cannot tell them.">Quien tenga la 0.1.1 o una anterior tiene que instalar esta <b>a mano</b>, porque esas versiones no saben avisar.</li>
+    <li data-html data-en="The &lt;b&gt;magnifier&lt;/b&gt; no longer picks the wrong pixel near the screen edges, and the colour no longer freezes while dragging.">La <b>lupa</b> ya no se equivoca de píxel cerca de los bordes de la pantalla, y el color no se congela al arrastrar.</li>
+  </ul>
+</section>
+
+<section id="v0-1-1">
+  <h2 data-en="Goodbye to the black screen">Adiós a la pantalla en negro</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.1&quot; rel=&quot;noopener&quot;&gt;Version 0.1.1&lt;/a&gt; · 21 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.1" rel="noopener">Versión 0.1.1</a> · 21 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="In 0.1.0 the screen went &lt;b&gt;black&lt;/b&gt; when capturing or recording and nothing could be done: fixed, and if it fails again it warns you and Esc gets you out.">En la 0.1.0 la pantalla se quedaba <b>en negro</b> al capturar o grabar y no se podía hacer nada: arreglado, y si vuelve a fallar, avisa y se sale con Esc.</li>
+    <li data-html data-en="&lt;b&gt;Ctrl+S&lt;/b&gt; saves from the editor without reaching for the mouse."><b>Ctrl+S</b> guarda desde el editor sin ir al ratón.</li>
+    <li data-html data-en="The recording bar warns in &lt;b&gt;amber&lt;/b&gt; when the cache goes over 1 GB.">La barra de grabación avisa en <b>ámbar</b> cuando la caché pasa de 1 GB.</li>
+    <li data-html data-en="A still shot no longer opens as MP4 instead of PNG, and two clicks on &lt;b&gt;Save&lt;/b&gt; no longer start two exports.">Una captura fija ya no se abre en MP4 en vez de PNG, y dos clics en <b>Guardar</b> ya no lanzan dos exportaciones.</li>
+    <li data-html data-en="Running winshotx &lt;b&gt;twice&lt;/b&gt; no longer leaves the shortcuts fighting, and emptying the cache with the editor open no longer pulls its frames away.">Abrir winshotx <b>dos veces</b> ya no deja los atajos peleados, y vaciar la caché con el editor abierto ya no le quita los fotogramas.</li>
+  </ul>
+</section>
+
+<section id="v0-1-0">
+  <h2 data-en="First public release">Primera versión pública</h2>
+  <p class="version" data-html data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/tag/v0.1.0&quot; rel=&quot;noopener&quot;&gt;Version 0.1.0&lt;/a&gt; · 20 August 2026"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.0" rel="noopener">Versión 0.1.0</a> · 20 de agosto de 2026</p>
+  <ul>
+    <li data-html data-en="&lt;b&gt;Capture&lt;/b&gt; a region over the frozen screen, with a magnifier that gives the exact colour of each pixel, or a whole window with one click."><b>Captura</b> una región sobre la pantalla congelada, con una lupa que da el color exacto de cada píxel, o una ventana entera con un clic.</li>
+    <li data-html data-en="&lt;b&gt;Record&lt;/b&gt; the region at 15, 30 or 60 frames per second."><b>Graba</b> la región a 15, 30 o 60 fotogramas por segundo.</li>
+    <li data-html data-en="An &lt;b&gt;editor&lt;/b&gt; with thumbnails, start and end trimming, loop playback and resizing that keeps the proportions.">Un <b>editor</b> con miniaturas, recorte de principio y fin, reproducción en bucle y cambio de tamaño sin deformar.</li>
+    <li data-html data-en="Save as &lt;b&gt;GIF, MP4 or PNG&lt;/b&gt;, to disk or to the clipboard, with shortcuts you set by pressing the keys.">Guarda en <b>GIF, MP4 o PNG</b>, en disco o en el portapapeles, con atajos que se eligen pulsando las teclas.</li>
+    <li data-html data-en="A &lt;b&gt;1.5 MB&lt;/b&gt; installer, no administrator rights and nothing else to install.">Instalador de <b>1,5 MB</b>, sin permisos de administrador y sin nada más que instalar.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <div class="env">
+    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
+    <a href="../privacidad/" data-en="Privacy">Privacidad</a>
+    <span data-html data-en="Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt; · &lt;a href=&quot;https://github.com/Mun1to/winshotx/issues&quot;&gt;report a problem&lt;/a&gt;">Hecho por <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">informar de un problema</a></span>
+    <a class="cafe" href="https://buymeacoffee.com/munito" rel="noopener"><svg class="chico"><use href="#i-coffee"/></svg> <span data-en="Buy me a coffee">Invítame a un café</span></a>
+  </div>
+</footer>
+
+</body>
+</html>

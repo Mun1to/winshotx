@@ -7,7 +7,8 @@
  * Google y a los rastreadores de las IA viendo solo la version espanola. Los textos ingleses
  * ya viven en los atributos data-en de cada pagina, asi que aqui solo hay que aplicarlos.
  *
- * Paginas: index.html -> en/index.html, y docs/index.html -> en/docs/index.html.
+ * Paginas: index.html -> en/index.html, docs/ -> en/docs/, privacidad/ -> en/privacy/ y
+ * novedades/ -> en/changelog/ (esta la escribe antes generar-novedades.mjs).
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -16,6 +17,11 @@ import { fileURLToPath } from "node:url";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const BASE = "https://winshotx.com/";
+
+// Primero la página de novedades, que sale de novedades/versiones.json. Así el despliegue,
+// que corre este script y para si algo cambia, también se entera de un JSON tocado sin
+// volver a generar su página.
+await import("./generar-novedades.mjs");
 
 /** Los data-en llevan las marcas escapadas: aqui se devuelven a su forma. */
 const desescapar = (t) =>
@@ -47,6 +53,10 @@ function traducir(html) {
   html = html.replace(/\sdata-aria-en="([^"]*)"((?:[^>"]|"[^"]*")*?)\saria-label="[^"]*"/g,
     (_t, ingles, medio) => `${medio} aria-label="${ingles}"`);
   html = html.replace(/\sdata-aria-en="[^"]*"/g, "");
+
+  // La página de novedades se llama distinto en cada idioma (/novedades/ y /en/changelog/):
+  // los enlaces relativos que van a ella cambian de nombre. Los absolutos los pone cada página.
+  html = html.replace(/href="((?:\.\.\/)*)novedades\/"/g, 'href="$1changelog/"');
 
   html = html.replace('<html lang="es">', '<html lang="en">');
   html = html.replace('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">');
@@ -161,6 +171,9 @@ const ATRIBUTOS = {
   'content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, el editor con su línea de tiempo y su estudio, exportación y ajustes."':
     'content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the editor with its timeline and studio, export and settings."',
   'content="Guía de winshotx"': 'content="winshotx documentation"',
+  'content="Lo que trae cada versión de winshotx, de la más nueva a la primera, con el enlace a su publicación en GitHub."':
+    'content="What each version of winshotx brings, newest first, with a link to its release on GitHub."',
+  'content="Novedades de winshotx"': "content=\"What's new in winshotx\"",
   'content="Instalación, atajos, captura de región, grabación en GIF y MP4, el editor con su estudio y exportación."':
     'content="Install, shortcuts, region capture, GIF and MP4 recording, the editor with its studio and export."',
   'content="Instalación, atajos, captura de región, grabación en GIF y MP4, editor y exportación."':
@@ -221,6 +234,23 @@ const PAGINAS = [
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
       '<a class="idioma" id="idioma" href="../en/privacy/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../privacidad/" hreflang="es" lang="es">Español</a>',
+    },
+  },
+  {
+    origen: join("novedades", "index.html"),
+    destino: ["en", "changelog", "index.html"],
+    propios: {
+      [`<link rel="canonical" href="${BASE}novedades/">`]: `<link rel="canonical" href="${BASE}en/changelog/">`,
+      [`<meta property="og:url" content="${BASE}novedades/">`]: `<meta property="og:url" content="${BASE}en/changelog/">`,
+      [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
+      [`"name": "Novedades", "item": "${BASE}novedades/" }`]: `"name": "What's new", "item": "${BASE}en/changelog/" }`,
+      'href="../logo.svg': 'href="../../logo.svg',
+      'href="../favicon.ico': 'href="../../favicon.ico',
+      'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
+      'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
+      '<a class="idioma" id="idioma" href="../en/changelog/" hreflang="en" lang="en">English</a>':
+        '<a class="idioma" id="idioma" href="../../novedades/" hreflang="es" lang="es">Español</a>',
     },
   },
 ];
