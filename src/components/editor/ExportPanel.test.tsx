@@ -5,6 +5,7 @@
  * lo que se le manda a Rust, no en lo que se ve. Una casilla que se queda pegada del
  * formato anterior no se nota mirando: se nota cuando alguien abre el archivo.
  */
+import { useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExportPanel } from "./ExportPanel";
@@ -534,11 +535,40 @@ describe("en inglés", () => {
 });
 
 describe("el estudio", () => {
-  it("viene abierto, con el fondo apagado y el movimiento suave puesto", () => {
+  it("viene abierto, con el fondo apagado y el movimiento suave en «Poco»", () => {
     pintar();
     expect(screen.getByRole("button", { name: "Estudio" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Sin fondo" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("switch", { name: /Movimiento suave/ })).toHaveAttribute("aria-checked", "true");
+    // El suavizado de tres opciones sustituye al interruptor de antes: «Poco» es lo de siempre.
+    expect(screen.queryByRole("switch", { name: /Movimiento suave/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Poco" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("los estilos y los mandos del cursor están en el Estudio, y lo que piden viaja a Rust", async () => {
+    // Con el editor de verdad: `edicion` vive arriba y el panel la cambia con `onEdicion`.
+    function ConEdicion() {
+      const [edicion, setEdicion] = useState<Edicion>({});
+      return (
+        <ExportPanel
+          anotaciones={[]}
+          recorte={null}
+          session={GRABACION}
+          inIndex={10}
+          outIndex={80}
+          currentIndex={42}
+          fpsMax={60}
+          hasFfmpeg={false}
+          saveDirectory="C:\\capturas"
+          edicion={edicion}
+          onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}
+        />
+      );
+    }
+    render(<ConEdicion />);
+    expect(screen.getByText("Estilo")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mucho" }));
+    fireEvent.click(screen.getByRole("switch", { name: /Una onda en cada clic/ }));
+    expect(await guardarYEsperar()).toMatchObject({ suavizado: "mucho", ondaClic: true, smoothCursor: true });
   });
 
   it("elegir un fondo pone aire, esquinas y sombra que se vean, y todo viaja a Rust", async () => {
@@ -620,6 +650,7 @@ describe("el estudio", () => {
     pintar();
     expect(screen.getByRole("button", { name: "Studio" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "No background" })).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: /Smooth movement/ })).toBeInTheDocument();
+    expect(screen.getByText("Smooth movement")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Little" })).toBeInTheDocument();
   });
 });

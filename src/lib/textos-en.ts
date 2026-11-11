@@ -513,7 +513,6 @@ export const EN: Record<string, string> = {
   "rectas": "square",
   "Puntero": "Pointer",
   "Movimiento suave": "Smooth movement",
-  "le quita al puntero los temblores de la mano": "takes the hand shake out of the pointer",
   "Esconderlo cuando no se mueve": "Hide it when it stops",
   "se va tras un segundo y medio quieto": "fades out after a second and a half still",
   "Zoom": "Zoom",

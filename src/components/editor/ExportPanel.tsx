@@ -25,6 +25,10 @@ import {
 import type { Anotacion } from "../../lib/anotaciones";
 import { punteroNormal, type Estudio } from "../../lib/estudio";
 import { FondoPicker } from "./FondoPicker";
+import { AjustesCursor } from "./AjustesCursor";
+import { AjustesCamara } from "./AjustesCamara";
+import { Presets } from "./Presets";
+import { edicionDe, estiloDe, panelDe } from "../../lib/presets";
 import type { Edicion } from "../../lib/contrato";
 
 /**
@@ -120,6 +124,11 @@ interface Props {
   edicion?: Edicion;
   /** Para las piezas que viven dentro de este panel (el fondo, el cursor): cambian lo suyo. */
   onEdicion?: (cambio: Partial<Edicion>) => void;
+  /**
+   * La grabación trae ratos de escritura. Las de antes no los traen, y sin ellos «Esconderlo
+   * mientras escribes» y «Acercarse mientras escribes» no harían nada.
+   */
+  conEscritura?: boolean;
 }
 
 /**
@@ -147,6 +156,7 @@ export function ExportPanel({
   onRecorte,
   edicion,
   onEdicion,
+  conEscritura = true,
 }: Props) {
   const t = useT();
   const esCaptura = session.format === "still";
@@ -201,6 +211,10 @@ export function ExportPanel({
    * Quitarle al puntero los temblores de la mano. **Encendido de fábrica**, como en Screen
    * Studio y en Cap: es lo que hace que un vídeo de pantalla se vea hecho a propósito, y
    * solo mueve el puntero unas centésimas.
+   *
+   * Ya no tiene interruptor: lo sustituye el suavizado de tres opciones de `AjustesCursor`
+   * (`edicion.suavizado`), que manda cuando viene, y «Poco» es exactamente esto encendido.
+   * Se queda porque es lo que viaja sin tocar nada y lo que guarda un estilo.
    */
   const [suave, setSuave] = useState(true);
   /** Apagar el puntero cuando lleva un rato quieto. Apagado: sorprende si no se pide. */
@@ -272,6 +286,39 @@ export function ExportPanel({
       setEsquinas(Math.min(48, Math.max(6, Math.round(width * 0.012))));
       setSombra(true);
     }
+  };
+
+  /**
+   * El estilo de lo que hay puesto, para «Guardar estilo como…», y lo que hace poner uno
+   * guardado. Se guarda en proporción del vídeo (ver `presets.ts`), y por eso se pasan las
+   * medidas: el ancho del archivo y el alto de lo grabado, que es con lo que se mide el puntero.
+   */
+  const medidas = { ancho: width, altoGrabado: session.region.height };
+  const estiloAhora = estiloDe(
+    { zoom, velocidadZoom, cursor, aros, teclas, suave, esconder, margen, esquinas, fondo, sombra },
+    edicion,
+    medidas,
+  );
+  const aplicarEstilo = (estilo: Parameters<typeof panelDe>[0]) => {
+    const p = panelDe(estilo, medidas);
+    setZoom(p.zoom);
+    setVelocidadZoom(p.velocidadZoom);
+    // Con el cursor de Windows cocido en los fotogramas saldrían dos punteros.
+    if (!session.cursorBaked && !esCaptura) setCursor(p.cursor);
+    setAros(p.aros);
+    setTeclas(p.teclas);
+    setSuave(p.suave);
+    setEsconder(p.esconder);
+    setMargen(p.margen);
+    setEsquinas(p.esquinas);
+    setFondo(p.fondo);
+    setSombra(p.sombra);
+    // El fondo propio, el suavizado, esconder al escribir, el clic, la onda, la estela, acercarse
+    // al escribir y la cámara. Nunca los zooms, los cortes ni lo tapado, que son de este vídeo.
+    // Un estilo sin cámara (guardado con una grabación que no la tenía, o sin tocarla) no
+    // apaga la de esta: solo la coloca el que la trae.
+    const { camara, ...resto } = edicionDe(estilo);
+    onEdicion?.(camara ? { ...resto, camara } : resto);
   };
 
   /**
@@ -493,6 +540,10 @@ export function ExportPanel({
           abierto={estudioAbierto}
           onCambiar={() => setEstudioAbierto((abierto) => !abierto)}
         >
+          <Grupo titulo={t("Estilo")}>
+            <Presets estilo={estiloAhora} onAplicar={aplicarEstilo} />
+          </Grupo>
+
           <Grupo titulo={t("Fondo")}>
             <FondoPicker
               fondo={fondo}
@@ -562,24 +613,27 @@ export function ExportPanel({
                   )}
                 </div>
                 {cursor > 0 && (
-                  <div className="space-y-1">
-                    <Toggle
-                      checked={suave}
-                      onChange={setSuave}
-                      label={t("Movimiento suave")}
-                      hint={t("le quita al puntero los temblores de la mano")}
-                    />
-                    <Toggle
-                      checked={esconder}
-                      onChange={setEsconder}
-                      label={t("Esconderlo cuando no se mueve")}
-                      hint={t("se va tras un segundo y medio quieto")}
-                    />
-                  </div>
+                  <Toggle
+                    checked={esconder}
+                    onChange={setEsconder}
+                    label={t("Esconderlo cuando no se mueve")}
+                    hint={t("se va tras un segundo y medio quieto")}
+                  />
                 )}
                 {session.hasClicks && (
                   <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
                 )}
+                {/* El suavizado de tres opciones (sustituye al interruptor «Movimiento suave»),
+                    esconderlo al escribir, la estela, la onda y el sonido de los clics, y
+                    acercarse al escribir. */}
+                <AjustesCursor
+                  edicion={edicion ?? {}}
+                  onEdicion={(cambio) => onEdicion?.(cambio)}
+                  conPuntero={cursor > 0}
+                  conClics={session.hasClicks}
+                  conZoom={zoom > 1.05 || (edicion?.zooms?.length ?? 0) > 0}
+                  conEscritura={conEscritura}
+                />
               </div>
             </Grupo>
           )}
@@ -617,6 +671,10 @@ export function ExportPanel({
               )}
             </Grupo>
           )}
+
+          {/* La webcam: si la grabación no la trae no pinta nada, ni título. Su interruptor
+              «La cámara» hace de título del grupo. */}
+          {!foto && <AjustesCamara sessionId={session.id} edicion={edicion} onEdicion={onEdicion} />}
 
           {!foto && (
             <Toggle

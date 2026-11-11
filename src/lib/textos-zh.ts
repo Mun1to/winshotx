@@ -513,7 +513,6 @@ export const ZH: Record<string, string> = {
   "rectas": "直角",
   "Puntero": "指针",
   "Movimiento suave": "平滑移动",
-  "le quita al puntero los temblores de la mano": "去掉指针的手抖",
   "Esconderlo cuando no se mueve": "静止时隐藏",
   "se va tras un segundo y medio quieto": "静止一秒半后淡出",
   "Zoom": "缩放",

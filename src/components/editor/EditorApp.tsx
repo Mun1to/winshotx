@@ -952,6 +952,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           onEstudio={setEstudio}
           edicion={edicion}
           onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}
+          conEscritura={(datosEstudio?.escritura?.length ?? 0) > 0}
           onRecorte={(nuevo) => {
             setRecorte(nuevo);
             // Puesta la proporción, el marco se enciende para poder moverlo de sitio: es
