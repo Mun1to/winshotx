@@ -51,7 +51,12 @@ import {
   setSettings,
   shortcutStatus,
   usePrintScreen,
+  // S2 (grabación)
+  listCameras,
+  type CamaraConectada,
 } from "../../lib/ipc";
+// S2 (grabación)
+import { FilaTeclaZoom, SeccionCamara } from "./AjustesGrabacion";
 import { CAFE, FALLOS, REPO, WEB, comoSeLee } from "../../lib/enlaces";
 import { formatBytes } from "../../lib/format";
 import { aplicarTema } from "../../lib/tema";
@@ -256,6 +261,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
    * antes de que Rust conteste.
    */
   const [modernaOk, setModernaOk] = useState(true);
+  // S2 (grabación): las cámaras conectadas, para la fila de la cámara.
+  const [camaras, setCamaras] = useState<CamaraConectada[]>([]);
 
   const refrescar = useCallback(() => {
     void getSettings().then(setLocal);
@@ -277,6 +284,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     void listScreens()
       .then((lista) => lista && setPantallas(lista))
       .catch(() => setPantallas([]));
+    // S2 (grabación): igual que las pantallas, una webcam se enchufa entre una vez y otra.
+    void listCameras()
+      .then((lista) => setCamaras(lista ?? []))
+      .catch(() => setCamaras([]));
   }, []);
 
   // Cerrar los ajustes solo esconde la ventana, nunca la destruye, asi que esto se
@@ -626,6 +637,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
+                  {/* S2 (grabación): la tecla de zoom. */}
+                  <FilaTeclaZoom settings={settings} patch={patch} />
                   <Row
                     icon={<Gauge className="size-4" />}
                     label={t("Fotogramas por segundo")}
@@ -852,6 +865,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   />
                 </Section>
 
+                {/* S2 (grabación): la webcam. Va en esta columna y no junto al sonido
+                    porque la de la izquierda ya llega al borde de la ventana: así las dos
+                    crecen lo mismo. */}
+                <SeccionCamara settings={settings} patch={patch} camaras={camaras} />
                 </div>
               </>
             )}

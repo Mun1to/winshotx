@@ -170,6 +170,10 @@ const AJUSTES = {
   onboarded: !bienvenida,
   snippingKeyRestore: null,
   disabledHotkeysRestore: null,
+  // S2 (grabación): con --camara, la cámara encendida y dos para elegir.
+  zoomShortcut: "CmdOrCtrl+Shift+9",
+  recordCamera: args.includes("--camara"),
+  cameraDevice: null,
 };
 
 /**
@@ -232,6 +236,11 @@ const RESPUESTAS = {
     { id: 2, label: "3", x: -1920, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: false },
   ],
   cache_stats: { bytes: 0, sessions: 0 },
+  // S2 (grabación)
+  list_cameras: [
+    { id: "usb-1", nombre: "HP True Vision FHD Camera" },
+    { id: "usb-2", nombre: "Logitech HD Pro Webcam C920" },
+  ],
   captura_moderna: !sinModerna,
   print_screen_state: { enabled: false, active: false, takenByWindows: true },
   just_updated: actualizado,

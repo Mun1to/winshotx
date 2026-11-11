@@ -70,7 +70,14 @@
     </Application>
   </Applications>
 
+  <!--
+    La camara y el microfono se declaran aunque la app sea de escritorio: en un paquete,
+    Windows decide por esta lista si la deja usarlos, y el usuario los ve en Privacidad.
+    Los DeviceCapability van siempre detras de los Capability, o makeappx lo rechaza.
+  -->
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <DeviceCapability Name="microphone" />
+    <DeviceCapability Name="webcam" />
   </Capabilities>
 </Package>

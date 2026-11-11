@@ -62,6 +62,10 @@ const AJUSTES: Settings = {
   onboarded: true,
   snippingKeyRestore: null,
   disabledHotkeysRestore: null,
+  // S2 (grabación)
+  zoomShortcut: "CmdOrCtrl+Shift+9",
+  recordCamera: false,
+  cameraDevice: null,
 };
 
 /** Monta los ajustes con Rust contestando datos de mentira, y espera a que carguen. */
@@ -539,5 +543,65 @@ describe("cuando este Windows no tiene la captura moderna", () => {
       expect(screen.getByText("This Windows uses the old capture")).toBeInTheDocument(),
     );
     expect(screen.queryByText(/trozos en negro/)).not.toBeInTheDocument();
+  });
+});
+
+// S2 (grabación)
+describe("la tecla de zoom y la cámara, en Grabar", () => {
+  async function irAGrabar(ajustes?: Partial<Settings>, camaras: unknown = []) {
+    responde("list_cameras", camaras);
+    await abrirAjustes(undefined, undefined, ajustes);
+    fireEvent.click(screen.getByRole("button", { name: "Grabar" }));
+  }
+
+  it("la tecla de zoom sale con la de fábrica, Ctrl + Mayús + 9", async () => {
+    await irAGrabar();
+    expect(screen.getByText("Tecla de zoom")).toBeInTheDocument();
+    expect(screen.getByText("acerca el vídeo al ratón")).toBeInTheDocument();
+  });
+
+  it("avisa si la tecla de zoom es la de grabar, que la pararía", async () => {
+    await irAGrabar({ zoomShortcut: "CmdOrCtrl+Shift+Digit5", recordShortcut: "CmdOrCtrl+Shift+5" });
+    expect(screen.getByText("es la de grabar: al pulsarla pararías la grabación")).toBeInTheDocument();
+  });
+
+  it("sin cámara lo dice, y el interruptor sigue ahí", async () => {
+    await irAGrabar();
+    expect(screen.getByText("no hay ninguna cámara conectada")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Grabar también la cámara" })).toBeInTheDocument();
+  });
+
+  it("con una cámara encendida dice cuál, y no ofrece elegir", async () => {
+    await irAGrabar({ recordCamera: true }, [{ id: "a", nombre: "HP True Vision FHD Camera" }]);
+    await waitFor(() => expect(screen.getByText("HP True Vision FHD Camera")).toBeInTheDocument());
+    expect(screen.queryByText("Qué cámara")).not.toBeInTheDocument();
+  });
+
+  it("con dos, se elige y se guarda la elegida", async () => {
+    await irAGrabar({ recordCamera: true }, [
+      { id: "a", nombre: "HP True Vision FHD Camera" },
+      { id: "b", nombre: "Logitech HD Pro Webcam C920" },
+    ]);
+    await waitFor(() => expect(screen.getByText("Qué cámara")).toBeInTheDocument());
+    // Se ve con cuál se graba, y «Cambiar» pasa a la siguiente.
+    expect(screen.getByText("HP True Vision FHD Camera")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }));
+    await waitFor(() => {
+      const guardado = llamadas.filter((l) => l.comando === "set_settings").at(-1);
+      expect((guardado?.args as { settings: Settings }).settings.cameraDevice).toBe("b");
+    });
+  });
+
+  it("en inglés no se cuela ni una frase de las nuevas", async () => {
+    aplicarIdioma("en");
+    responde("list_cameras", []);
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+    const pantalla = document.body.textContent ?? "";
+    for (const frase of ["Tecla de zoom", "La cámara", "Grabar también la cámara", "no hay ninguna cámara"]) {
+      expect(pantalla).not.toContain(frase);
+    }
+    expect(pantalla).toContain("Zoom key");
+    expect(pantalla).toContain("Record the camera too");
   });
 });

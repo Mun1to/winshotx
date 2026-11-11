@@ -14,9 +14,14 @@ use image::{Rgba, RgbaImage};
 
 /// De qué color es el aire de alrededor.
 ///
-/// Son unos pocos fondos elegidos, no un selector de color: con la rueda entera, la
+/// Los de nombre son unos pocos elegidos, no un selector de color: con la rueda entera, la
 /// decisión pasa de «cuál de estos cinco» a «cuál de dieciséis millones», que es
-/// exactamente el tipo de pregunta que hace que alguien cierre el panel sin exportar.
+/// exactamente el tipo de pregunta que hace que alguien cierre el panel sin exportar. Por
+/// eso los propios (un color cualquiera, una imagen, el escritorio, un vídeo) van detrás,
+/// en el panel, y aquí llegan ya resueltos por `Fondo::elegido`.
+///
+/// Sigue siendo `Copy`: una imagen o un vídeo van por su número en una tabla (`Lamina`), no
+/// dentro del valor, para que el `Marco` se pueda pasar a cada fotograma sin copiar nada.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fondo {
     Blanco,
@@ -32,9 +37,134 @@ pub enum Fondo {
     Oceano,
     /// Rosa a ámbar, el cálido.
     Coral,
+    /// Un color liso cualquiera, de la paleta (B3).
+    Color([u8; 3]),
+    /// Un degradado que sale de ese color hacia `segundo_color` (B3).
+    Degradado([u8; 3]),
+    /// Una imagen del disco, recortada para llenar (B1, y B2 con la del escritorio).
+    Imagen(Lamina),
+    /// Un vídeo de fondo ya importado, en ese instante del vídeo exportado (B5).
+    Video { video: Lamina, ms: u64 },
+}
+
+/// El número de una imagen o un vídeo en la tabla de rutas de este módulo.
+pub type Lamina = u32;
+
+/// Las rutas de las imágenes y los vídeos de fondo que se han pedido, por orden de llegada,
+/// con la hora en que se escribió cada archivo. Solo crece con cada archivo distinto, y una
+/// sesión de la app usa unos pocos.
+static RUTAS: std::sync::Mutex<Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>> =
+    std::sync::Mutex::new(Vec::new());
+
+/// El número de esa ruta. **Con la hora del archivo**: el fondo de escritorio de Windows es
+/// siempre el mismo archivo (`TranscodedWallpaper`) aunque cambie la imagen, y con la ruta
+/// sola la caché de `base` seguiría pintando la de antes.
+fn registrar(ruta: &std::path::Path) -> Lamina {
+    let hora = std::fs::metadata(ruta).and_then(|m| m.modified()).ok();
+    let mut rutas = RUTAS.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(i) = rutas.iter().position(|(r, h)| r == ruta && *h == hora) {
+        return i as Lamina;
+    }
+    rutas.push((ruta.to_path_buf(), hora));
+    (rutas.len() - 1) as Lamina
+}
+
+fn ruta_de(lamina: Lamina) -> Option<std::path::PathBuf> {
+    RUTAS.lock().ok()?.get(lamina as usize).map(|(r, _)| r.clone())
+}
+
+/// El otro extremo del degradado de un color: el tono girado 40 grados y la luz al 82 %.
+///
+/// Así sale de un color cualquiera un degradado parecido a los de nombre (de azul a violeta,
+/// de verde a azul) en vez de uno de ese color a negro, que se ve sucio. Va en `f64` y con
+/// las mismas cuentas que `segundoColor` de `src/lib/fondos.ts`: la vista previa tiene que
+/// pintar el mismo degradado que sale en el archivo, y las pruebas de los dos lados
+/// comprueban los mismos números.
+pub fn segundo_color(rgb: [u8; 3]) -> [u8; 3] {
+    let [r, g, b] = rgb.map(|c| f64::from(c) / 255.0);
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let l = (max + min) / 2.0;
+    let d = max - min;
+    let (h, s) = if d == 0.0 {
+        (0.0, 0.0)
+    } else {
+        let s = if l > 0.5 { d / (2.0 - max - min) } else { d / (max + min) };
+        let h = if max == r {
+            (g - b) / d + if g < b { 6.0 } else { 0.0 }
+        } else if max == g {
+            (b - r) / d + 2.0
+        } else {
+            (r - g) / d + 4.0
+        };
+        (h * 60.0, s)
+    };
+    let h = (h + 40.0) % 360.0;
+    let l = l * 0.82;
+    // De HSL a RGB, la fórmula de siempre.
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+    let m = l - c / 2.0;
+    let (r, g, b) = match (h / 60.0) as u32 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    [r, g, b].map(|v| ((v + m) * 255.0).round().clamp(0.0, 255.0) as u8)
+}
+
+/// Si se puede abrir esa imagen, mirando solo su cabecera: decodificarla entera aquí sería
+/// pagar dos veces lo que luego paga `pintar_base`.
+fn se_puede_abrir(ruta: &std::path::Path) -> bool {
+    image::ImageReader::open(ruta)
+        .and_then(|r| r.with_guessed_format())
+        .ok()
+        .and_then(|r| r.into_dimensions().ok())
+        .is_some()
 }
 
 impl Fondo {
+    /// El fondo de una petición: el propio (`edicion.fondo`) si viene, y si no el de nombre.
+    ///
+    /// Lo que no se puede usar (una imagen que ya no está, un escritorio sin imagen ni color)
+    /// cae al de nombre en vez de reventar la exportación: el panel ya comprobó el archivo
+    /// al elegirlo, y lo único que puede pasar entre medias es que alguien lo borre.
+    pub fn elegido(nombre: &str, elegido: Option<&crate::contrato::FondoElegido>) -> Self {
+        use crate::contrato::FondoElegido;
+        let respaldo = Fondo::desde(nombre);
+        match elegido {
+            None => respaldo,
+            Some(FondoElegido::Color { rgb }) => Fondo::Color(*rgb),
+            Some(FondoElegido::Degradado { rgb }) => Fondo::Degradado(*rgb),
+            Some(FondoElegido::Imagen { ruta }) => {
+                let ruta = std::path::Path::new(ruta);
+                if se_puede_abrir(ruta) {
+                    Fondo::Imagen(registrar(ruta))
+                } else {
+                    respaldo
+                }
+            }
+            Some(FondoElegido::Escritorio) => match crate::platform::escritorio::actual() {
+                Some(crate::platform::escritorio::FondoDeEscritorio::Imagen(ruta)) if se_puede_abrir(&ruta) => {
+                    Fondo::Imagen(registrar(&ruta))
+                }
+                Some(crate::platform::escritorio::FondoDeEscritorio::Color(rgb)) => Fondo::Color(rgb),
+                _ => respaldo,
+            },
+            Some(FondoElegido::Video { ruta }) => {
+                let ruta = std::path::Path::new(ruta);
+                if ruta.is_file() {
+                    Fondo::Video { video: registrar(ruta), ms: 0 }
+                } else {
+                    respaldo
+                }
+            }
+        }
+    }
+
     /// Lee el nombre que manda el panel del editor. Lo que no reconoce sale blanco, que es
     /// el fondo más neutro: un nombre nuevo no debe reventar una exportación.
     pub fn desde(nombre: &str) -> Self {
@@ -70,6 +200,11 @@ impl Fondo {
             Fondo::Noche => mezcla([30, 41, 59], [15, 23, 42]),
             Fondo::Oceano => mezcla([14, 165, 233], [30, 64, 175]),
             Fondo::Coral => mezcla([251, 113, 133], [245, 158, 11]),
+            Fondo::Color([r, g, b]) => Rgba([r, g, b, 255]),
+            Fondo::Degradado(rgb) => mezcla(rgb, segundo_color(rgb)),
+            // Los de archivo no tienen un color por punto: los pinta `pintar_base` o el hilo
+            // del fondo animado. Si llega a pedirse, negro, que es lo que hay detrás.
+            Fondo::Imagen(_) | Fondo::Video { .. } => Rgba([0, 0, 0, 255]),
         }
     }
 }
@@ -99,6 +234,30 @@ impl Marco {
         let par = |n: u32| n + (n % 2);
         (par(ancho + self.margen * 2), par(alto + self.margen * 2))
     }
+
+    /// Si el fondo cambia con el tiempo: entonces cada fotograma lleva el suyo, y dos
+    /// instantes iguales de la grabación ya no se ven iguales en el vídeo.
+    pub fn animado(&self) -> bool {
+        self.margen > 0 && matches!(self.fondo, Fondo::Video { .. })
+    }
+
+    /// El mismo marco, con el fondo animado en ese instante del vídeo exportado.
+    pub fn en(self, ms: u64) -> Marco {
+        match self.fondo {
+            Fondo::Video { video, .. } => Marco { fondo: Fondo::Video { video, ms }, ..self },
+            _ => self,
+        }
+    }
+
+    /// El marco del paso que viene después de estos: su instante es lo que duran todos los
+    /// de antes. Es lo que le pasa el exportador a cada fotograma, y sin fondo animado no
+    /// suma nada.
+    pub fn tras(self, retardos: &[u32]) -> Marco {
+        if !self.animado() {
+            return self;
+        }
+        self.en(retardos.iter().map(|&r| u64::from(r)).sum())
+    }
 }
 
 /// Cuánto se desplaza la sombra hacia abajo, en tantos por ciento del margen.
@@ -118,8 +277,18 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
     // El fondo con su sombra es el mismo en todos los fotogramas de una exportación: se
     // pinta una vez y cada fotograma lo copia. Pintarlo píxel a píxel en cada uno (un
     // degradado y una sombra sobre tres millones de píxeles a 1080p) era lo que más costaba
-    // de exportar un vídeo con marco.
-    let mut lienzo = (*base(marco, ancho_f, alto_f)).clone();
+    // de exportar un vídeo con marco. El animado no es el mismo, pero lo pinta otro hilo por
+    // delante (`fondo_video::Animado`), y aquí también solo se copia.
+    let fondo = match marco.fondo {
+        Fondo::Video { video, ms } => base_animada(video, ms, marco, ancho_f, alto_f),
+        _ => None,
+    };
+    let mut lienzo = match fondo {
+        Some(animada) => (*animada).clone(),
+        // Un vídeo que no se pudo leer sale sobre negro, que es lo que hay detrás.
+        None if marco.animado() => (*base(Marco { fondo: Fondo::Negro, ..marco }, ancho_f, alto_f)).clone(),
+        None => (*base(marco, ancho_f, alto_f)).clone(),
+    };
     let ancho = lienzo.width() as usize;
 
     // La captura va centrada. Si el redondeo a par ha dejado un píxel de más, se lo queda
@@ -160,7 +329,8 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
     lienzo
 }
 
-/// Lo que identifica un fondo ya pintado: el tamaño de la captura y todo lo del marco.
+/// Lo que identifica un fondo ya pintado: el tamaño de la captura y todo lo del marco. Con
+/// una imagen, su número en `RUTAS`: dos imágenes distintas nunca comparten fondo.
 type Clave = (u32, u32, u32, Fondo, bool, u32);
 
 /// El fondo con su sombra para una captura de ese tamaño, pintado la primera vez que se
@@ -186,18 +356,94 @@ fn base(marco: Marco, ancho_f: u32, alto_f: u32) -> std::sync::Arc<RgbaImage> {
 /// El lienzo entero con el degradado del fondo y la sombra de la captura, sin la captura.
 fn pintar_base(marco: Marco, ancho_f: u32, alto_f: u32) -> RgbaImage {
     let (ancho, alto) = marco.medida(ancho_f, alto_f);
-    let mut lienzo = RgbaImage::new(ancho, alto);
-    // El degradado corre en diagonal, así que el punto de cada píxel es lo lejos que está
-    // de la esquina de arriba a la izquierda medido sobre esa diagonal.
-    let diagonal = (ancho + alto).max(1) as f32;
-    for (x, y, pixel) in lienzo.enumerate_pixels_mut() {
-        *pixel = marco.fondo.color((x + y) as f32 / diagonal);
-    }
+    // Una imagen se recorta para llenar; si ya no se puede abrir, sale el fondo blanco de
+    // siempre en vez de un agujero.
+    let imagen = match marco.fondo {
+        Fondo::Imagen(lamina) => ruta_de(lamina).and_then(|ruta| {
+            image::ImageReader::open(&ruta).ok()?.with_guessed_format().ok()?.decode().ok()
+        }),
+        _ => None,
+    };
+    let mut lienzo = match (&imagen, marco.fondo) {
+        (Some(imagen), _) => cubrir(&imagen.to_rgba8(), ancho, alto),
+        (None, Fondo::Imagen(_)) => RgbaImage::from_pixel(ancho, alto, Rgba([255, 255, 255, 255])),
+        _ => {
+            let mut lienzo = RgbaImage::new(ancho, alto);
+            // El degradado corre en diagonal, así que el punto de cada píxel es lo lejos que
+            // está de la esquina de arriba a la izquierda medido sobre esa diagonal.
+            let diagonal = (ancho + alto).max(1) as f32;
+            for (x, y, pixel) in lienzo.enumerate_pixels_mut() {
+                *pixel = marco.fondo.color((x + y) as f32 / diagonal);
+            }
+            lienzo
+        }
+    };
     if marco.sombra {
-        let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
-        pintar_sombra(&mut lienzo, marco.margen, marco.margen, ancho_f, alto_f, marco.margen, radio);
+        aplicar_sombra(&mut lienzo, &mascara_de_sombra(marco, ancho_f, alto_f));
     }
     lienzo
+}
+
+/// Escala una imagen para que llene `ancho` x `alto` sin deformarse, recortando lo que sobra
+/// por los lados o por arriba y abajo, a partes iguales. Es el «cubrir» de CSS
+/// (`background-size: cover`), que es lo que pinta la vista previa.
+pub fn cubrir(imagen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
+    let (ow, oh) = imagen.dimensions();
+    if (ow, oh) == (ancho, alto) || ow == 0 || oh == 0 {
+        return super::escalar::a_medida(imagen, ancho.max(1), alto.max(1));
+    }
+    // El trozo del original que tiene la proporción del lienzo, lo más grande posible.
+    let (cw, ch) = if u64::from(ow) * u64::from(alto) > u64::from(oh) * u64::from(ancho) {
+        (((u64::from(oh) * u64::from(ancho)) / u64::from(alto.max(1))).max(1) as u32, oh)
+    } else {
+        (ow, ((u64::from(ow) * u64::from(alto)) / u64::from(ancho.max(1))).max(1) as u32)
+    };
+    let (cw, ch) = (cw.min(ow), ch.min(oh));
+    let trozo = if (cw, ch) == (ow, oh) {
+        imagen.clone()
+    } else {
+        image::imageops::crop_imm(imagen, (ow - cw) / 2, (oh - ch) / 2, cw, ch).to_image()
+    };
+    super::escalar::a_medida(&trozo, ancho, alto)
+}
+
+/// Lo que identifica un fondo animado ya abierto: el vídeo, el tamaño de la captura y el
+/// marco. Con un `None` dentro, ese vídeo no se pudo leer y no se vuelve a intentar.
+type ClaveAnimada = (Lamina, u32, u32, u32, bool, u32);
+
+/// El fondo animado en ese instante, pintado por su hilo. `None` si el vídeo no se puede
+/// leer: quien llama pinta negro.
+fn base_animada(video: Lamina, ms: u64, marco: Marco, ancho_f: u32, alto_f: u32) -> Option<std::sync::Arc<RgbaImage>> {
+    use super::fondo_video::Animado;
+    static ABIERTO: std::sync::Mutex<Option<(ClaveAnimada, Option<Animado>)>> = std::sync::Mutex::new(None);
+    let clave = (video, ancho_f, alto_f, marco.margen, marco.sombra, marco.esquinas);
+    let mut abierto = ABIERTO.lock().unwrap_or_else(|e| e.into_inner());
+    // Dos intentos: el hilo se cierra solo cuando lleva un rato sin uso, y entonces se
+    // vuelve a abrir desde el instante que se pida.
+    for _ in 0..2 {
+        if abierto.as_ref().is_none_or(|(k, _)| *k != clave) {
+            let ruta = ruta_de(video)?;
+            let (ancho, alto) = marco.medida(ancho_f, alto_f);
+            let mascara = marco.sombra.then(|| mascara_de_sombra(marco, ancho_f, alto_f));
+            let vestir: super::fondo_video::Vestir = Box::new(move |lienzo: &mut RgbaImage| {
+                if let Some(m) = &mascara {
+                    aplicar_sombra(lienzo, m);
+                }
+            });
+            *abierto = Some((clave, Some(Animado::abrir(ruta, ancho, alto, vestir))));
+        }
+        let (_, animado) = abierto.as_ref()?;
+        match animado.as_ref()?.en(ms) {
+            Ok(imagen) => return Some(imagen),
+            // No se puede leer: se apunta para no reintentarlo en cada fotograma.
+            Err(Some(_)) => {
+                *abierto = Some((clave, None));
+                return None;
+            }
+            Err(None) => *abierto = None,
+        }
+    }
+    None
 }
 
 /// Cuánto de un píxel de la captura queda dentro de sus esquinas redondeadas: 1 en todo lo
@@ -232,30 +478,30 @@ fn entre(a: Rgba<u8>, b: Rgba<u8>, t: f32) -> Rgba<u8> {
     Rgba([c(0), c(1), c(2), 255])
 }
 
-/// Una mancha oscura debajo de la captura, desplazada y con los bordes difuminados.
+/// Una mancha oscura debajo de la captura, desplazada y con los bordes difuminados: cuánto
+/// oscurece cada píxel del lienzo, de 0 a 255.
 ///
 /// No es un desenfoque de verdad: es una rampa lineal en los bordes del rectángulo. A
 /// simple vista se distingue poco de un desenfoque gaussiano cuando la mancha está detrás
 /// de la imagen, y cuesta una fracción de lo que cuesta el gaussiano en cada uno de los
 /// trescientos fotogramas de un vídeo.
-fn pintar_sombra(
-    lienzo: &mut RgbaImage,
-    izquierda: u32,
-    arriba: u32,
-    ancho_f: u32,
-    alto_f: u32,
-    margen: u32,
-    radio: f32,
-) {
+///
+/// Se saca aparte del pintado para que un fondo animado la calcule UNA vez y la ponga en
+/// cada fotograma de su vídeo solo multiplicando: las raíces cuadradas de abajo, en tres
+/// millones de píxeles, eran el grueso de pintar el fondo.
+fn mascara_de_sombra(marco: Marco, ancho_f: u32, alto_f: u32) -> Vec<u8> {
+    let (ancho, alto) = marco.medida(ancho_f, alto_f);
+    let margen = marco.margen;
+    let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
     let caida = (margen as f32 * SOMBRA_CAIDA).round() as i32;
     let borrosa = (margen as f32 * SOMBRA_BORROSA).max(1.0);
-    let (ancho, alto) = lienzo.dimensions();
 
-    let x0 = izquierda as i32;
-    let y0 = arriba as i32 + caida;
+    let x0 = margen as i32;
+    let y0 = margen as i32 + caida;
     let x1 = x0 + ancho_f as i32;
     let y1 = y0 + alto_f as i32;
 
+    let mut mascara = vec![0u8; ancho as usize * alto as usize];
     for y in 0..alto as i32 {
         for x in 0..ancho as i32 {
             // Lo lejos que está el píxel del rectángulo de la sombra, por fuera. Con las
@@ -268,8 +514,17 @@ fn pintar_sombra(
                 continue;
             }
             let fuerza = (1.0 - distancia / borrosa) * 0.42;
-            let pixel = lienzo.get_pixel_mut(x as u32, y as u32);
-            *pixel = sobre(Rgba([0, 0, 0, (fuerza * 255.0) as u8]), *pixel);
+            mascara[y as usize * ancho as usize + x as usize] = (fuerza * 255.0) as u8;
+        }
+    }
+    mascara
+}
+
+/// Oscurece el lienzo con su máscara de sombra.
+fn aplicar_sombra(lienzo: &mut RgbaImage, mascara: &[u8]) {
+    for (pixel, &a) in lienzo.pixels_mut().zip(mascara) {
+        if a != 0 {
+            *pixel = sobre(Rgba([0, 0, 0, a]), *pixel);
         }
     }
 }
@@ -630,5 +885,153 @@ mod esquinas {
         assert_eq!(Fondo::desde("oceano"), Fondo::Oceano);
         assert_eq!(Fondo::desde("coral"), Fondo::Coral);
         assert_eq!(Fondo::desde("no-existe"), Fondo::Blanco);
+    }
+}
+
+/// Los fondos propios (S3): un color, su degradado, una imagen, el escritorio y un vídeo.
+#[cfg(test)]
+mod fondos_propios {
+    use super::*;
+    use crate::contrato::FondoElegido;
+
+    const ROJO: Rgba<u8> = Rgba([220, 30, 30, 255]);
+
+    fn con(fondo: Fondo, margen: u32) -> Marco {
+        Marco { margen, fondo, sombra: false, esquinas: 0 }
+    }
+
+    /// Los mismos números que comprueba `src/lib/fondos.test.ts`: si uno cambia y el otro no,
+    /// la vista previa enseña un degradado y el archivo sale con otro.
+    #[test]
+    fn el_segundo_color_es_el_mismo_que_calcula_el_editor() {
+        assert_eq!(segundo_color([88, 116, 245]), [134, 31, 242]);
+        assert_eq!(segundo_color([34, 197, 152]), [28, 109, 162]);
+        assert_eq!(segundo_color([255, 255, 255]), [209, 209, 209]);
+        assert_eq!(segundo_color([0, 0, 0]), [0, 0, 0]);
+        assert_eq!(segundo_color([220, 40, 40]), [183, 132, 30]);
+        assert_eq!(segundo_color([18, 18, 20]), [16, 15, 16]);
+    }
+
+    #[test]
+    fn un_color_liso_es_ese_color_en_las_cuatro_esquinas() {
+        let lienzo = poner(&RgbaImage::from_pixel(10, 10, ROJO), con(Fondo::Color([12, 200, 99]), 6));
+        let (a, b) = lienzo.dimensions();
+        for (x, y) in [(0, 0), (a - 1, 0), (0, b - 1), (a - 1, b - 1)] {
+            assert_eq!(*lienzo.get_pixel(x, y), Rgba([12, 200, 99, 255]), "en {x},{y}");
+        }
+    }
+
+    #[test]
+    fn el_degradado_va_del_color_elegido_a_su_segundo_color() {
+        let rgb = [34, 197, 152];
+        let lienzo = poner(&RgbaImage::from_pixel(10, 10, ROJO), con(Fondo::Degradado(rgb), 40));
+        let (a, b) = lienzo.dimensions();
+        assert_eq!(lienzo.get_pixel(0, 0).0[..3], rgb);
+        let fin = lienzo.get_pixel(a - 1, b - 1).0;
+        let otro = segundo_color(rgb);
+        for c in 0..3 {
+            assert!((fin[c] as i32 - otro[c] as i32).abs() <= 3, "la esquina final {fin:?} no es {otro:?}");
+        }
+    }
+
+    fn dir(nombre: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("winshotx-fondos-{nombre}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Una imagen apaisada de dos mitades, roja y azul, sobre un lienzo cuadrado: «cubrir»
+    /// recorta los lados y deja la mitad roja a la izquierda y la azul a la derecha.
+    #[test]
+    fn una_imagen_se_recorta_para_llenar_sin_deformarse() {
+        let dir = dir("imagen");
+        let ruta = dir.join("dos-mitades.png");
+        let imagen = RgbaImage::from_fn(200, 100, |x, _| {
+            if x < 100 { Rgba([255, 0, 0, 255]) } else { Rgba([0, 0, 255, 255]) }
+        });
+        imagen.save(&ruta).unwrap();
+        let fondo = Fondo::elegido("blanco", Some(&FondoElegido::Imagen { ruta: ruta.to_string_lossy().into() }));
+        assert!(matches!(fondo, Fondo::Imagen(_)), "la imagen se tendría que poder usar: {fondo:?}");
+        let lienzo = poner(&RgbaImage::from_pixel(20, 20, Rgba([0, 255, 0, 255])), con(fondo, 10));
+        assert_eq!(lienzo.dimensions(), (40, 40));
+        assert_eq!(lienzo.get_pixel(2, 20).0[..3], [255, 0, 0], "la izquierda, roja");
+        assert_eq!(lienzo.get_pixel(37, 20).0[..3], [0, 0, 255], "la derecha, azul");
+        assert_eq!(lienzo.get_pixel(20, 20).0[..3], [0, 255, 0], "y la captura encima");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn una_imagen_que_ya_no_esta_cae_al_fondo_de_nombre() {
+        let fondo = Fondo::elegido("menta", Some(&FondoElegido::Imagen { ruta: "C:/no-existe/x.png".into() }));
+        assert_eq!(fondo, Fondo::Menta);
+        let fondo = Fondo::elegido("coral", Some(&FondoElegido::Video { ruta: "C:/no-existe/x.mp4".into() }));
+        assert_eq!(fondo, Fondo::Coral);
+        assert_eq!(Fondo::elegido("noche", None), Fondo::Noche);
+    }
+
+    /// El del escritorio sale de Windows: una imagen que se puede abrir o un color liso,
+    /// pero nunca el de nombre si Windows contesta.
+    #[test]
+    #[cfg(windows)]
+    fn el_escritorio_da_una_imagen_o_un_color() {
+        let fondo = Fondo::elegido("blanco", Some(&FondoElegido::Escritorio));
+        assert!(matches!(fondo, Fondo::Imagen(_) | Fondo::Color(_)), "ha salido {fondo:?}");
+    }
+
+    /// Lo que cambia la caché: la misma ruta con otro archivo dentro es otro fondo.
+    #[test]
+    fn la_misma_ruta_con_otra_imagen_dentro_es_otro_fondo() {
+        let dir = dir("misma-ruta");
+        let ruta = dir.join("fondo.png");
+        RgbaImage::from_pixel(8, 8, Rgba([255, 0, 0, 255])).save(&ruta).unwrap();
+        let antes = registrar(&ruta);
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        RgbaImage::from_pixel(8, 8, Rgba([0, 0, 255, 255])).save(&ruta).unwrap();
+        assert_ne!(registrar(&ruta), antes);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn solo_el_video_con_aire_es_animado_y_su_instante_suma_los_pasos_de_antes() {
+        let quieto = con(Fondo::Atardecer, 10);
+        assert!(!quieto.animado());
+        assert_eq!(quieto.tras(&[33, 33]).fondo, Fondo::Atardecer);
+        let video = con(Fondo::Video { video: 7, ms: 0 }, 10);
+        assert!(video.animado());
+        assert_eq!(video.tras(&[33, 34, 33]).fondo, Fondo::Video { video: 7, ms: 100 });
+        assert!(!con(Fondo::Video { video: 7, ms: 0 }, 0).animado(), "sin aire no hay fondo que ver");
+    }
+
+    /// Un fondo animado de punta a punta por `poner`: el fondo de cada instante es su
+    /// fotograma, con la captura encima y la sombra puesta igual que en uno quieto.
+    #[test]
+    fn el_fondo_animado_cambia_con_el_instante() {
+        let dir = dir("animado");
+        let ruta = dir.join("fondo.gif");
+        crate::encode::fondo_video::pruebas::gif_de_prueba(&ruta, &[[255, 0, 0], [0, 0, 255]], 16, 16, 10);
+        let fondo = Fondo::elegido("blanco", Some(&FondoElegido::Video { ruta: ruta.to_string_lossy().into() }));
+        let marco = Marco { sombra: true, ..con(fondo, 12) };
+        let captura = RgbaImage::from_pixel(24, 24, Rgba([0, 255, 0, 255]));
+        let a = poner(&captura, marco.en(0));
+        let b = poner(&captura, marco.en(150));
+        assert_eq!(a.get_pixel(1, 1).0[..3], [255, 0, 0], "a los 0 ms el fondo es el primer fotograma");
+        assert_eq!(b.get_pixel(1, 1).0[..3], [0, 0, 255], "a los 150, el segundo");
+        assert_eq!(a.get_pixel(24, 24).0[..3], [0, 255, 0], "la captura va encima");
+        // La sombra: debajo de la captura, más oscuro que arriba a la misma distancia.
+        let (debajo, encima) = (b.get_pixel(24, 38).0[2], b.get_pixel(24, 2).0[2]);
+        assert!(debajo < encima, "sin sombra en el fondo animado: {debajo} contra {encima}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Un vídeo roto no revienta: sale sobre negro.
+    #[test]
+    fn un_video_que_no_se_puede_leer_sale_sobre_negro() {
+        let dir = dir("roto");
+        let ruta = dir.join("roto.gif");
+        std::fs::write(&ruta, b"esto no es un gif").unwrap();
+        let fondo = Fondo::elegido("blanco", Some(&FondoElegido::Video { ruta: ruta.to_string_lossy().into() }));
+        let lienzo = poner(&RgbaImage::from_pixel(10, 10, ROJO), con(fondo, 6));
+        assert_eq!(*lienzo.get_pixel(0, 0), Fondo::Negro.color(0.0));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

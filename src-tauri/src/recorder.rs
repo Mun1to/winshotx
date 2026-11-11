@@ -250,6 +250,15 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     // Grabar UNA ventana es otro camino desde aqui abajo: se le pide a Windows esa ventana
     // y no un trozo de pantalla, asi que lo que pase por delante no sale.
     let ventana = options.window.filter(|h| *h != 0);
+    // Lo de S2 sale de los ajustes y no de `options`: lo arma el overlay, y la tecla de zoom
+    // y la cámara no son de cada grabación sino de quien graba.
+    let (tecla_zoom, camara_pedida) = {
+        let ajustes = state.settings.read();
+        (
+            crate::record::teclas::TeclaZoom::de_atajo(&ajustes.zoom_shortcut),
+            ajustes.record_camera.then(|| ajustes.camera_device.clone()),
+        )
+    };
 
     let session_seed = SessionData {
         id: id.clone(),
@@ -334,13 +343,27 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // Con una ventana, el anotador mide desde ELLA: si se mueve mientras se graba,
         // los aros de clic y el rastro del raton la siguen en vez de quedarse donde
         // estaba al empezar.
-        crate::record::anotador::Anotador::con_ventana(region, ventana, marcar_clics, marcar_teclas),
+        crate::record::anotador::Anotador::con_ventana(region, ventana, marcar_clics, marcar_teclas)
+            .con_tecla_zoom(tecla_zoom),
         crate::record::anotador::Reloj {
             start: reloj_inicio,
             paused_ms: paused_ms.clone(),
         },
         pause.clone(),
     );
+    // La webcam, en su hilo y a su archivo, con el mismo reloj. Vuelve enseguida: encender
+    // una cámara tarda, y la pantalla ya está grabando mientras tanto.
+    let camara = camara_pedida.map(|dispositivo| {
+        crate::record::camara::Grabadora::empezar(
+            dispositivo,
+            &dir,
+            crate::record::anotador::Reloj {
+                start: reloj_inicio,
+                paused_ms: paused_ms.clone(),
+            },
+            pause.clone(),
+        )
+    });
     let writer = std::thread::spawn(move || -> Result<SessionData> {
         let mut session = session_seed;
         session.has_audio = audio.is_some();
@@ -405,6 +428,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             reciclados_escritor.devolver(rgba);
             salida.volcar(&mut encoder);
         }
+        // La cámara se avisa ya, y va cerrando su archivo mientras aquí se cierra el resto.
+        if let Some(camara) = camara.as_ref() {
+            camara.avisar();
+        }
 
         // Cuanto se grabo de verdad, y NO el instante del ultimo fotograma: Windows no manda
         // ninguno mientras la pantalla no cambia, y con el final quieto el video se cortaba
@@ -439,6 +466,19 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         session.cursor = anotaciones.cursor;
         session.formas = anotaciones.formas;
         session.cambios_puntero = anotaciones.cambios_puntero;
+        session.marcas_zoom = anotaciones.marcas_zoom;
+        session.escritura = anotaciones.escritura;
+        // La cámara se espera aquí, antes de mirar si se descarta: si no, su hilo seguiría
+        // escribiendo en una carpeta que se está borrando.
+        if let Some(pista) = camara.and_then(crate::record::camara::Grabadora::terminar) {
+            let primer_fotograma = session.frames.first().map_or(0, |f| f.timestamp_ms);
+            session.camara = Some(crate::contrato::CamaraGrabada {
+                archivo: pista.archivo,
+                ancho: pista.ancho,
+                alto: pista.alto,
+                desfase_ms: crate::record::camara::desfase(pista.primer_ms, primer_fotograma),
+            });
+        }
         // Las imagenes de los punteros, a disco: son lo que el exportador y la vista
         // previa dibujan. Una que no se pueda escribir se queda fuera y se dibuja la
         // flecha en su lugar, que es mejor que perder la grabacion.

@@ -18,4 +18,5 @@ pub mod zoom;
 // S1 (línea de tiempo)
 pub mod lupa;
 // S3 (fondos)
+pub mod fondo_video;
 // S4 (capturas)

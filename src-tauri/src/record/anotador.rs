@@ -1,5 +1,6 @@
 //! Lo que se apunta mientras se graba, aparte de la imagen: donde se hace clic, que
-//! atajos se pulsan y por donde va el raton.
+//! atajos se pulsan, por donde va el raton, donde se pulso la tecla de zoom y cuando se
+//! estuvo escribiendo.
 //!
 //! Vivia dentro del bucle que escribe los fotogramas, en `recorder.rs`, mezclado con el
 //! cache, el codificador de vista previa y el sonido: doscientas lineas en las que no se
@@ -25,6 +26,7 @@ use parking_lot::Mutex;
 
 use super::{pastilla, punteros, raton, realce, teclas};
 use crate::capture::Rect;
+use crate::contrato::{MarcaZoom, TramoEscritura};
 use crate::encode::zoom;
 
 /// Lo que queda anotado al terminar, ya en coordenadas de la region grabada.
@@ -39,6 +41,10 @@ pub struct Anotaciones {
     pub punteros: Vec<punteros::Puntero>,
     /// Cual de ellas estaba puesta y desde cuando. `u32::MAX` es una que no se pudo leer.
     pub cambios_puntero: Vec<(u64, u32)>,
+    /// Donde estaba el raton cada vez que se pulso la tecla de zoom (A3).
+    pub marcas_zoom: Vec<MarcaZoom>,
+    /// Los ratos en los que se escribio, sin ninguna tecla dentro.
+    pub escritura: Vec<TramoEscritura>,
 }
 
 pub struct Anotador {
@@ -65,6 +71,15 @@ pub struct Anotador {
     /// de los que ya se han leido. Leer la imagen cuesta; se hace una vez por cursor.
     ultimo_asa: isize,
     ids: HashMap<isize, u32>,
+    /// La tecla que deja una marca de zoom, si la hay, y si estaba abajo la vez anterior:
+    /// mantenerla pulsada es UNA marca, no sesenta por segundo.
+    tecla_zoom: Option<teclas::TeclaZoom>,
+    zoom_abajo: bool,
+    escritura: teclas::Escritura,
+    lector: teclas::Lector,
+    /// Donde se vio el raton la ultima vez, ya en coordenadas de la region. Es a donde
+    /// apuntan un atajo y una marca de zoom, que no tienen sitio propio.
+    ultimo_raton: (i32, i32),
 }
 
 impl Anotador {
@@ -98,7 +113,19 @@ impl Anotador {
             ultima_forma: u8::MAX,
             ultimo_asa: 0,
             ids: HashMap::new(),
+            tecla_zoom: None,
+            zoom_abajo: false,
+            escritura: teclas::Escritura::default(),
+            lector: teclas::Lector::default(),
+            ultimo_raton: (0, 0),
         }
+    }
+
+    /// Con la tecla de zoom de los ajustes. Sin ella (o con una que no se entiende) no se
+    /// apunta ninguna marca, y todo lo demas sigue igual.
+    pub fn con_tecla_zoom(mut self, tecla: Option<teclas::TeclaZoom>) -> Self {
+        self.tecla_zoom = tecla;
+        self
     }
 
     /// De donde se miden las coordenadas en este instante.
@@ -126,6 +153,7 @@ impl Anotador {
         let (rx, ry) = self.origen();
         if let Some((cx, cy)) = raton::cursor() {
             self.anotaciones.cursor.push((ts_ms, cx - rx, cy - ry));
+            self.ultimo_raton = (cx - rx, cy - ry);
         }
         if let Some((asa, forma)) = raton::puntero_actual() {
             let forma = forma as u8;
@@ -166,16 +194,37 @@ impl Anotador {
         if self.marcar_clics {
             realce::olvidar_viejos(&mut self.aros, ts_ms);
         }
-        if let Some(nuevo) = self.teclado.mirar(ts_ms) {
+        let foto = self.lector.leer();
+        self.mirar_teclado(ts_ms, &foto, (rx, ry));
+    }
+
+    /// Lo que toca hacer con esa foto del teclado: la marca de zoom, el atajo y la
+    /// escritura. Va aparte de `mirar` para poder probarlo con un teclado de mentira:
+    /// desde una prueba no se puede pulsar Ctrl.
+    fn mirar_teclado(&mut self, ts_ms: u64, foto: &teclas::Foto, (rx, ry): (i32, i32)) {
+        let zoom = self.tecla_zoom.as_ref().is_some_and(|t| t.pulsada(foto));
+        if zoom && !self.zoom_abajo {
+            let (x, y) = self.ultimo_raton;
+            self.anotaciones.marcas_zoom.push(MarcaZoom { ms: ts_ms, x, y });
+        }
+        self.zoom_abajo = zoom;
+
+        // La tecla de zoom es de winshotx, no del tutorial: no sale en la pastilla.
+        if let Some(nuevo) = self.teclado.mirar_foto(foto, ts_ms).filter(|_| !zoom) {
+            let (x, y) = self.ultimo_raton;
             self.anotaciones.teclas.push(teclas::Atajo {
-                x: nuevo.x - rx,
-                y: nuevo.y - ry,
+                x,
+                y,
                 ..nuevo.clone()
             });
             if self.marcar_teclas {
                 self.atajo = Some(nuevo);
             }
         }
+
+        self.escritura.mirar(ts_ms, foto, self.tecla_zoom.as_ref(), || {
+            teclas::caret().map(|(x, y)| (x - rx, y - ry))
+        });
     }
 
     /// Pinta encima del fotograma lo que toque verse ahora: los aros y la pastilla.
@@ -210,7 +259,9 @@ impl Anotador {
     }
 
     pub fn terminar(self) -> Anotaciones {
-        self.anotaciones
+        let mut anotaciones = self.anotaciones;
+        anotaciones.escritura = self.escritura.terminar();
+        anotaciones
     }
 }
 
@@ -441,6 +492,80 @@ mod tests {
         std::thread::sleep(Duration::from_millis(80));
         let anotaciones = m.terminar();
         assert!(anotaciones.cursor.is_empty(), "{:?}", anotaciones.cursor);
+    }
+
+    const VK_CONTROL: u16 = 0x11;
+    const VK_SHIFT: u16 = 0x10;
+    const NUEVE: u16 = 0x39;
+
+    /// **A3, lo que se pidio:** una grabacion con dos pulsaciones de la tecla de zoom da
+    /// dos marcas, cada una donde estaba el raton al pulsarla. Mantenerla no repite, y la
+    /// tecla no sale en la pastilla como si fuera un atajo del tutorial.
+    #[test]
+    fn dos_pulsaciones_de_la_tecla_de_zoom_dan_dos_marcas() {
+        let tecla = teclas::TeclaZoom::de_atajo("CmdOrCtrl+Shift+9");
+        let mut anotador = Anotador::new(region(), false, true).con_tecla_zoom(tecla);
+        let zoom = teclas::Foto::con(&[VK_CONTROL, VK_SHIFT, NUEVE]);
+        let nada = teclas::Foto::default();
+
+        anotador.ultimo_raton = (10, 20);
+        anotador.mirar_teclado(100, &zoom, (100, 50));
+        anotador.mirar_teclado(116, &zoom, (100, 50)); // con el dedo encima
+        anotador.mirar_teclado(132, &zoom, (100, 50));
+        anotador.mirar_teclado(148, &nada, (100, 50));
+        anotador.ultimo_raton = (30, 40);
+        anotador.mirar_teclado(500, &zoom, (100, 50));
+        anotador.mirar_teclado(516, &nada, (100, 50));
+
+        assert!(anotador.atajo.is_none(), "la tecla de zoom ha salido en la pastilla");
+        let anotaciones = anotador.terminar();
+        assert_eq!(
+            anotaciones.marcas_zoom,
+            vec![
+                MarcaZoom { ms: 100, x: 10, y: 20 },
+                MarcaZoom { ms: 500, x: 30, y: 40 },
+            ]
+        );
+        assert!(anotaciones.teclas.is_empty(), "{:?}", anotaciones.teclas);
+        assert!(anotaciones.escritura.is_empty(), "pulsar la tecla de zoom no es escribir");
+    }
+
+    /// Sin tecla de zoom en los ajustes, la misma combinacion es un atajo mas y no deja
+    /// ninguna marca.
+    #[test]
+    fn sin_tecla_de_zoom_no_hay_marcas() {
+        let mut anotador = Anotador::new(region(), false, false);
+        anotador.mirar_teclado(0, &teclas::Foto::con(&[VK_CONTROL, VK_SHIFT, NUEVE]), (0, 0));
+        let anotaciones = anotador.terminar();
+        assert!(anotaciones.marcas_zoom.is_empty());
+        assert_eq!(anotaciones.teclas.len(), 1);
+        assert_eq!(anotaciones.teclas[0].texto, "Ctrl + Mayús + 9");
+    }
+
+    /// Un atajo apunta a donde estaba el raton, en coordenadas de la region.
+    #[test]
+    fn el_atajo_va_donde_estaba_el_raton() {
+        let mut anotador = Anotador::new(region(), false, false);
+        anotador.ultimo_raton = (7, 9);
+        anotador.mirar_teclado(0, &teclas::Foto::con(&[VK_CONTROL, 0x43]), (100, 50));
+        let atajo = &anotador.terminar().teclas[0];
+        assert_eq!((atajo.texto.as_str(), atajo.x, atajo.y), ("Ctrl + C", 7, 9));
+    }
+
+    /// Lo que se escribe llega a las anotaciones como un rato, y el que seguia abierto al
+    /// parar tambien se guarda.
+    #[test]
+    fn el_rato_de_escritura_llega_a_las_anotaciones() {
+        let mut anotador = Anotador::new(region(), false, false);
+        let mut ms = 1_000;
+        for vk in [0x48u16, 0x4F, 0x4C, 0x41] {
+            anotador.mirar_teclado(ms, &teclas::Foto::con(&[vk]), (100, 50));
+            anotador.mirar_teclado(ms + 40, &teclas::Foto::default(), (100, 50));
+            ms += 110;
+        }
+        let escritura = anotador.terminar().escritura;
+        assert_eq!(escritura.len(), 1, "{escritura:?}");
+        assert_eq!((escritura[0].desde_ms, escritura[0].hasta_ms), (1_000, 1_330));
     }
 
     /// El raton se apunta en coordenadas de la region, no del escritorio.

@@ -258,6 +258,57 @@ export const sessionCameraConZooms = (
 export const sessionZooms = (sessionId: string, zoom: number, crop: Recorte | null, zoomSpeed = 1) =>
   invoke<import("./contrato").TramoZoom[]>("session_zooms", { sessionId, zoom, crop, zoomSpeed });
 // S2 (grabación)
+/** Una cámara conectada: con qué la reconoce Windows y cómo se llama. */
+export interface CamaraConectada {
+  id: string;
+  nombre: string;
+}
+
+/** Las cámaras que hay. No enciende ninguna: solo lee sus nombres. */
+export const listCameras = () => invoke<CamaraConectada[] | null>("list_cameras");
 // S3 (fondos)
+/** El diálogo de abrir de Windows para un fondo: `imagen` o `video` (que también es GIF). */
+export const elegirArchivoDeFondo = (tipo: "imagen" | "video") =>
+  invoke<string | null>("elegir_archivo_de_fondo", { tipo });
+
+/** Copia una imagen a la carpeta de fondos y devuelve la ruta de la copia. */
+export const importarImagenDeFondo = (origen: string) =>
+  invoke<string>("importar_imagen_de_fondo", { origen });
+
+/** Lo que tiene puesto el escritorio de Windows, para la vista previa. */
+export const fondoEscritorio = () =>
+  invoke<{ tipo: "imagen"; vista: string } | { tipo: "color"; rgb: [number, number, number] }>(
+    "fondo_escritorio",
+  );
+
+/** Un vídeo o un GIF convertido en fondo animado. El progreso llega por `EVENTO_PROGRESO_FONDO`. */
+export interface FondoImportado {
+  ruta: string;
+  vista: string;
+  ancho: number;
+  alto: number;
+  duraMs: number;
+}
+
+export const importarFondoAnimado = (origen: string) =>
+  invoke<FondoImportado>("importar_fondo_animado", { origen });
+
+/** Para la importación en marcha; esa importación acaba con `FONDO_CANCELADO`. */
+export const cancelarFondoAnimado = () => invoke<void>("cancelar_fondo_animado");
+
+/** El evento con el progreso de importar, `{ hecho }` de 0 a 1. */
+export const EVENTO_PROGRESO_FONDO = "winshotx://fondo-progreso";
+
+/** El error con el que acaba una importación cancelada: no es un fallo y no se enseña. */
+export const FONDO_CANCELADO = "importación cancelada";
 // S4 (capturas)
 // S5 (scroll)
+/**
+ * Empieza la captura con scroll de esa zona, en píxeles del escritorio virtual. Rust
+ * cierra el overlay, pone el marco y la barra y baja la página; vuelve enseguida.
+ */
+export const scrollIniciar = (region: Rect) => invoke<void>("scroll_iniciar", { region });
+/** Para la captura con scroll y abre en el editor lo que lleve. */
+export const scrollTerminar = () => invoke<void>("scroll_terminar");
+/** Para la captura con scroll y la tira. */
+export const scrollDescartar = () => invoke<void>("scroll_descartar");
