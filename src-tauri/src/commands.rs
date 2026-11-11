@@ -172,6 +172,9 @@ fn entregar(
     action: &str,
 ) -> Result<StillResult> {
     let state = app.state::<AppState>();
+    // S4 (capturas): el fondo de las capturas (E1), en lo que se copia y se guarda.
+    let marco_capturas = state.settings.read().marco_capturas.clone();
+    let image = marco_capturas.para_la_accion(image, action);
     let (width, height) = (image.width(), image.height());
     let (copy_after, con_sonido) = {
         let ajustes = state.settings.read();
@@ -275,6 +278,10 @@ fn entregar(
         other => return Err(AppError::Msg(format!("acción desconocida: {other}"))),
     }
 
+    // S4 (capturas): la miniatura de la esquina (E2), después de copiar o guardar.
+    if matches!(action, "copy" | "save" | "save_as") {
+        crate::miniatura::despues_de_capturar(app, &image, region, result.path.as_ref().map(PathBuf::from));
+    }
     windows_mgr::close_overlays(app);
     Ok(result)
 }

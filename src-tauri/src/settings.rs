@@ -151,6 +151,12 @@ pub struct Settings {
     // S2 (grabación)
     // S3 (fondos)
     // S4 (capturas)
+    /// El fondo de las capturas sueltas al copiarlas o guardarlas (E1). Apagado de serie.
+    pub marco_capturas: crate::encode::marco_captura::MarcoCaptura,
+    /// La miniatura que sale en la esquina después de capturar una foto (E2).
+    pub miniatura: bool,
+    /// Cuántos segundos se queda la miniatura antes de irse sola. Cero es hasta cerrarla.
+    pub miniatura_segundos: u32,
 }
 
 impl Default for Settings {
@@ -191,6 +197,11 @@ impl Default for Settings {
             // S2 (grabación)
             // S3 (fondos)
             // S4 (capturas)
+            marco_capturas: Default::default(),
+            // Encendida: es la pieza que lleva la captura a otra app arrastrándola, y una
+            // función que hay que ir a buscar a los ajustes no la encuentra nadie.
+            miniatura: true,
+            miniatura_segundos: 10,
         }
     }
 }

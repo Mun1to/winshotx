@@ -56,6 +56,9 @@ import { CAFE, FALLOS, REPO, WEB, comoSeLee } from "../../lib/enlaces";
 import { formatBytes } from "../../lib/format";
 import { aplicarTema } from "../../lib/tema";
 import { aplicarIdioma, useT } from "../../lib/i18n";
+// S4 (capturas)
+import { DespuesDeCapturar } from "./DespuesDeCapturar";
+import { Historial } from "../historial/Historial";
 import {
   EVENTS,
   type CacheStats,
@@ -455,6 +458,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
             {seccion === "capturar" && (
               <>
+                {/* S4 (capturas): la columna de la izquierda lleva además «Después de
+                    capturar», debajo del atajo, que es la más corta de las dos. */}
+                <div className="flex flex-col">
                 <Section title={t("Al pulsar el atajo")} tour="al-pulsar">
                   <Row
                     icon={<Camera className="size-4" />}
@@ -519,6 +525,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   />
 
                 </Section>
+                <DespuesDeCapturar settings={settings} patch={patch} />
+                </div>
 
                 <Section title={t("La captura")} tour="la-captura">
                   {/* Solo cuando pasa, que es casi nunca: en un Windows al dia no sale.
@@ -854,6 +862,13 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
                 </div>
               </>
+            )}
+
+            {/* S4 (capturas): el historial de fotos y vídeos, a lo ancho de las dos columnas. */}
+            {seccion === "historial" && (
+              <div className="col-span-2">
+                <Historial carpeta={settings.saveDirectory} />
+              </div>
             )}
 
             {seccion === "teclas" && (

@@ -9,7 +9,8 @@
     "overlay-*",
     "countdown",
     "pin-*",
-    "tray-menu"
+    "tray-menu",
+    "miniaturas"
   ],
   "permissions": [
     "core:default",

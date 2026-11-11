@@ -365,6 +365,16 @@ export interface Settings {
   // S2 (grabación)
   // S3 (fondos)
   // S4 (capturas)
+  /**
+   * El fondo de las capturas sueltas al copiarlas o guardarlas. `aire` es el tanto por
+   * ciento del lado corto (0 = sin fondo) y `fondo`, uno de los del Estudio. Opcional
+   * aquí porque Rust siempre lo manda y unos ajustes viejos no lo traen.
+   */
+  marcoCapturas?: { aire: number; fondo: Background };
+  /** La miniatura de la esquina después de capturar una foto. */
+  miniatura?: boolean;
+  /** Cuántos segundos se queda la miniatura. 0 es hasta cerrarla. */
+  miniaturaSegundos?: number;
 }
 
 export interface ShortcutStatus {

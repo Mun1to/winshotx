@@ -18,3 +18,4 @@ pub mod zoom;
 // S1 (línea de tiempo)
 // S3 (fondos)
 // S4 (capturas)
+pub mod marco_captura;

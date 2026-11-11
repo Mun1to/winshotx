@@ -21,6 +21,7 @@ pub mod window_style;
 // S2 (grabación)
 // S3 (fondos)
 // S4 (capturas)
+pub mod arrastrar;
 // S5 (scroll)
 
 use std::path::Path;

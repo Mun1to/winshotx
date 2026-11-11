@@ -39,6 +39,8 @@ export default defineConfig({
         cuenta: resolve(__dirname, "cuenta.html"),
         pin: resolve(__dirname, "pin.html"),
         "tray-menu": resolve(__dirname, "tray-menu.html"),
+        // S4 (capturas): la miniatura de la esquina después de capturar.
+        miniatura: resolve(__dirname, "miniatura.html"),
       },
     },
   },

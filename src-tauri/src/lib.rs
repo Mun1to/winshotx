@@ -23,6 +23,8 @@ mod windows_mgr;
 // S2 (grabación)
 // S3 (fondos)
 // S4 (capturas)
+mod historial;
+mod miniatura;
 mod qr;
 // S5 (scroll)
 
@@ -306,6 +308,19 @@ pub fn run() {
             // S2 (grabación)
             // S3 (fondos)
             // S4 (capturas)
+            miniatura::miniaturas_lista,
+            miniatura::miniatura_cerrar,
+            miniatura::miniatura_copiar,
+            miniatura::miniatura_guardar,
+            miniatura::miniatura_editar,
+            miniatura::miniatura_anclar,
+            miniatura::miniatura_arrastrar,
+            historial::historial_lista,
+            historial::historial_miniatura,
+            historial::historial_abrir,
+            historial::historial_mostrar,
+            historial::historial_copiar,
+            historial::historial_borrar,
             // S5 (scroll)
         ])
         .build(tauri::generate_context!())

@@ -63,6 +63,8 @@ features = [
   # S2 (grabación)
   # S3 (fondos)
   # S4 (capturas)
+  # Arrastrar la miniatura a otra app (OLE) y las miniaturas del historial (el shell).
+  "Win32_UI_Shell", "Win32_System_Ole", "Win32_System_Memory",
   # S5 (scroll)
 ]
 

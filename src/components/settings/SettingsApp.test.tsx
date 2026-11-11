@@ -92,14 +92,15 @@ async function abrirAjustes(
 
 beforeEach(() => aplicarIdioma("es"));
 
-describe("las cuatro secciones", () => {
-  it("estan las cuatro, y ni una mas", async () => {
+describe("las cinco secciones", () => {
+  // S4 (capturas): la quinta es el historial de fotos y vídeos, al lado de Grabar.
+  it("estan las cinco, y ni una mas", async () => {
     await abrirAjustes();
     const menu = screen.getByLabelText("Secciones de ajustes");
     const nombres = within(menu)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(nombres).toEqual(["Capturar", "Grabar", "Teclas de Windows", "La app"]);
+    expect(nombres).toEqual(["Capturar", "Grabar", "Historial", "Teclas de Windows", "La app"]);
   });
 
   it("en ingles se llaman por su nombre ingles", async () => {
@@ -109,7 +110,7 @@ describe("las cuatro secciones", () => {
     const nombres = within(menu)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(nombres).toEqual(["Capture", "Record", "Windows keys", "The app"]);
+    expect(nombres).toEqual(["Capture", "Record", "History", "Windows keys", "The app"]);
   });
 
   it("empieza por Capturar, que es lo que se viene a cambiar", async () => {

@@ -535,5 +535,51 @@ export const EN: Record<string, string> = {
   // Leer los códigos QR
   "Leer el código QR": "Read the QR code",
   "No he encontrado ningún código QR en esa captura.": "I found no QR code in that shot.",
+  // La miniatura de la esquina
+  "Arrástrala a cualquier app": "Drag it into any app",
+  "Suéltala en cualquier app": "Drop it in any app",
+  Mostrar: "Show",
+  "esa miniatura ya se ha cerrado": "that thumbnail is already closed",
+  "ese archivo ya no está": "that file is gone",
+  // Después de capturar, en los ajustes
+  "Después de capturar": "After capturing",
+  "Miniatura en la esquina": "Corner thumbnail",
+  "Después de copiar o guardar una foto sale abajo a la derecha. Arrástrala a un chat, a un correo o a una carpeta y llega como archivo; al pasar el ratón la copias, la guardas, la editas o la anclas. Se va sola, salvo mientras tienes el ratón encima.":
+    "After you copy or save a shot it shows up at the bottom right. Drag it into a chat, an email or a folder and it arrives as a file; hover it to copy, save, edit or pin it. It goes away on its own, except while your mouse is over it.",
+  "no sale nada después de capturar": "nothing shows up after capturing",
+  "arrástrala a cualquier app para mandarla": "drag it into any app to send it",
+  No: "Off",
+  "5 s": "5 sec",
+  "10 s": "10 sec",
+  "30 s": "30 sec",
+  "Hasta cerrarla": "Until closed",
+  "Fondo en las capturas": "Background on shots",
+  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
+    "Every shot you copy or save comes out on a background, with padding, a shadow and rounded corners, ready to post. They are the same backgrounds as the editor's Studio. It is not added when editing, pinning or reading text.",
+  "las capturas salen tal cual": "shots come out as they are",
+  "se pone al copiar y al guardar": "added when copying and saving",
+  Poco: "Little",
+  Mucho: "Lots",
+  "Color del fondo": "Background color",
+  // El historial
+  Historial: "History",
+  "Qué enseñar": "What to show",
+  Todo: "All",
+  Fotos: "Shots",
+  Vídeos: "Videos",
+  "Ver más": "Show more",
+  "Abrir {nombre}": "Open {nombre}",
+  "Mostrar en la carpeta": "Show in folder",
+  "Mandar a la papelera": "Move to the Recycle Bin",
+  "¿Borrar?": "Delete?",
+  "Enviada a la papelera": "Moved to the Recycle Bin",
+  Hoy: "Today",
+  Ayer: "Yesterday",
+  "Todavía no has guardado nada": "Nothing saved yet",
+  "Todavía no hay fotos guardadas": "No saved shots yet",
+  "Todavía no hay vídeos guardados": "No saved videos yet",
+  "Las fotos que guardes y los vídeos que exportes salen aquí, de lo más nuevo a lo más viejo.":
+    "The shots you save and the videos you export show up here, newest first.",
+  "ese archivo no es del historial": "that file is not in the history",
   // S5 (scroll)
 };
