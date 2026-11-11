@@ -658,5 +658,12 @@ export const ZH: Record<string, string> = {
   "Ya hay una captura con scroll en marcha.": "已经有一个滚动截图在进行中。",
   // S7 (cursor)
   // S8 (cámara en el Estudio)
+  "arrástrala en la vista previa para moverla": "在预览中拖动来移动它",
+  "Forma de la cámara": "摄像头形状",
+  "Con borde": "带边框",
+  "Recorte de la cámara": "摄像头裁剪",
+  "Arrastra encima para recortarla": "在上面拖动来裁剪",
+  "Mover la cámara": "移动摄像头",
+  "Cambiar el tamaño de la cámara": "调整摄像头大小",
   // S9 (presets y tapar)
 };

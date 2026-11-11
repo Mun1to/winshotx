@@ -368,4 +368,7 @@ export const scrollTerminar = () => invoke<void>("scroll_terminar");
 export const scrollDescartar = () => invoke<void>("scroll_descartar");
 // S7 (cursor)
 // S8 (cámara en el Estudio)
+/** La webcam de la sesión, si se grabó: dónde está su archivo y cuándo arrancó. `null` si no. */
+export const camaraDeLaSesion = (sessionId: string) =>
+  invoke<import("./camara").CamaraDeLaSesion | null>("camara_de_la_sesion", { sessionId });
 // S9 (presets y tapar)
