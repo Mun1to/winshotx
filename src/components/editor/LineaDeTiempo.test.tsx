@@ -12,7 +12,8 @@ import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { aplicarIdioma } from "../../lib/i18n";
-import { TRAMO_MINIMO_MS } from "../../lib/tramo";
+import { TRAMO_MINIMO_MS, piezasDe, type Pieza } from "../../lib/tramo";
+import type { TramoZoom } from "../../lib/contrato";
 import type { FrameMeta } from "../../lib/types";
 
 /** Fotogramas seguidos con estas duraciones, como los da Rust. */
@@ -266,5 +267,182 @@ describe("mientras suena", () => {
     );
     await act(() => new Promise((listo) => setTimeout(listo, 50)));
     expect(alFinal).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * La pista de zooms y las tijeras, montadas con su estado de verdad como las monta el
+ * editor: lo que devuelven vuelve a entrar.
+ */
+function ConPista({
+  zoomsIniciales = [],
+  alZooms = () => {},
+  alPiezas = () => {},
+  posicion = 0,
+  escritura = [],
+}: {
+  zoomsIniciales?: TramoZoom[];
+  alZooms?: (z: TramoZoom[]) => void;
+  alPiezas?: (p: Pieza[]) => void;
+  posicion?: number;
+  escritura?: { desdeMs: number; hastaMs: number }[];
+}) {
+  const [zooms, setZooms] = useState<TramoZoom[]>(zoomsIniciales);
+  const [elegido, setElegido] = useState<number | null>(null);
+  const [piezas, setPiezas] = useState<Pieza[]>(piezasDe(10_000));
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  return (
+    <LineaDeTiempo
+      frames={DIEZ_SEGUNDOS}
+      desdeMs={0}
+      hastaMs={10_000}
+      posicionMs={posicion}
+      videoRef={videoRef}
+      reproduciendo={false}
+      proporcion={16 / 10}
+      delante={null}
+      onTramo={() => {}}
+      onIr={() => {}}
+      onFinal={() => {}}
+      zooms={zooms}
+      onZooms={(z) => {
+        setZooms(z);
+        alZooms(z);
+      }}
+      elegido={elegido}
+      onElegir={setElegido}
+      puntoEn={() => ({ x: 0.3, y: 0.6 })}
+      piezas={piezas}
+      onPiezas={(p) => {
+        setPiezas(p);
+        alPiezas(p);
+      }}
+      escritura={escritura}
+    />
+  );
+}
+
+const unZoom = (desdeMs: number, hastaMs: number): TramoZoom => ({
+  desdeMs,
+  hastaMs,
+  nivel: 2,
+  modo: "sigue",
+  x: 0.5,
+  y: 0.5,
+  instantaneo: false,
+  lupa: null,
+});
+
+describe("la pista de zooms", () => {
+  beforeEach(() => {
+    // Los bloques miden lo que dice su estilo, sobre la misma tira de 1000 píxeles.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const caja = (left: number, width: number) =>
+        ({ left, width, top: 0, height: 36, right: left + width, bottom: 36, x: left, y: 0, toJSON() {} }) as DOMRect;
+      if (this.hasAttribute("data-pista")) return caja(IZQUIERDA, ANCHO);
+      if (this.hasAttribute("data-zoom")) {
+        return caja(IZQUIERDA + (parseFloat(this.style.left) / 100) * ANCHO, (parseFloat(this.style.width) / 100) * ANCHO);
+      }
+      return original.call(this);
+    });
+  });
+  const bloques = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>("[data-zoom]")];
+
+  it("un clic en la pista pone un zoom ahí, mirando donde estaba el ratón, y lo elige", () => {
+    const alZooms = vi.fn();
+    const { container } = render(<ConPista alZooms={alZooms} />);
+    fireEvent.pointerDown(container.querySelector("[data-pista-zoom]")!, { clientX: x(0.5), button: 0 });
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ desdeMs: 4_000, hastaMs: 6_000, x: 0.3, y: 0.6 })]);
+    expect(bloques(container)[0]).toHaveAttribute("aria-pressed", "true");
+    // Y salen sus mandos debajo.
+    expect(container.querySelector("[data-ajustes-zoom]")).not.toBeNull();
+  });
+
+  it("arrastrarlo por el medio lo mueve; por un borde, lo alarga", () => {
+    const alZooms = vi.fn();
+    const { container } = render(<ConPista zoomsIniciales={[unZoom(2_000, 4_000)]} alZooms={alZooms} />);
+    fireEvent.pointerDown(bloques(container)[0], { clientX: x(0.3), button: 0 });
+    fireEvent.pointerMove(window, { clientX: x(0.5) });
+    fireEvent.pointerUp(window);
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ desdeMs: 4_000, hastaMs: 6_000 })]);
+    // El borde derecho está ahora en el 60 %: tirar de él hasta el 80 %.
+    fireEvent.pointerDown(bloques(container)[0], { clientX: x(0.6) - 2, button: 0 });
+    fireEvent.pointerMove(window, { clientX: x(0.8) - 2 });
+    fireEvent.pointerUp(window);
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ desdeMs: 4_000, hastaMs: 8_000 })]);
+  });
+
+  it("el clic derecho lo quita, y Supr también", () => {
+    const alZooms = vi.fn();
+    const { container } = render(<ConPista zoomsIniciales={[unZoom(0, 2_000), unZoom(5_000, 7_000)]} alZooms={alZooms} />);
+    fireEvent.contextMenu(bloques(container)[0]);
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ desdeMs: 5_000 })]);
+    fireEvent.pointerDown(bloques(container)[0], { clientX: x(0.6), button: 0 });
+    fireEvent.pointerUp(window);
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(alZooms).toHaveBeenLastCalledWith([]);
+  });
+
+  it("Escape suelta el bloque y no le llega al editor, que con Escape se cierra", () => {
+    const delEditor = vi.fn();
+    window.addEventListener("keydown", delEditor);
+    const { container } = render(<ConPista zoomsIniciales={[unZoom(0, 2_000)]} />);
+    fireEvent.pointerDown(bloques(container)[0], { clientX: x(0.1), button: 0 });
+    fireEvent.pointerUp(window);
+    fireEvent.keyDown(window, { key: "Escape" });
+    window.removeEventListener("keydown", delEditor);
+    expect(delEditor).not.toHaveBeenCalled();
+    expect(bloques(container)[0]).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("sus mandos lo cambian: fijo, de golpe y lupa", () => {
+    const alZooms = vi.fn();
+    const { container } = render(<ConPista zoomsIniciales={[unZoom(0, 2_000)]} alZooms={alZooms} />);
+    fireEvent.pointerDown(bloques(container)[0], { clientX: x(0.1), button: 0 });
+    fireEvent.pointerUp(window);
+    fireEvent.click(screen.getByRole("button", { name: "Fijo" }));
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ modo: "fijo" })]);
+    fireEvent.click(screen.getByRole("switch", { name: /de golpe/ }));
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ instantaneo: true })]);
+    fireEvent.click(screen.getByRole("button", { name: "Lupa" }));
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ lupa: expect.objectContaining({ forma: "circulo" }) })]);
+    fireEvent.click(screen.getByRole("button", { name: "Cuadrado" }));
+    expect(alZooms).toHaveBeenLastCalledWith([expect.objectContaining({ lupa: expect.objectContaining({ forma: "cuadrado" }) })]);
+  });
+});
+
+describe("las tijeras", () => {
+  it("cortan donde está el cabezal, y el trozo de debajo se puede quitar o acelerar", () => {
+    const alPiezas = vi.fn();
+    const { rerender } = render(<ConPista alPiezas={alPiezas} posicion={4_000} />);
+    fireEvent.click(screen.getByRole("button", { name: /Cortar aquí/ }));
+    expect(alPiezas).toHaveBeenLastCalledWith([
+      expect.objectContaining({ desdeMs: 0, hastaMs: 4_000 }),
+      expect.objectContaining({ desdeMs: 4_000, hastaMs: 10_000 }),
+    ]);
+    rerender(<ConPista alPiezas={alPiezas} posicion={6_000} />);
+    expect(screen.getByText("Trozo 2 de 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "2×" }));
+    expect(alPiezas.mock.lastCall![0][1]).toMatchObject({ velocidad: 2 });
+    expect(screen.getByText("Sale de 0:07.0")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Quitar este trozo" }));
+    expect(alPiezas.mock.lastCall![0][1]).toMatchObject({ cortada: true });
+    expect(screen.getByText("Sale de 0:04.0")).toBeInTheDocument();
+  });
+
+  it("el último trozo que queda no se puede quitar: el vídeo se quedaría vacío", () => {
+    const { rerender } = render(<ConPista posicion={4_000} />);
+    fireEvent.click(screen.getByRole("button", { name: /Cortar aquí/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Quitar este trozo" }));
+    expect(screen.getByRole("button", { name: "Volver a ponerlo" })).toBeInTheDocument();
+    rerender(<ConPista posicion={1_000} />);
+    expect(screen.getByRole("button", { name: "Quitar este trozo" })).toBeDisabled();
+  });
+
+  it("«Acelerar lo escrito» corta en cada rato de escritura y lo pone rápido", () => {
+    const alPiezas = vi.fn();
+    render(<ConPista alPiezas={alPiezas} escritura={[{ desdeMs: 2_000, hastaMs: 5_000 }]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Acelerar lo escrito/ }));
+    expect(alPiezas.mock.lastCall![0].map((p: Pieza) => p.velocidad)).toEqual([1, 4, 1]);
   });
 });

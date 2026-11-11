@@ -523,6 +523,39 @@ export const ZH: Record<string, string> = {
   "Volumen": "音量",
   // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
   // S1 (línea de tiempo)
+  "Pista de zooms": "缩放轨道",
+  "Haz clic aquí para poner un zoom": "点击此处添加缩放",
+  "Zoom {n}×": "{n}× 缩放",
+  "Lupa {n}×": "{n}× 放大镜",
+  fijo: "固定",
+  "{nombre}, de {desde} a {hasta}": "{nombre}，从 {desde} 到 {hasta}",
+  "Arrástralo para moverlo, tira de un borde para alargarlo; clic derecho o Supr para quitarlo":
+    "拖动以移动，拉动边缘以延长；右键或按 Delete 删除",
+  "Qué hace el bloque": "此片段的作用",
+  Lupa: "放大镜",
+  "Forma de la lupa": "放大镜形状",
+  Círculo: "圆形",
+  Cuadrado: "正方形",
+  "Rectángulo redondeado": "圆角矩形",
+  Aumento: "放大倍数",
+  "Con marco": "带边框",
+  "Cuánto se acerca": "缩放程度",
+  "Dónde mira": "对准位置",
+  "Sigue al ratón": "跟随鼠标",
+  Fijo: "固定",
+  "Entra de golpe": "瞬间进入",
+  "Quitar el zoom": "删除缩放",
+  "Punto del zoom: arrástralo a donde tiene que mirar": "缩放点：拖到要对准的位置",
+  "Trozo {n} de {total}": "第 {n} 段，共 {total} 段",
+  "Quitar este trozo": "删除这一段",
+  "Volver a ponerlo": "恢复这一段",
+  "Velocidad del trozo": "这一段的速度",
+  "Sale de {dura}": "导出时长 {dura}",
+  "Cortar aquí": "在此剪切",
+  "Corta el vídeo donde está el cabezal: después puedes quitar o acelerar cada trozo":
+    "在播放头处剪切视频：之后可以删除或加速每一段",
+  "Acelerar lo escrito": "加速打字部分",
+  "Pone a {n}× los ratos en que escribías, sin sonido": "将打字的时段以 {n}× 播放，无声音",
   // S2 (grabación)
   // S3 (fondos)
   // S4 (capturas)

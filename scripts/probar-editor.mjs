@@ -225,6 +225,138 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   apagar();
 }
 
+// ── La pista de zooms y las tijeras: lo que se pone, se mueve y se corta llega a Rust ─
+{
+  const { url, apagar } = await servir(duracion);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  const total = duracion * 1000;
+  const tira = await pagina.locator("[data-pista]").boundingBox();
+  const pistaDeZoom = await pagina.locator("[data-pista-zoom]").boundingBox();
+  const xDe = (parte) => tira.x + tira.width * parte;
+  /** Pulsa «Guardar MP4» y devuelve lo que le llega a Rust. */
+  const guardar = async () => {
+    const antes = await pagina.evaluate(() => (window.__llamadas ?? []).filter((l) => l.cmd === "export_media").length);
+    await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+    await pagina.waitForFunction(
+      (n) => window.__llamadas.filter((l) => l.cmd === "export_media").length > n,
+      antes,
+    );
+    return pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request);
+  };
+  console.log("\nLa pista de zooms y las tijeras, en Edge");
+
+  const sinTocar = await guardar();
+  comprueba(
+    sinTocar.zooms === null && sinTocar.tramos === null,
+    `sin tocar la pista, «Guardar» manda zooms ${JSON.stringify(sinTocar.zooms)} y tramos ${JSON.stringify(sinTocar.tramos)}: lo de siempre`,
+  );
+
+  // Un clic en la pista pone un zoom de dos segundos centrado en el clic.
+  await pagina.mouse.click(xDe(0.5), pistaDeZoom.y + pistaDeZoom.height / 2);
+  const bloque = pagina.locator("[data-zoom]").first();
+  await bloque.waitFor();
+  if (fotos) await pagina.screenshot({ path: join(fotos, "7-zoom-puesto.png") });
+  let peticion = await guardar();
+  const puesto = peticion.zooms?.[0];
+  comprueba(
+    peticion.zooms?.length === 1 && Math.abs((puesto.desdeMs + puesto.hastaMs) / 2 - total * 0.5) < 300,
+    `un clic en la pista pone un zoom de ${puesto?.desdeMs} a ${puesto?.hastaMs} ms, centrado en el clic`,
+  );
+
+  // Arrastrarlo por el medio lo mueve entero.
+  const caja = await bloque.boundingBox();
+  await pagina.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2);
+  await pagina.mouse.down();
+  await pagina.mouse.move(caja.x + caja.width / 2 + tira.width * 0.2, caja.y + caja.height / 2, { steps: 10 });
+  await pagina.mouse.up();
+  peticion = await guardar();
+  const movido = peticion.zooms[0];
+  comprueba(
+    Math.abs(movido.desdeMs - (puesto.desdeMs + total * 0.2)) < 300 &&
+      movido.hastaMs - movido.desdeMs === puesto.hastaMs - puesto.desdeMs,
+    `arrastrarlo lo lleva a ${movido.desdeMs}-${movido.hastaMs} ms, sin cambiar lo que dura`,
+  );
+
+  // Fijo: la imagen entera con el recuadro, y el punto se arrastra.
+  await pagina.getByRole("button", { name: "Fijo" }).click();
+  const punto = pagina.locator("[data-punto-fijo] [role=slider]");
+  await punto.waitFor();
+  const imagen = await pagina.locator("[data-punto-fijo]").boundingBox();
+  const dondeEsta = await punto.boundingBox();
+  await pagina.mouse.move(dondeEsta.x + dondeEsta.width / 2, dondeEsta.y + dondeEsta.height / 2);
+  await pagina.mouse.down();
+  await pagina.mouse.move(imagen.x + imagen.width * 0.2, imagen.y + imagen.height * 0.3, { steps: 8 });
+  await pagina.mouse.up();
+  if (fotos) await pagina.screenshot({ path: join(fotos, "8-zoom-fijo.png") });
+  peticion = await guardar();
+  const fijo = peticion.zooms[0];
+  comprueba(
+    fijo.modo === "fijo" && Math.abs(fijo.x - 0.2) < 0.02 && Math.abs(fijo.y - 0.3) < 0.02,
+    `en «Fijo» el punto se arrastra sobre la imagen y queda en ${fijo.x}, ${fijo.y}`,
+  );
+
+  // La lupa: el mismo bloque, que ahora amplía sin mover la vista.
+  await pagina.getByRole("button", { name: "Lupa" }).click();
+  await pagina.getByRole("button", { name: "Rectángulo redondeado" }).click();
+  if (fotos) await pagina.screenshot({ path: join(fotos, "9-lupa.png") });
+  peticion = await guardar();
+  comprueba(
+    peticion.zooms[0].lupa?.forma === "redondeado" && peticion.zooms[0].lupa?.marco === true,
+    `y como lupa, con su forma y su marco: ${JSON.stringify(peticion.zooms[0].lupa)}`,
+  );
+  await pagina.getByRole("button", { name: "Listo" }).click();
+
+  // Las tijeras: dos cortes y el trozo del medio fuera.
+  const ir = (parte) => pagina.mouse.click(xDe(parte), tira.y + tira.height / 2);
+  await ir(0.4);
+  await pagina.getByRole("button", { name: /Cortar aquí/ }).click();
+  await ir(0.6);
+  await pagina.getByRole("button", { name: /Cortar aquí/ }).click();
+  await ir(0.5);
+  await pagina.getByRole("button", { name: "Quitar este trozo" }).click();
+  await ir(0.8);
+  await pagina.getByRole("button", { name: "2×" }).click();
+  if (fotos) await pagina.screenshot({ path: join(fotos, "10-tijeras.png") });
+  peticion = await guardar();
+  // Dos cortes son tres trozos: el del medio fuera y el último, del 60 % al final, al doble.
+  const [antesDelCorte, acelerado] = peticion.tramos ?? [];
+  comprueba(
+    peticion.tramos?.length === 2 &&
+      Math.abs(antesDelCorte.hastaMs - total * 0.4) < 150 &&
+      antesDelCorte.velocidad === 1 &&
+      Math.abs(acelerado.desdeMs - total * 0.6) < 150 &&
+      acelerado.velocidad === 2,
+    `quitar el trozo del medio y acelerar el último manda ${JSON.stringify(peticion.tramos)}`,
+  );
+
+  // Reproducir se salta lo quitado, como el archivo.
+  await ir(0.35);
+  await pagina.evaluate(() => {
+    const v = document.querySelector("video");
+    window.__sonando = [];
+    const apuntar = () => {
+      if (!v.paused) window.__sonando.push(v.currentTime * 1000);
+      if (window.__sonando.length < 100_000) requestAnimationFrame(apuntar);
+    };
+    requestAnimationFrame(apuntar);
+  });
+  await pagina.getByRole("button", { name: "Reproducir" }).click();
+  await pagina.waitForFunction((hasta) => window.__sonando.some((t) => t > hasta), total * 0.63, { timeout: 15_000 });
+  await pagina.evaluate(() => document.querySelector("video").pause());
+  const sonando = await pagina.evaluate(() => window.__sonando);
+  const dentro = sonando.filter((t) => t > total * 0.4 + 120 && t < total * 0.6 - 120);
+  comprueba(
+    dentro.length === 0 && sonando.some((t) => t < total * 0.4),
+    `al reproducir se salta lo quitado: ${dentro.length} de ${sonando.length} pintadas cayeron dentro`,
+  );
+
+  await pagina.close();
+  apagar();
+}
+
 // ── Diez minutos de grabación: lo que tarda en salir y lo que cuesta arrastrar ─────────
 {
   const segundos = 600;

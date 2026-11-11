@@ -9,10 +9,12 @@ import {
   frameImage,
   getSettings,
   sessionCamera,
+  sessionCameraConZooms,
   sessionFrames,
   sessionInfo,
   copiaTexto,
   sessionStudio,
+  sessionZooms,
   tapaDatos,
 } from "../../lib/ipc";
 import { formatTimecode } from "../../lib/format";
@@ -34,11 +36,20 @@ import { ExportPanel } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
-import { ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
+import { cursorEn, ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
 import { cssDelFondo } from "../../lib/fondos";
-import type { Edicion } from "../../lib/contrato";
+import type { Edicion, TramoZoom } from "../../lib/contrato";
 import { useT } from "../../lib/i18n";
-import { duracionDe, fotogramaVecino, indiceEn, limitarTramo } from "../../lib/tramo";
+import {
+  duracionDe,
+  fotogramaVecino,
+  indiceEn,
+  limitarTramo,
+  piezasDe,
+  tramosDeEnvio,
+  type Pieza,
+} from "../../lib/tramo";
+import { cambiar, NIVEL_NUEVO } from "../../lib/zooms";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -86,6 +97,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * la pista, los tramos, el fondo propio...). Lo juntan la línea de tiempo y el panel.
    */
   const [edicion, setEdicion] = useState<Edicion>({});
+  /**
+   * La pista de zooms tocada a mano. `null` mientras nadie la toca: entonces la pista
+   * enseña los que salen solos (`zoomsSolos`), y a Rust va `zooms: null`, que es exportar
+   * igual que antes de que hubiera pista.
+   */
+  const [zoomsAMano, setZoomsAMano] = useState<TramoZoom[] | null>(null);
+  /** Los zooms que salen solos, de los clics y de la tecla de zoom, como bloques. */
+  const [zoomsSolos, setZoomsSolos] = useState<TramoZoom[]>([]);
+  /** El bloque de la pista que está elegido, con sus mandos debajo. */
+  const [zoomElegido, setZoomElegido] = useState<number | null>(null);
+  /** Los trozos de las tijeras: lo que se queda, lo que se quita y a qué velocidad. */
+  const [piezas, setPiezas] = useState<Pieza[]>([]);
   /** Lo dibujado encima, en el orden en que se hizo. */
   const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
@@ -122,6 +145,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         setSettings(config);
         setHasFfmpeg(ffmpeg);
         setHastaMs(duracionDe(frameList));
+        setPiezas(piezasDe(duracionDe(frameList)));
       })
       .catch((e) => setError(String(e)));
   }, [sessionId]);
@@ -140,13 +164,21 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * todos los fotogramas en Rust. Sin zoom no se pide nada y el video se queda quieto.
    */
   useEffect(() => {
-    if (!session || estudio.zoom <= 1.05) {
+    // Con la pista tocada manda la pista; sin tocar, los que salen solos (el zoom de los
+    // clics con el deslizador puesto, o las marcas de la tecla de zoom).
+    const hayZoom = zoomsAMano
+      ? zoomsAMano.some((z) => !z.lupa)
+      : estudio.zoom > 1.05 || zoomsSolos.length > 0;
+    if (!session || !hayZoom) {
       setCamara([]);
       return;
     }
     let vigente = true;
     const espera = window.setTimeout(() => {
-      void sessionCamera(sessionId, estudio.zoom, recorte, estudio.velocidadZoom)
+      const pedir = zoomsAMano
+        ? sessionCameraConZooms(sessionId, estudio.zoom, recorte, estudio.velocidadZoom, zoomsAMano)
+        : sessionCamera(sessionId, estudio.zoom, recorte, estudio.velocidadZoom);
+      void pedir
         .then((muestras) => {
           if (vigente) setCamara(muestras ?? []);
         })
@@ -156,7 +188,49 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       vigente = false;
       window.clearTimeout(espera);
     };
-  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte]);
+  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte, zoomsAMano, zoomsSolos.length]);
+
+  /**
+   * Los zooms que salen solos, para enseñarlos en la pista como bloques: se piden otra vez
+   * al mover el deslizador del zoom o el recorte, mientras la pista no se haya tocado.
+   */
+  useEffect(() => {
+    if (!session || session.format === "still" || zoomsAMano) return;
+    let vigente = true;
+    const espera = window.setTimeout(() => {
+      void sessionZooms(sessionId, estudio.zoom, recorte, estudio.velocidadZoom)
+        .then((bloques) => {
+          if (vigente) setZoomsSolos(bloques ?? []);
+        })
+        .catch(() => undefined);
+    }, 120);
+    return () => {
+      vigente = false;
+      window.clearTimeout(espera);
+    };
+  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte, zoomsAMano]);
+
+  /** Lo que se ve en la pista: lo tocado a mano, o lo que sale solo. */
+  const zoomsMostrados = zoomsAMano ?? zoomsSolos;
+  const bloqueElegido = zoomElegido !== null ? (zoomsMostrados[zoomElegido] ?? null) : null;
+
+  // La pista y las tijeras viajan a Rust dentro de `edicion`, como lo demás del plan.
+  useEffect(() => {
+    setEdicion((antes) => ({ ...antes, zooms: zoomsAMano, tramos: tramosDeEnvio(piezas, desdeMs, hastaMs) }));
+  }, [zoomsAMano, piezas, desdeMs, hastaMs]);
+
+  /** Dónde estaba el ratón en ese instante, de 0 a 1: ahí mira un zoom recién puesto. */
+  const puntoEn = useCallback(
+    (ms: number) => {
+      const raton = datosEstudio ? cursorEn(datosEstudio.cursor, ms) : null;
+      if (!raton || !session) return { x: 0.5, y: 0.5 };
+      return {
+        x: raton[0] / Math.max(1, session.region.width),
+        y: raton[1] / Math.max(1, session.region.height),
+      };
+    },
+    [datosEstudio, session],
+  );
 
   const totalMs = duracionDe(frames);
   /** El fotograma que se está viendo: el de la foto, el de leer el texto, el de tapar datos. */
@@ -700,6 +774,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   msParado={posicionMs}
                   reproduciendo={playing}
                   sinEncuadre={herramienta !== null || recortando}
+                  zooms={zoomsMostrados}
+                  elegido={bloqueElegido}
+                  onPunto={(x, y) => {
+                    if (zoomElegido !== null) setZoomsAMano(cambiar(zoomsMostrados, zoomElegido, { x, y }));
+                  }}
                 />
               )}
               <CapaAnotaciones
@@ -747,6 +826,15 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               onTramo={cambiarTramo}
               onIr={ir}
               onFinal={alFinal}
+              zooms={zoomsMostrados}
+              onZooms={setZoomsAMano}
+              elegido={bloqueElegido ? zoomElegido : null}
+              onElegir={setZoomElegido}
+              nivelNuevo={estudio.zoom > 1.05 ? estudio.zoom : NIVEL_NUEVO}
+              puntoEn={puntoEn}
+              piezas={piezas}
+              onPiezas={setPiezas}
+              escritura={datosEstudio?.escritura ?? []}
             />
           )}
         </main>

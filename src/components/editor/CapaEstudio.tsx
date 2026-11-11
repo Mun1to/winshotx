@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { MuestraCamara, StudioData } from "../../lib/types";
+import type { TramoZoom } from "../../lib/contrato";
+import { medidasDeLupa, ventanaDelZoom } from "../../lib/zooms";
+import { useT } from "../../lib/i18n";
 import {
   altoDelPuntero,
   arosEn,
@@ -39,6 +42,26 @@ interface Props {
    * dibuja se mide sobre la captura entera y con la cámara acercada caería en otro sitio.
    */
   sinEncuadre?: boolean;
+  /** Los bloques de la pista de zooms: de aquí salen las lupas que se pintan encima. */
+  zooms?: TramoZoom[];
+  /**
+   * El bloque elegido en la pista. Si es fijo, y el vídeo está parado, se enseña la imagen
+   * entera con lo que va a enseñar el zoom (o la lupa) y su punto, que se arrastra.
+   */
+  elegido?: TramoZoom | null;
+  onPunto?: (x: number, y: number) => void;
+}
+
+/** Lo que tarda una lupa en abrirse y en cerrarse. El mismo número que `LUPA_APARECE_MS` en Rust. */
+const LUPA_APARECE_MS = 220;
+
+/** Lo abierta que está una lupa en ese instante, de 0 a 1, o `null` fuera de su bloque. */
+function abierta(z: TramoZoom, ms: number): number | null {
+  if (ms < z.desdeMs || ms > z.hastaMs) return null;
+  if (z.instantaneo) return 1;
+  const rampa = Math.max(1, Math.min(LUPA_APARECE_MS, (z.hastaMs - z.desdeMs) / 3));
+  const t = Math.min(1, Math.max(0, Math.min((ms - z.desdeMs) / rampa, (z.hastaMs - ms) / rampa)));
+  return t * t * (3 - 2 * t);
 }
 
 /**
@@ -60,8 +83,14 @@ export function CapaEstudio({
   msParado,
   reproduciendo,
   sinEncuadre = false,
+  zooms = [],
+  elegido = null,
+  onPunto,
 }: Props) {
   const lienzo = useRef<HTMLCanvasElement>(null);
+  /** Colocando el punto de un bloque fijo: la imagen entera, para ver dónde se pone. */
+  const colocando = Boolean(elegido && elegido.modo === "fijo" && !reproduciendo && onPunto);
+  const lupas = useMemo(() => zooms.filter((z) => z.lupa), [zooms]);
   /**
    * Las imágenes de verdad de los punteros, cargadas una vez. Se dibujan con `drawImage`,
    * que es lo que hace que el puntero de la vista previa sea el mismo que el de Windows y
@@ -79,8 +108,8 @@ export function CapaEstudio({
   /** Cuándo se movió el ratón, sacado una vez: con ello se sabe cuánto lleva quieto. */
   const movs = useMemo(() => movimientos(datos?.cursor ?? []), [datos]);
   // Lo último que se sabe, para que el bucle no tenga que reengancharse a cada cambio.
-  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs });
-  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs };
+  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando });
+  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando };
 
   useEffect(() => {
     let vivo = true;
@@ -91,7 +120,7 @@ export function CapaEstudio({
       peticion = requestAnimationFrame(pintar);
       const canvas = lienzo.current;
       const video = videoRef.current;
-      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs } =
+      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando } =
         estado.current;
       if (!canvas) return;
 
@@ -105,7 +134,9 @@ export function CapaEstudio({
       }
 
       const ms = reproduciendo && video ? video.currentTime * 1000 : msParado;
-      const encuadre = estudio.zoom > 1.05 && !sinEncuadre ? encuadreEn(camara, ms) : null;
+      // La cámara la pide el editor solo cuando hay algo que acercar (el zoom de los clics,
+      // la tecla de zoom o un bloque de la pista): sin muestras, la imagen entera.
+      const encuadre = camara.length > 0 && !sinEncuadre && !colocando ? encuadreEn(camara, ms) : null;
       if (video) {
         const css = transformacion(encuadre, W, H);
         if (video.style.transform !== css) video.style.transform = css;
@@ -115,6 +146,25 @@ export function CapaEstudio({
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, W, H);
+
+      // Las lupas de la pista, con la imagen del vídeo ampliada debajo de su lente.
+      if (video && video.videoWidth > 0) {
+        for (const z of lupas) {
+          const abre = z.lupa ? abierta(z, ms) : null;
+          if (!z.lupa || abre === null || abre < 0.02) continue;
+          let u = z.x;
+          let v = z.y;
+          if (z.modo === "sigue" && datos) {
+            const raton = sitioDelPuntero(datos.cursor, ms, true);
+            if (raton) {
+              u = raton[0] / Math.max(1, ancho);
+              v = raton[1] / Math.max(1, alto);
+            }
+          }
+          pintarLupa(ctx, video, z, u, v, abre, W, H, encuadre, ancho);
+        }
+      }
+
       if (!datos) return;
 
       // Lo que mide un píxel del vídeo exportado en la vista previa: aros y puntero se
@@ -189,13 +239,195 @@ export function CapaEstudio({
   }, [videoRef]);
 
   return (
-    <canvas
-      ref={lienzo}
-      data-capa-estudio
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 size-full"
-    />
+    <>
+      <canvas
+        ref={lienzo}
+        data-capa-estudio
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 size-full"
+      />
+      {colocando && !sinEncuadre && elegido && onPunto && (
+        <PuntoFijo zoom={elegido} ancho={ancho} alto={alto} onPunto={onPunto} />
+      )}
+    </>
   );
+}
+
+/**
+ * El punto de un zoom fijo o de una lupa fija, encima de la imagen entera: el recuadro (o
+ * la lente) dice lo que se va a ver, y el punto se arrastra. Pulsar en cualquier sitio de
+ * la imagen lo lleva ahí.
+ */
+function PuntoFijo({
+  zoom,
+  ancho,
+  alto,
+  onPunto,
+}: {
+  zoom: TramoZoom;
+  ancho: number;
+  alto: number;
+  onPunto: (x: number, y: number) => void;
+}) {
+  const t = useT();
+  const caja = useRef<HTMLDivElement>(null);
+  const [arrastrando, setArrastrando] = useState(false);
+  const alPunto = useRef(onPunto);
+  alPunto.current = onPunto;
+
+  const llevar = (clientX: number, clientY: number) => {
+    const r = caja.current?.getBoundingClientRect();
+    if (!r || r.width <= 0 || r.height <= 0) return;
+    const x = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    const y = Math.min(1, Math.max(0, (clientY - r.top) / r.height));
+    alPunto.current(Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000);
+  };
+
+  useEffect(() => {
+    if (!arrastrando) return;
+    const mover = (e: PointerEvent) => llevar(e.clientX, e.clientY);
+    const soltar = () => setArrastrando(false);
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+    window.addEventListener("pointercancel", soltar);
+    return () => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+      window.removeEventListener("pointercancel", soltar);
+    };
+  }, [arrastrando]);
+
+  // Lo que se va a ver: el trozo que enseña el zoom, o la lente de la lupa en su sitio.
+  let recuadro: { left: number; top: number; width: number; height: number };
+  let redondo = "";
+  if (zoom.lupa) {
+    const m = medidasDeLupa(zoom.lupa, ancho, alto);
+    const w = m.ancho / Math.max(1, ancho);
+    const h = m.alto / Math.max(1, alto);
+    const cx = Math.min(1 - w / 2, Math.max(w / 2, zoom.x));
+    const cy = Math.min(1 - h / 2, Math.max(h / 2, zoom.y));
+    recuadro = { left: cx - w / 2, top: cy - h / 2, width: w, height: h };
+    redondo = zoom.lupa.forma === "circulo" ? "rounded-full" : zoom.lupa.forma === "redondeado" ? "rounded-[18%]" : "";
+  } else {
+    const v = ventanaDelZoom(zoom.x, zoom.y, zoom.nivel);
+    recuadro = { left: v.x1, top: v.y1, width: v.x2 - v.x1, height: v.y2 - v.y1 };
+  }
+  const pc = (n: number) => `${n * 100}%`;
+
+  return (
+    <div
+      ref={caja}
+      data-punto-fijo
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        llevar(e.clientX, e.clientY);
+        setArrastrando(true);
+      }}
+      className="absolute inset-0 cursor-crosshair touch-none"
+    >
+      <div
+        className={`pointer-events-none absolute border-2 border-dashed border-white shadow-[0_0_0_1px_rgba(0,0,0,0.55),0_0_0_9999px_rgba(0,0,0,0.28)] ${redondo}`}
+        style={{
+          left: pc(recuadro.left),
+          top: pc(recuadro.top),
+          width: pc(recuadro.width),
+          height: pc(recuadro.height),
+        }}
+      />
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label={t("Punto del zoom: arrástralo a donde tiene que mirar")}
+        aria-valuetext={`${Math.round(zoom.x * 100)} %, ${Math.round(zoom.y * 100)} %`}
+        onKeyDown={(e) => {
+          const paso = e.shiftKey ? 0.05 : 0.01;
+          const mueve: Record<string, [number, number]> = {
+            ArrowLeft: [-paso, 0],
+            ArrowRight: [paso, 0],
+            ArrowUp: [0, -paso],
+            ArrowDown: [0, paso],
+          };
+          const d = mueve[e.key];
+          if (!d) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onPunto(Math.min(1, Math.max(0, zoom.x + d[0])), Math.min(1, Math.max(0, zoom.y + d[1])));
+        }}
+        className="absolute size-5 -translate-x-1/2 -translate-y-1/2 cursor-move rounded-full border-[3px] border-white bg-blue-500 shadow-[0_1px_6px_rgba(0,0,0,0.6)] outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+        style={{ left: pc(zoom.x), top: pc(zoom.y) }}
+      />
+    </div>
+  );
+}
+
+/** El contorno de una lupa, para recortar por él y para dibujar su marco. */
+function camino(ctx: CanvasRenderingContext2D, forma: FormaDeLupa, cx: number, cy: number, w: number, h: number) {
+  ctx.beginPath();
+  if (forma === "circulo") {
+    ctx.arc(cx, cy, Math.min(w, h) / 2, 0, Math.PI * 2);
+  } else if (forma === "redondeado") {
+    ctx.roundRect(cx - w / 2, cy - h / 2, w, h, (Math.min(w, h) / 2) * 0.36);
+  } else {
+    ctx.rect(cx - w / 2, cy - h / 2, w, h);
+  }
+}
+type FormaDeLupa = NonNullable<TramoZoom["lupa"]>["forma"];
+
+/**
+ * Una lupa en la vista previa: el trozo del vídeo de alrededor de su punto, ampliado, dentro
+ * de su forma. Las mismas medidas y el mismo marco que pinta Rust (`lupa::pintar`).
+ */
+function pintarLupa(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  z: TramoZoom,
+  u: number,
+  v: number,
+  abre: number,
+  W: number,
+  H: number,
+  encuadre: ReturnType<typeof encuadreEn>,
+  anchoGrabado: number,
+) {
+  const lupa = z.lupa;
+  if (!lupa) return;
+  const sitio = colocar(u, v, encuadre);
+  if (!sitio) return;
+  const medida = medidasDeLupa(lupa, W, H);
+  const lw = medida.ancho * abre;
+  const lh = medida.alto * abre;
+  if (lw < 4 || lh < 4) return;
+  const aumento = 1 + (lupa.aumento - 1) * abre;
+  const cx = sitio.u * W;
+  const cy = sitio.v * H;
+  const lx = Math.min(W - lw / 2, Math.max(lw / 2, cx));
+  const ly = Math.min(H - lh / 2, Math.max(lh / 2, cy));
+  // Lo que enseña el lienzo del vídeo: con la cámara acercada, solo su encuadre.
+  const e = encuadre ?? { x1: 0, y1: 0, x2: 1, y2: 1 };
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const sw = (lw / aumento) * ((e.x2 - e.x1) * vw) / W;
+  const sh = (lh / aumento) * ((e.y2 - e.y1) * vh) / H;
+  const sx = (e.x1 + (cx / W) * (e.x2 - e.x1)) * vw - sw / 2;
+  const sy = (e.y1 + (cy / H) * (e.y2 - e.y1)) * vh - sh / 2;
+  ctx.save();
+  camino(ctx, lupa.forma, lx, ly, lw, lh);
+  ctx.clip();
+  ctx.drawImage(video, sx, sy, sw, sh, lx - lw / 2, ly - lh / 2, lw, lh);
+  ctx.restore();
+  if (lupa.marco) {
+    // El borde de Rust se mide en píxeles del vídeo exportado; aquí, en los de la vista.
+    const borde = Math.max(1.5, (Math.min(6, Math.max(2, anchoGrabado * 0.0028)) * W) / Math.max(1, anchoGrabado));
+    camino(ctx, lupa.forma, lx, ly, lw - borde, lh - borde);
+    ctx.lineWidth = borde;
+    ctx.strokeStyle = "#fff";
+    ctx.stroke();
+    camino(ctx, lupa.forma, lx, ly, lw + 1, lh + 1);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.32)";
+    ctx.stroke();
+  }
 }
 
 /**
