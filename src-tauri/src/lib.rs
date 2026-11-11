@@ -31,6 +31,8 @@ mod qr;
 // S7 (cursor)
 // S8 (cámara en el Estudio)
 // S9 (presets y tapar)
+mod datos_en_video;
+mod presets;
 
 use std::time::{Duration, SystemTime};
 
@@ -340,6 +342,8 @@ pub fn run() {
             // S8 (cámara en el Estudio)
             encode::camara_estudio::camara_de_la_sesion,
             // S9 (presets y tapar)
+            datos_en_video::tapar_datos_video,
+            presets::presets_guardar,
         ])
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")

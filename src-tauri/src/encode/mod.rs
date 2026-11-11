@@ -26,3 +26,4 @@ pub mod clic;
 // S8 (cámara en el Estudio)
 pub mod camara_estudio;
 // S9 (presets y tapar)
+pub mod tapar;

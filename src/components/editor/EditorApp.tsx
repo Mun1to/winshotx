@@ -55,6 +55,10 @@ import {
   type Pieza,
 } from "../../lib/tramo";
 import { cambiar, NIVEL_NUEVO } from "../../lib/zooms";
+// S9 (presets y tapar)
+import { CapaTapar } from "./CapaTapar";
+import { AVISO_TAPAR_VIDEO, tapaDatosVideo } from "../../lib/ipc";
+import { anadirTapas } from "../../lib/tapar";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -347,11 +351,53 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * atrás. Si no encuentra nada, lo dice, porque un botón que no hace nada visible es
    * indistinguible de un botón roto.
    */
+  /** El mosaico elegido en la línea de tiempo (S9), con sus mandos debajo y su borde en la imagen. */
+  const [tapaElegida, setTapaElegida] = useState<number | null>(null);
+
+  /**
+   * En un vídeo, «Tapar datos» busca en la grabación entera (S9, D4).
+   *
+   * El lector de Windows pasa solo por lo que cambia, y lo que encuentra sale como bloques
+   * de mosaico en la línea de tiempo, que se ven, se alargan y se quitan: igual que en una
+   * captura, nada se tapa en silencio. La vista previa se va al primero, que es donde se ve
+   * lo que ha hecho. Mientras busca, dice por dónde va.
+   */
+  const taparEnElVideo = useCallback(async () => {
+    const quitarOyente = await listen<{ hechos: number; total: number }>(AVISO_TAPAR_VIDEO, (e) => {
+      const { hechos, total } = e.payload;
+      setAviso(
+        t("Buscando datos personales en el vídeo… {n} %", {
+          n: Math.round((hechos / Math.max(1, total)) * 100),
+        }),
+      );
+    });
+    try {
+      setAviso(t("Buscando datos personales en el vídeo… {n} %", { n: 0 }));
+      const { tapas, resumen } = await tapaDatosVideo(sessionId);
+      if (tapas.length === 0) {
+        setAviso(t("No he encontrado datos personales en el vídeo"));
+        return;
+      }
+      setEdicion((antes) => ({ ...antes, tapar: anadirTapas(antes.tapar ?? [], tapas) }));
+      // «correo (2), teléfono (1)»: con el número detrás no hace falta el plural en cada idioma.
+      const detalle = resumen.map(([clase, cuantos]) => `${t(clase)} (${cuantos})`).join(", ");
+      setAviso(t("Tapado en el vídeo: {detalle}", { detalle }));
+      ir(tapas[0].desdeMs);
+    } finally {
+      quitarOyente();
+    }
+  }, [sessionId, t, ir]);
+
   const taparDatos = useCallback(async () => {
     if (buscandoDatos) return;
     setBuscandoDatos(true);
     setAviso(null);
     try {
+      // S9 (presets y tapar): en un vídeo, la grabación entera y con tiempo.
+      if (session && session.format !== "still") {
+        await taparEnElVideo();
+        return;
+      }
       const { marcas, resumen } = await tapaDatos(sessionId, currentIndex);
       if (marcas.length === 0) {
         setAviso(t("No he encontrado datos personales en esta imagen"));
@@ -365,7 +411,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     } finally {
       setBuscandoDatos(false);
     }
-  }, [buscandoDatos, sessionId, currentIndex, t]);
+  }, [buscandoDatos, sessionId, currentIndex, t, session, taparEnElVideo]);
 
   /** Copia el texto que haya escrito en el fotograma que se esta viendo. */
   const copiarTexto = useCallback(async () => {
@@ -817,6 +863,17 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 />
               )}
               {/* S9 (presets y tapar) */}
+              {session.format !== "still" && (
+                <CapaTapar
+                  videoRef={videoRef}
+                  tapas={edicion.tapar ?? []}
+                  ancho={session.region.width}
+                  alto={session.region.height}
+                  msParado={posicionMs}
+                  reproduciendo={playing}
+                  elegida={tapaElegida}
+                />
+              )}
               <CapaAnotaciones
                 herramienta={herramienta}
                 // El resaltado es un marcador, y un marcador es amarillo: no se elige.
@@ -872,6 +929,10 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               onPiezas={setPiezas}
               escritura={datosEstudio?.escritura ?? []}
               // S9 (presets y tapar)
+              tapas={edicion.tapar ?? []}
+              onTapas={(tapar) => setEdicion((antes) => ({ ...antes, tapar }))}
+              tapaElegida={tapaElegida}
+              onElegirTapa={setTapaElegida}
             />
           )}
         </main>

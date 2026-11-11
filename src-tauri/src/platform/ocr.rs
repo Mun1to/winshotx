@@ -100,9 +100,10 @@ pub fn leer_palabras(png: &[u8]) -> Result<Vec<Vec<crate::sensibles::Palabra>>> 
     Ok(lineas)
 }
 
-/// El motor de OCR, con los idiomas de la persona y el inglés como red.
+/// El motor de OCR, con los idiomas de la persona y el inglés como red. También lo usa
+/// `datos_en_video`, que lo crea una vez para leer muchos fotogramas.
 #[cfg(windows)]
-fn motor() -> Result<windows::Media::Ocr::OcrEngine> {
+pub(crate) fn motor() -> Result<windows::Media::Ocr::OcrEngine> {
     use windows::Globalization::Language;
     use windows::Media::Ocr::OcrEngine;
     use windows::core::HSTRING;

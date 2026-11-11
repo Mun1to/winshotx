@@ -391,3 +391,34 @@ export const sessionCameraAlEscribir = (
 export const camaraDeLaSesion = (sessionId: string) =>
   invoke<import("./camara").CamaraDeLaSesion | null>("camara_de_la_sesion", { sessionId });
 // S9 (presets y tapar)
+import type { Tapa } from "./contrato";
+
+/** Lo que encuentra «Tapar datos» en un vídeo: dónde y cuándo taparlo, y qué es. */
+export interface DatosEnVideo {
+  tapas: Tapa[];
+  /** Cuántos datos distintos de cada clase: `[["correo", 2], ["teléfono", 1]]`. */
+  resumen: [string, number][];
+  /** Cuántas veces se pasó el lector, sobre cuántos fotogramas, y lo que tardó. */
+  lecturas: number;
+  fotogramas: number;
+  ms: number;
+}
+
+/** Busca datos personales en toda la grabación. No tapa nada: devuelve las tapas. */
+export const tapaDatosVideo = (sessionId: string) => invoke<DatosEnVideo>("tapar_datos_video", { sessionId });
+
+/** El aviso de por dónde va la búsqueda: `{ hechos, total }` en fotogramas. */
+export const AVISO_TAPAR_VIDEO = "winshotx://tapar-video";
+
+/** Un estilo guardado tal cual va a Rust. Lo de dentro lo lee `presets.ts`. */
+export interface PresetGuardado {
+  nombre: string;
+  estilo: unknown;
+}
+
+/** Guarda la lista entera de estilos (solo esa lista) y avisa a las ventanas. */
+export const presetsGuardar = (presets: PresetGuardado[]) =>
+  invoke<PresetGuardado[]>("presets_guardar", { presets });
+
+/** El aviso de que la lista de estilos ha cambiado, con la lista nueva. */
+export const AVISO_PRESETS = "winshotx://presets";
