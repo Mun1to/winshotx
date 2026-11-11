@@ -60,7 +60,7 @@ export function OtrosGrabadores() {
       {visto.barraDeJuego && (
         <Row
           icon={<Info className="size-4" />}
-          label={t("La Barra de juego también graba lo último")}
+          label={t("La Barra de juego también graba")}
           hint={t("Windows graba en segundo plano lo mismo que esto, y gastan los dos a la vez.")}
           tone="warn"
           control={<RowButton onClick={() => void abrirCapturasDeWindows()}>{t("Apagarla")}</RowButton>}
@@ -69,8 +69,8 @@ export function OtrosGrabadores() {
       {visto.nvidia && !nvidiaCallado && (
         <Row
           icon={<Info className="size-4" />}
-          label={t("NVIDIA también puede estar grabando")}
-          hint={t("Si tienes puesta su Repetición instantánea, pulsa Alt+Z y apágala: hace lo mismo que esto.")}
+          label={t("¿NVIDIA también graba?")}
+          hint={t("Apaga su Repetición instantánea con Alt+Z")}
           explicacion={t("La Repetición instantánea de NVIDIA graba la pantalla todo el rato para poder guardar lo último, igual que «Grabar siempre lo último». Con las dos encendidas se paga dos veces por lo mismo. winshotx no la apaga por su cuenta: los ajustes de NVIDIA no son públicos, y tocarlos a ciegas puede romperla en su próxima actualización.")}
           tone="warn"
           control={<RowButton onClick={callarNvidia}>{t("Ya lo tengo apagado")}</RowButton>}

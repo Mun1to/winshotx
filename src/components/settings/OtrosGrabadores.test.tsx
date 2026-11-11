@@ -31,20 +31,20 @@ describe("el aviso de los otros grabadores", () => {
 
   it("la Barra de juego lleva a los ajustes de Windows donde se apaga", async () => {
     await pintar(false, true);
-    expect(screen.getByText("La Barra de juego también graba lo último")).toBeInTheDocument();
+    expect(screen.getByText("La Barra de juego también graba")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Apagarla" }));
     expect(llamadas.some((l) => l.comando === "abrir_capturas_de_windows")).toBe(true);
   });
 
   it("NVIDIA se calla con «Ya lo tengo apagado», y sigue callado al volver", async () => {
     const primera = await pintar(true, false);
-    expect(screen.getByText("NVIDIA también puede estar grabando")).toBeInTheDocument();
+    expect(screen.getByText("¿NVIDIA también graba?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Ya lo tengo apagado" }));
-    expect(screen.queryByText("NVIDIA también puede estar grabando")).not.toBeInTheDocument();
+    expect(screen.queryByText("¿NVIDIA también graba?")).not.toBeInTheDocument();
     primera.unmount();
 
     await pintar(true, false);
-    expect(screen.queryByText("NVIDIA también puede estar grabando")).not.toBeInTheDocument();
+    expect(screen.queryByText("¿NVIDIA también graba?")).not.toBeInTheDocument();
   });
 
   it("vuelve a mirar al volver a la ventana, que es cuando se ha ido a apagarlo", async () => {
@@ -53,6 +53,6 @@ describe("el aviso de los otros grabadores", () => {
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
     });
-    expect(screen.queryByText("La Barra de juego también graba lo último")).not.toBeInTheDocument();
+    expect(screen.queryByText("La Barra de juego también graba")).not.toBeInTheDocument();
   });
 });

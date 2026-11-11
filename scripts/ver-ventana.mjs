@@ -8,6 +8,7 @@
  *   node scripts/ver-ventana.mjs menu.png --menu --ancho=284 --escala=2
  *   node scripts/ver-ventana.mjs pendiente.png --tecla-pendiente
  *   node scripts/ver-ventana.mjs grabar.png --seccion=grabar --anillo
+ *   node scripts/ver-ventana.mjs otros.png --seccion=grabar --anillo --otros-grabadores
  *
  * Sirve el bundle DE VERDAD de `dist/` y le cuela un `__TAURI_INTERNALS__` de mentira en
  * el <head>, antes del script de la app, para que los `invoke` contesten datos fijos.
@@ -84,6 +85,9 @@ const seccion = bandera("seccion", null);
 // Como si la ventana se hubiera abierto sola despues de actualizar: abre en "La app" y
 // la fila de Actualizaciones dice a que version se ha actualizado.
 const actualizado = args.includes("--actualizado");
+// NVIDIA y la Barra de juego grabando a la vez que el anillo: la única forma de ver su aviso
+// debajo de «Grabar siempre lo último», porque en una máquina sin ellos no sale.
+const otros = args.includes("--otros-grabadores");
 // Un Windows sin la captura moderna, que es la unica forma de ver el aviso de
 // «Este Windows usa la captura antigua»: con el de verdad nunca sale.
 const sinModerna = args.includes("--sin-captura-moderna");
@@ -242,6 +246,7 @@ const RESPUESTAS = {
     { id: "usb-2", nombre: "Logitech HD Pro Webcam C920" },
   ],
   captura_moderna: !sinModerna,
+  otros_grabadores: { nvidia: otros, barraDeJuego: otros },
   print_screen_state: { enabled: false, active: false, takenByWindows: true },
   just_updated: actualizado,
   tray_menu_state: {
