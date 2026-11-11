@@ -313,3 +313,47 @@ fn el_clic_suena_en_el_mp4_aunque_la_grabacion_no_tenga_sonido() {
     assert!(pico(0, 900) < 300, "antes, silencio");
     assert!(pico(1_200, 2_490) < 300, "el clic cortado no suena");
 }
+
+/// A4: lo que cuesta la estela de la cámara, que es la cara: un tutorial 1080p de 20 s con un
+/// clic cada dos segundos y el zoom puesto, así que la cámara se está moviendo casi siempre.
+///
+///     ESTELA=1 cargo test --release --lib medir_la_estela_de_la_camara -- --ignored --nocapture
+#[test]
+#[ignore = "mide, no comprueba: pide release y el codificador de Windows"]
+fn medir_la_estela_de_la_camara() {
+    use crate::record::FrameCache;
+    let (ancho, alto) = (1920u32, 1080u32);
+    let dir = std::env::temp_dir().join(format!("winshotx-s7-estela-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut cache = FrameCache::new(&dir).expect("cache");
+    let pagina: Vec<u8> = (0..ancho * alto)
+        .flat_map(|i| {
+            let (x, y) = (i % ancho, i / ancho);
+            let v = if (x / 120 + y / 80) % 2 == 0 { 235 } else { 215 };
+            [v, v, v, 255]
+        })
+        .collect();
+    cache.push_rgba(&pagina, ancho, alto, 0).unwrap();
+    let mut session = super::tests::session_with(&[]);
+    session.frames = cache.finish(20_000, 30).expect("cerrar la cache");
+    session.dir = dir.clone();
+    session.width = ancho;
+    session.height = alto;
+    session.region = crate::capture::Rect { x: 0, y: 0, width: ancho, height: alto };
+    session.fps = 30;
+    session.cursor = rastro(20_000, |ms| (200 + ((ms % 4_000) * 1_400 / 4_000) as i32, 540));
+    // Un clic cada dos segundos, cada vez en una punta: la cámara va de un lado a otro.
+    session.clics = (0..10).map(|k| clic(1_000 + k * 2_000, if k % 2 == 0 { 300 } else { 1_600 }, 540)).collect();
+    let mut p = crate::recorder::peticion_por_defecto(&session);
+    p.format = "mp4".into();
+    p.audio = false;
+    p.zoom = 2.0;
+    p.edicion.estela = std::env::var("ESTELA").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
+    let destino = dir.join("estela.mp4");
+    let empieza = std::time::Instant::now();
+    escribir(&session, &p, &destino, &|_, _, _| {}).expect("exportar");
+    let tardo = empieza.elapsed().as_millis();
+    let _ = std::fs::remove_dir_all(&dir);
+    println!("tutorial 1080p de 20 s con zoom a los clics, estela {}: {tardo} ms", p.edicion.estela);
+}

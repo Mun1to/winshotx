@@ -2986,6 +2986,8 @@ mod recortar_de_punta_a_punta {
         peticion.corners = 23;
         peticion.background = "noche".into();
         peticion.shadow = true;
+        // S7 (cursor): con ESTELA=1 se mide con la estela puesta (A4).
+        peticion.edicion.estela = std::env::var("ESTELA").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
         let pasos = pasos_de(&session, &peticion);
         let destino = dir.join("tutorial.mp4");
         let empieza = Instant::now();
