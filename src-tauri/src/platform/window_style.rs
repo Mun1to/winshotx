@@ -59,17 +59,29 @@ pub fn never_focus(_window: &tauri::WebviewWindow) {}
 /// eran dos, cada una con su vuelta por el compositor. `SWP_NOACTIVATE` porque el foco se
 /// le da aparte y solo a la ventana de la pantalla del raton. Devuelve `false` si no ha
 /// podido, para que quien llama use el camino normal.
+///
+/// **Tauri no se entera de que la ventana se ve.** Sigue creyendo que esta escondida, y su
+/// `hide()` compara con lo que cree y no hace nada: la ventana se queda en pantalla. Quien
+/// la ensenne asi, o llama a `show()` despues para ponerle al dia (los overlays), o la
+/// esconde con [`esconder`] (la miniatura, que no puede llamar a `show()` porque cogeria el
+/// foco). Paso con la miniatura de la 0.4.0: las cartas se iban y el recuadro se quedaba.
 #[cfg(windows)]
 pub fn colocar_y_ensennar(window: &tauri::WebviewWindow, x: i32, y: i32) -> bool {
+    let Ok(handle) = window.hwnd() else { return false };
+    colocar_y_ensennar_hwnd(handle.0 as isize, x, y)
+}
+
+/// Lo mismo, sobre una ventana de Windows a pelo, para poder probarlo.
+#[cfg(windows)]
+pub fn colocar_y_ensennar_hwnd(ventana: isize, x: i32, y: i32) -> bool {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
         SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOSIZE, SWP_SHOWWINDOW,
     };
 
-    let Ok(handle) = window.hwnd() else { return false };
     unsafe {
         SetWindowPos(
-            HWND(handle.0),
+            HWND(ventana as *mut core::ffi::c_void),
             Some(HWND_TOPMOST),
             x,
             y,
@@ -84,6 +96,32 @@ pub fn colocar_y_ensennar(window: &tauri::WebviewWindow, x: i32, y: i32) -> bool
 #[cfg(not(windows))]
 pub fn colocar_y_ensennar(_window: &tauri::WebviewWindow, _x: i32, _y: i32) -> bool {
     false
+}
+
+/// Esconde la ventana por el mismo camino por el que la ensenna [`colocar_y_ensennar`]:
+/// directamente con Windows, sin pasar por lo que Tauri cree. Y luego el `hide()` de
+/// Tauri, que no hace nada si Tauri ya la creia escondida y la pone al dia si no.
+#[cfg(windows)]
+pub fn esconder(window: &tauri::WebviewWindow) {
+    if let Ok(handle) = window.hwnd() {
+        esconder_hwnd(handle.0 as isize);
+    }
+    let _ = window.hide();
+}
+
+/// Lo mismo, sobre una ventana de Windows a pelo, para poder probarlo.
+#[cfg(windows)]
+pub fn esconder_hwnd(ventana: isize) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+
+    // Lo que devuelve es si se veia antes, no si ha ido bien: no hay nada que mirar.
+    let _ = unsafe { ShowWindow(HWND(ventana as *mut core::ffi::c_void), SW_HIDE) };
+}
+
+#[cfg(not(windows))]
+pub fn esconder(window: &tauri::WebviewWindow) {
+    let _ = window.hide();
 }
 
 /// Deja la ventana fuera de lo que se graba, sin esconderla.
@@ -128,8 +166,8 @@ mod tests {
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, DestroyWindow, GetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE,
-        WDA_NONE, WINDOW_EX_STYLE, WS_POPUP,
+        CreateWindowExW, DestroyWindow, GetWindowDisplayAffinity, IsWindowVisible,
+        WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WINDOW_EX_STYLE, WS_POPUP,
     };
 
     /// Una ventana de verdad, de la clase que ya trae Windows, y fuera de todas las
@@ -183,6 +221,36 @@ mod tests {
             WDA_NONE.0,
             "tiene que volver a poder fotografiarse cuando ya no se graba"
         );
+
+        unsafe {
+            let _ = DestroyWindow(HWND(ventana as *mut core::ffi::c_void));
+        }
+    }
+
+    fn se_ve(ventana: isize) -> bool {
+        unsafe { IsWindowVisible(HWND(ventana as *mut core::ffi::c_void)) }.as_bool()
+    }
+
+    /// La miniatura de la 0.4.0 se quedaba en pantalla, vacía, al irse su última carta: se
+    /// enseñaba con `colocar_y_ensennar` y se escondía con el `hide()` de Tauri, que no la
+    /// veía visible y no hacía nada. Lo que se enseña por ese camino se esconde por este.
+    /// Fuera de todas las pantallas, para que no aparezca nada mientras corre.
+    #[test]
+    fn lo_que_se_ensenna_por_fuera_de_tauri_se_esconde() {
+        let ventana = ventana_de_prueba();
+        assert!(!se_ve(ventana), "la ventana de prueba nace escondida");
+
+        assert!(colocar_y_ensennar_hwnd(ventana, -20_000, -20_000));
+        assert!(se_ve(ventana), "colocar_y_ensennar tiene que enseñarla");
+
+        esconder_hwnd(ventana);
+        assert!(!se_ve(ventana), "esconder tiene que quitarla de verdad");
+
+        // Y otra vuelta, que la miniatura sale y se va muchas veces con la misma ventana.
+        assert!(colocar_y_ensennar_hwnd(ventana, -20_000, -20_000));
+        assert!(se_ve(ventana));
+        esconder_hwnd(ventana);
+        assert!(!se_ve(ventana));
 
         unsafe {
             let _ = DestroyWindow(HWND(ventana as *mut core::ffi::c_void));

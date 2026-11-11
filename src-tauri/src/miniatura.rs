@@ -280,7 +280,9 @@ fn ensennar(app: &AppHandle, segundos: u32) {
     let Ok(window) = ventana(app) else { return };
     let _ = app.emit_to(ETIQUETA, EVENTO, vista_de_la_pila(segundos));
     if cuantas == 0 {
-        let _ = window.hide();
+        // Se enseña por fuera de Tauri (`colocar_y_ensennar`), así que el `hide()` de Tauri
+        // sola la cree ya escondida y no hace nada: el recuadro vacío se quedaba en pantalla.
+        crate::platform::window_style::esconder(&window);
         return;
     }
     let (trabajo, escala) = pantalla_del_raton().unwrap_or(((0, 0, 1920, 1040), 1.0));
