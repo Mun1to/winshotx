@@ -14,6 +14,7 @@
 //! 34 de `docs/TRAMPAS.md`: una ventana escondida no arranca su interfaz, y nada que toque
 //! una ventana puede hacerse desde otro hilo.
 
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -126,6 +127,7 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     let suyo = app.clone();
     window.on_window_event(move |evento| {
         if let tauri::WindowEvent::Focused(enfocado) = evento {
+            ENFOCADO.store(*enfocado, Ordering::Relaxed);
             apuntar(&suyo, if *enfocado { "coge el foco" } else { "pierde el foco" });
             if !*enfocado {
                 al_perder_el_foco(&suyo, menu);
@@ -138,6 +140,14 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
 /// Lo que se espera antes de mirar quien ha quedado delante.
 const MIRAR_DELANTE_EN: Duration = Duration::from_millis(80);
 
+/// Si Tauri cree que el menu tiene el foco: lo ultimo que aviso.
+static ENFOCADO: AtomicBool = AtomicBool::new(false);
+/// Cuantas veces se le ha devuelto el foco desde que se abrio. Devolverlo hace que Tauri
+/// avise otra vez de que lo pierde, y sin tope eso es un bucle: paso en la primera version
+/// de este arreglo, que se lo devolvia cada 100 ms mientras el menu estaba abierto.
+static DEVUELTOS: AtomicU32 = AtomicU32::new(0);
+const DEVOLVER_COMO_MUCHO: u32 = 2;
+
 /// El menu solo se cierra si de verdad hay otra ventana delante.
 ///
 /// **La primera vez que se abria, se cerraba solo.** Munir, 11-nov-2026: *«la primera vez
@@ -147,9 +157,11 @@ const MIRAR_DELANTE_EN: Duration = Duration::from_millis(80);
 /// es «la ventana ha perdido el foco» aunque el menu siga delante, y lo cerraba. Las
 /// siguientes veces la pagina ya esta cargada y el foco pasa dentro sin que Tauri lo cuente.
 ///
-/// Por eso se mira un momento despues quien esta delante: si sigue siendo el menu, el foco
-/// se ha ido a su propia pagina, y se le devuelve a la ventana para que Tauri vuelva a avisar
-/// cuando lo pierda de verdad (si no, un clic fuera ya no lo cerraria). Todo en el hilo
+/// Por eso se mira un momento despues quien esta delante. Si sigue siendo el menu, no se
+/// cierra. Lo normal (medido en `bandeja.log` el 11-nov) es que Tauri avise de que lo ha
+/// recuperado 4 ms despues, y entonces no hay nada mas que hacer. Si no lo ha recuperado,
+/// se le devuelve a la ventana, para que Tauri vuelva a avisar cuando lo pierda de verdad
+/// (si no, un clic fuera ya no lo cerraria), y como mucho dos veces. Todo en el hilo
 /// principal: el de fondo solo duerme (trampa 34).
 fn al_perder_el_foco(app: &AppHandle, menu: isize) {
     let app = app.clone();
@@ -160,8 +172,14 @@ fn al_perder_el_foco(app: &AppHandle, menu: isize) {
             let app = en_el_principal;
             let delante = crate::platform::window_style::primer_plano();
             if menu != 0 && delante == menu {
-                apuntar(&app, "sigue delante: el foco se fue a su pagina, se le devuelve");
-                crate::platform::window_style::devolver_el_foco(menu);
+                if ENFOCADO.load(Ordering::Relaxed) {
+                    apuntar(&app, "sigue delante y ya lo ha recuperado: se queda");
+                } else if DEVUELTOS.fetch_add(1, Ordering::Relaxed) < DEVOLVER_COMO_MUCHO {
+                    apuntar(&app, "sigue delante sin el foco: se le devuelve");
+                    crate::platform::window_style::devolver_el_foco(menu);
+                } else {
+                    apuntar(&app, "sigue delante sin el foco, y ya se le devolvio: se queda");
+                }
                 return;
             }
             apuntar(
@@ -234,6 +252,7 @@ fn esta_a_la_vista(app: &AppHandle) -> bool {
 fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
     let nueva = app.get_webview_window(TRAY_MENU_LABEL).is_none();
     apuntar(app, if nueva { "clic: se abre por primera vez" } else { "clic: se abre" });
+    DEVUELTOS.store(0, Ordering::Relaxed);
     let window = ventana(app)?;
     let escala = window.scale_factor().unwrap_or(1.0);
     let medida = window
