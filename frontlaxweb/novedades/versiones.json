@@ -1,6 +1,31 @@
 {
   "versiones": [
     {
+      "version": "0.4.0",
+      "desde": null,
+      "fecha": "2026-11-12",
+      "es": {
+        "titulo": "Zooms a mano, fondos tuyos y tu cámara",
+        "puntos": [
+          "**Zooms a mano**: cada zoom es un bloque en la línea de tiempo que añades, mueves, alargas o quitas, y mientras grabas **Ctrl+Mayús+9** deja uno donde está el ratón. También se corta un trozo del medio y se aceleran los ratos lentos.",
+          "**Fondos tuyos** (una imagen, tu fondo de escritorio, cualquier color o un vídeo que avanza con la grabación) y **tu cámara**, donde quieras, en círculo o en cuadrado y con borde.",
+          "El **puntero**: suavizado nada, poco o mucho, sonido y onda en cada clic y estela, y se esconde y se acerca mientras escribes. Con los **estilos con nombre**, el mismo aspecto pasa a la siguiente grabación.",
+          "**Tapar datos** de un vídeo con un clic: correos, teléfonos, DNI, tarjetas y cuentas salen como bloques de mosaico que puedes quitar. Y el mosaico ya es lo bastante grueso para que no se adivinen los números.",
+          "**Capturas**: con scroll de una página larga, con fondo, aire y sombra, una miniatura en la esquina que se arrastra a cualquier app, marcas nuevas, códigos QR y un historial de todo lo que capturas."
+        ]
+      },
+      "en": {
+        "titulo": "Zooms you place, your own backgrounds and your webcam",
+        "puntos": [
+          "**Zooms you place**: every zoom is a block on the timeline that you add, move, stretch or remove, and while recording **Ctrl+Shift+9** drops one where the mouse is. You can also cut a piece out of the middle and speed up the slow parts.",
+          "**Your own backgrounds** (an image, your wallpaper, any colour or a video that moves with the recording) and **your webcam**, wherever you want it, in a circle or a square and with a border.",
+          "The **pointer**: smoothing none, little or a lot, a click sound and a ripple on every click, a motion trail, and it hides and zooms in while you type. With **named styles**, the same look carries over to the next recording.",
+          "**Cover up personal data** in a video with one click: emails, phone numbers, ID numbers, cards and accounts show up as mosaic blocks you can remove. And the mosaic is now coarse enough that the numbers cannot be guessed.",
+          "**Screenshots**: scrolling capture of a long page, a background with air and a shadow, a thumbnail in the corner that you can drag into any app, new marks, QR codes and a history of everything you captured."
+        ]
+      }
+    },
+    {
       "version": "0.3.8",
       "desde": null,
       "fecha": "2026-11-08",
