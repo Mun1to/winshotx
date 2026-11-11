@@ -527,4 +527,18 @@ export const EN: Record<string, string> = {
   // S3 (fondos)
   // S4 (capturas)
   // S5 (scroll)
+  "Captura con scroll": "Scrolling capture",
+  "Captura con scroll: baja la página y la junta en una imagen · S": "Scrolling capture: scrolls the page and joins it into one image · S",
+  "Recorta lo que se desplaza y winshotx lo bajará solo": "Select what scrolls and winshotx will scroll it for you",
+  "Bajando sola": "Scrolling by itself",
+  "Desplázala tú": "Scroll it yourself",
+  "Sube un poco, me he perdido": "Scroll back up a little, I lost track",
+  "No baja sola: desplázala tú": "It won't scroll by itself: scroll it yourself",
+  "Cosiendo…": "Stitching…",
+  "Lo que mide ya la imagen": "How tall the image is so far",
+  "Terminar y abrir en el editor": "Finish and open in the editor",
+  "Terminar": "Finish",
+  "Otra vez para tirar la captura": "Again to throw the capture away",
+  "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "That area is too small to scroll: select something bigger.",
+  "Ya hay una captura con scroll en marcha.": "A scrolling capture is already running.",
 };
