@@ -5,11 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Página no encontrada · winshotx</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#0b0b0d">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: dark; --fondo: #0b0b0d; --texto: #f2f2f4; --suave: #abacb8; --azul: #0a9bff; }
+  /* El tema lo pone el sistema, como en el resto de la web: sin boton y sin JavaScript. */
+  @media (prefers-color-scheme: light) {
+    :root { color-scheme: light; --fondo: #f7f7f9; --texto: #16161a; --suave: #45454f; --azul: #0a76c9; }
+  }
   body {
     margin: 0;
     min-height: 100vh;
@@ -18,24 +24,24 @@
     align-items: center;
     justify-content: center;
     gap: 1.25rem;
-    background: #0b0b0d;
-    color: #f2f2f4;
+    background: var(--fondo);
+    color: var(--texto);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     text-align: center;
     padding: 2rem;
   }
   img { width: 56px; height: 56px; }
   h1 { font-size: 1.4rem; margin: 0; }
-  p { margin: 0; color: #a3a3ac; max-width: 32ch; }
+  p { margin: 0; color: var(--suave); max-width: 32ch; }
   a {
-    color: #0A9BFF;
+    color: var(--azul);
     text-decoration: none;
-    border: 1px solid #0A9BFF;
+    border: 1px solid var(--azul);
     border-radius: 999px;
     padding: 0.6rem 1.4rem;
     font-weight: 600;
   }
-  a:hover { background: #0A9BFF; color: #0b0b0d; }
+  a:hover { background: var(--azul); color: var(--fondo); }
 </style>
 </head>
 <body>
