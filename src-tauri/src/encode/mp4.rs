@@ -167,6 +167,17 @@ where
             .send_frame_buffer(&buffer, timestamp)
             .map_err(|e| AppError::Msg(e.to_string()))?;
         let dura = delays_ms.get(position).copied().unwrap_or(33);
+        // Un fotograma largo (una pantalla quieta) se manda otra vez justo antes de que
+        // acabe. El codificador rellena el hueco hasta el siguiente con el SIGUIENTE, no con
+        // este: medido el 11 de noviembre de 2026, una pantalla roja de dos segundos y
+        // luego una verde salian como 33 ms de rojo y dos segundos de verde. Con el mismo
+        // fotograma al final de su rato, el relleno es él. Al comprimirlo no ocupa nada.
+        let intervalo = 1000 / options.fps.max(1);
+        if dura > intervalo * 2 {
+            encoder
+                .send_frame_buffer(&buffer, timestamp + i64::from(dura - intervalo) * 10_000)
+                .map_err(|e| AppError::Msg(e.to_string()))?;
+        }
         timestamp += dura as i64 * 10_000;
         ultimo = Some(buffer);
 

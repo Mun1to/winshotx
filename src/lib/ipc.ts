@@ -245,6 +245,18 @@ export const resizeTrayMenu = (height: number) =>
 
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S1 (línea de tiempo)
+/** La cámara con los zooms de la pista puestos, la misma que va a usar la exportación. */
+export const sessionCameraConZooms = (
+  sessionId: string,
+  zoom: number,
+  crop: Recorte | null,
+  zoomSpeed: number,
+  zooms: import("./contrato").TramoZoom[],
+) => invoke<MuestraCamara[]>("session_camera", { sessionId, zoom, crop, zoomSpeed, zooms });
+
+/** Los zooms que salen solos (los de los clics y los de la tecla de zoom), como bloques de la pista. */
+export const sessionZooms = (sessionId: string, zoom: number, crop: Recorte | null, zoomSpeed = 1) =>
+  invoke<import("./contrato").TramoZoom[]>("session_zooms", { sessionId, zoom, crop, zoomSpeed });
 // S2 (grabación)
 /** Una cámara conectada: con qué la reconoce Windows y cómo se llama. */
 export interface CamaraConectada {
