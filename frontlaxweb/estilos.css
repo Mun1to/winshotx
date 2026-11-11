@@ -344,6 +344,11 @@ h1 em { font-style: normal; color: var(--azul); }
 /* ---------- secciones ---------- */
 /* solo las secciones de la página; dentro de las demos hay <section> propias */
 body > section { padding: 74px 0; }
+/* Lo que esta fuera de la pantalla no se pinta hasta que llega. Ademas de ahorrar trabajo al
+   cargar, sin esto los lienzos de la demo se volvian a copiar en cada fotograma de la cruceta
+   aunque no se vieran: con la CPU a 4x la portada bajaba de 60 a 50 fotogramas. `auto` en el
+   tamano hace que, una vez vista, cada seccion recuerde lo que mide y el scroll no salte. */
+body > section { content-visibility: auto; contain-intrinsic-size: auto 900px; }
 h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03em; margin: 0 0 12px; font-weight: 700; }
 .entradilla { color: var(--suave); max-width: 65ch; }
 
@@ -1021,3 +1026,63 @@ nav .enlaces a.aqui { color: var(--texto); background: var(--realce-medio); }
   flex: 0 0 auto;
   padding-inline: 0.7rem;
 }
+
+/* ---------- la cruceta de la portada (cruceta.js) ----------
+   Va dentro de la cabecera, que la recorta, y las lineas por DETRAS de su contenido: pasan
+   por debajo del texto y de los botones, nunca encima. No recibe ni un clic. Cada pieza solo
+   se mueve con transform y opacity, que es lo que la tarjeta grafica mueve sin molestar a
+   la pagina; `contain` deja todo lo que pasa aqui dentro sin tocar el resto. */
+.portada > .env { position: relative; z-index: 1; }
+.cruceta {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  contain: strict; color: var(--azul);
+  /* El fundido hacia los bordes: la linea llega a ellos con el 30 % de su color. */
+  --cr-fundido: color-mix(in srgb, currentColor 30%, transparent);
+}
+/* Las etiquetas, las esquinas y la onda, por encima: son pequeñas, solo salen mientras
+   apuntas, y por detras del texto no se leian. */
+.cruceta-arriba { z-index: 2; }
+.cr-lineas, .cr-enganche { position: absolute; inset: 0; opacity: 0; will-change: opacity; }
+.cr-h, .cr-v { position: absolute; left: 0; top: 0; will-change: transform; }
+.cr-h { width: 100%; height: 1px; }
+.cr-v { width: 1px; height: 100%; }
+.cr-izq { transform-origin: 0 0; background: linear-gradient(to right, var(--cr-fundido), currentColor); }
+.cr-der { transform-origin: 100% 0; background: linear-gradient(to left, var(--cr-fundido), currentColor); }
+.cr-arr { transform-origin: 0 0; background: linear-gradient(to bottom, var(--cr-fundido), currentColor); }
+.cr-aba { transform-origin: 0 100%; background: linear-gradient(to top, var(--cr-fundido), currentColor); }
+/* Las etiquetas: en el azul de los botones, que con letra blanca da 4,7 de contraste. */
+/* Ancho fijo y aisladas con `contain`: cambiar el numero en cada fotograma no puede obligar a
+   recolocar nada, solo a repintar la propia etiqueta. Con ancho automatico, medido con la
+   CPU a 4x, eran lo que mas pesaba de la cruceta. */
+.cr-etq {
+  position: absolute; left: 0; top: 0; width: 48px; height: 20px; border-radius: 4px;
+  contain: strict; text-align: center;
+  background: var(--azul-boton); color: #fff; white-space: nowrap;
+  font: 600 12px/20px ui-sans-serif, system-ui, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums;
+  opacity: 0; will-change: transform, opacity;
+}
+.cr-enganche .cr-etq { width: 92px; opacity: 1; }
+/* Las cuatro esquinas del enganche, como las del logo. */
+.cr-esq {
+  position: absolute; left: 0; top: 0; width: 14px; height: 14px; opacity: .85;
+  border: 0 solid currentColor; transform-origin: 0 0; will-change: transform;
+}
+.cr-ai { border-top-width: 2px; border-left-width: 2px; }
+.cr-ad { border-top-width: 2px; border-right-width: 2px; }
+.cr-bd { border-bottom-width: 2px; border-right-width: 2px; }
+.cr-bi { border-bottom-width: 2px; border-left-width: 2px; }
+/* La onda del clic: crece de 3 a 33 px de radio y se apaga en 0,55 s, como la original. */
+.cr-onda {
+  position: absolute; width: 66px; height: 66px; margin: -33px 0 0 -33px; border-radius: 50%;
+  border: 1.5px solid currentColor; opacity: 0;
+  animation: cr-onda .55s cubic-bezier(.33, 1, .68, 1) forwards;
+}
+@keyframes cr-onda {
+  from { transform: scale(.09); opacity: .75; }
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* La valvula del movimiento, en el pie: un enlace normal, y el que se ve depende de si ya
+   esta puesta. Sin JavaScript no hay nada que parar, asi que se queda el primero. */
+.valvula.con-mov, html.quieto .valvula.sin-mov { display: none; }
+html.quieto .valvula.con-mov { display: inline; }

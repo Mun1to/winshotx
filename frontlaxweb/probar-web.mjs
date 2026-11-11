@@ -11,8 +11,8 @@
 //
 // La cruceta se mide con la CPU cuatro veces más lenta (lo que pide la casa para dar algo por
 // fluido): el ratón de Playwright cruza la portada durante dos segundos y se cuentan los
-// fotogramas que pinta su lienzo. También comprueba que el cursor del sistema sigue a la vista
-// y que con «?motion=off» se queda quieta.
+// fotogramas de la página y en cuántos se movió la cruceta. También comprueba que el cursor del sistema sigue a la vista,
+// que los clics pasan a través y que con «?motion=off» va pegada al ratón, sin suavizado.
 
 import { chromium, devices } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -83,12 +83,19 @@ if (medirCruceta) {
     await page.mouse.move(200, 300);
     await page.waitForTimeout(400);
 
-    // Cada `rAF` en el que el lienzo cambia de verdad cuenta como un fotograma pintado.
+    // Un fotograma es cada vuelta de `requestAnimationFrame` de la página: si la cruceta
+    // pesara, se alargarían. Y se apunta en cuántos de ellos se movió de verdad la línea.
     await page.evaluate(() => {
       window.__cuadros = [];
-      const lienzo = document.querySelector("canvas.cruceta");
-      if (!lienzo) return;
-      const contar = (t) => { window.__cuadros.push(t); if (!window.__parar) requestAnimationFrame(contar); };
+      window.__movidos = 0;
+      const linea = document.querySelector(".cr-izq");
+      let antes = "";
+      const contar = (t) => {
+        window.__cuadros.push(t);
+        const ahora = linea ? linea.style.transform : "";
+        if (ahora !== antes) { window.__movidos++; antes = ahora; }
+        if (!window.__parar) requestAnimationFrame(contar);
+      };
       requestAnimationFrame(contar);
     });
     const t0 = Date.now();
@@ -103,19 +110,19 @@ if (medirCruceta) {
       window.__parar = true;
       const c = window.__cuadros;
       const huecos = c.slice(1).map((t, k) => t - c[k]);
-      const lienzo = document.querySelector("canvas.cruceta");
+      const capa = document.querySelector(".cruceta");
       const cursor = getComputedStyle(document.body).cursor;
       const html = getComputedStyle(document.documentElement).cursor;
       return {
-        hay: !!lienzo,
-        visible: lienzo ? getComputedStyle(lienzo).display !== "none" && getComputedStyle(lienzo).opacity !== "0" : false,
+        hay: !!capa,
         cuadros: c.length,
+        movidos: window.__movidos,
         ms: c.length > 1 ? c[c.length - 1] - c[0] : 0,
         peor: huecos.length ? Math.max(...huecos) : 0,
         lentos: huecos.filter((h) => h > 20).length,
         cursorTapado: cursor === "none" || html === "none",
-        pointerEvents: lienzo ? getComputedStyle(lienzo).pointerEvents : "",
-        quieta: lienzo ? lienzo.dataset.quieta === "1" : false,
+        pointerEvents: capa ? getComputedStyle(capa).pointerEvents : "",
+        directa: capa ? capa.dataset.directo === "1" : false,
       };
     });
     await ctx.close();
@@ -126,13 +133,15 @@ if (medirCruceta) {
     const d = await medir(extra, cpu);
     const fps = d.ms ? (d.cuadros - 1) / (d.ms / 1000) : 0;
     console.log(
-      `cruceta ${que.padEnd(20)} ${d.hay ? "" : "NO HAY LIENZO  "}${fps.toFixed(1)} fps, peor hueco ${d.peor.toFixed(1)} ms, ` +
-        `${d.lentos} huecos de más de 20 ms; cursor ${d.cursorTapado ? "TAPADO" : "a la vista"}; ` +
-        `clics ${d.pointerEvents === "none" ? "pasan a través" : "LOS COGE EL LIENZO"}` +
-        `${extra ? `; ${d.quieta ? "se queda quieta" : "SE MUEVE"}` : ""}` +
+      `cruceta ${que.padEnd(20)} ${d.hay ? "" : "NO ESTÁ  "}${fps.toFixed(1)} fps, peor hueco ${d.peor.toFixed(1)} ms, ` +
+        `${d.lentos} huecos de más de 20 ms, la línea se movió en ${d.movidos} de ${d.cuadros}; ` +
+        `cursor ${d.cursorTapado ? "TAPADO" : "a la vista"}; ` +
+        `clics ${d.pointerEvents === "none" ? "pasan a través" : "SE LOS QUEDA LA CRUCETA"}` +
+        `${extra ? `; ${d.directa ? "pegada al ratón, sin suavizado ni onda" : "SIGUE CON SUAVIZADO"}` : ""}` +
         `${d.errores.length ? `  ERRORES: ${d.errores.join(" | ")}` : ""}`,
     );
-    if (!d.hay || d.cursorTapado || d.pointerEvents !== "none" || d.errores.length) fallos++;
+    if (!d.hay || !d.movidos || d.cursorTapado || d.pointerEvents !== "none" || d.errores.length) fallos++;
+    if (extra && !d.directa) fallos++;
   }
 }
 
