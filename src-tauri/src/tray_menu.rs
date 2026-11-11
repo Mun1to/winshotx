@@ -218,6 +218,7 @@ fn apuntar(app: &AppHandle, que: &str) {
 }
 
 pub fn esconder(app: &AppHandle) {
+    APARCADO_ESPERANDO.store(false, Ordering::Relaxed);
     if let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) {
         let _ = window.hide();
     }
@@ -248,12 +249,58 @@ fn esta_a_la_vista(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+/// Donde se aparca el menu mientras su pagina carga la primera vez: fuera de todas las
+/// pantallas, pero visible, para que el navegador de dentro pinte (escondido, Windows lo
+/// duerme, trampa 33). Es lo mismo que hacen los overlays.
+const APARCADO: (i32, i32) = (-20_000, -20_000);
+
+/// Lo que mide la pagina, como poco, cuando ya tiene el menu dentro. Antes de cargar mide
+/// cero (la caja vacia) y la ventana se queda en 80.
+const ALTO_CON_MENU: f64 = 120.0;
+
+/// Si la primera apertura sigue aparcada esperando a que la pagina se mida.
+static APARCADO_ESPERANDO: AtomicBool = AtomicBool::new(false);
+
+/// Lo que se espera a la pagina antes de sacar el menu aunque no se haya medido.
+const RESCATE_APARCADO: Duration = Duration::from_millis(1500);
+
 /// Lo coloca sobre el icono de la bandeja y lo ensenna.
+///
+/// **La primera vez no sale hasta que esta entero.** La ventana se crea en ese clic y su
+/// pagina tarda medio segundo en cargar: ensennada ya, salia vacia con 300 px, encogia a
+/// 80, crecia con el menu y volvia a crecer con las ultimas capturas, cuatro saltos delante
+/// de Munir («la primera como que parpadea pero no se abre bien»). Ahora se aparca fuera de
+/// las pantallas y es [`redimensionar`] quien la trae cuando la pagina mide el menu entero.
 fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
     let nueva = app.get_webview_window(TRAY_MENU_LABEL).is_none();
     apuntar(app, if nueva { "clic: se abre por primera vez" } else { "clic: se abre" });
     DEVUELTOS.store(0, Ordering::Relaxed);
     let window = ventana(app)?;
+    if nueva {
+        *ULTIMO_ANCLAJE.lock() = Some(anclaje);
+        APARCADO_ESPERANDO.store(true, Ordering::Relaxed);
+        let _ = window.set_position(PhysicalPosition::new(APARCADO.0, APARCADO.1));
+        crate::platform::window_style::fuera_de_la_captura(
+            &window,
+            app.state::<crate::state::AppState>().is_recording(),
+        );
+        window.show()?;
+        window.set_focus()?;
+        apuntar(app, "aparcado fuera de la pantalla hasta que la pagina se mida");
+        // Si la pagina no llega a medirse, el menu sale igual: sin el no se puede ni salir.
+        let suyo = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(RESCATE_APARCADO);
+            let en_el_principal = suyo.clone();
+            let _ = suyo.run_on_main_thread(move || {
+                if APARCADO_ESPERANDO.swap(false, Ordering::Relaxed) {
+                    apuntar(&en_el_principal, "la pagina no se ha medido a tiempo: se saca igual");
+                    colocar(&en_el_principal);
+                }
+            });
+        });
+        return Ok(());
+    }
     let escala = window.scale_factor().unwrap_or(1.0);
     let medida = window
         .outer_size()
@@ -318,6 +365,26 @@ pub fn redimensionar(app: &AppHandle, alto: f64) {
     let alto_px = (alto * escala).round().max(80.0) as u32;
     let _ = window.set_size(PhysicalSize::new(ancho, alto_px));
 
+    // La primera apertura, aparcada: solo sale cuando la pagina ya tiene el menu dentro.
+    if APARCADO_ESPERANDO.load(Ordering::Relaxed) {
+        if alto < ALTO_CON_MENU {
+            apuntar(app, &format!("la pagina mide {alto:.0}: aun vacia, sigue aparcado"));
+            return;
+        }
+        APARCADO_ESPERANDO.store(false, Ordering::Relaxed);
+        apuntar(app, &format!("la pagina mide {alto:.0}: se trae a su sitio"));
+    }
+    colocar(app);
+}
+
+/// Pone el menu encima del icono de la bandeja, con el alto que tenga ahora.
+fn colocar(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) else {
+        return;
+    };
+    // El mismo alto que se acaba de poner con `set_size`, que es el de dentro.
+    let Ok(medida) = window.inner_size() else { return };
+    let (ancho, alto_px) = (medida.width, medida.height);
     if let Some(anclaje) = *ULTIMO_ANCLAJE.lock() {
         let (x, y) = sitio_del_menu(
             anclaje,

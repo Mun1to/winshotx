@@ -1153,7 +1153,10 @@ pub async fn tray_menu_action(app: AppHandle, action: String) -> Result<()> {
 /// El alto que ha medido el menu, para que la ventana se ajuste a su contenido.
 #[tauri::command]
 pub async fn resize_tray_menu(app: AppHandle, height: f64) -> Result<()> {
-    crate::tray_menu::redimensionar(&app, height);
+    // En el hilo principal: mide y mueve la ventana, y preguntarle algo a una ventana desde
+    // el hilo de una orden espera sin plazo (trampa 34).
+    let suyo = app.clone();
+    let _ = app.run_on_main_thread(move || crate::tray_menu::redimensionar(&suyo, height));
     Ok(())
 }
 

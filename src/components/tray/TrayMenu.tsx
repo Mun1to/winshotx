@@ -42,6 +42,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 /** Cuantas capturas recientes caben en una fila sin que el menu crezca. */
 const CUANTAS_RECIENTES = 4;
 
+/** Lo que se espera al historial antes de pintar el menu sin el. */
+const ESPERA_HISTORIAL_MS = 250;
+
+const esperar = (ms: number) => new Promise<null>((listo) => window.setTimeout(() => listo(null), ms));
+
 /** «hace 3 min», que es lo unico que hace falta saber de cuando se hizo. */
 function hace(segundos: number, t: (texto: string, vars?: Record<string, string | number>) => string): string {
   if (segundos < 60) return t("hace un momento");
@@ -62,14 +67,19 @@ export function TrayMenu() {
   const [copiada, setCopiada] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
+    // Con la lista vacia si viene algo que no es una lista: el historial es lo ultimo
+    // del menu, y no puede tumbar las entradas de capturar y grabar, que son el menu.
+    const historial = ultimasCapturas(CUANTAS_RECIENTES)
+      .then((lista) => (Array.isArray(lista) ? lista : []))
+      .catch(() => [] as CapturaReciente[]);
     const [suyo, ajustes] = await Promise.all([trayMenuState(), getSettings()]);
-    // El historial se pide aparte y sin esperarlo: si la carpeta esta en un disco lento o
-    // en red, el menu tiene que abrirse igual de rapido y las miniaturas llegar despues.
-    void ultimasCapturas(CUANTAS_RECIENTES)
-      // Con la lista vacia si viene algo que no es una lista: el historial es lo ultimo
-      // del menu, y no puede tumbar las entradas de capturar y grabar, que son el menu.
-      .then((lista) => setRecientes(Array.isArray(lista) ? lista : []))
-      .catch(() => setRecientes([]));
+    // El historial se espera solo un momento: si la carpeta esta en un disco lento o en
+    // red, el menu tiene que abrirse igual de rapido y las miniaturas llegar despues. Pero
+    // lo normal es que llegue a la vez, y entonces el menu sale entero de una vez, sin
+    // crecer delante de quien lo abre (Munir, 11-nov-2026: «sigue fatal»).
+    const aTiempo = await Promise.race([historial, esperar(ESPERA_HISTORIAL_MS)]);
+    if (aTiempo) setRecientes(aTiempo);
+    else void historial.then(setRecientes);
     // El tema y el idioma se aplican aquí también: esta ventana nace aparte y no hereda
     // lo que haya pintado la de ajustes.
     aplicarTema(ajustes.theme);
