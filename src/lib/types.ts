@@ -285,7 +285,7 @@ export interface ExportRequest extends Edicion {
 
 import type { Anotacion } from "./anotaciones";
 import type { Recorte } from "./recorte";
-import type { CamaraGrabada, Edicion, MarcaZoom, TramoEscritura } from "./contrato";
+import type { CamaraGrabada, Edicion, FondoElegido, MarcaZoom, TramoEscritura } from "./contrato";
 
 /** Los fondos del marco. Unos pocos elegidos, no una rueda de color entera. */
 export type Background =
@@ -376,7 +376,7 @@ export interface Settings {
    * ciento del lado corto (0 = sin fondo) y `fondo`, uno de los del Estudio. Opcional
    * aquí porque Rust siempre lo manda y unos ajustes viejos no lo traen.
    */
-  marcoCapturas?: { aire: number; fondo: Background };
+  marcoCapturas?: { aire: number; fondo: Background; elegido?: FondoElegido | null };
   /** La miniatura de la esquina después de capturar una foto. */
   miniatura?: boolean;
   /** Cuántos segundos se queda la miniatura. 0 es hasta cerrarla. */
