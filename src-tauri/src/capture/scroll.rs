@@ -667,9 +667,10 @@ mod pruebas {
     }
 
     /// Lo cosido llega al editor como una foto (`recorder::session_from_image`), y de ahí
-    /// sale por «Guardar». Aquí se hace ese mismo viaje con una imagen larga de verdad:
-    /// la caché de fotogramas, la miniatura, leerla otra vez y escribir el PNG, y el PNG
-    /// tiene que ser la imagen cosida, píxel a píxel.
+    /// sale por «Guardar». Aquí se hace ese mismo viaje con una imagen larga de verdad: la
+    /// caché de fotogramas, la miniatura, y el PNG por `exporter::escribir`, que es lo que
+    /// hace «Guardar» (también enmarcar y anotar). El PNG tiene que ser la imagen cosida,
+    /// píxel a píxel.
     #[test]
     fn lo_cosido_sobrevive_a_la_cache_y_al_png() {
         let carpeta = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -717,7 +718,9 @@ mod pruebas {
         let leida = crate::record::read_frame(&sesion, 0).unwrap();
         assert_eq!(leida.as_raw(), cosida.as_raw(), "la caché ha cambiado la imagen");
         let png = dir.join("cosida.png");
-        crate::encode::png::save(&leida, &png, leida.width(), leida.height()).unwrap();
+        let mut peticion = crate::recorder::peticion_por_defecto(&sesion);
+        peticion.format = "png".into();
+        crate::exporter::escribir(&sesion, &peticion, &png, &|_, _, _| {}).unwrap();
         let releida = image::open(&png).unwrap().to_rgba8();
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(releida.dimensions(), (480, 2172));

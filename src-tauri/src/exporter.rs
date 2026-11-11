@@ -827,7 +827,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
 /// la aplicacion abierta, y por eso se puede probar de punta a punta con una sesion de
 /// verdad en el disco: lo de antes y lo de despues (elegir el nombre, el portapapeles) vive
 /// en `export`.
-fn escribir(
+pub(crate) fn escribir(
     session: &SessionData,
     request: &ExportRequest,
     path: &Path,
