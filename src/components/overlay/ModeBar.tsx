@@ -1,4 +1,4 @@
-import { Camera, Monitor, PanelBottom, Settings, Video, X } from "lucide-react";
+import { Camera, Monitor, PanelBottom, ScrollText, Settings, Video, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { useT } from "../../lib/i18n";
 
@@ -20,6 +20,12 @@ interface Props {
   /** Si al soltar el recorte sale la barra para elegir qué hacer con él. */
   conBarra: boolean;
   onConBarra: (valor: boolean) => void;
+  /**
+   * La captura con scroll: al soltar el recorte, winshotx baja la página y la cose en una
+   * imagen larga. Solo en foto. Sin `onConScroll` el botón no sale.
+   */
+  conScroll?: boolean;
+  onConScroll?: (valor: boolean) => void;
   /** Abre los ajustes de winshotx, cerrando la captura. */
   onAjustes: () => void;
   onCancel: () => void;
@@ -45,6 +51,8 @@ export function ModeBar({
   onPantallaEntera,
   conBarra,
   onConBarra,
+  conScroll = false,
+  onConScroll,
   onAjustes,
   onCancel,
   dimmed,
@@ -102,6 +110,20 @@ export function ModeBar({
           <Monitor className="size-[19px]" />
         </Boton>
 
+        {/* Al lado de «Pantalla entera» porque es lo mismo: DE DÓNDE sale la foto. Esta,
+            de una página más larga que la pantalla, que winshotx baja y cose sola. Solo
+            en foto: un vídeo de una página que baja ya es grabar. */}
+        {value === "still" && onConScroll && (
+          <Boton
+            activo={conScroll}
+            onClick={() => onConScroll(!conScroll)}
+            etiqueta="Captura con scroll"
+            titulo="Captura con scroll: baja la página y la junta en una imagen · S"
+          >
+            <ScrollText className="size-[19px]" />
+          </Boton>
+        )}
+
         <span className="mx-1 h-6 w-px bg-white/10" />
 
         {/* Y el tercer eje: que pasa DESPUES de soltar. Encendido sale la barra de la
@@ -109,8 +131,9 @@ export function ModeBar({
             sola y la captura se cierra. Estaba solo en los ajustes, dos ventanas mas
             alla, cuando es una decision que se cambia captura a captura. Grabando no
             pinta nada: en video y en GIF la barra siempre sale, porque es donde se
-            ajusta el recuadro antes de empezar. */}
-        {value === "still" && (
+            ajusta el recuadro antes de empezar. Con scroll tampoco: lo cosido va siempre
+            al editor, porque hay que ver que ha salido bien antes de mandarlo a nadie. */}
+        {value === "still" && !conScroll && (
           <Boton
             activo={conBarra}
             onClick={() => onConBarra(!conBarra)}

@@ -13,9 +13,11 @@ import {
   openSettings,
   overlayBootstrap,
   overlayListo,
+  scrollIniciar,
   setCaptureFlow,
   startRecording,
 } from "../../lib/ipc";
+import { EVENTO_SCROLL_MODO } from "../../lib/scroll";
 import { clamp } from "../../lib/format";
 import { useT } from "../../lib/i18n";
 import {
@@ -239,6 +241,26 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     },
     [difundir],
   );
+  /**
+   * La captura con scroll: al soltar el recorte no se hace una foto, se baja la página y
+   * se cose (`capture::scroll`). Se enciende en todas las pantallas a la vez, como lo
+   * demás de la barra de arriba, y se apaga sola en cada captura nueva: quien la usa una
+   * vez no quiere encontrársela puesta en la siguiente foto de todos los días.
+   */
+  const [conScroll, setConScroll] = useState(false);
+  const conScrollRef = useRef(false);
+  conScrollRef.current = conScroll;
+  const cambiarScroll = useCallback(
+    (valor: boolean) => {
+      // Aquí mismo y a las demás pantallas: el evento vuelve también a esta, y poner
+      // dos veces el mismo valor no hace nada.
+      setConScroll(valor);
+      if (valor) setPantallaEntera(false);
+      void emit(EVENTO_SCROLL_MODO, valor);
+      if (valor) difundir({ mode: "still", fullScreen: false });
+    },
+    [difundir],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -321,6 +343,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     setSelection(null);
     setMode({ kind: "idle" });
     setPantallaEntera(false);
+    setConScroll(false);
     setBusy(false);
     // `conBarra` NO se reinicia aqui: lo pone el payload unas lineas mas abajo con lo que
     // digan los ajustes, y ponerlo a un valor de fabrica antes seria ensennar la barra
@@ -489,6 +512,23 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const ultimaRegionRef = useRef<Rect | null>(null);
   ultimaRegionRef.current = ultimaRegion;
 
+  /** La captura con scroll de esa zona: Rust cierra el overlay y se pone a bajar. */
+  const empezarScroll = useCallback(
+    async (rect: Rect) => {
+      if (!payload || busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await scrollIniciar(toPhysical(rect));
+      } catch (e) {
+        setError(String(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [payload, busy, toPhysical],
+  );
+
   const capturarTodasLasPantallas = useCallback(
     async (action: StillAction) => {
       if (busy) return;
@@ -617,8 +657,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           return;
         case "Enter":
           e.preventDefault();
-          // Enter hace lo que diga la barra de arriba: copiar la foto, o empezar a grabar.
-          if (modo !== "still") {
+          // Enter hace lo que diga la barra de arriba: copiar la foto, empezar a grabar o
+          // empezar a bajar la página.
+          if (modo === "still" && conScrollRef.current) {
+            if (selectionRef.current) void empezarScroll(selectionRef.current);
+          } else if (modo !== "still") {
             if (selectionRef.current) void grabarRegion(selectionRef.current, modo);
           } else {
             void runStill("copy");
@@ -648,6 +691,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       } else if (key === "s" && e.ctrlKey) {
         e.preventDefault();
         void runStill("save");
+      } else if (key === "s") {
+        // La captura con scroll. Solo en foto, como su botón.
+        if (modoRef.current === "still") cambiarScroll(!conScrollRef.current);
       } else if (key === "a" && e.ctrlKey) {
         e.preventDefault();
         const todo = { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
@@ -737,6 +783,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     grabarRegion,
     difundir,
     cambiarBarra,
+    cambiarScroll,
+    empezarScroll,
   ]);
 
   const readHex = useCallback(
@@ -789,7 +837,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         // Al soltar manda el modo elegido arriba: grabar empieza aqui mismo, y la foto
         // solo se copia sola si ese es el perfil. Si no, sale la barra de la seleccion.
         if (elegido) {
-          if (modo !== "still") void grabarRegion(elegido, modo);
+          // Con scroll, al soltar empieza a bajar: no hay nada que elegir antes.
+          if (modo === "still" && conScrollRef.current) void empezarScroll(elegido);
+          else if (modo !== "still") void grabarRegion(elegido, modo);
           // La tecla del editor no pregunta: quien la pulsa ya sabe que va a anotar, y
           // pararse en la barra a elegir «editar» seria un clic de mas en el unico sitio
           // donde no hace falta decidir nada.
@@ -808,7 +858,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [mode, readHex, alVuelo, alEditor, modo, capturarRegion, grabarRegion]);
+  }, [mode, readHex, alVuelo, alEditor, modo, capturarRegion, grabarRegion, empezarScroll]);
 
   /** Se lleva esta pantalla entera con lo que diga la barra: foto, video o GIF. */
   const llevarsePantalla = useCallback(async () => {
@@ -844,6 +894,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       setPantallaEntera(p.fullScreen);
       setConBarra(p.withToolbar);
       if (p.fullScreen) setSelection(null);
+      // El scroll es de foto y de un recorte: grabar o coger la pantalla entera lo apaga.
+      if (p.mode !== "still" || p.fullScreen) setConScroll(false);
+    });
+    const scroll = listen<boolean>(EVENTO_SCROLL_MODO, ({ payload: valor }) => {
+      setConScroll(valor);
+      if (valor) setPantallaEntera(false);
     });
     const numeros = listen<number>(EVENTS.overlayTakeScreen, ({ payload: n }) => {
       if (n === numeroPantalla.current) void llevarsePantalla();
@@ -851,6 +907,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     return () => {
       void modos.then((fn) => fn());
       void numeros.then((fn) => fn());
+      void scroll.then((fn) => fn());
     };
   }, [llevarsePantalla]);
 
@@ -1036,7 +1093,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       )}
 
       <AnimatePresence>
-        {active && mode.kind === "idle" && !alVuelo && !alEditor && (
+        {active && mode.kind === "idle" && !alVuelo && !alEditor && !conScroll && (
           <FloatingToolbar
             key="toolbar"
             left={clamp(active.x + active.width / 2, 190, window.innerWidth - 190)}
@@ -1116,6 +1173,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         </div>
       )}
 
+      {/* Lo que hace la captura con scroll, mientras se elige la zona: sin esto, el botón
+          encendido no dice qué va a pasar al soltar. */}
+      {conScroll && cursorAqui && !active && mode.kind === "idle" && !error && (
+        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center">
+          <div className="rounded-xl border border-white/10 bg-neutral-900/90 px-4 py-2.5 text-[14px] text-neutral-100 shadow-2xl backdrop-blur-md">
+            {t("Recorta lo que se desplaza y winshotx lo bajará solo")}
+          </div>
+        </div>
+      )}
+
       {pantallaEntera && !active && (
         <ScreenPicker
           numero={payload.screenNumber}
@@ -1137,6 +1204,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           onPantallaEntera={(v) => difundir({ fullScreen: v })}
           conBarra={conBarra}
           onConBarra={cambiarBarra}
+          conScroll={conScroll}
+          onConScroll={cambiarScroll}
           onAjustes={() => void openSettings()}
           onCancel={() => void cancelCapture()}
           dimmed={mode.kind !== "idle"}

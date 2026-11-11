@@ -541,4 +541,18 @@ export const ZH: Record<string, string> = {
   // S3 (fondos)
   // S4 (capturas)
   // S5 (scroll)
+  "Captura con scroll": "滚动截图",
+  "Captura con scroll: baja la página y la junta en una imagen · S": "滚动截图：滚动页面并拼成一张图 · S",
+  "Recorta lo que se desplaza y winshotx lo bajará solo": "框选会滚动的区域，winshotx 会自动向下滚动",
+  "Bajando sola": "正在自动滚动",
+  "Desplázala tú": "请你自己滚动",
+  "Sube un poco, me he perdido": "往回滚一点，我跟丢了",
+  "No baja sola: desplázala tú": "无法自动滚动：请你自己滚动",
+  "Cosiendo…": "正在拼接…",
+  "Lo que mide ya la imagen": "图片目前的高度",
+  "Terminar y abrir en el editor": "完成并在编辑器中打开",
+  "Terminar": "完成",
+  "Otra vez para tirar la captura": "再按一次丢弃这次截图",
+  "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "这个区域太小，无法滚动：请框选大一点的区域。",
+  "Ya hay una captura con scroll en marcha.": "已经有一个滚动截图在进行中。",
 };

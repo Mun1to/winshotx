@@ -307,6 +307,9 @@ pub fn run() {
             // S3 (fondos)
             // S4 (capturas)
             // S5 (scroll)
+            capture::scroll::scroll_iniciar,
+            capture::scroll::scroll_terminar,
+            capture::scroll::scroll_descartar,
         ])
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")

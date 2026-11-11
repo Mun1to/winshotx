@@ -257,3 +257,12 @@ export const listCameras = () => invoke<CamaraConectada[] | null>("list_cameras"
 // S3 (fondos)
 // S4 (capturas)
 // S5 (scroll)
+/**
+ * Empieza la captura con scroll de esa zona, en píxeles del escritorio virtual. Rust
+ * cierra el overlay, pone el marco y la barra y baja la página; vuelve enseguida.
+ */
+export const scrollIniciar = (region: Rect) => invoke<void>("scroll_iniciar", { region });
+/** Para la captura con scroll y abre en el editor lo que lleve. */
+export const scrollTerminar = () => invoke<void>("scroll_terminar");
+/** Para la captura con scroll y la tira. */
+export const scrollDescartar = () => invoke<void>("scroll_descartar");
