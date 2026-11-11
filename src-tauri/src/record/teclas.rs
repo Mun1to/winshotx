@@ -648,11 +648,20 @@ mod tests {
     #[test]
     fn leer_el_teclado_entero_cuesta_poco() {
         let vueltas = 200;
-        let inicio = std::time::Instant::now();
-        for _ in 0..vueltas {
-            std::hint::black_box(Foto::leer());
-        }
-        let por_vuelta = inicio.elapsed() / vueltas;
+        // La mejor de veinte tandas de diez, y no la media de las doscientas: con las demás
+        // pruebas corriendo a la vez y otras compilaciones en la máquina, la media pasó del
+        // milisegundo una vez (11-nov-2026) leyendo 250 µs a solas. Lo más rápido que sale
+        // es lo que cuesta leer; lo que sobra es la máquina ocupada en otra cosa.
+        let por_vuelta = (0..20)
+            .map(|_| {
+                let inicio = std::time::Instant::now();
+                for _ in 0..10 {
+                    std::hint::black_box(Foto::leer());
+                }
+                inicio.elapsed() / 10
+            })
+            .min()
+            .unwrap();
         // Y con el lector, que no pregunta tecla por tecla si nadie ha tocado nada.
         let mut lector = Lector::default();
         let inicio = std::time::Instant::now();
