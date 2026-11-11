@@ -52,7 +52,7 @@ const ancho = bandera("ancho", "840");
 // Estuvo en 640 mientras la ventana medía 510, así que las fotos enseñaban 130 px de más
 // y una sección que se salía por abajo parecía caber. Si se cambia el alto de la ventana,
 // se cambia aquí.
-const alto = bandera("alto", "620");
+const alto = bandera("alto", "760");
 const bienvenida = args.includes("--bienvenida");
 // Win+Mayús+S pedida pero todavía no conseguida, que es cuando sale el botón de aplicar.
 const teclaPendiente = args.includes("--tecla-pendiente");

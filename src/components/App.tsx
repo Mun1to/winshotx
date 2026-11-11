@@ -47,8 +47,9 @@ export function App() {
     // 17 de octubre: con el anillo encendido, «Los ultimos segundos» son seis filas y la
     // seccion se cortaba a media fila. Ninguna pantalla de ajustes lleva rueda, esa es la
     // regla; si el contenido no cabe, se agranda la ventana o se compacta el contenido, y
-    // aqui se han hecho las dos cosas.
-    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 620));
+    // aqui se han hecho las dos cosas. Y de 620 a 760 el 11 de noviembre de 2026: la tecla de
+    // zoom y «La camara» dejaron la pestanna Grabar cortada por abajo.
+    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 760));
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-lienzo" />;

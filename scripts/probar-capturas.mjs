@@ -18,7 +18,7 @@
  *  2. El historial: la quinta pestaña, la rejilla con sus miniaturas y sus fechas, y las
  *     acciones al pasar el ratón.
  *  3. «Después de capturar» en Capturar, y que la pestaña sigue cabiendo sin rueda en la
- *     ventana de 840 x 620 que pide `tauri.conf.json`.
+ *     ventana de 840 x 760 que pide `tauri.conf.json`.
  *
  * Lo que NO puede probar: soltar la miniatura en WhatsApp. Eso es el arrastre de Windows
  * (OLE) con un ratón de verdad sobre otra app, y solo lo puede mirar Munir.
@@ -260,7 +260,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
 // ── 2. El historial ────────────────────────────────────────────────────────────────
 for (const tema of ["oscuro", "claro"]) {
   console.log(`\nEl historial en la ventana de ajustes, tema ${tema}`);
-  const pagina = await navegador.newPage({ viewport: { width: 840, height: 620 } });
+  const pagina = await navegador.newPage({ viewport: { width: 840, height: 760 } });
   pagina.on("pageerror", (e) => fallos.push(`error en la página: ${e.message}`));
   await pagina.addInitScript((t) => localStorage.setItem("winshotx.tema", t), tema);
   await pagina.goto(`${base}/index.html`);
@@ -295,7 +295,7 @@ for (const tema of ["oscuro", "claro"]) {
 // rueda en el otro.
 for (const idioma of ["es", "en"]) {
   console.log(`\nDespués de capturar, en la pestaña de Capturar, en ${idioma}`);
-  const pagina = await navegador.newPage({ viewport: { width: 840, height: 620 } });
+  const pagina = await navegador.newPage({ viewport: { width: 840, height: 760 } });
   pagina.on("pageerror", (e) => fallos.push(`error en la página: ${e.message}`));
   await pagina.addInitScript((i) => localStorage.setItem("winshotx.idioma", i), idioma);
   await pagina.goto(`${base}/index.html`);
@@ -309,7 +309,7 @@ for (const idioma of ["es", "en"]) {
     const el = document.querySelector("[data-scroll-ajustes]");
     return el.scrollHeight - el.clientHeight;
   });
-  comprueba(rueda <= 0, `con el fondo puesto, la pestaña cabe sin rueda en 840 x 620 (${rueda} px de más)`);
+  comprueba(rueda <= 0, `con el fondo puesto, la pestaña cabe sin rueda en 840 x 760 (${rueda} px de más)`);
   comprueba(await pagina.getByRole("radiogroup").isVisible(), "con fondo puesto sale la fila del color");
   await foto(pagina, `6-despues-de-capturar-${idioma}.png`);
   if (idioma !== "es") {
