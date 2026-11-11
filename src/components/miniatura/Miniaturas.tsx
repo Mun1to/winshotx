@@ -36,6 +36,11 @@ export const ALTO_CARTA = 150;
 
 /** Cuánto hay que mover el ratón con el botón pulsado para que sea arrastrar y no un clic. */
 const UMBRAL_ARRASTRE = 5;
+/**
+ * Lo mismo empezando encima de «Copiar», «Guardar» o un icono: algo más, para que un clic
+ * con el pulso un poco movido siga siendo un clic.
+ */
+const UMBRAL_DESDE_UN_BOTON = 12;
 
 export function Miniaturas() {
   const [pila, setPila] = useState<PilaMiniaturas>({ lista: [], segundos: 10 });
@@ -76,7 +81,9 @@ function Carta({ miniatura, segundos }: { miniatura: MiniaturaVista; segundos: n
   const [encima, setEncima] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
   const [aviso, setAviso] = useState<{ texto: string; malo: boolean } | null>(null);
-  const inicio = useRef<{ x: number; y: number } | null>(null);
+  const inicio = useRef<{ x: number; y: number; enBoton: boolean } | null>(null);
+  /** Si esta pulsación ya se ha convertido en arrastre: entonces no es el clic de un botón. */
+  const arrastro = useRef(false);
 
   const cerrar = useCallback(() => void miniaturaCerrar(id).catch(() => {}), [id]);
 
@@ -107,18 +114,34 @@ function Carta({ miniatura, segundos }: { miniatura: MiniaturaVista; segundos: n
   // Arrastrar empieza al moverse con el botón pulsado, no al pulsar: así un clic en un
   // botón sigue siendo un clic. Y se pide a Rust con el botón todavía abajo, que es lo
   // que espera el arrastre de Windows.
+  //
+  // **También empezando encima de un botón.** Con el ratón encima, «Copiar» y «Guardar»
+  // ocupan el centro de la carta, que es justo por donde la coge todo el mundo, y antes
+  // pulsar ahí y moverse no hacía nada (probado en pantalla el 12 de noviembre de 2026).
   const alPulsar = (e: React.PointerEvent) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
-    inicio.current = { x: e.clientX, y: e.clientY };
+    if (e.button !== 0) return;
+    arrastro.current = false;
+    const enBoton = (e.target as HTMLElement).closest("button") !== null;
+    inicio.current = { x: e.clientX, y: e.clientY, enBoton };
   };
   const alMover = (e: React.PointerEvent) => {
     if (arrastrando && e.buttons === 0) setArrastrando(false);
     const desde = inicio.current;
     if (!desde || (e.buttons & 1) === 0) return;
-    if (Math.hypot(e.clientX - desde.x, e.clientY - desde.y) < UMBRAL_ARRASTRE) return;
+    const umbral = desde.enBoton ? UMBRAL_DESDE_UN_BOTON : UMBRAL_ARRASTRE;
+    if (Math.hypot(e.clientX - desde.x, e.clientY - desde.y) < umbral) return;
     inicio.current = null;
+    arrastro.current = true;
     setArrastrando(true);
     void hacer(() => miniaturaArrastrar(id), null);
+  };
+  // El arrastre de Windows se queda con el soltar, pero por si alguno llega al botón de
+  // debajo: un arrastre no es un clic, y no copia ni guarda nada.
+  const sinClicTrasArrastrar = (e: React.MouseEvent) => {
+    if (!arrastro.current) return;
+    arrastro.current = false;
+    e.stopPropagation();
+    e.preventDefault();
   };
   const alSoltar = () => {
     inicio.current = null;
@@ -136,6 +159,7 @@ function Carta({ miniatura, segundos }: { miniatura: MiniaturaVista; segundos: n
       onPointerDown={alPulsar}
       onPointerMove={alMover}
       onPointerUp={alSoltar}
+      onClickCapture={sinClicTrasArrastrar}
       title={t("Arrástrala a cualquier app")}
       style={{ width: ANCHO_CARTA, height: ALTO_CARTA }}
       className="group relative shrink-0 cursor-grab overflow-hidden rounded-md bg-black active:cursor-grabbing"

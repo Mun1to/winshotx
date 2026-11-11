@@ -3,8 +3,8 @@
  *
  * Esta ventana no se abre en el escritorio de nadie para probarla: todo lo que hace se
  * comprueba aquí, con Rust de mentira. Lo que se mira es lo que se rompe sin que se vea en
- * una foto: que arrastrar se pida a Rust solo al moverse con el botón pulsado (y no al hacer
- * clic en un botón), que cada botón pida su orden con SU miniatura, y que se vaya sola al
+ * una foto: que arrastrar se pida a Rust solo al moverse con el botón pulsado (también
+ * empezando encima de un botón, y nunca con un clic), que cada botón pida su orden con SU miniatura, y que se vaya sola al
  * rato pero no con el ratón encima.
  */
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -120,8 +120,23 @@ describe("arrastrar a otra app", () => {
     fireEvent.pointerEnter(c);
     const copiar = screen.getAllByText("Copiar")[0];
     fireEvent.pointerDown(copiar, { button: 0, buttons: 1, clientX: 100, clientY: 70 });
-    fireEvent.pointerMove(c, { buttons: 1, clientX: 120, clientY: 80 });
+    fireEvent.pointerMove(c, { buttons: 1, clientX: 106, clientY: 74 });
     expect(pedidas("miniatura_arrastrar")).toHaveLength(0);
+    fireEvent.click(copiar);
+    expect(pedidas("miniatura_copiar")).toHaveLength(1);
+  });
+
+  it("cogida por «Copiar» y movida de verdad, se arrastra y no copia", async () => {
+    // Con el ratón encima, los botones ocupan el centro: es por donde la coge todo el mundo.
+    await pintar();
+    const c = carta(7);
+    fireEvent.pointerEnter(c);
+    const copiar = screen.getAllByText("Copiar")[0];
+    fireEvent.pointerDown(copiar, { button: 0, buttons: 1, clientX: 100, clientY: 70 });
+    fireEvent.pointerMove(c, { buttons: 1, clientX: 120, clientY: 80 });
+    expect(pedidas("miniatura_arrastrar")).toEqual([{ comando: "miniatura_arrastrar", args: { id: 7 } }]);
+    fireEvent.click(copiar);
+    expect(pedidas("miniatura_copiar")).toHaveLength(0);
   });
 });
 
