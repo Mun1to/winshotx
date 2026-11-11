@@ -307,6 +307,26 @@ fn tapar_foto(session: &SessionData, request: &ExportRequest, mut imagen: image:
     imagen
 }
 
+/// La foto (PNG o JPG) de un fotograma de una grabación con webcam lleva la cara de su
+/// instante en su sitio, que es lo que enseña la vista previa al pararse ahí. `lienzo` es lo
+/// que mide la foto ya enmarcada. Sin cámara pedida o grabada, la imagen sale tal cual.
+fn camara_en_la_foto(
+    session: &SessionData,
+    request: &ExportRequest,
+    mut imagen: image::RgbaImage,
+    lienzo: (u32, u32),
+) -> image::RgbaImage {
+    let Some(f) = session.frames.get(request.from) else {
+        return imagen;
+    };
+    if let Some(mut webcam) =
+        crate::encode::camara_estudio::Webcam::nueva(session, request.edicion.camara.as_ref(), lienzo)
+    {
+        webcam.pintar(&mut imagen, f.timestamp_ms);
+    }
+    imagen
+}
+
 /// S9 (presets y tapar): tapar datos en un vídeo, por `escribir` y hasta el MP4.
 #[cfg(test)]
 #[path = "exporter_tapar.rs"]
@@ -831,6 +851,7 @@ fn escribir(
             // Una foto no tiene zoom: la camara solo tiene sentido con el tiempo pasando.
             let recortes: Vec<Recorte> = request.crop.into_iter().collect();
             let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
+            let image = camara_en_la_foto(session, request, image, (ancho_final, alto_final));
             png::save(&image, path, ancho_final, alto_final)?;
         }
         // El mismo fotograma, pero pesando cinco o diez veces menos. Es lo que hace falta
@@ -842,6 +863,7 @@ fn escribir(
             let image = tapar_foto(session, request, image);
             let recortes: Vec<Recorte> = request.crop.into_iter().collect();
             let image = enmarcar_y_anotar(image, width, height, marco, &request.annotations, &recortes, None);
+            let image = camara_en_la_foto(session, request, image, (ancho_final, alto_final));
             jpg::save(&image, path, ancho_final, alto_final, request.quality)?;
         }
         "gif" => {

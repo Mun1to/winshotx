@@ -454,6 +454,55 @@ fn una_camara_rota_no_tira_la_exportacion() {
     );
 }
 
+/// Una foto (PNG o JPG) de una grabación con cámara lleva la cara de su instante en su sitio,
+/// como la vista previa parada ahí; sin pedirla, la pantalla tal cual.
+#[cfg(windows)]
+#[test]
+fn la_foto_lleva_la_camara_de_su_instante() {
+    let mut session = sesion("foto", 2_000);
+    if !con_camara(&mut session, 2, 0) {
+        return;
+    }
+    for formato in ["png", "jpg"] {
+        let leer = |marco: Option<MarcoCamara>, nombre: &str| {
+            let destino = session.dir.join(format!("{nombre}.{formato}"));
+            escribir(&session, &peticion(&session, formato, marco), &destino, &|_, _, _| {})
+                .expect("exportar la foto ha fallado");
+            image::open(&destino).expect("leer la foto").to_rgba8()
+        };
+        let con = leer(Some(marco_de_prueba()), "con");
+        let sin = leer(None, "sin");
+        println!("{formato}: el centro de la cara es {:?}", con.get_pixel(224, 90).0);
+        assert!(es_rojo(con.get_pixel(224, 90)), "{formato}: la cara de los 0 s es roja: {:?}", con.get_pixel(224, 90));
+        assert!(es_gris(con.get_pixel(164, 30)), "{formato}: en círculo, la esquina de su caja es pantalla");
+        assert!(es_gris(con.get_pixel(60, 90)), "{formato}: fuera de la cara, la pantalla");
+        assert!(es_gris(sin.get_pixel(224, 90)), "{formato}: sin pedirla no sale");
+    }
+    let _ = std::fs::remove_dir_all(&session.dir);
+}
+
+/// Lo que se guarda sin pasar por el editor lleva la cámara si se grabó, la de fábrica, y sin
+/// ella nada cambia.
+#[test]
+fn guardar_sin_editor_lleva_la_camara_si_se_grabo() {
+    let mut session = sesion("sin-editor", 500);
+    assert!(crate::recorder::peticion_por_defecto(&session).edicion.camara.is_none());
+    session.camara = Some(CamaraGrabada {
+        archivo: "camara.mp4".into(),
+        ancho: 640,
+        alto: 480,
+        desfase_ms: 0,
+    });
+    // `MarcoCamara` no se compara (es del contrato y lleva números con decimales): se mira
+    // tal cual viaja.
+    let json = |m: Option<MarcoCamara>| serde_json::to_value(m).unwrap();
+    assert_eq!(
+        json(crate::recorder::peticion_por_defecto(&session).edicion.camara),
+        json(Some(camara_estudio::de_fabrica(ANCHO, ALTO)))
+    );
+    let _ = std::fs::remove_dir_all(&session.dir);
+}
+
 /// Lo que se le da al editor: la ruta entera del archivo, y nada si no está.
 #[test]
 fn el_editor_recibe_la_ruta_solo_si_existe() {

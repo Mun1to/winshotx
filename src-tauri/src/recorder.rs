@@ -863,7 +863,16 @@ pub(crate) fn peticion_por_defecto(session: &SessionData) -> crate::exporter::Ex
         corners: 0,
         volume: 1.0,
         zoom_speed: 1.0,
-        edicion: Default::default(),
+        // Lo que se guarda sin pasar por el editor lleva la webcam si se grabó, donde la pone
+        // el editor sin tocar nada: en una esquina, en círculo y pequeña. Sin esto la cámara
+        // encendida al grabar no salía en el archivo.
+        edicion: crate::contrato::Edicion {
+            camara: session
+                .camara
+                .is_some()
+                .then(|| crate::encode::camara_estudio::de_fabrica(session.width, session.height)),
+            ..Default::default()
+        },
         destination: None,
         copy_to_clipboard: false,
     }
