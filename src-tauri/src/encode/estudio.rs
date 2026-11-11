@@ -14,6 +14,7 @@ use std::collections::HashMap;
 
 use image::RgbaImage;
 
+use crate::contrato::{Suavizado, TramoEscritura};
 use crate::encode::recorte::Recorte;
 use crate::encode::zoom::Clic;
 use crate::record::{pastilla, realce, teclas::Atajo};
@@ -40,6 +41,8 @@ pub struct Fuente<'a> {
     pub cambios_puntero: &'a [(u64, u32)],
     /// Cuándo se movió el ratón (ver `movimientos`), para saber cuánto lleva quieto.
     pub movimientos: &'a [u64],
+    /// Los ratos en que se escribió, para esconder el puntero mientras tanto (C2).
+    pub escritura: &'a [TramoEscritura],
 }
 
 impl Fuente<'static> {
@@ -52,6 +55,7 @@ impl Fuente<'static> {
         punteros: &[],
         cambios_puntero: &[],
         movimientos: &[],
+        escritura: &[],
     };
 }
 
@@ -79,11 +83,34 @@ pub struct Ajustes {
     pub suave: bool,
     /// Esconder el puntero cuando lleva un rato quieto (ver `opacidad_del_puntero`).
     pub esconder: bool,
+    /// Cuánto se suaviza, si se eligió (C1). Cuando viene, manda sobre `suave`.
+    pub suavizado: Option<Suavizado>,
+    /// Esconder el puntero mientras se escribe (ver `opacidad_al_escribir`, C2).
+    pub esconder_al_escribir: bool,
+    /// Una onda en cada clic, además del aro (ver `onda_en`, C4).
+    pub onda: bool,
+    /// La estela al moverse, de 0 a 1 (ver `estela_del_puntero`, A4). Cero es apagada.
+    pub estela: f32,
 }
 
 impl Ajustes {
     pub fn hay_algo(&self) -> bool {
-        self.clics || self.teclas || self.cursor > 0.0
+        self.clics || self.teclas || self.cursor > 0.0 || self.onda || self.estela() > 0.0
+    }
+
+    /// El suavizado que manda: el elegido, o si no, el del interruptor de antes.
+    pub fn suavizado(&self) -> Suavizado {
+        self.suavizado
+            .unwrap_or(if self.suave { Suavizado::Poco } else { Suavizado::Nada })
+    }
+
+    /// La fuerza de la estela, acotada. Un número raro es apagada.
+    pub fn estela(&self) -> f32 {
+        if self.estela.is_finite() {
+            self.estela.clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
     }
 }
 
@@ -112,15 +139,49 @@ pub const DESVANECE_MS: u64 = 300;
 ///
 /// `src/lib/estudio.ts` hace la misma cuenta para la vista previa, con las mismas cifras.
 pub fn sitio_del_puntero(rastro: &[(u64, i32, i32)], ms: u64, suave: bool) -> Option<(f32, f32)> {
+    media_del_puntero(rastro, ms, if suave { SUAVE_MS } else { 0 })
+}
+
+/// Lo que mira `Mucho` hacia cada lado: algo más de medio segundo en total. Se nota como un
+/// puntero que flota en vez de ir a tirones, que es lo que se pide cuando se elige «mucho».
+pub const MUCHO_MS: u64 = 260;
+
+/// Dónde se dibuja el puntero con el suavizado elegido (C1).
+///
+/// `Nada` es el ratón tal cual y `Poco` es lo de siempre (`SUAVE_MS`). `Mucho` mira más
+/// lejos, pero **se ciñe a los clics**: la ventana nunca es más ancha que lo que falta para el
+/// clic más cercano, así que en el instante del clic el puntero está justo donde se pulsó.
+/// Sin eso, con medio segundo de media, el aro se abría al lado del puntero.
+///
+/// `src/lib/estudio.ts` (`sitioSuavizado`) hace la misma cuenta, con las mismas cifras.
+pub fn sitio_con(
+    rastro: &[(u64, i32, i32)],
+    clics: &[Clic],
+    ms: u64,
+    suavizado: Suavizado,
+) -> Option<(f32, f32)> {
+    match suavizado {
+        Suavizado::Nada => media_del_puntero(rastro, ms, 0),
+        Suavizado::Poco => media_del_puntero(rastro, ms, SUAVE_MS),
+        Suavizado::Mucho => {
+            let cerca = clics.iter().map(|c| c.ms.abs_diff(ms)).min().unwrap_or(u64::MAX);
+            media_del_puntero(rastro, ms, MUCHO_MS.min(cerca))
+        }
+    }
+}
+
+/// La media de donde estuvo el ratón `ventana` antes y después, cada 8 ms, pesando más lo
+/// más cercano. Con `ventana` 0, donde estaba.
+fn media_del_puntero(rastro: &[(u64, i32, i32)], ms: u64, ventana: u64) -> Option<(f32, f32)> {
     let (_, x, y) = donde_estaba(rastro, ms)?;
-    if !suave {
+    const PASO: u64 = 8;
+    let lado = ventana / PASO;
+    if lado == 0 {
         return Some((x as f32, y as f32));
     }
-    const PASO: u64 = 8;
-    let lado = SUAVE_MS / PASO;
     let (mut sx, mut sy, mut pesos) = (0.0f32, 0.0f32, 0.0f32);
     for k in 0..=2 * lado {
-        let Some(t) = (ms + k * PASO).checked_sub(SUAVE_MS) else {
+        let Some(t) = (ms + k * PASO).checked_sub(lado * PASO) else {
             continue;
         };
         let Some((_, px, py)) = donde_estaba(rastro, t) else {
@@ -166,6 +227,107 @@ pub fn opacidad_del_puntero(movimientos: &[u64], clics: &[Clic], ms: u64) -> f32
     } else {
         (1.0 - (quieto - QUIETO_MS) as f32 / DESVANECE_MS as f32).max(0.0)
     }
+}
+
+/// Lo que tarda el puntero en irse cuando se empieza a escribir, y en volver (C2). Corto: se
+/// tiene que ver que se va, no quedarse a medias mirando.
+pub const FUNDIDO_ESCRIBIR_MS: u64 = 150;
+/// Lo que se queda a la vista tras usar el ratón en mitad de lo escrito, antes de irse otra vez.
+pub const VUELVE_MS: u64 = 800;
+
+/// Lo visible que está el puntero según se esté escribiendo o no, de 0 a 1 (C2).
+///
+/// En cada rato de escritura (`SessionData::escritura`) se va con un fundido corto al
+/// empezar, y vuelve con otro al acabar. **Usar el ratón en mitad de lo escrito lo enseña**:
+/// un rato de escritura junta las teclas que van a menos de segundo y medio, así que pulsar
+/// el campo siguiente cae dentro del rato, y ese clic es justo lo que hay que ver. Con un
+/// movimiento o un clic, el puntero entra un poco antes (aquí se sabe lo que viene), se queda
+/// `VUELVE_MS` y se vuelve a ir si se sigue escribiendo.
+///
+/// La misma cuenta que `opacidadAlEscribir` en `src/lib/estudio.ts`.
+pub fn opacidad_al_escribir(
+    escritura: &[TramoEscritura],
+    movimientos: &[u64],
+    clics: &[Clic],
+    ms: u64,
+) -> f32 {
+    let f = FUNDIDO_ESCRIBIR_MS as f32;
+    let Some(tramo) = escritura
+        .iter()
+        .find(|t| ms >= t.desde_ms && ms < t.hasta_ms.max(t.desde_ms) + FUNDIDO_ESCRIBIR_MS)
+    else {
+        return 1.0;
+    };
+    let (desde, hasta) = (tramo.desde_ms, tramo.hasta_ms.max(tramo.desde_ms));
+    let entra = (ms - desde) as f32 / f;
+    let sale = if ms > hasta { 1.0 - (ms - hasta) as f32 / f } else { 1.0 };
+    let escondido = entra.min(sale).clamp(0.0, 1.0);
+
+    // Lo que lo enseña un gesto en `g`: entra en el fundido de antes, se queda y se va.
+    let por_gesto = |g: u64| -> f32 {
+        if g < desde || g > hasta {
+            return 0.0;
+        }
+        let v = if ms < g {
+            1.0 - (g - ms) as f32 / f
+        } else if ms - g <= VUELVE_MS {
+            1.0
+        } else {
+            1.0 - (ms - g - VUELVE_MS) as f32 / f
+        };
+        v.clamp(0.0, 1.0)
+    };
+    // El último gesto que no es posterior, y el primero que viene.
+    let i = movimientos.partition_point(|t| *t <= ms);
+    let mov_antes = i.checked_sub(1).map(|i| movimientos[i]);
+    let mov_despues = movimientos.get(i).copied();
+    let clic_antes = clics.iter().filter(|c| c.ms <= ms).map(|c| c.ms).max();
+    let clic_despues = clics.iter().filter(|c| c.ms > ms).map(|c| c.ms).min();
+    let antes = mov_antes.max(clic_antes);
+    let despues = match (mov_despues, clic_despues) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    };
+    let visible = antes.map_or(0.0, por_gesto).max(despues.map_or(0.0, por_gesto));
+    1.0 - escondido.min(1.0 - visible)
+}
+
+/// Lo que dura la onda de un clic (C4): algo más que el aro, para que se vea salir de él.
+pub const ONDA_MS: u64 = 650;
+
+/// La onda de un clic con ese avance (de 0 a 1), en un vídeo de ese alto: su radio, su
+/// opacidad y su grosor. Sale de dentro del aro y se abre hasta casi tres veces su tamaño,
+/// frenando, mientras se apaga. Las mismas cifras que `ondaEn` en `src/lib/estudio.ts`.
+pub fn onda_en(avance: f32, alto_video: u32) -> (f32, f32, f32) {
+    let a = avance.clamp(0.0, 1.0);
+    let grande = realce::radio_maximo(alto_video);
+    let abre = 1.0 - (1.0 - a).powi(3);
+    let radio = grande * (0.6 + 2.0 * abre);
+    let opacidad = 0.6 * (1.0 - a) * (1.0 - a);
+    let grosor = (grande / 7.0).clamp(2.5, 5.5) * 0.7 * (1.0 - 0.5 * a);
+    (radio, opacidad, grosor)
+}
+
+/// Lo que dura la estela del puntero con la fuerza a tope (A4): dos fotogramas a 30 por
+/// segundo. Con más, el puntero deja un rastro que se lee como un fallo y no como velocidad.
+pub const ESTELA_MS: u64 = 70;
+/// Cuántas copias se pintan detrás del puntero.
+pub const COPIAS_ESTELA: u64 = 4;
+
+/// Las copias de la estela del puntero: el instante de cada una y lo opaca que va, de la
+/// más vieja a la más nueva. Vacía con la fuerza a cero. Las mismas que `estelaDelPuntero`.
+pub fn estela_del_puntero(ms: u64, estela: f32) -> Vec<(u64, f32)> {
+    let ventana = (ESTELA_MS as f32 * estela.clamp(0.0, 1.0)).round() as u64;
+    if ventana == 0 {
+        return Vec::new();
+    }
+    (1..=COPIAS_ESTELA)
+        .rev()
+        .filter_map(|k| {
+            let t = ms.checked_sub(ventana * k / COPIAS_ESTELA)?;
+            Some((t, 0.55 * (1.0 - k as f32 / (COPIAS_ESTELA + 1) as f32)))
+        })
+        .collect()
 }
 
 /// Cuanto dura el apreton del puntero tras un clic: se encoge un poco y vuelve, que es
@@ -244,34 +406,54 @@ pub fn pintar(
         punteros,
         cambios_puntero,
         movimientos,
+        escritura,
     } = *fuente;
 
     // El puntero va DEBAJO del aro: el aro se abre desde donde se pulsó, y tapar el
     // cursor con él sería tapar justo lo que se está señalando.
-    let opacidad = if ajustes.esconder {
+    let mut opacidad = if ajustes.esconder {
         opacidad_del_puntero(movimientos, clics, ms)
     } else {
         1.0
     };
+    if ajustes.esconder_al_escribir {
+        opacidad *= opacidad_al_escribir(escritura, movimientos, clics, ms);
+    }
+    let suavizado = ajustes.suavizado();
     if ajustes.cursor > 0.0 && opacidad > 0.0 {
-        if let Some((fx, fy)) = sitio_del_puntero(rastro, ms, ajustes.suave) {
+        if let Some((fx, fy)) = sitio_con(rastro, clics, ms, suavizado) {
             if let Some((px, py)) = colocar(fx.round() as i32, fy.round() as i32, origen, recortes, destino) {
                 let alto = alto_del_puntero(ajustes.cursor, clics, ms);
                 // Con la imagen de verdad del puntero si se pudo leer al grabar; si no,
                 // la forma dibujada a mano, que es lo que habia antes.
                 let leido = puntero_en(cambios_puntero, ms)
                     .and_then(|id| punteros.iter().find(|p| p.id == id));
-                match leido {
-                    Some(p) => pegar_puntero(imagen, p, px, py, alto, opacidad, &mut caches.punteros),
-                    None => super::cursor::pintar_forma_con(
-                        imagen,
-                        px,
-                        py,
-                        alto,
-                        forma_en(formas, ms),
-                        opacidad,
-                    ),
+                let forma = forma_en(formas, ms);
+                // La estela va detrás (A4): unas copias del mismo puntero donde estuvo hace
+                // nada, cada vez más claras. Quieto, no hay estela.
+                for (t, alfa) in estela_del_puntero(ms, ajustes.estela()) {
+                    let Some((gx, gy)) = sitio_con(rastro, clics, t, suavizado) else {
+                        continue;
+                    };
+                    let Some((qx, qy)) = colocar(gx.round() as i32, gy.round() as i32, origen, recortes, destino) else {
+                        continue;
+                    };
+                    if (qx - px).abs() + (qy - py).abs() >= 2 {
+                        dibujar_puntero(imagen, leido, forma, qx, qy, alto, opacidad * alfa, &mut caches.punteros);
+                    }
                 }
+                dibujar_puntero(imagen, leido, forma, px, py, alto, opacidad, &mut caches.punteros);
+            }
+        }
+    }
+
+    // La onda va debajo del aro: sale de él y se abre por fuera (C4).
+    if ajustes.onda {
+        for c in clics.iter().filter(|c| ms >= c.ms && ms - c.ms < ONDA_MS) {
+            if let Some((x, y)) = colocar(c.x, c.y, origen, recortes, destino) {
+                let avance = (ms - c.ms) as f32 / ONDA_MS as f32;
+                let (radio, opacidad, grosor) = onda_en(avance, destino.1);
+                pintar_onda(imagen, x, y, radio, grosor, opacidad, c.derecho);
             }
         }
     }
@@ -307,6 +489,62 @@ pub fn pintar(
                 if let Some(dibujo) = caches.pastillas.pastilla(&a.texto) {
                     pastilla::pegar(imagen, dibujo, opaca);
                 }
+            }
+        }
+    }
+}
+
+/// Pinta el puntero en `(x, y)`: con su imagen leída al grabar si la hay, o la forma.
+#[allow(clippy::too_many_arguments)]
+fn dibujar_puntero(
+    imagen: &mut RgbaImage,
+    leido: Option<&PunteroCargado>,
+    forma: super::cursor::Forma,
+    x: i32,
+    y: i32,
+    alto: f32,
+    opacidad: f32,
+    cache: &mut HashMap<(u32, u32), RgbaImage>,
+) {
+    match leido {
+        Some(p) => pegar_puntero(imagen, p, x, y, alto, opacidad, cache),
+        None => super::cursor::pintar_forma_con(imagen, x, y, alto, forma, opacidad),
+    }
+}
+
+/// Una circunferencia de color, sin relleno y con el borde suavizado: la onda de un clic.
+/// El color es el del aro, azul con el izquierdo y ámbar con el derecho.
+fn pintar_onda(imagen: &mut RgbaImage, cx: i32, cy: i32, radio: f32, grosor: f32, opacidad: f32, derecho: bool) {
+    if opacidad <= 0.0 || radio <= 0.0 {
+        return;
+    }
+    let (ancho, alto) = imagen.dimensions();
+    let medio = grosor.max(1.0) / 2.0;
+    let borde = radio + medio + 1.0;
+    let x0 = (cx as f32 - borde).floor().max(0.0) as u32;
+    let y0 = (cy as f32 - borde).floor().max(0.0) as u32;
+    let x1 = ((cx as f32 + borde).ceil() as i64).clamp(0, ancho as i64) as u32;
+    let y1 = ((cy as f32 + borde).ceil() as i64).clamp(0, alto as i64) as u32;
+    let color = if derecho { [255u8, 176, 32] } else { [10u8, 155, 255] };
+    // Lo de dentro del aro no se toca: solo se recorre la corona.
+    let dentro = (radio - medio - 1.0).max(0.0);
+    let dentro2 = dentro * dentro;
+    for y in y0..y1 {
+        let dy = y as f32 - cy as f32;
+        for x in x0..x1 {
+            let dx = x as f32 - cx as f32;
+            let d2 = dx * dx + dy * dy;
+            if d2 < dentro2 {
+                continue;
+            }
+            let cerca = 1.0 - ((d2.sqrt() - radio).abs() / medio).min(1.0);
+            let alfa = cerca * opacidad;
+            if alfa <= 0.0 {
+                continue;
+            }
+            let pixel = imagen.get_pixel_mut(x, y);
+            for (canal, nuevo) in pixel.0.iter_mut().zip(color).take(3) {
+                *canal = (*canal as f32 * (1.0 - alfa) + nuevo as f32 * alfa).round() as u8;
             }
         }
     }
@@ -909,6 +1147,7 @@ mod tests {
                     punteros: &[],
                     cambios_puntero: &sesion.cambios_puntero,
                     movimientos: &[],
+                    escritura: &sesion.escritura,
                 },
                 (sesion.width, sesion.height),
                 &recortes,
@@ -993,5 +1232,63 @@ mod puntero_de_estudio {
         };
         assert!(tocados(500) > 50, "moviendose se ve");
         assert_eq!(tocados(3_000), 0, "quieto tres segundos ya no se ve");
+    }
+
+    // S7 (cursor): las cifras de C1, C2, C4 y A4. `src/lib/estudio.test.ts` comprueba las mismas.
+
+    #[test]
+    fn mucho_mira_mas_lejos_y_se_ciñe_al_clic() {
+        // Un salto de 0 a 100 al segundo, lejos del principio para que ninguna ventana se corte.
+        let salto = [(0u64, 0i32, 0i32), (1_000, 100, 0)];
+        let (poco, _) = sitio_con(&salto, &[], 1_000, Suavizado::Poco).unwrap();
+        let (mucho, _) = sitio_con(&salto, &[], 1_000, Suavizado::Mucho).unwrap();
+        assert!((poco - 53.125).abs() < 1e-3, "{poco}");
+        assert!((mucho - 51.515_15).abs() < 1e-3, "más cerca del medio: más suave, {mucho}");
+        assert_eq!(sitio_con(&salto, &[], 1_000, Suavizado::Nada), Some((100.0, 0.0)));
+        // Un clic 40 ms después: la ventana se queda en 40, y en el instante del clic, en nada.
+        let clic = [Clic { ms: 1_040, x: 100, y: 0, derecho: false }];
+        let (cerca, _) = sitio_con(&salto, &clic, 1_000, Suavizado::Mucho).unwrap();
+        assert!((cerca - 58.333_33).abs() < 1e-3, "{cerca}");
+        assert_eq!(sitio_con(&salto, &clic, 1_040, Suavizado::Mucho), Some((100.0, 0.0)));
+    }
+
+    #[test]
+    fn al_escribir_se_va_con_fundido_y_un_clic_lo_trae() {
+        let escrito = [TramoEscritura { desde_ms: 1_000, hasta_ms: 3_000, caret: None }];
+        let quieto = [0u64];
+        let o = |ms, clics: &[Clic]| opacidad_al_escribir(&escrito, &quieto, clics, ms);
+        assert_eq!(o(900, &[]), 1.0);
+        assert!((o(1_075, &[]) - 0.5).abs() < 1e-6);
+        assert_eq!(o(2_000, &[]), 0.0);
+        assert!((o(3_100, &[]) - 2.0 / 3.0).abs() < 1e-6, "{}", o(3_100, &[]));
+        assert_eq!(o(3_150, &[]), 1.0);
+        // Un clic a los 2 s en mitad de lo escrito: entra antes, se queda y se vuelve a ir.
+        let clic = [Clic { ms: 2_000, x: 0, y: 0, derecho: false }];
+        assert!((o(1_925, &clic) - 0.5).abs() < 1e-6);
+        assert_eq!(o(2_000, &clic), 1.0);
+        assert_eq!(o(2_800, &clic), 1.0);
+        assert!((o(2_875, &clic) - 0.5).abs() < 1e-6);
+        assert_eq!(o(2_950, &clic), 0.0);
+    }
+
+    #[test]
+    fn la_onda_sale_del_aro_y_se_apaga() {
+        let (r0, o0, g0) = onda_en(0.0, 1080);
+        assert!((r0 - 15.552).abs() < 1e-3 && (o0 - 0.6).abs() < 1e-6 && (g0 - 2.592).abs() < 1e-3, "{r0} {o0} {g0}");
+        let (r, o, g) = onda_en(0.5, 1080);
+        assert!((r - 60.912).abs() < 1e-2 && (o - 0.15).abs() < 1e-6 && (g - 1.944).abs() < 1e-3, "{r} {o} {g}");
+        assert_eq!(onda_en(1.0, 1080).1, 0.0);
+    }
+
+    #[test]
+    fn la_estela_son_cuatro_copias_cada_vez_mas_claras() {
+        assert!(estela_del_puntero(1_000, 0.0).is_empty());
+        let copias = estela_del_puntero(1_000, 1.0);
+        let instantes: Vec<u64> = copias.iter().map(|c| c.0).collect();
+        assert_eq!(instantes, vec![930, 948, 965, 983]);
+        assert!((copias[0].1 - 0.11).abs() < 1e-6 && (copias[3].1 - 0.44).abs() < 1e-6);
+        // A media fuerza, la mitad de lejos; y al principio del vídeo, solo las que caben.
+        assert_eq!(estela_del_puntero(1_000, 0.5).first().map(|c| c.0), Some(965));
+        assert_eq!(estela_del_puntero(20, 1.0).len(), 1);
     }
 }

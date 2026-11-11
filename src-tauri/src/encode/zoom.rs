@@ -423,6 +423,268 @@ pub fn camara(tramos: &[Tramo], ms: u64, ancho: u32, alto: u32, _ajustes: &Ajust
     }
 }
 
+// --- S7 (cursor): acercarse al escribir (A5) y la estela de la cámara (A4) ---
+
+/// Los zooms de acercarse mientras se escribe (A5), como bloques de la pista.
+///
+/// Uno por rato de escritura (`SessionData::escritura`): empieza a acercarse un poco antes de
+/// la primera tecla, se queda mientras se escribe y lo que se queda quieto tras un clic
+/// (`quieto_ms`), y se aleja. **El sitio es el cursor de texto**, si Windows lo dio y cae
+/// dentro de lo grabado, y ahí se queda fijo: mientras se escribe el ratón suele estar en
+/// cualquier parte. Si no lo dio (en navegadores y apps de Electron muchas veces no), se
+/// acerca a donde estaba el ratón y lo sigue, como los de los clics.
+///
+/// `ancho` y `alto` son los de la región grabada, que es en cuyos píxeles vienen el cursor de
+/// texto y el ratón; los bloques salen de 0 a 1 sobre esa imagen entera, como los de la pista.
+pub fn al_escribir(
+    escritura: &[crate::contrato::TramoEscritura],
+    rastro: &[(u64, i32, i32)],
+    ancho: u32,
+    alto: u32,
+    nivel: f32,
+    ajustes: &Ajustes,
+) -> Vec<crate::contrato::TramoZoom> {
+    use crate::contrato::{ModoZoom, TramoZoom};
+    let (w, h) = (ancho.max(1) as f32, alto.max(1) as f32);
+    escritura
+        .iter()
+        .filter(|t| t.hasta_ms >= t.desde_ms)
+        .map(|t| {
+            let caret = t
+                .caret
+                .filter(|&(x, y)| x >= 0 && y >= 0 && (x as u32) < ancho && (y as u32) < alto);
+            let (x, y, modo) = match caret {
+                Some((x, y)) => (x as f32 / w, y as f32 / h, ModoZoom::Fijo),
+                None => {
+                    let i = rastro.partition_point(|(ms, _, _)| *ms <= t.desde_ms);
+                    let raton = i.checked_sub(1).or((!rastro.is_empty()).then_some(0)).map(|i| rastro[i]);
+                    let (x, y) = raton.map_or((0.5, 0.5), |(_, x, y)| {
+                        ((x as f32 / w).clamp(0.0, 1.0), (y as f32 / h).clamp(0.0, 1.0))
+                    });
+                    (x, y, ModoZoom::Sigue)
+                }
+            };
+            TramoZoom {
+                desde_ms: t.desde_ms.saturating_sub(ajustes.transicion_ms),
+                hasta_ms: t.hasta_ms + ajustes.quieto_ms + ajustes.transicion_ms,
+                nivel,
+                modo,
+                x,
+                y,
+                instantaneo: false,
+                lupa: None,
+            }
+        })
+        .collect()
+}
+
+/// Junta los zooms que salen solos (los de los clics y la tecla) con los de escribir.
+///
+/// Dos que se pisan, o que dejarían menos de una transición entre uno y otro, son **uno**:
+/// alejarse y volver a acercarse en un segundo marea. El junto dura los dos, se acerca lo
+/// que el que más, mira donde miraba el primero, y solo se queda fijo si los dos lo eran y
+/// en el mismo sitio: si no, sigue al ratón, que es lo que va de un sitio a otro (escribir
+/// en un campo y pulsar «Enviar» en otro).
+pub fn juntar(
+    mut bloques: Vec<crate::contrato::TramoZoom>,
+    escritos: Vec<crate::contrato::TramoZoom>,
+    aire_ms: u64,
+) -> Vec<crate::contrato::TramoZoom> {
+    use crate::contrato::ModoZoom;
+    bloques.extend(escritos);
+    bloques.sort_by_key(|z| (z.desde_ms, z.hasta_ms));
+    let mut salen: Vec<crate::contrato::TramoZoom> = Vec::with_capacity(bloques.len());
+    for z in bloques {
+        match salen.last_mut() {
+            Some(antes) if z.desde_ms <= antes.hasta_ms + aire_ms => {
+                let mismo_sitio = (antes.x - z.x).abs() < 0.02 && (antes.y - z.y).abs() < 0.02;
+                if !(antes.modo == ModoZoom::Fijo && z.modo == ModoZoom::Fijo && mismo_sitio) {
+                    antes.modo = ModoZoom::Sigue;
+                }
+                antes.hasta_ms = antes.hasta_ms.max(z.hasta_ms);
+                antes.nivel = antes.nivel.max(z.nivel);
+            }
+            _ => salen.push(z),
+        }
+    }
+    salen
+}
+
+/// Lo más que puede separar un paso del anterior para que la cámara deje estela entre los
+/// dos: más lejos, lo de en medio es un corte de la línea de tiempo y no un movimiento.
+pub const ESTELA_HUECO_MS: u64 = 100;
+
+/// El trozo de la imagen entera que enseña una cadena de recortes (el del usuario y el de la
+/// cámara), cada uno medido sobre lo que dejó el anterior.
+pub fn encuadre_de(recortes: &[super::recorte::Recorte]) -> super::recorte::Recorte {
+    let mut r = super::recorte::Recorte { x1: 0.0, y1: 0.0, x2: 1.0, y2: 1.0 };
+    for c in recortes {
+        let (cx1, cx2) = (c.x1.min(c.x2).clamp(0.0, 1.0), c.x1.max(c.x2).clamp(0.0, 1.0));
+        let (cy1, cy2) = (c.y1.min(c.y2).clamp(0.0, 1.0), c.y1.max(c.y2).clamp(0.0, 1.0));
+        let (w, h) = (r.x2 - r.x1, r.y2 - r.y1);
+        r = super::recorte::Recorte {
+            x1: r.x1 + cx1 * w,
+            y1: r.y1 + cy1 * h,
+            x2: r.x1 + cx2 * w,
+            y2: r.y1 + cy2 * h,
+        };
+    }
+    r
+}
+
+/// Lo que se mueve lo que se ve de un encuadre al otro, en píxeles del vídeo exportado:
+/// lo más que se desplaza uno de sus bordes medido sobre lo que se enseña ahora.
+pub fn desplazamiento(
+    antes: super::recorte::Recorte,
+    ahora: super::recorte::Recorte,
+    ancho: u32,
+    alto: u32,
+) -> f32 {
+    let w = (ahora.x2 - ahora.x1).abs().max(1e-6);
+    let h = (ahora.y2 - ahora.y1).abs().max(1e-6);
+    let dx = (antes.x1 - ahora.x1).abs().max((antes.x2 - ahora.x2).abs()) / w * ancho as f32;
+    let dy = (antes.y1 - ahora.y1).abs().max((antes.y2 - ahora.y2).abs()) / h * alto as f32;
+    dx.max(dy)
+}
+
+/// La estela de la cámara (A4): el fotograma hecho con lo que la cámara enseñó por el camino
+/// entre el paso anterior y este, como el obturador abierto de una cámara de verdad.
+///
+/// `imagen` es la grabada entera, y `antes` y `ahora` lo que se enseñaba de ella (ver
+/// `encuadre_de`). Con la fuerza a 1 la estela cubre todo el camino desde el paso anterior;
+/// a 0,5, la mitad más cercana. Si se mueve menos de dos píxeles no hay estela: `None`, y el
+/// fotograma sale como siempre. Las copias van de 2 a 8, una cada tres píxeles de camino.
+pub fn estela_de_camara(
+    imagen: &image::RgbaImage,
+    antes: super::recorte::Recorte,
+    ahora: super::recorte::Recorte,
+    fuerza: f32,
+    ancho: u32,
+    alto: u32,
+) -> Option<image::RgbaImage> {
+    let fuerza = if fuerza.is_finite() { fuerza.clamp(0.0, 1.0) } else { 0.0 };
+    let largo = desplazamiento(antes, ahora, ancho, alto) * fuerza;
+    if largo < 2.0 || ancho == 0 || alto == 0 {
+        return None;
+    }
+    let copias = ((largo / 3.0).ceil() as usize).clamp(2, 8);
+    let (iw, ih) = imagen.dimensions();
+    let mut suma = vec![0u16; (ancho * alto * 4) as usize];
+    for j in 0..copias {
+        let f = 1.0 - fuerza * j as f32 / (copias - 1) as f32;
+        let mezcla = |a: f32, b: f32| a + (b - a) * f;
+        let r = super::recorte::Recorte {
+            x1: mezcla(antes.x1, ahora.x1),
+            y1: mezcla(antes.y1, ahora.y1),
+            x2: mezcla(antes.x2, ahora.x2),
+            y2: mezcla(antes.y2, ahora.y2),
+        };
+        let trozo = r.recorta_algo(iw, ih).then(|| r.aplicar(imagen));
+        let trozo = trozo.as_ref().unwrap_or(imagen);
+        let escalado;
+        let lista = if trozo.dimensions() == (ancho, alto) {
+            trozo
+        } else {
+            escalado = super::escalar::a_medida(trozo, ancho, alto);
+            &escalado
+        };
+        for (s, p) in suma.iter_mut().zip(lista.as_raw()) {
+            *s += u16::from(*p);
+        }
+    }
+    let n = copias as u16;
+    let datos: Vec<u8> = suma.iter().map(|s| ((s + n / 2) / n) as u8).collect();
+    image::RgbaImage::from_raw(ancho, alto, datos)
+}
+
+#[cfg(test)]
+mod al_escribir_y_estela {
+    use super::*;
+    use crate::contrato::{ModoZoom, TramoEscritura, TramoZoom};
+    use crate::encode::recorte::Recorte;
+
+    fn escrito(desde_ms: u64, hasta_ms: u64, caret: Option<(i32, i32)>) -> TramoEscritura {
+        TramoEscritura { desde_ms, hasta_ms, caret }
+    }
+
+    #[test]
+    fn con_cursor_de_texto_se_queda_fijo_en_el_y_sin_el_sigue_al_raton() {
+        let a = Ajustes::default();
+        let rastro = [(0u64, 100, 50), (3_000, 300, 150)];
+        let bloques = al_escribir(
+            &[escrito(1_000, 2_000, Some((200, 100))), escrito(5_000, 6_000, None)],
+            &rastro,
+            400,
+            200,
+            2.0,
+            &a,
+        );
+        assert_eq!(bloques.len(), 2);
+        let (uno, dos) = (bloques[0], bloques[1]);
+        assert_eq!((uno.desde_ms, uno.hasta_ms), (1_000 - a.transicion_ms, 2_000 + a.quieto_ms + a.transicion_ms));
+        assert_eq!((uno.modo, uno.x, uno.y), (ModoZoom::Fijo, 0.5, 0.5), "en el cursor de texto");
+        // Sin cursor de texto, donde estaba el ratón al empezar a escribir: a los 5 s, en 300, 150.
+        assert_eq!((dos.modo, dos.x, dos.y), (ModoZoom::Sigue, 0.75, 0.75));
+        assert_eq!(dos.nivel, 2.0);
+    }
+
+    #[test]
+    fn un_cursor_de_texto_fuera_de_lo_grabado_no_cuenta() {
+        let bloques = al_escribir(&[escrito(1_000, 2_000, Some((900, 10)))], &[(0, 40, 20)], 400, 200, 2.0, &Ajustes::default());
+        assert_eq!((bloques[0].modo, bloques[0].x, bloques[0].y), (ModoZoom::Sigue, 0.1, 0.1));
+    }
+
+    fn bloque(desde_ms: u64, hasta_ms: u64, modo: ModoZoom, x: f32) -> TramoZoom {
+        TramoZoom { desde_ms, hasta_ms, nivel: 2.0, modo, x, y: 0.5, instantaneo: false, lupa: None }
+    }
+
+    #[test]
+    fn los_que_se_pisan_se_juntan_en_uno_y_los_lejanos_no() {
+        // Un clic en el campo y escribir justo después: un solo zoom, que sigue al ratón.
+        let clic = bloque(500, 2_600, ModoZoom::Sigue, 0.3);
+        let escribir = bloque(1_000, 6_000, ModoZoom::Fijo, 0.32);
+        let lejos = bloque(9_000, 10_000, ModoZoom::Fijo, 0.8);
+        let salen = juntar(vec![clic], vec![escribir, lejos], 450);
+        assert_eq!(salen.len(), 2);
+        assert_eq!((salen[0].desde_ms, salen[0].hasta_ms, salen[0].modo, salen[0].x), (500, 6_000, ModoZoom::Sigue, 0.3));
+        assert_eq!(salen[1], lejos);
+        // Dos de escribir en el mismo sitio y casi seguidos: uno, y sigue fijo.
+        let a = bloque(0, 3_000, ModoZoom::Fijo, 0.5);
+        let b = bloque(3_200, 5_000, ModoZoom::Fijo, 0.505);
+        let junto = juntar(Vec::new(), vec![a, b], 450);
+        assert_eq!(junto.len(), 1);
+        assert_eq!((junto[0].hasta_ms, junto[0].modo), (5_000, ModoZoom::Fijo));
+    }
+
+    #[test]
+    fn el_encuadre_de_dos_recortes_es_el_trozo_del_trozo() {
+        let mitad_derecha = Recorte { x1: 0.5, y1: 0.0, x2: 1.0, y2: 1.0 };
+        let su_mitad_izquierda = Recorte { x1: 0.0, y1: 0.0, x2: 0.5, y2: 0.5 };
+        let r = encuadre_de(&[mitad_derecha, su_mitad_izquierda]);
+        assert_eq!((r.x1, r.y1, r.x2, r.y2), (0.5, 0.0, 0.75, 0.5));
+        let entera = encuadre_de(&[]);
+        assert_eq!((entera.x1, entera.x2), (0.0, 1.0));
+    }
+
+    /// Una imagen con una raya blanca vertical en medio: movida, la estela la ensancha.
+    #[test]
+    fn la_camara_que_se_mueve_deja_estela_y_la_quieta_no() {
+        let imagen = image::RgbaImage::from_fn(200, 100, |x, _| {
+            if (98..102).contains(&x) { image::Rgba([255, 255, 255, 255]) } else { image::Rgba([0, 0, 0, 255]) }
+        });
+        let ahora = Recorte { x1: 0.25, y1: 0.0, x2: 0.75, y2: 1.0 };
+        assert!(estela_de_camara(&imagen, ahora, ahora, 1.0, 200, 100).is_none(), "quieta, sin estela");
+        let antes = Recorte { x1: 0.2, y1: 0.0, x2: 0.7, y2: 1.0 };
+        assert!(estela_de_camara(&imagen, antes, ahora, 0.0, 200, 100).is_none(), "a fuerza cero, sin estela");
+        let movida = estela_de_camara(&imagen, antes, ahora, 1.0, 200, 100).expect("se movió 20 px");
+        let tocadas = |img: &image::RgbaImage| (0..200).filter(|&x| img.get_pixel(x, 50).0[0] > 10).count();
+        let sin = super::super::escalar::a_medida(&ahora.aplicar(&imagen), 200, 100);
+        assert!(tocadas(&movida) > tocadas(&sin) + 10, "la raya no se ha estirado: {} vs {}", tocadas(&movida), tocadas(&sin));
+        // Y no se inventa luz: lo más blanco de la estela no pasa del blanco de la raya.
+        assert!(movida.pixels().all(|p| p.0[3] == 255));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -574,13 +574,20 @@ pub async fn session_camera(
     crop: Option<crate::encode::recorte::Recorte>,
     zoom_speed: Option<f32>,
     zooms: Option<Vec<crate::contrato::TramoZoom>>,
+    // S7 (cursor): con la pista sin tocar, sumar los zooms de acercarse al escribir (A5).
+    al_escribir: Option<bool>,
 ) -> Result<Vec<crate::exporter::MuestraCamara>> {
     let session = session_of(&app, &session_id)?;
+    let velocidad = zoom_speed.unwrap_or(1.0);
+    let zooms = match (zooms, al_escribir.unwrap_or(false)) {
+        (None, true) => Some(crate::exporter::zooms_con_escritura(&session, zoom, crop, velocidad)),
+        (zooms, _) => zooms,
+    };
     Ok(crate::exporter::muestras_de_camara(
         &session,
         zoom,
         crop,
-        zoom_speed.unwrap_or(1.0),
+        velocidad,
         zooms.as_deref(),
     ))
 }
@@ -594,14 +601,16 @@ pub async fn session_zooms(
     zoom: f32,
     crop: Option<crate::encode::recorte::Recorte>,
     zoom_speed: Option<f32>,
+    // S7 (cursor): sumar los zooms de acercarse al escribir (A5).
+    al_escribir: Option<bool>,
 ) -> Result<Vec<crate::contrato::TramoZoom>> {
     let session = session_of(&app, &session_id)?;
-    Ok(crate::exporter::zooms_de_la_sesion(
-        &session,
-        zoom,
-        crop,
-        zoom_speed.unwrap_or(1.0),
-    ))
+    let velocidad = zoom_speed.unwrap_or(1.0);
+    Ok(if al_escribir.unwrap_or(false) {
+        crate::exporter::zooms_con_escritura(&session, zoom, crop, velocidad)
+    } else {
+        crate::exporter::zooms_de_la_sesion(&session, zoom, crop, velocidad)
+    })
 }
 
 #[tauri::command]

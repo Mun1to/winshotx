@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::encode::{
-    anotacion, escalar, estudio, ffmpeg, gif, jpg, lupa, marco, mp4, png, recorte::Recorte, zoom,
+    anotacion, clic, escalar, estudio, ffmpeg, gif, jpg, lupa, marco, mp4, png, recorte::Recorte, zoom,
 };
 use crate::error::{AppError, Result};
 use crate::record::{self, SessionData};
@@ -300,9 +300,16 @@ struct QueSeVe<'a> {
     tramos: Vec<zoom::Tramo>,
     /// Los ratos con una lupa encima: ahi cada paso se escribe, como con la camara acercada.
     lupas: Vec<(u64, u64)>,
-    suave: bool,
-    /// Con el puntero escondiendose, cuando se movio el raton (ver `estudio::movimientos`).
+    /// El suavizado que manda: el elegido (C1), o el del interruptor de antes.
+    suavizado: crate::contrato::Suavizado,
+    /// Cuando se movio el raton (ver `estudio::movimientos`), si el puntero se esconde.
     movimientos: Option<Vec<u64>>,
+    /// Que se esconde: quieto, y mientras se escribe (C2).
+    esconder_quieto: bool,
+    esconder_al_escribir: bool,
+    /// La onda de los clics (C4) y la fuerza de la estela del puntero (A4).
+    onda: bool,
+    estela: f32,
 }
 
 impl<'a> QueSeVe<'a> {
@@ -314,10 +321,13 @@ impl<'a> QueSeVe<'a> {
             teclas: request.keys && !session.teclas.is_empty(),
             tramos: camara.as_ref().map(|c| c.tramos.clone()).unwrap_or_default(),
             lupas: lupas_de(request).iter().map(|l| (l.desde_ms, l.hasta_ms)).collect(),
-            suave: request.smooth_cursor,
-            movimientos: request
-                .hide_idle_cursor
+            suavizado: ajustes_del_estudio(request).suavizado(),
+            movimientos: (request.hide_idle_cursor || request.edicion.esconder_al_escribir)
                 .then(|| estudio::movimientos(&session.cursor)),
+            esconder_quieto: request.hide_idle_cursor,
+            esconder_al_escribir: request.edicion.esconder_al_escribir && !session.escritura.is_empty(),
+            onda: request.edicion.onda_clic && !session.clics.is_empty(),
+            estela: ajustes_del_estudio(request).estela(),
         }
     }
 
@@ -327,15 +337,29 @@ impl<'a> QueSeVe<'a> {
             // Al pixel, que es lo que se ve: con el movimiento suave el sitio es una media
             // y se queda unas decimas acercandose despues de que el raton pare.
             let sitio = |ms| {
-                estudio::sitio_del_puntero(&s.cursor, ms, self.suave)
+                estudio::sitio_con(&s.cursor, &s.clics, ms, self.suavizado)
                     .map(|(x, y)| (x.round() as i32, y.round() as i32))
             };
-            let visible = |ms| {
-                self.movimientos
-                    .as_deref()
-                    .map(|m| (estudio::opacidad_del_puntero(m, &s.clics, ms) * 32.0).round() as i32)
+            // La estela es el puntero de hace un momento: si ahi se movio, no se ve igual.
+            let estela = |ms| -> Vec<_> {
+                estudio::estela_del_puntero(ms, self.estela)
+                    .into_iter()
+                    .map(|(t, _)| sitio(t))
+                    .collect()
             };
-            if sitio(a) != sitio(b) || visible(a) != visible(b)
+            let visible = |ms| {
+                self.movimientos.as_deref().map(|m| {
+                    let mut o = 1.0;
+                    if self.esconder_quieto {
+                        o *= estudio::opacidad_del_puntero(m, &s.clics, ms);
+                    }
+                    if self.esconder_al_escribir {
+                        o *= estudio::opacidad_al_escribir(&s.escritura, m, &s.clics, ms);
+                    }
+                    (o * 32.0).round() as i32
+                })
+            };
+            if sitio(a) != sitio(b) || visible(a) != visible(b) || estela(a) != estela(b)
                 || estudio::puntero_en(&s.cambios_puntero, a) != estudio::puntero_en(&s.cambios_puntero, b)
                 || estudio::forma_en(&s.formas, a) != estudio::forma_en(&s.formas, b)
                 || estudio::alto_del_puntero(1.0, &s.clics, a)
@@ -347,6 +371,10 @@ impl<'a> QueSeVe<'a> {
         let vivo = |desde: u64, dura: u64, ms: u64| ms >= desde && ms - desde < dura;
         let aro = crate::record::realce::DURACION_MS;
         if self.aros && s.clics.iter().any(|c| vivo(c.ms, aro, a) || vivo(c.ms, aro, b)) {
+            return false;
+        }
+        let onda = estudio::ONDA_MS;
+        if self.onda && s.clics.iter().any(|c| vivo(c.ms, onda, a) || vivo(c.ms, onda, b)) {
             return false;
         }
         let pastilla = crate::record::teclas::DURACION_MS;
@@ -461,6 +489,11 @@ fn marco_de(request: &ExportRequest) -> marco::Marco {
 #[cfg(test)]
 #[path = "exporter_fondos.rs"]
 mod pruebas_de_fondos;
+
+/// S7 (cursor): las pruebas del cursor y los clics por `escribir`, aparte por lo mismo.
+#[cfg(test)]
+#[path = "exporter_cursor.rs"]
+mod pruebas_del_cursor;
 
 /// Los fotogramas de una exportacion, ya vestidos y en orden: leidos por delante en otro
 /// hilo, con el recorte, la camara, el estudio y las marcas puestos en el instante de cada
@@ -876,6 +909,10 @@ struct Estudio<'a> {
     /// Las lupas de la pista, que van encima de lo demas del estudio: lo que amplian es el
     /// fotograma ya vestido, puntero incluido, como una lupa de verdad.
     lupas: Vec<LupaDeLaPista>,
+    /// Los ratos en que se escribio, para esconder el puntero mientras tanto (C2).
+    escritura: &'a [crate::contrato::TramoEscritura],
+    /// Lo que enseñaba la camara en el paso anterior, y cuando: de ahi sale su estela (A4).
+    camara_antes: Option<(u64, Recorte)>,
 }
 
 impl Estudio<'_> {
@@ -891,6 +928,28 @@ impl Estudio<'_> {
         }
     }
 
+    /// La estela de la camara (A4): si se ha movido desde el paso anterior, el fotograma
+    /// hecho con lo que se vio por el camino. `None` si no se movio, si la estela esta
+    /// apagada o si el paso anterior queda lejos (un corte de la linea de tiempo).
+    fn estela_de_camara(
+        &mut self,
+        imagen: &image::RgbaImage,
+        recortes: &[Recorte],
+        ancho: u32,
+        alto: u32,
+    ) -> Option<image::RgbaImage> {
+        let fuerza = self.ajustes.estela();
+        if fuerza <= 0.0 {
+            return None;
+        }
+        let ahora = zoom::encuadre_de(recortes);
+        let (t, antes) = self.camara_antes.replace((self.ms, ahora))?;
+        if self.ms <= t || self.ms - t > zoom::ESTELA_HUECO_MS {
+            return None;
+        }
+        zoom::estela_de_camara(imagen, antes, ahora, fuerza, ancho, alto)
+    }
+
     fn pintar_estudio(&mut self, imagen: &mut image::RgbaImage, recortes: &[Recorte]) {
         let fuente = estudio::Fuente {
             clics: self.clics,
@@ -900,6 +959,7 @@ impl Estudio<'_> {
             punteros: &self.punteros,
             cambios_puntero: self.cambios_puntero,
             movimientos: &self.movimientos,
+            escritura: self.escritura,
         };
         estudio::pintar(
             imagen,
@@ -913,14 +973,24 @@ impl Estudio<'_> {
     }
 }
 
-fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<Estudio<'a>> {
-    let ajustes = estudio::Ajustes {
+/// Lo que se dibuja encima, sacado de la peticion: lo del panel de siempre y lo del cursor
+/// del plan (C1 a C4 y A4), que viaja en `edicion`.
+fn ajustes_del_estudio(request: &ExportRequest) -> estudio::Ajustes {
+    estudio::Ajustes {
         clics: request.clicks,
         teclas: request.keys,
         cursor: request.cursor,
         suave: request.smooth_cursor,
         esconder: request.hide_idle_cursor,
-    };
+        suavizado: request.edicion.suavizado,
+        esconder_al_escribir: request.edicion.esconder_al_escribir,
+        onda: request.edicion.onda_clic,
+        estela: request.edicion.estela,
+    }
+}
+
+fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<Estudio<'a>> {
+    let ajustes = ajustes_del_estudio(request);
     let lupas = lupas_de(request);
     if !ajustes.hay_algo() && lupas.is_empty() {
         return None;
@@ -951,6 +1021,8 @@ fn estudio_de<'a>(session: &'a SessionData, request: &ExportRequest) -> Option<E
         ms: 0,
         caches: estudio::Caches::default(),
         lupas,
+        escritura: &session.escritura,
+        camara_antes: None,
     })
 }
 
@@ -979,6 +1051,12 @@ const NIVEL_DE_LA_TECLA: f32 = 2.0;
 
 impl Camara {
     fn preparar(session: &SessionData, request: &ExportRequest) -> Option<Self> {
+        // S7 (cursor): con «acercarse al escribir» y la pista sin tocar, los zooms al escribir
+        // van como bloques junto a los que salen solos: lo mismo que enseña la pista (A5).
+        if request.edicion.zooms.is_none() && request.edicion.zoom_al_escribir && !session.escritura.is_empty() {
+            let bloques = zooms_con_escritura(session, request.zoom, request.crop, request.zoom_speed);
+            return Self::nueva(session, request.zoom, request.crop, request.zoom_speed, Some(&bloques));
+        }
         Self::nueva(
             session,
             request.zoom,
@@ -1136,6 +1214,32 @@ pub fn zooms_de_la_sesion(
         .collect()
 }
 
+/// S7 (cursor): los zooms que salen solos MAS los de acercarse al escribir (A5), juntos
+/// donde se pisan (`zoom::juntar`). Es lo que enseña la pista con el interruptor puesto, y
+/// lo que se exporta con ella sin tocar.
+///
+/// El nivel de los de escribir es el del panel si tiene el zoom de los clics puesto, y si
+/// no, el de la tecla de zoom: se pidió acercarse, así que se acerca igual.
+pub fn zooms_con_escritura(
+    session: &SessionData,
+    zoom: f32,
+    crop: Option<Recorte>,
+    velocidad: f32,
+) -> Vec<crate::contrato::TramoZoom> {
+    let solos = zooms_de_la_sesion(session, zoom, crop, velocidad);
+    let nivel = if zoom >= 1.05 { zoom.min(zoom::ESCALA_MAXIMA) } else { NIVEL_DE_LA_TECLA };
+    let ajustes = zoom::Ajustes::a_velocidad(nivel, velocidad);
+    let escritos = zoom::al_escribir(
+        &session.escritura,
+        &session.cursor,
+        session.width,
+        session.height,
+        nivel,
+        &ajustes,
+    );
+    zoom::juntar(solos, escritos, ajustes.transicion_ms)
+}
+
 /// Donde mira la camara en un fotograma, como trozo de la imagen ENTERA (de 0 a 1).
 ///
 /// Es lo que la vista previa del editor necesita para ensennar el zoom antes de exportar:
@@ -1249,8 +1353,13 @@ fn enmarcar_y_anotar(
     marco: marco::Marco,
     anotaciones: &[anotacion::Anotacion],
     recortes: &[Recorte],
-    estudio: Option<&mut Estudio<'_>>,
+    mut estudio: Option<&mut Estudio<'_>>,
 ) -> image::RgbaImage {
+    // S7 (cursor): con la camara moviendose y la estela puesta, el fotograma sale de lo que
+    // se vio por el camino (A4). Se hace con la imagen entera, antes de recortarla.
+    let con_estela = estudio
+        .as_deref_mut()
+        .and_then(|e| e.estela_de_camara(&imagen, recortes, ancho, alto));
     // Los recortes se encadenan, y cada uno se mide sobre lo que dejo el anterior. Son
     // dos: el que puso el usuario en el editor y el que pide la camara del zoom, que
     // cambia en cada fotograma. Los dos hacen lo mismo, asi que hacen lo mismo.
@@ -1266,7 +1375,9 @@ fn enmarcar_y_anotar(
     // zoom la imagen ya mide lo que se pide y no se toca, con zoom hay que estirar el
     // trozo. Con `image` eso costaba 64 ms por fotograma; `escalar::a_medida` hace lo
     // mismo en dos.
-    let mut escalada = if recortada.dimensions() == (ancho, alto) {
+    let mut escalada = if let Some(movida) = con_estela {
+        movida
+    } else if recortada.dimensions() == (ancho, alto) {
         recortada
     } else {
         escalar::a_medida(&recortada, ancho, alto)
@@ -1320,16 +1431,27 @@ where
         //
         // Con los tramos de la linea de tiempo, cada trozo lleva el suyo: el que va a su
         // velocidad de verdad suena, y el acelerado va en silencio y no despega a los demas.
-        match (request.audio, request.edicion.tramos.is_some()) {
-            (false, _) => None,
-            (true, true) => pista_de_trozos(session, &request.trozos(session), &pasos.duraciones)
-                .map(|p| con_volumen(p, request.volume)),
-            (true, false) => ((request.velocidad() - 1.0).abs() < f32::EPSILON)
-                .then(|| {
-                    let (desde, hasta) = request.tramo(session);
-                    pista_de_audio(session, desde, hasta).map(|p| con_volumen(p, request.volume))
-                })
-                .flatten(),
+        {
+            let voz = match (request.audio, request.edicion.tramos.is_some()) {
+                (false, _) => None,
+                (true, true) => pista_de_trozos(session, &request.trozos(session), &pasos.duraciones)
+                    .map(|p| con_volumen(p, request.volume)),
+                (true, false) => ((request.velocidad() - 1.0).abs() < f32::EPSILON)
+                    .then(|| {
+                        let (desde, hasta) = request.tramo(session);
+                        pista_de_audio(session, desde, hasta).map(|p| con_volumen(p, request.volume))
+                    })
+                    .flatten(),
+            };
+            // S7 (cursor): el sonido de los clics, encima de la voz y con su propio volumen
+            // (C3). Suena donde suena la imagen; a cero, la pista no cambia ni un byte.
+            clic::mezclar(
+                voz,
+                &session.clics,
+                &request.trozos(session),
+                &pasos.duraciones,
+                request.edicion.sonido_clic,
+            )
         },
         |stage, done, total| emit(stage, done, total),
     )
