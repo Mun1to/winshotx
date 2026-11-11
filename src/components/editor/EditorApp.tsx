@@ -15,6 +15,9 @@ import {
   copiaTexto,
   sessionStudio,
   sessionZooms,
+  // S7 (cursor)
+  sessionCameraAlEscribir,
+  sessionZoomsAlEscribir,
   tapaDatos,
 } from "../../lib/ipc";
 import { formatTimecode } from "../../lib/format";
@@ -159,6 +162,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       .catch(() => setDatosEstudio(null));
   }, [session, sessionId]);
 
+  // S7 (cursor): acercarse mientras se escribe (A5) cambia los zooms que salen solos.
+  const alEscribir = edicion.zoomAlEscribir ?? false;
+
   /**
    * La camara se vuelve a pedir cada vez que cambia el zoom o el recorte, con un respiro:
    * arrastrar el deslizador dispara decenas de cambios por segundo y cada uno recorre
@@ -178,7 +184,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     const espera = window.setTimeout(() => {
       const pedir = zoomsAMano
         ? sessionCameraConZooms(sessionId, estudio.zoom, recorte, estudio.velocidadZoom, zoomsAMano)
-        : sessionCamera(sessionId, estudio.zoom, recorte, estudio.velocidadZoom);
+        : alEscribir // S7 (cursor): con «acercarse al escribir», también esos zooms.
+          ? sessionCameraAlEscribir(sessionId, estudio.zoom, recorte, estudio.velocidadZoom, true)
+          : sessionCamera(sessionId, estudio.zoom, recorte, estudio.velocidadZoom);
       void pedir
         .then((muestras) => {
           if (vigente) setCamara(muestras ?? []);
@@ -189,7 +197,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       vigente = false;
       window.clearTimeout(espera);
     };
-  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte, zoomsAMano, zoomsSolos.length]);
+  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte, zoomsAMano, zoomsSolos.length, alEscribir]);
 
   /**
    * Los zooms que salen solos, para enseñarlos en la pista como bloques: se piden otra vez
@@ -199,7 +207,10 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     if (!session || session.format === "still" || zoomsAMano) return;
     let vigente = true;
     const espera = window.setTimeout(() => {
-      void sessionZooms(sessionId, estudio.zoom, recorte, estudio.velocidadZoom)
+      const pedir = alEscribir // S7 (cursor): con «acercarse al escribir», también esos bloques.
+        ? sessionZoomsAlEscribir(sessionId, estudio.zoom, recorte, estudio.velocidadZoom, true)
+        : sessionZooms(sessionId, estudio.zoom, recorte, estudio.velocidadZoom);
+      void pedir
         .then((bloques) => {
           if (vigente) setZoomsSolos(bloques ?? []);
         })
@@ -209,7 +220,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       vigente = false;
       window.clearTimeout(espera);
     };
-  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte, zoomsAMano]);
+  }, [session, sessionId, estudio.zoom, estudio.velocidadZoom, recorte, zoomsAMano, alEscribir]);
 
   /** Lo que se ve en la pista: lo tocado a mano, o lo que sale solo. */
   const zoomsMostrados = zoomsAMano ?? zoomsSolos;
@@ -787,6 +798,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   onPunto={(x, y) => {
                     if (zoomElegido !== null) setZoomsAMano(cambiar(zoomsMostrados, zoomElegido, { x, y }));
                   }}
+                  // S7 (cursor): el suavizado, esconderlo al escribir, la onda y la estela.
+                  edicion={edicion}
                 />
               )}
               {/* S8 (cámara en el Estudio) */}

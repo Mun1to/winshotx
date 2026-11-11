@@ -657,6 +657,17 @@ export const EN: Record<string, string> = {
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "That area is too small to scroll: select something bigger.",
   "Ya hay una captura con scroll en marcha.": "A scrolling capture is already running.",
   // S7 (cursor)
+  "Nada": "None",
+  "Esconderlo mientras escribes": "Hide it while you type",
+  "vuelve al mover el ratón": "comes back when you move the mouse",
+  "Estela al moverse": "Motion trail",
+  "sin estela": "no trail",
+  "Una onda en cada clic": "A ripple on every click",
+  "Sonido de clic": "Click sound",
+  "se oye en el vídeo, también si no grabaste sonido": "heard in the video, even if you didn't record sound",
+  "Volumen del clic": "Click volume",
+  "Acercarse mientras escribes": "Zoom in while you type",
+  "al cursor de texto, o al ratón si no se ve": "to the text cursor, or to the mouse if it can't be seen",
   // S8 (cámara en el Estudio)
   // S9 (presets y tapar)
 };

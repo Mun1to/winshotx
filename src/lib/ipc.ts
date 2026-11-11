@@ -367,5 +367,24 @@ export const scrollTerminar = () => invoke<void>("scroll_terminar");
 /** Para la captura con scroll y la tira. */
 export const scrollDescartar = () => invoke<void>("scroll_descartar");
 // S7 (cursor)
+/**
+ * Los zooms que salen solos, y con `alEscribir` también los de acercarse mientras se escribe
+ * (A5), juntos donde se pisan: lo que enseña la pista sin tocar con el interruptor puesto.
+ */
+export const sessionZoomsAlEscribir = (
+  sessionId: string,
+  zoom: number,
+  crop: Recorte | null,
+  zoomSpeed: number,
+  alEscribir: boolean,
+) => invoke<import("./contrato").TramoZoom[]>("session_zooms", { sessionId, zoom, crop, zoomSpeed, alEscribir });
+/** La cámara con la pista sin tocar, y con `alEscribir` acercándose también a lo que se escribe. */
+export const sessionCameraAlEscribir = (
+  sessionId: string,
+  zoom: number,
+  crop: Recorte | null,
+  zoomSpeed: number,
+  alEscribir: boolean,
+) => invoke<MuestraCamara[]>("session_camera", { sessionId, zoom, crop, zoomSpeed, alEscribir });
 // S8 (cámara en el Estudio)
 // S9 (presets y tapar)

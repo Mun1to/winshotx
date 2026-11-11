@@ -29,6 +29,14 @@ import {
   movimientos,
   opacidadDelPuntero,
   medidasConMarco,
+  sitioSuavizado,
+  opacidadAlEscribir,
+  FUNDIDO_ESCRIBIR_MS,
+  ondaEn,
+  ondasEn,
+  ONDA_MS,
+  estelaDelPuntero,
+  desenfoqueDeCamara,
 } from "./estudio";
 import type { MuestraCamara } from "./types";
 
@@ -262,5 +270,75 @@ describe("la vista previa con el marco puesto", () => {
     expect(m.width + 2 * m.aire).toBeLessThanOrEqual(800);
     expect(m.height + 2 * m.aire).toBeLessThanOrEqual(500);
     expect(m.radio).toBe(7);
+  });
+});
+
+// S7 (cursor): las mismas cifras que `encode::estudio::puntero_de_estudio` en Rust.
+describe("el cursor del estudio (S7)", () => {
+  const clic = (ms: number) => ({ ms, x: 100, y: 0, derecho: false });
+
+  it("«mucho» mira más lejos y se ciñe al clic", () => {
+    const salto: [number, number, number][] = [
+      [0, 0, 0],
+      [1000, 100, 0],
+    ];
+    expect(sitioSuavizado(salto, [], 1000, "poco")![0]).toBeCloseTo(53.125, 3);
+    expect(sitioSuavizado(salto, [], 1000, "mucho")![0]).toBeCloseTo(51.51515, 3);
+    expect(sitioSuavizado(salto, [], 1000, "nada")).toEqual([100, 0]);
+    expect(sitioSuavizado(salto, [clic(1040)], 1000, "mucho")![0]).toBeCloseTo(58.33333, 3);
+    expect(sitioSuavizado(salto, [clic(1040)], 1040, "mucho")).toEqual([100, 0]);
+    // «poco» es el movimiento suave de antes.
+    expect(sitioSuavizado(salto, [], 1000, "poco")).toEqual(sitioDelPuntero(salto, 1000, true));
+  });
+
+  it("al escribir se va con un fundido y un clic lo trae un rato", () => {
+    const escrito = [{ desdeMs: 1000, hastaMs: 3000, caret: null }];
+    const o = (ms: number, clics: ReturnType<typeof clic>[] = []) => opacidadAlEscribir(escrito, [0], clics, ms);
+    expect(o(900)).toBe(1);
+    expect(o(1075)).toBeCloseTo(0.5, 6);
+    expect(o(2000)).toBe(0);
+    expect(o(3100)).toBeCloseTo(2 / 3, 6);
+    expect(o(3150)).toBe(1);
+    const enMedio = [clic(2000)];
+    expect(o(1925, enMedio)).toBeCloseTo(0.5, 6);
+    expect(o(2000, enMedio)).toBe(1);
+    expect(o(2800, enMedio)).toBe(1);
+    expect(o(2875, enMedio)).toBeCloseTo(0.5, 6);
+    expect(o(2950, enMedio)).toBe(0);
+    expect(FUNDIDO_ESCRIBIR_MS).toBe(150);
+  });
+
+  it("la onda sale del aro y se apaga", () => {
+    const empieza = ondaEn(0, 1080);
+    expect(empieza.radio).toBeCloseTo(15.552, 3);
+    expect(empieza.opacidad).toBeCloseTo(0.6, 6);
+    expect(empieza.grosor).toBeCloseTo(2.592, 3);
+    const medio = ondaEn(0.5, 1080);
+    expect(medio.radio).toBeCloseTo(60.912, 2);
+    expect(medio.opacidad).toBeCloseTo(0.15, 6);
+    expect(medio.grosor).toBeCloseTo(1.944, 3);
+    expect(ondaEn(1, 1080).opacidad).toBe(0);
+    expect(ondasEn([clic(1000)], 1000 + ONDA_MS)).toEqual([]);
+    expect(ondasEn([clic(1000)], 1325)[0].avance).toBeCloseTo(0.5, 6);
+  });
+
+  it("la estela son cuatro copias cada vez más claras", () => {
+    expect(estelaDelPuntero(1000, 0)).toEqual([]);
+    const copias = estelaDelPuntero(1000, 1);
+    expect(copias.map((c) => c.t)).toEqual([930, 948, 965, 983]);
+    expect(copias[0].alfa).toBeCloseTo(0.11, 6);
+    expect(copias[3].alfa).toBeCloseTo(0.44, 6);
+    expect(estelaDelPuntero(1000, 0.5)[0].t).toBe(965);
+    expect(estelaDelPuntero(20, 1)).toHaveLength(1);
+  });
+
+  it("la cámara que se mueve emborrona la vista previa, y quieta no", () => {
+    const ahora = { x1: 0.25, y1: 0, x2: 0.75, y2: 1 };
+    expect(desenfoqueDeCamara(ahora, ahora, 800, 450, 1)).toBe(0);
+    const antes = { x1: 0.2, y1: 0, x2: 0.7, y2: 1 };
+    // 0,05 de 0,5 de ancho son 80 de 800 píxeles: un desenfoque de 23,2.
+    expect(desenfoqueDeCamara(antes, ahora, 800, 450, 1)).toBeCloseTo(23.2, 3);
+    expect(desenfoqueDeCamara(antes, ahora, 800, 450, 0)).toBe(0);
+    expect(desenfoqueDeCamara(null, null, 800, 450, 1)).toBe(0);
   });
 });

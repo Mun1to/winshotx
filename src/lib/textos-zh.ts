@@ -657,6 +657,17 @@ export const ZH: Record<string, string> = {
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "这个区域太小，无法滚动：请框选大一点的区域。",
   "Ya hay una captura con scroll en marcha.": "已经有一个滚动截图在进行中。",
   // S7 (cursor)
+  "Nada": "无",
+  "Esconderlo mientras escribes": "打字时隐藏",
+  "vuelve al mover el ratón": "移动鼠标时重新出现",
+  "Estela al moverse": "移动拖影",
+  "sin estela": "无拖影",
+  "Una onda en cada clic": "每次点击显示波纹",
+  "Sonido de clic": "点击音效",
+  "se oye en el vídeo, también si no grabaste sonido": "在视频中可以听到，即使录制时没有声音",
+  "Volumen del clic": "点击音量",
+  "Acercarse mientras escribes": "打字时放大",
+  "al cursor de texto, o al ratón si no se ve": "放大到文本光标，看不到时放大到鼠标",
   // S8 (cámara en el Estudio)
   // S9 (presets y tapar)
 };

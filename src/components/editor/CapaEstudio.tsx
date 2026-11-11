@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { MuestraCamara, StudioData } from "../../lib/types";
-import type { TramoZoom } from "../../lib/contrato";
+import type { Edicion, TramoZoom } from "../../lib/contrato";
 import { medidasDeLupa, ventanaDelZoom } from "../../lib/zooms";
 import { useT } from "../../lib/i18n";
 import {
@@ -9,16 +9,22 @@ import {
   arosEn,
   atajoEn,
   colocar,
+  desenfoqueDeCamara,
   dibujoDe,
   encuadreEn,
+  estelaDelPuntero,
   formaEn,
   movimientos,
+  opacidadAlEscribir,
   opacidadDelAro,
   opacidadDelPuntero,
+  ondaEn,
+  ondasEn,
   punteroEn,
   radioDelAro,
   radioMaximo,
   sitioDelPuntero,
+  sitioSuavizado,
   transformacion,
   type Estudio,
   type Forma,
@@ -50,6 +56,11 @@ interface Props {
    */
   elegido?: TramoZoom | null;
   onPunto?: (x: number, y: number) => void;
+  /**
+   * Lo del cursor que viaja en `edicion` (S7): el suavizado, esconderlo al escribir, la onda
+   * de los clics y la estela. Sin esto, lo de siempre.
+   */
+  edicion?: Edicion;
 }
 
 /** Lo que tarda una lupa en abrirse y en cerrarse. El mismo número que `LUPA_APARECE_MS` en Rust. */
@@ -86,6 +97,7 @@ export function CapaEstudio({
   zooms = [],
   elegido = null,
   onPunto,
+  edicion,
 }: Props) {
   const lienzo = useRef<HTMLCanvasElement>(null);
   /** Colocando el punto de un bloque fijo: la imagen entera, para ver dónde se pone. */
@@ -108,8 +120,8 @@ export function CapaEstudio({
   /** Cuándo se movió el ratón, sacado una vez: con ello se sabe cuánto lleva quieto. */
   const movs = useMemo(() => movimientos(datos?.cursor ?? []), [datos]);
   // Lo último que se sabe, para que el bucle no tenga que reengancharse a cada cambio.
-  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando });
-  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando };
+  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando, edicion });
+  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando, edicion };
 
   useEffect(() => {
     let vivo = true;
@@ -120,8 +132,11 @@ export function CapaEstudio({
       peticion = requestAnimationFrame(pintar);
       const canvas = lienzo.current;
       const video = videoRef.current;
-      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando } =
+      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando, edicion } =
         estado.current;
+      // Lo del cursor (S7): el suavizado elegido manda sobre el interruptor de antes.
+      const suavizado = edicion?.suavizado ?? (estudio.suave ? "poco" : "nada");
+      const estela = Math.min(1, Math.max(0, edicion?.estela ?? 0));
       if (!canvas) return;
 
       const caja = canvas.getBoundingClientRect();
@@ -140,6 +155,12 @@ export function CapaEstudio({
       if (video) {
         const css = transformacion(encuadre, W, H);
         if (video.style.transform !== css) video.style.transform = css;
+        // La estela de la cámara (A4): mientras se mueve, el vídeo se emborrona lo que ha
+        // recorrido en el último paso de exportar. En redondo, que es lo que sabe el navegador.
+        const antes = encuadre && estela > 0 ? encuadreEn(camara, ms - 33) : null;
+        const borroso = encuadre && estela > 0 ? desenfoqueDeCamara(antes, encuadre, W, H, estela) : 0;
+        const filtro = borroso > 0.3 ? `blur(${borroso.toFixed(1)}px)` : "";
+        if (video.style.filter !== filtro) video.style.filter = filtro;
       }
 
       const ctx = canvas.getContext("2d");
@@ -179,29 +200,51 @@ export function CapaEstudio({
       // El puntero va DEBAJO del aro, como al exportar: el aro se abre desde donde se
       // pulsó y taparlo sería tapar justo lo que se señala.
       // Suavizado y apagándose como al exportar: las dos cuentas son las de Rust.
-      const opacidad = estudio.esconder ? opacidadDelPuntero(movs, datos.clics, ms) : 1;
+      let opacidad = estudio.esconder ? opacidadDelPuntero(movs, datos.clics, ms) : 1;
+      if (edicion?.esconderAlEscribir) opacidad *= opacidadAlEscribir(datos.escritura ?? [], movs, datos.clics, ms);
       if (estudio.cursor > 0 && opacidad > 0) {
-        const raton = sitioDelPuntero(datos.cursor, ms, estudio.suave);
+        const raton = sitioSuavizado(datos.cursor, datos.clics, ms, suavizado);
         const punta = raton ? aPantalla(raton[0], raton[1]) : null;
         if (punta) {
-          ctx.globalAlpha = opacidad;
           const altoPx = altoDelPuntero(estudio.cursor, datos.clics, ms) * escala;
           const id = punteroEn(datos.cambiosPuntero, ms);
           const leido = id === null ? undefined : datos.punteros.find((p) => p.id === id);
           const img = leido ? imagenes.get(leido.id) : undefined;
-          if (leido && img && img.complete && img.naturalWidth > 0 && leido.alto > 0) {
-            const s = altoPx / leido.alto;
-            ctx.drawImage(
-              img,
-              punta.x - leido.caliente[0] * s,
-              punta.y - leido.caliente[1] * s,
-              leido.ancho * s,
-              altoPx,
-            );
-          } else {
-            puntero(ctx, punta.x, punta.y, altoPx, formaEn(datos.formas, ms));
+          const forma = formaEn(datos.formas, ms);
+          const dibujar = (x: number, y: number, alfa: number) => {
+            ctx.globalAlpha = alfa;
+            if (leido && img && img.complete && img.naturalWidth > 0 && leido.alto > 0) {
+              const s = altoPx / leido.alto;
+              ctx.drawImage(img, x - leido.caliente[0] * s, y - leido.caliente[1] * s, leido.ancho * s, altoPx);
+            } else {
+              puntero(ctx, x, y, altoPx, forma);
+            }
+          };
+          // La estela va detrás (A4): el mismo puntero donde estuvo hace nada, más claro.
+          for (const copia of estelaDelPuntero(ms, estela)) {
+            const antes = sitioSuavizado(datos.cursor, datos.clics, copia.t, suavizado);
+            const donde = antes ? aPantalla(antes[0], antes[1]) : null;
+            if (donde && Math.abs(donde.x - punta.x) + Math.abs(donde.y - punta.y) >= 2 * escala) {
+              dibujar(donde.x, donde.y, opacidad * copia.alfa);
+            }
           }
+          dibujar(punta.x, punta.y, opacidad);
           ctx.globalAlpha = 1;
+        }
+      }
+
+      // La onda de cada clic, debajo del aro y saliendo de él (C4).
+      if (edicion?.ondaClic) {
+        for (const onda of ondasEn(datos.clics, ms)) {
+          const centro = aPantalla(onda.x, onda.y);
+          if (!centro) continue;
+          const { radio, opacidad, grosor } = ondaEn(onda.avance, alto);
+          if (opacidad <= 0) continue;
+          ctx.beginPath();
+          ctx.arc(centro.x, centro.y, Math.max(0.5, radio * escala), 0, Math.PI * 2);
+          ctx.lineWidth = Math.max(1, grosor * escala);
+          ctx.strokeStyle = `rgba(${onda.derecho ? "255, 176, 32" : "10, 155, 255"}, ${opacidad.toFixed(3)})`;
+          ctx.stroke();
         }
       }
 
@@ -233,8 +276,11 @@ export function CapaEstudio({
     return () => {
       vivo = false;
       cancelAnimationFrame(peticion);
-      // Al irse, el vídeo se queda como estaba: sin encuadre.
-      if (videoRef.current) videoRef.current.style.transform = "none";
+      // Al irse, el vídeo se queda como estaba: sin encuadre ni estela.
+      if (videoRef.current) {
+        videoRef.current.style.transform = "none";
+        videoRef.current.style.filter = "";
+      }
     };
   }, [videoRef]);
 

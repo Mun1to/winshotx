@@ -10,6 +10,7 @@
  */
 import type { AtajoGrabado, Background, ClicGrabado, MuestraCamara } from "./types";
 import type { Recorte } from "./recorte";
+import type { Suavizado, TramoEscritura } from "./contrato";
 
 /** Lo que se decide en el panel y se dibuja en la vista previa. */
 export interface Estudio {
@@ -75,15 +76,45 @@ export function sitioDelPuntero(
   ms: number,
   suave: boolean,
 ): [number, number] | null {
+  return mediaDelPuntero(rastro, ms, suave ? SUAVE_MS : 0);
+}
+
+/** Lo que mira «mucho» hacia cada lado. La misma cifra que `estudio::MUCHO_MS`. */
+export const MUCHO_MS = 260;
+
+/**
+ * Dónde se dibuja el puntero con el suavizado elegido: «nada» es el ratón tal cual, «poco»
+ * lo de siempre y «mucho» mira más lejos pero se ciñe a los clics, para que en el instante
+ * del clic esté donde se pulsó. Es `estudio::sitio_con`, con las mismas cifras.
+ */
+export function sitioSuavizado(
+  rastro: [number, number, number][],
+  clics: ClicGrabado[],
+  ms: number,
+  suavizado: Suavizado,
+): [number, number] | null {
+  if (suavizado === "nada") return mediaDelPuntero(rastro, ms, 0);
+  if (suavizado === "poco") return mediaDelPuntero(rastro, ms, SUAVE_MS);
+  let cerca = Infinity;
+  for (const c of clics) cerca = Math.min(cerca, Math.abs(c.ms - ms));
+  return mediaDelPuntero(rastro, ms, Math.min(MUCHO_MS, cerca));
+}
+
+/** La media de donde estuvo el ratón `ventana` antes y después, cada 8 ms. */
+function mediaDelPuntero(
+  rastro: [number, number, number][],
+  ms: number,
+  ventana: number,
+): [number, number] | null {
   const aqui = cursorEn(rastro, ms);
-  if (!aqui || !suave) return aqui;
   const paso = 8;
-  const lado = SUAVE_MS / paso;
+  const lado = Math.floor(ventana / paso);
+  if (!aqui || lado === 0) return aqui;
   let sx = 0;
   let sy = 0;
   let pesos = 0;
   for (let k = 0; k <= 2 * lado; k++) {
-    const t = ms + k * paso - SUAVE_MS;
+    const t = ms + k * paso - lado * paso;
     if (t < 0) continue;
     const p = cursorEn(rastro, t);
     if (!p) continue;
@@ -121,6 +152,127 @@ export function opacidadDelPuntero(movs: number[], clics: ClicGrabado[], ms: num
   for (const c of clics) if (c.ms <= ms && c.ms > pulsado) pulsado = c.ms;
   const quieto = Math.max(0, ms - Math.max(movs[i], pulsado));
   return quieto <= QUIETO_MS ? 1 : Math.max(0, 1 - (quieto - QUIETO_MS) / DESVANECE_MS);
+}
+
+/**
+ * Lo que tarda el puntero en irse al empezar a escribir y en volver, y lo que se queda a la
+ * vista tras usar el ratón en mitad de lo escrito. `estudio::FUNDIDO_ESCRIBIR_MS` y `VUELVE_MS`.
+ */
+export const FUNDIDO_ESCRIBIR_MS = 150;
+export const VUELVE_MS = 800;
+
+/**
+ * Lo visible que está el puntero según se esté escribiendo, de 0 a 1: se va con un fundido
+ * en cada rato de escritura y vuelve al acabar, y un movimiento o un clic en mitad lo trae un
+ * rato. Es `estudio::opacidad_al_escribir`, con las mismas cifras.
+ */
+export function opacidadAlEscribir(
+  escritura: TramoEscritura[],
+  movs: number[],
+  clics: ClicGrabado[],
+  ms: number,
+): number {
+  const f = FUNDIDO_ESCRIBIR_MS;
+  const tramo = escritura.find(
+    (t) => ms >= t.desdeMs && ms < Math.max(t.hastaMs, t.desdeMs) + FUNDIDO_ESCRIBIR_MS,
+  );
+  if (!tramo) return 1;
+  const desde = tramo.desdeMs;
+  const hasta = Math.max(tramo.hastaMs, tramo.desdeMs);
+  const entra = (ms - desde) / f;
+  const sale = ms > hasta ? 1 - (ms - hasta) / f : 1;
+  const escondido = Math.min(1, Math.max(0, Math.min(entra, sale)));
+  const porGesto = (g: number | null): number => {
+    if (g === null || g < desde || g > hasta) return 0;
+    const v = ms < g ? 1 - (g - ms) / f : ms - g <= VUELVE_MS ? 1 : 1 - (ms - g - VUELVE_MS) / f;
+    return Math.min(1, Math.max(0, v));
+  };
+  const i = ultimaAntes(movs, ms, (t) => t);
+  const movAntes = i >= 0 ? movs[i] : null;
+  const movDespues = i + 1 < movs.length ? movs[i + 1] : null;
+  let clicAntes: number | null = null;
+  let clicDespues: number | null = null;
+  for (const c of clics) {
+    if (c.ms <= ms) clicAntes = clicAntes === null ? c.ms : Math.max(clicAntes, c.ms);
+    else clicDespues = clicDespues === null ? c.ms : Math.min(clicDespues, c.ms);
+  }
+  const antes = movAntes === null ? clicAntes : clicAntes === null ? movAntes : Math.max(movAntes, clicAntes);
+  const despues =
+    movDespues === null ? clicDespues : clicDespues === null ? movDespues : Math.min(movDespues, clicDespues);
+  const visible = Math.max(porGesto(antes), porGesto(despues));
+  return 1 - Math.min(escondido, 1 - visible);
+}
+
+/** Lo que dura la onda de un clic. La misma cifra que `estudio::ONDA_MS`. */
+export const ONDA_MS = 650;
+
+/**
+ * La onda de un clic con ese avance, en un vídeo de ese alto: radio, opacidad y grosor, en
+ * píxeles del vídeo. Es `estudio::onda_en`.
+ */
+export function ondaEn(avance: number, altoVideo: number): { radio: number; opacidad: number; grosor: number } {
+  const a = Math.min(1, Math.max(0, avance));
+  const grande = radioMaximo(altoVideo);
+  const abre = 1 - (1 - a) ** 3;
+  return {
+    radio: grande * (0.6 + 2 * abre),
+    opacidad: 0.6 * (1 - a) * (1 - a),
+    grosor: Math.min(5.5, Math.max(2.5, grande / 7)) * 0.7 * (1 - 0.5 * a),
+  };
+}
+
+/** Las ondas que se ven en ese instante, con lo avanzada que va cada una. */
+export function ondasEn(clics: ClicGrabado[], ms: number): Aro[] {
+  return clics
+    .filter((c) => ms >= c.ms && ms - c.ms < ONDA_MS)
+    .map((c) => ({ x: c.x, y: c.y, derecho: c.derecho, avance: (ms - c.ms) / ONDA_MS }));
+}
+
+/** Lo que dura la estela del puntero a tope, y cuántas copias lleva. `estudio::ESTELA_MS`. */
+export const ESTELA_MS = 70;
+export const COPIAS_ESTELA = 4;
+
+/**
+ * Las copias de la estela del puntero: el instante de cada una y lo opaca que va, de la más
+ * vieja a la más nueva. Es `estudio::estela_del_puntero`.
+ */
+export function estelaDelPuntero(ms: number, estela: number): { t: number; alfa: number }[] {
+  const ventana = Math.round(ESTELA_MS * Math.min(1, Math.max(0, estela)));
+  if (ventana === 0) return [];
+  const salen: { t: number; alfa: number }[] = [];
+  for (let k = COPIAS_ESTELA; k >= 1; k--) {
+    const t = ms - Math.floor((ventana * k) / COPIAS_ESTELA);
+    if (t < 0) continue;
+    salen.push({ t, alfa: 0.55 * (1 - k / (COPIAS_ESTELA + 1)) });
+  }
+  return salen;
+}
+
+/**
+ * Lo que se emborrona la vista previa cuando la cámara se mueve, en píxeles de la pantalla.
+ *
+ * Al exportar, la estela de la cámara es la media de lo que se vio por el camino desde el
+ * paso anterior (`zoom::estela_de_camara`): un desenfoque en la dirección del movimiento. El
+ * navegador solo desenfoca en redondo, así que aquí se pone el que da el mismo largo: un
+ * camino de L píxeles promediado es un desenfoque de unos 0,29·L. Se parece; no es igual.
+ */
+export function desenfoqueDeCamara(
+  antes: Recorte | null,
+  ahora: Recorte | null,
+  ancho: number,
+  alto: number,
+  estela: number,
+): number {
+  const fuerza = Math.min(1, Math.max(0, estela));
+  if (fuerza <= 0) return 0;
+  const a = antes ?? { x1: 0, y1: 0, x2: 1, y2: 1 };
+  const b = ahora ?? { x1: 0, y1: 0, x2: 1, y2: 1 };
+  const w = Math.max(1e-6, Math.abs(b.x2 - b.x1));
+  const h = Math.max(1e-6, Math.abs(b.y2 - b.y1));
+  const dx = (Math.max(Math.abs(a.x1 - b.x1), Math.abs(a.x2 - b.x2)) / w) * ancho;
+  const dy = (Math.max(Math.abs(a.y1 - b.y1), Math.abs(a.y2 - b.y2)) / h) * alto;
+  const largo = Math.max(dx, dy) * fuerza;
+  return largo < 2 ? 0 : 0.29 * largo;
 }
 
 /**
