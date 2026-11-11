@@ -416,6 +416,63 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   apagar();
 }
 
+// ── S7: el cursor y los clics. Los mandos van en el panel y lo que piden llega a Rust ────
+{
+  const { url, apagar } = await servir(duracion);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  console.log("\nEl cursor y los clics (S7), en Edge");
+  const mandos = pagina.locator("[data-ajustes-cursor]");
+  if ((await mandos.count()) === 0) {
+    console.log("  (los mandos del cursor aún no están en el panel: se engancha AjustesCursor y esto se prueba solo)");
+  } else {
+    await mandos.scrollIntoViewIfNeeded();
+    // La onda en la vista previa: parado a los 3,3 s, 300 ms después del clic del centro.
+    // Se cuenta el azul del lienzo del estudio sin la onda y con ella.
+    const tira = await pagina.locator("[data-pista]").boundingBox();
+    await pagina.mouse.click(tira.x + (tira.width * 3300) / (duracion * 1000), tira.y + tira.height / 2);
+    await pagina.waitForTimeout(400);
+    const azulEnElLienzo = () =>
+      pagina.evaluate(() => {
+        const c = document.querySelector("[data-capa-estudio]");
+        const { data } = c.getContext("2d").getImageData(0, 0, c.width, c.height);
+        let n = 0;
+        for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 20 && data[i + 2] > 150 && data[i] < 120) n++;
+        return n;
+      });
+    const sinOnda = await azulEnElLienzo();
+    await pagina.getByRole("button", { name: "Mucho" }).click();
+    await pagina.getByRole("switch", { name: /Una onda en cada clic/ }).click();
+    await pagina.waitForTimeout(300);
+    const conOnda = await azulEnElLienzo();
+    comprueba(conOnda > sinOnda + 50, `la vista previa pinta la onda del clic: ${sinOnda} píxeles azules sin ella, ${conOnda} con ella`);
+    await pagina.getByRole("switch", { name: /Sonido de clic/ }).click();
+    await pagina.getByRole("switch", { name: /Esconderlo mientras escribes/ }).click();
+    await pagina.getByRole("switch", { name: /Acercarse mientras escribes/ }).click();
+    await pagina.getByRole("slider", { name: "Estela al moverse" }).fill("60");
+    if (fotos) await pagina.screenshot({ path: join(fotos, "s7-mandos.png") });
+
+    await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+    await pagina.waitForFunction(() => (window.__llamadas ?? []).some((l) => l.cmd === "export_media"));
+    const peticion = await pagina.evaluate(
+      () => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request,
+    );
+    comprueba(peticion.suavizado === "mucho", `«Guardar» manda el suavizado ${peticion.suavizado}`);
+    comprueba(peticion.ondaClic === true && peticion.esconderAlEscribir === true, "y la onda y esconderlo al escribir");
+    comprueba(peticion.sonidoClic > 0 && peticion.sonidoClic <= 0.3, `y el sonido de clic, que nace bajo: ${peticion.sonidoClic}`);
+    comprueba(Math.abs(peticion.estela - 0.6) < 0.01, `y la estela: ${peticion.estela}`);
+    comprueba(peticion.zoomAlEscribir === true && peticion.zooms === null, "y acercarse al escribir, con la pista sin tocar");
+    const pedidos = await pagina.evaluate(() =>
+      window.__llamadas.filter((l) => l.cmd === "session_zooms" && l.args.alEscribir === true).length,
+    );
+    comprueba(pedidos > 0, `la pista pide a Rust los zooms de escribir (${pedidos} veces)`);
+  }
+  await pagina.close();
+  apagar();
+}
+
 // ── Diez minutos de grabación: lo que tarda en salir y lo que cuesta arrastrar ─────────
 {
   const segundos = 600;

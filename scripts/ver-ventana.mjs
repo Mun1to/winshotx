@@ -252,6 +252,19 @@ const RESPUESTAS = {
     recordShortcut: "Ctrl+Shift+5",
     replayShortcut: "Ctrl+Shift+6",
   },
+  // S7 (cursor): lo anotado al grabar, para que la vista previa tenga clics, ratón y escritura
+  // que dibujar: un clic en el centro a los 3 s, el ratón cruzando, y un rato escribiendo.
+  session_studio: {
+    clics: [{ ms: 3000, x: 640, y: 400, derecho: false }],
+    teclas: [],
+    cursor: Array.from({ length: Math.round(duracion * 30) }, (_, i) => [Math.round((i * 1000) / 30), 100 + (i * 7) % 1080, 400]),
+    formas: [],
+    punteros: [],
+    cambiosPuntero: [],
+    marcasZoom: [],
+    camara: null,
+    escritura: [{ desdeMs: 8000, hastaMs: 10000, caret: [300, 200] }],
+  },
   session_info: SESION,
   session_frames: FOTOGRAMAS,
   frame_image: "/editor.png",
