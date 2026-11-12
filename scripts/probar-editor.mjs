@@ -643,6 +643,87 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   apagar();
 }
 
+// ── S11: el sonido del PC y el micrófono por separado, en la vista previa y al guardar ──
+// Con un Edge propio y mudo (`--mute-audio`), y los WAV del banco son silencio: aquí se mira
+// que cada `<audio>` va al compás del vídeo y a su volumen, no se oye nada.
+{
+  const mudo = await chromium.launch({ channel: "msedge", headless: true, args: ["--mute-audio"] });
+  const { url, apagar } = await servir(duracion, ["--pistas"]);
+  const pagina = await mudo.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  await pagina.waitForFunction(
+    () => [...document.querySelectorAll("audio")].filter((a) => a.readyState >= 2).length === 2,
+  );
+  console.log("\nEl sonido del PC y el micrófono por separado (S11), en Edge");
+  comprueba(
+    (await pagina.getByRole("switch", { name: "Sonido del PC" }).count()) === 1 &&
+      (await pagina.getByRole("switch", { name: "Tu micrófono" }).count()) === 1 &&
+      (await pagina.getByRole("switch", { name: "Sonido", exact: true }).count()) === 0,
+    "donde iba «Sonido» hay dos mandos, «Sonido del PC» y «Tu micrófono»",
+  );
+  const estado = () =>
+    pagina.evaluate(() => {
+      const v = document.querySelector("video");
+      const a = (cual) => document.querySelector(`audio[data-sonido=${cual}]`);
+      const de = (el) => ({ t: el.currentTime, parada: el.paused, volumen: el.volume });
+      return { video: { t: v.currentTime, volumen: v.volume, parado: v.paused }, pc: de(a("pc")), voz: de(a("microfono")) };
+    });
+  let e = await estado();
+  comprueba(e.video.volumen === 0, `el vídeo, que trae las dos sumadas, va callado (volumen ${e.video.volumen})`);
+
+  await pagina.getByRole("button", { name: "Reproducir" }).click();
+  await pagina.waitForTimeout(1500);
+  e = await estado();
+  comprueba(
+    !e.pc.parada && !e.voz.parada && Math.abs(e.pc.t - e.video.t) < 0.15 && Math.abs(e.voz.t - e.video.t) < 0.15,
+    `reproduciendo, las dos suenan al compás: vídeo ${e.video.t.toFixed(2)} s, PC ${e.pc.t.toFixed(2)} s, voz ${e.voz.t.toFixed(2)} s`,
+  );
+
+  // El volumen de la voz, en vivo, y el PC apagado se calla sin parar el vídeo.
+  const volumenes = pagina.getByRole("slider", { name: "Volumen" });
+  await volumenes.nth(1).fill("40");
+  await pagina.getByRole("switch", { name: "Sonido del PC" }).click();
+  await pagina.waitForTimeout(300);
+  e = await estado();
+  comprueba(
+    Math.abs(e.voz.volumen - 0.4) < 1e-6 && !e.voz.parada && e.pc.parada && !e.video.parado,
+    `la voz al 40 % suena a ${e.voz.volumen} y el PC apagado se calla (parado: ${e.pc.parada})`,
+  );
+
+  // Un salto del vídeo (como el de un corte) se lleva las pistas con él.
+  await pagina.evaluate(() => {
+    document.querySelector("video").currentTime = 10;
+  });
+  await pagina.waitForTimeout(900);
+  e = await estado();
+  comprueba(
+    e.video.t > 10 && Math.abs(e.voz.t - e.video.t) < 0.15,
+    `tras saltar a los 10 s, la voz va con el vídeo: ${e.video.t.toFixed(2)} s y ${e.voz.t.toFixed(2)} s`,
+  );
+  await pagina.getByRole("button", { name: "Pausar" }).click();
+  await pagina.waitForTimeout(200);
+  e = await estado();
+  comprueba(e.pc.parada && e.voz.parada, "al pausar, las dos se paran");
+  if (fotos) await pagina.screenshot({ path: join(fotos, "14-pistas.png") });
+
+  const antes = await pagina.evaluate(() => (window.__llamadas ?? []).filter((l) => l.cmd === "export_media").length);
+  await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+  await pagina.waitForFunction((n) => window.__llamadas.filter((l) => l.cmd === "export_media").length > n, antes);
+  const peticion = await pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request);
+  comprueba(
+    peticion.audio === true &&
+      peticion.sonidoPc?.encendida === false &&
+      peticion.microfono?.encendida === true &&
+      Math.abs(peticion.microfono.volumen - 0.4) < 1e-6,
+    `«Guardar» manda lo mismo que se oye: ${JSON.stringify({ audio: peticion.audio, sonidoPc: peticion.sonidoPc, microfono: peticion.microfono })}`,
+  );
+  await pagina.close();
+  await mudo.close();
+  apagar();
+}
+
 // ── Diez minutos de grabación: lo que tarda en salir y lo que cuesta arrastrar ─────────
 {
   const segundos = 600;

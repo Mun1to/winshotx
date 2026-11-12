@@ -20,6 +20,7 @@
  *   node scripts/ver-ventana.mjs anclada.png --anclada=recorte.png --ancho=520 --alto=340
  *   node scripts/ver-ventana.mjs editor.png --editor=fotograma.png --ancho=1180 --alto=760
  *   node scripts/ver-ventana.mjs editor.png --editor=x.png --video=previa.mp4
+ *   node scripts/ver-ventana.mjs editor.png --editor=x.png --video=previa.mp4 --pistas
  *   node scripts/ver-ventana.mjs editor.png --editor=x.png --recorte=200,120,420,300
  *   node scripts/ver-ventana.mjs overlay.png --overlay=escritorio.png
  *   node scripts/ver-ventana.mjs overlay.png --overlay=x.png --raton=300,260 --grabar
@@ -198,6 +199,30 @@ function medidaDelPng(ruta) {
 
 const REGION = editor ? medidaDelPng(editor) : { width: 1280, height: 800 };
 
+// S11 (pistas): con --pistas, la sesión trae el sonido del PC y el micrófono por separado, cada
+// uno en un WAV que sirve este banco. Son silencio a propósito: el navegador del banco no tiene
+// que hacer sonar nada en el escritorio de nadie.
+const pistas = args.includes("--pistas");
+
+/** Un WAV de silencio de esos segundos, en el formato que graba la app (48 kHz, estéreo, 16 bits). */
+function wavDeSilencio(segundos) {
+  const datos = Math.round(48_000 * segundos) * 4;
+  const wav = Buffer.alloc(44 + datos);
+  wav.write("RIFF", 0);
+  wav.writeUInt32LE(36 + datos, 4);
+  wav.write("WAVEfmt ", 8);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(2, 22);
+  wav.writeUInt32LE(48_000, 24);
+  wav.writeUInt32LE(48_000 * 4, 28);
+  wav.writeUInt16LE(4, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(datos, 40);
+  return wav;
+}
+
 // Una sesión de mentira para el editor: un solo fotograma repetido, que es todo lo que
 // hace falta para mirar la pantalla. Sin `mp4Path` la vista previa es la imagen, que es
 // justo lo que se quiere fotografiar.
@@ -212,6 +237,8 @@ const SESION = {
   cursorBaked: false,
   format: fija ? "still" : "video",
   mp4Path: video ? "C:\\\\sesion\\\\preview.mp4" : null,
+  // S11 (pistas)
+  ...(pistas ? { sonidoPc: "C:\\sesion\\sonido-pc.wav", microfono: "C:\\sesion\\microfono.wav" } : {}),
 };
 
 const FOTOGRAMAS = Array.from({ length: CUANTOS }, (_, i) => ({
@@ -329,7 +356,11 @@ const MOCK = `<script>
 window.__TAURI_INTERNALS__ = {
   metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
   convertFileSrc: (p) =>
-    String(p).endsWith(".mp4")
+    String(p).endsWith("sonido-pc.wav")
+      ? "/sonido-pc.wav"
+      : String(p).endsWith("microfono.wav")
+      ? "/microfono.wav"
+      : String(p).endsWith(".mp4")
       ? "/editor.mp4"
       : ${anclada !== null}
         ? "/anclada.png"
@@ -584,6 +615,21 @@ const server = createServer(async (req, res) => {
       "accept-ranges": "bytes",
     });
     res.end(datos);
+    return;
+  }
+  // S11 (pistas): los dos WAV de la sesión, por trozos como el protocolo de Tauri.
+  if ((ruta === "/sonido-pc.wav" || ruta === "/microfono.wav") && pistas) {
+    const datos = wavDeSilencio(duracion);
+    const rango = /bytes=(\d*)-(\d*)/.exec(req.headers.range ?? "");
+    const inicio = rango?.[1] ? Number(rango[1]) : 0;
+    const fin = rango?.[2] ? Math.min(Number(rango[2]), datos.length - 1) : datos.length - 1;
+    res.writeHead(rango ? 206 : 200, {
+      "content-type": "audio/wav",
+      "content-length": fin - inicio + 1,
+      "accept-ranges": "bytes",
+      ...(rango ? { "content-range": `bytes ${inicio}-${fin}/${datos.length}` } : {}),
+    });
+    res.end(datos.subarray(inicio, fin + 1));
     return;
   }
   if (ruta === "/editor.png" && editor) {

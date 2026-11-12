@@ -505,3 +505,58 @@ describe("el marco del estudio en la vista previa", () => {
     vi.restoreAllMocks();
   });
 });
+
+// S11 (pistas)
+describe("el sonido del PC y la voz en la vista previa", () => {
+  async function abrirConPistas(pistas: Record<string, unknown>) {
+    preparar(VERTICAL, "C:\\t\\preview.mp4", "mp4");
+    responde("session_info", {
+      id: "s1",
+      region: VERTICAL,
+      fps: 30,
+      frameCount: 3,
+      durationMs: 100,
+      hasAudio: true,
+      format: "mp4",
+      mp4Path: "C:\\t\\preview.mp4",
+      ...pistas,
+    });
+    const vista = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    return vista;
+  }
+
+  it("cada pista suena en su <audio>, y el vídeo, que las trae sumadas, se calla", async () => {
+    const { container } = await abrirConPistas({
+      sonidoPc: "C:\\t\\sonido-pc.wav",
+      microfono: "C:\\t\\microfono.wav",
+    });
+    await waitFor(() => expect(container.querySelectorAll("audio")).toHaveLength(2));
+    expect(container.querySelector("audio[data-sonido=pc]")?.getAttribute("src")).toBe("asset://C:\\t\\sonido-pc.wav");
+    expect(container.querySelector("audio[data-sonido=microfono]")?.getAttribute("src")).toBe(
+      "asset://C:\\t\\microfono.wav",
+    );
+    expect(container.querySelector("video")!.volume).toBe(0);
+  });
+
+  it("una grabación de antes, con todo junto, suena por el vídeo como siempre", async () => {
+    const { container } = await abrirConPistas({});
+    expect(container.querySelectorAll("audio")).toHaveLength(0);
+    expect(container.querySelector("video")!.volume).toBe(1);
+  });
+
+  it("si una pista no se puede abrir, vuelve a sonar el vídeo en vez de quedarse mudo", async () => {
+    const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = await abrirConPistas({ sonidoPc: "C:\\t\\sonido-pc.wav" });
+    const pista = await waitFor(() => {
+      const a = container.querySelector("audio");
+      expect(a).not.toBeNull();
+      return a!;
+    });
+    fireEvent.error(pista);
+    await waitFor(() => expect(container.querySelectorAll("audio")).toHaveLength(0));
+    expect(container.querySelector("video")!.volume).toBe(1);
+    expect(aviso).toHaveBeenCalled();
+    aviso.mockRestore();
+  });
+});
