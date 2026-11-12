@@ -564,6 +564,89 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   apagar();
 }
 
+// ── S13: las esquinas redondeadas de la cámara, en el panel, la vista previa y al guardar ──
+{
+  const { url, apagar } = await servir(duracion, ["--camara-estudio"]);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  const burbuja = pagina.locator("[data-camara]");
+  await burbuja.waitFor();
+  console.log("\nLas esquinas redondeadas de la cámara");
+  const guardar = async () => {
+    const antes = await pagina.evaluate(() => (window.__llamadas ?? []).filter((l) => l.cmd === "export_media").length);
+    await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+    await pagina.waitForFunction((n) => window.__llamadas.filter((l) => l.cmd === "export_media").length > n, antes);
+    return pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request);
+  };
+  const panel = pagina.locator("[data-ajustes-camara]");
+  await panel.scrollIntoViewIfNeeded();
+  const grupo = panel.getByRole("group", { name: "Forma de la cámara" });
+  const formas = (await grupo.getByRole("button").allTextContents()).map((f) => f.trim());
+  comprueba(formas.join(",") === "Círculo,Cuadrado,Rectángulo", `tres formas, sin el «Redondeado» repetido: ${formas.join(", ")}`);
+  // Las tres en una fila, sin salirse del panel: dos y una debajo sería una fila coja.
+  const cajas = await grupo.getByRole("button").evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().toJSON()));
+  const grupoCaja = await grupo.boundingBox();
+  const unaFila = cajas.every((c) => Math.abs(c.top - cajas[0].top) < 1);
+  const dentro = cajas.every((c) => c.right <= grupoCaja.x + grupoCaja.width + 0.5);
+  comprueba(unaFila && dentro, `las tres en una fila y dentro del panel (${cajas.map((c) => Math.round(c.width)).join(" + ")} px en ${Math.round(grupoCaja.width)})`);
+
+  const mando = panel.getByRole("slider", { name: "Esquinas redondeadas" });
+  comprueba((await mando.count()) === 0, "con el círculo no sale «Esquinas redondeadas»: no tiene esquinas");
+  await grupo.getByRole("button", { name: "Cuadrado" }).click();
+  await mando.waitFor();
+  comprueba((await mando.inputValue()) === "0", `el cuadrado sale con las esquinas rectas, como antes (${await mando.inputValue()})`);
+  // Con el ratón de verdad: el pulgar, arrastrado hasta el 60 % del recorrido.
+  const carril = await mando.boundingBox();
+  await pagina.mouse.move(carril.x + 8, carril.y + carril.height / 2);
+  await pagina.mouse.down();
+  await pagina.mouse.move(carril.x + carril.width * 0.6, carril.y + carril.height / 2, { steps: 8 });
+  await pagina.mouse.up();
+  const elegido = Number(await mando.inputValue());
+  const pista = (await panel.textContent()).includes(`${elegido} %`);
+  comprueba(elegido >= 25 && elegido <= 35 && pista, `arrastrado, el mando dice ${elegido} % a su lado`);
+
+  // La vista previa dibuja ese radio: el lado de la burbuja por lo elegido.
+  const lado = await burbuja.evaluate((b) => Math.min(b.offsetWidth, b.offsetHeight));
+  const radioPrevia = await pagina
+    .locator("[data-recorte-camara]")
+    .evaluate((d) => parseFloat(getComputedStyle(d).borderTopLeftRadius));
+  const recorte = await pagina.locator("[data-recorte-camara]").evaluate((d) => getComputedStyle(d).clipPath);
+  comprueba(
+    Math.abs(radioPrevia - (lado * elegido) / 100) < 0.6 && recorte.includes("round"),
+    `la vista previa redondea ${radioPrevia.toFixed(1)} px de ${lado} (${elegido} %), también en el clip-path (${recorte})`,
+  );
+  // El asa, en la curva y no en la punta vacía de la caja.
+  await burbuja.hover();
+  const asa = await pagina.locator("[data-asa-camara]").boundingBox();
+  const caja = await burbuja.boundingBox();
+  const metida = radioPrevia * (1 - Math.SQRT1_2);
+  const enLaCurva = [caja.x + metida, caja.x + caja.width - metida].some((x) => Math.abs(asa.x + asa.width / 2 - x) < 1.5);
+  comprueba(enLaCurva, `el asa de estirar cae en la curva, ${metida.toFixed(1)} px dentro de la esquina`);
+  if (fotos) {
+    await panel.screenshot({ path: join(fotos, "14-camara-esquinas-panel.png") });
+    await pagina.screenshot({ path: join(fotos, "15-camara-esquinas.png") });
+  }
+
+  let peticion = await guardar();
+  comprueba(
+    peticion.camara?.forma === "cuadrado" && Math.abs(peticion.camara.redondeo - elegido / 100) < 1e-6,
+    `«Guardar» manda el cuadrado con sus esquinas: ${JSON.stringify({ forma: peticion.camara?.forma, redondeo: peticion.camara?.redondeo })}`,
+  );
+  // Pasada a rectángulo se queda con sus esquinas, y en círculo el mando se va.
+  await grupo.getByRole("button", { name: "Rectángulo" }).click();
+  peticion = await guardar();
+  comprueba(
+    peticion.camara?.forma === "rectangulo" && Math.abs(peticion.camara.redondeo - elegido / 100) < 1e-6,
+    `pasada a rectángulo conserva las esquinas: ${JSON.stringify({ forma: peticion.camara?.forma, redondeo: peticion.camara?.redondeo })}`,
+  );
+  if (fotos) await panel.screenshot({ path: join(fotos, "16-camara-esquinas-rectangulo.png") });
+  await grupo.getByRole("button", { name: "Círculo" }).click();
+  comprueba((await mando.count()) === 0, "y vuelta al círculo, el mando se va");
+  await pagina.close();
+  apagar();
+}
+
 // ── S9: tapar datos en un vídeo, en la línea de tiempo y en la vista previa ─────────────
 {
   const { url, apagar } = await servir(duracion);
