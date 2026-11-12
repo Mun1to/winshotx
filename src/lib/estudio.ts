@@ -28,6 +28,11 @@ export interface Estudio {
   velocidadZoom: number;
   /** El volumen del sonido: 1 como se grabó. */
   volumen: number;
+  /**
+   * La velocidad general del panel: 1 como se grabó. La vista previa no la reproduce, pero
+   * tiene que saberla, porque a otra velocidad el vídeo sale mudo y sin clics.
+   */
+  velocidad?: number;
   /** El marco de alrededor, para enseñarlo en la vista previa. null es sin marco. */
   marco: MarcoDeVista | null;
 }

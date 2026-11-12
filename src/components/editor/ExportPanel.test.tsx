@@ -476,6 +476,28 @@ describe("la velocidad", () => {
     expect(await guardarYEsperar()).toMatchObject({ speed: 2, audio: false });
   });
 
+  it("y se lo dice a la vista previa, para que no suene clics que no se guardan", () => {
+    const avisos: { velocidad?: number }[] = [];
+    render(
+      <ExportPanel
+        anotaciones={[]}
+        recorte={null}
+        session={GRABACION}
+        inIndex={10}
+        outIndex={80}
+        currentIndex={42}
+        fpsMax={60}
+        hasFfmpeg={false}
+        saveDirectory="C:\capturas"
+        onEstudio={(e) => avisos.push(e)}
+      />,
+    );
+    abrirMas();
+    expect(avisos.at(-1)?.velocidad).toBe(1);
+    fireEvent.click(boton("2"));
+    expect(avisos.at(-1)?.velocidad).toBe(2);
+  });
+
   it("y lo avisa antes de exportar, no despues", () => {
     pintar();
     abrirMas();

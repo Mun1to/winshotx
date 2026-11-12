@@ -79,6 +79,14 @@ export function bufferDelClic(ctx: AudioContext, clic: ClicElegido | null | unde
   return hecho;
 }
 
+/**
+ * El volumen del clic en la vista previa: el del editor, y nada si la velocidad general del
+ * panel no es 1, porque entonces el MP4 sale sin clics (`clic::instantes` solo los pone en
+ * lo que va a velocidad normal) y la vista previa no puede sonar lo que no se guarda.
+ */
+export const volumenDelClicEnVista = (sonidoClic: number | undefined, velocidad: number | undefined) =>
+  (velocidad ?? 1) === 1 ? (sonidoClic ?? 0) : 0;
+
 /** Lo que pesa el clic a ese volumen del editor, de 0 a 1. */
 export const gananciaDelClic = (volumen: number) => Math.min(1, Math.max(0, volumen)) * PICO_DEL_CLIC;
 

@@ -61,6 +61,7 @@ import { AVISO_TAPAR_VIDEO, tapaDatosVideo } from "../../lib/ipc";
 import { anadirTapas } from "../../lib/tapar";
 // S10 (sonidos)
 import { SonidoDeClics } from "./SonidoDeClics";
+import { volumenDelClicEnVista } from "../../lib/sonidoDeClic";
 // S11 (pistas)
 import { SonidoPorPistas } from "./SonidoPorPistas";
 import { conPistas } from "../../lib/pistas";
@@ -912,7 +913,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   piezas={piezas}
                   desdeMs={desdeMs}
                   hastaMs={hastaMs}
-                  volumen={edicion.sonidoClic ?? 0}
+                  volumen={volumenDelClicEnVista(edicion.sonidoClic, estudio.velocidad)}
                   clic={edicion.clic}
                 />
               )}

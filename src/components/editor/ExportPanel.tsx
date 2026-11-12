@@ -268,6 +268,7 @@ export function ExportPanel({
       esconder,
       velocidadZoom,
       volumen,
+      velocidad,
       marco:
         margen > 0
           ? {
@@ -278,7 +279,7 @@ export function ExportPanel({
             }
           : null,
     });
-  }, [zoom, cursor, aros, teclas, suave, esconder, velocidadZoom, volumen, margen, esquinas, fondo, sombra, width, onEstudio]);
+  }, [zoom, cursor, aros, teclas, suave, esconder, velocidadZoom, volumen, velocidad, margen, esquinas, fondo, sombra, width, onEstudio]);
 
   /**
    * Elegir un fondo sin aire pone el aire, las esquinas y la sombra que se ven bien a ese

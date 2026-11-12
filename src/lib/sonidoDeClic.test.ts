@@ -3,7 +3,7 @@
  * falta para cada uno se cuenta en el tiempo de verdad de la reproducción.
  */
 import { describe, expect, it } from "vitest";
-import { clicsQueSuenan, gananciaDelClic, nombreDelClic, relojDeSalida } from "./sonidoDeClic";
+import { clicsQueSuenan, gananciaDelClic, nombreDelClic, relojDeSalida, volumenDelClicEnVista } from "./sonidoDeClic";
 import type { Pieza } from "./tramo";
 
 // Lo mismo que la prueba de Rust `un_clic_cortado_o_acelerado_no_suena_y_los_demas_se_corren`:
@@ -36,5 +36,21 @@ describe("el sonido de clic en la vista previa", () => {
     expect(gananciaDelClic(0.5)).toBeCloseTo(0.3);
     expect(gananciaDelClic(4)).toBeCloseTo(0.6);
     expect(nombreDelClic("C:\\Users\\a\\AppData\\Roaming\\winshotx\\sonidos\\clic-0123456789abcdef-mi clic.wav")).toBe("mi clic");
+  });
+});
+
+describe("el clic en la vista previa y la velocidad general", () => {
+  it("a 1x suena con el volumen del editor", () => {
+    expect(volumenDelClicEnVista(0.7, 1)).toBe(0.7);
+    expect(volumenDelClicEnVista(0.7, undefined)).toBe(0.7);
+  });
+
+  it("a otra velocidad calla, porque el MP4 sale sin clics", () => {
+    expect(volumenDelClicEnVista(0.7, 2)).toBe(0);
+    expect(volumenDelClicEnVista(0.7, 0.5)).toBe(0);
+  });
+
+  it("sin sonido de clic, nada", () => {
+    expect(volumenDelClicEnVista(undefined, 1)).toBe(0);
   });
 });
