@@ -84,7 +84,7 @@ export interface RecordOptions {
   format: RecordFormat;
   fps: number;
   audio: boolean;
-  /** La voz por el micrófono. Con el audio del sistema puesto, van mezclados. */
+  /** La voz por el micrófono. Con el audio del sistema puesto, cada uno va a su pista. */
   microphone: boolean;
   /** Marcar cada clic con un aro dentro del vídeo. */
   highlightClicks: boolean;

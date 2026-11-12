@@ -24,7 +24,7 @@ pub struct RecordOptions {
     pub fps: u32,
     /// Lo que suena por los altavoces.
     pub audio: bool,
-    /// Y la voz de quien graba. Los dos a la vez se mezclan en una sola pista.
+    /// Y la voz de quien graba. Con los dos, cada uno va a su pista (`record::pistas`).
     #[serde(default)]
     pub microphone: bool,
     /// Marcar cada clic con un aro, para que se vea donde se esta pulsando.
