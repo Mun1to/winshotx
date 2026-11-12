@@ -386,6 +386,9 @@ export interface Settings {
   // S9 (presets y tapar)
   /** Los estilos guardados con nombre. Solo los cambia `presetsGuardar`. Lo lee `presets.ts`. */
   presets?: import("./ipc").PresetGuardado[];
+  // S10 (sonidos)
+  /** La marimba al empezar a grabar. Rust siempre lo manda; sin él, encendido. */
+  sonidoAlEmpezar?: boolean;
 }
 
 export interface ShortcutStatus {

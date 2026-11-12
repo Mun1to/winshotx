@@ -173,6 +173,10 @@ pub struct Settings {
     // S9 (presets y tapar)
     /// Los estilos guardados con nombre (D2). Solo los cambia `presets::presets_guardar`.
     pub presets: Vec<crate::presets::Preset>,
+    // S10 (sonidos)
+    /// La marimba al empezar a grabar (`platform::sonido::sonar_al_empezar`). Suena y acaba
+    /// antes de abrir la captura de sonido, así que no queda dentro del vídeo.
+    pub sonido_al_empezar: bool,
 }
 
 impl Default for Settings {
@@ -225,6 +229,9 @@ impl Default for Settings {
             // S8 (cámara en el Estudio)
             // S9 (presets y tapar)
             presets: Vec::new(),
+            // S10 (sonidos)
+            // Encendido: es como se sabe, sin mirar, que ya está grabando.
+            sonido_al_empezar: true,
         }
     }
 }
@@ -389,6 +396,19 @@ mod tests {
             crate::record::teclas::TeclaZoom::de_atajo(&settings.zoom_shortcut).is_some(),
             "la de fábrica se tiene que entender"
         );
+    }
+
+    // S10 (sonidos)
+    /// Quien actualice desde la 0.4.0 se encuentra la marimba de empezar encendida, y quien
+    /// la apague la sigue teniendo apagada.
+    #[test]
+    fn el_sonido_al_empezar_nace_encendido_y_se_recuerda_apagado() {
+        let viejos = serde_json::json!({ "recordShortcut": "Alt+KeyV" });
+        let settings: Settings = serde_json::from_value(viejos).expect("leer los ajustes");
+        assert!(settings.sonido_al_empezar);
+        let apagado = serde_json::json!({ "sonidoAlEmpezar": false });
+        let settings: Settings = serde_json::from_value(apagado).expect("leer los ajustes");
+        assert!(!settings.sonido_al_empezar);
     }
 
     /// Las tres opciones que ofrece la interfaz tienen que caber en el tipo del campo.

@@ -240,6 +240,13 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     }
 
     windows_mgr::close_overlays(app);
+    // S10 (sonidos): la marimba de empezar, ANTES de abrir nada que la pueda grabar (el
+    // sonido del sistema se graba de lo que sale por los altavoces, y el micro la oye). Si se
+    // graba sonido, esto espera a que acabe: es todo lo que se retrasa el arranque.
+    crate::platform::sonido::sonar_al_empezar(crate::platform::sonido::al_empezar(
+        state.settings.read().sonido_al_empezar,
+        options.audio || options.microphone,
+    ));
     let region = region.to_even();
     let id = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
     let dir = state.session_dir(&id);

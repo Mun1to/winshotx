@@ -20,6 +20,8 @@ import {
   Languages,
   Info,
   Mic,
+  // S10 (sonidos)
+  Bell,
   MousePointer2,
   Palette,
   Power,
@@ -696,6 +698,20 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                         checked={settings.recordMicrophone}
                         onChange={(v) => patch({ recordMicrophone: v })}
                         label={t("Micrófono")}
+                      />
+                    }
+                  />
+                  {/* S10 (sonidos): la marimba al empezar a grabar. */}
+                  <Row
+                    icon={<Bell className="size-4" />}
+                    label={t("Sonido al empezar")}
+                    explicacion={t("Una marimba corta justo antes de que empiece la grabación, para saber sin mirar que ya estás grabando. Suena y acaba antes de abrir el sonido, así que no queda dentro del vídeo.")}
+                    hint={t("antes de grabar, nunca dentro del vídeo")}
+                    control={
+                      <Switch
+                        checked={settings.sonidoAlEmpezar ?? true}
+                        onChange={(v) => patch({ sonidoAlEmpezar: v })}
+                        label={t("Sonido al empezar")}
                       />
                     }
                   />
