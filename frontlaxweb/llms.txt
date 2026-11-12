@@ -19,7 +19,6 @@ clock stops when the selection is visible on screen.
 - Published in the official winget catalogue: `winget install Mun1to.winshotx`.
 - Also published on the Microsoft Store, where Microsoft signs the package and keeps it
   updated: https://apps.microsoft.com/detail/9P1NKWNRXD6Z
-- Available on Scoop as well: `scoop install extras/winshotx`.
 - Ships a portable build on every release (`winshotx-<version>-portable-x64.zip`): one
   executable, nothing installed, settings still kept in %APPDATA%.
 

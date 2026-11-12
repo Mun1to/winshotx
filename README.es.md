@@ -112,11 +112,10 @@ incluidas las cinco que gana la de Windows.
 · 2,83 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
 versiones anteriores están en [Releases](../../releases).
 
-Otros dos caminos, la misma app:
+Otros tres caminos, la misma app:
 
 ```
 winget install Mun1to.winshotx
-scoop install extras/winshotx
 ```
 
 o el **portable** `winshotx-<versión>-portable-x64.zip` de

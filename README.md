@@ -117,7 +117,6 @@ Three other ways, same app:
 
 ```
 winget install Mun1to.winshotx
-scoop install extras/winshotx
 ```
 
 or the **portable** `winshotx-<version>-portable-x64.zip` from
