@@ -432,3 +432,19 @@ export const presetsGuardar = (presets: PresetGuardado[]) =>
 
 /** El aviso de que la lista de estilos ha cambiado, con la lista nueva. */
 export const AVISO_PRESETS = "winshotx://presets";
+// S10 (sonidos)
+/** El diálogo de abrir de Windows para un sonido de clic (WAV, MP3, M4A, WMA, FLAC). */
+export const elegirSonidoDeClic = () => invoke<string | null>("elegir_sonido_de_clic");
+
+/** Copia un sonido a la carpeta de la app, ya preparado como clic, y devuelve la ruta de la copia. */
+export const importarSonidoDeClic = (origen: string) => invoke<string>("importar_sonido_de_clic", { origen });
+
+/** La frecuencia de las muestras que da `muestrasDeClic`. */
+export const FRECUENCIA_DEL_CLIC = 48_000;
+
+/**
+ * Las muestras del clic elegido, las mismas que van al vídeo: coma flotante de 32 bits, un
+ * canal, a `FRECUENCIA_DEL_CLIC`. Llegan en crudo, sin pasar por JSON.
+ */
+export const muestrasDeClic = async (clic: import("./contrato").ClicElegido | null) =>
+  new Float32Array(await invoke<ArrayBuffer>("muestras_de_clic", { clic }));

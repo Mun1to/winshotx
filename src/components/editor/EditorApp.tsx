@@ -59,6 +59,8 @@ import { cambiar, NIVEL_NUEVO } from "../../lib/zooms";
 import { CapaTapar } from "./CapaTapar";
 import { AVISO_TAPAR_VIDEO, tapaDatosVideo } from "../../lib/ipc";
 import { anadirTapas } from "../../lib/tapar";
+// S10 (sonidos)
+import { SonidoDeClics } from "./SonidoDeClics";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -250,6 +252,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   );
 
   const totalMs = duracionDe(frames);
+  // S10 (sonidos): los instantes de los clics, para que suenen en la vista previa. Memorizados:
+  // una lista nueva en cada pintada volvería a programar el sonido sin parar.
+  const clicsDelSonido = useMemo(() => (datosEstudio?.clics ?? []).map((c) => c.ms), [datosEstudio]);
   /** El fotograma que se está viendo: el de la foto, el de leer el texto, el de tapar datos. */
   const currentIndex = indiceEn(frames, posicionMs);
   /** Y los fotogramas de los dos cortes, para lo que todavía va por fotogramas. */
@@ -872,6 +877,19 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   msParado={posicionMs}
                   reproduciendo={playing}
                   elegida={tapaElegida}
+                />
+              )}
+              {/* S10 (sonidos): el sonido de clic, al compás de la vista previa. */}
+              {session.format !== "still" && (
+                <SonidoDeClics
+                  videoRef={videoRef}
+                  reproduciendo={playing}
+                  clics={clicsDelSonido}
+                  piezas={piezas}
+                  desdeMs={desdeMs}
+                  hastaMs={hastaMs}
+                  volumen={edicion.sonidoClic ?? 0}
+                  clic={edicion.clic}
                 />
               )}
               <CapaAnotaciones

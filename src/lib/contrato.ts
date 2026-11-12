@@ -136,4 +136,11 @@ export interface Edicion {
   zoomAlEscribir?: boolean;
   camara?: MarcoCamara | null;
   tapar?: Tapa[];
+  // S10 (sonidos)
+  /** Qué suena en cada clic cuando `sonidoClic` no es 0. null o ausente: el «Ratón suave». */
+  clic?: ClicElegido | null;
 }
+
+// S10 (sonidos)
+/** El sonido de cada clic: uno de los tres de serie, o uno propio ya copiado a la carpeta de la app. */
+export type ClicElegido = { tipo: "suave" } | { tipo: "grave" } | { tipo: "toque" } | { tipo: "propio"; ruta: string };
