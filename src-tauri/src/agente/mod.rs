@@ -44,6 +44,9 @@ pub fn desde_la_linea_de_ordenes() -> Option<i32> {
             consola::preparar();
             Some(mcp::servir())
         }
+        // La que usa `cliente::arrancar_app` para lanzar la app fuera del árbol de procesos de
+        // quien la pide. No escribe nada.
+        Some(cliente::LANZADERA) => Some(cliente::hacer_de_lanzadera()),
         _ => None,
     }
 }

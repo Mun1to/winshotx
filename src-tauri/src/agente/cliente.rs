@@ -111,32 +111,126 @@ pub fn con_rutas_absolutas(peticion: &Value) -> Value {
     peticion
 }
 
-/// Arranca winshotx sin argumentos (se queda en la bandeja, como al encender el PC), sin
-/// heredarle ningún identificador y en la carpeta de su exe. Primero intenta sacarla del «job»
-/// de quien la arranca: algunos agentes meten sus órdenes en uno que mata todo lo que cuelga de
-/// ellas al acabar, y winshotx tiene que seguir viva. Si ese job no deja salir, se arranca dentro.
+/// El primer argumento con el que `winshotx.exe` hace solo de lanzadera: arranca la app y sale
+/// enseguida. Es interno (no sale en `--help`); ver `arrancar_app`.
+pub const LANZADERA: &str = "--agent-launcher";
+
+/// Arranca winshotx sin argumentos (se queda en la bandeja, como al encender el PC), en la
+/// carpeta de su exe, sin heredarle ningún identificador (sus entrada, salida y errores quedan
+/// a nulo) y **fuera del árbol y del job de quien la pide**.
+///
+/// Lo de fuera es lo que importa. Claude Code, al cerrarse en Windows, mata a los 300 ms el árbol
+/// entero de procesos del servidor MCP, y un cliente puede meterlo además en un job que mata todo
+/// lo suyo al cerrarse. Si la app fuera hija de `winshotx.exe mcp`, cerrar el agente cerraría la
+/// app de la bandeja con la grabación en marcha. Por eso no la lanza este proceso, sino una
+/// lanzadera (este mismo exe con `LANZADERA`) que sale del job, la lanza y se va: la app queda
+/// colgando de un proceso que ya no existe, y no la alcanza nadie que mate «el árbol». Si el job
+/// no deja salir a nadie, la lanza el Explorador (lo de siempre para abrir un programa); y si
+/// tampoco se puede, se arranca dentro, que es mejor que nada.
 pub fn arrancar_app(exe: &Path) -> Result<(), String> {
     #[cfg(windows)]
-    unsafe {
-        use windows::core::{PCWSTR, PWSTR};
-        use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{
-            CreateProcessW, CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, PROCESS_INFORMATION,
-            STARTUPINFOW,
+    {
+        let fallo = |e: String| format!("winshotx is not running and could not be started from {} ({e}).", exe.display());
+        match proceso::crear(exe, &[LANZADERA], true) {
+            Ok(lanzadera) => match lanzadera.esperar(Duration::from_secs(10)) {
+                Some(0) => return Ok(()),
+                otro => eprintln!("[agente] la lanzadera ha acabado con {otro:?}; la arranca el Explorador"),
+            },
+            // El job no deja salir: lo dice con «acceso denegado».
+            Err(e) if e.code() == windows::Win32::Foundation::ERROR_ACCESS_DENIED.to_hresult() => {}
+            Err(e) => return Err(fallo(e.message())),
+        }
+        if proceso::por_el_explorador(exe).is_ok() {
+            return Ok(());
+        }
+        proceso::crear(exe, &[], false).map(drop).map_err(|e| fallo(e.message()))
+    }
+    #[cfg(not(windows))]
+    Err(format!("winshotx only runs on Windows ({}).", exe.display()))
+}
+
+/// `winshotx.exe --agent-launcher`: arranca la app (este mismo exe, sin argumentos) fuera de
+/// cualquier job y sale en el acto. Devuelve el código de salida: 0 si la ha lanzado.
+pub fn hacer_de_lanzadera() -> i32 {
+    #[cfg(windows)]
+    {
+        let Ok(exe) = std::env::current_exe() else {
+            return 1;
         };
-        let ancho = |t: &std::ffi::OsStr| -> Vec<u16> {
-            use std::os::windows::ffi::OsStrExt;
-            t.encode_wide().chain(std::iter::once(0)).collect()
-        };
+        match proceso::crear(&exe, &[], true).or_else(|_| proceso::crear(&exe, &[], false)) {
+            Ok(_) => 0,
+            Err(_) => 1,
+        }
+    }
+    #[cfg(not(windows))]
+    1
+}
+
+/// Crear procesos sin heredarles nada.
+#[cfg(windows)]
+pub(crate) mod proceso {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use std::path::Path;
+    use std::time::Duration;
+
+    use windows::core::{PCWSTR, PWSTR};
+    use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
+    use windows::Win32::System::Threading::{
+        CreateProcessW, GetExitCodeProcess, WaitForSingleObject, CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP,
+        DETACHED_PROCESS, PROCESS_INFORMATION, STARTUPINFOW,
+    };
+
+    fn ancho(texto: &OsStr) -> Vec<u16> {
+        texto.encode_wide().chain(std::iter::once(0)).collect()
+    }
+
+    /// Un proceso recién creado. Soltarlo no lo mata: solo cierra el identificador.
+    pub struct Proceso(HANDLE);
+
+    impl Proceso {
+        /// Su código de salida, si acaba antes de `cuanto`.
+        pub fn esperar(&self, cuanto: Duration) -> Option<u32> {
+            unsafe {
+                if WaitForSingleObject(self.0, cuanto.as_millis().min(u128::from(u32::MAX - 1)) as u32) != WAIT_OBJECT_0 {
+                    return None;
+                }
+                let mut codigo = 0u32;
+                GetExitCodeProcess(self.0, &mut codigo).ok()?;
+                Some(codigo)
+            }
+        }
+    }
+
+    impl Drop for Proceso {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = CloseHandle(self.0);
+            }
+        }
+    }
+
+    /// Arranca `exe` con esos argumentos, en la carpeta del exe, sin consola, en su propio grupo
+    /// (un Ctrl+C de quien lo lanza no le llega) y **sin heredar ningún identificador**
+    /// (`bInheritHandles` a falso: ni la salida estándar de este proceso ni nada). Con
+    /// `fuera_del_job`, además sale del job de este proceso, si lo hay y lo deja.
+    pub fn crear(exe: &Path, args: &[&str], fuera_del_job: bool) -> windows::core::Result<Proceso> {
         let aplicacion = ancho(exe.as_os_str());
-        let mut linea = ancho(std::ffi::OsStr::new(&format!("\"{}\"", exe.display())));
+        let mut linea = format!("\"{}\"", exe.display());
+        for arg in args {
+            linea.push(' ');
+            linea.push_str(arg);
+        }
+        let mut linea = ancho(OsStr::new(&linea));
         let carpeta = exe.parent().map(|c| ancho(c.as_os_str()));
         let inicio = STARTUPINFOW { cb: std::mem::size_of::<STARTUPINFOW>() as u32, ..Default::default() };
-        let base = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
-        let mut ultimo = None;
-        for flags in [base | CREATE_BREAKAWAY_FROM_JOB, base] {
-            let mut info = PROCESS_INFORMATION::default();
-            match CreateProcessW(
+        let mut flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
+        if fuera_del_job {
+            flags |= CREATE_BREAKAWAY_FROM_JOB;
+        }
+        let mut info = PROCESS_INFORMATION::default();
+        unsafe {
+            CreateProcessW(
                 PCWSTR(aplicacion.as_ptr()),
                 Some(PWSTR(linea.as_mut_ptr())),
                 None,
@@ -147,23 +241,21 @@ pub fn arrancar_app(exe: &Path) -> Result<(), String> {
                 carpeta.as_ref().map_or(PCWSTR::null(), |c| PCWSTR(c.as_ptr())),
                 &inicio,
                 &mut info,
-            ) {
-                Ok(()) => {
-                    let _ = CloseHandle(info.hThread);
-                    let _ = CloseHandle(info.hProcess);
-                    return Ok(());
-                }
-                Err(e) => ultimo = Some(e),
-            }
+            )?;
+            let _ = CloseHandle(info.hThread);
         }
-        Err(format!(
-            "winshotx is not running and could not be started from {} ({}).",
-            exe.display(),
-            ultimo.map(|e| e.message()).unwrap_or_default()
-        ))
+        Ok(Proceso(info.hProcess))
     }
-    #[cfg(not(windows))]
-    Err(format!("winshotx only runs on Windows ({}).", exe.display()))
+
+    /// Que lo abra el Explorador, como un doble clic: `explorer.exe "<exe>"` le pasa el encargo
+    /// al Explorador que ya está abierto y se cierra, así que el programa cuelga de él y no de
+    /// quien lo pide (ni de su job). Solo se usa si el job no deja salir.
+    pub fn por_el_explorador(exe: &Path) -> windows::core::Result<()> {
+        let windows = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+        let explorador = Path::new(&windows).join("explorer.exe");
+        let argumento = format!("\"{}\"", exe.display());
+        crear(&explorador, &[&argumento], false).map(drop)
+    }
 }
 
 #[cfg(test)]
@@ -243,6 +335,119 @@ mod pruebas {
     fn arrancar_un_exe_que_no_existe_da_un_error_legible() {
         let e = arrancar_app(Path::new(r"C:\no\existe\winshotx.exe")).unwrap_err();
         assert!(e.contains("could not be started") && e.contains(r"C:\no\existe\winshotx.exe"), "{e}");
+    }
+
+    fn de_sistema(exe: &str) -> std::path::PathBuf {
+        let windows = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+        Path::new(&windows).join("System32").join(exe)
+    }
+
+    /// Lo que arranca el cliente no hereda nada: aquí, el extremo de escribir de una tubería
+    /// marcada para heredarse, como la salida estándar que un agente le pasa a `winshotx.exe
+    /// mcp`. Si el hijo (un `ping` de dos segundos, sin ventana ni sonido) se la quedara, leer
+    /// no acabaría hasta que él saliera; sin heredarla, acaba en cuanto se cierra la nuestra.
+    #[cfg(windows)]
+    #[test]
+    fn lo_que_arranca_no_se_queda_con_la_salida_de_quien_lo_pide() {
+        use std::io::Read;
+        use std::os::windows::io::AsRawHandle;
+        use windows::Win32::Foundation::{SetHandleInformation, HANDLE, HANDLE_FLAG_INHERIT};
+        let (mut lector, escritor) = std::io::pipe().unwrap();
+        unsafe {
+            SetHandleInformation(HANDLE(escritor.as_raw_handle()), HANDLE_FLAG_INHERIT.0, HANDLE_FLAG_INHERIT).unwrap();
+        }
+        let ping = proceso::crear(&de_sistema("PING.EXE"), &["-n", "3", "127.0.0.1"], false).unwrap();
+        drop(escritor);
+        let empezado = Instant::now();
+        let mut resto = Vec::new();
+        lector.read_to_end(&mut resto).unwrap();
+        assert!(empezado.elapsed() < Duration::from_millis(1500), "el hijo se quedó con la tubería: {:?}", empezado.elapsed());
+        assert_eq!(ping.esperar(Duration::from_secs(10)), Some(0), "y el hijo sí ha corrido entero");
+    }
+
+    /// El padre de ese proceso y el nombre del exe del padre, de una foto de los procesos.
+    #[cfg(windows)]
+    fn padre_de(pid: u32) -> Option<(u32, String)> {
+        use windows::Win32::Foundation::CloseHandle;
+        use windows::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+        };
+        let mut todos = Vec::new();
+        unsafe {
+            let foto = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?;
+            let mut p = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+            let mut hay = Process32FirstW(foto, &mut p).is_ok();
+            while hay {
+                let largo = p.szExeFile.iter().position(|c| *c == 0).unwrap_or(p.szExeFile.len());
+                todos.push((p.th32ProcessID, p.th32ParentProcessID, String::from_utf16_lossy(&p.szExeFile[..largo])));
+                hay = Process32NextW(foto, &mut p).is_ok();
+            }
+            let _ = CloseHandle(foto);
+        }
+        let padre = todos.iter().find(|(p, _, _)| *p == pid)?.1;
+        let nombre = todos.iter().find(|(p, _, _)| *p == padre).map(|t| t.2.clone()).unwrap_or_default();
+        Some((padre, nombre))
+    }
+
+    /// El arranque de verdad, con una «sonda» en lugar de la app: un exe de subsistema Windows
+    /// SIN ventanas que apunta en `sonda.txt` (junto a él) su pid y sus argumentos, espera cuatro
+    /// segundos y sale. Lanzada con `arrancar_app` desde un job que mata todo al cerrarse y no
+    /// deja salir (la terminal de Claude Code lo es: medido el 12-nov-2026), tiene que acabar
+    /// fuera de ese job y sin colgar de este proceso. La sonda es cualquier exe así; la de la
+    /// prueba del 12-nov está en el informe de S15.
+    ///
+    /// `WINSHOTX_SONDA=C:\...\sonda.exe cargo test --lib arrancar_fuera_del_job_con_una_sonda -- --ignored --nocapture`
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn arrancar_fuera_del_job_con_una_sonda() {
+        let sonda = std::path::PathBuf::from(std::env::var_os("WINSHOTX_SONDA").expect("WINSHOTX_SONDA"));
+        let nota = sonda.with_file_name("sonda.txt");
+        let _ = std::fs::remove_file(&nota);
+        arrancar_app(&sonda).unwrap();
+        let empezado = Instant::now();
+        let texto = loop {
+            if let Some(t) = std::fs::read_to_string(&nota).ok().filter(|t| t.ends_with('\n')) {
+                break t;
+            }
+            assert!(empezado.elapsed() < Duration::from_secs(10), "la sonda no ha arrancado");
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        println!("la sonda dice: {}", texto.trim());
+        let pid: u32 = texto.split_whitespace().next().unwrap().trim_start_matches("pid=").parse().unwrap();
+        let (padre, nombre) = padre_de(pid).expect("la sonda sigue viva");
+        println!("su padre: {padre} ({nombre}); este proceso: {}", std::process::id());
+        // En Windows 11 casi todo programa va en ALGÚN job (la app instalada, arrancada a mano,
+        // también): lo que cuenta es que no esté en el de este proceso, que es el que lo mataría.
+        let de_este_job = pids_de_este_job();
+        println!("en el job de este proceso: {de_este_job:?}");
+        assert!(de_este_job.contains(&std::process::id()), "la lista del job es la de este proceso");
+        assert!(!de_este_job.contains(&pid), "la sonda ha quedado en el job de quien la pidió");
+        assert!(!de_este_job.contains(&padre) && padre != std::process::id(), "la sonda cuelga de quien la pidió");
+    }
+
+    /// Los procesos que hay en el job de este proceso (vacío si no va en ninguno).
+    #[cfg(windows)]
+    fn pids_de_este_job() -> Vec<u32> {
+        use windows::Win32::System::JobObjects::{JobObjectBasicProcessIdList, QueryInformationJobObject};
+        // JOBOBJECT_BASIC_PROCESS_ID_LIST: dos u32 (cuántos hay y cuántos caben) y los pid, de
+        // a `usize` cada uno.
+        let mut bloque = vec![0usize; 1024];
+        let leido = unsafe {
+            QueryInformationJobObject(None, JobObjectBasicProcessIdList, bloque.as_mut_ptr().cast(), (bloque.len() * 8) as u32, None)
+        };
+        if leido.is_err() {
+            return Vec::new();
+        }
+        let en_la_lista = (bloque[0] >> 32) as usize;
+        bloque[1..=en_la_lista.min(bloque.len() - 1)].iter().map(|p| *p as u32).collect()
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn se_lee_el_codigo_con_el_que_sale_lo_que_arranca() {
+        let cmd = proceso::crear(&de_sistema("cmd.exe"), &["/d", "/c", "exit", "7"], false).unwrap();
+        assert_eq!(cmd.esperar(Duration::from_secs(10)), Some(7));
     }
 
     #[test]
