@@ -667,7 +667,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     };
 
     // El marco alrededor de lo que se graba. Que no se pueda abrir no impide grabar.
-    let marco = match crate::platform::marco::Marco::abrir(region, grosor_del_marco(region)) {
+    let marco = match crate::platform::marco::Marco::abrir(region, escala_del_marco(region)) {
         Ok(marco) => Some(marco),
         Err(error) => {
             eprintln!("[winshotx] sin marco alrededor de la grabacion: {error}");
@@ -724,14 +724,15 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     Ok(info)
 }
 
-/// Dos pixeles logicos: en una pantalla al 150 % son tres de verdad, para que se vea igual.
+/// La escala de la pantalla donde cae el centro de la zona: el marco mide lo mismo a la
+/// vista en una pantalla al 100 % que en una al 150 %. Si la zona cruza dos pantallas con
+/// distinto escalado, manda la del centro: un marco con un lado mas gordo que otro se ve roto.
 #[cfg(windows)]
-fn grosor_del_marco(region: Rect) -> i32 {
+fn escala_del_marco(region: Rect) -> f64 {
     let (cx, cy) = region.center();
-    let escala = windows_mgr::monitor_de(cx, cy)
+    windows_mgr::monitor_de(cx, cy)
         .map(|m| m.escala)
-        .unwrap_or(1.0);
-    (2.0 * escala).round().max(1.0) as i32
+        .unwrap_or(1.0)
 }
 
 #[cfg(not(windows))]

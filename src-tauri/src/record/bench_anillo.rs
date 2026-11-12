@@ -189,8 +189,8 @@ mod tests {
     ///
     /// Pinta un marco pequenno parpadeando en la esquina de abajo a la derecha de esa
     /// pantalla: sin algo que cambie, Windows no entrega fotogramas y no habria nada que
-    /// medir. El marco son cuatro lineas de cuatro pixeles: lo que cambia por fotograma es
-    /// un cursor, no una pelicula.
+    /// medir. El marco, el de una pantalla al 200 % (lineas de cuatro pixeles): lo que cambia
+    /// por fotograma es un cursor, no una pelicula.
     #[test]
     #[ignore = "graba la pantalla unos segundos y pinta un marco en una esquina"]
     fn medir_el_anillo_con_pantalla() {
@@ -220,7 +220,7 @@ mod tests {
                     width: 100,
                     height: 60,
                 },
-                4,
+                2.0,
             )
             .expect("el marco tenia que abrirse"),
         );
