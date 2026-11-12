@@ -37,9 +37,11 @@ use std::sync::{mpsc, Mutex};
 const PROTOCOLO: &str = "2025-06-18";
 
 /// Las revisiones que acepta si el cliente pide una de ellas. Lo que usa este servidor (la
-/// lista de herramientas y su resultado en texto) es igual en las tres; los campos nuevos de
-/// la 2025-06-18 (`title`) un cliente viejo los ignora.
-const PROTOCOLOS: &[&str] = &["2025-06-18", "2025-03-26", "2024-11-05"];
+/// lista de herramientas y su resultado en texto) es igual en las dos, y los campos nuevos de
+/// la 2025-06-18 (`title`) un cliente viejo los ignora. La 2025-03-26 NO está: obliga al
+/// servidor a aceptar lotes de JSON-RPC, y este no los acepta (la 2025-06-18 los quitó). A
+/// quien la pida se le contesta con la 2025-06-18, y decide él.
+const PROTOCOLOS: &[&str] = &["2025-06-18", "2024-11-05"];
 
 /// Lo que llega a la app por el canal. En la app de verdad es `cliente::pedir`; en las
 /// pruebas, uno de mentira.
@@ -85,6 +87,7 @@ fn servir_con<R: BufRead, W: Write + Send>(
         });
 
         let mut linea = Vec::new();
+        let mut iniciado = false;
         loop {
             linea.clear();
             match entrada.read_until(b'\n', &mut linea) {
@@ -96,7 +99,7 @@ fn servir_con<R: BufRead, W: Write + Send>(
                     break;
                 }
             }
-            match atender(&linea, carpeta) {
+            match atender(&linea, carpeta, &mut iniciado) {
                 Accion::Nada => {}
                 Accion::Responder(mensaje) => salida.escribir(&mensaje),
                 Accion::Llamar { id, peticion } => {
@@ -170,8 +173,9 @@ const PETICION_MALA: i64 = -32600;
 const METODO_QUE_NO_EXISTE: i64 = -32601;
 const PARAMETROS_MALOS: i64 = -32602;
 
-/// Una línea de la entrada, ya leída, convertida en lo que toca hacer.
-fn atender(linea: &[u8], carpeta: &Path) -> Accion {
+/// Una línea de la entrada, ya leída, convertida en lo que toca hacer. `iniciado` dice si ya
+/// llegó el `initialize`: antes de él solo se contestan `ping` y el propio saludo.
+fn atender(linea: &[u8], carpeta: &Path, iniciado: &mut bool) -> Accion {
     let linea = limpiar(linea);
     if linea.is_empty() {
         return Accion::Nada;
@@ -227,8 +231,21 @@ fn atender(linea: &[u8], carpeta: &Path) -> Accion {
         ));
     }
     match metodo {
-        "initialize" => Accion::Responder(resultado(id, iniciar(params))),
+        "initialize" => {
+            *iniciado = true;
+            Accion::Responder(resultado(id, iniciar(params)))
+        }
         "ping" => Accion::Responder(resultado(id, json!({}))),
+        // Las revisiones de MCP que vienen después de esta (la 2026-07-28 ya no saluda con
+        // `initialize`) pueden mandar una herramienta de entrada. Contestarla como si se hubiera
+        // saludado sería entender sus mensajes a la antigua; con un error, el cliente sabe que
+        // tiene delante un servidor 2025-06-18 y saluda. Lo que no se conoce (su
+        // `server/discover`, por ejemplo) ya recibe su error abajo, sin cerrar nada.
+        "tools/list" | "tools/call" if !*iniciado => Accion::Responder(error(
+            id,
+            PETICION_MALA,
+            "Invalid Request: send initialize first. This server speaks MCP 2025-06-18.",
+        )),
         "tools/list" => Accion::Responder(resultado(id, json!({ "tools": herramientas() }))),
         "tools/call" => llamar(id, params, carpeta),
         _ => Accion::Responder(error(
@@ -280,9 +297,16 @@ fn resultado(id: Value, resultado: Value) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "result": resultado })
 }
 
-/// Una respuesta de error de JSON-RPC.
+/// Una respuesta de error de JSON-RPC. Con `id` nulo (un JSON roto, un mensaje sin id
+/// válido) se deja el id fuera en vez de poner `"id": null`: JSON-RPC pide el nulo, pero
+/// MCP no lo admite como id y el SDK de TypeScript descarta ese mensaje; la revisión
+/// 2025-11-25 de MCP ya permite omitirlo.
 fn error(id: Value, codigo: i64, mensaje: &str) -> Value {
-    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": codigo, "message": mensaje } })
+    let mut respuesta = json!({ "jsonrpc": "2.0", "error": { "code": codigo, "message": mensaje } });
+    if !id.is_null() {
+        respuesta["id"] = id;
+    }
+    respuesta
 }
 
 /// `tools/call`: comprueba la herramienta y sus argumentos y la manda al hilo de las llamadas.
@@ -845,6 +869,15 @@ mod pruebas {
         (codigo, mensajes)
     }
 
+    /// Como `conversar`, pero saludando antes, como hace un cliente de verdad. La respuesta al
+    /// saludo no se devuelve.
+    fn conversar_iniciado(lineas: &[&str], canal: &Canal) -> (i32, Vec<Value>) {
+        let mut todas = vec![INICIO, INICIADO];
+        todas.extend_from_slice(lineas);
+        let (codigo, mensajes) = conversar(&todas, canal);
+        (codigo, mensajes.into_iter().filter(|m| m["id"] != json!("init")).collect())
+    }
+
     fn con_id(mensajes: &[Value], id: Value) -> Value {
         let con: Vec<&Value> = mensajes.iter().filter(|m| m["id"] == id).collect();
         assert_eq!(con.len(), 1, "una sola respuesta con id {id}: {mensajes:?}");
@@ -865,7 +898,7 @@ mod pruebas {
         .to_string()
     }
 
-    const INICIO: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"prueba","version":"1"}}}"#;
+    const INICIO: &str = r#"{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"prueba","version":"1"}}}"#;
     const INICIADO: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
 
     fn sin_canal() -> Canal {
@@ -879,7 +912,7 @@ mod pruebas {
         let (codigo, mensajes) = conversar(&[INICIO, INICIADO, ping], &canal);
         assert_eq!(codigo, 0);
         assert_eq!(mensajes.len(), 2, "la notificación no se contesta: {mensajes:?}");
-        let inicio = con_id(&mensajes, json!(1));
+        let inicio = con_id(&mensajes, json!("init"));
         assert_eq!(inicio["jsonrpc"], "2.0");
         let r = &inicio["result"];
         assert_eq!(r["protocolVersion"], "2025-06-18");
@@ -897,7 +930,7 @@ mod pruebas {
             r["protocolVersion"].as_str().unwrap().to_string()
         };
         assert_eq!(pedir("2024-11-05"), "2024-11-05");
-        assert_eq!(pedir("2025-03-26"), "2025-03-26");
+        assert_eq!(pedir("2025-03-26"), "2025-06-18", "la 2025-03-26 obliga a aceptar lotes");
         assert_eq!(pedir("2099-01-01"), "2025-06-18");
         assert_eq!(iniciar(None)["protocolVersion"], "2025-06-18");
     }
@@ -1067,7 +1100,7 @@ mod pruebas {
         let lineas: Vec<String> =
             casos.iter().enumerate().map(|(i, (n, a, _))| llamada(10 + i as i64, n, a.clone())).collect();
         let lineas: Vec<&str> = lineas.iter().map(String::as_str).collect();
-        let (_, mensajes) = conversar(&lineas, &canal);
+        let (_, mensajes) = conversar_iniciado(&lineas, &canal);
         for (i, (nombre, _, debe_decir)) in casos.iter().enumerate() {
             let respuesta = con_id(&mensajes, json!(10 + i as i64));
             assert_eq!(respuesta["result"]["isError"], true, "{nombre}: {respuesta}");
@@ -1093,7 +1126,7 @@ mod pruebas {
             llamada(4, "windows", json!(null)),
         ];
         let lineas: Vec<&str> = lineas.iter().map(String::as_str).collect();
-        let (codigo, mensajes) = conversar(&lineas, &canal);
+        let (codigo, mensajes) = conversar_iniciado(&lineas, &canal);
         assert_eq!(codigo, 0);
         let parar = con_id(&mensajes, json!(1));
         assert_eq!(parar["result"]["isError"], true);
@@ -1125,8 +1158,12 @@ mod pruebas {
             "",
             r#"{"jsonrpc":"2.0","id":10,"method":"ping"}"#,
         ];
-        let (codigo, mensajes) = conversar(&lineas, &canal);
+        let (codigo, mensajes) = conversar_iniciado(&lineas, &canal);
         assert_eq!(codigo, 0);
+        assert!(
+            mensajes.iter().all(|m| m.get("id") != Some(&Value::Null)),
+            "un error sin id deja el id fuera, sin \"id\": null: {mensajes:?}"
+        );
         let codigos: Vec<(Value, i64)> = mensajes
             .iter()
             .filter(|m| m.get("error").is_some())
@@ -1151,11 +1188,40 @@ mod pruebas {
     }
 
     #[test]
+    fn antes_del_saludo_solo_contesta_el_ping_y_lo_nuevo_recibe_su_error() {
+        // Un cliente de las revisiones nuevas (2026-07-28) pregunta primero con
+        // `server/discover`, y si recibe un error cualquiera vuelve a `initialize`. Si el
+        // servidor se callara o se cerrara, ese cliente no lo podría usar.
+        let canal = sin_canal();
+        let lineas = [
+            r#"{"jsonrpc":"2.0","id":"d","method":"server/discover","params":{}}"#,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+            &llamada(3, "status", json!({})),
+            r#"{"jsonrpc":"2.0","id":4,"method":"ping"}"#,
+            INICIO,
+            INICIADO,
+            r#"{"jsonrpc":"2.0","id":5,"method":"tools/list"}"#,
+        ];
+        let (codigo, mensajes) = conversar(&lineas, &canal);
+        assert_eq!(codigo, 0, "sigue vivo");
+        assert_eq!(con_id(&mensajes, json!("d"))["error"]["code"], -32601);
+        for id in [2, 3] {
+            let antes = con_id(&mensajes, json!(id));
+            assert_eq!(antes["error"]["code"], -32600, "{antes}");
+            assert!(antes["error"]["message"].as_str().unwrap().contains("initialize"));
+        }
+        assert!(canal.pedido().is_empty(), "nada de antes del saludo llega a la app");
+        assert_eq!(con_id(&mensajes, json!(4))["result"], json!({}));
+        assert_eq!(con_id(&mensajes, json!("init"))["result"]["protocolVersion"], "2025-06-18");
+        assert_eq!(con_id(&mensajes, json!(5))["result"]["tools"].as_array().map(Vec::len), Some(8));
+    }
+
+    #[test]
     fn el_bom_y_los_finales_de_linea_de_windows_no_molestan() {
         let canal = sin_canal();
         let entrada = format!("\u{FEFF}{INICIO}\r\n{}\r\n", r#"{"jsonrpc":"2.0","id":2,"method":"ping"}"#);
         let (_, mensajes) = conversar_bytes(entrada.into_bytes(), &canal);
-        assert_eq!(con_id(&mensajes, json!(1))["result"]["serverInfo"]["name"], "winshotx");
+        assert_eq!(con_id(&mensajes, json!("init"))["result"]["serverInfo"]["name"], "winshotx");
         assert_eq!(con_id(&mensajes, json!(2))["result"], json!({}));
     }
 
@@ -1167,7 +1233,7 @@ mod pruebas {
         });
         let exportar = llamada(1, "export", json!({ "session": "s", "output": r"C:\v.mp4" }));
         let ping = r#"{"jsonrpc":"2.0","id":2,"method":"ping"}"#;
-        let (_, mensajes) = conversar(&[&exportar, ping], &canal);
+        let (_, mensajes) = conversar_iniciado(&[&exportar, ping], &canal);
         let ids: Vec<Value> = mensajes.iter().map(|m| m["id"].clone()).collect();
         assert_eq!(ids, [json!(2), json!(1)], "el ping sale antes que la exportación");
         assert_eq!(con_id(&mensajes, json!(1))["result"]["isError"], false);
@@ -1180,7 +1246,7 @@ mod pruebas {
         let exportar = llamada(1, "export", json!({ "session": "s", "output": r"C:\v.mp4" }));
         let estado = llamada(2, "status", json!({}));
         // La cancelación llega antes que la llamada (el cliente se arrepiente al momento).
-        let (_, mensajes) = conversar(&[cancelar, &exportar, &estado], &canal);
+        let (_, mensajes) = conversar_iniciado(&[cancelar, &exportar, &estado], &canal);
         assert!(mensajes.iter().all(|m| m["id"] != json!(1)), "la cancelada no tiene respuesta: {mensajes:?}");
         assert_eq!(canal.pedido(), [json!({ "command": "status" })], "ni se le pide a la app");
         assert_eq!(con_id(&mensajes, json!(2))["result"]["isError"], false, "la siguiente sí");
@@ -1224,6 +1290,7 @@ mod pruebas {
         let cancelar = r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1,"reason":"user"}}"#;
         let entrada = EntradaConPausas {
             lineas: [
+                (None, linea(INICIO.to_string())),
                 (None, linea(llamada(1, "export", json!({ "session": "s", "output": r"C:\v.mp4" })))),
                 // La cancelación no se lee hasta que la app ya está exportando.
                 (Some(al_empezar), linea(cancelar.to_string())),
