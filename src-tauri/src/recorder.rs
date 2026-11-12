@@ -281,6 +281,31 @@ impl SalidaDeAudio {
     }
 }
 
+// S12 (cámara antes): la webcam se enciende antes de grabar, y se la espera.
+
+/// Lo más que se espera a que la webcam dé su primera imagen antes de empezar a grabar,
+/// contado desde que se enciende. La Insta360 Link 2 Pro de Munito tarda unos 2 s (1977 y
+/// 2093 ms, 12 de noviembre de 2026). Una que tarde más no para la grabación: se graba sin
+/// esperarla más, y su cara entra cuando llegue, con su desfase.
+pub const TOPE_DE_LA_CAMARA: Duration = Duration::from_secs(3);
+
+/// Cuánto se retrasa el arranque de una grabación por la marimba y la cámara. Se esperan A LA
+/// VEZ (la cámara se enciende antes de que suene la marimba), así que manda la que más tarde;
+/// y la cámara, como mucho `TOPE_DE_LA_CAMARA`. `marimba` es lo que dura su espera (cero si
+/// no se espera, ver `sonido::AlEmpezar`), y `camara`, lo que tarda en dar su primera imagen o
+/// en fallar: `None` si no se graba cámara.
+pub fn retraso_al_empezar(marimba: Duration, camara: Option<Duration>) -> Duration {
+    marimba.max(camara.map_or(Duration::ZERO, |c| c.min(TOPE_DE_LA_CAMARA)))
+}
+
+/// Lo que se espera todavía a la cámara cuando ya ha acabado la marimba, a los `pasado` de
+/// encenderla: lo que falte hasta el retraso de una cámara que no llegara nunca. Si da su
+/// imagen (o falla) antes, se deja de esperar en ese momento, y el arranque se retrasa
+/// `retraso_al_empezar`.
+pub fn falta_por_la_camara(pasado: Duration) -> Duration {
+    retraso_al_empezar(pasado, Some(Duration::MAX)).saturating_sub(pasado)
+}
+
 /// Arranca la grabacion de la region: cache sin perdida para editar y MP4 de
 /// referencia para que el editor pueda reproducir sin decodificar nada a mano.
 #[cfg(windows)]
@@ -295,23 +320,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     }
 
     windows_mgr::close_overlays(app);
-    // S10 (sonidos): la marimba de empezar, ANTES de abrir nada que la pueda grabar (el
-    // sonido del sistema se graba de lo que sale por los altavoces, y el micro la oye). Si se
-    // graba sonido, esto espera a que acabe: es todo lo que se retrasa el arranque.
-    crate::platform::sonido::sonar_al_empezar(crate::platform::sonido::al_empezar(
-        state.settings.read().sonido_al_empezar,
-        options.audio || options.microphone,
-    ));
     let region = region.to_even();
     let id = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
     let dir = state.session_dir(&id);
     std::fs::create_dir_all(&dir)?;
-
-    let fps = options.fps.clamp(5, 60);
-    let origin = monitor_origin(app, region);
-    // Grabar UNA ventana es otro camino desde aqui abajo: se le pide a Windows esa ventana
-    // y no un trozo de pantalla, asi que lo que pase por delante no sale.
-    let ventana = options.window.filter(|h| *h != 0);
     // Lo de S2 sale de los ajustes y no de `options`: lo arma el overlay, y la tecla de zoom
     // y la cámara no son de cada grabación sino de quien graba.
     let (tecla_zoom, camara_pedida) = {
@@ -321,6 +333,39 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             ajustes.record_camera.then(|| ajustes.camera_device.clone()),
         )
     };
+    // S12 (cámara antes): la webcam se enciende LO PRIMERO, antes de la marimba, y lee y tira
+    // imágenes en su hilo hasta que se le manda grabar. Encender una cámara tarda (la de
+    // Munito, unos 2 s), y si se encendía a la vez que la pantalla, la cara salía quieta en su
+    // primera imagen todo ese rato.
+    let encendida_en = Instant::now();
+    let mut camara = camara_pedida
+        .map(|dispositivo| crate::record::camara::Encendida::encender(dispositivo, &dir));
+    // S10 (sonidos): la marimba de empezar, ANTES de abrir nada que la pueda grabar (el
+    // sonido del sistema se graba de lo que sale por los altavoces, y el micro la oye). Si se
+    // graba sonido, esto espera a que acabe.
+    crate::platform::sonido::sonar_al_empezar(crate::platform::sonido::al_empezar(
+        state.settings.read().sonido_al_empezar,
+        options.audio || options.microphone,
+    ));
+    // S12 (cámara antes): y la pantalla, el sonido y el reloj no arrancan hasta que la cámara
+    // da su primera imagen. Las dos esperas van a la vez (`retraso_al_empezar`): aquí solo
+    // queda lo que falte de la cámara, y como mucho hasta `TOPE_DE_LA_CAMARA` desde que se
+    // encendió. Si no la da para entonces, se graba igual y entra cuando llegue.
+    if let Some(camara) = camara.as_mut() {
+        let marimba = encendida_en.elapsed();
+        let estado = camara.esperar_imagen(falta_por_la_camara(marimba));
+        eprintln!(
+            "[winshotx] la cámara a los {} ms de encenderla: {estado:?} (la marimba, {} ms)",
+            encendida_en.elapsed().as_millis(),
+            marimba.as_millis()
+        );
+    }
+
+    let fps = options.fps.clamp(5, 60);
+    let origin = monitor_origin(app, region);
+    // Grabar UNA ventana es otro camino desde aqui abajo: se le pide a Windows esa ventana
+    // y no un trozo de pantalla, asi que lo que pase por delante no sale.
+    let ventana = options.window.filter(|h| *h != 0);
 
     let session_seed = SessionData {
         id: id.clone(),
@@ -414,12 +459,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         },
         pause.clone(),
     );
-    // La webcam, en su hilo y a su archivo, con el mismo reloj. Vuelve enseguida: encender
-    // una cámara tarda, y la pantalla ya está grabando mientras tanto.
-    let camara = camara_pedida.map(|dispositivo| {
-        crate::record::camara::Grabadora::empezar(
-            dispositivo,
-            &dir,
+    // La webcam, ya encendida, empieza a guardar en su archivo con el mismo reloj: lo que
+    // sacó antes del cero no entra (`camara::Toma`).
+    let camara = camara.map(|camara| {
+        camara.grabar(
             crate::record::anotador::Reloj {
                 start: reloj_inicio,
                 paused_ms: paused_ms.clone(),
@@ -1216,5 +1259,68 @@ mod pruebas_de_pistas {
         let (audio, pistas) = SalidaDeAudio::abrir(Some(captura), &dir).cerrar(&mut None);
         assert!(audio.is_none() && pistas.is_none(), "sin sonido no hay pistas");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+// S12 (cámara antes): cuánto se espera al empezar.
+#[cfg(test)]
+mod pruebas_del_arranque {
+    use super::*;
+
+    fn ms(n: u64) -> Duration {
+        Duration::from_millis(n)
+    }
+
+    /// Lo que espera `sonar_al_empezar` cuando se graba sonido: la marimba y su margen.
+    const MARIMBA: Duration = Duration::from_millis(750);
+
+    /// Munito, 12 de noviembre de 2026: «los primeros 3 segundos mi vídeo de la cámara está
+    /// congelado». La cámara se enciende antes y se la espera, pero a la vez que la marimba:
+    /// con su Insta360 (unos 2 s), el arranque se retrasa 2 s, no 2,75.
+    #[test]
+    fn la_camara_y_la_marimba_se_esperan_a_la_vez() {
+        assert_eq!(retraso_al_empezar(MARIMBA, Some(ms(2_093))), ms(2_093));
+        assert_eq!(retraso_al_empezar(MARIMBA, Some(ms(300))), MARIMBA, "una cámara rápida no retrasa nada");
+        assert_eq!(
+            retraso_al_empezar(Duration::ZERO, Some(ms(1_977))),
+            ms(1_977),
+            "sin sonido que grabar no hay marimba que esperar: solo la cámara"
+        );
+    }
+
+    #[test]
+    fn sin_camara_el_arranque_es_el_de_antes() {
+        assert_eq!(retraso_al_empezar(MARIMBA, None), MARIMBA);
+        assert_eq!(retraso_al_empezar(Duration::ZERO, None), Duration::ZERO);
+    }
+
+    #[test]
+    fn a_la_camara_se_la_espera_como_mucho_tres_segundos() {
+        assert_eq!(retraso_al_empezar(MARIMBA, Some(Duration::MAX)), TOPE_DE_LA_CAMARA);
+        assert_eq!(retraso_al_empezar(Duration::ZERO, Some(ms(10_000))), ms(3_000));
+        assert_eq!(TOPE_DE_LA_CAMARA, ms(3_000));
+    }
+
+    /// Lo que hace `start` de verdad: la marimba no vuelve hasta que acaba, y después se espera
+    /// a la cámara `falta_por_la_camara`, o menos si da su imagen antes. Eso, con cualquier
+    /// marimba y cualquier cámara, tiene que dar `retraso_al_empezar`: si las esperas se
+    /// sumaran, una cámara que no llega haría esperar 3,75 s y la de Munito, 2,75.
+    #[test]
+    fn la_espera_de_start_es_la_de_la_cuenta() {
+        let camaras = [0, 300, 750, 1_977, 2_093, 2_999, 3_000, 10_000].map(ms);
+        for marimba in [Duration::ZERO, ms(60), MARIMBA, ms(3_500)] {
+            for camara in camaras.into_iter().chain([Duration::MAX]) {
+                let llega_despues = camara.saturating_sub(marimba);
+                let esperado = marimba + falta_por_la_camara(marimba).min(llega_despues);
+                assert_eq!(
+                    esperado,
+                    retraso_al_empezar(marimba, Some(camara)),
+                    "marimba {marimba:?}, cámara {camara:?}"
+                );
+            }
+        }
+        assert_eq!(falta_por_la_camara(MARIMBA), ms(2_250));
+        assert_eq!(falta_por_la_camara(Duration::ZERO), TOPE_DE_LA_CAMARA);
+        assert_eq!(falta_por_la_camara(ms(3_200)), Duration::ZERO);
     }
 }

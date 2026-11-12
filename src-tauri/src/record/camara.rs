@@ -15,6 +15,11 @@
 //! en qué instante del de la grabación llegó su primera imagen (`Pista::primer_ms`). De ahí
 //! sale `CamaraGrabada::desfase_ms`, ver `desfase`.
 //!
+//! **Se enciende antes de grabar** (`Encendida`). Encender una cámara tarda (la de Munito,
+//! unos 2 s), y la grabación espera su primera imagen antes de arrancar la pantalla, como
+//! mucho `recorder::TOPE_DE_LA_CAMARA`: así la cara está viva desde el primer fotograma y
+//! `desfase_ms` queda cerca de cero.
+//!
 //! Que no haya cámara, que la tenga otro programa o que Windows no deje usarla (Ajustes >
 //! Privacidad > Cámara) no impide grabar: la grabación sigue sin cámara y se dice por qué.
 
@@ -432,6 +437,172 @@ fn retraso_ms(marca: i64) -> u64 {
 
 // --- La grabación ---
 
+/// Qué imágenes de la cámara entran en el archivo y con qué marca, desde que se le manda
+/// grabar.
+///
+/// Con la cámara encendida de antes (`Encendida`), las primeras que se leen al empezar a
+/// grabar pueden haberse sacado ANTES del cero de la grabación: llegan con su retraso. Esas
+/// son de antes de grabar y se tiran, así que el archivo empieza en la primera que se sacó
+/// desde el cero, y `primer_ms` queda cerca de cero. Lo demás (las pausas, las marcas
+/// siempre hacia delante) lo hace `Linea`.
+#[derive(Debug, Default)]
+pub(crate) struct Toma {
+    linea: Linea,
+    /// En qué instante del reloj de la grabación se sacó la primera que entró.
+    primer_ms: Option<u64>,
+}
+
+impl Toma {
+    /// La marca en el archivo de una imagen que la cámara marcó con `marca`, o `None` si se
+    /// tira. `ahora_ms` es el reloj de la grabación al leerla, y `retraso_ms` lo que tardó en
+    /// llegar desde que se sacó (la función `retraso_ms`).
+    pub(crate) fn sello(&mut self, marca: i64, ahora_ms: u64, retraso_ms: u64, pausa: bool) -> Option<i64> {
+        let sacada = ahora_ms.checked_sub(retraso_ms);
+        if self.primer_ms.is_none() && sacada.is_none() {
+            return None;
+        }
+        let sello = self.linea.sello(marca, pausa)?;
+        if self.primer_ms.is_none() {
+            self.primer_ms = sacada;
+        }
+        Some(sello)
+    }
+}
+
+/// Lo que se le manda a la cámara encendida para que empiece a guardar lo que da.
+struct Orden {
+    reloj: Reloj,
+    pausa: Arc<AtomicBool>,
+}
+
+/// Lo que da una lectura de la cámara.
+enum Lectura {
+    Imagen { muestra: IMFSample, marca: i64 },
+    /// Un aviso de hueco de la cámara, sin imagen: no es un error.
+    Nada,
+    /// La cámara se ha acabado (se ha desenchufado).
+    Fin,
+}
+
+fn leer_de(lector: &IMFSourceReader) -> Result<Lectura> {
+    let mut banderas = 0u32;
+    let mut marca = 0i64;
+    let mut muestra: Option<IMFSample> = None;
+    unsafe {
+        lector.ReadSample(
+            VIDEO,
+            0,
+            None,
+            Some(&mut banderas),
+            Some(&mut marca),
+            Some(&mut muestra),
+        )
+    }?;
+    if banderas & MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 != 0 {
+        return Ok(Lectura::Fin);
+    }
+    Ok(match muestra {
+        Some(muestra) => Lectura::Imagen { muestra, marca },
+        None => Lectura::Nada,
+    })
+}
+
+/// Cómo está la cámara cuando la grabación deja de esperarla.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlEsperar {
+    /// Ya da imagen: la cara sale viva desde el primer fotograma.
+    Lista,
+    /// No ha llegado a encenderse (no hay, la tiene otro programa, Windows no deja usarla):
+    /// se graba sin ella, y `Grabadora::terminar` dice por qué.
+    Fallida,
+    /// Sigue sin dar imagen: se graba igual, y entra en el vídeo cuando llegue, con su
+    /// desfase, como antes de encenderla de antemano.
+    Tarda,
+}
+
+/// La webcam encendida ANTES de grabar, todavía sin guardar nada.
+///
+/// Encender una cámara tarda (la Insta360 Link 2 Pro de Munito, unos 2 s: 1977 y 2093 ms
+/// el 12 de noviembre de 2026), y si se enciende a la vez que la pantalla, la cara sale
+/// quieta en su primera imagen todo ese rato. Así que va en dos pasos: `encender` la pone en
+/// marcha en su hilo, con la fuente, el lector y el archivo abiertos, leyendo y tirando lo
+/// que da (y avisando con la primera imagen, ver `esperar_imagen`); y `grabar`, ya con el
+/// reloj de la grabación, empieza a guardar desde ahí.
+///
+/// Si la grabación no llega a empezar (se suelta sin `grabar`), la cámara se apaga, y con
+/// ella su luz: lleva dentro su `Grabadora`, que la para al soltarse.
+pub struct Encendida {
+    grabadora: Grabadora,
+    orden: mpsc::Sender<Orden>,
+    aviso: mpsc::Receiver<()>,
+    lista: bool,
+}
+
+impl Encendida {
+    /// Enciende la cámara elegida (o la primera) y abre `carpeta/camara.mp4`. Vuelve
+    /// enseguida.
+    pub fn encender(dispositivo: Option<String>, carpeta: &Path) -> Self {
+        Self::con(carpeta.join(ARCHIVO), move |ruta, parar, aviso, orden| {
+            encender_y_grabar(dispositivo.as_deref(), ruta, parar, aviso, orden)
+        })
+    }
+
+    /// `encender`, con lo que corre en el hilo de la cámara puesto aparte: las pruebas le
+    /// ponen una cámara de mentira.
+    fn con<F>(ruta: PathBuf, hilo: F) -> Self
+    where
+        F: FnOnce(&Path, &AtomicBool, mpsc::Sender<()>, mpsc::Receiver<Orden>) -> Result<Pista>
+            + Send
+            + 'static,
+    {
+        let parar = Arc::new(AtomicBool::new(false));
+        let (enviar, resultado) = mpsc::channel();
+        let (avisar, aviso) = mpsc::channel();
+        let (ordenar, orden) = mpsc::channel();
+        let parar_hilo = Arc::clone(&parar);
+        std::thread::spawn(move || {
+            let hecho = hilo(&ruta, &parar_hilo, avisar, orden);
+            if hecho.is_err() {
+                let _ = std::fs::remove_file(&ruta);
+            }
+            let _ = enviar.send(hecho);
+        });
+        Self {
+            grabadora: Grabadora { parar, resultado },
+            orden: ordenar,
+            aviso,
+            lista: false,
+        }
+    }
+
+    /// Espera como mucho `como_mucho` a que la cámara dé su primera imagen. Vuelve en cuanto
+    /// la da, o en cuanto se sabe que no va a dar ninguna (`Fallida`): una cámara que no hay
+    /// o que Windows no deja usar no hace esperar a nadie.
+    pub fn esperar_imagen(&mut self, como_mucho: Duration) -> AlEsperar {
+        if self.lista {
+            return AlEsperar::Lista;
+        }
+        match self.aviso.recv_timeout(como_mucho) {
+            Ok(()) => {
+                self.lista = true;
+                AlEsperar::Lista
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => AlEsperar::Tarda,
+            // El hilo ha acabado sin dar imagen: ha fallado al encenderla.
+            Err(mpsc::RecvTimeoutError::Disconnected) => AlEsperar::Fallida,
+        }
+    }
+
+    /// Empieza a guardar, con el reloj y la pausa de la grabación: desde aquí, lo que da la
+    /// cámara va a `camara.mp4`.
+    pub fn grabar(self, reloj: Reloj, pausa: Arc<AtomicBool>) -> Grabadora {
+        // Si el hilo ya acabó (la cámara falló), la orden no llega a nadie y `terminar` dice
+        // por qué.
+        let _ = self.orden.send(Orden { reloj, pausa });
+        self.grabadora
+    }
+}
+
 /// La cámara grabando en su hilo, hasta que se le diga que pare.
 pub struct Grabadora {
     parar: Arc<AtomicBool>,
@@ -439,28 +610,6 @@ pub struct Grabadora {
 }
 
 impl Grabadora {
-    /// Enciende la cámara y empieza a grabar en `carpeta/camara.mp4`. Vuelve enseguida:
-    /// encender una cámara tarda de medio segundo a dos, y la pantalla no puede esperar.
-    pub fn empezar(
-        dispositivo: Option<String>,
-        carpeta: &Path,
-        reloj: Reloj,
-        pausa: Arc<AtomicBool>,
-    ) -> Self {
-        let parar = Arc::new(AtomicBool::new(false));
-        let (enviar, resultado) = mpsc::channel();
-        let ruta: PathBuf = carpeta.join(ARCHIVO);
-        let parar_hilo = Arc::clone(&parar);
-        std::thread::spawn(move || {
-            let hecho = grabar(dispositivo.as_deref(), &ruta, &reloj, &pausa, &parar_hilo);
-            if hecho.is_err() {
-                let _ = std::fs::remove_file(&ruta);
-            }
-            let _ = enviar.send(hecho);
-        });
-        Self { parar, resultado }
-    }
-
     /// Le dice a la cámara que pare, sin esperarla. Así va cerrando su archivo mientras la
     /// grabación cierra el suyo.
     pub fn avisar(&self) {
@@ -493,16 +642,16 @@ impl Drop for Grabadora {
     }
 }
 
-fn grabar(
+fn encender_y_grabar(
     dispositivo: Option<&str>,
     ruta: &Path,
-    reloj: &Reloj,
-    pausa: &AtomicBool,
     parar: &AtomicBool,
+    aviso: mpsc::Sender<()>,
+    orden: mpsc::Receiver<Orden>,
 ) -> Result<Pista> {
     let _mf = MediaFoundation::encender()?;
     let fuente = abrir_fuente(dispositivo)?;
-    let hecho = grabar_de(&fuente, ruta, reloj, pausa, parar);
+    let hecho = grabar_de(&fuente, ruta, parar, aviso, orden);
     // Apagar la fuente es lo que apaga la luz de la cámara.
     let _ = unsafe { fuente.Shutdown() };
     hecho
@@ -511,53 +660,75 @@ fn grabar(
 fn grabar_de(
     fuente: &IMFMediaSource,
     ruta: &Path,
-    reloj: &Reloj,
-    pausa: &AtomicBool,
     parar: &AtomicBool,
+    aviso: mpsc::Sender<()>,
+    orden: mpsc::Receiver<Orden>,
 ) -> Result<Pista> {
     let lector = lector_de(fuente)?;
     let tipo = unsafe { lector.GetCurrentMediaType(VIDEO) }?;
-    let (ancho, alto) = desempaquetar(unsafe { tipo.GetUINT64(&MF_MT_FRAME_SIZE) }?);
+    let tamano = desempaquetar(unsafe { tipo.GetUINT64(&MF_MT_FRAME_SIZE) }?);
+    // El archivo se abre ya, mientras la cámara arranca: poner en marcha el codificador
+    // también tarda, y así no retrasa la primera imagen de la grabación.
     let escritor = Escritor::nuevo(ruta, &tipo)?;
-    let mut linea = Linea::default();
-    let mut primer_ms = None;
+    vivir(|| leer_de(&lector), escritor, tamano, parar, aviso, orden)
+}
+
+/// Lo que hace la cámara mientras está encendida: hasta que le llega la orden de grabar,
+/// tira lo que da (y con la primera imagen avisa de que ya se puede empezar); desde la orden,
+/// lo pasa por `Toma` al archivo. Sin la orden y sin nadie que la vaya a mandar (la
+/// grabación no llegó a empezar), se acaba, y quien la llamó apaga la cámara.
+fn vivir(
+    mut leer: impl FnMut() -> Result<Lectura>,
+    escritor: Escritor,
+    (ancho, alto): (u32, u32),
+    parar: &AtomicBool,
+    aviso: mpsc::Sender<()>,
+    orden: mpsc::Receiver<Orden>,
+) -> Result<Pista> {
+    let mut aviso = Some(aviso);
+    let mut grabando: Option<Orden> = None;
+    let mut toma = Toma::default();
 
     while !parar.load(Ordering::Relaxed) {
-        let mut banderas = 0u32;
-        let mut marca = 0i64;
-        let mut muestra: Option<IMFSample> = None;
-        unsafe {
-            lector.ReadSample(
-                VIDEO,
-                0,
-                None,
-                Some(&mut banderas),
-                Some(&mut marca),
-                Some(&mut muestra),
-            )
-        }?;
-        if banderas & MF_SOURCE_READERF_ENDOFSTREAM.0 as u32 != 0 {
-            break;
+        let (muestra, marca) = match leer()? {
+            Lectura::Imagen { muestra, marca } => (muestra, marca),
+            Lectura::Nada => continue,
+            Lectura::Fin => break,
+        };
+        if let Some(aviso) = aviso.take() {
+            let _ = aviso.send(());
         }
-        // Sin imagen es un aviso de hueco de la cámara, no un error.
-        let Some(muestra) = muestra else { continue };
-        let Some(sello) = linea.sello(marca, pausa.load(Ordering::Relaxed)) else {
+        if grabando.is_none() {
+            match orden.try_recv() {
+                Ok(o) => grabando = Some(o),
+                // Encendida y sin grabar todavía: la imagen se tira.
+                Err(mpsc::TryRecvError::Empty) => continue,
+                Err(mpsc::TryRecvError::Disconnected) => break,
+            }
+        }
+        let Some(o) = grabando.as_ref() else { continue };
+        let Some(sello) = toma.sello(
+            marca,
+            o.reloj.ms(),
+            retraso_ms(marca),
+            o.pausa.load(Ordering::Relaxed),
+        ) else {
             continue;
         };
-        if primer_ms.is_none() {
-            primer_ms = Some(reloj.ms().saturating_sub(retraso_ms(marca)));
-        }
         unsafe { muestra.SetSampleTime(sello) }?;
         escritor.escribir(&muestra)?;
     }
 
-    let Some(primer_ms) = primer_ms else {
-        // Se paró antes de que la cámara diera imagen (encenderla tarda): no hay archivo
-        // que cerrar, y uno sin imágenes no lo abre nadie.
+    let Some(primer_ms) = toma.primer_ms else {
+        // Se paró antes de que la cámara diera imagen (encenderla tarda), o la grabación no
+        // llegó a empezar: no hay archivo que cerrar, y uno sin imágenes no lo abre nadie.
         drop(escritor);
-        return Err(AppError::Msg(
-            "la cámara no ha llegado a dar imagen antes de parar".into(),
-        ));
+        let por_que = if grabando.is_some() {
+            "la cámara no ha llegado a dar imagen antes de parar"
+        } else {
+            "la grabación no ha llegado a empezar"
+        };
+        return Err(AppError::Msg(por_que.into()));
     };
     escritor.cerrar()?;
     Ok(Pista {
@@ -859,27 +1030,220 @@ mod tests {
         assert!(copias(&[a(1), a(1), a(2), a(2)]).is_empty());
     }
 
-    /// **Con la cámara de verdad** (la de `WINSHOTX_CAMARA`, o la primera): graba cinco
-    /// segundos por el mismo camino que una grabación y mira que ninguna imagen del archivo
-    /// sea copia de otra de antes. En la 0.4.0 los primeros dos segundos repetían en bucle
-    /// cuatro imágenes: el escritor guardaba la muestra que le daba la cámara sin copiarla, y
-    /// la cámara volvía a llenar esa misma caja antes de que el codificador la leyera.
-    /// Enciende la cámara: solo con quien está delante avisado.
+    // --- S12 (cámara antes): encendida antes de grabar ---
+
+    fn carpeta_de_prueba(nombre: &str) -> PathBuf {
+        let carpeta = std::env::temp_dir().join(format!("winshotx-{nombre}-{}", std::process::id()));
+        std::fs::create_dir_all(&carpeta).unwrap();
+        carpeta
+    }
+
+    fn reloj_desde_ya() -> Reloj {
+        Reloj {
+            start: std::time::Instant::now(),
+            paused_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        }
+    }
+
+    /// Lo que se sacó antes del cero de la grabación (la cámara ya estaba encendida, y la
+    /// imagen llega con su retraso) no entra en el archivo: la primera que entra es la
+    /// primera sacada desde el cero, y de ella sale `primer_ms`.
+    #[test]
+    fn con_la_camara_encendida_de_antes_no_entra_lo_sacado_antes_de_grabar() {
+        let mut toma = Toma::default();
+        // Leída a los 10 ms de empezar, pero sacada 40 ms antes: es de antes de grabar.
+        assert_eq!(toma.sello(5_000_000, 10, 40, false), None);
+        assert_eq!(toma.primer_ms, None);
+        // Leída a los 43 y sacada a los 3: la primera del archivo.
+        assert_eq!(toma.sello(5_000_000 + FOTO, 43, 40, false), Some(0));
+        assert_eq!(toma.primer_ms, Some(3));
+        // Y desde ahí, como siempre.
+        assert_eq!(toma.sello(5_000_000 + 2 * FOTO, 76, 40, false), Some(FOTO));
+        assert_eq!(toma.primer_ms, Some(3));
+    }
+
+    #[test]
+    fn una_pausa_antes_de_la_primera_imagen_tampoco_cuenta_en_la_toma() {
+        let mut toma = Toma::default();
+        assert_eq!(toma.sello(0, 50, 30, true), None);
+        assert_eq!(toma.primer_ms, None);
+        assert_eq!(toma.sello(FOTO, 80, 30, false), Some(0));
+        assert_eq!(toma.primer_ms, Some(50));
+    }
+
+    /// Una cámara de mentira para `Encendida::con`: sin imagen hasta `tarda` después de
+    /// encenderla en `desde` (lo que tarda en arrancar una de verdad), y luego una imagen NV12
+    /// cada 30 ms, marcada con el reloj de Media Foundation como las de verdad. Va por el mismo
+    /// `vivir` y el mismo `Escritor` que una cámara, y no enciende ninguna.
+    fn camara_de_mentira(
+        desde: std::time::Instant,
+        tarda: Duration,
+    ) -> impl FnOnce(&Path, &AtomicBool, mpsc::Sender<()>, mpsc::Receiver<Orden>) -> Result<Pista> + Send + 'static
+    {
+        move |ruta, parar, aviso, orden| {
+            let _mf = MediaFoundation::encender()?;
+            let (ancho, alto) = (320, 240);
+            let escritor = Escritor::nuevo(ruta, &entrada_nv12(ancho, alto))?;
+            let mut n = 0u32;
+            let leer = || {
+                std::thread::sleep(Duration::from_millis(30));
+                if desde.elapsed() < tarda {
+                    return Ok(Lectura::Nada);
+                }
+                n += 1;
+                let marca = unsafe { MFGetSystemTime() };
+                Ok(Lectura::Imagen {
+                    muestra: muestra_nv12(ancho, alto, n, 0),
+                    marca,
+                })
+            };
+            vivir(leer, escritor, (ancho, alto), parar, aviso, orden)
+        }
+    }
+
+    /// **Encendida antes, la cara está viva desde el cero.** Una cámara que tarda 300 ms en
+    /// dar imagen: `esperar_imagen` vuelve en cuanto la da (no al tope), lo que da mientras no
+    /// se graba se tira, y al grabar el archivo empieza en el cero de la grabación
+    /// (`primer_ms` cerca de 0) y dura lo grabado, no lo que estuvo encendida.
+    #[test]
+    fn encendida_antes_la_cara_esta_desde_el_cero() {
+        let carpeta = carpeta_de_prueba("camara-encendida");
+        let ruta = carpeta.join(ARCHIVO);
+        let antes = std::time::Instant::now();
+        let mut camara = Encendida::con(ruta.clone(), camara_de_mentira(antes, Duration::from_millis(300)));
+        assert_eq!(camara.esperar_imagen(Duration::from_secs(3)), AlEsperar::Lista);
+        let tardo = antes.elapsed();
+        assert!(
+            tardo >= Duration::from_millis(300) && tardo < Duration::from_millis(2_500),
+            "tendría que volver en cuanto hay imagen, y ha vuelto a los {tardo:?}"
+        );
+        // Encendida y sin grabar: lo que da se tira.
+        std::thread::sleep(Duration::from_millis(700));
+        let grabadora = camara.grabar(reloj_desde_ya(), Arc::new(AtomicBool::new(false)));
+        std::thread::sleep(Duration::from_secs(1));
+        let pista = grabadora.terminar().expect("tendría que haber grabado");
+        let leido = medir(&ruta);
+        let _ = std::fs::remove_dir_all(&carpeta);
+        println!("primera imagen a los {tardo:?}; primer_ms = {}; archivo: {leido:?}", pista.primer_ms);
+        assert!(
+            pista.primer_ms < 80,
+            "la primera imagen tendría que entrar al empezar, y entra a los {} ms",
+            pista.primer_ms
+        );
+        let Some((_, _, _, duracion)) = leido else {
+            eprintln!("sin ffprobe en el PATH no se puede medir el MP4");
+            return;
+        };
+        assert!(
+            (0.9..1.25).contains(&duracion),
+            "tendría que durar lo grabado (1 s), sin los 0,7 s de antes, y dura {duracion} s"
+        );
+    }
+
+    /// Si la grabación no llega a empezar (se suelta sin `grabar`), la cámara se apaga y su
+    /// archivo, que se abrió al encenderla, no se queda en la carpeta.
+    #[test]
+    fn si_la_grabacion_no_llega_a_empezar_la_camara_se_apaga() {
+        let carpeta = carpeta_de_prueba("camara-sin-grabar");
+        let ruta = carpeta.join(ARCHIVO);
+        let apagada = Arc::new(AtomicBool::new(false));
+        let mentira = camara_de_mentira(std::time::Instant::now(), Duration::ZERO);
+        let hilo = {
+            let apagada = Arc::clone(&apagada);
+            move |r: &Path, p: &AtomicBool, a: mpsc::Sender<()>, o: mpsc::Receiver<Orden>| {
+                let hecho = mentira(r, p, a, o);
+                apagada.store(true, Ordering::SeqCst);
+                hecho
+            }
+        };
+        let mut camara = Encendida::con(ruta.clone(), hilo);
+        assert_eq!(camara.esperar_imagen(Duration::from_secs(3)), AlEsperar::Lista);
+        assert!(ruta.exists(), "el archivo se abre al encenderla");
+        drop(camara);
+        let antes = std::time::Instant::now();
+        while (ruta.exists() || !apagada.load(Ordering::SeqCst)) && antes.elapsed() < Duration::from_secs(2) {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let quedo = ruta.exists();
+        let _ = std::fs::remove_dir_all(&carpeta);
+        assert!(apagada.load(Ordering::SeqCst), "soltada sin grabar, la cámara sigue encendida");
+        assert!(!quedo, "el archivo de una grabación que no empezó se ha quedado en la carpeta");
+    }
+
+    /// Una cámara que no hay, o que Windows no deja usar, no hace esperar: se sabe enseguida,
+    /// y la grabación sigue sin ella.
+    #[test]
+    fn una_camara_que_falla_no_hace_esperar() {
+        let carpeta = carpeta_de_prueba("camara-que-falla");
+        let mut camara = Encendida::con(
+            carpeta.join(ARCHIVO),
+            |_: &Path, _: &AtomicBool, _: mpsc::Sender<()>, _: mpsc::Receiver<Orden>| {
+                Err(AppError::Msg("no hay ninguna cámara conectada".into()))
+            },
+        );
+        let antes = std::time::Instant::now();
+        assert_eq!(camara.esperar_imagen(Duration::from_secs(3)), AlEsperar::Fallida);
+        let esperado = antes.elapsed();
+        let grabadora = camara.grabar(reloj_desde_ya(), Arc::new(AtomicBool::new(false)));
+        assert_eq!(grabadora.terminar(), None);
+        let _ = std::fs::remove_dir_all(&carpeta);
+        assert!(esperado < Duration::from_secs(1), "ha esperado {esperado:?} a una cámara que no hay");
+    }
+
+    /// Una cámara más lenta que la espera: se deja de esperar al tope, se graba, y la cara
+    /// entra cuando llega, con su desfase, como antes de encenderla de antemano.
+    #[test]
+    fn una_camara_que_tarda_mas_que_la_espera_entra_cuando_llega() {
+        let carpeta = carpeta_de_prueba("camara-que-tarda");
+        let ruta = carpeta.join(ARCHIVO);
+        let antes = std::time::Instant::now();
+        let mut camara = Encendida::con(ruta.clone(), camara_de_mentira(antes, Duration::from_millis(600)));
+        assert_eq!(camara.esperar_imagen(Duration::from_millis(150)), AlEsperar::Tarda);
+        let esperado = antes.elapsed();
+        let grabadora = camara.grabar(reloj_desde_ya(), Arc::new(AtomicBool::new(false)));
+        std::thread::sleep(Duration::from_millis(1500));
+        let pista = grabadora.terminar().expect("llegó tarde, pero llegó");
+        let _ = std::fs::remove_dir_all(&carpeta);
+        assert!(esperado < Duration::from_millis(500), "ha esperado {esperado:?} y no 150 ms");
+        // Da su primera imagen a los 600 ms de encenderla, unos 450 después de empezar a
+        // grabar (más, si abrir el codificador tarda más que eso).
+        assert!(
+            (400..1_500).contains(&pista.primer_ms),
+            "llega unos 450 ms después de empezar, y su primer_ms es {}",
+            pista.primer_ms
+        );
+    }
+
+    /// **Con la cámara de verdad** (la de `WINSHOTX_CAMARA`, o la primera), por el mismo camino
+    /// que una grabación: se enciende antes, se espera su primera imagen como mucho
+    /// `TOPE_DE_LA_CAMARA`, y se graban cinco segundos.
+    ///
+    /// Mira dos cosas. Que, encendida antes, la primera imagen llega ANTES de empezar a grabar
+    /// y entra en el cero (`primer_ms` cerca de 0: la cara viva desde el primer fotograma, y
+    /// no quieta los ~2 s que tarda la Insta360 de Munito). Y que ninguna imagen del archivo
+    /// sea copia de otra de antes: en la 0.4.0 los primeros dos segundos repetían en bucle
+    /// cuatro imágenes, porque el escritor guardaba la muestra que le daba la cámara sin
+    /// copiarla y la cámara volvía a llenar esa misma caja antes de que el codificador la
+    /// leyera. Enciende la cámara: solo con quien está delante avisado.
     #[test]
     #[ignore]
     fn la_camara_de_verdad_no_repite_imagenes() {
-        let carpeta = std::env::temp_dir().join(format!("winshotx-camara-real-{}", std::process::id()));
-        std::fs::create_dir_all(&carpeta).unwrap();
-        let reloj = Reloj {
-            start: std::time::Instant::now(),
-            paused_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-        };
+        let carpeta = carpeta_de_prueba("camara-real");
         let dispositivo = std::env::var("WINSHOTX_CAMARA").ok();
-        let grabadora = Grabadora::empezar(dispositivo, &carpeta, reloj, Arc::new(AtomicBool::new(false)));
+        let antes = std::time::Instant::now();
+        let mut camara = Encendida::encender(dispositivo, &carpeta);
+        let estado = camara.esperar_imagen(crate::recorder::TOPE_DE_LA_CAMARA);
+        let tardo = antes.elapsed();
+        let grabadora = camara.grabar(reloj_desde_ya(), Arc::new(AtomicBool::new(false)));
         std::thread::sleep(Duration::from_secs(5));
         let pista = grabadora.terminar().expect("la cámara no ha grabado nada");
         let imagenes = grises(&carpeta.join(&pista.archivo));
         let halladas = copias(&imagenes);
+        println!(
+            "encendida antes: {estado:?} a los {} ms; en la grabación entra a los {} ms (primer_ms)",
+            tardo.as_millis(),
+            pista.primer_ms
+        );
         println!(
             "{} imágenes de {}x{}; copias de una anterior: {}",
             imagenes.len(),
@@ -891,6 +1255,17 @@ mod tests {
             println!("  la {i} es la {de}");
         }
         let _ = std::fs::remove_dir_all(&carpeta);
+        assert_eq!(
+            estado,
+            AlEsperar::Lista,
+            "la cámara no ha dado imagen en {} ms: tarda más que el tope",
+            tardo.as_millis()
+        );
+        assert!(
+            pista.primer_ms < 150,
+            "encendida antes, la cara tendría que estar desde el cero, y entra a los {} ms",
+            pista.primer_ms
+        );
         assert!(imagenes.len() > 60, "cinco segundos de cámara son más de 60 imágenes");
         assert!(halladas.is_empty(), "{} imágenes son copia de otra de antes", halladas.len());
     }
