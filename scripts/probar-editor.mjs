@@ -719,6 +719,26 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
       Math.abs(peticion.microfono.volumen - 0.4) < 1e-6,
     `«Guardar» manda lo mismo que se oye: ${JSON.stringify({ audio: peticion.audio, sonidoPc: peticion.sonidoPc, microfono: peticion.microfono })}`,
   );
+
+  // Con la ventana minimizada no hay pintadas. Se apagan aquí a propósito (va lo último, que
+  // deja la página sin ellas), y aun así el vídeo que arranca y se para se lleva la voz.
+  const sinPintadas = await pagina.evaluate(async () => {
+    window.requestAnimationFrame = () => 0;
+    const espera = (ms) => new Promise((listo) => setTimeout(listo, ms));
+    await espera(100);
+    const v = document.querySelector("video");
+    const voz = document.querySelector("audio[data-sonido=microfono]");
+    await v.play();
+    await espera(400);
+    const sonando = !voz.paused;
+    v.pause();
+    await espera(100);
+    return { sonando, parada: voz.paused };
+  });
+  comprueba(
+    sinPintadas.sonando && sinPintadas.parada,
+    `sin pintadas (minimizado), la voz arranca y se para con el vídeo: ${JSON.stringify(sinPintadas)}`,
+  );
   await pagina.close();
   await mudo.close();
   apagar();

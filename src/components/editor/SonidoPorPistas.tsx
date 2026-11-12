@@ -40,18 +40,36 @@ export function SonidoPorPistas({
 
   useEffect(() => {
     const estados: [EstadoDePista, EstadoDePista] = [{ recolocadaMs: -Infinity }, { recolocadaMs: -Infinity }];
-    let id = 0;
-    const vuelta = () => {
-      id = requestAnimationFrame(vuelta);
+    const paso = () => {
       const ahora = performance.now();
       const video = videoRef.current;
       const { pc: vPc, voz: vVoz, parado } = vivo.current;
       if (pc.current) seguirAlVideo(pc.current, video, vPc, parado, ahora, estados[0]);
       if (voz.current) seguirAlVideo(voz.current, video, vVoz, parado, ahora, estados[1]);
     };
+    // Además de en cada pintada, en cuanto el vídeo arranca, se para, salta o cambia de
+    // velocidad: con el editor minimizado no hay pintadas, y el vídeo que se para en el corte
+    // dejaba las pistas sonando hasta volver a la ventana. Y arrancar en el mismo aviso que el
+    // vídeo le ahorra a la pista el fotograma de retraso.
+    const AVISOS = ["play", "pause", "seeking", "ratechange", "volumechange"] as const;
+    let enganchado: HTMLVideoElement | null = null;
+    const enganchar = () => {
+      const video = videoRef.current;
+      if (video === enganchado) return;
+      for (const aviso of AVISOS) enganchado?.removeEventListener(aviso, paso);
+      for (const aviso of AVISOS) video?.addEventListener(aviso, paso);
+      enganchado = video;
+    };
+    let id = 0;
+    const vuelta = () => {
+      id = requestAnimationFrame(vuelta);
+      enganchar();
+      paso();
+    };
     id = requestAnimationFrame(vuelta);
     return () => {
       cancelAnimationFrame(id);
+      for (const aviso of AVISOS) enganchado?.removeEventListener(aviso, paso);
       pc.current?.pause();
       voz.current?.pause();
     };
