@@ -36,6 +36,8 @@ mod datos_en_video;
 mod presets;
 // S10 (sonidos)
 mod sonidos;
+// S16 (servidor MCP). Provisional hasta que entre el canal de S15, que trae el suyo.
+mod agente;
 
 use std::time::{Duration, SystemTime};
 
@@ -118,6 +120,12 @@ fn purge_old_sessions(root: &std::path::Path) {
 }
 
 pub fn run() {
+    // S16 (servidor MCP), provisional hasta que entre la entrada de S15: `winshotx.exe mcp`
+    // es un cliente del canal para agentes, no otra instancia de la app. Va antes de todo
+    // para que ni el aviso de WebView2 ni el plugin de una sola instancia lo vean.
+    if std::env::args().nth(1).as_deref() == Some("mcp") {
+        std::process::exit(agente::mcp::servir());
+    }
     // Antes que nada, y antes de crear una sola ventana: sin WebView2 la ventana se abriria
     // igual y dentro saldria la pagina de error del navegador, que no dice ni que ha pasado
     // ni que hacer. Es por lo que la Microsoft Store rechazo el envio el 1 de septiembre de
