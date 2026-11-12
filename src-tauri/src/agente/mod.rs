@@ -16,8 +16,10 @@
 //! para que quien está delante sepa que se graba. No se esconde a propósito.
 
 pub mod cliente;
+mod consola;
 #[cfg(windows)]
 mod en_la_app;
+pub mod linea;
 pub mod mcp;
 pub mod ordenes;
 pub(crate) mod traduccion;
@@ -34,7 +36,14 @@ pub fn desde_la_linea_de_ordenes() -> Option<i32> {
     // corre en cada arranque de la app, antes que nada.
     let args: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
     match args.first().map(String::as_str) {
-        Some("mcp") => Some(mcp::servir()),
+        Some("agent") => {
+            consola::preparar();
+            Some(linea::ejecutar(&args[1..]))
+        }
+        Some("mcp") => {
+            consola::preparar();
+            Some(mcp::servir())
+        }
         _ => None,
     }
 }
