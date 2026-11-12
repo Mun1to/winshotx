@@ -41,6 +41,15 @@ pub struct RecordOptions {
     /// es lo de siempre y lo que vale para grabar varias cosas a la vez.
     #[serde(default)]
     pub window: Option<isize>,
+    // S15 (agente)
+    /// La webcam de ESTA grabación. `None` es lo de los ajustes (`record_camera`), que es lo
+    /// que manda siempre el overlay; lo pone el canal de agentes cuando se lo piden.
+    #[serde(default)]
+    pub camara: Option<bool>,
+    /// La marimba de empezar. `None` es lo de los ajustes. Un agente la manda apagada salvo
+    /// que se la pidan: no hace sonar nada en el PC de nadie sin que se lo digan.
+    #[serde(default)]
+    pub marimba: Option<bool>,
 }
 
 /// Lo que la barra ensenna, cinco veces por segundo.
@@ -359,7 +368,11 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         let ajustes = state.settings.read();
         (
             crate::record::teclas::TeclaZoom::de_atajo(&ajustes.zoom_shortcut),
-            ajustes.record_camera.then(|| ajustes.camera_device.clone()),
+            // S15 (agente): `options.camara` manda si viene.
+            options
+                .camara
+                .unwrap_or(ajustes.record_camera)
+                .then(|| ajustes.camera_device.clone()),
         )
     };
     // S12 (cámara antes): la webcam se enciende LO PRIMERO, antes de la marimba, y lee y tira
@@ -373,7 +386,10 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     // sonido del sistema se graba de lo que sale por los altavoces, y el micro la oye). Si se
     // graba sonido, esto espera a que acabe.
     crate::platform::sonido::sonar_al_empezar(crate::platform::sonido::al_empezar(
-        state.settings.read().sonido_al_empezar,
+        // S15 (agente): `options.marimba` manda si viene.
+        options
+            .marimba
+            .unwrap_or_else(|| state.settings.read().sonido_al_empezar),
         options.audio || options.microphone,
     ));
     // S12 (cámara antes): y la pantalla, el sonido y el reloj no arrancan hasta que la cámara
@@ -676,6 +692,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     };
 
     let recording = RecordingState {
+        // S15 (agente)
+        id: id.clone(),
         started: reloj_inicio,
         stop: stop.clone(),
         pause: pause.clone(),
@@ -925,33 +943,8 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
     cerrar_esta_barra(app, barra);
 
     if open_editor {
-        if let Err(error) = windows_mgr::open_editor(app, &session.id) {
+        if let Err(error) = al_editor(app, &session) {
             eprintln!("no se ha podido abrir el editor: {error}");
-        }
-        // Y ahora las miniaturas, con el editor ya abierto. Antes se hacian ANTES de abrirlo
-        // y con un minuto de grabacion la barra decia «Guardando…» varios segundos sin que
-        // hubiera nada que guardar: solo miniaturas que el editor puede esperar.
-        let mut con_miniaturas = session.clone();
-        match record::generate_thumbnails(&mut con_miniaturas) {
-            Ok(()) => {
-                let _ = con_miniaturas.persist();
-                state
-                    .sessions
-                    .write()
-                    .insert(con_miniaturas.id.clone(), con_miniaturas);
-                let _ = app.emit(EVENT_SESSION_THUMBS, session.id.clone());
-            }
-            Err(error) => eprintln!("[winshotx] sin miniaturas para la tira: {error}"),
-        }
-        // Y si la vista previa en vivo no llego a escribirse, se escribe ahora por detras,
-        // por el mismo camino que el rescate del anillo. El editor ya esta abierto y
-        // escucha ese aviso, asi que el play se enciende solo cuando esta.
-        //
-        // Antes esto no existia y la sesion llegaba sin MP4 y sin nadie que avisara: el
-        // cartel de «preparando la reproduccion» se quedaba para siempre, sin porcentaje,
-        // con el play apagado y sin decir que no iba a venir.
-        if session.mp4_path.is_none() {
-            crate::replay::preparar_por_detras(app, session.id.clone());
         }
     } else {
         // Sin editor, la grabacion se guarda sola en la carpeta de siempre, con los mismos
@@ -970,6 +963,84 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
         }
     }
     let _ = app.emit(EVENT_SESSION_READY, session.id);
+}
+
+/// Abre una sesión ya guardada (y ya en `state.sessions`) en el editor, y le prepara lo que
+/// espera a tenerlo delante: las miniaturas de la tira y la vista previa si falta. Lo usan
+/// `entregar` y la orden `open` del canal de agentes (S15).
+pub(crate) fn al_editor(app: &AppHandle, session: &SessionData) -> Result<()> {
+    let state = app.state::<AppState>();
+    // Aunque el editor no se abra, lo de abajo se hace igual, como antes de sacarlo aquí: el
+    // error se devuelve al final.
+    let abierto = windows_mgr::open_editor(app, &session.id);
+    // Y ahora las miniaturas, con el editor ya abierto. Antes se hacian ANTES de abrirlo
+    // y con un minuto de grabacion la barra decia «Guardando…» varios segundos sin que
+    // hubiera nada que guardar: solo miniaturas que el editor puede esperar.
+    let mut con_miniaturas = session.clone();
+    match record::generate_thumbnails(&mut con_miniaturas) {
+        Ok(()) => {
+            let _ = con_miniaturas.persist();
+            state
+                .sessions
+                .write()
+                .insert(con_miniaturas.id.clone(), con_miniaturas);
+            let _ = app.emit(EVENT_SESSION_THUMBS, session.id.clone());
+        }
+        Err(error) => eprintln!("[winshotx] sin miniaturas para la tira: {error}"),
+    }
+    // Y si la vista previa en vivo no llego a escribirse, se escribe ahora por detras,
+    // por el mismo camino que el rescate del anillo. El editor ya esta abierto y
+    // escucha ese aviso, asi que el play se enciende solo cuando esta.
+    //
+    // Antes esto no existia y la sesion llegaba sin MP4 y sin nadie que avisara: el
+    // cartel de «preparando la reproduccion» se quedaba para siempre, sin porcentaje,
+    // con el play apagado y sin decir que no iba a venir.
+    if session.mp4_path.is_none() {
+        crate::replay::preparar_por_detras(app, session.id.clone());
+    }
+    abierto
+}
+
+// S15 (agente)
+/// Para la grabación y NO vuelve hasta que la sesión está guardada, sin abrir el editor ni
+/// exportar nada: es la orden `stop` del canal de agentes, que contesta con la sesión ya
+/// lista para `export`. La barra pasa por «Guardando…» y se cierra, igual que con `stop`.
+///
+/// Espera a propósito, al revés que `stop`: no la llama nunca el hilo de un atajo, sino el
+/// de una conexión del canal, que puede esperar lo que haga falta.
+///
+/// Con `solo`, para únicamente si lo que se graba es esa sesión: es lo que usa el tope de
+/// `maxSeconds`, que no debe parar la grabación de otro que haya empezado entretanto.
+pub fn parar_sin_editor(app: &AppHandle, solo: Option<&str>) -> Result<SessionData> {
+    let state = app.state::<AppState>();
+    let recording = {
+        let mut guard = state.recording.lock();
+        if solo.is_some_and(|id| guard.as_ref().is_some_and(|r| r.id != id)) {
+            return Err(AppError::NoRecording);
+        }
+        guard.take()
+    };
+    let Some(recording) = recording else {
+        return Err(AppError::NoRecording);
+    };
+    avisar_barra(app, tick_de(&recording, true));
+    crate::tray_menu::fuera_de_la_grabacion(app, false);
+    let barra = recording.barra.clone();
+    let resultado = terminar(recording);
+    cerrar_esta_barra(app, barra.as_deref());
+    let session = resultado?;
+    if session.frames.is_empty() {
+        let _ = std::fs::remove_dir_all(&session.dir);
+        return Err(AppError::Msg(
+            "no se ha capturado ningún fotograma; prueba a bajar los fps".into(),
+        ));
+    }
+    state
+        .sessions
+        .write()
+        .insert(session.id.clone(), session.clone());
+    let _ = app.emit(EVENT_SESSION_READY, session.id.clone());
+    Ok(session)
 }
 
 /// Como se exporta una grabacion cuando nadie la va a recortar: entera, al tamanno al
