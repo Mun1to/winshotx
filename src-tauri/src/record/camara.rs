@@ -821,4 +821,77 @@ mod tests {
             "tendría que durar 3 s (5 grabados menos 2 de pausa) y dura {duracion}"
         );
     }
+
+    /// Las imágenes de `camara.mp4`, en gris y a 64x64, para compararlas entre sí.
+    fn grises(ruta: &Path) -> Vec<Vec<u8>> {
+        let salida = std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-i"])
+            .arg(ruta)
+            .args(["-vf", "scale=64:64,format=gray", "-f", "rawvideo", "-"])
+            .output()
+            .expect("hace falta ffmpeg en el PATH");
+        salida.stdout.chunks(64 * 64).map(<[u8]>::to_vec).collect()
+    }
+
+    /// Las imágenes que son copia exacta de una de las ocho anteriores sin serlo de la de
+    /// justo antes: lo que deja un escritor que lee una caja que la cámara ya ha vuelto a
+    /// llenar. Una cámara de verdad no da dos imágenes iguales (su ruido no se repite), así
+    /// que una sola ya es el fallo. Devuelve (imagen, de cuál es copia).
+    fn copias(imagenes: &[Vec<u8>]) -> Vec<(usize, usize)> {
+        let mut halladas = Vec::new();
+        for i in 2..imagenes.len() {
+            if imagenes[i] == imagenes[i - 1] {
+                continue;
+            }
+            if let Some(k) = (2..=8.min(i)).find(|&k| imagenes[i] == imagenes[i - k]) {
+                halladas.push((i, i - k));
+            }
+        }
+        halladas
+    }
+
+    #[test]
+    fn una_copia_de_hace_cuatro_imagenes_se_ve() {
+        let a = |n: u8| vec![n; 64 * 64];
+        assert!(copias(&[a(1), a(2), a(3), a(4), a(5)]).is_empty());
+        assert_eq!(copias(&[a(1), a(2), a(3), a(4), a(1), a(2)]), vec![(4, 0), (5, 1)]);
+        // Repetir la de justo antes no cuenta: eso lo hace a veces una cámara al arrancar.
+        assert!(copias(&[a(1), a(1), a(2), a(2)]).is_empty());
+    }
+
+    /// **Con la cámara de verdad** (la de `WINSHOTX_CAMARA`, o la primera): graba cinco
+    /// segundos por el mismo camino que una grabación y mira que ninguna imagen del archivo
+    /// sea copia de otra de antes. En la 0.4.0 los primeros dos segundos repetían en bucle
+    /// cuatro imágenes: el escritor guardaba la muestra que le daba la cámara sin copiarla, y
+    /// la cámara volvía a llenar esa misma caja antes de que el codificador la leyera.
+    /// Enciende la cámara: solo con quien está delante avisado.
+    #[test]
+    #[ignore]
+    fn la_camara_de_verdad_no_repite_imagenes() {
+        let carpeta = std::env::temp_dir().join(format!("winshotx-camara-real-{}", std::process::id()));
+        std::fs::create_dir_all(&carpeta).unwrap();
+        let reloj = Reloj {
+            start: std::time::Instant::now(),
+            paused_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        };
+        let dispositivo = std::env::var("WINSHOTX_CAMARA").ok();
+        let grabadora = Grabadora::empezar(dispositivo, &carpeta, reloj, Arc::new(AtomicBool::new(false)));
+        std::thread::sleep(Duration::from_secs(5));
+        let pista = grabadora.terminar().expect("la cámara no ha grabado nada");
+        let imagenes = grises(&carpeta.join(&pista.archivo));
+        let halladas = copias(&imagenes);
+        println!(
+            "{} imágenes de {}x{}; copias de una anterior: {}",
+            imagenes.len(),
+            pista.ancho,
+            pista.alto,
+            halladas.len()
+        );
+        for (i, de) in halladas.iter().take(12) {
+            println!("  la {i} es la {de}");
+        }
+        let _ = std::fs::remove_dir_all(&carpeta);
+        assert!(imagenes.len() > 60, "cinco segundos de cámara son más de 60 imágenes");
+        assert!(halladas.is_empty(), "{} imágenes son copia de otra de antes", halladas.len());
+    }
 }
