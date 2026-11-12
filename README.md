@@ -80,7 +80,7 @@ has the nineteen rows, including the five the Snipping Tool wins.
 | Pick your own shortcut | **yes** | no |
 | Draw and annotate on top | **six marks, with numbered steps** | pen, shapes and text |
 | Copy the text out of the image | **yes, with the T key and inside the editor too** | yes |
-| System audio when recording | **yes, and the microphone mixed in** | yes |
+| System audio when recording | **yes, with the microphone on its own track** | yes |
 | Timer before capturing | 3 or 5 seconds | **3, 5 or 10 seconds** |
 | Cover up personal data | **one click, and the mosaic destroys the pixels** | automatic, and it blurs |
 

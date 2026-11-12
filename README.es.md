@@ -80,7 +80,7 @@ incluidas las cinco que gana la de Windows.
 | Elegir el atajo de teclado | **sí** | no |
 | Dibujar y anotar encima | **seis marcas, con pasos numerados** | bolígrafo, formas y texto |
 | Copiar el texto de la imagen | **sí, con la tecla T y también dentro del editor** | sí |
-| Audio del sistema al grabar | **sí, y el micrófono mezclado** | sí |
+| Audio del sistema al grabar | **sí, y el micrófono en su propia pista** | sí |
 | Temporizador antes de capturar | 3 o 5 segundos | **3, 5 o 10 segundos** |
 | Tapar datos personales | **de un clic, y el mosaico destruye los píxeles** | automático, y difumina |
 
