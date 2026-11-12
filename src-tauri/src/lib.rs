@@ -34,6 +34,8 @@ mod qr;
 // S9 (presets y tapar)
 mod datos_en_video;
 mod presets;
+// S10 (sonidos)
+mod sonidos;
 
 use std::time::{Duration, SystemTime};
 
@@ -347,6 +349,10 @@ pub fn run() {
             // S9 (presets y tapar)
             datos_en_video::tapar_datos_video,
             presets::presets_guardar,
+            // S10 (sonidos)
+            sonidos::elegir_sonido_de_clic,
+            sonidos::importar_sonido_de_clic,
+            sonidos::muestras_de_clic,
         ])
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")

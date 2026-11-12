@@ -52,7 +52,7 @@ fn carpeta(app: &AppHandle) -> Result<PathBuf> {
 }
 
 /// Un nombre que solo depende del original: su ruta, cuánto pesa y cuándo se escribió.
-fn huella(origen: &Path) -> Result<String> {
+pub(crate) fn huella(origen: &Path) -> Result<String> {
     let datos = std::fs::metadata(origen)
         .map_err(|_| AppError::Msg(format!("no encuentro {}", origen.display())))?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -64,7 +64,7 @@ fn huella(origen: &Path) -> Result<String> {
 
 /// Deja como mucho `guardar` archivos que empiecen por `prefijo` (y su vista y su ficha),
 /// borrando los más viejos.
-fn podar(carpeta: &Path, prefijo: &str, extension: &str, guardar: usize) {
+pub(crate) fn podar(carpeta: &Path, prefijo: &str, extension: &str, guardar: usize) {
     let Ok(entradas) = std::fs::read_dir(carpeta) else { return };
     let mut hay: Vec<(std::time::SystemTime, PathBuf)> = entradas
         .flatten()
@@ -87,7 +87,7 @@ fn podar(carpeta: &Path, prefijo: &str, extension: &str, guardar: usize) {
 }
 
 /// Le pone la hora de ahora, para que `podar` sepa que se ha vuelto a usar.
-fn tocar(ruta: &Path) {
+pub(crate) fn tocar(ruta: &Path) {
     if let Ok(archivo) = std::fs::File::options().write(true).open(ruta) {
         let _ = archivo.set_modified(std::time::SystemTime::now());
     }
