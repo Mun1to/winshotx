@@ -75,6 +75,9 @@ fn servir_con<R: BufRead, W: Write + Send>(
                 if salida.rota() || quitar(cancelados, &id) {
                     continue;
                 }
+                // Ojo: esto solo salva un pánico en las pruebas y en `dev`. El perfil de release
+                // lleva `panic = "abort"`, así que allí un pánico del canal cierra el proceso
+                // entero, y el cliente de MCP lo ve como un servidor que se ha ido.
                 let respuesta = match catch_unwind(AssertUnwindSafe(|| pedir(&peticion))) {
                     Ok(respuesta) => respuesta,
                     Err(_) => Err("winshotx failed inside while handling this call.".into()),
