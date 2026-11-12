@@ -1174,17 +1174,70 @@ mod pruebas {
     }
 
     #[test]
-    fn una_llamada_cancelada_no_se_contesta() {
-        let canal = Canal::que_contesta(|p| {
+    fn una_llamada_cancelada_antes_de_empezar_no_llega_a_la_app() {
+        let canal = Canal::que_contesta(|_| Ok(json!({ "ok": true })));
+        let cancelar = r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}"#;
+        let exportar = llamada(1, "export", json!({ "session": "s", "output": r"C:\v.mp4" }));
+        let estado = llamada(2, "status", json!({}));
+        // La cancelación llega antes que la llamada (el cliente se arrepiente al momento).
+        let (_, mensajes) = conversar(&[cancelar, &exportar, &estado], &canal);
+        assert!(mensajes.iter().all(|m| m["id"] != json!(1)), "la cancelada no tiene respuesta: {mensajes:?}");
+        assert_eq!(canal.pedido(), [json!({ "command": "status" })], "ni se le pide a la app");
+        assert_eq!(con_id(&mensajes, json!(2))["result"]["isError"], false, "la siguiente sí");
+    }
+
+    /// Una entrada que da sus líneas de una en una, y antes de cada una espera a su señal
+    /// (si la tiene): así una prueba decide qué llega mientras se hace una llamada.
+    struct EntradaConPausas {
+        lineas: std::collections::VecDeque<(Option<mpsc::Receiver<()>>, Vec<u8>)>,
+    }
+
+    impl std::io::Read for EntradaConPausas {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let Some((senal, linea)) = self.lineas.front_mut() else { return Ok(0) };
+            if let Some(senal) = senal.take() {
+                senal.recv_timeout(Duration::from_secs(5)).expect("la señal llega");
+            }
+            let n = linea.len().min(buf.len());
+            buf[..n].copy_from_slice(&linea[..n]);
+            linea.drain(..n);
+            if linea.is_empty() {
+                self.lineas.pop_front();
+            }
+            Ok(n)
+        }
+    }
+
+    #[test]
+    fn una_llamada_cancelada_mientras_se_hace_no_se_contesta() {
+        let (empezada, al_empezar) = mpsc::channel();
+        let empezada = Mutex::new(empezada);
+        let canal = Canal::que_contesta(move |p| {
             if p["command"] == "export" {
-                std::thread::sleep(Duration::from_millis(300));
+                empezada.lock().unwrap().send(()).unwrap();
+                // Lo que tarde la exportación: da tiempo de sobra a que llegue la cancelación.
+                std::thread::sleep(Duration::from_millis(200));
             }
             Ok(json!({ "ok": true }))
         });
-        let exportar = llamada(1, "export", json!({ "session": "s", "output": r"C:\v.mp4" }));
+        let linea = |s: String| format!("{s}\n").into_bytes();
         let cancelar = r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1,"reason":"user"}}"#;
-        let estado = llamada(2, "status", json!({}));
-        let (_, mensajes) = conversar(&[&exportar, cancelar, &estado], &canal);
+        let entrada = EntradaConPausas {
+            lineas: [
+                (None, linea(llamada(1, "export", json!({ "session": "s", "output": r"C:\v.mp4" })))),
+                // La cancelación no se lee hasta que la app ya está exportando.
+                (Some(al_empezar), linea(cancelar.to_string())),
+                (None, linea(llamada(2, "status", json!({})))),
+            ]
+            .into(),
+        };
+        let mut salida = Vec::new();
+        let pedir = |p: &Value| canal.pedir(p);
+        let codigo = servir_con(std::io::BufReader::new(entrada), &mut salida, &pedir, &carpeta());
+        assert_eq!(codigo, 0);
+        let mensajes: Vec<Value> =
+            String::from_utf8(salida).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+        assert_eq!(canal.pedido().len(), 2, "la exportación sí se pidió");
         assert!(mensajes.iter().all(|m| m["id"] != json!(1)), "la cancelada no tiene respuesta: {mensajes:?}");
         assert_eq!(con_id(&mensajes, json!(2))["result"]["isError"], false, "la siguiente sí");
     }
