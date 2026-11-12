@@ -36,6 +36,8 @@ mod datos_en_video;
 mod presets;
 // S10 (sonidos)
 mod sonidos;
+// S15 (agente)
+mod agente;
 
 use std::time::{Duration, SystemTime};
 
@@ -118,6 +120,12 @@ fn purge_old_sessions(root: &std::path::Path) {
 }
 
 pub fn run() {
+    // S15 (agente): `winshotx.exe agent ...` y `winshotx.exe mcp` son clientes del canal de
+    // agentes, no la app: van antes que nada (tampoco necesitan WebView2), y sobre todo antes
+    // del plugin de una sola instancia, que si no se traga sus argumentos. Ver `agente`.
+    if let Some(codigo) = agente::desde_la_linea_de_ordenes() {
+        std::process::exit(codigo);
+    }
     // Antes que nada, y antes de crear una sola ventana: sin WebView2 la ventana se abriria
     // igual y dentro saldria la pagina de error del navegador, que no dice ni que ha pasado
     // ni que hacer. Es por lo que la Microsoft Store rechazo el envio el 1 de septiembre de
@@ -184,6 +192,8 @@ pub fn run() {
             purge_replay(&temp_root);
 
             app.manage(AppState::new(config.clone(), temp_root, recien_actualizado));
+            // S15 (agente): el canal para agentes de IA, con el estado ya puesto.
+            agente::arrancar(&handle);
 
             // Si el usuario nos dio la tecla Impr Pant hay que comprobarlo en cada
             // arranque: una actualizacion de Windows o un paseo por Configuracion se la
