@@ -1,12 +1,13 @@
 {
   "versiones": [
     {
-      "version": "0.4.1",
+      "version": "0.4.5",
       "desde": null,
       "fecha": "2026-11-12",
       "es": {
-        "titulo": "Tu voz en su pista, tus sonidos y la cámara redondeada",
+        "titulo": "Agentes de IA, tu voz en su pista y la cámara redondeada",
         "puntos": [
+          "**Para agentes de IA**: Claude Code, Codex o Cursor graban tu pantalla, paran, exportan el vídeo y hacen capturas con winshotx, con la orden «winshotx agent» o su servidor MCP. Mientras graban se ve el marco rojo, como siempre.",
           "**Tu micrófono y el sonido del PC, cada uno en su pista**: en el editor subes, bajas o quitas cada uno por separado.",
           "**Sonidos**: elige el de los clics (suave, grave, toque o uno tuyo), y una **marimba** corta avisa justo antes de grabar, sin quedar dentro del vídeo.",
           "**Tu cámara**, viva desde el primer fotograma, y en cuadrado o rectángulo con las **esquinas tan redondeadas como quieras**.",
@@ -14,8 +15,9 @@
         ]
       },
       "en": {
-        "titulo": "Your voice on its own track, your sounds and a rounded webcam",
+        "titulo": "AI agents, your voice on its own track and a rounded webcam",
         "puntos": [
+          "**For AI agents**: Claude Code, Codex or Cursor record your screen, stop, export the video and take screenshots with winshotx, through the winshotx agent command or its MCP server. The red frame shows while they record, as always.",
           "**Your microphone and the PC sound, each on its own track**: in the editor you turn each one up, down or off on its own.",
           "**Sounds**: pick the click sound (soft, deep, tap or your own), and a short **marimba** tells you right before recording, without ending up in the video.",
           "**Your webcam**, live from the first frame, and as a square or a rectangle with **the corner rounding you want**.",
