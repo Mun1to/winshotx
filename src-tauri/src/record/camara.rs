@@ -649,9 +649,10 @@ fn encender_y_grabar(
     aviso: mpsc::Sender<()>,
     orden: mpsc::Receiver<Orden>,
 ) -> Result<Pista> {
+    let encendida = std::time::Instant::now();
     let _mf = MediaFoundation::encender()?;
     let fuente = abrir_fuente(dispositivo)?;
-    let hecho = grabar_de(&fuente, ruta, parar, aviso, orden);
+    let hecho = grabar_de(&fuente, ruta, parar, aviso, orden, encendida);
     // Apagar la fuente es lo que apaga la luz de la cámara.
     let _ = unsafe { fuente.Shutdown() };
     hecho
@@ -663,13 +664,27 @@ fn grabar_de(
     parar: &AtomicBool,
     aviso: mpsc::Sender<()>,
     orden: mpsc::Receiver<Orden>,
+    encendida: std::time::Instant,
 ) -> Result<Pista> {
+    let abierta = encendida.elapsed();
     let lector = lector_de(fuente)?;
     let tipo = unsafe { lector.GetCurrentMediaType(VIDEO) }?;
     let tamano = desempaquetar(unsafe { tipo.GetUINT64(&MF_MT_FRAME_SIZE) }?);
-    // El archivo se abre ya, mientras la cámara arranca: poner en marcha el codificador
-    // también tarda, y así no retrasa la primera imagen de la grabación.
+    let con_lector = encendida.elapsed();
+    // El archivo se abre ya, antes de grabar: poner en marcha el codificador tarda (de 0,3 a
+    // 0,6 s en la máquina de Munito, 12-nov-2026), y abierto al empezar a grabar, la cara
+    // saldría quieta ese rato. Va antes de la primera lectura, que es la que pone la cámara
+    // a dar imágenes, así que su tiempo se suma al de la cámara: para solaparlos habría que
+    // abrirlo en otro hilo, y los objetos de Media Foundation no se pueden pasar entre hilos.
     let escritor = Escritor::nuevo(ruta, &tipo)?;
+    // Para saber en qué se va la espera del arranque (lo que tarda en dar su primera imagen
+    // lo dice `recorder::start`).
+    eprintln!(
+        "[winshotx] la cámara: abierta a los {} ms, con el lector a los {} ms y su archivo a los {} ms",
+        abierta.as_millis(),
+        con_lector.as_millis(),
+        encendida.elapsed().as_millis()
+    );
     vivir(|| leer_de(&lector), escritor, tamano, parar, aviso, orden)
 }
 
