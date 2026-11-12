@@ -175,6 +175,7 @@
     <a href="#exportar">Export</a>
     <a href="#atajos-guia">Shortcuts</a>
     <a href="#ajustes">Settings</a>
+    <a href="#agentes">AI agents</a>
     <a href="#preguntas">Questions</a>
   </div>
 
@@ -331,6 +332,15 @@
     </ul>
     <p>Every row explains itself: leave the pointer on the icon beside its name and a bubble says what it does and when it is worth turning on. And a bar at the bottom, there in all four tabs, holds what gets touched often: theme, language, what happens on release, the tour, and updates, which when you are up to date is a green tick and nothing more.</p>
     <p><a href="../#demo">You can click through all of it in the demo on the home page, without installing anything.</a></p>
+  </section>
+
+  <section id="agentes">
+    <h2>For AI agents</h2>
+    <p>An AI agent (Claude Code, Codex, Cursor or any other that speaks MCP) can use winshotx on its own: <b>record the screen, stop, export a finished MP4 or GIF and take screenshots</b>, and it is told where each file ended up. Nobody has to touch the mouse.</p>
+    <p>To add it to Claude Code, run this in PowerShell: <code>claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</code>. That is where the installer and winget put it, unless you picked another folder; with the portable build, use the folder you unzipped it into.</p>
+    <p>Without MCP, any script can do the same from a terminal with <code>winshotx.exe agent</code>: it answers with one line of JSON that says what happened and where the file is.</p>
+    <p class="nota"><b>A recording started by an agent looks exactly like one of yours</b>, with the red frame and the bar, so you always know when the screen is being recorded. And it makes no sound unless the agent asks for it.</p>
+    <p><a href="https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.md">How to add it to each agent, and every command</a>.</p>
   </section>
 
   <section id="preguntas">
