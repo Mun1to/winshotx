@@ -10,12 +10,24 @@ export function Opciones({ children }: { children: ReactNode }) {
  * (la velocidad, el suavizado del puntero, la forma de la lupa, el tipo de fondo propio): si
  * cada pieza lleva su copia, acaban pareciéndose pero no siendo iguales.
  */
-export function Opcion({ puesta, onClick, children }: { puesta: boolean; onClick: () => void; children: ReactNode }) {
+export function Opcion({
+  puesta,
+  onClick,
+  children,
+  etiqueta,
+}: {
+  puesta: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  /** El nombre entero, si lo que se ve es más corto (o lleva un dibujo delante). */
+  etiqueta?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={puesta}
+      aria-label={etiqueta}
       className={`border-b-2 py-1 text-[14px] font-semibold whitespace-nowrap tabular-nums transition-colors ${
         puesta ? "border-blue-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-100"
       }`}

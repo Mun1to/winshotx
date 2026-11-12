@@ -724,5 +724,6 @@ export const EN: Record<string, string> = {
   "antes de grabar, nunca dentro del vídeo": "before recording, never inside the video",
   // S11 (pistas)
   "Sonido del PC": "PC sound",
+  "Redondeado": "Rounded",
   "Tu micrófono": "Your microphone",
 };

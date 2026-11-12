@@ -40,6 +40,16 @@ describe("los mandos de la cámara", () => {
     expect(screen.getByRole("button", { name: "Círculo" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("las cuatro formas se leen con su nombre, no solo con un dibujo", async () => {
+    // Con cuatro dibujos finos sin nombre, Munito creyó que solo había círculo (12-nov).
+    pintar({});
+    const grupo = await screen.findByRole("group", { name: "Forma de la cámara" });
+    expect(grupo).toHaveTextContent("Círculo");
+    expect(grupo).toHaveTextContent("Cuadrado");
+    expect(grupo).toHaveTextContent("Rectángulo");
+    expect(grupo).toHaveTextContent("Redondeado");
+  });
+
   it("la forma, el tamaño y el borde van a la petición", async () => {
     const { onEdicion } = pintar();
     fireEvent.click(await screen.findByRole("button", { name: "Rectángulo redondeado" }));

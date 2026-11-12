@@ -15,7 +15,7 @@ import {
   type CamaraDeLaSesion,
 } from "../../lib/camara";
 import { useT } from "../../lib/i18n";
-import { DibujoDeForma, FORMAS } from "./AjustesDeLaPista";
+import { SelectorDeForma } from "./AjustesDeLaPista";
 
 interface Props {
   sessionId: string;
@@ -74,23 +74,12 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
       />
       {puesta && (
         <div className="mt-2 space-y-3">
-          <div role="group" aria-label={t("Forma de la cámara")} className="flex items-center gap-1">
-            {FORMAS.map((f) => (
-              <button
-                key={f.forma}
-                type="button"
-                aria-label={t(f.nombre)}
-                title={t(f.nombre)}
-                aria-pressed={m.forma === f.forma}
-                onClick={() => cambiar({ forma: f.forma })}
-                className={`grid size-9 place-items-center rounded-md transition-colors ${
-                  m.forma === f.forma ? "text-white" : "text-neutral-400 hover:bg-white/10 hover:text-neutral-100"
-                }`}
-              >
-                <DibujoDeForma forma={f.forma} puesta={m.forma === f.forma} />
-              </button>
-            ))}
-          </div>
+          <SelectorDeForma
+            forma={m.forma}
+            onForma={(forma) => cambiar({ forma })}
+            etiqueta={t("Forma de la cámara")}
+            enDosFilas
+          />
           <Slider
             label={t("Tamaño")}
             hint={`${Math.round(m.tam * 100)} %`}

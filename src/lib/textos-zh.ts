@@ -724,5 +724,6 @@ export const ZH: Record<string, string> = {
   "antes de grabar, nunca dentro del vídeo": "录制之前响起，绝不会进入视频",
   // S11 (pistas)
   "Sonido del PC": "电脑声音",
+  "Redondeado": "圆角",
   "Tu micrófono": "你的麦克风",
 };

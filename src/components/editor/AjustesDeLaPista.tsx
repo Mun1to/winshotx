@@ -16,12 +16,49 @@ import { Opcion } from "../ui/Opcion";
  */
 
 /** Las cuatro formas de la lupa, en el orden en que se ofrecen. */
-export const FORMAS: { forma: Forma; nombre: string }[] = [
-  { forma: "circulo", nombre: "Círculo" },
-  { forma: "cuadrado", nombre: "Cuadrado" },
-  { forma: "rectangulo", nombre: "Rectángulo" },
-  { forma: "redondeado", nombre: "Rectángulo redondeado" },
+export const FORMAS: { forma: Forma; nombre: string; corto: string }[] = [
+  { forma: "circulo", nombre: "Círculo", corto: "Círculo" },
+  { forma: "cuadrado", nombre: "Cuadrado", corto: "Cuadrado" },
+  { forma: "rectangulo", nombre: "Rectángulo", corto: "Rectángulo" },
+  { forma: "redondeado", nombre: "Rectángulo redondeado", corto: "Redondeado" },
 ];
+
+/**
+ * Elegir la forma (de la lupa o de la cámara): cada una con su dibujo Y su nombre, y la
+ * elegida subrayada como el resto de opciones del editor. Con solo los cuatro dibujos
+ * finos, sin nombre, no se veía que eran botones: Munito, 12-nov, «¿solo está la opción de
+ * círculo para la cámara?».
+ */
+export function SelectorDeForma({
+  forma,
+  onForma,
+  etiqueta,
+  enDosFilas = false,
+}: {
+  forma: Forma;
+  onForma: (forma: Forma) => void;
+  etiqueta: string;
+  /** En el panel, que es estrecho, dos por fila; debajo de la línea de tiempo, las cuatro seguidas. */
+  enDosFilas?: boolean;
+}) {
+  const t = useT();
+  return (
+    <div
+      role="group"
+      aria-label={etiqueta}
+      className={enDosFilas ? "grid grid-cols-2 justify-items-start gap-x-4 gap-y-1" : "flex items-center gap-4"}
+    >
+      {FORMAS.map((f) => (
+        <Opcion key={f.forma} puesta={forma === f.forma} onClick={() => onForma(f.forma)} etiqueta={t(f.nombre)}>
+          <span className="flex items-center gap-1.5">
+            <DibujoDeForma forma={f.forma} puesta={forma === f.forma} />
+            {t(f.corto)}
+          </span>
+        </Opcion>
+      ))}
+    </div>
+  );
+}
 
 export function AjustesDelZoom({
   zoom,
@@ -49,23 +86,11 @@ export function AjustesDelZoom({
 
       {lupa ? (
         <>
-          <div role="group" aria-label={t("Forma de la lupa")} className="flex items-center gap-1">
-            {FORMAS.map((f) => (
-              <button
-                key={f.forma}
-                type="button"
-                aria-label={t(f.nombre)}
-                title={t(f.nombre)}
-                aria-pressed={lupa.forma === f.forma}
-                onClick={() => onCambio({ lupa: { ...lupa, forma: f.forma } })}
-                className={`grid size-8 place-items-center rounded-md transition-colors ${
-                  lupa.forma === f.forma ? "text-white" : "text-neutral-400 hover:bg-white/10 hover:text-neutral-100"
-                }`}
-              >
-                <DibujoDeForma forma={f.forma} puesta={lupa.forma === f.forma} />
-              </button>
-            ))}
-          </div>
+          <SelectorDeForma
+            forma={lupa.forma}
+            onForma={(forma) => onCambio({ lupa: { ...lupa, forma } })}
+            etiqueta={t("Forma de la lupa")}
+          />
           <div className="w-[120px]">
             <Slider
               label={t("Tamaño")}
