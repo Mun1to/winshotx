@@ -1532,6 +1532,8 @@ where
                 &request.trozos(session),
                 &pasos.duraciones,
                 request.edicion.sonido_clic,
+                // S10 (sonidos): el sonido elegido, o el de fábrica.
+                request.edicion.clic.as_ref(),
             )
         },
         |stage, done, total| emit(stage, done, total),

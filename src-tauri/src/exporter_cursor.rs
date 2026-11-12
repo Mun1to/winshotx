@@ -357,3 +357,56 @@ fn medir_la_estela_de_la_camara() {
     let _ = std::fs::remove_dir_all(&dir);
     println!("tutorial 1080p de 20 s con zoom a los clics, estela {}: {tardo} ms", p.edicion.estela);
 }
+
+// S10 (sonidos)
+/// C3 con el sonido elegido, en un MP4 de verdad y por `escribir`, que es el camino de
+/// «Guardar»: el «Toque» es un solo golpe de 60 ms, y el «Ratón grave» suelta el botón a los
+/// 60 ms. Lo de fábrica sin elegir es el suave, que suelta a los 72.
+#[test]
+#[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
+fn el_clic_elegido_suena_en_el_mp4() {
+    use crate::contrato::ClicElegido;
+    use std::process::Command;
+
+    let pico_tras_el_clic = |elegido: Option<ClicElegido>, nombre: &str| {
+        let mut session = sesion(&format!("s10-{nombre}"), &[(0, liso(FONDO))], 2_000);
+        session.clics = vec![clic(1_000, 60, 40)];
+        let mut p = crate::recorder::peticion_por_defecto(&session);
+        p.format = "mp4".into();
+        p.cursor = 0.0;
+        p.audio = false;
+        p.edicion.sonido_clic = 1.0;
+        p.edicion.clic = elegido;
+        let destino = session.dir.join("clic.mp4");
+        escribir(&session, &p, &destino, &|_, _, _| {}).expect("exportar a MP4");
+        let crudo = Command::new("ffmpeg")
+            .args(["-v", "error", "-i"])
+            .arg(&destino)
+            .args(["-vn", "-ac", "1", "-ar", "48000", "-f", "s16le", "-"])
+            .output()
+            .expect("ffmpeg")
+            .stdout;
+        let _ = std::fs::remove_dir_all(&session.dir);
+        let muestras: Vec<i16> = crudo.chunks_exact(2).map(|m| i16::from_le_bytes([m[0], m[1]])).collect();
+        move |desde_ms: usize, hasta_ms: usize| {
+            muestras
+                .get(desde_ms * 48..(hasta_ms * 48).min(muestras.len()))
+                .map_or(0, |s| s.iter().map(|v| v.unsigned_abs()).max().unwrap_or(0))
+        }
+    };
+    let toque = pico_tras_el_clic(Some(ClicElegido::Toque), "toque");
+    let grave = pico_tras_el_clic(Some(ClicElegido::Grave), "grave");
+    let suave = pico_tras_el_clic(None, "suave");
+    eprintln!(
+        "[s10] pico al pulsar (1000-1010 ms): toque {} grave {} suave {}; al soltar el grave (1062-1072): toque {} grave {} suave {}; al soltar el suave (1074-1084): suave {}",
+        toque(1_000, 1_010), grave(1_000, 1_010), suave(1_000, 1_010),
+        toque(1_062, 1_072), grave(1_062, 1_072), suave(1_062, 1_072), suave(1_074, 1_084)
+    );
+    for (nombre, pico) in [("toque", &toque), ("grave", &grave), ("suave", &suave)] {
+        assert!(pico(1_000, 1_010) > 10_000, "el {nombre} suena al pulsar");
+        assert!(pico(0, 950) < 300, "antes del clic del {nombre}, silencio");
+    }
+    assert!(grave(1_062, 1_072) > 3_000, "el grave suelta a los 60 ms");
+    assert!(toque(1_062, 1_072) < 600, "el toque no suelta");
+    assert!(suave(1_074, 1_084) > 3_000, "el suave suelta a los 72 ms");
+}

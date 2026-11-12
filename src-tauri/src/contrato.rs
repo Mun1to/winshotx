@@ -216,6 +216,25 @@ pub struct Edicion {
     pub camara: Option<MarcoCamara>,
     /// Lo que se tapa con mosaico, y cuándo.
     pub tapar: Vec<Tapa>,
+    // S10 (sonidos)
+    /// Qué suena en cada clic cuando `sonido_clic` no es cero. `None` es el de fábrica, el
+    /// «Ratón suave»: así suenan las peticiones y los estilos de antes de poder elegirlo.
+    pub clic: Option<ClicElegido>,
+}
+
+// S10 (sonidos)
+/// El sonido de cada clic (C3): uno de los tres de serie que eligió Munito, o uno propio.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "tipo", rename_all = "camelCase")]
+pub enum ClicElegido {
+    /// Un chasquido seco y corto, sin pitido: el de fábrica.
+    Suave,
+    /// Más cuerpo y más grave.
+    Grave,
+    /// Un solo «tic» de madera, sin golpe de soltar.
+    Toque,
+    /// Un archivo del usuario, ya copiado a la carpeta de la app (`sonidos::importar_sonido_de_clic`).
+    Propio { ruta: String },
 }
 
 #[cfg(test)]
@@ -237,6 +256,8 @@ mod pruebas {
         assert!(!edicion.zoom_al_escribir);
         assert!(edicion.camara.is_none());
         assert!(edicion.tapar.is_empty());
+        // S10 (sonidos)
+        assert!(edicion.clic.is_none());
     }
 
     /// Lo que escribe el editor (`src/lib/contrato.ts`) se lee tal cual.
@@ -280,5 +301,17 @@ mod pruebas {
         let video: FondoElegido =
             serde_json::from_str(r#"{"tipo": "video", "ruta": "C:\\fondo.mp4"}"#).unwrap();
         assert_eq!(video, FondoElegido::Video { ruta: "C:\\fondo.mp4".into() });
+    }
+
+    // S10 (sonidos)
+    /// El sonido de clic se lee por su tipo, como los fondos, y el propio guarda su ruta.
+    #[test]
+    fn el_sonido_de_clic_se_lee_por_su_tipo() {
+        let edicion: Edicion = serde_json::from_str(r#"{"sonidoClic": 0.3, "clic": {"tipo": "grave"}}"#).unwrap();
+        assert_eq!(edicion.clic, Some(ClicElegido::Grave));
+        let propio: ClicElegido = serde_json::from_str(r#"{"tipo": "propio", "ruta": "C:\\clic.wav"}"#).unwrap();
+        assert_eq!(propio, ClicElegido::Propio { ruta: "C:\\clic.wav".into() });
+        let nulo: Edicion = serde_json::from_str(r#"{"clic": null}"#).unwrap();
+        assert!(nulo.clic.is_none());
     }
 }

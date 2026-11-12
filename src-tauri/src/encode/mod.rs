@@ -27,3 +27,5 @@ pub mod clic;
 pub mod camara_estudio;
 // S9 (presets y tapar)
 pub mod tapar;
+// S10 (sonidos)
+pub mod wav;
