@@ -10,7 +10,7 @@
  * aire alrededor: la cámara va encima de todo, también del fondo.
  */
 
-import type { Forma, MarcoCamara } from "./contrato";
+import type { MarcoCamara } from "./contrato";
 import type { Recorte } from "./recorte";
 
 /** La cámara de una sesión, como la da Rust (`camara_de_la_sesion`). */
@@ -42,6 +42,8 @@ export interface Medida {
 const TAM_MINIMO = 0.05;
 const RECORTE_MINIMO = 0.02;
 const RADIO_REDONDEADO = 0.18;
+/** S13: lo más redondas que pueden ir las esquinas, media vuelta del lado corto. */
+export const REDONDEO_MAXIMO = 0.5;
 /** De fábrica: el lado mayor es el 18 % del ancho, a un 3 % del borde. */
 export const TAM_DE_FABRICA = 0.18;
 export const AIRE_DE_FABRICA = 0.03;
@@ -134,12 +136,31 @@ export function grosorDelBorde(c: Caja): number {
   return dentro(Math.min(c.ancho, c.alto) * 0.02, 2, 8);
 }
 
+/**
+ * Lo redondas que van las esquinas, sobre el lado corto (S13). El círculo, siempre media
+ * vuelta; el cuadrado y el rectángulo, lo elegido; y sin elegir, lo de antes: rectas, salvo
+ * el «redondeado», a su 0,18.
+ */
+export function redondeo(marco: Pick<MarcoCamara, "forma" | "redondeo">): number {
+  if (marco.forma === "circulo") return REDONDEO_MAXIMO;
+  const r = marco.redondeo;
+  if (typeof r === "number" && Number.isFinite(r)) return dentro(r, 0, REDONDEO_MAXIMO);
+  return marco.forma === "redondeado" ? RADIO_REDONDEADO : 0;
+}
+
 /** El radio de las esquinas de la burbuja, en píxeles. */
-export function radio(forma: Forma, c: Caja): number {
-  const corto = Math.min(c.ancho, c.alto);
-  if (forma === "circulo") return corto / 2;
-  if (forma === "redondeado") return corto * RADIO_REDONDEADO;
-  return 0;
+export function radio(marco: Pick<MarcoCamara, "forma" | "redondeo">, c: Caja): number {
+  return Math.min(c.ancho, c.alto) * redondeo(marco);
+}
+
+/**
+ * La cámara como la enseñan sus mandos (S13): el «redondeado» de antes es un rectángulo con
+ * sus esquinas al 0,18, que ahora se eligen con «Esquinas redondeadas». Sale igual, y así
+ * pulsar «Rectángulo», que ya está puesto, no le quita la curva.
+ */
+export function paraLosMandos(marco: MarcoCamara): MarcoCamara {
+  if (marco.forma !== "redondeado") return marco;
+  return { ...marco, forma: "rectangulo", redondeo: redondeo(marco) };
 }
 
 /** De fábrica: en círculo, sin recortar ni borde, pequeña y abajo a la derecha. */

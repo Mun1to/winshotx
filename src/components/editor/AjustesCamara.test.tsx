@@ -40,24 +40,55 @@ describe("los mandos de la cámara", () => {
     expect(screen.getByRole("button", { name: "Círculo" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("las cuatro formas se leen con su nombre, no solo con un dibujo", async () => {
+  it("las formas se leen con su nombre, no solo con un dibujo", async () => {
     // Con cuatro dibujos finos sin nombre, Munito creyó que solo había círculo (12-nov).
     pintar({});
     const grupo = await screen.findByRole("group", { name: "Forma de la cámara" });
     expect(grupo).toHaveTextContent("Círculo");
     expect(grupo).toHaveTextContent("Cuadrado");
     expect(grupo).toHaveTextContent("Rectángulo");
-    expect(grupo).toHaveTextContent("Redondeado");
+    // S13: el redondeado es un rectángulo con «Esquinas redondeadas»; dos veces no.
+    expect(grupo).not.toHaveTextContent("Redondeado");
   });
 
   it("la forma, el tamaño y el borde van a la petición", async () => {
     const { onEdicion } = pintar();
-    fireEvent.click(await screen.findByRole("button", { name: "Rectángulo redondeado" }));
-    expect(onEdicion).toHaveBeenLastCalledWith({ camara: { ...PUESTA, forma: "redondeado" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Rectángulo" }));
+    expect(onEdicion).toHaveBeenLastCalledWith({ camara: { ...PUESTA, forma: "rectangulo" } });
     fireEvent.change(screen.getByRole("slider", { name: "Tamaño" }), { target: { value: "30" } });
     expect(onEdicion).toHaveBeenLastCalledWith({ camara: { ...PUESTA, tam: 0.3 } });
     fireEvent.click(screen.getByRole("switch", { name: "Con borde" }));
     expect(onEdicion).toHaveBeenLastCalledWith({ camara: { ...PUESTA, borde: true } });
+  });
+
+  // S13 (redondeo)
+  it("el cuadrado y el rectángulo tienen «Esquinas redondeadas», que va a la petición; el círculo no", async () => {
+    const { onEdicion, rerender } = pintar();
+    await screen.findByRole("button", { name: "Círculo" });
+    expect(screen.queryByRole("slider", { name: "Esquinas redondeadas" })).toBeNull();
+    const cuadrado: MarcoCamara = { ...PUESTA, forma: "cuadrado" };
+    rerender(<AjustesCamara sessionId="s" edicion={{ camara: cuadrado }} onEdicion={onEdicion} />);
+    const mando = screen.getByRole("slider", { name: "Esquinas redondeadas" });
+    // Sin tocarlo, rectas, como antes.
+    expect(mando).toHaveValue("0");
+    expect(screen.getByText("rectas")).toBeInTheDocument();
+    fireEvent.change(mando, { target: { value: "30" } });
+    expect(onEdicion).toHaveBeenLastCalledWith({ camara: { ...cuadrado, redondeo: 0.3 } });
+    // Y se queda al cambiar a rectángulo.
+    const redondo: MarcoCamara = { ...cuadrado, redondeo: 0.3 };
+    rerender(<AjustesCamara sessionId="s" edicion={{ camara: redondo }} onEdicion={onEdicion} />);
+    expect(screen.getByText("30 %")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Rectángulo" }));
+    expect(onEdicion).toHaveBeenLastCalledWith({ camara: { ...redondo, forma: "rectangulo" } });
+  });
+
+  it("una cámara «redondeada» de antes sale como rectángulo con sus esquinas al 18 %, y no las pierde", async () => {
+    const vieja: MarcoCamara = { ...PUESTA, forma: "redondeado" };
+    const { onEdicion } = pintar({ camara: vieja });
+    expect(await screen.findByRole("button", { name: "Rectángulo" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("slider", { name: "Esquinas redondeadas" })).toHaveValue("18");
+    fireEvent.click(screen.getByRole("button", { name: "Rectángulo" }));
+    expect(onEdicion).toHaveBeenLastCalledWith({ camara: { ...vieja, forma: "rectangulo", redondeo: 0.18 } });
   });
 
   it("apagarla manda null, y encenderla otra vez vuelve a la que había", async () => {

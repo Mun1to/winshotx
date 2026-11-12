@@ -173,12 +173,14 @@ export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, q
   const v = recorteVisible(mostrado, medidaCamara);
   const anchoVideo = c.ancho / (v.x2 - v.x1);
   const altoVideo = c.alto / (v.y2 - v.y1);
-  const r = radio(mostrado.forma, c);
+  const r = radio(mostrado, c);
   const hacia = esquinaDeAgarre(c, lienzo);
-  // El asa: en el círculo, sobre su borde en la diagonal; en lo demás, en la esquina.
-  const diagonal = mostrado.forma === "circulo" ? Math.SQRT1_2 : 1;
-  const asaX = c.ancho / 2 + (hacia.haciaX * c.ancho * diagonal) / 2;
-  const asaY = c.alto / 2 + (hacia.haciaY * c.alto * diagonal) / 2;
+  // El asa, sobre el borde en la diagonal de la esquina: en una esquina recta, en la punta;
+  // en una redondeada (S13), metida lo que se mete la curva, y en el círculo, que es la
+  // curva entera, en su borde.
+  const metida = r * (1 - Math.SQRT1_2);
+  const asaX = c.ancho / 2 + hacia.haciaX * (c.ancho / 2 - metida);
+  const asaY = c.alto / 2 + hacia.haciaY * (c.alto / 2 - metida);
 
   const empezar = (e: React.PointerEvent, modo: Arrastre["modo"]) => {
     if (quieta || e.button !== 0) return;

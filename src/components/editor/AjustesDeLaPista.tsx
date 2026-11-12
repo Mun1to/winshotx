@@ -24,6 +24,13 @@ export const FORMAS: { forma: Forma; nombre: string; corto: string }[] = [
 ];
 
 /**
+ * S13 (redondeo): las de la cámara, sin el «Redondeado». Sus esquinas se eligen con
+ * «Esquinas redondeadas» en el cuadrado y el rectángulo, así que el redondeado sería un
+ * rectángulo con ese mando puesto: la misma forma dos veces.
+ */
+export const FORMAS_DE_LA_CAMARA = FORMAS.filter((f) => f.forma !== "redondeado");
+
+/**
  * Elegir la forma (de la lupa o de la cámara): cada una con su dibujo Y su nombre, y la
  * elegida subrayada como el resto de opciones del editor. Con solo los cuatro dibujos
  * finos, sin nombre, no se veía que eran botones: Munito, 12-nov, «¿solo está la opción de
@@ -33,24 +40,31 @@ export function SelectorDeForma({
   forma,
   onForma,
   etiqueta,
-  enDosFilas = false,
+  formas = FORMAS,
+  enColumnas = false,
 }: {
   forma: Forma;
   onForma: (forma: Forma) => void;
   etiqueta: string;
-  /** En el panel, que es estrecho, dos por fila; debajo de la línea de tiempo, las cuatro seguidas. */
-  enDosFilas?: boolean;
+  /** Las que se ofrecen: de fábrica las cuatro de la lupa. */
+  formas?: typeof FORMAS;
+  /**
+   * En el panel, que es estrecho, una columna igual por forma, con el dibujo encima del
+   * nombre: las tres de la cámara con el dibujo al lado no caben en sus 267 px, y en dos
+   * por fila dejaban una sola abajo. Debajo de la línea de tiempo, todas seguidas.
+   */
+  enColumnas?: boolean;
 }) {
   const t = useT();
   return (
     <div
       role="group"
       aria-label={etiqueta}
-      className={enDosFilas ? "grid grid-cols-2 justify-items-start gap-x-4 gap-y-1" : "flex items-center gap-4"}
+      className={enColumnas ? "grid auto-cols-fr grid-flow-col gap-x-2" : "flex items-center gap-4"}
     >
-      {FORMAS.map((f) => (
+      {formas.map((f) => (
         <Opcion key={f.forma} puesta={forma === f.forma} onClick={() => onForma(f.forma)} etiqueta={t(f.nombre)}>
-          <span className="flex items-center gap-1.5">
+          <span className={enColumnas ? "flex flex-col items-center gap-1" : "flex items-center gap-1.5"}>
             <DibujoDeForma forma={f.forma} puesta={forma === f.forma} />
             {t(f.corto)}
           </span>

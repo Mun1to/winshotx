@@ -17,6 +17,7 @@
 
 import type { Background } from "./types";
 import type { ClicElegido, Edicion, FondoElegido, Forma, MarcoCamara, Suavizado } from "./contrato";
+import { REDONDEO_MAXIMO } from "./camara";
 import type { PresetGuardado } from "./ipc";
 import { FONDOS } from "./fondos";
 import { punteroNormal } from "./estudio";
@@ -141,6 +142,10 @@ function camaraDe(v: unknown): MarcoCamara | null {
     x: numero(v.x, 0, 1, 0.85),
     y: numero(v.y, 0, 1, 0.8),
     borde: booleano(v.borde, false),
+    // S13 (redondeo): solo si lo trae. Un estilo de antes sin él sale como salía.
+    ...(typeof v.redondeo === "number" && Number.isFinite(v.redondeo)
+      ? { redondeo: numero(v.redondeo, 0, REDONDEO_MAXIMO, 0) }
+      : {}),
   };
 }
 

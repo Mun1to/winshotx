@@ -16,6 +16,7 @@ import {
   type Estilo,
 } from "./presets";
 import { punteroNormal } from "./estudio";
+import type { MarcoCamara } from "./contrato";
 
 const PANEL: EstadoDelPanel = {
   zoom: 2,
@@ -59,6 +60,19 @@ describe("leer un estilo guardado", () => {
     expect(leido.fondoElegido).toEqual({ tipo: "degradado", rgb: [10, 20, 30] });
     expect(leido.camara?.forma).toBe("redondeado");
     expect(leido.suavizado).toBe("mucho");
+    // S13: un estilo de antes no trae redondeo, y no se le inventa uno.
+    expect(leido.camara).not.toHaveProperty("redondeo");
+  });
+
+  // S13 (redondeo)
+  it("la cámara recuerda sus esquinas redondeadas, y lo roto no se cuela", () => {
+    const camara: MarcoCamara = { forma: "cuadrado", recorte: { x1: 0, y1: 0, x2: 1, y2: 1 }, tam: 0.2, x: 0.8, y: 0.7, borde: false };
+    expect(leerEstilo({ camara: { ...camara, redondeo: 0.3 } }).camara?.redondeo).toBe(0.3);
+    expect(leerEstilo({ camara: { ...camara, redondeo: 4 } }).camara?.redondeo).toBe(0.5);
+    expect(leerEstilo({ camara: { ...camara, redondeo: "mucho" } }).camara).not.toHaveProperty("redondeo");
+    // Y va y vuelve por el estilo guardado, como lo escribe Rust en los ajustes.
+    const guardado = estiloDe(PANEL, { camara: { ...camara, redondeo: 0.25 } }, GRANDE);
+    expect(edicionDe(leerEstilo(JSON.parse(JSON.stringify(guardado)))).camara?.redondeo).toBe(0.25);
   });
 
   it("la lista se queda sin los que no tienen nombre", () => {

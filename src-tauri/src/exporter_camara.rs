@@ -157,6 +157,7 @@ fn marco_de_prueba() -> MarcoCamara {
         x: 0.7,
         y: 0.5,
         borde: false,
+        redondeo: None,
     }
 }
 
@@ -334,6 +335,45 @@ fn el_cuadrado_con_borde_y_el_rectangulo_entero() {
         f.get_pixel(224, 38)
     );
     assert!(es_rojo(f.get_pixel(180, 45)));
+    let _ = std::fs::remove_dir_all(&session.dir);
+}
+
+/// S13 (redondeo): el cuadrado con «Esquinas redondeadas» sale con sus esquinas en el
+/// archivo. Al 25 % de 128 px el radio es 32: el píxel a 7 de cada borde, que en el
+/// cuadrado de antes es cara, aquí es la pantalla; el centro y el medio del lado, cara.
+#[cfg(windows)]
+#[test]
+fn el_cuadrado_con_las_esquinas_redondeadas() {
+    let mut session = sesion("redondeo", 1_000);
+    if !con_camara(&mut session, 1, 0) {
+        return;
+    }
+    let redondeado = MarcoCamara {
+        forma: Forma::Cuadrado,
+        redondeo: Some(0.25),
+        ..marco_de_prueba()
+    };
+    let salida = gif(
+        &session,
+        &peticion(&session, "gif", Some(redondeado)),
+        "redondeo",
+    );
+    let f = en(&salida, 300);
+    assert!(
+        es_gris(f.get_pixel(167, 33)),
+        "la esquina redondeada deja ver la pantalla: {:?}",
+        f.get_pixel(167, 33)
+    );
+    assert!(
+        es_rojo(f.get_pixel(224, 90)),
+        "el centro, la cara: {:?}",
+        f.get_pixel(224, 90)
+    );
+    assert!(
+        es_rojo(f.get_pixel(163, 90)),
+        "y el medio del lado llega al borde: {:?}",
+        f.get_pixel(163, 90)
+    );
     let _ = std::fs::remove_dir_all(&session.dir);
 }
 
