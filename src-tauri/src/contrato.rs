@@ -216,6 +216,53 @@ pub struct Edicion {
     pub camara: Option<MarcoCamara>,
     /// Lo que se tapa con mosaico, y cuándo.
     pub tapar: Vec<Tapa>,
+    // S11 (pistas)
+    /// El sonido del PC, cuando la grabación lo trae aparte de la voz: si va y a qué volumen.
+    /// `None` es lo de antes: manda `volume`.
+    pub sonido_pc: Option<VolumenDePista>,
+    /// Y el del micrófono, igual.
+    pub microfono: Option<VolumenDePista>,
+}
+
+// --- S11 (pistas): el sonido del PC y el micrófono, cada uno en su archivo ---
+
+/// Qué pistas de sonido trae una grabación, cada una en su archivo (`record::pistas`).
+///
+/// Hasta la 0.4.0 el micrófono se sumaba encima del sonido del PC mientras se grababa, y
+/// todo iba a un solo `audio.pcm` que ya no se podía separar. Las sesiones de antes (y las
+/// de la repetición instantánea, que sigue mezclando) no traen esto, y se abren y se
+/// guardan como siempre.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PistasGrabadas {
+    /// El archivo con lo que sonó en el PC, dentro de la carpeta de la sesión.
+    pub sistema: Option<String>,
+    /// Y el de la voz.
+    pub microfono: Option<String>,
+}
+
+/// Una pista en el editor: encendida o no, y a qué volumen.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumenDePista {
+    pub encendida: bool,
+    /// 1 es como se grabó, 0 mudo y 2 el doble.
+    pub volumen: f32,
+}
+
+impl VolumenDePista {
+    /// Lo que se multiplica cada muestra: cero si está apagada, y entre 0 y 4 si no, como
+    /// `volume`. Un número roto (lo que no manda nunca el editor) es como se grabó.
+    pub fn ganancia(&self) -> f32 {
+        if !self.encendida {
+            return 0.0;
+        }
+        if self.volumen.is_finite() {
+            self.volumen.clamp(0.0, 4.0)
+        } else {
+            1.0
+        }
+    }
 }
 
 #[cfg(test)]
@@ -270,6 +317,29 @@ mod pruebas {
         assert!(edicion.esconder_al_escribir && edicion.onda_clic && edicion.zoom_al_escribir);
         assert_eq!(edicion.camara.unwrap().forma, Forma::Circulo);
         assert_eq!(edicion.tapar.len(), 1);
+    }
+
+    /// S11 (pistas): una petición sin las pistas no cambia nada, y las que manda el editor
+    /// se leen con su volumen; apagada no suena, la suba a lo que la suba.
+    #[test]
+    fn las_pistas_vienen_vacias_y_se_leen() {
+        let vacia: Edicion = serde_json::from_str("{}").unwrap();
+        assert!(vacia.sonido_pc.is_none() && vacia.microfono.is_none());
+
+        let edicion: Edicion = serde_json::from_str(
+            r#"{"sonidoPc": {"encendida": true, "volumen": 0.5},
+                "microfono": {"encendida": false, "volumen": 1.5}}"#,
+        )
+        .unwrap();
+        assert_eq!(edicion.sonido_pc.unwrap().ganancia(), 0.5);
+        assert_eq!(edicion.microfono.unwrap().ganancia(), 0.0);
+        let alto = VolumenDePista { encendida: true, volumen: 9.0 };
+        assert_eq!(alto.ganancia(), 4.0, "como mucho cuatro veces, igual que `volume`");
+
+        // Lo que se guarda al grabar, con una sola pista o con las dos.
+        let pistas: PistasGrabadas = serde_json::from_str(r#"{"microfono": "microfono.wav"}"#).unwrap();
+        assert_eq!(pistas.sistema, None);
+        assert_eq!(pistas.microfono.as_deref(), Some("microfono.wav"));
     }
 
     /// Los fondos sin nada dentro también se leen, y los de ruta guardan su ruta.

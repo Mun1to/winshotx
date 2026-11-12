@@ -549,6 +549,7 @@ mod tests {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames,
         };
         let dibujado = crate::record::read_frame(&session, session.frames.len() - 1).unwrap();

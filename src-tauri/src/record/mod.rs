@@ -24,6 +24,8 @@ pub mod buffer;
 pub mod delta;
 pub mod mezcla;
 pub mod pastilla;
+// S11 (pistas)
+pub mod pistas;
 pub mod raton;
 pub mod realce;
 pub mod teclas;
@@ -186,6 +188,11 @@ pub struct SessionData {
     /// Los ratos en los que se escribió, sin ninguna tecla dentro. Ver `TramoEscritura`.
     #[serde(default)]
     pub escritura: Vec<crate::contrato::TramoEscritura>,
+    /// S11 (pistas): el sonido del PC y el micrófono, cada uno en su WAV (`pistas.rs`), con
+    /// el formato de `audio`. `None` en las grabaciones de antes y en la repetición
+    /// instantánea: ahí todo va mezclado en `audio.pcm`.
+    #[serde(default)]
+    pub pistas: Option<crate::contrato::PistasGrabadas>,
     pub frames: Vec<FrameEntry>,
 }
 
@@ -797,6 +804,7 @@ mod tests {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames,
         }
     }
