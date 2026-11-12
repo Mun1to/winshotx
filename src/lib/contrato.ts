@@ -102,6 +102,13 @@ export interface MarcoCamara {
   x: number;
   y: number;
   borde: boolean;
+  // S13 (redondeo)
+  /**
+   * Lo redondas que van las esquinas del cuadrado y del rectángulo, sobre su lado corto: 0
+   * rectas, 0,5 del todo (el cuadrado se vuelve círculo). Sin él, lo de antes: rectas, y el
+   * «redondeado» al 0,18. Ver `camara.ts::redondeo`.
+   */
+  redondeo?: number | null;
 }
 
 /** Un rectángulo tapado con mosaico durante un rato. */

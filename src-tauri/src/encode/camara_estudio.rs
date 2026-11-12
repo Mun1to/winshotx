@@ -43,8 +43,11 @@ const TAM_MINIMO: f32 = 0.05;
 const RECORTE_MINIMO: f32 = 0.02;
 /// El radio de las esquinas del rectángulo redondeado, sobre su lado corto. El mismo que el
 /// de la lupa (`lupa::pintar`), para que las dos formas redondeadas se vean de la misma
-/// familia.
+/// familia. Desde S13 es solo lo que lleva un `Redondeado` de antes, sin `redondeo`.
 const RADIO_REDONDEADO: f32 = 0.18;
+/// Lo más redondas que pueden ir las esquinas (S13): media vuelta del lado corto, que
+/// deja el cuadrado en círculo y el rectángulo en pastilla. Más ya no redondea nada.
+pub const REDONDEO_MAXIMO: f32 = 0.5;
 /// Lo que se ve de fábrica: pequeña, en la esquina de abajo a la derecha, sin tapar el
 /// centro. El lado mayor es el 18 % del ancho (345 px en un vídeo de 1920).
 pub const TAM_DE_FABRICA: f32 = 0.18;
@@ -173,14 +176,23 @@ pub fn grosor_del_borde(caja: &Caja) -> f32 {
     (caja.ancho.min(caja.alto) * 0.02).clamp(2.0, 8.0)
 }
 
-/// El radio de las esquinas de la burbuja, en píxeles.
-pub fn radio(forma: Forma, caja: &Caja) -> f32 {
-    let corto = caja.ancho.min(caja.alto);
-    match forma {
-        Forma::Circulo => corto / 2.0,
-        Forma::Cuadrado | Forma::Rectangulo => 0.0,
-        Forma::Redondeado => corto * RADIO_REDONDEADO,
+/// Lo redondas que van las esquinas, sobre el lado corto (S13). El círculo, siempre media
+/// vuelta. El cuadrado y el rectángulo, lo que se eligió con «Esquinas redondeadas»; y sin
+/// elegir (lo de antes de S13), rectas, salvo el `Redondeado`, que va a su 0,18 de siempre.
+pub fn redondeo(marco: &MarcoCamara) -> f32 {
+    if marco.forma == Forma::Circulo {
+        return REDONDEO_MAXIMO;
     }
+    match marco.redondeo {
+        Some(r) if r.is_finite() => r.clamp(0.0, REDONDEO_MAXIMO),
+        _ if marco.forma == Forma::Redondeado => RADIO_REDONDEADO,
+        _ => 0.0,
+    }
+}
+
+/// El radio de las esquinas de la burbuja, en píxeles.
+pub fn radio(marco: &MarcoCamara, caja: &Caja) -> f32 {
+    caja.ancho.min(caja.alto) * redondeo(marco)
 }
 
 /// La cámara como sale de fábrica en un vídeo de `ancho` por `alto`: en círculo, sin
@@ -201,6 +213,7 @@ pub fn de_fabrica(ancho: u32, alto: u32) -> MarcoCamara {
         x: 1.0 - AIRE_DE_FABRICA - medio,
         y: (1.0 - (AIRE_DE_FABRICA + medio) * w / h).clamp(0.0, 1.0),
         borde: false,
+        redondeo: None,
     }
 }
 
@@ -309,7 +322,8 @@ struct Plantilla {
 }
 
 impl Plantilla {
-    fn nueva(caja: &Caja, forma: Forma, borde: bool) -> Option<Self> {
+    fn nueva(caja: &Caja, marco: &MarcoCamara) -> Option<Self> {
+        let borde = marco.borde;
         let (bx, by) = (caja.x.round() as i32, caja.y.round() as i32);
         let (bw, bh) = (caja.ancho.round() as u32, caja.alto.round() as u32);
         if bw < 4 || bh < 4 {
@@ -321,7 +335,7 @@ impl Plantilla {
             ancho: bw as f32,
             alto: bh as f32,
         };
-        let radio = radio(forma, &redonda);
+        let radio = radio(marco, &redonda);
         let grosor = if borde {
             grosor_del_borde(&redonda)
         } else {
@@ -456,7 +470,7 @@ impl Webcam {
         };
         let camara = (grabada.ancho.max(1), grabada.alto.max(1));
         let caja = caja(&marco, camara, lienzo);
-        let plantilla = Plantilla::nueva(&caja, marco.forma, marco.borde)?;
+        let plantilla = Plantilla::nueva(&caja, &marco)?;
         let (x0, y0) = (plantilla.x0, plantilla.y0);
         let proporcion = proporcion(&marco, camara);
         let (pide, peticiones) = mpsc::channel::<u64>();
@@ -645,6 +659,7 @@ mod pruebas {
             x,
             y,
             borde: false,
+            redondeo: None,
         }
     }
 
@@ -739,6 +754,40 @@ mod pruebas {
         assert_eq!(proporcion(&m, (1280, 720)), 1280.0 / 720.0);
     }
 
+    /// S13 (redondeo). Los mismos números que `src/lib/camara.test.ts`: en una burbuja de
+    /// 400 x 300, el círculo es media vuelta siempre; el cuadrado y el rectángulo, lo que se
+    /// eligió; y sin elegir, lo de antes (rectas, y el `Redondeado` a su 0,18).
+    #[test]
+    fn el_radio_de_cada_forma() {
+        let c = Caja {
+            x: 0.0,
+            y: 0.0,
+            ancho: 400.0,
+            alto: 300.0,
+        };
+        let r = |forma: Forma, redondeo: Option<f32>| {
+            radio(
+                &MarcoCamara {
+                    redondeo,
+                    ..marco(forma, 0.2, 0.5, 0.5)
+                },
+                &c,
+            )
+        };
+        assert_eq!(r(Forma::Circulo, None), 150.0);
+        assert_eq!(r(Forma::Circulo, Some(0.0)), 150.0, "el círculo no se cuadra");
+        assert_eq!(r(Forma::Cuadrado, None), 0.0);
+        assert_eq!(r(Forma::Rectangulo, None), 0.0);
+        assert!((r(Forma::Redondeado, None) - 54.0).abs() < 1e-3);
+        assert_eq!(r(Forma::Cuadrado, Some(0.25)), 75.0);
+        assert_eq!(r(Forma::Rectangulo, Some(0.5)), 150.0);
+        assert_eq!(r(Forma::Rectangulo, Some(0.9)), 150.0, "más de media vuelta no hay");
+        assert_eq!(r(Forma::Rectangulo, Some(-1.0)), 0.0);
+        assert_eq!(r(Forma::Rectangulo, Some(f32::NAN)), 0.0);
+        assert_eq!(r(Forma::Redondeado, Some(0.0)), 0.0, "lo elegido manda");
+        assert!((r(Forma::Redondeado, Some(f32::NAN)) - 54.0).abs() < 1e-3);
+    }
+
     /// El desfase: positivo es que la cámara arrancó tarde, y entonces va por detrás.
     #[test]
     fn el_instante_de_la_camara() {
@@ -766,13 +815,19 @@ mod pruebas {
             x2: 1.0,
             y2: 1.0,
         };
-        let pintar = |forma: Forma, borde: bool| {
-            let p = Plantilla::nueva(&caja, forma, borde).unwrap();
+        let pintar_con = |forma: Forma, borde: bool, redondeo: Option<f32>| {
+            let m = MarcoCamara {
+                borde,
+                redondeo,
+                ..marco(forma, 0.2, 0.5, 0.5)
+            };
+            let p = Plantilla::nueva(&caja, &m).unwrap();
             let burbuja = p.burbuja(&rojo, &completo, 1.0);
             let mut lienzo = RgbaImage::from_pixel(140, 140, gris);
             componer(&mut lienzo, &burbuja, p.x0, p.y0);
             lienzo
         };
+        let pintar = |forma: Forma, borde: bool| pintar_con(forma, borde, None);
         let circulo = pintar(Forma::Circulo, false);
         assert_eq!(
             circulo.get_pixel(12, 12),
@@ -809,6 +864,22 @@ mod pruebas {
             [230, 20, 20, 255],
             "pero casi"
         );
+        // S13 (redondeo): el cuadrado con sus esquinas redondeadas tampoco llega, y del
+        // todo redondas se queda como el círculo.
+        let suave = pintar_con(Forma::Cuadrado, false, Some(0.1));
+        assert_eq!(suave.get_pixel(11, 11), &gris, "redondeado al 10 %, la esquina no");
+        assert_eq!(suave.get_pixel(20, 20).0, [230, 20, 20, 255]);
+        let redondo = pintar_con(Forma::Cuadrado, true, Some(0.5));
+        assert_eq!(
+            redondo.get_pixel(12, 12),
+            &gris,
+            "del todo redondo, como el círculo"
+        );
+        assert_eq!(
+            redondo.get_pixel(11, 60).0,
+            [255, 255, 255, 255],
+            "y el borde sigue la curva"
+        );
     }
 
     /// Pintada en una esquina, la plantilla se sale del lienzo y no revienta.
@@ -820,7 +891,11 @@ mod pruebas {
             ancho: 40.0,
             alto: 40.0,
         };
-        let p = Plantilla::nueva(&caja, Forma::Circulo, true).unwrap();
+        let m = MarcoCamara {
+            borde: true,
+            ..marco(Forma::Circulo, 0.2, 0.5, 0.5)
+        };
+        let p = Plantilla::nueva(&caja, &m).unwrap();
         let burbuja = p.burbuja(
             &RgbaImage::new(32, 32),
             &Recorte {

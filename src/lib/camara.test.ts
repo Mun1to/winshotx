@@ -6,8 +6,10 @@ import {
   instanteDeLaCamara,
   marcoDeFabrica,
   mover,
+  paraLosMandos,
   pasoDeLaCara,
   proporcion,
+  radio,
   recorta,
   recorteVisible,
   redimensionar,
@@ -65,6 +67,36 @@ describe("la burbuja de la cámara", () => {
     expect(vr.y2).toBeCloseTo(0.9, 5);
     // Un recorte sin anchura no deja la burbuja vacía: vale la imagen entera.
     expect(proporcion({ ...r, recorte: { x1: 0.4, y1: 0, x2: 0.4, y2: 1 } }, CAM)).toBeCloseTo(1280 / 720, 5);
+  });
+
+  // S13 (redondeo): los mismos números que `el_radio_de_cada_forma` en Rust.
+  it("el radio: el círculo, media vuelta siempre; el cuadrado y el rectángulo, lo elegido; sin elegir, lo de antes", () => {
+    const c = { x: 0, y: 0, ancho: 400, alto: 300 };
+    const r = (forma: MarcoCamara["forma"], redondeo?: number) => radio({ forma, redondeo }, c);
+    expect(r("circulo")).toBe(150);
+    expect(r("circulo", 0)).toBe(150);
+    expect(r("cuadrado")).toBe(0);
+    expect(r("rectangulo")).toBe(0);
+    expect(r("redondeado")).toBeCloseTo(54, 3);
+    expect(r("cuadrado", 0.25)).toBe(75);
+    expect(r("rectangulo", 0.5)).toBe(150);
+    expect(r("rectangulo", 0.9)).toBe(150);
+    expect(r("rectangulo", -1)).toBe(0);
+    expect(r("rectangulo", NaN)).toBe(0);
+    expect(r("redondeado", 0)).toBe(0);
+    expect(r("redondeado", NaN)).toBeCloseTo(54, 3);
+  });
+
+  it("el «redondeado» de antes llega a los mandos como un rectángulo con sus esquinas, y sale igual", () => {
+    const viejo = marco("redondeado", 0.25, 0.5, 0.5);
+    const mandos = paraLosMandos(viejo);
+    expect(mandos).toEqual({ ...viejo, forma: "rectangulo", redondeo: 0.18 });
+    const c = caja(viejo, CAM, LIENZO);
+    expect(caja(mandos, CAM, LIENZO)).toEqual(c);
+    expect(radio(mandos, c)).toBeCloseTo(radio(viejo, c), 6);
+    // Lo demás no se toca.
+    const cuadrado = { ...marco("cuadrado", 0.2, 0.5, 0.5), redondeo: 0.3 };
+    expect(paraLosMandos(cuadrado)).toBe(cuadrado);
   });
 
   it("el desfase: positivo es que la cámara arrancó tarde y va por detrás", () => {

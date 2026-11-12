@@ -171,6 +171,13 @@ pub struct MarcoCamara {
     pub x: f32,
     pub y: f32,
     pub borde: bool,
+    // S13 (redondeo)
+    /// Lo redondas que van las esquinas del cuadrado y del rectángulo, sobre su lado corto:
+    /// 0 son rectas y 0,5 es media vuelta entera (el cuadrado se vuelve círculo y el
+    /// rectángulo, una pastilla). `None` es lo de antes de poder elegirlo: rectas, y las
+    /// del `Redondeado` al 0,18. Ver `encode::camara_estudio::redondeo`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redondeo: Option<f32>,
 }
 
 /// Un rectángulo tapado con mosaico durante un rato (D4).
@@ -338,6 +345,21 @@ mod pruebas {
         assert!(edicion.esconder_al_escribir && edicion.onda_clic && edicion.zoom_al_escribir);
         assert_eq!(edicion.camara.unwrap().forma, Forma::Circulo);
         assert_eq!(edicion.tapar.len(), 1);
+    }
+
+    /// S13 (redondeo): una cámara de antes, sin `redondeo`, se lee sin él (y así sale como
+    /// salía); la del editor nuevo, con el suyo. Y sin él, no se escribe.
+    #[test]
+    fn el_redondeo_de_la_camara() {
+        let vieja = r#"{"camara": {"forma": "redondeado", "recorte": {"x1": 0, "y1": 0, "x2": 1, "y2": 1},
+                        "tam": 0.2, "x": 0.85, "y": 0.8, "borde": true}}"#;
+        let camara = serde_json::from_str::<Edicion>(vieja).unwrap().camara.unwrap();
+        assert_eq!((camara.forma, camara.redondeo), (Forma::Redondeado, None));
+        assert!(!serde_json::to_string(&camara).unwrap().contains("redondeo"));
+        let nueva = r#"{"camara": {"forma": "cuadrado", "recorte": {"x1": 0, "y1": 0, "x2": 1, "y2": 1},
+                        "tam": 0.2, "x": 0.85, "y": 0.8, "borde": false, "redondeo": 0.3}}"#;
+        let camara = serde_json::from_str::<Edicion>(nueva).unwrap().camara.unwrap();
+        assert_eq!((camara.forma, camara.redondeo), (Forma::Cuadrado, Some(0.3)));
     }
 
     /// S11 (pistas): una petición sin las pistas no cambia nada, y las que manda el editor
