@@ -31,6 +31,9 @@ import { Presets } from "./Presets";
 import { edicionDe, estiloDe, panelDe } from "../../lib/presets";
 import type { Edicion } from "../../lib/contrato";
 import { Opcion, Opciones } from "../ui/Opcion";
+// S11 (pistas)
+import { conPistas, pistaDe } from "../../lib/pistas";
+import { MandosDePistas } from "./MandosDePistas";
 
 /**
  * Los cuatro formatos, con lo que hace cada uno dicho en palabras: «H.264 por hardware»
@@ -222,6 +225,12 @@ export function ExportPanel({
   const [esconder, setEsconder] = useState(false);
   const [velocidadZoom, setVelocidadZoom] = useState(1);
   const [volumen, setVolumen] = useState(1);
+  // S11 (pistas): con el PC y la voz por separado, cada uno lleva su mando (encendido y
+  // volumen) donde iba «Sonido». Viven en `edicion` porque la vista previa los oye igual.
+  const pistasAparte = conPistas(session);
+  const pc = pistaDe(edicion?.sonidoPc);
+  const voz = pistaDe(edicion?.microfono);
+  const suenaAlguna = (!!session.sonidoPc && pc.encendida) || (!!session.microfono && voz.encendida);
   const [estudioAbierto, setEstudioAbierto] = useState(() => leerAbierto(CLAVE_ESTUDIO, true));
   const [loop, setLoop] = useState(true);
   const [directory, setDirectory] = useState(saveDirectory);
@@ -401,7 +410,7 @@ export function ExportPanel({
         quality,
         // A otra velocidad no hay sonido: acelerar la pista sin cambiarle el tono es otro
         // problema entero, y dejarla tal cual la despegaría de la imagen enseguida.
-        audio: audio && format === "mp4" && velocidad === 1,
+        audio: (pistasAparte ? suenaAlguna : audio) && format === "mp4" && velocidad === 1,
         speed: foto ? 1 : velocidad,
         // Una foto no tiene zoom: la cámara solo se mueve con el tiempo pasando.
         zoom: foto ? 1 : zoom,
@@ -424,6 +433,9 @@ export function ExportPanel({
         destination: directory || null,
         file,
         copyToClipboard,
+        // S11 (pistas): cada pista con su mando, solo las que trae la grabación.
+        sonidoPc: session.sonidoPc ? pc : null,
+        microfono: session.microfono ? voz : null,
       });
       setResult(res);
     } catch (e) {
@@ -512,7 +524,7 @@ export function ExportPanel({
         </p>
 
         <div className="mt-4 space-y-4">
-          {format === "mp4" && (
+          {format === "mp4" && !pistasAparte && (
             <Toggle
               checked={audio}
               onChange={setAudio}
@@ -526,6 +538,23 @@ export function ExportPanel({
                       ? t("los trozos acelerados salen sin sonido")
                       : undefined
               }
+            />
+          )}
+          {/* S11 (pistas): el sonido del PC y tu micrófono, cada uno con lo suyo. */}
+          {format === "mp4" && pistasAparte && (
+            <MandosDePistas
+              pc={session.sonidoPc ? pc : null}
+              voz={session.microfono ? voz : null}
+              conVolumen={velocidad === 1}
+              aviso={
+                velocidad !== 1
+                  ? t("a otra velocidad el vídeo sale mudo")
+                  : trozosAcelerados
+                    ? t("los trozos acelerados salen sin sonido")
+                    : undefined
+              }
+              onPc={(sonidoPc) => onEdicion?.({ sonidoPc })}
+              onVoz={(microfono) => onEdicion?.({ microfono })}
             />
           )}
 
@@ -688,7 +717,7 @@ export function ExportPanel({
             />
           )}
 
-          {format === "mp4" && session.hasAudio && audio && velocidad === 1 && (
+          {format === "mp4" && session.hasAudio && !pistasAparte && audio && velocidad === 1 && (
             <Slider
               label={t("Volumen")}
               hint={`${Math.round(volumen * 100)} %`}

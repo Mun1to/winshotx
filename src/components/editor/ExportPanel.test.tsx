@@ -654,3 +654,110 @@ describe("el estudio", () => {
     expect(screen.getByRole("button", { name: "Little" })).toBeInTheDocument();
   });
 });
+
+// S11 (pistas)
+describe("el sonido del PC y tu micrófono, por separado", () => {
+  const CON_PISTAS: Partial<SessionInfo> = {
+    sonidoPc: "C:\\sesion\\sonido-pc.wav",
+    microfono: "C:\\sesion\\microfono.wav",
+  };
+
+  /** El panel con su `edicion` de verdad, como en el editor: lo que cambia se queda. */
+  function pintarConPistas(session: Partial<SessionInfo> = CON_PISTAS) {
+    function ConEdicion() {
+      const [edicion, setEdicion] = useState<Edicion>({});
+      return (
+        <ExportPanel
+          anotaciones={[]}
+          recorte={null}
+          session={{ ...GRABACION, ...session }}
+          inIndex={10}
+          outIndex={80}
+          currentIndex={42}
+          fpsMax={60}
+          hasFfmpeg={false}
+          saveDirectory="C:\capturas"
+          edicion={edicion}
+          onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}
+        />
+      );
+    }
+    return render(<ConEdicion />);
+  }
+
+  it("donde iba «Sonido» hay dos mandos, encendidos y a su volumen de grabación", () => {
+    pintarConPistas();
+    expect(screen.queryByRole("switch", { name: "Sonido" })).not.toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Sonido del PC" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("switch", { name: "Tu micrófono" })).toHaveAttribute("aria-checked", "true");
+    const volumenes = screen.getAllByRole("slider", { name: "Volumen" });
+    expect(volumenes).toHaveLength(2);
+    expect(volumenes.map((v) => (v as HTMLInputElement).value)).toEqual(["100", "100"]);
+  });
+
+  it("sin tocar nada, se guardan las dos como se grabaron", async () => {
+    pintarConPistas();
+    const req = await guardarYEsperar();
+    expect(req.audio).toBe(true);
+    expect(req.sonidoPc).toEqual({ encendida: true, volumen: 1 });
+    expect(req.microfono).toEqual({ encendida: true, volumen: 1 });
+  });
+
+  it("apagar la voz y bajar el PC viaja a Rust, y la voz apagada no enseña su volumen", async () => {
+    pintarConPistas();
+    fireEvent.click(screen.getByRole("switch", { name: "Tu micrófono" }));
+    expect(screen.getAllByRole("slider", { name: "Volumen" })).toHaveLength(1);
+    fireEvent.change(screen.getByRole("slider", { name: "Volumen" }), { target: { value: "40" } });
+    expect(screen.getByText("40 %")).toBeInTheDocument();
+    const req = await guardarYEsperar();
+    expect(req.audio).toBe(true);
+    expect(req.sonidoPc).toEqual({ encendida: true, volumen: 0.4 });
+    expect(req.microfono).toEqual({ encendida: false, volumen: 1 });
+  });
+
+  it("con las dos apagadas el MP4 sale mudo", async () => {
+    pintarConPistas();
+    fireEvent.click(screen.getByRole("switch", { name: "Sonido del PC" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Tu micrófono" }));
+    expect((await guardarYEsperar()).audio).toBe(false);
+  });
+
+  it("solo salen los mandos de lo que se grabó: sin el PC, solo «Tu micrófono»", async () => {
+    pintarConPistas({ sonidoPc: null, microfono: "C:\\sesion\\microfono.wav" });
+    expect(screen.queryByRole("switch", { name: "Sonido del PC" })).not.toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Tu micrófono" })).toBeInTheDocument();
+    const req = await guardarYEsperar();
+    expect(req.sonidoPc).toBeNull();
+    expect(req.microfono).toEqual({ encendida: true, volumen: 1 });
+  });
+
+  it("una grabación de antes, con todo junto, sigue con «Sonido» y su volumen de siempre", async () => {
+    pintarConPistas({ sonidoPc: undefined, microfono: undefined });
+    expect(screen.getByRole("switch", { name: "Sonido" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Tu micrófono" })).not.toBeInTheDocument();
+    const req = await guardarYEsperar();
+    expect(req.audio).toBe(true);
+    expect(req.sonidoPc).toBeNull();
+    expect(req.microfono).toBeNull();
+  });
+
+  it("a otra velocidad no hay volumen que tocar, y lo dice una vez", () => {
+    pintarConPistas();
+    abrirMas();
+    fireEvent.click(screen.getByRole("button", { name: "2×" }));
+    expect(screen.queryAllByRole("slider", { name: "Volumen" })).toHaveLength(0);
+    expect(screen.getAllByText("a otra velocidad el vídeo sale mudo")).toHaveLength(1);
+  });
+
+  it("en inglés y en chino, con sus nombres", () => {
+    aplicarIdioma("en");
+    const { unmount } = pintarConPistas();
+    expect(screen.getByRole("switch", { name: "PC sound" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Your microphone" })).toBeInTheDocument();
+    unmount();
+    aplicarIdioma("zh");
+    pintarConPistas();
+    expect(screen.getByRole("switch", { name: "电脑声音" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "你的麦克风" })).toBeInTheDocument();
+  });
+});

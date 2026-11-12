@@ -442,7 +442,7 @@ mod tests {
                     while t0.elapsed() < Duration::from_secs(SEGUNDOS) {
                         if let Ok(trozo) = captura.trozos.recv_timeout(Duration::from_millis(50)) {
                             trozos += 1;
-                            anillo.empujar(&audio::a_pcm16(&trozo.datos));
+                            anillo.empujar(&audio::a_pcm16(&trozo.mezcla()));
                         }
                     }
                     let cpu = cpu_del_proceso() - cpu0;

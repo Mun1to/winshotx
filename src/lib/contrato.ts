@@ -139,6 +139,25 @@ export interface Edicion {
   // S10 (sonidos)
   /** Qué suena en cada clic cuando `sonidoClic` no es 0. null o ausente: el «Ratón suave». */
   clic?: ClicElegido | null;
+  // S11 (pistas)
+  /** El sonido del PC, si la grabación lo trae aparte de la voz. Ausente: manda `volume`. */
+  sonidoPc?: VolumenDePista | null;
+  /** Y el del micrófono. */
+  microfono?: VolumenDePista | null;
+}
+
+// S11 (pistas): el sonido del PC y el micrófono, cada uno en su archivo
+
+/** Qué pistas de sonido trae una grabación, con el nombre de su archivo en la sesión. */
+export interface PistasGrabadas {
+  sistema: string | null;
+  microfono: string | null;
+}
+
+/** Una pista en el editor: encendida o no, y a qué volumen (1 como se grabó, 2 el doble). */
+export interface VolumenDePista {
+  encendida: boolean;
+  volumen: number;
 }
 
 // S10 (sonidos)

@@ -951,6 +951,7 @@ mod pruebas {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             teclas: Vec::new(),
             cursor: Vec::new(),
             width: cosida.width(),

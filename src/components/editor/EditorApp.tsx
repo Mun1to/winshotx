@@ -61,6 +61,9 @@ import { AVISO_TAPAR_VIDEO, tapaDatosVideo } from "../../lib/ipc";
 import { anadirTapas } from "../../lib/tapar";
 // S10 (sonidos)
 import { SonidoDeClics } from "./SonidoDeClics";
+// S11 (pistas)
+import { SonidoPorPistas } from "./SonidoPorPistas";
+import { conPistas } from "../../lib/pistas";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -92,6 +95,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [falloDeVideo, setFalloDeVideo] = useState<string | null>(null);
   /** La vista previa se estaba escribiendo por detrás y no ha salido. */
   const [previaFallida, setPreviaFallida] = useState(false);
+  /** S11 (pistas): una de las dos pistas no se ha podido abrir; suena el vídeo, con todo junto. */
+  const [pistasRotas, setPistasRotas] = useState(false);
   /** Y lo que lleva escrito, mientras la escriben. */
   const [porCiento, setPorCiento] = useState(0);
   /**
@@ -470,10 +475,14 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   // El volumen del estudio también se oye en la vista previa. Hasta el 100 %: un vídeo del
   // navegador no sube de ahí, y por encima solo lo nota el archivo.
+  //
+  // S11 (pistas): con el PC y la voz por separado suenan sus dos pistas, cada una a su volumen
+  // (`SonidoPorPistas`), y el vídeo, que las trae sumadas, se calla.
+  const suenanLasPistas = conPistas(session) && !pistasRotas;
   useEffect(() => {
     const video = videoRef.current;
-    if (video) video.volume = Math.min(1, Math.max(0, estudio.volumen));
-  }, [estudio.volumen, session?.mp4Path]);
+    if (video) video.volume = suenanLasPistas ? 0 : Math.min(1, Math.max(0, estudio.volumen));
+  }, [estudio.volumen, session?.mp4Path, suenanLasPistas]);
 
   /** Lo que dura lo que se queda. */
   const keptMs = Math.max(0, hastaMs - desdeMs);
@@ -865,6 +874,21 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   aire={estudio.marco ? cajaDeLaVista.aire : 0}
                   quieta={herramienta !== null || recortando}
                   msParado={posicionMs}
+                />
+              )}
+              {/* S11 (pistas) */}
+              {session.format !== "still" && suenanLasPistas && (
+                <SonidoPorPistas
+                  videoRef={videoRef}
+                  sonidoPc={session.sonidoPc}
+                  microfono={session.microfono}
+                  volumenPc={edicion.sonidoPc}
+                  volumenMicrofono={edicion.microfono}
+                  msParado={posicionMs}
+                  onFallo={(motivo) => {
+                    console.warn(`[winshotx] la pista no suena en la vista previa (${motivo}): suena el vídeo`);
+                    setPistasRotas(true);
+                  }}
                 />
               )}
               {/* S9 (presets y tapar) */}

@@ -24,7 +24,7 @@ pub struct RecordOptions {
     pub fps: u32,
     /// Lo que suena por los altavoces.
     pub audio: bool,
-    /// Y la voz de quien graba. Los dos a la vez se mezclan en una sola pista.
+    /// Y la voz de quien graba. Con los dos, cada uno va a su pista (`record::pistas`).
     #[serde(default)]
     pub microphone: bool,
     /// Marcar cada clic con un aro, para que se vea donde se esta pulsando.
@@ -81,10 +81,16 @@ pub struct SessionInfo {
     pub cursor_baked: bool,
     pub format: String,
     pub mp4_path: Option<String>,
+    /// S11 (pistas): la ruta del WAV con el sonido del PC, si la grabacion lo trae aparte.
+    /// Con esto el editor ensenna su mando y lo pone a sonar en la vista previa.
+    pub sonido_pc: Option<String>,
+    /// Y la del microfono.
+    pub microfono: Option<String>,
 }
 
 impl From<&SessionData> for SessionInfo {
     fn from(data: &SessionData) -> Self {
+        let (sonido_pc, microfono) = record::pistas::rutas(data);
         Self {
             id: data.id.clone(),
             region: data.region,
@@ -100,6 +106,8 @@ impl From<&SessionData> for SessionInfo {
                 .as_ref()
                 .filter(|p| p.exists())
                 .map(|p| p.to_string_lossy().to_string()),
+            sonido_pc,
+            microfono,
         }
     }
 }
@@ -151,53 +159,81 @@ fn monitor_origin(app: &AppHandle, region: Rect) -> (i32, i32) {
 }
 
 /// El sonido va a dos sitios a la vez: al MP4 de vista previa, para poder oirlo de una
-/// pieza, y a un archivo en crudo, que es lo que se recorta al exportar. Sin el archivo,
-/// el video que guarda el usuario sale mudo, porque la exportacion vuelve a codificar
-/// desde los fotogramas y ahi no hay sonido ninguno.
+/// pieza, y a sus archivos, que son lo que se recorta al exportar. Sin los archivos, el
+/// video que guarda el usuario sale mudo, porque la exportacion vuelve a codificar desde
+/// los fotogramas y ahi no hay sonido ninguno.
+///
+/// S11 (pistas): el sonido del PC y la voz van cada uno a su WAV (`record::pistas`), en el
+/// mismo reloj y del mismo largo, para poder bajar uno sin bajar el otro al guardar. La
+/// vista previa en vivo sigue llevando los dos sumados, como antes.
 #[cfg(windows)]
 struct SalidaDeAudio {
     captura: Option<crate::record::audio::Captura>,
-    archivo: Option<std::io::BufWriter<std::fs::File>>,
-    /// Bytes que han llegado al archivo. Sin uno solo, no hay sonido que exportar.
-    escritos: u64,
+    pc: Option<record::pistas::EscritorWav>,
+    microfono: Option<record::pistas::EscritorWav>,
+    /// Donde va el WAV de la voz cuando acompanna al PC: se crea con el primer trozo que la
+    /// trae. Si el microfono no se llego a abrir, no llega ninguno y no hay pista de voz.
+    voz_pendiente: Option<(std::path::PathBuf, record::AudioInfo)>,
 }
 
 #[cfg(windows)]
 impl SalidaDeAudio {
-    fn abrir(captura: Option<crate::record::audio::Captura>, ruta: std::path::PathBuf) -> Self {
-        let archivo = captura.as_ref().and_then(|_| {
-            std::fs::File::create(ruta)
-                .ok()
-                .map(std::io::BufWriter::new)
-        });
-        Self {
-            captura,
-            archivo,
-            escritos: 0,
-        }
+    fn abrir(captura: Option<crate::record::audio::Captura>, dir: &std::path::Path) -> Self {
+        use record::pistas::{EscritorWav, ARCHIVO_MICROFONO, ARCHIVO_PC};
+        let Some(c) = captura.as_ref() else {
+            return Self { captura, pc: None, microfono: None, voz_pendiente: None };
+        };
+        let info = record::AudioInfo {
+            channels: c.formato.canales,
+            sample_rate: c.formato.muestras_por_segundo,
+        };
+        let crear = |nombre: &str| EscritorWav::crear(&dir.join(nombre), info).ok();
+        // El maestro es el PC si se graba; si no, el maestro ES la voz y va a su archivo.
+        let pc = c.fuentes.sistema.then(|| crear(ARCHIVO_PC)).flatten();
+        let microfono = (!c.fuentes.sistema && c.fuentes.microfono)
+            .then(|| crear(ARCHIVO_MICROFONO))
+            .flatten();
+        let voz_pendiente = (c.fuentes.sistema && c.fuentes.microfono)
+            .then(|| (dir.join(ARCHIVO_MICROFONO), info));
+        Self { captura, pc, microfono, voz_pendiente }
     }
 
     fn formato(&self) -> Option<crate::record::audio::Formato> {
         self.captura.as_ref().map(|c| c.formato)
     }
 
-    /// Lo que haya sonado desde la ultima vez: al archivo y, si sigue vivo, al codificador
-    /// de la vista previa. Si el codificador falla, el sonido se queda fuera de la vista
-    /// previa pero la imagen sigue y el archivo en crudo tambien: el video exportado
+    /// Lo que haya sonado desde la ultima vez: a sus archivos y, si sigue vivo, al
+    /// codificador de la vista previa. Si el codificador falla, el sonido se queda fuera de
+    /// la vista previa pero la imagen sigue y los archivos tambien: el video exportado
     /// saldra con sonido.
     fn volcar(&mut self, encoder: &mut Option<windows_capture::encoder::VideoEncoder>) {
-        use std::io::Write;
         let Some(captura) = self.captura.as_ref() else { return };
         while let Ok(trozo) = captura.trozos.try_recv() {
-            let pcm = crate::record::audio::a_pcm16(&trozo.datos);
-            if let Some(f) = self.archivo.as_mut() {
-                if f.write_all(&pcm).is_ok() {
-                    self.escritos += pcm.len() as u64;
+            let maestro = crate::record::audio::a_pcm16(&trozo.datos);
+            let voz = trozo.voz.as_deref().map(crate::record::audio::a_pcm16);
+            if captura.fuentes.sistema {
+                if let Some(wav) = self.pc.as_mut() {
+                    wav.escribir(&maestro);
                 }
+                if let Some(voz) = voz.as_ref() {
+                    if let Some((ruta, info)) = self.voz_pendiente.take() {
+                        self.microfono = record::pistas::EscritorWav::crear(&ruta, info).ok();
+                    }
+                    if let Some(wav) = self.microfono.as_mut() {
+                        wav.escribir(voz);
+                    }
+                }
+            } else if let Some(wav) = self.microfono.as_mut() {
+                // Sin el PC, el maestro ES la voz.
+                wav.escribir(&maestro);
             }
             let Some(codificador) = encoder.as_mut() else { continue };
+            let para_oir = match voz {
+                Some(_) => crate::record::audio::a_pcm16(&trozo.mezcla()),
+                None => maestro,
+            };
             if codificador
-                .send_audio_buffer(&pcm, trozo.desde_el_inicio)
+                .send_audio_buffer(&para_oir, trozo.desde_el_inicio)
                 .is_err()
             {
                 *encoder = None;
@@ -205,24 +241,34 @@ impl SalidaDeAudio {
         }
     }
 
-    /// Para la captura, vacia lo ultimo y dice que sonido hay, si lo hay. Decir que lo hay
-    /// sin un byte dejaria al exportador buscando un archivo vacio.
+    /// Para la captura, vacia lo ultimo y dice que sonido hay y en que archivos. Decir que
+    /// lo hay sin un byte dejaria al exportador buscando un archivo vacio.
     fn cerrar(
         mut self,
         encoder: &mut Option<windows_capture::encoder::VideoEncoder>,
-    ) -> Option<record::AudioInfo> {
-        use std::io::Write;
+    ) -> (Option<record::AudioInfo>, Option<crate::contrato::PistasGrabadas>) {
+        use record::pistas::{ARCHIVO_MICROFONO, ARCHIVO_PC};
         self.volcar(encoder);
-        let captura = self.captura.take()?;
+        let Some(captura) = self.captura.take() else { return (None, None) };
         let formato = captura.formato;
         captura.parar();
-        if let Some(mut f) = self.archivo.take() {
-            let _ = f.flush();
+        let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str| {
+            wav.map(record::pistas::EscritorWav::cerrar)
+                .filter(|bytes| *bytes > 0)
+                .map(|_| nombre.to_string())
+        };
+        let pistas = crate::contrato::PistasGrabadas {
+            sistema: con_sonido(self.pc.take(), ARCHIVO_PC),
+            microfono: con_sonido(self.microfono.take(), ARCHIVO_MICROFONO),
+        };
+        if pistas.sistema.is_none() && pistas.microfono.is_none() {
+            return (None, None);
         }
-        (self.escritos > 0).then_some(record::AudioInfo {
+        let info = record::AudioInfo {
             channels: formato.canales,
             sample_rate: formato.muestras_por_segundo,
-        })
+        };
+        (Some(info), Some(pistas))
     }
 }
 
@@ -293,6 +339,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         marcas_zoom: Vec::new(),
         camara: None,
         escritura: Vec::new(),
+        pistas: None,
         frames: Vec::new(),
     };
 
@@ -376,7 +423,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         session.has_audio = audio.is_some();
         let (width, height) = (session.width, session.height);
         let mut cache = FrameCache::new(&session.dir)?;
-        let mut salida = SalidaDeAudio::abrir(audio, session.audio_path());
+        let mut salida = SalidaDeAudio::abrir(audio, &session.dir);
         let mut encoder = build_preview_encoder(&session, salida.formato());
         let pintar_al_vuelo = marcar_clics || marcar_teclas;
         let mut last_ts = 0u64;
@@ -459,7 +506,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
             }
         }
 
-        session.audio = salida.cerrar(&mut encoder);
+        (session.audio, session.pistas) = salida.cerrar(&mut encoder);
         session.has_audio = session.audio.is_some();
         let vista_previa_cerrada = encoder.take().is_some_and(|enc| enc.finish().is_ok());
         if !vista_previa_cerrada {
@@ -564,6 +611,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         cursor_baked: false,
         format: options.format,
         mp4_path: None,
+        sonido_pc: None,
+        microfono: None,
     };
 
     *state.recording.lock() = Some(recording);
@@ -961,6 +1010,7 @@ pub fn session_from_image(app: &AppHandle, image: &RgbaImage, region: Rect) -> R
         marcas_zoom: Vec::new(),
         camara: None,
         escritura: Vec::new(),
+        pistas: None,
         teclas: Vec::new(),
         cursor: Vec::new(),
         width: image.width(),
@@ -1038,5 +1088,95 @@ mod pruebas_de_audio {
         let tiene_pista = bytes.windows(4).any(|v| v == b"mp4a");
         assert!(tiene_pista, "el MP4 ha salido sin pista de sonido");
         assert!(bytes.len() > 5_000, "el MP4 ha salido demasiado pequeño");
+    }
+}
+
+/// S11 (pistas): lo que sale de la grabación, con trozos de mentira y sin ningún aparato.
+#[cfg(all(test, windows))]
+mod pruebas_de_pistas {
+    use super::SalidaDeAudio;
+    use crate::record::audio::{Captura, Formato, Fuentes, Trozo};
+    use crate::record::pistas::{leer_wav, ARCHIVO_MICROFONO, ARCHIVO_PC};
+
+    const FORMATO: Formato = Formato { canales: 2, muestras_por_segundo: 48_000, bits_por_muestra: 32 };
+
+    fn flotantes(v: &[f32]) -> Vec<u8> {
+        crate::record::mezcla::como_bytes(v)
+    }
+
+    fn enteros(b: &[u8]) -> Vec<i16> {
+        b.chunks_exact(2).map(|m| i16::from_le_bytes([m[0], m[1]])).collect()
+    }
+
+    fn carpeta(nombre: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("winshotx-pistas-{nombre}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Con el PC y el micrófono, cada uno acaba en su WAV con SOLO lo suyo, del mismo largo
+    /// y en el mismo orden en que llegó. Hasta la 0.4.0 todo iba sumado a `audio.pcm` y la
+    /// voz ya no se podía separar de la música.
+    #[test]
+    fn el_pc_y_la_voz_van_cada_uno_a_su_archivo() {
+        let dir = carpeta("dos");
+        let (tx, captura) = Captura::de_mentira(FORMATO, Fuentes { sistema: true, microfono: true });
+        let mut salida = SalidaDeAudio::abrir(Some(captura), &dir);
+        tx.send(Trozo { datos: flotantes(&[0.5, 0.5]), voz: Some(flotantes(&[0.25, -0.25])), desde_el_inicio: 0 })
+            .unwrap();
+        salida.volcar(&mut None);
+        // Un trozo en que el micrófono no llegó: su voz es silencio, del mismo largo.
+        tx.send(Trozo { datos: flotantes(&[-0.5, 1.0]), voz: Some(flotantes(&[0.0, 0.0])), desde_el_inicio: 0 })
+            .unwrap();
+        let (audio, pistas) = salida.cerrar(&mut None);
+
+        let audio = audio.expect("la grabación tiene sonido");
+        assert_eq!((audio.channels, audio.sample_rate), (2, 48_000));
+        let pistas = pistas.expect("la sesión dice qué pistas trae");
+        assert_eq!(pistas.sistema.as_deref(), Some(ARCHIVO_PC));
+        assert_eq!(pistas.microfono.as_deref(), Some(ARCHIVO_MICROFONO));
+
+        let (_, pc) = leer_wav(&dir.join(ARCHIVO_PC)).expect("el WAV del PC");
+        let (_, voz) = leer_wav(&dir.join(ARCHIVO_MICROFONO)).expect("el WAV de la voz");
+        let max = i16::MAX;
+        assert_eq!(enteros(&pc), vec![max / 2, max / 2, -max / 2, max], "el PC, sin la voz encima");
+        assert_eq!(enteros(&voz), vec![max / 4, -max / 4, 0, 0], "la voz, sin el PC");
+        assert!(!dir.join("audio.pcm").exists(), "ya no se escribe la mezcla en crudo");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Solo el micrófono: el maestro ES la voz, y va a su archivo; no hay pista del PC.
+    #[test]
+    fn solo_con_microfono_hay_una_pista_de_voz() {
+        let dir = carpeta("voz");
+        let (tx, captura) = Captura::de_mentira(FORMATO, Fuentes { sistema: false, microfono: true });
+        let salida = SalidaDeAudio::abrir(Some(captura), &dir);
+        tx.send(Trozo { datos: flotantes(&[0.5, 0.5]), voz: None, desde_el_inicio: 0 }).unwrap();
+        let (_, pistas) = salida.cerrar(&mut None);
+        let pistas = pistas.unwrap();
+        assert_eq!(pistas.sistema, None);
+        assert_eq!(pistas.microfono.as_deref(), Some(ARCHIVO_MICROFONO));
+        assert!(!dir.join(ARCHIVO_PC).exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Se pidió micrófono y no se llegó a abrir: los trozos llegan sin voz, y la sesión no
+    /// dice que tiene una voz que no grabó (ni deja su archivo). Y una grabación sin un solo
+    /// byte de sonido dice que no tiene, para que nadie busque un archivo vacío.
+    #[test]
+    fn lo_que_no_se_abrio_ni_sono_no_es_una_pista() {
+        let dir = carpeta("sin");
+        let (tx, captura) = Captura::de_mentira(FORMATO, Fuentes { sistema: true, microfono: true });
+        let salida = SalidaDeAudio::abrir(Some(captura), &dir);
+        tx.send(Trozo { datos: flotantes(&[0.1, 0.1]), voz: None, desde_el_inicio: 0 }).unwrap();
+        let (_, pistas) = salida.cerrar(&mut None);
+        assert_eq!(pistas.unwrap().microfono, None);
+        assert!(!dir.join(ARCHIVO_MICROFONO).exists(), "ni un WAV vacío de la voz");
+
+        let (_tx, captura) = Captura::de_mentira(FORMATO, Fuentes { sistema: true, microfono: true });
+        let (audio, pistas) = SalidaDeAudio::abrir(Some(captura), &dir).cerrar(&mut None);
+        assert!(audio.is_none() && pistas.is_none(), "sin sonido no hay pistas");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

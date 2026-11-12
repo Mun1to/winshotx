@@ -168,7 +168,7 @@ export const ZH: Record<string, string> = {
   "Recortas igual que para una captura, pero en vez de una foto sale un vídeo. El mismo atajo lo termina, así que no hace falta ir a buscar ningún botón mientras grabas.": "框选方式和截图一样，但输出的是视频。同一个快捷键结束录制，录屏时不用去找按钮。",
   "Cuántas veces por segundo se mira la pantalla. 30 vale para casi todo; 60 es para movimiento rápido y cuesta el doble de disco y de máquina. El editor puede bajarlo después, pero lo que no se grabó no se inventa.": "每秒采集屏幕的次数。30 帧几乎够用；60 帧适合快速运动，但磁盘和性能开销翻倍。编辑器可以之后降帧，但没录到的内容无法凭空生成。",
   "Graba lo que suena por los altavoces, dentro del mismo vídeo: la voz de una llamada, el audio de un vídeo, la alerta de un programa. No graba tu micrófono, eso es la fila de abajo.": "把扬声器发出的声音录进同一个视频：通话语音、视频声音、程序提示音。不会录制麦克风，那是下面一行的选项。",
-  "Tu voz, mezclada con el sonido del sistema en la misma pista. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.": "你的声音，与系统声音混合在同一轨道。适合一边演示一边讲解，只能在录制前决定。",
+  "Tu voz, en su propia pista: en el editor se sube, se baja o se quita sin tocar el sonido del sistema. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.": "你的声音，单独一条音轨：在编辑器里可以调大、调小或关掉，不影响系统声音。适合一边演示一边讲解，只能在录制前决定。",
   "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva un 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento. Apagado, winshotx entera gasta el 2,9%.":
     "winshotx 持续录制屏幕并丢弃旧内容，所以即使你没按录制，刚刚发生的画面仍在。代价是：在三屏、60 帧、原生分辨率下实测，桌面静止时占用单核 22%，屏幕运动时最高占用 60%。关闭后，整个 winshotx 只占用 2.9%。",
   "Cuánto tiempo hacia atrás se puede rescatar. Más segundos es más memoria y más disco dando vueltas, y hasta que no pase ese tiempo desde que lo encendiste, lo que guardes durará menos de lo que pone aquí.": "可以回溯多久。秒数越多，内存和磁盘占用越高；开启后未满该时长时，保存的内容会比这里显示的短。",
@@ -423,7 +423,7 @@ export const ZH: Record<string, string> = {
 
   // 麦克风
   Micrófono: "麦克风",
-  "tu voz, mezclada con el sonido del sistema": "你的声音，与系统声音混合",
+  "tu voz, aparte del sonido del sistema": "你的声音，与系统声音分开",
   "tu voz, para narrar lo que se está grabando": "你的声音，为录制内容解说",
 
   // 标记点击
@@ -722,4 +722,7 @@ export const ZH: Record<string, string> = {
   "Sonido al empezar": "开始时的声音",
   "Una marimba corta justo antes de que empiece la grabación, para saber sin mirar que ya estás grabando. Suena y acaba antes de abrir el sonido, así que no queda dentro del vídeo.": "录制开始前响起一小段马林巴琴声，不用看屏幕也知道已经在录制。它在开始录音之前就已播放完毕，所以不会出现在视频里。",
   "antes de grabar, nunca dentro del vídeo": "录制之前响起，绝不会进入视频",
+  // S11 (pistas)
+  "Sonido del PC": "电脑声音",
+  "Tu micrófono": "你的麦克风",
 };

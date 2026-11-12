@@ -687,10 +687,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Mic className="size-4" />}
                     label={t("Micrófono")}
-                    explicacion={t("Tu voz, mezclada con el sonido del sistema en la misma pista. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.")}
+                    explicacion={t("Tu voz, en su propia pista: en el editor se sube, se baja o se quita sin tocar el sonido del sistema. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.")}
                     hint={
                       settings.recordAudio
-                        ? t("tu voz, mezclada con el sonido del sistema")
+                        ? t("tu voz, aparte del sonido del sistema")
                         : t("tu voz, para narrar lo que se está grabando")
                     }
                     control={

@@ -65,6 +65,7 @@ mod tests {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames,
         };
         let t = Instant::now();

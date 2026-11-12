@@ -9,6 +9,7 @@
 
 #![cfg(windows)]
 
+use std::borrow::Cow;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
@@ -70,9 +71,31 @@ impl Formato {
 
 /// Un trozo de sonido tal y como lo entrega Windows, con el momento en que empieza.
 pub struct Trozo {
+    /// Lo del maestro: el sonido del PC si se graba, y si no, el microfono.
     pub datos: Vec<u8>,
+    /// S11 (pistas): la voz que cae en este mismo rato, cuando el microfono acompanna al
+    /// sistema. Ya viene en el formato del maestro y mide lo mismo que `datos`, rellena de
+    /// silencio si el microfono iba con retraso: asi las dos pistas van en el mismo reloj y
+    /// se pueden grabar en dos archivos sin que la voz se despegue. `None` si se graba una
+    /// fuente sola.
+    pub voz: Option<Vec<u8>>,
     /// Desde que empezo la grabacion, en cien nanosegundos.
     pub desde_el_inicio: i64,
+}
+
+impl Trozo {
+    /// Las dos fuentes sumadas, como se grababa todo hasta la 0.4.0. Es lo que sigue yendo
+    /// a la repeticion instantanea y a la vista previa en vivo, que no separan nada.
+    pub fn mezcla(&self) -> Cow<'_, [u8]> {
+        match &self.voz {
+            None => Cow::Borrowed(&self.datos),
+            Some(voz) => {
+                let mut muestras = super::mezcla::como_flotantes(&self.datos);
+                super::mezcla::sumar(&mut muestras, &super::mezcla::como_flotantes(voz));
+                Cow::Owned(super::mezcla::como_bytes(&muestras))
+            }
+        }
+    }
 }
 
 /// La captura en marcha. Al soltarla se para el hilo y se cierra todo.
@@ -80,6 +103,10 @@ pub struct Captura {
     parar: Arc<AtomicBool>,
     hilo: Option<std::thread::JoinHandle<()>>,
     pub formato: Formato,
+    /// S11 (pistas): lo que se pidio. El maestro es el sistema si esta, y si no, el
+    /// microfono. Si el microfono acompannante no se llega a abrir, sus trozos llegan sin
+    /// `voz`: lo que dice si hay voz es lo que llega, no lo que se pidio.
+    pub fuentes: Fuentes,
     pub trozos: Receiver<Trozo>,
 }
 
@@ -90,6 +117,20 @@ impl Captura {
         if let Some(hilo) = self.hilo.take() {
             let _ = hilo.join();
         }
+    }
+
+    /// Una captura sin aparatos: los trozos los manda la prueba por el canal que devuelve.
+    #[cfg(test)]
+    pub fn de_mentira(formato: Formato, fuentes: Fuentes) -> (Sender<Trozo>, Captura) {
+        let (tx, rx) = mpsc::channel::<Trozo>();
+        let captura = Captura {
+            parar: Arc::new(AtomicBool::new(false)),
+            hilo: None,
+            formato,
+            fuentes,
+            trozos: rx,
+        };
+        (tx, captura)
     }
 }
 
@@ -151,6 +192,7 @@ pub fn empezar(fuentes: Fuentes, pausa: Arc<AtomicBool>) -> Result<Captura> {
         parar,
         hilo: Some(hilo),
         formato,
+        fuentes,
         trozos: rx,
     })
 }
@@ -212,7 +254,6 @@ fn capturar(
     } else {
         None
     };
-
     unsafe { cliente.Start() }.map_err(|e| AppError::Msg(format!("no arranca el audio: {e}")))?;
 
     // El reloj de pared de la grabacion, descontando las pausas. Es el que manda cuando el
@@ -310,7 +351,7 @@ fn capturar(
     Ok(())
 }
 
-/// Manda un trozo con la voz encima y avanza el reloj de lo escrito.
+/// Manda un trozo con su voz al lado y avanza el reloj de lo escrito.
 ///
 /// Devuelve `false` cuando ya no hay nadie escuchando: la grabacion ha terminado.
 fn emitir(
@@ -320,16 +361,14 @@ fn emitir(
     escritos: &mut usize,
     tx: &Sender<Trozo>,
 ) -> bool {
-    // `mezclar_encima` coge del microfono justo lo que dura este trozo; si el microfono va
+    // `voz_del_trozo` coge del microfono justo lo que dura este trozo; si el microfono va
     // con retraso, lo que falte se queda en silencio y el sistema se sigue oyendo entero.
-    let trozo = match mic {
-        Some(mic) => mezclar_encima(trozo, formato, mic),
-        None => trozo,
-    };
+    let voz = mic.map(|mic| voz_del_trozo(trozo.len() / 4, formato, mic));
     let desde_el_inicio = formato.duracion_de(*escritos);
     *escritos += trozo.len();
     tx.send(Trozo {
         datos: trozo,
+        voz,
         desde_el_inicio,
     })
     .is_ok()
@@ -399,12 +438,15 @@ struct Acompannante {
     pendiente: Vec<f32>,
 }
 
-/// Suma sobre el trozo del maestro lo que haya llegado del microfono.
+/// La voz que le toca a un trozo del maestro de `cuantas` muestras, en bytes de coma flotante.
 ///
 /// El microfono se lee entero cada vez y se guarda en `pendiente`, ya convertido al
 /// formato del maestro. De ahi se gasta exactamente lo que dura este trozo: ni mas, para
 /// no adelantar la voz, ni menos, para no irla acumulando.
-fn mezclar_encima(trozo: Vec<u8>, formato: Formato, mic: &mut Acompannante) -> Vec<u8> {
+///
+/// Hasta la 0.4.0 esto se sumaba encima del trozo del sistema (`mezclar_encima`) y la voz
+/// ya no se podia separar. S11 (pistas): ahora va aparte y del mismo largo.
+fn voz_del_trozo(cuantas: usize, formato: Formato, mic: &mut Acompannante) -> Vec<u8> {
     if let Some(nuevas) = unsafe { leer_todo(&mic.captura, mic.formato) } {
         mic.pendiente
             .extend(super::mezcla::adaptar(&nuevas, mic.formato, formato));
@@ -414,18 +456,20 @@ fn mezclar_encima(trozo: Vec<u8>, formato: Formato, mic: &mut Acompannante) -> V
     // Se tira lo mas viejo y se deja medio segundo, que es mas que cualquier retraso
     // normal entre los dos aparatos. Con el anillo puesto esto corre horas.
     let tope = formato.muestras_por_segundo as usize * usize::from(formato.canales.max(1)) / 2;
-    if mic.pendiente.len() > tope {
-        let sobra = mic.pendiente.len() - tope;
-        mic.pendiente.drain(..sobra);
+    super::mezcla::como_bytes(&sacar_voz(&mut mic.pendiente, cuantas, tope))
+}
+
+/// Saca de lo pendiente justo `cuantas` muestras, con silencio al final si no llegan, y
+/// antes tira lo mas viejo de lo que pase de `tope`. Sin aparatos, para poder probarlo.
+fn sacar_voz(pendiente: &mut Vec<f32>, cuantas: usize, tope: usize) -> Vec<f32> {
+    if pendiente.len() > tope {
+        let sobra = pendiente.len() - tope;
+        pendiente.drain(..sobra);
     }
-    let mut muestras = super::mezcla::como_flotantes(&trozo);
-    let cuantas = muestras.len().min(mic.pendiente.len());
-    if cuantas == 0 {
-        return trozo;
-    }
-    super::mezcla::sumar(&mut muestras, &mic.pendiente[..cuantas]);
-    mic.pendiente.drain(..cuantas);
-    super::mezcla::como_bytes(&muestras)
+    let hay = cuantas.min(pendiente.len());
+    let mut voz: Vec<f32> = pendiente.drain(..hay).collect();
+    voz.resize(cuantas, 0.0);
+    voz
 }
 
 /// Vacia el bufer de un dispositivo y devuelve sus muestras, o `None` si no habia nada.
@@ -813,6 +857,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(600));
 
         let mut bytes = 0usize;
+        let mut con_voz = 0usize;
         let mut ultimo_inicio = 0i64;
         while let Ok(trozo) = captura.trozos.try_recv() {
             // Cada trozo empieza justo donde acababa el anterior: la marca de tiempo se
@@ -824,12 +869,60 @@ mod tests {
                 "el trozo mezclado no empieza donde acababa el anterior"
             );
             assert!(trozo.desde_el_inicio >= ultimo_inicio, "el tiempo va hacia atrás");
+            // S11 (pistas): la voz va aparte y mide lo mismo que su trozo, o las dos pistas
+            // se despegarían al juntarlas al guardar.
+            if let Some(voz) = trozo.voz.as_ref() {
+                assert_eq!(voz.len(), trozo.datos.len(), "la voz de un trozo no mide lo que el trozo");
+                con_voz += 1;
+            }
             ultimo_inicio = trozo.desde_el_inicio;
             bytes += trozo.datos.len();
         }
         captura.parar();
-        println!("{bytes} bytes mezclados, {:.2} s", bytes as f64 / (48_000.0 * 8.0));
+        println!(
+            "{bytes} bytes del PC, {:.2} s, y {con_voz} trozos con la voz aparte",
+            bytes as f64 / (48_000.0 * 8.0)
+        );
         assert!(bytes > 0, "no ha llegado sonido de ninguna de las dos fuentes");
+    }
+
+    /// S11 (pistas): la voz de un trozo mide SIEMPRE lo que el trozo del maestro, llegue lo
+    /// que llegue del microfono. Si midiera otra cosa, la pista de la voz se iria
+    /// adelantando o retrasando respecto a la del PC, y al juntarlas al guardar no cuadrarian.
+    #[test]
+    fn la_voz_de_un_trozo_mide_lo_que_el_trozo() {
+        // Llega menos de lo que dura el trozo: lo que falta, en silencio y al final.
+        let mut pendiente = vec![0.5, -0.5, 0.25];
+        assert_eq!(sacar_voz(&mut pendiente, 5, 100), vec![0.5, -0.5, 0.25, 0.0, 0.0]);
+        assert!(pendiente.is_empty(), "lo gastado no se queda para el trozo siguiente");
+
+        // Llega de mas: se gasta lo que dura el trozo y el resto espera al siguiente.
+        let mut pendiente = vec![0.1, 0.2, 0.3, 0.4];
+        assert_eq!(sacar_voz(&mut pendiente, 3, 100), vec![0.1, 0.2, 0.3]);
+        assert_eq!(pendiente, vec![0.4]);
+
+        // Y si se ha ido amontonando por encima del tope, se tira lo mas viejo.
+        let mut pendiente = vec![9.0, 9.0, 0.1, 0.2];
+        assert_eq!(sacar_voz(&mut pendiente, 2, 2), vec![0.1, 0.2]);
+    }
+
+    /// Lo que va a la repeticion instantanea y a la vista previa en vivo sigue siendo la
+    /// mezcla de las dos fuentes, como hasta la 0.4.0, y recortada en los topes.
+    #[test]
+    fn la_mezcla_de_un_trozo_es_la_de_siempre() {
+        let bytes = |v: &[f32]| super::super::mezcla::como_bytes(v);
+        let solo = Trozo { datos: bytes(&[0.5, -0.5]), voz: None, desde_el_inicio: 0 };
+        assert_eq!(&*solo.mezcla(), &solo.datos[..], "sin voz, el trozo tal cual");
+
+        let con_voz = Trozo {
+            datos: bytes(&[0.5, -0.5, 0.9]),
+            voz: Some(bytes(&[0.25, 0.0, 0.5])),
+            desde_el_inicio: 0,
+        };
+        let mezcla = super::super::mezcla::como_flotantes(&con_voz.mezcla());
+        assert_eq!(mezcla, vec![0.75, -0.5, 1.0], "sumadas, y lo que se pasa se queda en el tope");
+        // Y el trozo no cambia: las dos pistas siguen enteras para sus archivos.
+        assert_eq!(super::super::mezcla::como_flotantes(&con_voz.datos), vec![0.5, -0.5, 0.9]);
     }
 
     /// La estructura que se le pasa a Windows tiene que ser coherente consigo misma, o el

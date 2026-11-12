@@ -542,6 +542,11 @@ mod pruebas_del_cursor;
 #[path = "exporter_camara.rs"]
 mod pruebas_de_camara;
 
+/// S11 (pistas): el sonido del PC y la voz por separado, por `escribir` y aparte por lo mismo.
+#[cfg(test)]
+#[path = "exporter_pistas.rs"]
+mod pruebas_de_pistas;
+
 /// Los fotogramas de una exportacion, ya vestidos y en orden: leidos por delante en otro
 /// hilo, con el recorte, la camara, el estudio y las marcas puestos en el instante de cada
 /// paso. Se piden por posicion (0, 1, 2...), que es lo que reciben los codificadores.
@@ -1513,14 +1518,17 @@ where
         // Con los tramos de la linea de tiempo, cada trozo lleva el suyo: el que va a su
         // velocidad de verdad suena, y el acelerado va en silencio y no despega a los demas.
         {
+            //
+            // S11 (pistas): el sonido del PC y la voz se juntan aquí, cada uno a su volumen.
             let voz = match (request.audio, request.edicion.tramos.is_some()) {
                 (false, _) => None,
-                (true, true) => pista_de_trozos(session, &request.trozos(session), &pasos.duraciones)
-                    .map(|p| con_volumen(p, request.volume)),
+                (true, true) => sonido_de_trozos(session, &request.trozos(session), &pasos.duraciones, request),
                 (true, false) => ((request.velocidad() - 1.0).abs() < f32::EPSILON)
                     .then(|| {
                         let (desde, hasta) = request.tramo(session);
-                        pista_de_audio(session, desde, hasta).map(|p| con_volumen(p, request.volume))
+                        (hasta > desde)
+                            .then(|| sonido_de_trozos(session, &[(desde, hasta, 1.0)], &[hasta - desde], request))
+                            .flatten()
                     })
                     .flatten(),
             };
@@ -1558,12 +1566,29 @@ fn pista_de_trozos(
     trozos: &[(u64, u64, f32)],
     duraciones: &[u64],
 ) -> Option<mp4::Pista> {
+    let info = session.audio?;
+    // Una sesión de antes es un archivo solo; una nueva, el primero de los suyos.
+    let archivo = record::pistas::de_la_sesion(session).into_iter().next()?;
+    let (datos, suena) = leer_trozos(&archivo, info, trozos, duraciones)?;
+    (suena && !datos.is_empty()).then_some(mp4::Pista {
+        channels: info.channels,
+        sample_rate: info.sample_rate,
+        datos,
+    })
+}
+
+/// Lo que dura cada trozo, leído de un archivo de sonido de la sesión, y si alguno suena.
+fn leer_trozos(
+    archivo: &record::pistas::ArchivoDeSonido,
+    info: record::AudioInfo,
+    trozos: &[(u64, u64, f32)],
+    duraciones: &[u64],
+) -> Option<(Vec<u8>, bool)> {
     use std::io::{Seek, SeekFrom};
 
-    let info = session.audio?;
     let bloque = u64::from(info.channels) * 2;
     let bytes_hasta = |ms: u64| ms * u64::from(info.sample_rate) / 1000 * bloque;
-    let mut archivo = std::fs::File::open(session.audio_path()).ok()?;
+    let mut abierto = std::fs::File::open(&archivo.ruta).ok()?;
     let mut datos: Vec<u8> = Vec::new();
     let mut suena = false;
     let mut hecho_ms = 0u64;
@@ -1572,12 +1597,66 @@ fn pista_de_trozos(
         hecho_ms += dura;
         let empieza = datos.len();
         datos.resize(empieza + largo, 0);
-        if (velocidad - 1.0).abs() < 0.001 && archivo.seek(SeekFrom::Start(bytes_hasta(desde))).is_ok() {
+        if (velocidad - 1.0).abs() < 0.001
+            && abierto
+                .seek(SeekFrom::Start(archivo.desde_byte + bytes_hasta(desde)))
+                .is_ok()
+        {
             // Lo que haya: si la grabacion acabo antes de lo que dicen los fotogramas, lo
             // que falta se queda en silencio en vez de fallar por unos milisegundos.
-            leer_lo_que_haya(&mut archivo, &mut datos[empieza..]);
+            leer_lo_que_haya(&mut abierto, &mut datos[empieza..]);
             suena = true;
         }
+    }
+    Some((datos, suena))
+}
+
+/// S11 (pistas): el sonido de lo que se guarda, con el del PC y la voz juntos y cada uno
+/// a su volumen. Mismos trozos y misma cuenta que `pista_de_trozos`, así que tampoco se
+/// despega de la imagen con cortes ni con trozos acelerados (que van en silencio).
+///
+/// Una grabación de antes (y una de la repetición instantánea) trae una sola pista con todo
+/// mezclado, y sale exactamente como hasta ahora: ese archivo, al `volume` del panel. Una
+/// nueva trae una pista por fuente: la que está apagada (o a cero) no se lee, y si no queda
+/// ninguna, el vídeo sale mudo.
+fn sonido_de_trozos(
+    session: &SessionData,
+    trozos: &[(u64, u64, f32)],
+    duraciones: &[u64],
+    request: &ExportRequest,
+) -> Option<mp4::Pista> {
+    use record::pistas::QueSuena;
+
+    if session.pistas.is_none() {
+        return pista_de_trozos(session, trozos, duraciones).map(|p| con_volumen(p, request.volume));
+    }
+    let info = session.audio?;
+    let normal = |v: f32| if v.is_finite() { v.clamp(0.0, 4.0) } else { 1.0 };
+    let de = |pista: Option<crate::contrato::VolumenDePista>| {
+        pista.map_or(normal(request.volume), |p| p.ganancia())
+    };
+    let mut leidas: Vec<(Vec<u8>, f32)> = Vec::new();
+    let mut suena = false;
+    for archivo in record::pistas::de_la_sesion(session) {
+        let ganancia = match archivo.que {
+            QueSuena::Pc => de(request.edicion.sonido_pc),
+            QueSuena::Microfono => de(request.edicion.microfono),
+            QueSuena::Todo => normal(request.volume),
+        };
+        if ganancia <= 0.0 {
+            continue;
+        }
+        if let Some((datos, alguno)) = leer_trozos(&archivo, info, trozos, duraciones) {
+            suena |= alguno;
+            leidas.push((datos, ganancia));
+        }
+    }
+    let mut leidas = leidas.into_iter();
+    let (mut datos, primera) = leidas.next()?;
+    match leidas.next() {
+        Some((otra, segunda)) => record::pistas::sumar_pcm16(&mut datos, &otra, primera, segunda),
+        None if (primera - 1.0).abs() >= 0.005 => record::pistas::sumar_pcm16(&mut datos, &[], primera, 0.0),
+        None => {}
     }
     (suena && !datos.is_empty()).then_some(mp4::Pista {
         channels: info.channels,
@@ -1596,6 +1675,10 @@ fn pista_de_trozos(
 ///
 /// Es un trozo solo, a su velocidad de verdad: la misma cuenta que con los tramos de la
 /// linea de tiempo (`pista_de_trozos`), que mide en muestras y no despega a 44,1 kHz.
+///
+/// S11 (pistas): ya solo la usan las pruebas; guardar va por `sonido_de_trozos`, que hace
+/// esta misma cuenta con cada pista a su volumen.
+#[cfg(test)]
 fn pista_de_audio(session: &SessionData, desde: u64, hasta: u64) -> Option<mp4::Pista> {
     if hasta <= desde {
         return None;
@@ -1745,6 +1828,7 @@ mod tests {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames,
         }
     }
@@ -2423,6 +2507,7 @@ mod la_camara_del_exportador {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames: Vec::new(),
         }
     }
@@ -2679,6 +2764,7 @@ mod medir {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames,
         };
         let indices: Vec<usize> = (0..cuantos).collect();

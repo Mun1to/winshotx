@@ -705,8 +705,9 @@ impl Cocina {
         let Some((_, anillo)) = self.audio_anillo.as_mut() else {
             return;
         };
+        // S11 (pistas): la repetición instantánea sigue con las dos fuentes sumadas en una.
         while let Ok(trozo) = captura.trozos.try_recv() {
-            anillo.empujar(&record::audio::a_pcm16(&trozo.datos));
+            anillo.empujar(&record::audio::a_pcm16(&trozo.mezcla()));
         }
     }
 
@@ -983,6 +984,7 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
         marcas_zoom: Vec::new(),
         camara: None,
         escritura: Vec::new(),
+        pistas: None,
         frames,
     };
     session.persist()?;
@@ -1059,8 +1061,10 @@ fn escribir_vista_previa(
         crate::encode::escalar::medida_para(session.width, session.height, ALTO_VISTA_PREVIA)
             .unwrap_or((session.width, session.height));
 
+    // S11 (pistas): con el PC y la voz en dos archivos, la vista previa lleva los dos
+    // sumados, como la que se escribe en vivo; lo de antes es su `audio.pcm` tal cual.
     let sonido = session.audio.and_then(|info| {
-        std::fs::read(session.audio_path()).ok().map(|datos| crate::encode::mp4::Pista {
+        record::pistas::mezcla_entera(session).map(|datos| crate::encode::mp4::Pista {
             channels: info.channels,
             sample_rate: info.sample_rate,
             datos,
@@ -1301,6 +1305,7 @@ mod tests {
                 marcas_zoom: Vec::new(),
                 camara: None,
                 escritura: Vec::new(),
+                pistas: None,
                 frames,
             };
             let salida = escribir_vista_previa(&mut session, |_, _| {});
@@ -1371,6 +1376,7 @@ mod tests {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames,
         };
 
@@ -1484,6 +1490,7 @@ mod tests {
             marcas_zoom: Vec::new(),
             camara: None,
             escritura: Vec::new(),
+            pistas: None,
             frames,
         };
 
