@@ -9,13 +9,13 @@
 A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
 magnifier, **GIF and MP4 screen recording**, and an editor with a studio. It shows the selection
 already painted 114 ms after the shortcut with three screens, uses 33 MB of memory and fits in a
-2.85 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
+2.94 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
 
 <a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.svg"><img src=".github/readme/download-windows-light.svg" alt="Download for Windows"></picture></a>
 <a href="https://winshotx.com/en/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.svg"><img src=".github/readme/download-web-light.svg" alt="Try it in your browser"></picture></a>
 <a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Microsoft Store" height="52"></a>
 
-Licence MIT · Windows 10 and 11 · Installer 2.85 MB
+Licence MIT · Windows 10 and 11 · Installer 2.94 MB
 
 [Compare with the Snipping Tool](#snipping-tool-against-winshotx) · [home page](https://winshotx.com/en/) · [Latest version](https://github.com/Mun1to/winshotx/releases/latest) · [Español](README.es.md)
 
@@ -110,7 +110,7 @@ has the nineteen rows, including the five the Snipping Tool wins.
 ## Install
 
 [**Download the installer**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2.85 MB · it installs for your user only, so Windows never asks for administrator rights. Older
+· 2.94 MB · it installs for your user only, so Windows never asks for administrator rights. Older
 versions are in [Releases](../../releases).
 
 Three other ways, same app:
