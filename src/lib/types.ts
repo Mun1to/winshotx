@@ -114,6 +114,11 @@ export interface SessionInfo {
   format: SessionFormat;
   /** MP4 escrito en streaming durante la grabacion, si lo hubo. */
   mp4Path: string | null;
+  // S11 (pistas)
+  /** El WAV con el sonido del PC, si la grabación lo trae aparte de la voz. */
+  sonidoPc?: string | null;
+  /** Y el del micrófono. Sin ninguno de los dos, todo suena junto por el vídeo, como antes. */
+  microfono?: string | null;
 }
 
 /**

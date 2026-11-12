@@ -713,4 +713,7 @@ export const EN: Record<string, string> = {
   "Apaga su Repetición instantánea con Alt+Z": "Turn off its Instant Replay with Alt+Z",
   "La Repetición instantánea de NVIDIA graba la pantalla todo el rato para poder guardar lo último, igual que «Grabar siempre lo último». Con las dos encendidas se paga dos veces por lo mismo. winshotx no la apaga por su cuenta: los ajustes de NVIDIA no son públicos, y tocarlos a ciegas puede romperla en su próxima actualización.": "NVIDIA Instant Replay records the screen all the time so it can save the last few seconds, just like “Always be recording”. With both on, you pay twice for the same thing. winshotx does not turn it off by itself: NVIDIA's settings are not public, and changing them blindly could break it at its next update.",
   "Ya lo tengo apagado": "It is already off",
+  // S11 (pistas)
+  "Sonido del PC": "PC sound",
+  "Tu micrófono": "Your microphone",
 };
