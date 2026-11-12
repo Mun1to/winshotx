@@ -1380,3 +1380,19 @@ se graba un area sin volver a mirar donde cae.
 No se arregla moviendola, porque no hay sitio libre: se le dice a Windows que no la grabe
 (`window_style::fuera_de_la_captura`, el mismo `WDA_EXCLUDEFROMCAPTURE` del menu de la bandeja).
 Quien esta delante la ve y la pulsa igual, y en el video sale lo que hay detras.
+
+## 50. La foto de una ventana con alfa por pixel no trae el alfa
+
+El marco de la grabacion (`platform/marco.rs`) se dibuja desde el 12 de noviembre de 2026 pixel
+a pixel con su transparencia (`UpdateLayeredWindow`: linea nitida, esquinas redondas suaves y
+una sombra corta), y se sigue fotografiando fuera de las pantallas con `PrintWindow`. Pero de
+una ventana asi, `PrintWindow(..., PW_RENDERFULLCONTENT)` entrega **el color ya mezclado sobre
+negro y no toca el byte de alfa**: con el lienzo lleno de blanco antes de la foto, la sombra
+sale negra y el alfa sigue en 255. La primera composicion del marco sobre un fondo de mentira
+salio con un cerco negro, y parecia un fallo del dibujo.
+
+Lo que si vale: comparar el color de la foto con el dibujo que se le dio a la ventana
+(`se_ve_su_dibujo_rojo_y_en_pausa_ambar`), que demuestra que la ventana ensenna lo que se le
+pinta y que cambia al pausar. Para mirarlo encima de algo (`ver_el_marco`), el color sale de la
+foto y el alfa del dibujo. Como queda encima de las ventanas de verdad solo se ve en una
+grabacion de verdad.
