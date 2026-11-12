@@ -4,7 +4,7 @@
  * Lo que importa es lo que viaja en `edicion`: el suavizado elegido, el volumen del clic que
  * nace bajo y se recuerda, y que un mando que no puede hacer nada no salga.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AjustesCursor, VOLUMEN_CLIC_DE_SERIE } from "./AjustesCursor";
 import { aplicarIdioma } from "../../lib/i18n";
@@ -102,5 +102,76 @@ describe("los mandos del cursor", () => {
     render(<AjustesCursor edicion={edicion} onEdicion={() => {}} conPuntero conClics />);
     expect(screen.getByRole("button", { name: "Lots" })).toBeTruthy();
     expect(screen.getByRole("switch", { name: /Click sound/ })).toBeTruthy();
+  });
+});
+
+// S10 (sonidos)
+const ipc = vi.hoisted(() => ({
+  elegirSonidoDeClic: vi.fn<() => Promise<string | null>>(),
+  importarSonidoDeClic: vi.fn<(origen: string) => Promise<string>>(),
+}));
+vi.mock("../../lib/ipc", async (original) => ({ ...(await original<typeof import("../../lib/ipc")>()), ...ipc }));
+const oir = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock("../../lib/sonidoDeClic", async (original) => ({
+  ...(await original<typeof import("../../lib/sonidoDeClic")>()),
+  oirClic: oir,
+}));
+
+describe("el sonido de cada clic", () => {
+  it("con el sonido encendido se elige entre los tres, y suena al elegirlo", () => {
+    const { onEdicion, rerender } = pintar();
+    expect(screen.queryByRole("button", { name: "Grave" })).toBeNull();
+    rerender(<AjustesCursor edicion={{ sonidoClic: 0.4 }} onEdicion={onEdicion} conPuntero conClics />);
+    expect(screen.getByRole("button", { name: "Suave" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Grave" }));
+    expect(onEdicion).toHaveBeenLastCalledWith({ clic: { tipo: "grave" } });
+    expect(oir).toHaveBeenLastCalledWith({ tipo: "grave" }, 0.4);
+    rerender(<AjustesCursor edicion={{ sonidoClic: 0.4, clic: { tipo: "toque" } }} onEdicion={onEdicion} conPuntero conClics />);
+    expect(screen.getByRole("button", { name: "Toque" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("«Propio…» trae el archivo, lo copia y lo deja puesto con su nombre", async () => {
+    ipc.elegirSonidoDeClic.mockResolvedValueOnce("D:\\sonidos\\mi clic.mp3");
+    ipc.importarSonidoDeClic.mockResolvedValueOnce("C:\\datos\\sonidos\\clic-0123456789abcdef-mi clic.wav");
+    const { onEdicion, rerender } = pintar({ edicion: { sonidoClic: 0.3 } });
+    fireEvent.click(screen.getByRole("button", { name: "Propio…" }));
+    await vi.waitFor(() =>
+      expect(onEdicion).toHaveBeenLastCalledWith({
+        clic: { tipo: "propio", ruta: "C:\\datos\\sonidos\\clic-0123456789abcdef-mi clic.wav" },
+      }),
+    );
+    expect(ipc.importarSonidoDeClic).toHaveBeenCalledWith("D:\\sonidos\\mi clic.mp3");
+    rerender(
+      <AjustesCursor
+        edicion={{ sonidoClic: 0.3, clic: { tipo: "propio", ruta: "C:\\datos\\sonidos\\clic-0123456789abcdef-mi clic.wav" } }}
+        onEdicion={onEdicion}
+        conPuntero
+        conClics
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Propio…" })).toHaveAttribute("aria-pressed", "true");
+    await act(async () => {});
+        expect(await screen.findByText("mi clic")).toBeInTheDocument();
+  });
+
+  it("si el archivo no vale lo dice, y cancelar no cambia nada", async () => {
+    ipc.elegirSonidoDeClic.mockResolvedValueOnce(null);
+    const { onEdicion } = pintar({ edicion: { sonidoClic: 0.3 } });
+    fireEvent.click(screen.getByRole("button", { name: "Propio…" }));
+    await act(async () => {});
+    expect(onEdicion).not.toHaveBeenCalled();
+
+    ipc.elegirSonidoDeClic.mockResolvedValueOnce("D:\\foto.mp3");
+    ipc.importarSonidoDeClic.mockRejectedValueOnce("ese sonido no se puede abrir");
+    fireEvent.click(screen.getByRole("button", { name: "Propio…" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("ese sonido no se puede abrir");
+    expect(onEdicion).not.toHaveBeenCalled();
+  });
+
+  it("los nombres están en inglés", () => {
+    aplicarIdioma("en");
+    pintar({ edicion: { sonidoClic: 0.3 } });
+    for (const nombre of ["Soft", "Deep", "Tap", "Your own…"]) expect(screen.getByRole("button", { name: nombre })).toBeInTheDocument();
+    expect(EN["Propio…"]).toBe("Your own…");
   });
 });

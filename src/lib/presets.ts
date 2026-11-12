@@ -16,7 +16,7 @@
  */
 
 import type { Background } from "./types";
-import type { Edicion, FondoElegido, Forma, MarcoCamara, Suavizado } from "./contrato";
+import type { ClicElegido, Edicion, FondoElegido, Forma, MarcoCamara, Suavizado } from "./contrato";
 import type { PresetGuardado } from "./ipc";
 import { FONDOS } from "./fondos";
 import { punteroNormal } from "./estudio";
@@ -53,6 +53,9 @@ export interface Estilo {
   zoomAlEscribir: boolean;
   /** Cómo va la webcam: forma, recorte, tamaño y sitio. Sin la cámara en sí. */
   camara: MarcoCamara | null;
+  // S10 (sonidos)
+  /** Qué suena en cada clic. null es el de fábrica, el «Ratón suave». */
+  clic: ClicElegido | null;
 }
 
 export interface Preset {
@@ -81,6 +84,8 @@ export const ESTILO_DE_FABRICA: Estilo = {
   estela: 0,
   zoomAlEscribir: false,
   camara: null,
+  // S10 (sonidos)
+  clic: null,
 };
 
 // Leer lo guardado, campo a campo: lo que no es de su tipo, de fábrica.
@@ -113,6 +118,13 @@ function fondoElegidoDe(v: unknown): FondoElegido | null {
 }
 
 const FORMAS: Forma[] = ["circulo", "cuadrado", "rectangulo", "redondeado"];
+
+// S10 (sonidos)
+function clicDe(v: unknown): ClicElegido | null {
+  if (!esObjeto(v)) return null;
+  if (v.tipo === "suave" || v.tipo === "grave" || v.tipo === "toque") return { tipo: v.tipo };
+  return v.tipo === "propio" && typeof v.ruta === "string" && v.ruta ? { tipo: "propio", ruta: v.ruta } : null;
+}
 
 function camaraDe(v: unknown): MarcoCamara | null {
   if (!esObjeto(v) || !FORMAS.includes(v.forma as Forma) || !esObjeto(v.recorte)) return null;
@@ -157,6 +169,8 @@ export function leerEstilo(valor: unknown): Estilo {
     estela: numero(v.estela, 0, 1, f.estela),
     zoomAlEscribir: booleano(v.zoomAlEscribir, f.zoomAlEscribir),
     camara: camaraDe(v.camara),
+    // S10 (sonidos)
+    clic: clicDe(v.clic),
   };
 }
 
@@ -249,6 +263,8 @@ export function estiloDe(panel: EstadoDelPanel, edicion: Edicion | undefined, me
     estela: e.estela ?? 0,
     zoomAlEscribir: e.zoomAlEscribir ?? false,
     camara: e.camara ?? null,
+    // S10 (sonidos)
+    clic: e.clic ?? null,
   };
 }
 
@@ -286,6 +302,8 @@ export function edicionDe(estilo: Estilo): Partial<Edicion> {
     estela: estilo.estela,
     zoomAlEscribir: estilo.zoomAlEscribir,
     camara: estilo.camara,
+    // S10 (sonidos)
+    clic: estilo.clic,
   };
 }
 
@@ -307,6 +325,8 @@ export function esElMismo(a: Estilo, b: Estilo): boolean {
     if (x.aire === 0) Object.assign(x, { fondo: "blanco", esquinas: 0, sombra: true, fondoElegido: null });
     if (x.puntero === 0) Object.assign(x, { suave: true, esconder: false, suavizado: null, esconderAlEscribir: false });
     if (x.zoom <= 1.05) Object.assign(x, { zoom: 1, velocidadZoom: 1 });
+    // S10 (sonidos): sin sonido de clic da igual cuál; y sin elegir es el suave.
+    x.clic = x.sonidoClic === 0 ? null : (x.clic ?? { tipo: "suave" });
     return x;
   };
   const [x, y] = [visible(a), visible(b)];

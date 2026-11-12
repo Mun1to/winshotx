@@ -450,6 +450,8 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     const conOnda = await azulEnElLienzo();
     comprueba(conOnda > sinOnda + 50, `la vista previa pinta la onda del clic: ${sinOnda} píxeles azules sin ella, ${conOnda} con ella`);
     await pagina.getByRole("switch", { name: /Sonido de clic/ }).click();
+    // S10 (sonidos): el «Ratón grave», que suena una vez al elegirlo con las muestras de Rust.
+    await pagina.getByRole("button", { name: "Grave", exact: true }).click();
     await pagina.getByRole("switch", { name: /Esconderlo mientras escribes/ }).click();
     await pagina.getByRole("switch", { name: /Acercarse mientras escribes/ }).click();
     await pagina.getByRole("slider", { name: "Estela al moverse" }).fill("60");
@@ -464,6 +466,12 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     comprueba(peticion.ondaClic === true && peticion.esconderAlEscribir === true, "y la onda y esconderlo al escribir");
     comprueba(peticion.sonidoClic > 0 && peticion.sonidoClic <= 0.3, `y el sonido de clic, que nace bajo: ${peticion.sonidoClic}`);
     comprueba(Math.abs(peticion.estela - 0.6) < 0.01, `y la estela: ${peticion.estela}`);
+    // S10 (sonidos)
+    comprueba(peticion.clic?.tipo === "grave", `y el sonido de clic elegido: ${JSON.stringify(peticion.clic)}`);
+    const oido = await pagina.evaluate(() =>
+      window.__llamadas.some((l) => l.cmd === "muestras_de_clic" && l.args.clic?.tipo === "grave"),
+    );
+    comprueba(oido, "al elegirlo, el editor pide a Rust sus muestras para que suene");
     comprueba(peticion.zoomAlEscribir === true && peticion.zooms === null, "y acercarse al escribir, con la pista sin tocar");
     // El editor pide los zooms con un respiro de 120 ms: se espera a la llamada en vez de
     // contarla al momento (sin `--fotos`, que tarda en hacer la foto, se contaba antes).

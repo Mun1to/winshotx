@@ -713,4 +713,13 @@ export const ZH: Record<string, string> = {
   "Apaga su Repetición instantánea con Alt+Z": "按 Alt+Z 关闭它的即时重放",
   "La Repetición instantánea de NVIDIA graba la pantalla todo el rato para poder guardar lo último, igual que «Grabar siempre lo último». Con las dos encendidas se paga dos veces por lo mismo. winshotx no la apaga por su cuenta: los ajustes de NVIDIA no son públicos, y tocarlos a ciegas puede romperla en su próxima actualización.": "NVIDIA 即时重放会一直录制屏幕，以便保存最近的内容，和“始终录制最近片段”一样。两者同时开启，就是为同一件事付出两次代价。winshotx 不会自行关闭它：NVIDIA 的设置并不公开，盲目修改可能会在它下次更新时出问题。",
   "Ya lo tengo apagado": "我已经关闭了",
+  // S10 (sonidos)
+  "Suave": "柔和",
+  "Grave": "低沉",
+  "Toque": "轻敲",
+  "Propio…": "自定义…",
+  "Preparando el sonido…": "正在准备声音…",
+  "Sonido al empezar": "开始时的声音",
+  "Una marimba corta justo antes de que empiece la grabación, para saber sin mirar que ya estás grabando. Suena y acaba antes de abrir el sonido, así que no queda dentro del vídeo.": "录制开始前响起一小段马林巴琴声，不用看屏幕也知道已经在录制。它在开始录音之前就已播放完毕，所以不会出现在视频里。",
+  "antes de grabar, nunca dentro del vídeo": "录制之前响起，绝不会进入视频",
 };

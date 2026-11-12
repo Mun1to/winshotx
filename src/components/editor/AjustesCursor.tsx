@@ -3,6 +3,11 @@ import { Toggle } from "../ui/Toggle";
 import { useT } from "../../lib/i18n";
 import type { Edicion, Suavizado } from "../../lib/contrato";
 import { Opcion } from "../ui/Opcion";
+// S10 (sonidos)
+import { useState } from "react";
+import type { ClicElegido } from "../../lib/contrato";
+import { elegirSonidoDeClic, importarSonidoDeClic } from "../../lib/ipc";
+import { nombreDelClic, oirClic } from "../../lib/sonidoDeClic";
 
 /**
  * Los mandos del cursor y los clics del Estudio (S7): el suavizado de tres opciones, esconder
@@ -61,6 +66,29 @@ export function AjustesCursor({
   const suavizado: Suavizado = edicion.suavizado ?? "poco";
   const estela = Math.round((edicion.estela ?? 0) * 100);
   const sonido = edicion.sonidoClic ?? 0;
+  // S10 (sonidos): cuál suena, y lo que salió mal al traer uno propio.
+  const elegido: ClicElegido = edicion.clic ?? { tipo: "suave" };
+  const [fallo, setFallo] = useState<string | null>(null);
+  const [trayendo, setTrayendo] = useState(false);
+  const elegir = (clic: ClicElegido) => {
+    setFallo(null);
+    onEdicion({ clic });
+    // Al elegirlo suena una vez, a su volumen: es la única forma de saber cómo es.
+    void oirClic(clic, sonido).catch(() => undefined);
+  };
+  const traerPropio = async () => {
+    setFallo(null);
+    const origen = await elegirSonidoDeClic().catch(() => null);
+    if (!origen) return;
+    setTrayendo(true);
+    try {
+      elegir({ tipo: "propio", ruta: await importarSonidoDeClic(origen) });
+    } catch (e) {
+      setFallo(String(e));
+    } finally {
+      setTrayendo(false);
+    }
+  };
 
   return (
     <div className="space-y-3" data-ajustes-cursor>
@@ -120,6 +148,38 @@ export function AjustesCursor({
             label={t("Sonido de clic")}
             hint={t("se oye en el vídeo, también si no grabaste sonido")}
           />
+          {/* S10 (sonidos): los tres de serie y uno propio. */}
+          {sonido > 0 && (
+            <div data-sonido-de-clic>
+              <div className="flex items-center gap-4">
+                {(
+                  [
+                    ["suave", t("Suave")],
+                    ["grave", t("Grave")],
+                    ["toque", t("Toque")],
+                  ] as const
+                ).map(([tipo, nombre]) => (
+                  <Opcion key={tipo} puesta={elegido.tipo === tipo} onClick={() => elegir({ tipo })}>
+                    {nombre}
+                  </Opcion>
+                ))}
+                <Opcion puesta={elegido.tipo === "propio"} onClick={() => void traerPropio()}>
+                  {t("Propio…")}
+                </Opcion>
+              </div>
+              {trayendo && <p className="pt-1 text-[12px] text-suave">{t("Preparando el sonido…")}</p>}
+              {!trayendo && elegido.tipo === "propio" && (
+                <p className="truncate pt-1 text-[12px] text-suave" title={nombreDelClic(elegido.ruta)}>
+                  {nombreDelClic(elegido.ruta)}
+                </p>
+              )}
+              {fallo && (
+                <p className="pt-1 text-[13px] text-red-400" role="alert">
+                  {fallo}
+                </p>
+              )}
+            </div>
+          )}
           {sonido > 0 && (
             <Slider
               label={t("Volumen del clic")}

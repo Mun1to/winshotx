@@ -186,3 +186,30 @@ describe("el estilo en las capturas", () => {
     expect(estiloDeLasCapturas(lista, { aire: 0, fondo: "noche" })).toBe(-1);
   });
 });
+
+// S10 (sonidos)
+describe("el sonido de clic en un estilo", () => {
+  const MEDIDAS = { ancho: 1920, altoGrabado: 1080 };
+
+  it("se guarda, se lee y vuelve a edicion, también el propio con su ruta", () => {
+    const grave = estiloDe(PANEL, { sonidoClic: 0.4, clic: { tipo: "grave" } }, MEDIDAS);
+    expect(grave.clic).toEqual({ tipo: "grave" });
+    expect(edicionDe(leerEstilo(JSON.parse(JSON.stringify(grave)))).clic).toEqual({ tipo: "grave" });
+    const propio = leerEstilo({ ...grave, clic: { tipo: "propio", ruta: "C:\\datos\\clic-1-mio.wav" } });
+    expect(propio.clic).toEqual({ tipo: "propio", ruta: "C:\\datos\\clic-1-mio.wav" });
+  });
+
+  it("uno viejo o roto se lee como el de fábrica", () => {
+    expect(leerEstilo({ sonidoClic: 0.3 }).clic).toBeNull();
+    expect(leerEstilo({ clic: { tipo: "pitido" } }).clic).toBeNull();
+    expect(leerEstilo({ clic: { tipo: "propio", ruta: "" } }).clic).toBeNull();
+    expect(ESTILO_DE_FABRICA.clic).toBeNull();
+  });
+
+  it("cuenta para saber qué estilo hay puesto solo si suena, y sin elegir es el suave", () => {
+    const con = (sonidoClic: number, clic: Estilo["clic"]): Estilo => ({ ...ESTILO_DE_FABRICA, sonidoClic, clic });
+    expect(esElMismo(con(0.3, { tipo: "grave" }), con(0.3, { tipo: "toque" }))).toBe(false);
+    expect(esElMismo(con(0.3, null), con(0.3, { tipo: "suave" }))).toBe(true);
+    expect(esElMismo(con(0, { tipo: "grave" }), con(0, { tipo: "toque" }))).toBe(true);
+  });
+});
