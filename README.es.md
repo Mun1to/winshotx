@@ -141,7 +141,7 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
   púlsalo otra vez para parar y exporta a GIF desde el editor. Sin instalar FFmpeg.
 - **"Necesito un grabador de pantalla ligero."** 33 MB mientras captura y 31 esperando en la
   bandeja.
-- **"Algo como ShareX o CleanShot X, pero más simple."** Los mismos atajos globales y el mismo
+- **"Algo como ShareX, pero más simple."** Los mismos atajos globales y el mismo
   overlay sobre la pantalla congelada, sin cientos de ajustes.
 - **"Quiero sacar un color de la pantalla."** La lupa te da el hexadecimal del píxel bajo el cursor
   con zoom 6×.

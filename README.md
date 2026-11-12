@@ -142,7 +142,7 @@ signature is checked before anything is installed, so a tampered file is rejecte
   press it again to stop, and export to GIF from the editor. No FFmpeg to install.
 - **"I need a lightweight screen recorder that does not eat my RAM."** 33 MB while capturing,
   31 MB waiting in the tray.
-- **"Something like ShareX or CleanShot X, but simpler."** The same global shortcuts and the same
+- **"Something like ShareX, but simpler."** The same global shortcuts and the same
   frozen-screen overlay, without the hundreds of settings.
 - **"I want to pick a colour off the screen."** The magnifier gives you the hex code of the pixel
   under the cursor at 6× zoom.
