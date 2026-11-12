@@ -367,7 +367,7 @@ fn capturar(
     std::thread::sleep(Duration::from_millis(120));
     let _ = unsafe { DwmFlush() };
 
-    let marco = crate::platform::marco::Marco::abrir(region, 2)
+    let marco = crate::platform::marco::Marco::abrir(region, f64::from(monitor.scale))
         .map_err(|e| eprintln!("[scroll] sin marco: {e}"))
         .ok();
     let esc = Esc::coger();
