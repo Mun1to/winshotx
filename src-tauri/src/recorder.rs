@@ -306,6 +306,30 @@ pub fn falta_por_la_camara(pasado: Duration) -> Duration {
     retraso_al_empezar(pasado, Some(Duration::MAX)).saturating_sub(pasado)
 }
 
+/// Hay una grabación arrancando: esperando a la marimba y a la cámara, todavía sin estar en
+/// `state.recording`. Sin esto, una segunda podría arrancar en ese rato (hasta
+/// `TOPE_DE_LA_CAMARA`) y quitarle el sitio a la primera, que se quedaría grabando, con la
+/// luz de la cámara encendida, sin nada que la pare.
+static ARRANCANDO: AtomicBool = AtomicBool::new(false);
+
+struct Arrancando;
+
+impl Arrancando {
+    /// `None` si ya hay otra arrancando.
+    fn tomar() -> Option<Self> {
+        ARRANCANDO
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for Arrancando {
+    fn drop(&mut self) {
+        ARRANCANDO.store(false, Ordering::Release);
+    }
+}
+
 /// Arranca la grabacion de la region: cache sin perdida para editar y MP4 de
 /// referencia para que el editor pueda reproducir sin decodificar nada a mano.
 #[cfg(windows)]
@@ -315,6 +339,11 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     use crate::record::win::{self, CaptureFlags};
 
     let state = app.state::<AppState>();
+    // S12 (cámara antes): hasta que la grabación queda en `state.recording` pasan hasta
+    // `TOPE_DE_LA_CAMARA`, y en ese rato `is_recording` todavía dice que no.
+    let Some(_arrancando) = Arrancando::tomar() else {
+        return Err(AppError::Msg("ya hay una grabación arrancando".into()));
+    };
     if state.is_recording() {
         return Err(AppError::Msg("ya hay una grabación en curso".into()));
     }
@@ -1322,5 +1351,15 @@ mod pruebas_del_arranque {
         assert_eq!(falta_por_la_camara(MARIMBA), ms(2_250));
         assert_eq!(falta_por_la_camara(Duration::ZERO), TOPE_DE_LA_CAMARA);
         assert_eq!(falta_por_la_camara(ms(3_200)), Duration::ZERO);
+    }
+
+    /// Mientras una grabación espera a la cámara todavía no está en `state.recording`: otra
+    /// no puede arrancar en ese rato.
+    #[test]
+    fn mientras_una_arranca_no_puede_arrancar_otra() {
+        let primera = Arrancando::tomar().expect("no había ninguna arrancando");
+        assert!(Arrancando::tomar().is_none(), "una segunda ha arrancado encima de la primera");
+        drop(primera);
+        assert!(Arrancando::tomar().is_some(), "acabada la primera, ya se puede");
     }
 }
