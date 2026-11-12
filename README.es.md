@@ -195,6 +195,23 @@ momento. Un clic sobre la pantalla hace lo mismo.
 Grabar respeta el perfil: con «se copia sola» arranca al soltar, y con «sale la barra» te deja
 ajustar el recuadro antes, porque equivocarse en una grabación cuesta minutos y no una tecla.
 
+## Para agentes de IA
+
+Un agente de IA (Claude Code, Codex, Cursor o cualquier otro cliente de MCP) puede manejar winshotx
+por su cuenta: graba la pantalla, para, saca un MP4 o un GIF ya montado y hace capturas, y se entera
+de dónde ha quedado cada archivo. Para añadirlo a Claude Code, escribe esto en PowerShell:
+
+```
+claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp
+```
+
+Es donde lo dejan el instalador y winget, salvo que eligieras otra carpeta (la guía trae una línea
+que la encuentra); con la portable, pon la carpeta donde la descomprimiste.
+Sin MCP, `winshotx.exe agent` hace lo mismo desde cualquier terminal y contesta con una línea de
+JSON. **Una grabación que empieza un agente se ve igual que una tuya**, con el marco rojo y la
+barra, así que siempre sabes cuándo se graba la pantalla. Cómo se añade a cada agente, y todas las
+órdenes: [docs/AGENTS-API.es.md](docs/AGENTS-API.es.md).
+
 ## Cómo está construido
 
 | Capa | Elección | Por qué |

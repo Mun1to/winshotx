@@ -201,6 +201,23 @@ Recording honours the profile: with "se copia sola" it starts the moment you let
 "sale la barra" it lets you adjust the rectangle first, because getting a recording wrong costs
 minutes rather than one keystroke.
 
+## For AI agents
+
+An AI agent (Claude Code, Codex, Cursor or any other MCP client) can drive winshotx on its own:
+it records the screen, stops, exports a finished MP4 or GIF and takes screenshots, and it is told
+where each file ended up. To add it to Claude Code, run this in PowerShell:
+
+```
+claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp
+```
+
+That is where the installer and winget put it, unless you picked another folder (the guide has a
+line that finds it); with the portable build, use the folder you unzipped it into.
+Without MCP, `winshotx.exe agent` does the same from any terminal and answers
+with one line of JSON. **A recording started by an agent looks exactly like one of yours**, with
+the red frame and the bar, so you always know when the screen is being recorded. How to add it to
+every agent, and every command: [docs/AGENTS-API.md](docs/AGENTS-API.md).
+
 ## How it is built
 
 | Layer | Choice | Why |
