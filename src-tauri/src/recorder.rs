@@ -202,6 +202,15 @@ impl SalidaDeAudio {
         self.captura.as_ref().map(|c| c.formato)
     }
 
+    /// Al pulsar «parar»: deja de oír ya. Lo oído hasta ahora sigue en el canal y lo
+    /// recoge `volcar`, así que no se pierde nada de lo grabado, pero tampoco entra lo que
+    /// suene mientras el escritor termina su cola de fotogramas.
+    fn dejar_de_oir(&self) {
+        if let Some(captura) = self.captura.as_ref() {
+            captura.avisar();
+        }
+    }
+
     /// Lo que haya sonado desde la ultima vez: a sus archivos y, si sigue vivo, al
     /// codificador de la vista previa. Si el codificador falla, el sonido se queda fuera de
     /// la vista previa pero la imagen sigue y los archivos tambien: el video exportado
@@ -431,7 +440,19 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
 
         // El fin de la grabacion no puede depender de que el canal se cierre: si la
         // pantalla esta quieta no llegan fotogramas y el hilo se quedaria esperando.
+        let mut parado = false;
         loop {
+            // Al pulsar «parar», el sonido y la cámara se paran YA, no cuando este hilo acabe
+            // su cola de fotogramas: con el escritor atrasado (en el modo desarrollo, 28 s
+            // tras una grabación de 9) las dos pistas y la cámara seguían grabando todo ese
+            // rato, con la luz de la cámara encendida (12-nov-2026).
+            if !parado && writer_stop.load(Ordering::Relaxed) {
+                salida.dejar_de_oir();
+                if let Some(camara) = camara.as_ref() {
+                    camara.avisar();
+                }
+                parado = true;
+            }
             let frame = match receiver.recv_timeout(Duration::from_millis(200)) {
                 Ok(frame) => frame,
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
@@ -1143,6 +1164,23 @@ mod pruebas_de_pistas {
         assert_eq!(enteros(&pc), vec![max / 2, max / 2, -max / 2, max], "el PC, sin la voz encima");
         assert_eq!(enteros(&voz), vec![max / 4, -max / 4, 0, 0], "la voz, sin el PC");
         assert!(!dir.join("audio.pcm").exists(), "ya no se escribe la mezcla en crudo");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Al pulsar «parar» se deja de oír ya, pero lo que ya se oyó se guarda entero: el
+    /// escritor puede ir atrasado, y su cola no puede alargar las pistas (12-nov-2026).
+    #[test]
+    fn al_parar_se_deja_de_oir_sin_perder_lo_oido() {
+        let dir = carpeta("parar");
+        let (tx, captura) = Captura::de_mentira(FORMATO, Fuentes { sistema: true, microfono: false });
+        let salida = SalidaDeAudio::abrir(Some(captura), &dir);
+        tx.send(Trozo { datos: flotantes(&[0.5, 0.5]), voz: None, desde_el_inicio: 0 }).unwrap();
+        assert!(!salida.captura.as_ref().unwrap().avisada());
+        salida.dejar_de_oir();
+        assert!(salida.captura.as_ref().unwrap().avisada(), "la captura tiene que saber que pare");
+        let _ = salida.cerrar(&mut None);
+        let (_, pc) = leer_wav(&dir.join(ARCHIVO_PC)).expect("el WAV del PC");
+        assert_eq!(enteros(&pc).len(), 2, "lo oído antes de parar sigue en la pista");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

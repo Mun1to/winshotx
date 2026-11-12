@@ -111,6 +111,17 @@ pub struct Captura {
 }
 
 impl Captura {
+    /// Que deje de oír YA, sin esperar al hilo: lo que ya se oyó sigue en `trozos`. Es lo
+    /// que se hace al pulsar «parar», aunque al escritor le queden fotogramas por guardar.
+    pub fn avisar(&self) {
+        self.parar.store(true, Ordering::Relaxed);
+    }
+
+    /// Si ya se le ha dicho que pare.
+    pub fn avisada(&self) -> bool {
+        self.parar.load(Ordering::Relaxed)
+    }
+
     /// Pide que pare y espera a que el hilo cierre COM antes de seguir.
     pub fn parar(mut self) {
         self.parar.store(true, Ordering::Relaxed);
