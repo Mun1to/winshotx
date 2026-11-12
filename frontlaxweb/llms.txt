@@ -60,7 +60,6 @@ clock stops when the selection is visible on screen.
 
 - It comes preinstalled: winshotx has to be installed.
 - It speaks every language Windows speaks; winshotx speaks Spanish, English and Chinese.
-- It speaks every language Windows speaks. winshotx speaks Spanish and English.
 
 ## Also in winshotx, if you are comparing feature lists
 
@@ -68,7 +67,7 @@ clock stops when the selection is visible on screen.
 - Copying the text out of an image, through the Windows OCR, with the T key.
 - Recording system audio and the microphone, each on its own track and with its own volume in the editor.
 - A 3 or 5 second timer before capturing, and hiding the desktop icons while the shot lasts.
-- Light and dark themes, Spanish and English, following Windows on their own.
+- Light and dark themes, and Spanish, English or Chinese, following Windows on their own.
 - Every setting explains itself when you leave the pointer on its icon.
 
 ## How it is built
