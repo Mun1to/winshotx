@@ -765,7 +765,7 @@ fn ruta_elegida(elegido: &str, extension: &str) -> PathBuf {
     ruta
 }
 
-fn load_session(app: &AppHandle, id: &str) -> Result<SessionData> {
+pub(crate) fn load_session(app: &AppHandle, id: &str) -> Result<SessionData> {
     let state = app.state::<AppState>();
     if let Some(session) = state.sessions.read().get(id) {
         return Ok(session.clone());

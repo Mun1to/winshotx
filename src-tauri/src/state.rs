@@ -28,6 +28,9 @@ pub struct Cabecera {
 
 /// Todo lo que hay que compartir con el hilo de captura mientras se graba.
 pub struct RecordingState {
+    // S15 (agente)
+    /// El id de la sesión que se está grabando: el canal de agentes lo dice en `status`.
+    pub id: String,
     pub started: Instant,
     pub stop: Arc<AtomicBool>,
     pub pause: Arc<AtomicBool>,
