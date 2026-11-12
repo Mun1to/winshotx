@@ -7,15 +7,18 @@ import type { Edicion, MarcoCamara } from "../../lib/contrato";
 import { camaraDeLaSesion } from "../../lib/ipc";
 import {
   marcoDeFabrica,
+  paraLosMandos,
   recorta,
   recorteLimpio,
+  redondeo,
+  REDONDEO_MAXIMO,
   SIN_RECORTE,
   TAM_MANDO_MAXIMO,
   TAM_MANDO_MINIMO,
   type CamaraDeLaSesion,
 } from "../../lib/camara";
 import { useT } from "../../lib/i18n";
-import { SelectorDeForma } from "./AjustesDeLaPista";
+import { FORMAS_DE_LA_CAMARA, SelectorDeForma } from "./AjustesDeLaPista";
 
 interface Props {
   sessionId: string;
@@ -24,8 +27,9 @@ interface Props {
 }
 
 /**
- * Los mandos de la webcam en el Estudio: enseñarla o no, su forma, su tamaño, el trozo de
- * la cámara que se ve y el borde. Dónde va se decide arrastrándola en la vista previa.
+ * Los mandos de la webcam en el Estudio: enseñarla o no, su forma y sus esquinas, su tamaño,
+ * el trozo de la cámara que se ve y el borde. Dónde va se decide arrastrándola en la vista
+ * previa.
  *
  * Solo sale si la grabación trae cámara: un mando que no puede hacer nada no se enseña.
  */
@@ -53,9 +57,11 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
   const marco = edicion?.camara;
   // Sin tocar todavía (`undefined`) sale puesta: la de fábrica la coloca la vista previa.
   const puesta = marco !== null;
-  const m = marco ?? ultimo.current ?? marcoDeFabrica(16, 9);
+  const m = paraLosMandos(marco ?? ultimo.current ?? marcoDeFabrica(16, 9));
   const cambiar = (cambio: Partial<MarcoCamara>) => onEdicion?.({ camara: { ...m, ...cambio } });
   const recortada = recorta(m.recorte);
+  // S13 (redondeo): en tanto por ciento del lado corto, como lo enseña el mando.
+  const esquinas = Math.round(redondeo(m) * 100);
 
   return (
     <div data-ajustes-camara>
@@ -78,8 +84,22 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
             forma={m.forma}
             onForma={(forma) => cambiar({ forma })}
             etiqueta={t("Forma de la cámara")}
-            enDosFilas
+            formas={FORMAS_DE_LA_CAMARA}
+            enColumnas
           />
+          {/* S13 (redondeo): el mismo mando que las esquinas del marco del fondo. El círculo
+              no tiene esquinas. */}
+          {m.forma !== "circulo" && (
+            <Slider
+              label={t("Esquinas redondeadas")}
+              hint={esquinas === 0 ? t("rectas") : `${esquinas} %`}
+              min={0}
+              max={Math.round(REDONDEO_MAXIMO * 100)}
+              step={1}
+              value={esquinas}
+              onChange={(v) => cambiar({ redondeo: v / 100 })}
+            />
+          )}
           <Slider
             label={t("Tamaño")}
             hint={`${Math.round(m.tam * 100)} %`}
