@@ -7,8 +7,8 @@ import {
   caja,
   esquinaDeAgarre,
   grosorDelBorde,
-  instanteDeLaCamara,
   marcoDeFabrica,
+  pasoDeLaCara,
   mover,
   radio,
   recorteVisible,
@@ -144,12 +144,10 @@ export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, q
       if (!v) return;
       const pantalla = videoRef.current;
       const ms = pantalla ? pantalla.currentTime * 1000 : parado.current;
-      const quiere = Math.max(0, instanteDeLaCamara(ms, camara.primerMs, camara.desfaseMs) / 1000);
       const dura = Number.isFinite(v.duration) ? v.duration : Infinity;
-      // Acabada la cámara se queda en su última imagen, como en el archivo.
-      const meta = Math.min(quiere, Math.max(0, dura - 0.04));
-      const suena = pantalla && !pantalla.paused && !pantalla.seeking && quiere < dura;
-      if (!suena) {
+      const sonando = !!pantalla && !pantalla.paused && !pantalla.seeking;
+      const { meta, suena } = pasoDeLaCara(ms, camara.primerMs, camara.desfaseMs, dura, sonando);
+      if (!suena || !pantalla) {
         if (!v.paused) v.pause();
         if (!v.seeking && Math.abs(v.currentTime - meta) > 0.02) v.currentTime = meta;
         return;

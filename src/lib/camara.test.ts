@@ -6,6 +6,7 @@ import {
   instanteDeLaCamara,
   marcoDeFabrica,
   mover,
+  pasoDeLaCara,
   proporcion,
   recorta,
   recorteVisible,
@@ -110,5 +111,28 @@ describe("moverla y cambiarle el tamaño", () => {
     expect(diminuto.tam).toBeCloseTo(0.08, 5);
     const gigante = redimensionar(fabrica, CAM, LIENZO, antes, hacia, { x: -5000, y: -5000 });
     expect(gigante.tam).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe("la cara al compás de la pantalla", () => {
+  // La cámara arrancó 2 s después que la pantalla, y su archivo dura 30 s.
+  const paso = (ms: number, sonando = true) => pasoDeLaCara(ms, 100, 2000, 30, sonando);
+
+  it("mientras la cámara no ha arrancado se queda QUIETA en su primera imagen, no se reproduce", () => {
+    // Reproducirla ahí la hacía saltar a 0 una y otra vez: el mismo trocito durante 2 s.
+    expect(paso(100)).toEqual({ meta: 0, suena: false });
+    expect(paso(1500)).toEqual({ meta: 0, suena: false });
+  });
+
+  it("en cuanto arranca, se reproduce desde su instante", () => {
+    expect(paso(2100)).toEqual({ meta: 0, suena: true });
+    expect(paso(3100)).toEqual({ meta: 1, suena: true });
+  });
+
+  it("con la pantalla parada, quieta en su sitio; acabada, en su última imagen", () => {
+    expect(paso(3100, false)).toEqual({ meta: 1, suena: false });
+    const fin = paso(40_000);
+    expect(fin.suena).toBe(false);
+    expect(fin.meta).toBeCloseTo(29.96, 5);
   });
 });

@@ -160,6 +160,28 @@ export function instanteDeLaCamara(ms: number, primerMs: number, desfaseMs: numb
   return ms - primerMs - desfaseMs;
 }
 
+/**
+ * Qué hace el vídeo de la cara en la vista previa cuando la grabación está en `ms`: a qué
+ * segundo de `camara.mp4` va (`meta`) y si se reproduce o se queda quieto en él.
+ *
+ * Una cámara tarda en encenderse (la Insta360 de Munito, unos 2 s), así que al principio de
+ * la grabación todavía no hay cara: hasta que arranca se queda QUIETA en su primera imagen,
+ * como en el MP4. Antes se reproducía desde 0 y, al alejarse de 0, se la devolvía a 0: el
+ * mismo trocito una y otra vez durante esos 2 s («se traba y se repite», 12-nov-2026).
+ */
+export function pasoDeLaCara(
+  ms: number,
+  primerMs: number,
+  desfaseMs: number,
+  duraS: number,
+  pantallaSonando: boolean,
+): { meta: number; suena: boolean } {
+  const quiere = instanteDeLaCamara(ms, primerMs, desfaseMs) / 1000;
+  // Acabada la cámara se queda en su última imagen, como en el archivo.
+  const meta = Math.min(Math.max(0, quiere), Math.max(0, duraS - 0.04));
+  return { meta, suena: pantallaSonando && quiere >= 0 && quiere < duraS };
+}
+
 /** El marco con la burbuja llevada a ese centro (en píxeles del lienzo), sin salirse. */
 export function mover(marco: MarcoCamara, camara: Medida, lienzo: Medida, cx: number, cy: number): MarcoCamara {
   const lw = Math.max(1, lienzo.ancho);
