@@ -1,6 +1,29 @@
 {
   "versiones": [
     {
+      "version": "0.4.1",
+      "desde": null,
+      "fecha": "2026-11-12",
+      "es": {
+        "titulo": "Tu voz en su pista, tus sonidos y la cámara redondeada",
+        "puntos": [
+          "**Tu micrófono y el sonido del PC, cada uno en su pista**: en el editor subes, bajas o quitas cada uno por separado.",
+          "**Sonidos**: elige el de los clics (suave, grave, toque o uno tuyo), y una **marimba** corta avisa justo antes de grabar, sin quedar dentro del vídeo.",
+          "**Tu cámara**, viva desde el primer fotograma, y en cuadrado o rectángulo con las **esquinas tan redondeadas como quieras**.",
+          "El **marco rojo** que rodea lo que grabas, nítido a cualquier escala, con las esquinas redondeadas y una sombra suave."
+        ]
+      },
+      "en": {
+        "titulo": "Your voice on its own track, your sounds and a rounded webcam",
+        "puntos": [
+          "**Your microphone and the PC sound, each on its own track**: in the editor you turn each one up, down or off on its own.",
+          "**Sounds**: pick the click sound (soft, deep, tap or your own), and a short **marimba** tells you right before recording, without ending up in the video.",
+          "**Your webcam**, live from the first frame, and as a square or a rectangle with **the corner rounding you want**.",
+          "The **red frame** around what you record, crisp at any scale, with rounded corners and a soft shadow."
+        ]
+      }
+    },
+    {
       "version": "0.4.0",
       "desde": null,
       "fecha": "2026-11-12",
