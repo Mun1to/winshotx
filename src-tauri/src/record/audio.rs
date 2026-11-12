@@ -857,6 +857,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(600));
 
         let mut bytes = 0usize;
+        let mut con_voz = 0usize;
         let mut ultimo_inicio = 0i64;
         while let Ok(trozo) = captura.trozos.try_recv() {
             // Cada trozo empieza justo donde acababa el anterior: la marca de tiempo se
@@ -868,11 +869,20 @@ mod tests {
                 "el trozo mezclado no empieza donde acababa el anterior"
             );
             assert!(trozo.desde_el_inicio >= ultimo_inicio, "el tiempo va hacia atrás");
+            // S11 (pistas): la voz va aparte y mide lo mismo que su trozo, o las dos pistas
+            // se despegarían al juntarlas al guardar.
+            if let Some(voz) = trozo.voz.as_ref() {
+                assert_eq!(voz.len(), trozo.datos.len(), "la voz de un trozo no mide lo que el trozo");
+                con_voz += 1;
+            }
             ultimo_inicio = trozo.desde_el_inicio;
             bytes += trozo.datos.len();
         }
         captura.parar();
-        println!("{bytes} bytes mezclados, {:.2} s", bytes as f64 / (48_000.0 * 8.0));
+        println!(
+            "{bytes} bytes del PC, {:.2} s, y {con_voz} trozos con la voz aparte",
+            bytes as f64 / (48_000.0 * 8.0)
+        );
         assert!(bytes > 0, "no ha llegado sonido de ninguna de las dos fuentes");
     }
 
