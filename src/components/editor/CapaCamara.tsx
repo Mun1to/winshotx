@@ -241,9 +241,15 @@ export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, q
             }`}
             style={{ left: c.x, top: c.y, width: c.ancho, height: c.alto }}
           >
+            {/* El `clip-path` además del `border-radius`, y no es repetirse: con la tarjeta
+                gráfica, Edge saca el vídeo a una capa suya y el redondeo de `overflow` deja
+                de recortarlo. La cara salía cuadrada y cortada por el borde de la captura
+                (lo vio Munito el 12 de noviembre de 2026, y se reproduce en una ventana de
+                Edge de verdad, nunca en una sin ventana). El `clip-path` sí lo recorta. */}
             <div
+              data-recorte-camara
               className="absolute inset-0 overflow-hidden bg-black"
-              style={{ borderRadius: r }}
+              style={{ borderRadius: r, clipPath: `inset(0 round ${r}px)` }}
             >
               <video
                 ref={cara}

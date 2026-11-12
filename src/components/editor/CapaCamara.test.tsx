@@ -98,6 +98,15 @@ describe("la cámara en la vista previa", () => {
     expect(burbuja.querySelector("video")?.getAttribute("src")).toBe("asset://C:\\sesion\\camara.mp4");
   });
 
+  it("la cara se recorta con clip-path y no solo con el redondeo, que Edge con tarjeta gráfica ignora", async () => {
+    // Con solo `border-radius` + `overflow`, en una ventana de Edge de verdad la cara salía
+    // cuadrada y cortada por el borde de la captura (12 de noviembre de 2026).
+    const { container } = render(<Banco marco={marcoDeFabrica(800, 450)} onMarco={vi.fn()} />);
+    const recorte = await espera<HTMLElement>(container, "[data-recorte-camara]");
+    expect(recorte.style.clipPath).toBe("inset(0 round 72px)");
+    expect(recorte.querySelector("video")).not.toBeNull();
+  });
+
   it("arrastrarla la mueve a donde se suelta, y el editor se entera al soltar", async () => {
     const onMarco = vi.fn();
     const { container } = render(<Banco marco={marcoDeFabrica(800, 450)} onMarco={onMarco} />);
