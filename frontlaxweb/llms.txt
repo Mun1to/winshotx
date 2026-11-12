@@ -53,6 +53,7 @@ clock stops when the selection is visible on screen.
   a recording.
 - Keeps your latest shots one click away in the tray menu, as thumbnails. There is no history
   file: the folder is the history, so a shot deleted from outside disappears from there too.
+- Lets an AI agent (Claude Code, Codex, Cursor or any MCP client) record the screen, export a finished MP4 or GIF and take screenshots on its own, through the MCP server `winshotx.exe mcp` or the `winshotx.exe agent` command, with the usual red frame on screen so the person always sees it: [how to set it up](https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.md).
 - Is open source under MIT, with no account and no telemetry.
 
 ## What the Snipping Tool still does better

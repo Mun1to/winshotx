@@ -177,6 +177,7 @@
     <a href="#exportar" data-en="Export">Exportar</a>
     <a href="#atajos-guia" data-en="Shortcuts">Atajos</a>
     <a href="#ajustes" data-en="Settings">Ajustes</a>
+    <a href="#agentes" data-en="AI agents">Agentes de IA</a>
     <a href="#preguntas" data-en="Questions">Preguntas</a>
   </div>
 
@@ -375,6 +376,23 @@
       Cada fila se explica sola: deja el puntero en el icono de su nombre y sale un globo con lo que hace y cuándo merece la pena encenderlo. Y abajo hay una barra, en las cuatro pestañas, con lo que se toca a menudo: tema, idioma, qué pasa al soltar, el tour y las actualizaciones, que estando al día son un tick verde y nada más.
     </p>
     <p><a href="../#demo" data-en="You can click through all of it in the demo on the home page, without installing anything.">Puedes tocarlo todo en la demo de la portada, sin instalar nada.</a></p>
+  </section>
+
+  <section id="agentes">
+    <h2 data-en="For AI agents">Para agentes de IA</h2>
+    <p data-en="An AI agent (Claude Code, Codex, Cursor or any other that speaks MCP) can use winshotx on its own: &lt;b&gt;record the screen, stop, export a finished MP4 or GIF and take screenshots&lt;/b&gt;, and it is told where each file ended up. Nobody has to touch the mouse." data-html>
+      Un agente de IA (Claude Code, Codex, Cursor o cualquiera que hable MCP) puede usar winshotx por su cuenta: <b>grabar la pantalla, parar, sacar un MP4 o un GIF ya montado y hacer capturas</b>, y se entera de dónde ha quedado cada archivo. Nadie tiene que tocar el ratón.
+    </p>
+    <p data-en="To add it to Claude Code, run this in PowerShell: &lt;code&gt;claude mcp add --scope user winshotx -- &quot;$env:LOCALAPPDATA\winshotx\winshotx.exe&quot; mcp&lt;/code&gt;. That is where the installer and winget put it, unless you picked another folder; with the portable build, use the folder you unzipped it into." data-html>
+      Para añadirlo a Claude Code, escribe esto en PowerShell: <code>claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</code>. Es donde lo dejan el instalador y winget, salvo que eligieras otra carpeta; con la portable, pon la carpeta donde la descomprimiste.
+    </p>
+    <p data-en="Without MCP, any script can do the same from a terminal with &lt;code&gt;winshotx.exe agent&lt;/code&gt;: it answers with one line of JSON that says what happened and where the file is." data-html>
+      Sin MCP, cualquier programa hace lo mismo desde una terminal con <code>winshotx.exe agent</code>: contesta con una línea de JSON que dice qué ha pasado y dónde está el archivo.
+    </p>
+    <p class="nota" data-en="&lt;b&gt;A recording started by an agent looks exactly like one of yours&lt;/b&gt;, with the red frame and the bar, so you always know when the screen is being recorded. And it makes no sound unless the agent asks for it." data-html>
+      <b>Una grabación que empieza un agente se ve igual que una tuya</b>, con el marco rojo y la barra, así que siempre sabes cuándo se graba la pantalla. Y no suena nada si el agente no lo pide.
+    </p>
+    <p data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.md&quot;&gt;How to add it to each agent, and every command&lt;/a&gt;." data-html><a href="https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.es.md">Cómo se añade a cada agente, y todas las órdenes</a>.</p>
   </section>
 
   <section id="preguntas">
