@@ -8,7 +8,7 @@
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CapaAnotaciones } from "./CapaAnotaciones";
+import { CapaAnotaciones, letraDelTexto } from "./CapaAnotaciones";
 import { aplicarIdioma } from "../../lib/i18n";
 import type { Anotacion } from "../../lib/anotaciones";
 
@@ -39,11 +39,11 @@ function pintar(props: Partial<React.ComponentProps<typeof CapaAnotaciones>> = {
       color="#ef4444"
       anotaciones={[]}
       onAnadir={onAnadir}
-      texto=""
+      anchoImagen={1920}
       {...props}
     />,
   );
-  return { onAnadir, svg: container.querySelector("svg")! };
+  return { onAnadir, svg: container.querySelector("svg")!, container };
 }
 
 beforeEach(() => {
@@ -108,17 +108,109 @@ describe("dibujar una marca", () => {
 });
 
 describe("el texto", () => {
-  it("se pone de un clic, sin arrastrar", () => {
-    const { onAnadir, svg } = pintar({ herramienta: "text", texto: "mira esto" });
+  /** Lo que hace la persona: pulsar en la imagen y escribir en el campo que sale ahí. */
+  function escribir(svg: SVGSVGElement, que: string) {
     fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    const campo = screen.getByRole("textbox", { name: "Texto" });
+    fireEvent.change(campo, { target: { value: que } });
+    return campo as HTMLInputElement;
+  }
+
+  it("pulsar en la imagen abre un campo ahí mismo, sin poner nada todavía", () => {
+    const { onAnadir, svg } = pintar({ herramienta: "text" });
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    const campo = screen.getByRole("textbox", { name: "Texto" });
+    // En el centro de la capa: de 0 a 1, como las marcas.
+    expect(campo.style.left).toBe("50%");
+    expect(campo.style.top).toBe("50%");
+    expect(onAnadir).not.toHaveBeenCalled();
+  });
+
+  it("Intro lo deja puesto donde se pulsó, con lo que se escribió", () => {
+    const { onAnadir, svg } = pintar({ herramienta: "text", color: "#0a9bff" });
+    const campo = escribir(svg, "mira esto");
+    fireEvent.keyDown(campo, { key: "Enter" });
     expect(onAnadir).toHaveBeenCalledTimes(1);
-    expect(onAnadir.mock.calls[0][0]).toMatchObject({ kind: "text", text: "mira esto" });
+    expect(onAnadir.mock.calls[0][0]).toEqual({
+      kind: "text",
+      x1: 0.5,
+      y1: 0.5,
+      x2: 0.5,
+      y2: 0.5,
+      color: "#0a9bff",
+      text: "mira esto",
+    });
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("pulsar fuera, en la imagen, lo guarda una sola vez y no abre otro", () => {
+    const { onAnadir, svg } = pintar({ herramienta: "text" });
+    const campo = escribir(svg, "hola");
+    // El mismo clic llega dos veces: a la imagen, y al campo que pierde el foco.
+    fireEvent.pointerDown(svg, { clientX: 150, clientY: 60 });
+    fireEvent.blur(campo);
+    expect(onAnadir).toHaveBeenCalledTimes(1);
+    expect(onAnadir.mock.calls[0][0]).toMatchObject({ text: "hola", x1: 0.5 });
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("pulsar fuera de la imagen (la barra, el panel) también lo guarda", () => {
+    const { onAnadir, svg } = pintar({ herramienta: "text" });
+    fireEvent.blur(escribir(svg, "fuera"));
+    expect(onAnadir).toHaveBeenCalledTimes(1);
+    expect(onAnadir.mock.calls[0][0]).toMatchObject({ text: "fuera" });
+  });
+
+  it("Escape lo tira, y no le llega al editor", () => {
+    const { onAnadir, svg } = pintar({ herramienta: "text" });
+    const alEditor = vi.fn();
+    window.addEventListener("keydown", alEditor);
+    const campo = escribir(svg, "no va");
+    fireEvent.keyDown(campo, { key: "Escape" });
+    fireEvent.blur(campo);
+    window.removeEventListener("keydown", alEditor);
+    expect(onAnadir).not.toHaveBeenCalled();
+    expect(alEditor).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("sin nada escrito no se pone nada", () => {
-    const { onAnadir, svg } = pintar({ herramienta: "text", texto: "   " });
-    fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    const { onAnadir, svg } = pintar({ herramienta: "text" });
+    fireEvent.keyDown(escribir(svg, "   "), { key: "Enter" });
     expect(onAnadir).not.toHaveBeenCalled();
+  });
+
+  it("cambiar de herramienta con el texto a medias lo guarda", () => {
+    const onAnadir = vi.fn();
+    const props = { color: "#ef4444", anotaciones: [], onAnadir, anchoImagen: 1920 };
+    const { container, rerender } = render(<CapaAnotaciones herramienta="text" {...props} />);
+    escribir(container.querySelector("svg")!, "a medias");
+    rerender(<CapaAnotaciones herramienta="box" {...props} />);
+    expect(onAnadir).toHaveBeenCalledTimes(1);
+    expect(onAnadir.mock.calls[0][0]).toMatchObject({ text: "a medias" });
+  });
+
+  it("el campo se lleva el foco en el acto, para que no se pierda lo primero que se teclea", () => {
+    const { svg } = pintar({ herramienta: "text" });
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Texto" }));
+  });
+
+  it("la letra es la del archivo: un cuarentaidosavo del ancho, entre 14 y 72 píxeles", () => {
+    // 1920 / 42 = 45,7 px de celda: manda el ancho. Y 100 / 42 cqw es eso mismo en la capa.
+    const ancha = letraDelTexto(1920, 0.2, 0.3, "#22c55e");
+    expect(ancha.fontSize).toBe(`calc(clamp(${14 * (100 / 1920)}cqw, ${100 / 42}cqw, ${72 * (100 / 1920)}cqw) / 1.33)`);
+    expect(ancha).toMatchObject({ left: "20%", top: "30%", color: "#22c55e", fontWeight: 600 });
+    // Una captura de 300 px de ancho daría 7 px de celda: se queda en 14, que son 14 / 300.
+    expect(letraDelTexto(300, 0, 0, "#000000").fontSize).toContain(`clamp(${14 * (100 / 300)}cqw,`);
+  });
+
+  it("los textos ya puestos se pintan en su sitio y con su color", () => {
+    const marcas: Anotacion[] = [{ kind: "text", x1: 0.2, y1: 0.3, x2: 0.2, y2: 0.3, color: "#22c55e", text: "listo" }];
+    pintar({ anotaciones: marcas, herramienta: null });
+    const texto = screen.getByText("listo");
+    expect(texto.style.left).toBe("20%");
+    expect(texto.style.top).toBe("30%");
   });
 });
 

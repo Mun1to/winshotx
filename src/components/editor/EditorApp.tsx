@@ -130,7 +130,6 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
   const [colorMarca, setColorMarca] = useState(COLORES[0]);
-  const [textoMarca, setTextoMarca] = useState("");
   /** El trozo que se exporta, de 0 a 1. Sin marco puesto sale la captura entera. */
   const [recorte, setRecorte] = useState<Recorte | null>(null);
   const [recortando, setRecortando] = useState(false);
@@ -757,8 +756,6 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             }}
             color={colorMarca}
             onColor={setColorMarca}
-            texto={textoMarca}
-            onTexto={setTextoMarca}
             cuantas={anotaciones.length}
             onDeshacer={() => setAnotaciones((previas) => previas.slice(0, -1))}
             onBorrarTodo={() => setAnotaciones([])}
@@ -923,7 +920,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 color={herramienta === "highlight" ? COLOR_RESALTADO : colorMarca}
                 anotaciones={anotaciones}
                 onAnadir={(marca) => setAnotaciones((previas) => [...previas, marca])}
-                texto={textoMarca}
+                anchoImagen={session.region.width}
               />
               <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
             </div>

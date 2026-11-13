@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import {
   controlDeCurva,
   FOCO_OSCURECE,
@@ -7,6 +7,7 @@ import {
   type Herramienta,
   type Punto,
 } from "../../lib/anotaciones";
+import { useT } from "../../lib/i18n";
 
 /**
  * La capa donde se dibuja encima de la vista previa.
@@ -27,13 +28,35 @@ interface Props {
   color: string;
   anotaciones: Anotacion[];
   onAnadir: (anotacion: Anotacion) => void;
-  /** Lo que se escribe cuando la herramienta es el texto. */
-  texto: string;
+  /**
+   * Lo que mide de ancho la imagen de verdad, en píxeles. Al exportar, la letra del texto
+   * sale de ahí (`encode::anotacion::texto`), y la vista previa la saca igual para que lo
+   * que se escribe encima mida lo que va a medir en el archivo.
+   */
+  anchoImagen: number;
 }
 
-export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, texto }: Props) {
+/** Dónde se está escribiendo un texto, de 0 a 1, y lo que lleva escrito. */
+interface Escribiendo {
+  x: number;
+  y: number;
+  valor: string;
+}
+
+export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anchoImagen }: Props) {
+  const t = useT();
   const marco = useRef<SVGSVGElement>(null);
   const [dibujando, setDibujando] = useState<Anotacion | null>(null);
+  /**
+   * El texto que se está escribiendo encima de la imagen. Va también en una ref porque se
+   * guarda desde dos sitios que llegan juntos con el mismo clic (pulsar fuera en la imagen,
+   * y el campo que pierde el foco por ese mismo clic): el primero lo guarda y lo vacía, y
+   * el segundo ya no encuentra nada. Sin eso salían dos textos iguales, uno encima del otro.
+   */
+  const [escribiendo, setEscribiendo] = useState<Escribiendo | null>(null);
+  const abierto = useRef<Escribiendo | null>(null);
+  abierto.current = escribiendo;
+  const campo = useRef<HTMLInputElement>(null);
   /**
    * Por dónde ha pasado el ratón, para el lápiz y la flecha curva. Va en una ref y no en
    * el estado porque cambia en cada movimiento y no se pinta tal cual: el lápiz pinta su
@@ -53,13 +76,51 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, tex
     ];
   };
 
+  /** Deja el texto escrito como una marca más. Sin nada escrito, no deja nada. */
+  const guardarTexto = () => {
+    const sitio = abierto.current;
+    if (!sitio) return;
+    abierto.current = null;
+    setEscribiendo(null);
+    const escrito = sitio.valor.trim();
+    if (escrito) onAnadir({ kind: "text", x1: sitio.x, y1: sitio.y, x2: sitio.x, y2: sitio.y, color, text: escrito });
+  };
+
+  const tirarTexto = () => {
+    abierto.current = null;
+    setEscribiendo(null);
+  };
+
+  // El foco va al campo en cuanto aparece, antes de que se pinte: con un fotograma de
+  // retraso, lo que se tecleaba nada más pulsar se perdía (en Edge, «Hola» salía «la»). El
+  // clic que lo abre no se lo quita, porque `empezar` cancela el `pointerdown` y con él el
+  // `mousedown`, que es quien mueve el foco.
+  const hayCampo = escribiendo !== null;
+  useLayoutEffect(() => {
+    if (hayCampo) campo.current?.focus();
+  }, [hayCampo]);
+
+  // Cambiar de herramienta con el texto a medias lo guarda, igual que pulsar fuera.
+  useEffect(() => {
+    if (herramienta !== "text") guardarTexto();
+    // Solo al cambiar de herramienta; `guardarTexto` lee lo vivo de la ref.
+  }, [herramienta]);
+
   const empezar = (e: React.PointerEvent) => {
+    // Con un texto a medias, pulsar fuera de él lo guarda, y ese clic no hace nada más:
+    // quien pulsa fuera para terminar no quiere empezar otro texto sin darse cuenta.
+    if (abierto.current) {
+      e.preventDefault();
+      guardarTexto();
+      return;
+    }
     if (!herramienta) return;
     e.preventDefault();
     const [x, y] = punto(e);
-    // El texto no se arrastra: se pone donde se pulsa y se acabó.
+    // El texto no se arrastra: se pulsa donde va, se escribe ahí mismo, y Intro o pulsar
+    // fuera lo deja puesto.
     if (herramienta === "text") {
-      if (texto.trim()) onAnadir({ kind: "text", x1: x, y1: y, x2: x, y2: y, color, text: texto });
+      setEscribiendo({ x, y, valor: "" });
       return;
     }
     // Y el paso tampoco, y además se numera solo. Numerar a mano es justo lo que se olvida
@@ -106,8 +167,10 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, tex
   // El foco va debajo de todo y todos juntos en un velo, igual que al exportar
   // (`encode::anotacion::pintar`): así no oscurece lo dibujado ni se tapan entre ellos.
   const focos = todas.filter((a) => a.kind === "focus");
+  const textos = todas.filter((a) => a.kind === "text");
 
   return (
+    <>
     <svg
       ref={marco}
       onPointerDown={empezar}
@@ -152,7 +215,89 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, tex
         <Marca key={i} anotacion={a} />
       ))}
     </svg>
+    {/*
+      Los textos van en HTML y no en el SVG: el SVG va estirado a 1000 x 1000, y un texto
+      ahí dentro salía ensanchado en una captura apaisada. Aquí miden lo que van a medir en
+      el archivo, y el campo donde se escribe es la misma letra en el mismo sitio, así que
+      al pulsar Intro no se mueve nada.
+    */}
+    {(textos.length > 0 || escribiendo) && (
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ containerType: "size" }}>
+        {textos.map((a, i) => (
+          <span key={i} data-marca="text" style={letraDelTexto(anchoImagen, a.x1, a.y1, a.color)}>
+            {a.text}
+          </span>
+        ))}
+        {escribiendo && (
+          <input
+            ref={campo}
+            value={escribiendo.valor}
+            onChange={(e) => {
+              const valor = e.target.value;
+              setEscribiendo((antes) => antes && { ...antes, valor });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                guardarTexto();
+              } else if (e.key === "Escape") {
+                // Escape tira el texto a medias y nada más: que no le llegue al editor,
+                // que con Escape suelta la herramienta o se cierra.
+                e.preventDefault();
+                e.stopPropagation();
+                tirarTexto();
+              }
+            }}
+            onBlur={guardarTexto}
+            placeholder={t("Escribe aquí")}
+            aria-label={t("Texto")}
+            spellCheck={false}
+            className="pointer-events-auto rounded-sm border-0 bg-transparent outline-[1.5px] outline-offset-2 outline-current outline-dashed placeholder:text-current placeholder:opacity-55"
+            style={
+              {
+                ...letraDelTexto(anchoImagen, escribiendo.x, escribiendo.y, color),
+                caretColor: color,
+                // El campo crece con lo que se escribe, como el texto que va a quedar.
+                fieldSizing: "content",
+                minWidth: "1ch",
+                margin: 0,
+              } as CSSProperties
+            }
+          />
+        )}
+      </div>
+    )}
+    </>
   );
+}
+
+/**
+ * La letra de un texto en la vista previa, sacada como la saca Rust al exportar
+ * (`encode::anotacion::texto`): Segoe UI seminegrita, con la celda a un cuarentaidosavo del
+ * ancho de la imagen y entre 14 y 72 píxeles de ella, con dos de aire, y metida dentro si
+ * se sale por la derecha o por abajo (`esquina_metida`).
+ *
+ * Va en unidades del contenedor para no medir la capa: 100 cqw es su ancho, que es el de
+ * la imagen, así que un píxel de la imagen son `100 / anchoImagen` cqw a cualquier tamaño.
+ */
+export function letraDelTexto(anchoImagen: number, x: number, y: number, color: string): CSSProperties {
+  const px = 100 / Math.max(1, anchoImagen);
+  const celda = `clamp(${14 * px}cqw, ${100 / 42}cqw, ${72 * px}cqw)`;
+  return {
+    position: "absolute",
+    left: `${x * 100}%`,
+    top: `${y * 100}%`,
+    translate: `min(0px, calc(${(1 - x) * 100}cqw - 100%)) min(0px, calc(${(1 - y) * 100}cqh - 100%))`,
+    padding: `${2 * px}cqw`,
+    fontFamily: '"Segoe UI", system-ui, sans-serif',
+    fontWeight: 600,
+    // GDI pide la letra por el alto de su celda, y CSS por el de la eme: en Segoe UI la
+    // celda mide 1,33 emes.
+    fontSize: `calc(${celda} / 1.33)`,
+    lineHeight: 1.33,
+    color,
+    whiteSpace: "pre",
+  };
 }
 
 /**
@@ -307,11 +452,8 @@ function Marca({ anotacion: a }: { anotacion: Anotacion }) {
       // Lo pinta el velo de arriba, todos los focos juntos y por debajo de las demás.
       return null;
     case "text":
-      return (
-        <text x={x1} y={y1} fill={a.color} fontSize={34} fontWeight={600} dominantBaseline="hanging">
-          {a.text}
-        </text>
-      );
+      // Lo pinta la capa de HTML de encima, a su tamaño de verdad.
+      return null;
     case "step": {
       // El disco lleva un aro blanco por fuera, igual que al exportar: sobre una captura
       // oscura un disco de color sin borde se pierde, y sobre una clara se pierde el

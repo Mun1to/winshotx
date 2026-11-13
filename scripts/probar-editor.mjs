@@ -25,7 +25,7 @@
  * Sale con 0 si todo cuadra y con 1 si algo no.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -390,12 +390,55 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   );
   comprueba(pintadas.length === 5, `la vista previa enseña las cinco: ${pintadas.join(", ")}`);
 
+  // El texto se escribe encima de la imagen: pulsar, escribir, e Intro o pulsar fuera.
+  await pagina.getByRole("button", { name: "Texto · 3", exact: true }).click();
+  const capa = await pagina.locator("svg.cursor-crosshair").boundingBox();
+  const en = (x, y) => [capa.x + capa.width * x, capa.y + capa.height * y];
+  await pagina.mouse.click(...en(0.1, 0.1));
+  await pagina.keyboard.type("Hola Munito");
+  await pagina.keyboard.press("Enter");
+  const enSuSitio = await pagina.evaluate(() => {
+    const span = [...document.querySelectorAll('[data-marca="text"]')].find((e) => e.textContent === "Hola Munito");
+    const caja = span?.getBoundingClientRect();
+    return span && { x: caja.x, y: caja.y, letra: parseFloat(getComputedStyle(span).fontSize), campos: document.querySelectorAll("input[aria-label=Texto]").length };
+  });
+  comprueba(
+    enSuSitio && Math.abs(enSuSitio.x - en(0.1, 0.1)[0]) < 2 && Math.abs(enSuSitio.y - en(0.1, 0.1)[1]) < 2 && enSuSitio.campos === 0,
+    `pulsar, escribir e Intro deja el texto donde se pulsó y cierra el campo: ${JSON.stringify(enSuSitio)}`,
+  );
+  // La letra de la vista previa es la del archivo, a escala: la celda, un cuarentaidosavo del ancho.
+  // El ancho de la imagen del banco es el del fotograma (`ver-ventana.mjs`, REGION): su PNG lo dice en los bytes 16 a 19.
+  const anchoImagen = readFileSync(fotograma).readUInt32BE(16);
+  const letraEsperada = (Math.min(72, Math.max(14, Math.round(anchoImagen / 42))) * (capa.width / anchoImagen)) / 1.33;
+  comprueba(
+    enSuSitio && Math.abs(enSuSitio.letra - letraEsperada) < 0.6,
+    `y mide lo que va a medir en el archivo: ${enSuSitio?.letra.toFixed(1)} px (debía ${letraEsperada.toFixed(1)})`,
+  );
+  // Abajo del todo, y guardado pulsando fuera: el clic de fuera no abre otro campo.
+  await pagina.mouse.click(...en(0.3, 0.97));
+  await pagina.keyboard.type("abajo");
+  await pagina.mouse.click(...en(0.6, 0.5));
+  const abajo = await pagina.evaluate(() => {
+    const span = [...document.querySelectorAll('[data-marca="text"]')].find((e) => e.textContent === "abajo");
+    return span && { pie: span.getBoundingClientRect().bottom, campos: document.querySelectorAll("input[aria-label=Texto]").length };
+  });
+  comprueba(
+    abajo && abajo.campos === 0 && abajo.pie <= capa.y + capa.height + 1,
+    `pulsar fuera lo guarda sin abrir otro, y pegado abajo se mete dentro como al exportar: ${JSON.stringify(abajo)}`,
+  );
+  if (fotos) await pagina.screenshot({ path: join(fotos, "11b-texto-encima.png") });
+
   await pagina.getByRole("button", { name: "Guardar MP4" }).click();
   await pagina.waitForFunction(() => (window.__llamadas ?? []).some((l) => l.cmd === "export_media"));
   const marcas = await pagina.evaluate(
     () => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request.annotations,
   );
   const de = (k) => marcas.find((m) => m.kind === k);
+  const textos = marcas.filter((m) => m.kind === "text").map((m) => `${m.text}@${m.x1.toFixed(2)},${m.y1.toFixed(2)}`);
+  comprueba(
+    textos.join(" ") === "Hola Munito@0.10,0.10 abajo@0.30,0.97",
+    `«Guardar» manda los dos textos con lo escrito y donde se pulsó: ${textos.join(" ")}`,
+  );
   comprueba(
     ["focus", "ellipse", "line", "curve", "pen"].every((k) => de(k)),
     `«Guardar» manda las cinco a Rust: ${marcas.map((m) => m.kind).join(", ")}`,

@@ -36,8 +36,6 @@ interface Props {
   onElegir: (herramienta: Herramienta | null) => void;
   color: string;
   onColor: (color: string) => void;
-  texto: string;
-  onTexto: (texto: string) => void;
   cuantas: number;
   onDeshacer: () => void;
   onBorrarTodo: () => void;
@@ -90,8 +88,6 @@ export function BarraAnotar({
   onElegir,
   color,
   onColor,
-  texto,
-  onTexto,
   cuantas,
   onDeshacer,
   onBorrarTodo,
@@ -149,14 +145,15 @@ export function BarraAnotar({
         </>
       )}
 
-      {/* El campo solo aparece con el texto elegido: es lo único que se escribe. */}
+      {/*
+        El texto se escribe encima de la imagen, donde se pulsa («CapaAnotaciones»). Antes se
+        escribía aquí y se pegaba con un clic, y lo escrito se quedaba en la barra para el
+        siguiente: no se veía dónde iba a caer ni cómo iba a quedar hasta soltarlo.
+      */}
       {activa === "text" && (
-        <input
-          value={texto}
-          onChange={(e) => onTexto(e.target.value)}
-          placeholder={t("Escribe y pulsa en la imagen")}
-          className="h-[34px] min-w-[200px] flex-1 rounded-md border border-white/10 bg-black/40 px-2.5 text-[13px] text-neutral-100 placeholder:text-neutral-500 focus:border-blue-500/70 focus:outline-none"
-        />
+        <span className="px-1 text-[13px] whitespace-nowrap text-neutral-200">
+          {t("Pulsa en la imagen y escribe")}
+        </span>
       )}
 
       <Raya />
