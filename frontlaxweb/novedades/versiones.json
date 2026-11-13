@@ -1,6 +1,29 @@
 {
   "versiones": [
     {
+      "version": "0.4.6",
+      "desde": null,
+      "fecha": "2026-11-14",
+      "es": {
+        "titulo": "Escribe encima de la imagen y silencia la vista previa",
+        "puntos": [
+          "**El texto se escribe encima de la imagen**: con la «T» pinchas donde quieras, escribes en el mismo sitio y se guarda con Intro o con un clic fuera. Escape lo tira.",
+          "**Silenciar la vista previa** con el altavoz que hay al lado del play, o con la tecla **M**. El vídeo que guardas sigue saliendo con su sonido.",
+          "**Una pista que se grabó muda lo dice**: si el micrófono no mandó nada o la app que sonaba estaba muy baja en el mezclador de Windows, lo verás debajo de su mando en vez de pensar que la vista previa no suena.",
+          "Un botón **«Apoyar»** en la barra de abajo de los ajustes, para invitarme a un café."
+        ]
+      },
+      "en": {
+        "titulo": "Type on the image and mute the preview",
+        "puntos": [
+          "**Text is typed right on the image**: with the «T» you click wherever you want, type in place, and it is kept with Enter or a click outside. Escape throws it away.",
+          "**Mute the preview** with the speaker next to play, or with the **M** key. The video you save still comes out with its sound.",
+          "**A track that was recorded silent says so**: if the microphone sent nothing or the app that was playing was turned way down in the Windows volume mixer, you see it under its control instead of thinking the preview is broken.",
+          "A **Support** button in the settings bottom bar, to buy me a coffee."
+        ]
+      }
+    },
+    {
       "version": "0.4.5",
       "desde": null,
       "fecha": "2026-11-12",
