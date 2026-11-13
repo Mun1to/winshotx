@@ -441,6 +441,8 @@ export const ZH: Record<string, string> = {
   Mosaico: "马赛克",
   "Pulsa en la imagen y escribe": "点击图片后输入文字",
   "Escribe aquí": "在此输入",
+  "Silenciar la vista previa (M)": "预览静音 (M)",
+  "Oír la vista previa (M)": "取消预览静音 (M)",
   "Deshacer la última (Ctrl+Z)": "撤销上一步 (Ctrl+Z)",
   "Últimas capturas": "最新截图",
   "Copiar {nombre}": "复制{nombre}",

@@ -12,6 +12,8 @@ interface Props {
   /** Sus mandos del panel, tal como van al archivo. */
   volumenPc: VolumenDePista | null | undefined;
   volumenMicrofono: VolumenDePista | null | undefined;
+  /** La vista previa sin sonido (el botón de al lado del play): las dos pistas se callan. */
+  callada?: boolean;
   /** El instante que se enseña cuando no hay vídeo de vista previa todavía. */
   msParado: number;
   /** Una pista que no se puede abrir: el editor vuelve a sonar por el vídeo, con todo junto. */
@@ -29,6 +31,7 @@ export function SonidoPorPistas({
   microfono,
   volumenPc,
   volumenMicrofono,
+  callada = false,
   msParado,
   onFallo,
 }: Props) {
@@ -36,7 +39,9 @@ export function SonidoPorPistas({
   const voz = useRef<HTMLAudioElement>(null);
   // Lo que cambia en cada render, a mano para el bucle: así no se rehace a cada toque del mando.
   const vivo = useRef({ pc: 0, voz: 0, parado: msParado });
-  vivo.current = { pc: volumenEnVista(volumenPc), voz: volumenEnVista(volumenMicrofono), parado: msParado };
+  vivo.current = callada
+    ? { pc: 0, voz: 0, parado: msParado }
+    : { pc: volumenEnVista(volumenPc), voz: volumenEnVista(volumenMicrofono), parado: msParado };
 
   useEffect(() => {
     const estados: [EstadoDePista, EstadoDePista] = [{ recolocadaMs: -Infinity }, { recolocadaMs: -Infinity }];

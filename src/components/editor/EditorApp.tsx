@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Pause, Play, VideoOff } from "lucide-react";
+import { Pause, Play, VideoOff, Volume2, VolumeX } from "lucide-react";
 import {
   discardSession,
   ffmpegAvailable,
@@ -65,6 +65,18 @@ import { volumenDelClicEnVista } from "../../lib/sonidoDeClic";
 // S11 (pistas)
 import { SonidoPorPistas } from "./SonidoPorPistas";
 import { conPistas } from "../../lib/pistas";
+
+/** Dónde se recuerda que la vista previa va sin sonido. */
+const CLAVE_VISTA_CALLADA = "winshotx.vistaCallada";
+
+/** Si la vista previa se dejó callada en este ordenador. Sin almacenamiento, suena. */
+function vistaCalladaRecordada(): boolean {
+  try {
+    return localStorage.getItem(CLAVE_VISTA_CALLADA) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -130,6 +142,23 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
   const [colorMarca, setColorMarca] = useState(COLORES[0]);
+  /**
+   * La vista previa sin sonido. Solo calla lo que se oye aquí: el archivo sale con el sonido
+   * que digan sus mandos. Se recuerda en este ordenador, porque quien edita sin sonido (en
+   * clase, en la oficina) lo quiere igual en el vídeo siguiente.
+   */
+  const [callada, setCallada] = useState(vistaCalladaRecordada);
+  const alternarSonido = useCallback(() => {
+    setCallada((antes) => {
+      const ahora = !antes;
+      try {
+        localStorage.setItem(CLAVE_VISTA_CALLADA, ahora ? "1" : "0");
+      } catch {
+        // Sin almacenamiento se calla igual; solo no se recuerda.
+      }
+      return ahora;
+    });
+  }, []);
   /** El trozo que se exporta, de 0 a 1. Sin marco puesto sale la captura entera. */
   const [recorte, setRecorte] = useState<Recorte | null>(null);
   const [recortando, setRecortando] = useState(false);
@@ -481,8 +510,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const suenanLasPistas = conPistas(session) && !pistasRotas;
   useEffect(() => {
     const video = videoRef.current;
-    if (video) video.volume = suenanLasPistas ? 0 : Math.min(1, Math.max(0, estudio.volumen));
-  }, [estudio.volumen, session?.mp4Path, suenanLasPistas]);
+    if (video) video.volume = callada || suenanLasPistas ? 0 : Math.min(1, Math.max(0, estudio.volumen));
+  }, [estudio.volumen, session?.mp4Path, suenanLasPistas, callada]);
 
   /** Lo que dura lo que se queda. */
   const keptMs = Math.max(0, hastaMs - desdeMs);
@@ -546,6 +575,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         setHerramienta(null);
       } else if (key === "o") {
         markOut();
+      } else if (key === "m" && !e.ctrlKey && !e.metaKey) {
+        // M de mudo, como en casi cualquier reproductor de vídeo.
+        alternarSonido();
       } else if (e.key === "ArrowLeft") {
         ir(fotogramaVecino(frames, posicionMs, -1));
       } else if (e.key === "ArrowRight") {
@@ -564,7 +596,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     // `recortando` y `herramienta` entran aqui porque Escape los mira: sin ellos el
   // manejador se queda con la foto vieja del estado y cierra el editor, tirando los
   // fotogramas, en vez de soltar lo que se estuviera haciendo.
-  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar]);
+  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
@@ -707,19 +739,32 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * funcionan igual sin vista previa.
    */
   const sitioDelPlay = videoUrl ? (
-    <button
-      type="button"
-      onClick={togglePlay}
-      aria-label={playing ? t("Pausar") : t("Reproducir")}
-      title={playing ? t("Pausar") : t("Reproducir")}
-      className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
-    >
-      {playing ? (
-        <Pause className="size-[22px]" fill="currentColor" />
-      ) : (
-        <Play className="size-[22px] pl-0.5" fill="currentColor" />
-      )}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={togglePlay}
+        aria-label={playing ? t("Pausar") : t("Reproducir")}
+        title={playing ? t("Pausar") : t("Reproducir")}
+        className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+      >
+        {playing ? (
+          <Pause className="size-[22px]" fill="currentColor" />
+        ) : (
+          <Play className="size-[22px] pl-0.5" fill="currentColor" />
+        )}
+      </button>
+      {/* Al lado del play, como en cualquier reproductor: callar es parte de mirar. */}
+      <button
+        type="button"
+        onClick={alternarSonido}
+        aria-label={callada ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
+        aria-pressed={callada}
+        title={callada ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
+        className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+      >
+        {callada ? <VolumeX className="size-[22px]" /> : <Volume2 className="size-[22px]" />}
+      </button>
+    </>
   ) : previaFallida ? (
     <span
       className="flex items-center gap-1.5 px-1 text-[13px] whitespace-nowrap text-amber-300"
@@ -882,6 +927,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   microfono={session.microfono}
                   volumenPc={edicion.sonidoPc}
                   volumenMicrofono={edicion.microfono}
+                  callada={callada}
                   msParado={posicionMs}
                   onFallo={(motivo) => {
                     console.warn(`[winshotx] la pista no suena en la vista previa (${motivo}): suena el vídeo`);
@@ -910,7 +956,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   piezas={piezas}
                   desdeMs={desdeMs}
                   hastaMs={hastaMs}
-                  volumen={volumenDelClicEnVista(edicion.sonidoClic, estudio.velocidad)}
+                  volumen={callada ? 0 : volumenDelClicEnVista(edicion.sonidoClic, estudio.velocidad)}
                   clic={edicion.clic}
                 />
               )}

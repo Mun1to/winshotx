@@ -840,6 +840,24 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   await pagina.waitForTimeout(200);
   e = await estado();
   comprueba(e.pc.parada && e.voz.parada, "al pausar, las dos se paran");
+
+  // El botón de silenciar, al lado del play: calla lo que se oye sin tocar lo que se guarda.
+  await pagina.getByRole("button", { name: "Reproducir" }).click();
+  await pagina.getByRole("button", { name: "Silenciar la vista previa (M)" }).click();
+  await pagina.waitForTimeout(300);
+  e = await estado();
+  comprueba(
+    e.voz.parada && e.voz.volumen === 0 && e.video.volumen === 0 && !e.video.parado,
+    `silenciada, la voz se calla y el vídeo sigue: ${JSON.stringify({ voz: e.voz, video: e.video })}`,
+  );
+  await pagina.keyboard.press("m");
+  await pagina.waitForTimeout(300);
+  e = await estado();
+  comprueba(
+    !e.voz.parada && Math.abs(e.voz.volumen - 0.4) < 1e-6,
+    `con la M vuelve a sonar a su 40 %: ${JSON.stringify(e.voz)}`,
+  );
+  await pagina.getByRole("button", { name: "Pausar" }).click();
   if (fotos) await pagina.screenshot({ path: join(fotos, "14-pistas.png") });
 
   const antes = await pagina.evaluate(() => (window.__llamadas ?? []).filter((l) => l.cmd === "export_media").length);
@@ -851,7 +869,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
       peticion.sonidoPc?.encendida === false &&
       peticion.microfono?.encendida === true &&
       Math.abs(peticion.microfono.volumen - 0.4) < 1e-6,
-    `«Guardar» manda lo mismo que se oye: ${JSON.stringify({ audio: peticion.audio, sonidoPc: peticion.sonidoPc, microfono: peticion.microfono })}`,
+    `«Guardar» manda sus volúmenes aunque la vista previa vaya callada: ${JSON.stringify({ audio: peticion.audio, sonidoPc: peticion.sonidoPc, microfono: peticion.microfono })}`,
   );
 
   // Con la ventana minimizada no hay pintadas. Se apagan aquí a propósito (va lo último, que

@@ -560,3 +560,77 @@ describe("el sonido del PC y la voz en la vista previa", () => {
     aviso.mockRestore();
   });
 });
+
+describe("silenciar la vista previa", () => {
+  async function abrirVideo(pistas: Record<string, unknown> = {}) {
+    preparar(VERTICAL, "C:\t\preview.mp4", "mp4");
+    responde("session_info", {
+      id: "s1",
+      region: VERTICAL,
+      fps: 30,
+      frameCount: 3,
+      durationMs: 100,
+      hasAudio: true,
+      format: "mp4",
+      mp4Path: "C:\t\preview.mp4",
+      ...pistas,
+    });
+    const vista = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    return vista;
+  }
+
+  beforeEach(() => localStorage.removeItem("winshotx.vistaCallada"));
+
+  it("el botón de al lado del play la calla y la vuelve a oír, cambiando de nombre", async () => {
+    const { container } = await abrirVideo();
+    const video = container.querySelector("video")!;
+    expect(video.volume).toBe(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Silenciar la vista previa (M)" }));
+    expect(video.volume).toBe(0);
+    const oir = screen.getByRole("button", { name: "Oír la vista previa (M)" });
+    expect(oir).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(oir);
+    expect(video.volume).toBe(1);
+  });
+
+  it("la M hace lo mismo, como en cualquier reproductor", async () => {
+    const { container } = await abrirVideo();
+    fireEvent.keyDown(window, { key: "m" });
+    expect(container.querySelector("video")!.volume).toBe(0);
+    fireEvent.keyDown(window, { key: "M" });
+    expect(container.querySelector("video")!.volume).toBe(1);
+  });
+
+  it("solo calla lo que se oye aquí: lo que se guarda sigue con su volumen", async () => {
+    await abrirVideo();
+    fireEvent.click(screen.getByRole("button", { name: "Silenciar la vista previa (M)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar MP4" }));
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "export_media")).toBe(true));
+    const peticion = (llamadas.find((l) => l.comando === "export_media")?.args as {
+      request: Record<string, unknown>;
+    }).request;
+    expect(peticion.volume).toBe(1);
+  });
+
+  it("con el PC y la voz por separado, calla las dos pistas", async () => {
+    const { container } = await abrirVideo({ sonidoPc: "C:\t\sonido-pc.wav", microfono: "C:\t\microfono.wav" });
+    await waitFor(() => expect(container.querySelectorAll("audio")).toHaveLength(2));
+    fireEvent.click(screen.getByRole("button", { name: "Silenciar la vista previa (M)" }));
+    await waitFor(() => {
+      for (const pista of container.querySelectorAll("audio")) expect(pista.volume).toBe(0);
+    });
+  });
+
+  it("se recuerda para el vídeo siguiente", async () => {
+    const primero = await abrirVideo();
+    fireEvent.click(screen.getByRole("button", { name: "Silenciar la vista previa (M)" }));
+    primero.unmount();
+
+    const { container } = await abrirVideo();
+    expect(screen.getByRole("button", { name: "Oír la vista previa (M)" })).toBeInTheDocument();
+    expect(container.querySelector("video")!.volume).toBe(0);
+  });
+});
