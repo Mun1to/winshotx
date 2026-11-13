@@ -473,6 +473,14 @@ export const ZH: Record<string, string> = {
     "这是支持 winshotx 的唯一方式：没有付费版、没有广告、没有数据可卖。一次付款，金额由你决定，无需账号。",
   Invitar: "请一杯",
   Apoyar: "支持",
+  "No sonó nada en el PC mientras grababas.":
+    "录制时电脑没有播放任何声音。",
+  "Se grabó casi sin sonido: la app que sonaba estaba muy baja en el mezclador de Windows.":
+    "录到的声音几乎听不见：正在播放的应用在 Windows 音量合成器中音量很低。",
+  "El micrófono no mandó nada: mira que no esté silenciado ni sin permiso en Windows.":
+    "麦克风没有传来任何声音：请检查它在 Windows 中是否被静音或未获权限。",
+  "Se grabó casi sin sonido: sube el micrófono en los ajustes de sonido de Windows.":
+    "录到的声音几乎听不见：请在 Windows 声音设置中调高麦克风音量。",
   "El código y los fallos": "代码与问题反馈",
   "Ayuda igual que un café y es gratis: una estrella hace que lo encuentre más gente, y un fallo contado con lo que estabas haciendo es lo que hace que se arregle.":
     "和请咖啡一样有帮助，而且免费：点星能让更多人发现它，反馈问题时说明你当时的操作就能帮助修复。",

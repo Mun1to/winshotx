@@ -95,11 +95,22 @@ pub struct SessionInfo {
     pub sonido_pc: Option<String>,
     /// Y la del microfono.
     pub microfono: Option<String>,
+    /// Lo más alto que sonó cada pista, de 0 (nada) a 1 (el tope). El editor avisa con esto
+    /// de una pista muda o casi muda. Sin dato (sesiones de antes), `None` y no avisa.
+    pub pico_pc: Option<f32>,
+    pub pico_microfono: Option<f32>,
 }
 
 impl From<&SessionData> for SessionInfo {
     fn from(data: &SessionData) -> Self {
         let (sonido_pc, microfono) = record::pistas::rutas(data);
+        // Solo de las pistas que existen: un pico sin su archivo no avisaría de nada útil.
+        let nivel = |ruta: &Option<String>, pico: Option<u16>| {
+            ruta.as_ref().and(pico).map(|p| (f32::from(p) / f32::from(i16::MAX)).min(1.0))
+        };
+        let pistas = data.pistas.clone().unwrap_or_default();
+        let pico_pc = nivel(&sonido_pc, pistas.pico_sistema);
+        let pico_microfono = nivel(&microfono, pistas.pico_microfono);
         Self {
             id: data.id.clone(),
             region: data.region,
@@ -117,6 +128,8 @@ impl From<&SessionData> for SessionInfo {
                 .map(|p| p.to_string_lossy().to_string()),
             sonido_pc,
             microfono,
+            pico_pc,
+            pico_microfono,
         }
     }
 }
@@ -271,13 +284,21 @@ impl SalidaDeAudio {
         let formato = captura.formato;
         captura.parar();
         let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str| {
-            wav.map(record::pistas::EscritorWav::cerrar)
-                .filter(|bytes| *bytes > 0)
-                .map(|_| nombre.to_string())
+            let Some(wav) = wav else { return (None, None) };
+            let pico = wav.pico();
+            if wav.cerrar() > 0 {
+                (Some(nombre.to_string()), Some(pico))
+            } else {
+                (None, None)
+            }
         };
+        let (sistema, pico_sistema) = con_sonido(self.pc.take(), ARCHIVO_PC);
+        let (microfono, pico_microfono) = con_sonido(self.microfono.take(), ARCHIVO_MICROFONO);
         let pistas = crate::contrato::PistasGrabadas {
-            sistema: con_sonido(self.pc.take(), ARCHIVO_PC),
-            microfono: con_sonido(self.microfono.take(), ARCHIVO_MICROFONO),
+            sistema,
+            microfono,
+            pico_sistema,
+            pico_microfono,
         };
         if pistas.sistema.is_none() && pistas.microfono.is_none() {
             return (None, None);
@@ -724,6 +745,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         mp4_path: None,
         sonido_pc: None,
         microfono: None,
+        pico_pc: None,
+        pico_microfono: None,
     };
 
     *state.recording.lock() = Some(recording);
@@ -1301,6 +1324,9 @@ mod pruebas_de_pistas {
         let pistas = pistas.expect("la sesión dice qué pistas trae");
         assert_eq!(pistas.sistema.as_deref(), Some(ARCHIVO_PC));
         assert_eq!(pistas.microfono.as_deref(), Some(ARCHIVO_MICROFONO));
+        // Y lo más alto de cada una, que es con lo que el editor avisa de una pista muda.
+        assert_eq!(pistas.pico_sistema, Some(i16::MAX as u16));
+        assert_eq!(pistas.pico_microfono, Some((i16::MAX / 4) as u16));
 
         let (_, pc) = leer_wav(&dir.join(ARCHIVO_PC)).expect("el WAV del PC");
         let (_, voz) = leer_wav(&dir.join(ARCHIVO_MICROFONO)).expect("el WAV de la voz");

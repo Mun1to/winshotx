@@ -119,6 +119,10 @@ export interface SessionInfo {
   sonidoPc?: string | null;
   /** Y el del micrófono. Sin ninguno de los dos, todo suena junto por el vídeo, como antes. */
   microfono?: string | null;
+  /** Lo más alto que sonó cada pista al grabarla, de 0 a 1 (0 es silencio exacto). Las
+   * sesiones de antes de la 0.4.6 no lo traen. */
+  picoPc?: number | null;
+  picoMicrofono?: number | null;
 }
 
 /**

@@ -159,6 +159,9 @@ export interface Edicion {
 export interface PistasGrabadas {
   sistema: string | null;
   microfono: string | null;
+  /** Lo más alto que sonó cada una al grabarla, en la escala de 16 bits (0 es silencio). */
+  picoSistema?: number | null;
+  picoMicrofono?: number | null;
 }
 
 /** Una pista en el editor: encendida o no, y a qué volumen (1 como se grabó, 2 el doble). */

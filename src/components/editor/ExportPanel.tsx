@@ -554,6 +554,8 @@ export function ExportPanel({
                     ? t("los trozos acelerados salen sin sonido")
                     : undefined
               }
+              picoPc={session.picoPc}
+              picoVoz={session.picoMicrofono}
               onPc={(sonidoPc) => onEdicion?.({ sonidoPc })}
               onVoz={(microfono) => onEdicion?.({ microfono })}
             />

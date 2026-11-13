@@ -744,6 +744,31 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
     expect((await guardarYEsperar()).audio).toBe(false);
   });
 
+  // Lo del 14-nov: el PC a -56 dB (Brave al 10 % en el mezclador) y el micro en ceros. Sin
+  // aviso, parecía que la vista previa no sonaba.
+  it("una pista grabada muda o casi muda lo dice debajo de su mando, y por qué", () => {
+    pintarConPistas({ ...CON_PISTAS, picoPc: 0.0016, picoMicrofono: 0 });
+    expect(
+      screen.getByText("Se grabó casi sin sonido: la app que sonaba estaba muy baja en el mezclador de Windows."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("El micrófono no mandó nada: mira que no esté silenciado ni sin permiso en Windows."),
+    ).toBeInTheDocument();
+    // Apagada ya no va a sonar: el aviso sobra.
+    fireEvent.click(screen.getByRole("switch", { name: "Tu micrófono" }));
+    expect(screen.queryByText(/El micrófono no mandó nada/)).not.toBeInTheDocument();
+  });
+
+  it("una pista que se oye, o una sesión de antes sin el dato, no avisa de nada", () => {
+    pintarConPistas({ ...CON_PISTAS, picoPc: 0.4, picoMicrofono: null });
+    expect(screen.queryByText(/sin sonido|no mandó nada|No sonó nada/)).not.toBeInTheDocument();
+  });
+
+  it("el PC en silencio exacto dice que no sonó nada", () => {
+    pintarConPistas({ ...CON_PISTAS, picoPc: 0 });
+    expect(screen.getByText("No sonó nada en el PC mientras grababas.")).toBeInTheDocument();
+  });
+
   it("solo salen los mandos de lo que se grabó: sin el PC, solo «Tu micrófono»", async () => {
     pintarConPistas({ sonidoPc: null, microfono: "C:\\sesion\\microfono.wav" });
     expect(screen.queryByRole("switch", { name: "Sonido del PC" })).not.toBeInTheDocument();

@@ -64,6 +64,7 @@ fn sesion(nombre: &str, total_ms: u64, pc: &[u8], voz: &[u8]) -> SessionData {
     session.pistas = Some(PistasGrabadas {
         sistema: Some(ARCHIVO_PC.into()),
         microfono: Some(ARCHIVO_MICROFONO.into()),
+        ..Default::default()
     });
     session
 }

@@ -203,6 +203,9 @@ const REGION = editor ? medidaDelPng(editor) : { width: 1280, height: 800 };
 // uno en un WAV que sirve este banco. Son silencio a propósito: el navegador del banco no tiene
 // que hacer sonar nada en el escritorio de nadie.
 const pistas = args.includes("--pistas");
+// Con --pistas-mudas, además, como la grabación del 14-nov: el PC a -56 dB y el micro en ceros,
+// para ver el aviso de la pista muda debajo de cada mando.
+const pistasMudas = args.includes("--pistas-mudas");
 
 /** Un WAV de silencio de esos segundos, en el formato que graba la app (48 kHz, estéreo, 16 bits). */
 function wavDeSilencio(segundos) {
@@ -239,6 +242,7 @@ const SESION = {
   mp4Path: video ? "C:\\\\sesion\\\\preview.mp4" : null,
   // S11 (pistas)
   ...(pistas ? { sonidoPc: "C:\\sesion\\sonido-pc.wav", microfono: "C:\\sesion\\microfono.wav" } : {}),
+  ...(pistas && pistasMudas ? { picoPc: 0.0016, picoMicrofono: 0 } : {}),
 };
 
 const FOTOGRAMAS = Array.from({ length: CUANTOS }, (_, i) => ({

@@ -265,6 +265,10 @@ pub struct PistasGrabadas {
     pub sistema: Option<String>,
     /// Y el de la voz.
     pub microfono: Option<String>,
+    /// Lo más alto que sonó cada pista al grabarla, en la escala de 16 bits (0 es silencio
+    /// exacto). Las sesiones de antes de la 0.4.6 no lo traen, y entonces no se avisa de nada.
+    pub pico_sistema: Option<u16>,
+    pub pico_microfono: Option<u16>,
 }
 
 /// Una pista en el editor: encendida o no, y a qué volumen.

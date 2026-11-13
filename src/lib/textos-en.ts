@@ -482,6 +482,14 @@ export const EN: Record<string, string> = {
     "It is the only way to support winshotx: there is no paid version, no ads and no data to sell. You pay once, you choose how much, and no account is needed.",
   Invitar: "Buy one",
   Apoyar: "Support",
+  "No sonó nada en el PC mientras grababas.":
+    "Nothing played on the PC while you were recording.",
+  "Se grabó casi sin sonido: la app que sonaba estaba muy baja en el mezclador de Windows.":
+    "Recorded almost silent: the app that was playing was turned way down in the Windows volume mixer.",
+  "El micrófono no mandó nada: mira que no esté silenciado ni sin permiso en Windows.":
+    "The microphone sent nothing: check that it isn't muted or blocked in Windows.",
+  "Se grabó casi sin sonido: sube el micrófono en los ajustes de sonido de Windows.":
+    "Recorded almost silent: turn the microphone up in the Windows sound settings.",
   "El código y los fallos": "The code and the bugs",
   "Ayuda igual que un café y es gratis: una estrella hace que lo encuentre más gente, y un fallo contado con lo que estabas haciendo es lo que hace que se arregle.":
     "It helps as much as a coffee and it costs nothing: a star makes more people find it, and a bug reported with what you were doing is what gets it fixed.",

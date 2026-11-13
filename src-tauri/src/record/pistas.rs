@@ -159,6 +159,8 @@ pub struct EscritorWav {
     archivo: BufWriter<File>,
     info: AudioInfo,
     escritos: u64,
+    /// La muestra más alta escrita, en valor absoluto: dice si la pista se oye (`pico`).
+    pico: u16,
 }
 
 impl EscritorWav {
@@ -169,6 +171,7 @@ impl EscritorWav {
             archivo,
             info,
             escritos: 0,
+            pico: 0,
         })
     }
 
@@ -177,7 +180,18 @@ impl EscritorWav {
     pub fn escribir(&mut self, pcm: &[u8]) {
         if self.archivo.write_all(pcm).is_ok() {
             self.escritos += pcm.len() as u64;
+            for muestra in pcm.chunks_exact(2) {
+                self.pico = self.pico.max(i16::from_le_bytes([muestra[0], muestra[1]]).unsigned_abs());
+            }
         }
+    }
+
+    /// Lo más alto que sonó la pista, en la escala de 16 bits (0 es silencio exacto y 32768
+    /// el tope). Con esto el editor dice «no se grabó nada» en vez de dejar que parezca que
+    /// la vista previa está rota: el 14 de noviembre de 2026 el sonido del PC salió a -56 dB
+    /// porque Brave estaba al 10 % en el mezclador, y el micro en ceros.
+    pub fn pico(&self) -> u16 {
+        self.pico
     }
 
     /// Cierra el archivo con su tamaño de verdad en la cabecera. Devuelve cuántos bytes de
@@ -266,6 +280,7 @@ mod pruebas {
         vieja.pistas = Some(crate::contrato::PistasGrabadas {
             sistema: Some(ARCHIVO_PC.into()),
             microfono: Some(ARCHIVO_MICROFONO.into()),
+            ..Default::default()
         });
         let nueva = vieja;
         let archivos = de_la_sesion(&nueva);
@@ -282,6 +297,7 @@ mod pruebas {
         solo_voz.pistas = Some(crate::contrato::PistasGrabadas {
             sistema: None,
             microfono: Some(ARCHIVO_MICROFONO.into()),
+            ..Default::default()
         });
         assert_eq!(de_la_sesion(&solo_voz).len(), 1);
         assert_eq!(
@@ -320,6 +336,59 @@ mod pruebas {
             44_100 * 4
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// El pico es la muestra más alta en valor absoluto, también la negativa: el silencio
+    /// exacto (el micro de Munito el 14-nov) da 0, y eso es lo que le hace decir al editor
+    /// «no se grabó nada».
+    #[test]
+    fn el_pico_dice_lo_alto_que_sono() {
+        let dir = std::env::temp_dir().join("winshotx-pistas-pico");
+        let _ = std::fs::create_dir_all(&dir);
+        let info = AudioInfo { channels: 1, sample_rate: 48_000 };
+        let mut muda = EscritorWav::crear(&dir.join("muda.wav"), info).unwrap();
+        muda.escribir(&[0, 0, 0, 0]);
+        assert_eq!(muda.pico(), 0, "solo ceros es silencio exacto");
+        muda.cerrar();
+        let mut viva = EscritorWav::crear(&dir.join("viva.wav"), info).unwrap();
+        viva.escribir(&[52, 0]);
+        viva.escribir(&(-12_345i16).to_le_bytes());
+        viva.escribir(&i16::MIN.to_le_bytes()[..1]); // medio byte suelto no cuenta
+        assert_eq!(viva.pico(), 12_345);
+        viva.escribir(&i16::MIN.to_le_bytes());
+        assert_eq!(viva.pico(), 32_768, "el tope negativo no se desborda");
+        viva.cerrar();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// El editor recibe el pico de 0 a 1, y solo de las pistas que tienen archivo.
+    #[test]
+    fn el_editor_recibe_el_pico_de_cada_pista() {
+        let dir = std::env::temp_dir().join("winshotx-pistas-pico-editor");
+        let mut s = sesion(&dir);
+        s.pistas = Some(crate::contrato::PistasGrabadas {
+            sistema: Some(ARCHIVO_PC.into()),
+            microfono: Some(ARCHIVO_MICROFONO.into()),
+            pico_sistema: Some(52),
+            pico_microfono: Some(0),
+        });
+        let info = crate::recorder::SessionInfo::from(&s);
+        assert!((info.pico_pc.unwrap() - 52.0 / 32_767.0).abs() < 1e-6);
+        assert_eq!(info.pico_microfono, Some(0.0));
+
+        s.pistas = Some(crate::contrato::PistasGrabadas {
+            sistema: Some(ARCHIVO_PC.into()),
+            pico_sistema: Some(i16::MAX as u16 + 1),
+            pico_microfono: Some(0),
+            ..Default::default()
+        });
+        let info = crate::recorder::SessionInfo::from(&s);
+        assert_eq!(info.pico_pc, Some(1.0), "el tope se queda en 1");
+        assert_eq!(info.pico_microfono, None, "sin archivo de voz, no hay nada que avisar");
+
+        s.pistas = None;
+        let info = crate::recorder::SessionInfo::from(&s);
+        assert_eq!((info.pico_pc, info.pico_microfono), (None, None), "las sesiones de antes no avisan");
     }
 
     /// Sumar dos pistas de 16 bits con su volumen cada una: se escala, se suma, y lo que se
@@ -366,6 +435,7 @@ mod pruebas {
         s.pistas = Some(crate::contrato::PistasGrabadas {
             sistema: Some(ARCHIVO_PC.into()),
             microfono: Some(ARCHIVO_MICROFONO.into()),
+            ..Default::default()
         });
         assert_eq!(
             mezcla_entera(&s),
