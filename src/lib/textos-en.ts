@@ -481,6 +481,7 @@ export const EN: Record<string, string> = {
   "Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.":
     "It is the only way to support winshotx: there is no paid version, no ads and no data to sell. You pay once, you choose how much, and no account is needed.",
   Invitar: "Buy one",
+  Apoyar: "Support",
   "El código y los fallos": "The code and the bugs",
   "Ayuda igual que un café y es gratis: una estrella hace que lo encuentre más gente, y un fallo contado con lo que estabas haciendo es lo que hace que se arregle.":
     "It helps as much as a coffee and it costs nothing: a star makes more people find it, and a bug reported with what you were doing is what gets it fixed.",

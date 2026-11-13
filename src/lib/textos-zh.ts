@@ -472,6 +472,7 @@ export const ZH: Record<string, string> = {
   "Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.":
     "这是支持 winshotx 的唯一方式：没有付费版、没有广告、没有数据可卖。一次付款，金额由你决定，无需账号。",
   Invitar: "请一杯",
+  Apoyar: "支持",
   "El código y los fallos": "代码与问题反馈",
   "Ayuda igual que un café y es gratis: una estrella hace que lo encuentre más gente, y un fallo contado con lo que estabas haciendo es lo que hace que se arregle.":
     "和请咖啡一样有帮助，而且免费：点星能让更多人发现它，反馈问题时说明你当时的操作就能帮助修复。",

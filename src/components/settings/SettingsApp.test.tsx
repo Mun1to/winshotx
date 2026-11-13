@@ -195,6 +195,20 @@ describe("lo que ensenna de la maquina, en «La app»", () => {
     expect(abierta?.args).toEqual({ url: "https://buymeacoffee.com/munito" });
   });
 
+  it("el café también está en la barra de abajo, desde la primera sección, y dice a dónde va", async () => {
+    // Sin ir a «La app»: es la barra que se ve en todas las secciones.
+    await abrirAjustes();
+    const apoyar = screen.getByRole("button", { name: "Apoyar" });
+    expect(apoyar).toHaveAttribute("title", "buymeacoffee.com/munito");
+    expect(apoyar.closest("footer")).not.toBeNull();
+    fireEvent.click(apoyar);
+    await waitFor(() => {
+      expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
+        url: "https://buymeacoffee.com/munito",
+      });
+    });
+  });
+
   it("y los otros tres botones llevan a los otros tres sitios", async () => {
     await irALaApp();
     for (const [boton, url] of [
