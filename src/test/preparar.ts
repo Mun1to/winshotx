@@ -91,14 +91,70 @@ vi.mock("@tauri-apps/api/event", () => ({
   emit: () => Promise.resolve(),
 }));
 
+/**
+ * La ventana de mentira, con su tamaño. Desde S24 la de ajustes se mide y pide su alto:
+ * `ventana.tamannos` apunta cada `setSize` (en físicos) para comprobar lo que pidió.
+ */
+export const ventana = {
+  dentro: { width: 840, height: 760 },
+  marco: 40,
+  y: 100,
+  escala: 1,
+  tamannos: [] as { width: number; height: number }[],
+  posiciones: [] as { x: number; y: number }[],
+};
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     close: () => Promise.resolve(),
     hide: () => Promise.resolve(),
     show: () => Promise.resolve(),
     setFocus: () => Promise.resolve(),
+    setTitle: () => Promise.resolve(),
+    scaleFactor: () => Promise.resolve(ventana.escala),
+    innerSize: () => Promise.resolve({ ...ventana.dentro }),
+    outerSize: () =>
+      Promise.resolve({ width: ventana.dentro.width, height: ventana.dentro.height + ventana.marco }),
+    outerPosition: () => Promise.resolve({ x: 100, y: ventana.y }),
+    setSize: (tamanno: { width: number; height: number }) => {
+      ventana.tamannos.push({ width: tamanno.width, height: tamanno.height });
+      ventana.dentro = { width: tamanno.width, height: tamanno.height };
+      return Promise.resolve();
+    },
+    setPosition: (sitio: { x: number; y: number }) => {
+      ventana.posiciones.push({ x: sitio.x, y: sitio.y });
+      ventana.y = sitio.y;
+      return Promise.resolve();
+    },
     label: "prueba",
   }),
+  // Una pantalla de 1920 x 1080 con la barra de tareas de 48 px abajo.
+  currentMonitor: () =>
+    Promise.resolve({
+      name: "prueba",
+      scaleFactor: 1,
+      position: { x: 0, y: 0 },
+      size: { width: 1920, height: 1080 },
+      workArea: { position: { x: 0, y: 0 }, size: { width: 1920, height: 1032 } },
+    }),
+  PhysicalSize: class {
+    constructor(
+      public width: number,
+      public height: number,
+    ) {}
+  },
+  PhysicalPosition: class {
+    constructor(
+      public x: number,
+      public y: number,
+    ) {}
+  },
+  LogicalSize: class {
+    constructor(
+      public width: number,
+      public height: number,
+    ) {}
+  },
   // Dentro de la pantalla de prueba, que empieza en (0, 0): el raton esta en ella.
   cursorPosition: () => Promise.resolve({ x: 5, y: 5 }),
 }));
@@ -110,4 +166,12 @@ afterEach(() => {
   oyentes.clear();
   llamadas.length = 0;
   localStorage.clear();
+  Object.assign(ventana, {
+    dentro: { width: 840, height: 760 },
+    marco: 40,
+    y: 100,
+    escala: 1,
+    tamannos: [],
+    posiciones: [],
+  });
 });
