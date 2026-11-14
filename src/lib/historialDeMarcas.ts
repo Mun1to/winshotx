@@ -28,7 +28,21 @@ export type CambioDeMarcas =
   | { tipo: "borrar"; indice: number }
   | { tipo: "borrarTodo" }
   | { tipo: "deshacer" }
-  | { tipo: "elegir"; indice: number | null };
+  | { tipo: "elegir"; indice: number | null }
+  /**
+   * S24: pinchar un color con algo elegido se lo cambia a eso. Va aparte de `cambiar` para
+   * que lo haga el reductor con la lista de ese momento: si un texto estaba abierto, pinchar
+   * el color lo guarda primero, y con la marca copiada al pinchar se perdería lo escrito.
+   */
+  | { tipo: "colorear"; indice: number; color: string };
+
+/**
+ * Las marcas que llevan el color que se elige. El resaltado es siempre amarillo (es un
+ * marcador), el mosaico tapa y el foco oscurece: a esas el color no les dice nada.
+ */
+export function seColorea(marca: Anotacion | undefined): boolean {
+  return !!marca && !["highlight", "blur", "focus"].includes(marca.kind);
+}
 
 export const SIN_MARCAS: Marcas = { lista: [], antes: [], elegida: null };
 
@@ -67,6 +81,15 @@ export function aplicarCambio(m: Marcas, c: CambioDeMarcas): Marcas {
     case "elegir": {
       const indice = c.indice !== null && m.lista[c.indice] ? c.indice : null;
       return indice === m.elegida ? m : { ...m, elegida: indice };
+    }
+    case "colorear": {
+      const vieja = m.lista[c.indice];
+      // Su mismo color no es un cambio: si contara, el siguiente Ctrl+Z no haría nada.
+      if (!seColorea(vieja) || vieja.color === c.color) return m;
+      return con(
+        m.lista.map((a, i) => (i === c.indice ? { ...a, color: c.color } : a)),
+        m.elegida,
+      );
     }
   }
 }

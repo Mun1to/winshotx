@@ -4028,9 +4028,10 @@ mod lo_movido_sale_donde_se_ve {
         session
     }
 
-    /// Cuántos píxeles rojos hay dentro de la caja de una sonda (de 0 a 1). Lo rojo de las
-    /// marcas fuera del foco sale oscurecido, pero sigue siendo mucho más rojo que verde.
-    fn rojos(rgb: &[u8], ancho: u32, alto: u32, s: &Sonda, margen: i32) -> usize {
+    /// Cuántos píxeles rojos (o azules, con `azul`) hay dentro de la caja de una sonda (de 0 a
+    /// 1). Lo rojo de las marcas fuera del foco sale oscurecido, pero sigue siendo mucho más
+    /// rojo que verde. El azul es el de la paleta (`#0a9bff`), que S24 pone a lo elegido.
+    fn contar(rgb: &[u8], ancho: u32, alto: u32, s: &Sonda, margen: i32, azul: bool) -> usize {
         let px = |v: f32, lado: u32| ((v * lado as f32).round() as i64).clamp(0, i64::from(lado) - 1) as u32;
         let (x1, x2) = (px(s.x1, ancho), px(s.x2, ancho));
         let (y1, y2) = (px(s.y1, alto), px(s.y2, alto));
@@ -4039,7 +4040,8 @@ mod lo_movido_sale_donde_se_ve {
             for x in x1..=x2 {
                 let i = ((y * ancho + x) * 3) as usize;
                 let (r, g, b) = (i32::from(rgb[i]), i32::from(rgb[i + 1]), i32::from(rgb[i + 2]));
-                if r > g + margen && r > b + margen {
+                let es = if azul { b > r + margen && b > g + margen } else { r > g + margen && r > b + margen };
+                if es {
                     n += 1;
                 }
             }
@@ -4050,11 +4052,13 @@ mod lo_movido_sale_donde_se_ve {
     fn comprobar(rgb: &[u8], ancho: u32, alto: u32, sondas: &[Sonda], margen: i32, formato: &str) -> Vec<String> {
         let mut fallos = Vec::new();
         for s in sondas {
-            let n = rojos(rgb, ancho, alto, s, margen);
-            let bien = if s.debe == "pintado" { n >= 4 } else { n == 0 };
-            println!("  {}  {formato}: {} ({} píxeles rojos)", if bien { "BIEN" } else { "MAL " }, s.que, n);
+            let azul = s.debe == "azul";
+            let n = contar(rgb, ancho, alto, s, margen, azul);
+            let bien = if s.debe == "limpio" { n == 0 } else { n >= 4 };
+            let que = if azul { "azules" } else { "rojos" };
+            println!("  {}  {formato}: {} ({} píxeles {que})", if bien { "BIEN" } else { "MAL " }, s.que, n);
             if !bien {
-                fallos.push(format!("{formato}: {} ({n} píxeles rojos)", s.que));
+                fallos.push(format!("{formato}: {} ({n} píxeles {que})", s.que));
             }
         }
         fallos

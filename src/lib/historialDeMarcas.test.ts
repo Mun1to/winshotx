@@ -162,3 +162,46 @@ describe("mover una marca", () => {
     expect(JSON.stringify(flecha)).toBe(antes);
   });
 });
+
+/** S24: con algo elegido, pinchar un color se lo cambia, y Ctrl+Z se lo devuelve. */
+describe("cambiar el color de lo elegido", () => {
+  const AZUL = "#0a9bff";
+  const colorear = (indice: number, color = AZUL): CambioDeMarcas => ({ tipo: "colorear", indice, color });
+
+  it("le cambia el color y la deja elegida", () => {
+    const m = seguidos(poner(flecha, texto), { tipo: "elegir", indice: 1 }, colorear(1));
+    expect(m.lista[1]).toEqual({ ...texto, color: AZUL });
+    expect(m.lista[0]).toEqual(flecha);
+    expect(m.elegida).toBe(1);
+  });
+
+  it("Ctrl+Z le devuelve el color de antes", () => {
+    const m = seguidos(poner(flecha), colorear(0), { tipo: "deshacer" });
+    expect(m.lista).toEqual([flecha]);
+  });
+
+  it("vale para todo lo que se dibuja con color: texto, flechas, líneas, cajas, círculos, trazos y números", () => {
+    for (const kind of ["text", "arrow", "curve", "line", "box", "ellipse", "pen", "step"] as const) {
+      const marca: Anotacion = { ...flecha, kind };
+      expect(seguidos(poner(marca), colorear(0)).lista[0].color, kind).toBe(AZUL);
+    }
+  });
+
+  it("no toca el resaltado, el mosaico ni el foco, que no llevan el color que se elige", () => {
+    for (const kind of ["highlight", "blur", "focus"] as const) {
+      const marca: Anotacion = { ...flecha, kind, color: "#fbbf24" };
+      const antes = seguidos(poner(marca));
+      expect(aplicarCambio(antes, colorear(0)), kind).toBe(antes);
+    }
+  });
+
+  it("su mismo color no gasta un Ctrl+Z", () => {
+    const antes = seguidos(poner(flecha));
+    expect(aplicarCambio(antes, colorear(0, flecha.color))).toBe(antes);
+  });
+
+  it("una que no existe no se colorea", () => {
+    const antes = seguidos(poner(flecha));
+    expect(aplicarCambio(antes, colorear(3))).toBe(antes);
+  });
+});

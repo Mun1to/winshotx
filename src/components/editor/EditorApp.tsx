@@ -35,7 +35,7 @@ import { CapaAnotaciones } from "./CapaAnotaciones";
 import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
 import { COLORES, COLOR_RESALTADO, type Herramienta } from "../../lib/anotaciones";
-import { aplicarCambio, SIN_MARCAS } from "../../lib/historialDeMarcas";
+import { aplicarCambio, seColorea, SIN_MARCAS } from "../../lib/historialDeMarcas";
 import { ExportPanel } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
@@ -145,6 +145,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    */
   const [marcas, cambiarMarcas] = useReducer(aplicarCambio, SIN_MARCAS);
   const anotaciones = marcas.lista;
+  const marcaElegida = marcas.elegida !== null ? anotaciones[marcas.elegida] : undefined;
   const elegirMarca = useCallback((indice: number | null) => cambiarMarcas({ tipo: "elegir", indice }), []);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
   // Cambiar de herramienta suelta lo elegido: quien coge otra herramienta va a dibujar.
@@ -814,8 +815,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               setHerramienta(cual);
               if (cual) setRecortando(false);
             }}
-            color={colorMarca}
-            onColor={setColorMarca}
+            // S24: con algo elegido, la paleta enseña SU color y pinchar otro se lo cambia
+            // (con su Ctrl+Z). El color de lo próximo que se dibuje cambia también, que es
+            // el que se acaba de escoger. Sin nada elegido, solo vale para lo próximo.
+            color={seColorea(marcaElegida) ? marcaElegida!.color : colorMarca}
+            onColor={(color) => {
+              setColorMarca(color);
+              if (marcas.elegida !== null) {
+                cambiarMarcas({ tipo: "colorear", indice: marcas.elegida, color });
+              }
+            }}
             cuantas={anotaciones.length}
             puedeDeshacer={marcas.antes.length > 0}
             onDeshacer={() => cambiarMarcas({ tipo: "deshacer" })}
