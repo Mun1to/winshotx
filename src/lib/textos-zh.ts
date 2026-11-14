@@ -523,6 +523,12 @@ export const ZH: Record<string, string> = {
   "Coral": "珊瑚",
   "Esquinas redondeadas": "圆角",
   "rectas": "直角",
+  // S25 (marco): la captura dentro de una ventana o de un portátil
+  "Marco": "外框",
+  "Marco:": "外框：",
+  "Ninguno": "无",
+  "Ventana": "窗口",
+  "Portátil": "笔记本电脑",
   "Puntero": "指针",
   "Movimiento suave": "平滑移动",
   "Esconderlo cuando no se mueve": "静止时隐藏",
@@ -625,8 +631,8 @@ export const ZH: Record<string, string> = {
   "30 s": "30 秒",
   "Hasta cerrarla": "直到关闭",
   "Fondo en las capturas": "截图背景",
-  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
-    "你复制或保存的每张截图都会放在背景上，带留白、阴影和圆角，可以直接发布。这些背景与编辑器“工作室”中的相同。编辑、置顶或读取文字时不会添加。",
+  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Con marco, va dentro de una ventana de Windows 11 (clara u oscura, como las de winshotx) o de un portátil. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
+    "你复制或保存的每张截图都会放在背景上，带留白、阴影和圆角，可以直接发布。加上外框后，截图会放进一个 Windows 11 窗口（浅色或深色，与 winshotx 的窗口一致）或一台笔记本电脑里。这些背景与编辑器“工作室”中的相同。编辑、置顶或读取文字时不会添加。",
   "las capturas salen tal cual": "截图保持原样",
   "se pone al copiar y al guardar": "复制和保存时添加",
   Poco: "少",

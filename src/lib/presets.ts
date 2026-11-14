@@ -21,6 +21,8 @@ import { REDONDEO_MAXIMO } from "./camara";
 import type { PresetGuardado } from "./ipc";
 import { FONDOS } from "./fondos";
 import { punteroNormal } from "./estudio";
+// S25 (marco)
+import type { CarcasaElegida } from "./carcasa";
 
 export interface Estilo {
   /** Cuánto se acerca a los clics: 1 es no acercarse. */
@@ -57,6 +59,9 @@ export interface Estilo {
   // S10 (sonidos)
   /** Qué suena en cada clic. null es el de fábrica, el «Ratón suave». */
   clic: ClicElegido | null;
+  // S25 (marco)
+  /** La ventana o el portátil alrededor. null es sin marco. El tema de la ventana no se guarda: sale del de winshotx. */
+  carcasa: CarcasaElegida | null;
 }
 
 export interface Preset {
@@ -87,6 +92,8 @@ export const ESTILO_DE_FABRICA: Estilo = {
   camara: null,
   // S10 (sonidos)
   clic: null,
+  // S25 (marco)
+  carcasa: null,
 };
 
 // Leer lo guardado, campo a campo: lo que no es de su tipo, de fábrica.
@@ -176,6 +183,8 @@ export function leerEstilo(valor: unknown): Estilo {
     camara: camaraDe(v.camara),
     // S10 (sonidos)
     clic: clicDe(v.clic),
+    // S25 (marco)
+    carcasa: v.carcasa === "ventana" || v.carcasa === "portatil" ? v.carcasa : null,
   };
 }
 
@@ -232,6 +241,9 @@ export interface EstadoDelPanel {
   esquinas: number;
   fondo: Background;
   sombra: boolean;
+  // S25 (marco)
+  /** Ausente es sin marco, como en los paneles de antes. */
+  carcasa?: CarcasaElegida | null;
 }
 
 /** Lo que miden el archivo (ancho) y la grabación (alto), para pasar de píxeles a proporción. */
@@ -270,6 +282,8 @@ export function estiloDe(panel: EstadoDelPanel, edicion: Edicion | undefined, me
     camara: e.camara ?? null,
     // S10 (sonidos)
     clic: e.clic ?? null,
+    // S25 (marco): solo con aire, como en el panel.
+    carcasa: panel.margen > 0 ? (panel.carcasa ?? null) : null,
   };
 }
 
@@ -293,6 +307,8 @@ export function panelDe(estilo: Estilo, medidas: Medidas): EstadoDelPanel {
     esquinas: Math.min(60, Math.round(estilo.esquinas * ancho)),
     fondo: estilo.fondo,
     sombra: estilo.sombra,
+    // S25 (marco): solo si lo trae, para que un panel sin marco vuelva tal cual estaba.
+    ...(estilo.aire > 0 && estilo.carcasa ? { carcasa: estilo.carcasa } : {}),
   };
 }
 
@@ -327,7 +343,9 @@ export function edicionDe(estilo: Estilo): Partial<Edicion> {
 export function esElMismo(a: Estilo, b: Estilo): boolean {
   const visible = (e: Estilo): Estilo => {
     const x = leerEstilo(e);
-    if (x.aire === 0) Object.assign(x, { fondo: "blanco", esquinas: 0, sombra: true, fondoElegido: null });
+    if (x.aire === 0) Object.assign(x, { fondo: "blanco", esquinas: 0, sombra: true, fondoElegido: null, carcasa: null });
+    // S25 (marco): con ventana o portátil las esquinas son las suyas, y las del panel no se ven.
+    if (x.carcasa) x.esquinas = 0;
     if (x.puntero === 0) Object.assign(x, { suave: true, esconder: false, suavizado: null, esconderAlEscribir: false });
     if (x.zoom <= 1.05) Object.assign(x, { zoom: 1, velocidadZoom: 1 });
     // S10 (sonidos): sin sonido de clic da igual cuál; y sin elegir es el suave.
@@ -351,6 +369,9 @@ export interface MarcoCapturas {
   aire: number;
   fondo: Background;
   elegido?: FondoElegido | null;
+  // S25 (marco)
+  /** La ventana o el portátil alrededor de cada captura. Ausente o null: sin marco. */
+  carcasa?: CarcasaElegida | null;
 }
 
 /**
@@ -362,7 +383,8 @@ export interface MarcoCapturas {
  */
 export function marcoCapturasDe(estilo: Estilo): MarcoCapturas {
   const aire = estilo.aire > 0 ? Math.min(40, Math.max(2, Math.round(((estilo.aire * 16) / 9) * 100))) : 0;
-  return { aire, fondo: estilo.fondo, elegido: estilo.fondoElegido };
+  // S25 (marco): la carcasa solo si el estilo la trae; sin ella, lo de siempre.
+  return { aire, fondo: estilo.fondo, elegido: estilo.fondoElegido, ...(aire > 0 && estilo.carcasa ? { carcasa: estilo.carcasa } : {}) };
 }
 
 /** El estilo que tienen puesto las capturas, si alguno coincide; si no, -1. */
@@ -373,7 +395,9 @@ export function estiloDeLasCapturas(lista: Preset[], marco: MarcoCapturas | unde
     return (
       de.aire === marco.aire &&
       de.fondo === marco.fondo &&
-      JSON.stringify(de.elegido ?? null) === JSON.stringify(marco.elegido ?? null)
+      JSON.stringify(de.elegido ?? null) === JSON.stringify(marco.elegido ?? null) &&
+      // S25 (marco)
+      (de.carcasa ?? null) === (marco.carcasa ?? null)
     );
   });
 }

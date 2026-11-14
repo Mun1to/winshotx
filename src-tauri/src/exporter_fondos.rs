@@ -325,3 +325,118 @@ fn medir_un_tutorial_con_fondo_de_video() {
         pesa / 1024
     );
 }
+
+// S25 (marco): la captura dentro de una ventana o de un portátil, mirando el archivo guardado.
+
+/// Una sesión de UN fotograma con un dibujo que se reconoce: gris con un cuadro rojo en la
+/// esquina de arriba a la izquierda y uno azul en la de abajo a la derecha.
+fn sesion_con_esquinas(nombre: &str) -> SessionData {
+    let dir = std::env::temp_dir().join(format!("winshotx-s25-{nombre}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut cache = FrameCache::new(&dir).expect("cache");
+    let pixeles: Vec<u8> = (0..ALTO)
+        .flat_map(|y| (0..ANCHO).map(move |x| (x, y)))
+        .flat_map(|(x, y)| {
+            if x < 8 && y < 8 {
+                [255, 0, 0, 255]
+            } else if x >= ANCHO - 8 && y >= ALTO - 8 {
+                [0, 0, 255, 255]
+            } else {
+                [GRIS[0], GRIS[1], GRIS[2], 255]
+            }
+        })
+        .collect();
+    cache.push_rgba(&pixeles, ANCHO, ALTO, 0).unwrap();
+    let mut session = super::tests::session_with(&[]);
+    session.frames = cache.finish(300, 30).expect("cerrar la cache");
+    session.dir = dir;
+    session.width = ANCHO;
+    session.height = ALTO;
+    session.region = crate::capture::Rect { x: 0, y: 0, width: ANCHO, height: ALTO };
+    session.fps = 30;
+    session
+}
+
+fn con_carcasa(session: &SessionData, formato: &str, carcasa: crate::encode::carcasa::Carcasa) -> ExportRequest {
+    let mut pedida = peticion(session, formato, FondoElegido::Color { rgb: [20, 160, 90] });
+    pedida.edicion.carcasa = Some(carcasa);
+    pedida.margin = 12;
+    pedida
+}
+
+/// La ventana clara y la oscura en el PNG: el archivo mide la captura más la barra, el borde y
+/// el aire; la captura está entera y a su tamaño, píxel a píxel, debajo de la barra; la barra
+/// es del color de su tema y el fondo sigue en el aire.
+#[test]
+fn la_ventana_sale_en_el_png_con_la_captura_entera_debajo_de_la_barra() {
+    use crate::encode::carcasa::{colores_de_la_ventana, geometria, Carcasa};
+    for oscura in [false, true] {
+        let session = sesion_con_esquinas(if oscura { "ventana-oscura" } else { "ventana-clara" });
+        let destino = session.dir.join("ventana.png");
+        let carcasa = Carcasa::Ventana { oscura };
+        escribir(&session, &con_carcasa(&session, "png", carcasa), &destino, &|_, _, _| {}).expect("exportar");
+        let imagen = image::open(&destino).expect("releer el PNG").to_rgba8();
+        let _ = std::fs::remove_dir_all(&session.dir);
+        let g = geometria(carcasa, ANCHO, ALTO);
+        let par = |n: u32| n + n % 2;
+        assert_eq!(imagen.dimensions(), (par(g.ancho + 24), par(g.alto + 24)), "la captura no se encoge: crece por fuera");
+        let (x0, y0) = (12 + g.x, 12 + g.y);
+        // La captura, a su sitio y a su tamaño: las dos esquinas de colores, exactas.
+        assert_eq!(rgb(imagen.get_pixel(x0, y0)), [255, 0, 0], "la esquina roja, justo debajo de la barra");
+        assert_eq!(rgb(imagen.get_pixel(x0 + 7, y0 + 7)), [255, 0, 0]);
+        assert_eq!(rgb(imagen.get_pixel(x0 + 8, y0 + 8)), GRIS, "y el rojo mide 8, no más: no se escaló");
+        assert_eq!(rgb(imagen.get_pixel(x0 + ANCHO - 8, y0 + ALTO - 8)), [0, 0, 255], "la esquina azul, en su sitio");
+        // La barra, del color de su tema, encima de la captura.
+        let (barra, _, _) = colores_de_la_ventana(oscura);
+        assert_eq!(rgb(imagen.get_pixel(x0 + 4, 12 + g.x + 4)), barra, "la barra, oscura={oscura}");
+        // Y el aire sigue siendo el fondo.
+        assert!(parecido(rgb(imagen.get_pixel(2, 2)), [20, 160, 90], 6), "el aire {:?}", imagen.get_pixel(2, 2));
+    }
+}
+
+/// El portátil en el GIF: bisel negro alrededor de la captura, la base más ancha que la tapa
+/// y la captura entera dentro de la pantalla.
+#[test]
+fn el_portatil_sale_en_el_gif_con_la_captura_en_su_pantalla() {
+    use crate::encode::carcasa::{geometria, Carcasa, BISEL_COLOR};
+    let session = sesion_con_esquinas("portatil");
+    let destino = session.dir.join("portatil.gif");
+    escribir(&session, &con_carcasa(&session, "gif", Carcasa::Portatil), &destino, &|_, _, _| {}).expect("exportar");
+    let salen = fotogramas_del_gif(&destino);
+    let _ = std::fs::remove_dir_all(&session.dir);
+    let (_, imagen) = &salen[0];
+    let g = geometria(Carcasa::Portatil, ANCHO, ALTO);
+    let par = |n: u32| n + n % 2;
+    assert_eq!(imagen.dimensions(), (par(g.ancho + 24), par(g.alto + 24)));
+    let (x0, y0) = (12 + g.x, 12 + g.y);
+    // El GIF reduce a 256 colores y un cuadro de 8 x 8 no se lleva un rojo exacto de la
+    // paleta: se mira que sea rojo, y que a su lado ya esté el gris de la captura.
+    let rojo = |c: [u8; 3]| c[0] > 60 && c[0] > 3 * c[1] && c[0] > 3 * c[2];
+    let azul = |c: [u8; 3]| c[2] > 60 && c[2] > 3 * c[0] && c[2] > 3 * c[1];
+    assert!(rojo(rgb(imagen.get_pixel(x0, y0))), "la captura empieza donde la pantalla: {:?}", imagen.get_pixel(x0, y0));
+    assert!(rojo(rgb(imagen.get_pixel(x0 + 7, y0 + 7))));
+    assert!(parecido(rgb(imagen.get_pixel(x0 + 9, y0 + 9)), GRIS, 12), "y el rojo mide 8: no se escaló");
+    assert!(azul(rgb(imagen.get_pixel(x0 + ANCHO - 1, y0 + ALTO - 1))), "la esquina azul, en su sitio");
+    assert!(parecido(rgb(imagen.get_pixel(x0 - 3, y0 + 20)), BISEL_COLOR, 12), "el bisel, a la izquierda de la pantalla");
+    // La base asoma por los dos lados, por debajo de la tapa.
+    let fila = 12 + g.sombra[1].y as u32 + 2;
+    let a_la_izquierda = rgb(imagen.get_pixel(12 + 2, fila));
+    assert!(a_la_izquierda[0] > 150 && a_la_izquierda[1] > 150, "la base, plateada, asoma a la izquierda: {a_la_izquierda:?}");
+    // Encima de la base, junto a la tapa, el fondo.
+    assert!(parecido(rgb(imagen.get_pixel(12 + 1, 14)), [20, 160, 90], 14), "junto a la tapa se ve el fondo");
+}
+
+/// Sin aire no hay marco: una petición con carcasa y margen cero sale como siempre.
+#[test]
+fn sin_aire_la_carcasa_no_se_pinta() {
+    let session = sesion_con_esquinas("sin-aire");
+    let destino = session.dir.join("sin-aire.png");
+    let mut pedida = con_carcasa(&session, "png", crate::encode::carcasa::Carcasa::Portatil);
+    pedida.margin = 0;
+    escribir(&session, &pedida, &destino, &|_, _, _| {}).expect("exportar");
+    let imagen = image::open(&destino).expect("releer").to_rgba8();
+    let _ = std::fs::remove_dir_all(&session.dir);
+    assert_eq!(imagen.dimensions(), (ANCHO, ALTO));
+    assert_eq!(rgb(imagen.get_pixel(0, 0)), [255, 0, 0]);
+}

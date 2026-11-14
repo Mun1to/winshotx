@@ -11,6 +11,8 @@
 import type { AtajoGrabado, Background, ClicGrabado, MuestraCamara } from "./types";
 import type { Recorte } from "./recorte";
 import type { Suavizado, TramoEscritura } from "./contrato";
+// S25 (marco)
+import { geometria as geometriaDeLaCarcasa, type CarcasaElegida, type Geometria } from "./carcasa";
 
 /** Lo que se decide en el panel y se dibuja en la vista previa. */
 export interface Estudio {
@@ -46,6 +48,25 @@ export interface MarcoDeVista {
   esquinas: number;
   fondo: Background;
   sombra: boolean;
+  // S25 (marco)
+  /**
+   * La ventana o el portátil, con el tamaño del ARCHIVO (`ancho` x `alto`): la carcasa no
+   * crece en proporción a la captura (la barra de la ventana mide 32 px hasta 1920), así que
+   * se mide como en Rust y la vista previa la encoge con la captura.
+   */
+  carcasa?: { elegida: CarcasaElegida; oscura: boolean; ancho: number; alto: number } | null;
+}
+
+/** Lo que ocupa la carcasa alrededor de la captura en la vista previa, en píxeles de pantalla. */
+export interface CarcasaDeVista {
+  /** Píxeles de pantalla por cada píxel del archivo. */
+  k: number;
+  geometria: Geometria;
+  /** Lo que mide la carcasa por cada lado de la captura, ya en la vista previa. */
+  izquierda: number;
+  arriba: number;
+  derecha: number;
+  abajo: number;
 }
 
 export const ESTUDIO_APAGADO: Estudio = {
@@ -293,18 +314,42 @@ export function medidasConMarco(
   ancho: number,
   alto: number,
   marco: MarcoDeVista | null,
-): { width: number; height: number; aire: number; radio: number } {
+): { width: number; height: number; aire: number; radio: number; carcasa?: CarcasaDeVista | null } {
   const proporcion = ancho / Math.max(1, alto);
   const m = marco && marco.aire > 0 ? marco.aire : 0;
   if (huecoAncho <= 0 || huecoAlto <= 0 || ancho <= 0 || alto <= 0) {
     return { width: 0, height: 0, aire: 0, radio: 0 };
   }
-  const w = Math.max(1, Math.min(huecoAncho / (1 + 2 * m), huecoAlto / (1 / proporcion + 2 * m)));
+  // S25 (marco): lo que crece la carcasa por cada lado, en anchos del archivo. Con ella, lo
+  // que cabe en el hueco es la captura, su carcasa y el aire.
+  const c = m > 0 ? marco?.carcasa : null;
+  const g = c ? geometriaDeLaCarcasa(c.elegida, c.ancho, c.alto) : null;
+  const base = Math.max(1, c?.ancho ?? 1);
+  const extraAncho = g && c ? (g.ancho - c.ancho) / base : 0;
+  const extraAlto = g && c ? (g.alto - c.alto) / base : 0;
+  const w = Math.max(
+    1,
+    Math.min(huecoAncho / (1 + extraAncho + 2 * m), huecoAlto / (1 / proporcion + extraAlto + 2 * m)),
+  );
+  const width = Math.round(w);
+  const k = width / base;
   return {
-    width: Math.round(w),
+    width,
     height: Math.round(w / proporcion),
     aire: Math.round(m * w),
-    radio: m > 0 && marco ? Math.round(marco.esquinas * w) : 0,
+    radio: m > 0 && marco && !g ? Math.round(marco.esquinas * w) : 0,
+    ...(g && c
+      ? {
+          carcasa: {
+            k,
+            geometria: g,
+            izquierda: g.x * k,
+            arriba: g.y * k,
+            derecha: (g.ancho - g.x - c.ancho) * k,
+            abajo: (g.alto - g.y - c.alto) * k,
+          },
+        }
+      : {}),
   };
 }
 
