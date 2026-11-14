@@ -202,6 +202,10 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             let handle = app.handle().clone();
+            // S21 (Linux): con que pinta GTK (X11 o Wayland) cambia como se hace la foto, como
+            // se colocan las ventanas y que atajos hay. Se mira aqui, en el hilo de GTK.
+            #[cfg(target_os = "linux")]
+            platform::xdg::anotar_la_sesion();
             let mut config = settings::load(&handle);
 
             // Actualizar desde los propios ajustes acaba en `relaunch()`, y winshotx vuelve

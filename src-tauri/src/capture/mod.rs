@@ -2,6 +2,9 @@
 mod bench_freeze;
 #[cfg(windows)]
 mod wgc;
+// S21 (Linux): en Wayland la foto la hace el portal, no `xcap`.
+#[cfg(target_os = "linux")]
+mod wayland;
 // S5 (scroll): la captura con scroll, que cose las fotos de una zona mientras baja.
 pub mod scroll;
 use std::sync::Arc;
@@ -110,6 +113,10 @@ fn describir(index: usize, monitor: &xcap::Monitor) -> Result<MonitorInfo> {
 /// solo quiere saber donde estan (el anillo de los ultimos segundos, para elegir cual
 /// vigila) no tiene por que pagar eso.
 pub fn monitors() -> Result<Vec<MonitorInfo>> {
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return wayland::monitores();
+    }
     xcap::Monitor::all()
         .map_err(|e| AppError::Msg(e.to_string()))?
         .iter()
@@ -166,9 +173,7 @@ pub fn preparar() {
 /// Congela todas las pantallas. Congelar la imagen evita pelearse con ventanas
 /// transparentes y da lupa exacta.
 pub fn freeze_all() -> Result<Vec<Freeze>> {
-    let cuantos = xcap::Monitor::all()
-        .map_err(|e| AppError::Msg(e.to_string()))?
-        .len();
+    let cuantos = monitors()?.len();
     freeze_monitors(&(0..cuantos).collect::<Vec<_>>())
 }
 
@@ -181,6 +186,10 @@ pub fn freeze_all() -> Result<Vec<Freeze>> {
 pub fn freeze_monitors(indices: &[usize]) -> Result<Vec<Freeze>> {
     if indices.is_empty() {
         return Ok(Vec::new());
+    }
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return wayland::congelar(indices);
     }
 
     // Las pantallas se fotografian A LA VEZ, una por hilo.
@@ -323,6 +332,12 @@ fn deja_pasar_el_raton(_hwnd: u32) -> bool {
 /// **El orden importa**: sale tal cual de `EnumWindows`, que es el orden Z (la primera es la
 /// de delante), y el overlay se queda con la primera que haya bajo el cursor. No reordenar.
 pub fn window_rects() -> Vec<WindowRect> {
+    // En Wayland ninguna app sabe donde estan las ventanas de las demas: `xcap` solo veria las
+    // de XWayland, y en otras coordenadas. Sin ventanas, el overlay no ofrece ajustarse a una.
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return Vec::new();
+    }
     let Ok(windows) = xcap::Window::all() else {
         return Vec::new();
     };

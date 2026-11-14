@@ -187,13 +187,7 @@ mod linux {
     }
 
     pub fn poner(formatos: Vec<(&'static str, Vec<u8>)>) -> Result<()> {
-        let (listo, hecho) = std::sync::mpsc::channel();
-        gtk::glib::MainContext::default().invoke(move || {
-            let _ = listo.send(poner_en_gtk(formatos));
-        });
-        hecho
-            .recv_timeout(std::time::Duration::from_secs(5))
-            .map_err(|_| AppError::Msg("el portapapeles no contesta".into()))?
+        crate::platform::xdg::en_el_hilo_de_gtk(move || poner_en_gtk(formatos))?
     }
 
     fn poner_en_gtk(formatos: Vec<(&'static str, Vec<u8>)>) -> Result<()> {

@@ -37,6 +37,26 @@ pub fn a_pelo(_window: &tauri::WebviewWindow) -> isize {
     0
 }
 
+/// En Wayland, la ventana a pantalla completa en ese monitor (el numero de GTK, que es el
+/// `id` de las pantallas en Wayland: ver `capture::wayland`). Devuelve si lo ha hecho; en X11
+/// no hace nada y la ventana se coloca como siempre, con su posicion.
+#[cfg(target_os = "linux")]
+pub fn pantalla_completa_en(window: &tauri::WebviewWindow, monitor: u32) -> bool {
+    use gtk::prelude::*;
+    if !crate::platform::xdg::es_wayland() {
+        return false;
+    }
+    let Ok(ventana) = window.gtk_window() else {
+        return false;
+    };
+    let pantalla = GtkWindowExt::screen(&ventana);
+    match pantalla {
+        Some(pantalla) => ventana.fullscreen_on_monitor(&pantalla, monitor as i32),
+        None => ventana.fullscreen(),
+    }
+    true
+}
+
 /// Una ventana que no coge el foco JAMAS, ni al mostrarse ni al hacerle clic encima.
 ///
 /// El `.focused(false)` del constructor solo vale para el primer momento: en cuanto se

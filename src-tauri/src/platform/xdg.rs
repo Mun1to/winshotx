@@ -77,6 +77,61 @@ fn quitar_escapes(valor: &str) -> String {
     salida
 }
 
+/// Si las ventanas de winshotx van por Wayland (y no por X11 ni por XWayland).
+///
+/// Lo que cuenta es lo que ha elegido GTK al arrancar, no el escritorio: con
+/// `GDK_BACKEND=x11` una sesion de Wayland pinta por XWayland y ahi si valen las cosas de
+/// X11. Lo apunta [`anotar_la_sesion`] desde el hilo de GTK; antes de eso (las pruebas, por
+/// ejemplo) se adivina por las variables, como hace GTK.
+#[cfg(target_os = "linux")]
+pub fn es_wayland() -> bool {
+    match SESION.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => false,
+        2 => true,
+        _ => {
+            let backend = std::env::var("GDK_BACKEND").unwrap_or_default();
+            let hay_wayland = std::env::var_os("WAYLAND_DISPLAY").is_some_and(|v| !v.is_empty());
+            hay_wayland && !backend.trim_start().starts_with("x11")
+        }
+    }
+}
+
+/// 0 sin mirar, 1 X11, 2 Wayland.
+#[cfg(target_os = "linux")]
+static SESION: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Mira con que ha abierto GTK la pantalla. Tiene que llamarse desde el hilo principal, con
+/// GTK ya arrancado (el `setup` de Tauri).
+#[cfg(target_os = "linux")]
+pub fn anotar_la_sesion() {
+    use gtk::glib::prelude::*;
+    let Some(pantalla) = gtk::gdk::Display::default() else {
+        return;
+    };
+    let wayland = pantalla.type_().name().contains("Wayland");
+    SESION.store(if wayland { 2 } else { 1 }, std::sync::atomic::Ordering::Relaxed);
+    eprintln!("[sesion] GTK pinta por {}", if wayland { "Wayland" } else { "X11" });
+}
+
+/// Hace algo en el hilo de GTK y espera lo que devuelva.
+///
+/// GTK solo se toca desde el hilo principal, y Tauri tiene ese hilo cogido mientras corre su
+/// bucle (`tao` lo hace dentro de `with_thread_default`). `invoke` lo deja en su cola, o lo
+/// hace en el acto si ya se esta en ese hilo, asi que llamarlo desde el principal no se
+/// queda esperando a si mismo.
+#[cfg(target_os = "linux")]
+pub fn en_el_hilo_de_gtk<T: Send + 'static>(
+    trabajo: impl FnOnce() -> T + Send + 'static,
+) -> crate::error::Result<T> {
+    let (listo, hecho) = std::sync::mpsc::channel();
+    gtk::glib::MainContext::default().invoke(move || {
+        let _ = listo.send(trabajo());
+    });
+    hecho
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .map_err(|_| crate::error::AppError::Msg("GTK no contesta".into()))
+}
+
 /// Abre una carpeta, un archivo o una direccion con lo que tenga puesto el usuario.
 ///
 /// `xdg-open` es lo que trae cualquier escritorio (es de `xdg-utils`), y decide el

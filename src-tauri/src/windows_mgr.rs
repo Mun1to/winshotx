@@ -402,7 +402,11 @@ fn ensennar_overlay(app: &AppHandle, label: &str, monitor: &MonitorInfo, con_foc
     // solo pone al dia lo que Tauri cree de la ventana, y no cuesta nada si ya esta visible.
     #[cfg(windows)]
     let colocada = crate::platform::window_style::colocar_y_ensennar(&window, monitor.x, monitor.y);
-    #[cfg(not(windows))]
+    // En Wayland una ventana no se puede poner en un sitio: se pide pantalla completa en su
+    // monitor, que el escritorio si respeta, y que ademas tapa la barra de arriba.
+    #[cfg(target_os = "linux")]
+    let colocada = crate::platform::window_style::pantalla_completa_en(&window, monitor.id);
+    #[cfg(not(any(windows, target_os = "linux")))]
     let colocada = false;
     if !colocada {
         let _ = window.set_position(PhysicalPosition::new(monitor.x, monitor.y));
@@ -669,6 +673,11 @@ pub fn precrear_overlays(app: &AppHandle) {
         let Ok(window) = build_overlay_window(app, &label, monitor.id) else {
             continue;
         };
+        // En Wayland no hay «fuera de las pantallas»: el escritorio ignora la posicion y la
+        // ventana aparcada salia a la vista, en negro. Alli se crea escondida y punto.
+        if en_wayland() {
+            continue;
+        }
         // Aparcada fuera de las pantallas y ENSENNADA, no escondida.
         //
         // Una ventana que no se ha ensennado nunca no tiene interfaz montada, asi que la
@@ -680,6 +689,18 @@ pub fn precrear_overlays(app: &AppHandle) {
         let _ = window.set_position(aparcadero_de(monitor, &monitors));
         let _ = window.set_size(PhysicalSize::new(monitor.width, monitor.height));
         let _ = window.show();
+    }
+}
+
+/// Si las ventanas van por Wayland, donde ninguna app puede colocar las suyas.
+fn en_wayland() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::xdg::es_wayland()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
     }
 }
 
@@ -715,6 +736,12 @@ pub fn close_overlays(app: &AppHandle) {
         else {
             continue;
         };
+        // En Wayland, escondida de verdad: aparcarla no la saca de la pantalla (ver
+        // `precrear_overlays`).
+        if en_wayland() {
+            let _ = window.hide();
+            continue;
+        }
         // **Aparcada fuera de las pantallas, no escondida.**
         //
         // Una ventana escondida se queda sin atender: al ensennarla otra vez tardaba
