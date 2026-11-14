@@ -280,11 +280,25 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
    */
   const origenBarra = useRef<{ x: number; y: number } | null>(null);
 
+  /**
+   * Lo que mide la ventana, al dia. En Windows el overlay ya tiene su tamanno cuando llega la
+   * captura (espera aparcado), pero en Linux con Wayland se crea escondido y no sabe lo que
+   * mide hasta que el escritorio lo pone a pantalla completa: con la medida de antes, la
+   * primera captura salia con escala 1600 y un recorte de «558400 × 832000».
+   */
+  const [anchoVentana, setAnchoVentana] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const medir = () => setAnchoVentana(window.innerWidth);
+    window.addEventListener("resize", medir);
+    medir();
+    return () => window.removeEventListener("resize", medir);
+  }, []);
+
   /** Pixeles fisicos por pixel CSS: el freeze manda, el webview puede estar escalado por DPI. */
   const scale = useMemo(() => {
     if (!source) return 1;
-    return source.width / Math.max(1, window.innerWidth);
-  }, [source]);
+    return source.width / Math.max(1, anchoVentana);
+  }, [source, anchoVentana]);
 
   /** Si el fondo ya esta dibujado en `source`. Hasta entonces, la pantalla de arranque. */
   const [fondoListo, setFondoListo] = useState(false);
