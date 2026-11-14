@@ -2,6 +2,49 @@
    las preguntas que se abren de una en una, y el índice de la izquierda, que marca dónde
    estás mientras bajas. Sin dependencias. */
 
+/* ------------------------------------------------- sin tarjeta gráfica, más ligera */
+// El modo ligero de la skill frontlaxweb. Sin aceleración por hardware (el ordenador de
+// clase de Munito, muchos de empresa y los viejos), el procesador hace lo que hacía la
+// tarjeta: cada desenfoque se vuelve a calcular al bajar. Medido sin gráfica y con la CPU a
+// 4x (14-nov, el PC cargado): la portada bajaba a 29-32 fotogramas por segundo y la publicada
+// a 31-34; el que más pesaba era el cristal de la barra de arriba (sin él, 38-39), y sin
+// ningún desenfoque, 40. Se mira UNA vez, después del primer pintado: un contexto WebGL
+// con `failIfMajorPerformanceCaveat` se niega (null) cuando solo se dibujaría por software.
+// Entonces se pone <html data-ligero> y el CSS quita lo que pesa sin cambiar el diseño.
+// Con gráfica no cambia nada. `?ligero=1` lo fuerza y `?ligero=0` lo quita. Las
+// animaciones no se tocan: la política de la casa es que se vean siempre.
+(function () {
+  const pedido = () => {
+    for (const v of [window, window.parent]) {
+      try {
+        const q = new URLSearchParams(v.location.search).get("ligero");
+        if (q) return q;
+      } catch (e) { /* un marco de otro origen: no se mira */ }
+    }
+    return null;
+  };
+  const porSoftware = () => {
+    const q = pedido();
+    if (q === "1") return true;
+    if (q === "0") return false;
+    try {
+      if (typeof WebGLRenderingContext === "undefined") return false;
+      const lienzo = document.createElement("canvas");
+      const op = { failIfMajorPerformanceCaveat: true };
+      const gl = lienzo.getContext("webgl2", op) || lienzo.getContext("webgl", op);
+      if (!gl) return true;
+      const soltar = gl.getExtension("WEBGL_lose_context");
+      if (soltar) soltar.loseContext();
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+  requestAnimationFrame(() => setTimeout(() => {
+    if (porSoftware()) document.documentElement.setAttribute("data-ligero", "");
+  }, 0));
+})();
+
 /* ---------------------------------------------------------------- preguntas */
 // Una pregunta abierta a la vez, y el cambio de una a otra en un solo movimiento.
 // <details> no da nada de esto solo: deja abrir todas a la vez, y al quitarle `open` borra

@@ -1562,3 +1562,31 @@ html.quieto .valvula.con-mov { display: inline; }
 .perdida h1 { font-size: clamp(40px, 5vw, 76px); }
 .perdida .entradilla { margin-inline: auto; }
 .perdida .botones { justify-content: center; margin-top: 32px; }
+
+/* ---------- sin tarjeta gráfica: el modo ligero (html[data-ligero], lo pone leer.js) ----------
+   Por software, cada desenfoque se vuelve a calcular cuando hay que pintar lo que tiene
+   detrás o debajo, también al bajar. Es un atributo fijo, puesto una vez al cargar, y con
+   gráfica no se pone: nada de esto cambia la web en un ordenador normal. Medido con
+   `probar-web.mjs --cruceta` (sin gráfica y con la CPU a 4x), en la misma tanda que la
+   portada publicada. */
+/* Los cristales, sin desenfoque: se quedan con su fondo, que en la demo ya es casi opaco. La
+   barra de arriba, con su mismo color pero opaca: con un 8 % de transparencia, el texto blanco
+   que pasa por debajo todavía se leía a través (foto, 14-nov). */
+html[data-ligero] *,
+html[data-ligero] *::before,
+html[data-ligero] *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-ligero] .barra-dentro { background: var(--fondo); background: rgb(from var(--vidrio) r g b / 1); }
+/* La luz morada de detrás de la demo era un rectángulo con `filter: blur(80px)`: pasa a dos
+   degradados redondos que ya nacen difuminados (azul a la izquierda, morado a la derecha),
+   un poco más grandes que la caja para llegar hasta donde llegaba el desenfoque. Comparada
+   en foto con la de siempre a 1920 y a 390, en claro y en oscuro. */
+html[data-ligero] .escaparate::before {
+  filter: none; border-radius: 0;
+  inset: calc(14% - min(110px, 6vw)) calc(10% - min(120px, 6vw)) calc(10% - min(80px, 4vw));
+  background:
+    radial-gradient(closest-side, #5874f5 0 58%, #5874f580 73%, #5874f51a 88%, transparent) 0 50% / 60% 100% no-repeat,
+    radial-gradient(closest-side, #a855d9 0 58%, #a855d980 73%, #a855d91a 88%, transparent) 100% 50% / 60% 100% no-repeat;
+}
+@media (max-width: 860px) {
+  html[data-ligero] .escaparate::before { opacity: calc(var(--brillo-demo) * .45); }
+}
