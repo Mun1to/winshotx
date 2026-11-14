@@ -707,16 +707,6 @@ fn medida_del_texto(_que: &str, _alto_letra: i32) -> (i32, i32) {
     (0, 0)
 }
 
-#[cfg(not(windows))]
-fn paso(imagen: &mut RgbaImage, cx: i32, cy: i32, _numero: &str, color: [u8; 3]) {
-    let radio = radio_del_paso(imagen.width());
-    let Some((cx, cy)) = centro_metido(imagen, cx, cy, radio.ceil() as i32, radio.ceil() as i32)
-    else {
-        return;
-    };
-    disco(imagen, cx, cy, radio, color);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

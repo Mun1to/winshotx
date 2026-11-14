@@ -163,6 +163,7 @@ fn una_foto_de_un_video_lleva_su_tapa() {
 /// teléfono, y a los 2,5 s se van. El lector de Windows los encuentra, `escribir` los tapa
 /// en el MP4, y en el archivo que sale el lector ya no puede leerlos; la factura sí.
 #[test]
+#[cfg(windows)]
 #[ignore = "necesita el lector de texto y el codificador de Windows, y ffmpeg: se corre a mano"]
 fn la_factura_en_un_video_sale_tapada_en_el_mp4() {
     use crate::datos_en_video::pruebas::pintar_texto;
@@ -256,6 +257,7 @@ fn la_factura_en_un_video_sale_tapada_en_el_mp4() {
 /// una grabación que hace lo que hace una de verdad: quieta, escribiendo, con un scroll,
 /// con el cursor de texto parpadeando y pasando páginas.
 #[test]
+#[cfg(windows)]
 #[ignore = "mide con el lector de Windows: se corre a mano, en release"]
 fn medir_tapar_un_minuto() {
     use crate::datos_en_video::pruebas::pintar_texto;

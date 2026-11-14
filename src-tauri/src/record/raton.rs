@@ -10,8 +10,6 @@
 //! Lo unico que se pierde con este metodo es un clic tan corto que empiece y acabe entre
 //! dos fotogramas, y eso no lo hace ni el raton de nadie.
 
-#![cfg(windows)]
-
 use super::realce::Clic;
 
 /// Lo que se sabia de los botones la ultima vez que se miro.
@@ -49,6 +47,7 @@ impl Vigilante {
 const VK_LBUTTON: i32 = 0x01;
 const VK_RBUTTON: i32 = 0x02;
 
+#[cfg(windows)]
 fn pulsado(tecla: i32) -> bool {
     use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
     // El bit de arriba dice si esta pulsado AHORA. El de abajo dice si se pulso desde la
@@ -80,6 +79,7 @@ pub fn forma() -> crate::encode::cursor::Forma {
 
 /// El cursor que hay puesto ahora mismo: su identificador (con el que se puede leer su
 /// imagen, ver `punteros.rs`) y su forma. `None` si esta escondido o no se puede saber.
+#[cfg(windows)]
 pub fn puntero_actual() -> Option<(isize, crate::encode::cursor::Forma)> {
     use crate::encode::cursor::Forma;
     use std::sync::OnceLock;
@@ -112,12 +112,31 @@ pub fn puntero_actual() -> Option<(isize, crate::encode::cursor::Forma)> {
     Some((actual, forma))
 }
 
+#[cfg(windows)]
 fn donde() -> Option<(i32, i32)> {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
     let mut punto = POINT::default();
     unsafe { GetCursorPos(&mut punto) }.ok()?;
     Some((punto.x, punto.y))
+}
+
+// Fuera de Windows todavía no se sabe leer el ratón (en X11 sería `XQueryPointer`; en Wayland
+// una app normal no puede): sin botones ni sitio, el vigilante no ve clics y no se inventa
+// ninguno.
+#[cfg(not(windows))]
+fn pulsado(_tecla: i32) -> bool {
+    false
+}
+
+#[cfg(not(windows))]
+pub fn puntero_actual() -> Option<(isize, crate::encode::cursor::Forma)> {
+    None
+}
+
+#[cfg(not(windows))]
+fn donde() -> Option<(i32, i32)> {
+    None
 }
 
 #[cfg(test)]
@@ -138,6 +157,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn el_puntero_esta_en_algun_sitio() {
         assert!(donde().is_some(), "Windows siempre sabe dónde está el ratón");
     }

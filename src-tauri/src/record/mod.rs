@@ -13,6 +13,23 @@ use crate::error::{AppError, Result};
 pub mod anotador;
 #[cfg(windows)]
 pub mod camara;
+/// Fuera de Windows todavía no se sabe abrir una cámara: los ajustes la ven vacía.
+#[cfg(not(windows))]
+pub mod camara {
+    /// Una cámara conectada, para elegirla en los ajustes.
+    #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Dispositivo {
+        pub id: String,
+        pub nombre: String,
+    }
+
+    /// La orden de los ajustes: qué cámaras hay, para elegir una.
+    #[tauri::command]
+    pub async fn list_cameras() -> crate::error::Result<Vec<Dispositivo>> {
+        Ok(Vec::new())
+    }
+}
 #[cfg(windows)]
 pub mod punteros;
 #[cfg(windows)]

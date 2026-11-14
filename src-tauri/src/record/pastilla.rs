@@ -9,14 +9,14 @@
 //! durante una grabación larga se nota. Como el texto cambia cuando alguien pulsa un atajo
 //! y no en cada fotograma, se guarda la última y se reusa mientras diga lo mismo.
 
-#![cfg(windows)]
-
 use image::{Rgba, RgbaImage};
 
 /// Alto de la letra, en píxeles.
 const LETRA: i32 = 22;
 /// Aire dentro de la pastilla.
+#[cfg(windows)]
 const AIRE_X: i32 = 16;
+#[cfg(windows)]
 const AIRE_Y: i32 = 10;
 
 /// La última pastilla dibujada, para no repetir el trabajo en cada fotograma.
@@ -97,6 +97,7 @@ fn dibujar(texto: &str) -> Option<RgbaImage> {
 }
 
 /// El trabajo de verdad. Con `color` puesto sale el texto suelto, y sin él, la pastilla.
+#[cfg(windows)]
 fn pintar_texto(texto: &str, alto_letra: i32, color: Option<[u8; 3]>) -> Option<RgbaImage> {
     use windows::Win32::Foundation::{COLORREF, RECT, SIZE};
     use windows::Win32::Graphics::Gdi::*;
@@ -201,7 +202,15 @@ fn pintar_texto(texto: &str, alto_letra: i32, color: Option<[u8; 3]>) -> Option<
     }
 }
 
+/// Fuera de Windows todavía no hay con qué escribir letras (GDI es de Windows): sin texto no
+/// sale pastilla, y quien la pide se queda sin ella en vez de reventar.
+#[cfg(not(windows))]
+fn pintar_texto(_texto: &str, _alto_letra: i32, _color: Option<[u8; 3]>) -> Option<RgbaImage> {
+    None
+}
+
 /// Si el punto cae dentro del rectángulo con las esquinas redondeadas.
+#[cfg(windows)]
 fn dentro_de_la_pastilla(x: i32, y: i32, ancho: i32, alto: i32, radio: i32) -> bool {
     let cx = if x < radio {
         radio
@@ -221,7 +230,7 @@ fn dentro_de_la_pastilla(x: i32, y: i32, ancho: i32, alto: i32, radio: i32) -> b
     (dx * dx + dy * dy).sqrt() <= radio as f32
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     use super::*;
 

@@ -54,7 +54,6 @@ pub fn rgba_to_bgra_bottom_up(image: &RgbaImage) -> Vec<u8> {
     out
 }
 
-#[cfg(windows)]
 /// El sonido que acompanna al video, ya recortado al tramo que se exporta.
 pub struct Pista {
     pub channels: u16,
@@ -103,6 +102,7 @@ pub fn medida_que_acepta(ancho: u32, alto: u32) -> (u32, u32) {
     (par(f64::from(ancho) * veces), par(f64::from(alto) * veces))
 }
 
+#[cfg(windows)]
 pub fn encode<L, P>(
     indices: &[usize],
     delays_ms: &[u32],

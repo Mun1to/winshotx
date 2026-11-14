@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod bench_freeze;
 #[cfg(windows)]
 mod wgc;

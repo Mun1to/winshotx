@@ -405,7 +405,14 @@ pub async fn miniatura_anclar(app: AppHandle, id: u64) -> Result<()> {
 pub async fn miniatura_arrastrar(app: AppHandle, id: u64) -> Result<()> {
     let (archivo, _, _) = de(id)?;
     let window = ventana(&app)?;
+    #[cfg(windows)]
     let hwnd = window.hwnd().map_err(|e| AppError::Msg(e.to_string()))?.0 as isize;
+    // Sin OLE no hay ventana que dar: `arrastrar` contesta que fuera de Windows no se puede.
+    #[cfg(not(windows))]
+    let hwnd = {
+        let _ = window;
+        0
+    };
     let otra = app.clone();
     app.run_on_main_thread(move || {
         match crate::platform::arrastrar::arrastrar(hwnd, &archivo) {
