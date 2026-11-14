@@ -204,6 +204,11 @@ nav.barra.compacta .barra-dentro {
 @media (max-width: 1020px) {
   .barra .enlaces { display: none; }
   .barra-dentro { grid-template-columns: 1fr auto; }
+  /* En el móvil y la tableta todo lo de la barra se pulsa con el dedo: 44 px de alto, como poco. */
+  .logo-nombre { min-height: 44px; }
+  .barra .idioma { padding-block: 10px; }
+  .barra .gh { width: 44px; height: 44px; }
+  .barra .baja { height: 44px; }
 }
 /* En el móvil no se descarga un programa de Windows: ahí sobra el botón. */
 @media (max-width: 640px) { .barra .baja { display: none; } }
@@ -216,7 +221,7 @@ nav.barra.compacta .barra-dentro {
 @media (max-width: 1020px) {
   .menu { display: block; }
   .menu > summary {
-    display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px;
+    display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px;
     border-radius: 10px; list-style: none; cursor: pointer; user-select: none;
     font: 600 15px/1 var(--letra); color: var(--texto); transition: background .18s;
   }
@@ -590,6 +595,7 @@ html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 .pestana:hover { color: var(--texto); }
 .pestana[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--azul); }
 .pestana:focus-visible { outline: 2px solid var(--azul); outline-offset: 4px; border-radius: 4px; }
+@media (max-width: 860px) { .pestana { min-height: 44px; } }
 @media (max-width: 520px) { .pestanas { gap: 18px; } .pestana { font-size: 15px; } }
 .marco {
   position: relative; border: 1px solid var(--borde); border-radius: var(--radio);
@@ -1285,6 +1291,14 @@ html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 .terminal .copiado { background: #1d1d25; color: #e6e6ee; box-shadow: 0 0 0 1px #ffffff1f; }
 /* A la altura de su dibujo, que en una orden de dos renglones va en el primero. */
 .terminal .copiable .copiado { top: .92em; }
+/* Con el dedo, cada orden de la terminal es una fila de 44 px como poco, y las de dentro de una
+   frase se pueden tocar un poco por fuera de su caja (sin que el renglón cambie). */
+@media (pointer: coarse) {
+  .terminal .copiable { padding-block: 11px; }
+  .terminal .copiable svg { top: calc(11px + .42em); }
+  .terminal .copiable .copiado { top: calc(11px + .92em); }
+  .copiable.en-frase::after { content: ""; position: absolute; inset: -11px -4px; }
+}
 /* La orden larga de la guía, en su propio bloque: como una línea de la terminal. */
 .texto .orden-bloque { max-width: 68ch; margin-top: 12px; }
 .texto .orden-bloque code.copiable {
@@ -1435,6 +1449,10 @@ html.motion .medidas:not(.vistas) .llena { --lleno: 0; }
 @media (max-width: 860px) {
   .pie-rejilla { grid-template-columns: 1fr 1fr; }
   .pie .quien { grid-column: 1 / -1; }
+  /* Con el dedo, cada enlace con su zona de 44 px de alto, pegadas: el renglón casi no cambia. */
+  .pie ul { gap: 0; }
+  .pie li a, html.quieto .pie li .valvula.con-mov { display: inline-flex; align-items: center; min-height: 44px; }
+  .pie-titulo { margin-bottom: 4px; }
 }
 
 
@@ -1637,7 +1655,7 @@ html.quieto .valvula.con-mov { display: inline; }
     position: relative; top: auto; min-width: 0; max-height: none; display: flex; gap: 4px 22px; overflow-x: auto;
     margin: 0 -20px 36px; padding: 0 20px 8px; border-bottom: 1px solid var(--linea);
   }
-  .leer-indice a { flex: none; border-left: 0; padding: 8px 0; }
+  .leer-indice a { flex: none; border-left: 0; padding: 11px 0; }
   .leer-indice a[aria-current="true"] { border-left: 0; padding-left: 0; text-decoration: underline 3px var(--azul); text-underline-offset: 10px; }
   .texto { font-size: 17px; }
 }
