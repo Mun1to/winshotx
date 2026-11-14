@@ -1,6 +1,33 @@
 {
   "versiones": [
     {
+      "version": "0.4.7",
+      "desde": null,
+      "fecha": "2026-11-14",
+      "es": {
+        "titulo": "Mueve lo que dibujas y los ajustes a su medida",
+        "puntos": [
+          "**Lo dibujado se mueve**: coge una flecha, una caja o un texto ya puestos y arrástralos a otro sitio. Con **doble clic** reescribes un texto, **Supr** lo borra y **Ctrl+Z** lo deshace.",
+          "**Cambia el color de lo que tengas elegido**: con una marca elegida, pincha otro color y se lo pone. Ctrl+Z le devuelve el suyo.",
+          "**Los ajustes se abren a su medida**: cada pestaña mide lo que lleva dentro, sin hueco abajo, y la ventana nunca se sale de la pantalla.",
+          "**Al abrir winshotx a mano salen los ajustes**; cuando arranca con Windows se queda en la bandeja, como siempre.",
+          "**El tour enciende la pestaña** de la que te habla en cada parada.",
+          "**El menú de la bandeja ya no sale en blanco** con barras de tareas de otros programas, como MyDockFinder."
+        ]
+      },
+      "en": {
+        "titulo": "Move what you draw, and settings sized to fit",
+        "puntos": [
+          "**Drawn marks move**: grab an arrow, a box or a text you already placed and drag it somewhere else. **Double-click** a text to rewrite it, **Delete** removes it and **Ctrl+Z** undoes it.",
+          "**Recolour what you selected**: with a mark selected, click another colour and it takes it. Ctrl+Z gives its own back.",
+          "**Settings open at their size**: each tab is as tall as what it holds, with no empty space at the bottom, and the window never goes off screen.",
+          "**Opening winshotx by hand shows the settings**; when it starts with Windows it stays in the tray, as always.",
+          "**The tour lights up the tab** it is talking about at every stop.",
+          "**The tray menu no longer shows up blank** with third-party docks such as MyDockFinder."
+        ]
+      }
+    },
+    {
       "version": "0.4.6",
       "desde": null,
       "fecha": "2026-11-14",
