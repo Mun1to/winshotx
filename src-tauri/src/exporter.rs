@@ -803,6 +803,8 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
     };
 
     escribir(&session, &request, &path, &emit)?;
+    // S26: si es una foto de la carpeta de capturas, su texto se lee ya para el historial.
+    crate::historial_texto::avisar(app);
 
     emit("done", 1, 1);
 

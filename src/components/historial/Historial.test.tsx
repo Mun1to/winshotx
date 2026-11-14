@@ -27,8 +27,8 @@ function entrada(nombre: string, tipo: "foto" | "video", haceHoras = 1): Entrada
 
 const TRES = [entrada("a.png", "foto"), entrada("b.mp4", "video", 30), entrada("c.png", "foto", 80)];
 
-async function pintar(entradas = TRES, total = entradas.length) {
-  responde("historial_lista", { entradas, total });
+async function pintar(entradas = TRES, total = entradas.length, extra: Record<string, unknown> = {}) {
+  responde("historial_lista", { entradas, total, ...extra });
   responde("historial_miniatura", "C:\\t\\winshotx\\historial\\x.png");
   const vista = render(<Historial carpeta={CARPETA} />);
   await act(async () => {});
@@ -53,14 +53,14 @@ describe("la rejilla", () => {
 
   it("pide la primera página entera, sin filtro", async () => {
     await pintar();
-    expect(pedidas("historial_lista")[0].args).toEqual({ filtro: null, desde: 0, cuantas: 48 });
+    expect(pedidas("historial_lista")[0].args).toEqual({ filtro: null, desde: 0, cuantas: 48, buscar: null });
   });
 
   it("el filtro pide a Rust solo los vídeos", async () => {
     await pintar();
     fireEvent.click(screen.getByRole("tab", { name: "Vídeos" }));
     await act(async () => {});
-    expect(pedidas("historial_lista").at(-1)!.args).toEqual({ filtro: "video", desde: 0, cuantas: 48 });
+    expect(pedidas("historial_lista").at(-1)!.args).toEqual({ filtro: "video", desde: 0, cuantas: 48, buscar: null });
     expect(screen.getByRole("tab", { name: "Vídeos" })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -68,7 +68,7 @@ describe("la rejilla", () => {
     await pintar(TRES, 50);
     fireEvent.click(screen.getByText("Ver más"));
     await act(async () => {});
-    expect(pedidas("historial_lista").at(-1)!.args).toEqual({ filtro: null, desde: 3, cuantas: 48 });
+    expect(pedidas("historial_lista").at(-1)!.args).toEqual({ filtro: null, desde: 3, cuantas: 48, buscar: null });
   });
 
   it("y no sale si ya están todas", async () => {
@@ -128,6 +128,135 @@ describe("las acciones", () => {
     await act(async () => {});
     expect(document.querySelector("[data-entrada='c.png']")).not.toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent("no se ha podido mandar a la papelera");
+  });
+});
+
+/**
+ * S26: la caja de buscar por el texto de las fotos. La búsqueda la hace Rust (sin tildes ni
+ * mayúsculas, `historial_texto.rs`, con sus pruebas y el lector de verdad); aquí se mira que
+ * la caja salga solo donde hay lector, que pida a Rust lo escrito cuando se deja de teclear,
+ * que enseñe lo que vuelve, y que borrarla devuelva el historial de siempre.
+ */
+describe("buscar por el texto de las fotos", () => {
+  /** Lo que tarda la caja en buscar desde la última tecla, y un poco más. */
+  const dejarDeTeclear = () => act(async () => void (await new Promise((listo) => setTimeout(listo, 260))));
+
+  async function conCaja(entradas = TRES, extra: Record<string, unknown> = {}) {
+    return pintar(entradas, entradas.length, { buscable: true, porLeer: 0, ...extra });
+  }
+
+  const caja = () => screen.getByRole("searchbox", { name: "Buscar en el texto de las fotos" });
+
+  it("sin lector (Linux, o un Windows sin idioma con lector) la caja no sale", async () => {
+    await pintar();
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    await pintar(TRES, 3, { buscable: false });
+    expect(screen.queryByRole("searchbox")).toBeNull();
+  });
+
+  it("con lector sale, vacía, y el historial es el de siempre", async () => {
+    await conCaja();
+    expect(caja()).toHaveValue("");
+    expect(pedidas("historial_lista")[0].args).toEqual({ filtro: null, desde: 0, cuantas: 48, buscar: null });
+    expect(document.querySelectorAll("[data-entrada]")).toHaveLength(3);
+  });
+
+  it("escribir pide a Rust lo escrito cuando se deja de teclear, y enseña lo que devuelve", async () => {
+    await conCaja();
+    responde("historial_lista", { entradas: [TRES[2]], total: 1, buscable: true, porLeer: 0 });
+    fireEvent.change(caja(), { target: { value: "Cam" } });
+    fireEvent.change(caja(), { target: { value: "  Camión " } });
+    expect(pedidas("historial_lista")).toHaveLength(1);
+    await dejarDeTeclear();
+    const busquedas = pedidas("historial_lista").slice(1);
+    expect(busquedas.map((l) => l.args)).toEqual([{ filtro: null, desde: 0, cuantas: 48, buscar: "Camión" }]);
+    const cartas = [...document.querySelectorAll("[data-entrada]")].map((c) => c.getAttribute("data-entrada"));
+    expect(cartas).toEqual(["c.png"]);
+  });
+
+  it("buscando, el filtro de arriba se respeta", async () => {
+    await conCaja();
+    fireEvent.change(caja(), { target: { value: "factura" } });
+    await dejarDeTeclear();
+    fireEvent.click(screen.getByRole("tab", { name: "Fotos" }));
+    await act(async () => {});
+    expect(pedidas("historial_lista").at(-1)!.args).toEqual({ filtro: "foto", desde: 0, cuantas: 48, buscar: "factura" });
+  });
+
+  it("sin nada que lo lleve lo dice, con lo buscado, y que el texto no sale del PC", async () => {
+    await conCaja();
+    responde("historial_lista", { entradas: [], total: 0, buscable: true, porLeer: 0 });
+    fireEvent.change(caja(), { target: { value: "hipopótamo" } });
+    await dejarDeTeclear();
+    expect(screen.getByText("Ninguna foto lleva escrito «hipopótamo»")).toBeInTheDocument();
+    expect(screen.getByText(/se lee aquí, en tu PC, y no sale de él/)).toBeInTheDocument();
+    expect(screen.queryByText("Todavía no has guardado nada")).toBeNull();
+  });
+
+  it("la X y Escape borran la búsqueda y vuelve el historial de siempre", async () => {
+    await conCaja();
+    fireEvent.change(caja(), { target: { value: "camion" } });
+    await dejarDeTeclear();
+    fireEvent.click(screen.getByRole("button", { name: "Borrar la búsqueda" }));
+    expect(caja()).toHaveValue("");
+    await dejarDeTeclear();
+    expect(pedidas("historial_lista").at(-1)!.args).toEqual({ filtro: null, desde: 0, cuantas: 48, buscar: null });
+
+    fireEvent.change(caja(), { target: { value: "otra" } });
+    fireEvent.keyDown(caja(), { key: "Escape" });
+    expect(caja()).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Borrar la búsqueda" })).toBeNull();
+  });
+
+  it("sin resultados y con fotos por leer, dice cuántas faltan; con resultados, no", async () => {
+    await conCaja(TRES, { porLeer: 37 });
+    expect(document.querySelector("[data-por-leer]")).toBeNull();
+    responde("historial_lista", { entradas: [TRES[0]], total: 1, buscable: true, porLeer: 37 });
+    fireEvent.change(caja(), { target: { value: "camion" } });
+    await dejarDeTeclear();
+    expect(document.querySelector("[data-por-leer]")).toBeNull();
+    responde("historial_lista", { entradas: [], total: 0, buscable: true, porLeer: 37 });
+    fireEvent.change(caja(), { target: { value: "camiones" } });
+    await dejarDeTeclear();
+    expect(document.querySelector("[data-sin-resultados] [data-por-leer]")).toHaveTextContent(
+      "Quedan 37 fotos por leer: las que lo lleven irán saliendo.",
+    );
+  });
+
+  it("mientras quedan fotos por leer, la búsqueda se repite sola para que vayan saliendo", async () => {
+    await conCaja(TRES, { porLeer: 5 });
+    responde("historial_lista", { entradas: [], total: 0, buscable: true, porLeer: 5 });
+    fireEvent.change(caja(), { target: { value: "factura" } });
+    await dejarDeTeclear();
+    const antes = pedidas("historial_lista").length;
+    responde("historial_lista", { entradas: [TRES[0]], total: 1, buscable: true, porLeer: 0 });
+    await act(async () => void (await new Promise((listo) => setTimeout(listo, 4200))));
+    expect(pedidas("historial_lista").length).toBe(antes + 1);
+    expect(pedidas("historial_lista").at(-1)!.args).toEqual({ filtro: null, desde: 0, cuantas: 48, buscar: "factura" });
+    expect(document.querySelectorAll("[data-entrada]")).toHaveLength(1);
+    // Ya sin nada por leer, no vuelve a preguntar.
+    await act(async () => void (await new Promise((listo) => setTimeout(listo, 4200))));
+    expect(pedidas("historial_lista").length).toBe(antes + 1);
+  }, 15_000);
+
+  it("en inglés no queda nada en español, tampoco en la caja ni en lo que sale sin resultados", async () => {
+    aplicarIdioma("en");
+    await conCaja(TRES, { porLeer: 2 });
+    responde("historial_lista", { entradas: [], total: 0, buscable: true, porLeer: 2 });
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "zz" } });
+    await dejarDeTeclear();
+    const textos = [
+      document.body.textContent ?? "",
+      ...[...document.querySelectorAll("[aria-label],[title],[placeholder]")].flatMap((el) => [
+        el.getAttribute("aria-label") ?? "",
+        el.getAttribute("title") ?? "",
+        el.getAttribute("placeholder") ?? "",
+      ]),
+    ].join(" ");
+    for (const espanol of ["Buscar", "Borrar", "Ninguna", "lleva", "Quedan", "fotos", "se lee", "tu PC"]) {
+      expect(textos).not.toContain(espanol);
+    }
+    expect(textos).toContain("2 shots left to read");
   });
 });
 

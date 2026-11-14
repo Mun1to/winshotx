@@ -655,6 +655,16 @@ export const EN: Record<string, string> = {
   "Las fotos que guardes y los vídeos que exportes salen aquí, de lo más nuevo a lo más viejo.":
     "The shots you save and the videos you export show up here, newest first.",
   "ese archivo no es del historial": "that file is not in the history",
+  // S26: buscar en el historial por el texto de las fotos
+  "Buscar en el texto de las fotos": "Search the text in your shots",
+  "Borrar la búsqueda": "Clear the search",
+  "El texto se lee aquí, en tu PC, y no sale de él.": "The text is read here, on your PC, and never leaves it.",
+  "Ninguna foto lleva escrito «{texto}»": "No shot has “{texto}” written on it",
+  "Busca en el texto de las fotos, que se lee aquí, en tu PC, y no sale de él.":
+    "It searches the text in your shots, which is read here, on your PC, and never leaves it.",
+  "Queda 1 foto por leer: si lo lleva, saldrá aquí.": "1 shot left to read: if it has it, it will show up here.",
+  "Quedan {n} fotos por leer: las que lo lleven irán saliendo.":
+    "{n} shots left to read: the ones that have it will show up as they are read.",
   // S5 (scroll)
   "Captura con scroll": "Scrolling capture",
   "Captura con scroll: baja la página y la junta en una imagen · S": "Scrolling capture: scrolls the page and joins it into one image · S",
