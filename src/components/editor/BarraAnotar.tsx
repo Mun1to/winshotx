@@ -37,6 +37,11 @@ interface Props {
   color: string;
   onColor: (color: string) => void;
   cuantas: number;
+  /**
+   * Si hay algo que deshacer. No es lo mismo que haber marcas: con todas quitadas se puede
+   * deshacer el quitarlas, y una marca movida se puede devolver a su sitio.
+   */
+  puedeDeshacer?: boolean;
   onDeshacer: () => void;
   onBorrarTodo: () => void;
   /** Tapar de una vez los datos personales que haya en la imagen. */
@@ -89,6 +94,7 @@ export function BarraAnotar({
   color,
   onColor,
   cuantas,
+  puedeDeshacer = cuantas > 0,
   onDeshacer,
   onBorrarTodo,
   onTaparDatos,
@@ -208,10 +214,10 @@ export function BarraAnotar({
         <Raya />
         <Boton
           icono={Undo2}
-          etiqueta={t("Deshacer la última (Ctrl+Z)")}
+          etiqueta={t("Deshacer (Ctrl+Z)")}
           activa={false}
           onClick={onDeshacer}
-          apagada={cuantas === 0}
+          apagada={!puedeDeshacer}
         />
         <Boton
           icono={X}

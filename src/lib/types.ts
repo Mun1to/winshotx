@@ -473,7 +473,10 @@ export const EVENTS = {
   settingsShown: "winshotx://settings-shown",
   /** El anillo de los últimos segundos se ha encendido, apagado o ha guardado algo. */
   replay: "winshotx://replay",
-  /** El menú de la bandeja se acaba de abrir: que vuelva a leer lo que enseña. */
+  /**
+   * El menú de la bandeja se acaba de abrir: que vuelva a leer lo que enseña. Lleva el
+   * número de esa apertura, que la página devuelve en `resizeTrayMenu`.
+   */
   trayMenuOpened: "winshotx://tray-menu-opened",
   /** «Esta pantalla es la 2», enseñado en esa pantalla un par de segundos. */
   screenNumber: "winshotx://screen-number",

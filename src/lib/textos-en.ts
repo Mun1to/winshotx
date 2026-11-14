@@ -217,7 +217,7 @@ export const EN: Record<string, string> = {
   Atrás: "Back",
   Siguiente: "Next",
   Listo: "Done",
-  "Todo está en estas cuatro": "It is all in these four",
+  "Todo está en estas cinco": "It is all in these five",
   "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.":
     "There are no other screens or hidden menus: everything you can change lives here, and each section fits without scrolling.",
   "La tecla que lo empieza todo": "The key that starts everything",
@@ -260,8 +260,8 @@ export const EN: Record<string, string> = {
     "The full option: the editor, the GIF and the video all come out of that bar.",
   "Al vuelo": "On the fly",
   "Seleccionas y se copia sola.": "Select and it copies itself.",
-  "Para pegar en un chat sin pensar. El atajo de grabar sigue sacando la barra.":
-    "To paste into a chat without thinking. The recording shortcut still brings up the bar.",
+  "Para pegar en un chat sin pensar. Grabar va igual en las dos: empieza al soltar.":
+    "To paste into a chat without thinking. Recording works the same in both: it starts when you let go.",
   "Pulsas el atajo": "You press the shortcut",
   "Arrastras la región": "You drag the region",
   "Copiar, guardar, editar o grabar": "Copy, save, edit or record",
@@ -376,6 +376,9 @@ export const EN: Record<string, string> = {
   "Elegir qué hacer": "Choose what to do",
   "Al soltar, elegir qué hacer con el recorte · B":
     "On release, choose what to do with the crop · B",
+  "Proporción del recorte": "Crop aspect ratio",
+  "Proporción del recorte: {cual} · X": "Crop aspect ratio: {cual} · X",
+  libre: "free",
   "Ajustes de winshotx": "winshotx settings",
 
   // La tira de miniaturas del editor
@@ -452,7 +455,7 @@ export const EN: Record<string, string> = {
   "Escribe aquí": "Type here",
   "Silenciar la vista previa (M)": "Mute the preview (M)",
   "Oír la vista previa (M)": "Unmute the preview (M)",
-  "Deshacer la última (Ctrl+Z)": "Undo the last one (Ctrl+Z)",
+  "Deshacer (Ctrl+Z)": "Undo (Ctrl+Z)",
   "Últimas capturas": "Latest shots",
   "Copiar {nombre}": "Copy {nombre}",
   "Copiada: {nombre}": "Copied: {nombre}",

@@ -18,6 +18,17 @@ import {
   startRecording,
 } from "../../lib/ipc";
 import { EVENTO_SCROLL_MODO } from "../../lib/scroll";
+import {
+  EVENTO_PROPORCION,
+  asaConProporcion,
+  cambiarProporcion,
+  crecerConProporcion,
+  recorteConProporcion,
+  siguienteProporcion,
+  tieneLaProporcion,
+  unidadDe,
+  type Proporcion,
+} from "../../lib/proporcion";
 import { clamp } from "../../lib/format";
 import { useT } from "../../lib/i18n";
 import {
@@ -167,7 +178,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [payload, setPayload] = useState<OverlayPayload | null>(null);
   const [selection, setSelection] = useState<Rect | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
+  const modeRef = useRef<Mode>(mode);
+  modeRef.current = mode;
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
   /**
    * Si el raton esta en ESTA pantalla. Hay un overlay por monitor y todos pintaban la lupa,
    * la cruceta, el resalte y la barra de modos: en el que no tenia el raton salian donde
@@ -261,6 +276,20 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     },
     [difundir],
   );
+  /**
+   * La proporción fija del recorte (`lib/proporcion.ts`): se cambia con la X, también a
+   * mitad de arrastrar, o con su botón de la barra de arriba. Como el scroll, vuelve a
+   * «libre» en cada captura nueva: es de este recorte, no un ajuste, y encontrársela puesta
+   * días después haría pensar que el recorte va mal.
+   */
+  const [proporcion, setProporcion] = useState<Proporcion>("libre");
+  const proporcionRef = useRef<Proporcion>("libre");
+  proporcionRef.current = proporcion;
+  /** En todas las pantallas a la vez; el evento vuelve también a esta. */
+  const elegirProporcion = useCallback((valor: Proporcion) => {
+    setProporcion(valor);
+    void emit(EVENTO_PROPORCION, valor);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -285,6 +314,62 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     if (!source) return 1;
     return source.width / Math.max(1, window.innerWidth);
   }, [source]);
+
+  /**
+   * Lo que hace falta para las cuentas de la proporción: su escalón (el doble grabando, para
+   * que los lados salgan pares) y la pantalla en píxeles físicos. Null si va libre.
+   */
+  const geometria = useMemo(() => {
+    // La captura con scroll sale tan larga como la página: ahí no hay proporción que
+    // guardar, y su botón ni se ve.
+    const unidad = conScroll ? null : unidadDe(proporcion, modo !== "still");
+    if (!unidad || !source) return null;
+    return { unidad, limite: { ancho: source.width, alto: source.height }, escala: scale };
+  }, [proporcion, modo, conScroll, source, scale]);
+  const geometriaRef = useRef(geometria);
+  geometriaRef.current = geometria;
+
+  /** El recorte que se dibuja de un punto a otro, libre o con su proporción. */
+  const dibujar = useCallback(
+    (ax: number, ay: number, bx: number, by: number): Rect => {
+      if (!geometria) return normalize(ax, ay, bx, by);
+      const { unidad, limite, escala } = geometria;
+      return recorteConProporcion({ x: ax, y: ay }, { x: bx, y: by }, unidad, limite, escala);
+    },
+    [geometria],
+  );
+
+  /**
+   * Al cambiar la proporción (o de foto a grabar, que cambia el escalón), el recorte que ya
+   * hay se pone a la nueva en ese mismo momento, sin esperar a que se mueva el ratón: a
+   * mitad de arrastrar, desde donde se empezó hasta el cursor; tirando de un asa, igual que
+   * si se acabara de mover; y quieto, en el mismo sitio y de tamaño parecido.
+   */
+  const geometriaAntes = useRef<string>("");
+  useEffect(() => {
+    const clave = geometria ? `${proporcion}|${modo !== "still"}` : "";
+    if (clave === geometriaAntes.current) return;
+    geometriaAntes.current = clave;
+    if (!geometria) return;
+    const { unidad, limite, escala } = geometria;
+    const m = modeRef.current;
+    const c = cursorRef.current;
+    if (m.kind === "drawing") {
+      setSelection(recorteConProporcion({ x: m.originX, y: m.originY }, c, unidad, limite, escala));
+      return;
+    }
+    if (m.kind === "resizing") {
+      setSelection(asaConProporcion(m.base, m.handle, c, unidad, limite, escala));
+      return;
+    }
+    const actual = selectionRef.current;
+    if (!actual || actual.width < MIN_DRAG || actual.height < MIN_DRAG) return;
+    const nuevo = cambiarProporcion(actual, unidad, limite, escala);
+    setSelection(nuevo);
+    // Arrastrándolo, el tamaño sale de `base`: sin esto, el siguiente movimiento le
+    // devolvería el de antes.
+    if (m.kind === "moving") setMode({ ...m, base: nuevo });
+  }, [geometria, proporcion, modo]);
 
   /** Si el fondo ya esta dibujado en `source`. Hasta entonces, la pantalla de arranque. */
   const [fondoListo, setFondoListo] = useState(false);
@@ -344,6 +429,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     setMode({ kind: "idle" });
     setPantallaEntera(false);
     setConScroll(false);
+    setProporcion("libre");
     setBusy(false);
     // `conBarra` NO se reinicia aqui: lo pone el payload unas lineas mas abajo con lo que
     // digan los ajustes, y ponerlo a un valor de fabrica antes seria ensennar la barra
@@ -632,6 +718,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const nudge = useCallback((dx: number, dy: number, resize: boolean) => {
     setSelection((prev) => {
       if (!prev) return prev;
+      const g = geometriaRef.current;
+      if (resize && g) {
+        // Con la proporción fija, las dos medidas crecen juntas, de escalón en escalón.
+        return crecerConProporcion(prev, dx + dy, g.unidad, g.limite, g.escala);
+      }
       if (resize) {
         return {
           ...prev,
@@ -718,6 +809,14 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         void copyColor(hexRef.current)
           .then(() => setColorCopiado(hexRef.current))
           .catch((err) => setError(String(err)));
+      } else if (key === "x" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // La proporción del recorte: libre, 16:9, 1:1, 9:16 y 4:3, y vuelta a empezar; con
+        // Mayús, hacia atrás. Se pulsa a mitad de arrastrar y el recuadro cambia ya. La X
+        // no la usaba nada aquí, y sola no choca con `Alt+X`, que es uno de los atajos
+        // globales que propone la bienvenida. Con scroll no hace nada, como su botón.
+        if (conScrollRef.current) return;
+        e.preventDefault();
+        elegirProporcion(siguienteProporcion(proporcionRef.current, e.shiftKey));
       } else if (key === "p") {
         difundir({ fullScreen: !pantallaRef.current });
       } else if (key === "b") {
@@ -785,6 +884,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     cambiarBarra,
     cambiarScroll,
     empezarScroll,
+    elegirProporcion,
   ]);
 
   const readHex = useCallback(
@@ -814,7 +914,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         // La lupa sigue en pantalla mientras se dibuja, asi que el color tiene
         // que seguir al cursor en vez de quedarse en el del primer clic.
         readHex(x, y);
-        setSelection(normalize(mode.originX, mode.originY, x, y));
+        setSelection(dibujar(mode.originX, mode.originY, x, y));
       } else if (mode.kind === "moving") {
         setSelection({
           x: clamp(x - mode.grabX, 0, window.innerWidth - mode.base.width),
@@ -823,7 +923,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           height: mode.base.height,
         });
       } else if (mode.kind === "resizing") {
-        setSelection(applyHandle(mode.base, mode.handle, x, y));
+        const g = geometriaRef.current;
+        setSelection(
+          g
+            ? asaConProporcion(mode.base, mode.handle, { x, y }, g.unidad, g.limite, g.escala)
+            : applyHandle(mode.base, mode.handle, x, y),
+        );
       }
     };
 
@@ -858,7 +963,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [mode, readHex, alVuelo, alEditor, modo, capturarRegion, grabarRegion, empezarScroll]);
+  }, [mode, readHex, dibujar, alVuelo, alEditor, modo, capturarRegion, grabarRegion, empezarScroll]);
 
   /** Se lleva esta pantalla entera con lo que diga la barra: foto, video o GIF. */
   const llevarsePantalla = useCallback(async () => {
@@ -904,10 +1009,14 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     const numeros = listen<number>(EVENTS.overlayTakeScreen, ({ payload: n }) => {
       if (n === numeroPantalla.current) void llevarsePantalla();
     });
+    const proporciones = listen<Proporcion>(EVENTO_PROPORCION, ({ payload: valor }) => {
+      setProporcion(valor);
+    });
     return () => {
       void modos.then((fn) => fn());
       void numeros.then((fn) => fn());
       void scroll.then((fn) => fn());
+      void proporciones.then((fn) => fn());
     };
   }, [llevarsePantalla]);
 
@@ -959,7 +1068,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           originY: desdeLaBarra.y,
           candidate: null,
         });
-        setSelection(normalize(desdeLaBarra.x, desdeLaBarra.y, e.clientX, e.clientY));
+        setSelection(dibujar(desdeLaBarra.x, desdeLaBarra.y, e.clientX, e.clientY));
         return;
       }
     }
@@ -979,6 +1088,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       : null;
   const highlight = !active && hovered ? hovered : null;
   const sitioBarra = active ? sitioDeLaBarra(active, window.innerHeight) : null;
+  const conBarraDeAcciones =
+    active !== null && mode.kind === "idle" && !alVuelo && !alEditor && !conScroll;
+  /**
+   * Si la barra de acciones se ha ido ENCIMA del recorte (debajo no cabía): ahí es donde va
+   * la etiqueta de la medida, y la tapaba entera. Pasa con todo recorte alto pegado abajo,
+   * y con 9:16 pasa a menudo, justo cuando la etiqueta dice la proporción. Visto en una
+   * ventana de verdad, en la pantalla de abajo al 125 % (S27).
+   */
+  const barraEncima =
+    conBarraDeAcciones && sitioBarra !== null && sitioBarra.volteada && sitioBarra.top <= active!.y;
   const magnifierVisible =
     cursorAqui &&
     payload.settings.showMagnifier &&
@@ -1056,8 +1175,13 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           <DimensionBadge
             width={active.width * scale}
             height={active.height * scale}
+            proporcion={
+              tieneLaProporcion(active.width * scale, active.height * scale, proporcion)
+                ? proporcion
+                : "libre"
+            }
             left={active.x + 2}
-            top={active.y > 26 ? active.y - 26 : active.y + 6}
+            top={!barraEncima && active.y > 30 ? active.y - 30 : active.y + 6}
           />
         </>
       )}
@@ -1093,7 +1217,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       )}
 
       <AnimatePresence>
-        {active && mode.kind === "idle" && !alVuelo && !alEditor && !conScroll && (
+        {conBarraDeAcciones && active && (
           <FloatingToolbar
             key="toolbar"
             left={clamp(active.x + active.width / 2, 190, window.innerWidth - 190)}
@@ -1207,6 +1331,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           onConBarra={cambiarBarra}
           conScroll={conScroll}
           onConScroll={cambiarScroll}
+          proporcion={proporcion}
+          onProporcion={elegirProporcion}
           onAjustes={() => void openSettings()}
           onCancel={() => void cancelCapture()}
           dimmed={mode.kind !== "idle"}

@@ -110,7 +110,9 @@ async function unArranque(vuelta) {
   }
 
   console.log(`\nVuelta ${vuelta}: arrancando y esperando ${ESPERA} s...`);
-  const hijo = spawn(exe, { detached: true, stdio: "ignore" });
+  // Como arranca al encender el PC: sin `--autostart`, desde la 0.4.7 abriría los ajustes en
+  // medio de la pantalla, que es lo que hace abrirla a mano.
+  const hijo = spawn(exe, ["--autostart"], { detached: true, stdio: "ignore" });
   hijo.unref();
   const pid = hijo.pid;
 

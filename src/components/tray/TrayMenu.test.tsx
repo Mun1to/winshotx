@@ -122,6 +122,29 @@ describe("al volver a abrirse", () => {
       expect(screen.getByText("Quedarme con lo último")).toBeInTheDocument(),
     );
   });
+
+  /**
+   * Issue #15: Rust deja el menú aparcado fuera de las pantallas hasta que la página
+   * contesta a ESA apertura, para que nunca salga a la vista uno sin pintar. Si la página
+   * contestara sin el número, o con el de otra vez, el menú se quedaría aparcado y Rust lo
+   * rehará entero cada vez.
+   */
+  it("contesta a cada apertura con su número", async () => {
+    await abrirMenu();
+    const aperturas = () =>
+      llamadas
+        .filter((l) => l.comando === "resize_tray_menu")
+        .map((l) => (l.args as { apertura: number }).apertura);
+    // Recién cargada todavía no sabe ninguna: contesta con 0, que Rust acepta solo de una
+    // ventana que acaba de crear.
+    await waitFor(() => expect(aperturas()).toContain(0));
+
+    emite("winshotx://tray-menu-opened", 7);
+    await waitFor(() => expect(aperturas().at(-1)).toBe(7));
+
+    emite("winshotx://tray-menu-opened", 8);
+    await waitFor(() => expect(aperturas().at(-1)).toBe(8));
+  });
 });
 
 describe("las ultimas capturas", () => {

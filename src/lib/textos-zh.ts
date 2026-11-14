@@ -209,7 +209,7 @@ export const ZH: Record<string, string> = {
   Atrás: "上一步",
   Siguiente: "下一步",
   Listo: "完成",
-  "Todo está en estas cuatro": "全部就在这四个页面",
+  "Todo está en estas cinco": "全部就在这五个页面",
   "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.":
     "没有其他隐藏页面或菜单：所有可更改项都分布在这里，每页无需滚动即可看完。",
   "La tecla que lo empieza todo": "一切从按下这个键开始",
@@ -252,8 +252,8 @@ export const ZH: Record<string, string> = {
     "完整选项：编辑器、GIF 和视频都从该工具栏开始。",
   "Al vuelo": "即时复制",
   "Seleccionas y se copia sola.": "框选后自动复制。",
-  "Para pegar en un chat sin pensar. El atajo de grabar sigue sacando la barra.":
-    "适合直接粘贴到聊天窗口。录屏快捷键仍然会弹出工具栏。",
+  "Para pegar en un chat sin pensar. Grabar va igual en las dos: empieza al soltar.":
+    "适合直接粘贴到聊天窗口。两种方式录屏都一样：松开鼠标就开始。",
   "Pulsas el atajo": "按下快捷键",
   "Arrastras la región": "拖动框选区域",
   "Copiar, guardar, editar o grabar": "复制、保存、编辑或录屏",
@@ -368,6 +368,9 @@ export const ZH: Record<string, string> = {
   "Elegir qué hacer": "选择要执行的操作",
   "Al soltar, elegir qué hacer con el recorte · B":
     "松开后选择对框选内容执行的操作 · B",
+  "Proporción del recorte": "框选比例",
+  "Proporción del recorte: {cual} · X": "框选比例：{cual} · X",
+  libre: "自由",
   "Ajustes de winshotx": "winshotx 设置",
 
   // 编辑器缩略图条
@@ -443,7 +446,7 @@ export const ZH: Record<string, string> = {
   "Escribe aquí": "在此输入",
   "Silenciar la vista previa (M)": "预览静音 (M)",
   "Oír la vista previa (M)": "取消预览静音 (M)",
-  "Deshacer la última (Ctrl+Z)": "撤销上一步 (Ctrl+Z)",
+  "Deshacer (Ctrl+Z)": "撤销 (Ctrl+Z)",
   "Últimas capturas": "最新截图",
   "Copiar {nombre}": "复制{nombre}",
   "Copiada: {nombre}": "已复制：{nombre}",

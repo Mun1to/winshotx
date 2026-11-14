@@ -440,7 +440,7 @@ function Estilo({ valor, onChange }: { valor: CaptureFlow; onChange: (v: Capture
             { icono: <MousePointer2 className="size-3.5" />, texto: t("Arrastras la región") },
             { icono: <Clipboard className="size-3.5" />, texto: t("Ya está en el portapapeles") },
           ]}
-          nota={t("Para pegar en un chat sin pensar. El atajo de grabar sigue sacando la barra.")}
+          nota={t("Para pegar en un chat sin pensar. Grabar va igual en las dos: empieza al soltar.")}
         />
       </div>
     </div>

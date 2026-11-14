@@ -39,17 +39,16 @@ export function App() {
     void ventana.setTitle(
       vista === "bienvenida" ? "winshotx · bienvenida" : "winshotx · ajustes",
     );
-    // Cada pantalla pide el alto que necesita, y es ESTA linea la que manda: lo que dice
-    // `tauri.conf.json` es solo el tamanno con el que nace la ventana, y se pisa aqui en
-    // cuanto carga la aplicacion.
+    // La bienvenida pide aqui su tamanno. Los ajustes no: desde S24 (14-nov-2026) miden
+    // lo que mide la pestanna que ensennan (`useVentanaALaMedida` en SettingsApp), porque
+    // con un alto fijo para todas, el de la mas larga, Capturar abria con 160 px vacios
+    // debajo. Lo que dice `tauri.conf.json` es solo el tamanno con el que nace la ventana.
     //
-    // Subio de 470 a 510 el 27 de agosto de 2026 al entrar el microfono, y de 510 a 620 el
-    // 17 de octubre: con el anillo encendido, «Los ultimos segundos» son seis filas y la
-    // seccion se cortaba a media fila. Ninguna pantalla de ajustes lleva rueda, esa es la
-    // regla; si el contenido no cabe, se agranda la ventana o se compacta el contenido, y
-    // aqui se han hecho las dos cosas. Y de 620 a 760 el 11 de noviembre de 2026: la tecla de
-    // zoom y «La camara» dejaron la pestanna Grabar cortada por abajo.
-    void ventana.setSize(new LogicalSize(840, vista === "bienvenida" ? 640 : 760));
+    // Historia del alto fijo, que explica la regla que sigue en pie: subio de 470 a 510 el
+    // 27 de agosto de 2026 al entrar el microfono, a 620 el 17 de octubre (el anillo) y a 760
+    // el 11 de noviembre (la tecla de zoom y la camara). Ninguna pantalla de ajustes lleva
+    // rueda: si el contenido no cabe, se agranda la ventana.
+    if (vista === "bienvenida") void ventana.setSize(new LogicalSize(840, 640));
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-lienzo" />;
