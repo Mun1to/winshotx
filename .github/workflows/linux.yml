@@ -49,14 +49,6 @@ jobs:
       - name: Placeholder interface
         run: mkdir -p dist && printf '<!doctype html><title>winshotx</title>\n' > dist/index.html
 
-      # Temporary: one line of tray_menu.rs asks for the Windows window handle without a
-      # cfg gate. That file is being changed in another branch, so the gate goes in there; until
-      # then it is patched here, only inside this job.
-      - name: Gate the tray menu window handle (temporary)
-        run: |
-          perl -0pi -e 's/^    let menu = window\.hwnd\(\)/    #[cfg(not(windows))]\n    let menu: isize = 0;\n    #[cfg(windows)]\n    let menu = window.hwnd()/m' src-tauri/src/tray_menu.rs
-          grep -q 'let menu: isize = 0' src-tauri/src/tray_menu.rs || echo "::notice::tray_menu.rs no longer needs the patch"
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri

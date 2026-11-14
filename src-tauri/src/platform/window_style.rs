@@ -25,6 +25,18 @@ pub fn rounded_corners(window: &tauri::WebviewWindow) {
 #[cfg(not(windows))]
 pub fn rounded_corners(_window: &tauri::WebviewWindow) {}
 
+/// La ventana a pelo, como numero: el `HWND` en Windows y 0 en los demas sistemas, donde
+/// no hay nada que guardar (las funciones que lo reciben no hacen nada alli).
+#[cfg(windows)]
+pub fn a_pelo(window: &tauri::WebviewWindow) -> isize {
+    window.hwnd().map(|h| h.0 as isize).unwrap_or(0)
+}
+
+#[cfg(not(windows))]
+pub fn a_pelo(_window: &tauri::WebviewWindow) -> isize {
+    0
+}
+
 /// Una ventana que no coge el foco JAMAS, ni al mostrarse ni al hacerle clic encima.
 ///
 /// El `.focused(false)` del constructor solo vale para el primer momento: en cuanto se

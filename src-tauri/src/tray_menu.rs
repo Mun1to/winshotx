@@ -125,7 +125,7 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
 
     // Aqui se esta en el hilo principal (lo llama el clic de la bandeja), asi que preguntar
     // por la ventana a pelo no espera a nadie.
-    let menu = window.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+    let menu = crate::platform::window_style::a_pelo(&window);
     MENU.store(menu, Ordering::Relaxed);
 
     // Un menu se cierra al pulsar en otro sitio. El del sistema lo hacia solo; aqui se
@@ -407,7 +407,7 @@ fn rehacer(app: &AppHandle) {
                 let app = en_el_principal;
                 let terminado = match app.get_webview_window(TRAY_MENU_LABEL) {
                     // Sigue la vieja: todavia no se ha ido.
-                    Some(w) if w.hwnd().map(|h| h.0 as isize).unwrap_or(0) == vieja => false,
+                    Some(w) if crate::platform::window_style::a_pelo(&w) == vieja => false,
                     // Ya hay otra: la ha abierto un clic mientras tanto.
                     Some(_) => true,
                     None => {
