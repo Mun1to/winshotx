@@ -252,8 +252,8 @@ export const ZH: Record<string, string> = {
     "完整选项：编辑器、GIF 和视频都从该工具栏开始。",
   "Al vuelo": "即时复制",
   "Seleccionas y se copia sola.": "框选后自动复制。",
-  "Para pegar en un chat sin pensar. El atajo de grabar sigue sacando la barra.":
-    "适合直接粘贴到聊天窗口。录屏快捷键仍然会弹出工具栏。",
+  "Para pegar en un chat sin pensar. Grabar va igual en las dos: empieza al soltar.":
+    "适合直接粘贴到聊天窗口。两种方式录屏都一样：松开鼠标就开始。",
   "Pulsas el atajo": "按下快捷键",
   "Arrastras la región": "拖动框选区域",
   "Copiar, guardar, editar o grabar": "复制、保存、编辑或录屏",
