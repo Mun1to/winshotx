@@ -120,6 +120,53 @@ export function controlDeCurva(camino: Punto[]): Punto {
 }
 
 /**
+ * La marca movida `dx` y `dy` (de 0 a 1), sin que se salga de la imagen.
+ *
+ * Se mueve entera: las dos esquinas, el trazo del lápiz y el punto de control de la curva,
+ * que si se quedara quieto doblaría la flecha hacia otro lado. Contra el borde se para la
+ * marca entera, no solo la esquina que toca: estirarla o aplastarla sería otra marca, y una
+ * que se sale por fuera es una que no se puede volver a coger. El punto de control no
+ * cuenta para el borde: puede caer fuera aunque la curva quepa.
+ */
+export function desplazar(marca: Anotacion, dx: number, dy: number): Anotacion {
+  const delTrazo = marca.kind === "pen" ? (marca.puntos ?? []) : [];
+  const xs = [marca.x1, marca.x2, ...delTrazo.map((p) => p[0])];
+  const ys = [marca.y1, marca.y2, ...delTrazo.map((p) => p[1])];
+  const tope = (d: number, vs: number[]) => Math.min(1 - Math.max(...vs), Math.max(-Math.min(...vs), d));
+  const [mx, my] = [tope(dx, xs), tope(dy, ys)];
+  const dentro = (v: number) => Math.min(1, Math.max(0, v));
+  const movida: Anotacion = {
+    ...marca,
+    x1: dentro(marca.x1 + mx),
+    y1: dentro(marca.y1 + my),
+    x2: dentro(marca.x2 + mx),
+    y2: dentro(marca.y2 + my),
+  };
+  if (marca.puntos) {
+    movida.puntos = marca.puntos.map(([x, y]) =>
+      marca.kind === "pen" ? [dentro(x + mx), dentro(y + my)] : [x + mx, y + my],
+    );
+  }
+  return movida;
+}
+
+/**
+ * Los pasos numerados otra vez del 1 en adelante, en el orden en que se pusieron.
+ *
+ * Hace falta al quitar uno de en medio: de 1, 2 y 3 sin el 2 quedaría 1 y 3, y el siguiente
+ * que se pusiera sería otro 3. Lo demás se queda como estaba, y si ya iban seguidos, la
+ * lista sale igual.
+ */
+export function renumerarPasos(marcas: Anotacion[]): Anotacion[] {
+  let n = 0;
+  return marcas.map((a) => {
+    if (a.kind !== "step") return a;
+    n += 1;
+    return a.text === String(n) ? a : { ...a, text: String(n) };
+  });
+}
+
+/**
  * Aclara un trazo a mano: quita los puntos que no cambian el dibujo.
  *
  * El ratón manda un punto cada pocos milisegundos, y un garabato de dos segundos son

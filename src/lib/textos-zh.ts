@@ -443,7 +443,7 @@ export const ZH: Record<string, string> = {
   "Escribe aquí": "在此输入",
   "Silenciar la vista previa (M)": "预览静音 (M)",
   "Oír la vista previa (M)": "取消预览静音 (M)",
-  "Deshacer la última (Ctrl+Z)": "撤销上一步 (Ctrl+Z)",
+  "Deshacer (Ctrl+Z)": "撤销 (Ctrl+Z)",
   "Últimas capturas": "最新截图",
   "Copiar {nombre}": "复制{nombre}",
   "Copiada: {nombre}": "已复制：{nombre}",

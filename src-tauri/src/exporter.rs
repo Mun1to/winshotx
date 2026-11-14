@@ -3972,3 +3972,137 @@ mod la_linea_de_tiempo_en_mp4 {
         assert!(mas(colores[3][2], colores[3][0]), "azul a los 5 s: {:?}", colores[3]);
     }
 }
+
+/// S23: lo dibujado se mueve en el editor. Esto mira que lo movido sale en el archivo justo
+/// donde se veía en la vista previa, con la petición que mandó el editor de verdad.
+///
+/// `node scripts/probar-editor.mjs` mueve una línea, un texto y un lápiz con el ratón en Edge
+/// sin ventana, guarda, y deja en `%TEMP%\winshotx-probar-editor\s23-lo-movido.json` las
+/// marcas que mandó «Guardar» y dónde se veían en la pantalla (antes y después de moverlas).
+/// Aquí se pintan por el camino de «Guardar» (`escribir`) sobre una imagen gris del mismo
+/// tamaño, en PNG y, si hay ffmpeg, en MP4, y se mira que donde se veían ahora haya rojo y
+/// donde estaban antes no. Se corre a mano, después del banco:
+///
+///     cargo test --lib lo_movido_sale_donde_se_ve -- --ignored --nocapture
+#[cfg(test)]
+mod lo_movido_sale_donde_se_ve {
+    use super::*;
+    use crate::record::FrameCache;
+    use std::process::Command;
+
+    #[derive(serde::Deserialize)]
+    struct Sonda {
+        que: String,
+        debe: String,
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Volcado {
+        ancho: u32,
+        alto: u32,
+        annotations: Vec<anotacion::Anotacion>,
+        sondas: Vec<Sonda>,
+    }
+
+    const GRIS: [u8; 3] = [128, 128, 128];
+
+    fn sesion(ancho: u32, alto: u32) -> SessionData {
+        let dir = std::env::temp_dir().join(format!("winshotx-lo-movido-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let gris: Vec<u8> = (0..ancho * alto).flat_map(|_| [GRIS[0], GRIS[1], GRIS[2], 255]).collect();
+        let mut cache = FrameCache::new(&dir).expect("cache");
+        cache.push_rgba(&gris, ancho, alto, 0).unwrap();
+        cache.push_rgba(&gris, ancho, alto, 500).unwrap();
+        let mut session = super::tests::session_with(&[]);
+        session.frames = cache.finish(1_000, 30).expect("cerrar la cache");
+        session.dir = dir;
+        session.width = ancho;
+        session.height = alto;
+        session.region = crate::capture::Rect { x: 0, y: 0, width: ancho, height: alto };
+        session.fps = 30;
+        session
+    }
+
+    /// Cuántos píxeles rojos hay dentro de la caja de una sonda (de 0 a 1). Lo rojo de las
+    /// marcas fuera del foco sale oscurecido, pero sigue siendo mucho más rojo que verde.
+    fn rojos(rgb: &[u8], ancho: u32, alto: u32, s: &Sonda, margen: i32) -> usize {
+        let px = |v: f32, lado: u32| ((v * lado as f32).round() as i64).clamp(0, i64::from(lado) - 1) as u32;
+        let (x1, x2) = (px(s.x1, ancho), px(s.x2, ancho));
+        let (y1, y2) = (px(s.y1, alto), px(s.y2, alto));
+        let mut n = 0;
+        for y in y1..=y2 {
+            for x in x1..=x2 {
+                let i = ((y * ancho + x) * 3) as usize;
+                let (r, g, b) = (i32::from(rgb[i]), i32::from(rgb[i + 1]), i32::from(rgb[i + 2]));
+                if r > g + margen && r > b + margen {
+                    n += 1;
+                }
+            }
+        }
+        n
+    }
+
+    fn comprobar(rgb: &[u8], ancho: u32, alto: u32, sondas: &[Sonda], margen: i32, formato: &str) -> Vec<String> {
+        let mut fallos = Vec::new();
+        for s in sondas {
+            let n = rojos(rgb, ancho, alto, s, margen);
+            let bien = if s.debe == "pintado" { n >= 4 } else { n == 0 };
+            println!("  {}  {formato}: {} ({} píxeles rojos)", if bien { "BIEN" } else { "MAL " }, s.que, n);
+            if !bien {
+                fallos.push(format!("{formato}: {} ({n} píxeles rojos)", s.que));
+            }
+        }
+        fallos
+    }
+
+    #[test]
+    #[ignore = "lee lo que deja scripts/probar-editor.mjs: se corre a mano después"]
+    fn lo_movido_sale_donde_se_ve() {
+        let ruta = std::env::var_os("WINSHOTX_LO_MOVIDO")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| std::env::temp_dir().join("winshotx-probar-editor").join("s23-lo-movido.json"));
+        let Ok(texto) = std::fs::read_to_string(&ruta) else {
+            eprintln!("no está {}: corre antes node scripts/probar-editor.mjs", ruta.display());
+            return;
+        };
+        let volcado: Volcado = serde_json::from_str(&texto).expect("el volcado no se lee");
+        let (ancho, alto) = (volcado.ancho, volcado.alto);
+        let session = sesion(ancho, alto);
+        let mut peticion = crate::recorder::peticion_por_defecto(&session);
+        peticion.annotations = volcado.annotations;
+        peticion.cursor = 0.0;
+        peticion.audio = false;
+
+        peticion.format = "png".into();
+        let png = session.dir.join("lo-movido.png");
+        escribir(&session, &peticion, &png, &|_, _, _| {}).expect("exportar a PNG ha fallado");
+        let imagen = image::open(&png).expect("el PNG no se abre").to_rgb8();
+        assert_eq!(imagen.dimensions(), (ancho, alto));
+        let mut fallos = comprobar(imagen.as_raw(), ancho, alto, &volcado.sondas, 50, "PNG");
+
+        if Command::new("ffmpeg").arg("-version").output().is_ok() {
+            peticion.format = "mp4".into();
+            let mp4 = session.dir.join("lo-movido.mp4");
+            escribir(&session, &peticion, &mp4, &|_, _, _| {}).expect("exportar a MP4 ha fallado");
+            // El fotograma del medio segundo, entero y en RGB.
+            let salida = Command::new("ffmpeg")
+                .args(["-v", "error", "-ss", "0.5", "-i"])
+                .arg(&mp4)
+                .args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+                .output()
+                .expect("ffmpeg");
+            assert_eq!(salida.stdout.len(), (ancho * alto * 3) as usize, "el MP4 no mide lo que la imagen");
+            // El MP4 guarda el color a media resolución: lo rojo de una línea fina sale más apagado.
+            fallos.extend(comprobar(&salida.stdout, ancho, alto, &volcado.sondas, 30, "MP4"));
+        } else {
+            eprintln!("sin ffmpeg en el PATH no se puede abrir el MP4: solo miro el PNG");
+        }
+        let _ = std::fs::remove_dir_all(&session.dir);
+        assert!(fallos.is_empty(), "lo movido no sale donde se ve: {fallos:#?}");
+    }
+}

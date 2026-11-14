@@ -452,7 +452,7 @@ export const EN: Record<string, string> = {
   "Escribe aquí": "Type here",
   "Silenciar la vista previa (M)": "Mute the preview (M)",
   "Oír la vista previa (M)": "Unmute the preview (M)",
-  "Deshacer la última (Ctrl+Z)": "Undo the last one (Ctrl+Z)",
+  "Deshacer (Ctrl+Z)": "Undo (Ctrl+Z)",
   "Últimas capturas": "Latest shots",
   "Copiar {nombre}": "Copy {nombre}",
   "Copiada: {nombre}": "Copied: {nombre}",
