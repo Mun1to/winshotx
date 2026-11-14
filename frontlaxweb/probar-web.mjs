@@ -102,7 +102,10 @@ for (const ruta of paginas) {
     });
     const arriba = await medir();
     await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; scrollTo(0, 300); });
-    await page.waitForTimeout(800);
+    // Se espera al cambio de estado y luego a que acabe la transición (0,55 s): con el PC
+    // cargado, el evento de scroll puede llegar tarde y una espera fija daba un falso fallo.
+    await page.waitForSelector("nav.barra.compacta", { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(900);
     const abajo = await medir();
     await ctx.close();
     return { arriba, abajo };
