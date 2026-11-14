@@ -39,6 +39,7 @@ mod bench_anillo;
 mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
+mod letras;
 pub mod mezcla;
 pub mod pastilla;
 // S11 (pistas)

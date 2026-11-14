@@ -624,7 +624,8 @@ fn texto(imagen: &mut RgbaImage, x: i32, y: i32, texto: &str, color: [u8; 3]) {
 }
 
 /// Escribe con la fuente del sistema, con la esquina de arriba a la izquierda en (x, y).
-#[cfg(windows)]
+///
+/// Donde no se sabe escribir (macOS, todavía) `escribir` no da nada, y aquí no se pinta.
 fn escribir_en(imagen: &mut RgbaImage, x: i32, y: i32, que: &str, alto_letra: i32, color: [u8; 3]) {
     let Some(dibujo) = crate::record::pastilla::escribir(que, alto_letra, color) else {
         return;
@@ -643,8 +644,8 @@ fn escribir_en(imagen: &mut RgbaImage, x: i32, y: i32, que: &str, alto_letra: i3
     }
 }
 
-/// El tamaño que ocuparía ese texto, para poder centrarlo antes de escribirlo.
-#[cfg(windows)]
+/// El tamaño que ocuparía ese texto, para poder centrarlo antes de escribirlo. Cero donde
+/// no se sabe escribir.
 fn medida_del_texto(que: &str, alto_letra: i32) -> (i32, i32) {
     crate::record::pastilla::escribir(que, alto_letra, [255, 255, 255])
         .map(|d| (d.width() as i32, d.height() as i32))
@@ -689,22 +690,6 @@ fn paso(imagen: &mut RgbaImage, cx: i32, cy: i32, numero: &str, color: [u8; 3]) 
         alto_letra,
         [255, 255, 255],
     );
-}
-
-#[cfg(not(windows))]
-fn escribir_en(
-    _imagen: &mut RgbaImage,
-    _x: i32,
-    _y: i32,
-    _que: &str,
-    _alto_letra: i32,
-    _color: [u8; 3],
-) {
-}
-
-#[cfg(not(windows))]
-fn medida_del_texto(_que: &str, _alto_letra: i32) -> (i32, i32) {
-    (0, 0)
 }
 
 #[cfg(test)]
@@ -783,7 +768,10 @@ mod tests {
     /// píxel: se mira el color del CENTRO (tiene que ser el disco), el de un punto del
     /// borde (tiene que ser el aro blanco) y el de fuera (tiene que seguir limpio).
     #[test]
-    #[cfg_attr(not(windows), ignore = "fuera de Windows todavía no hay con qué escribir el número")]
+    #[cfg_attr(
+        not(any(windows, target_os = "linux")),
+        ignore = "en macOS todavía no hay con qué escribir el número"
+    )]
     fn un_paso_es_un_disco_con_su_numero_dentro() {
         // Sobre un fondo oscuro, porque parte de lo que hay que ver es blanca: el aro que
         // lo separa del fondo y la cifra. Sobre lienzo blanco no se distinguirían.
@@ -1170,7 +1158,7 @@ mod tests {
     }
 
     /// Y un texto contra el borde derecho se mete para que se pueda leer.
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     #[test]
     fn un_texto_contra_el_borde_se_mete_para_que_se_lea() {
         let mut imagen = lienzo(600, 200);

@@ -43,7 +43,8 @@ jobs:
             pkg-config clang libclang-dev \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
             libdbus-1-dev libpipewire-0.3-dev libgbm-dev libdrm-dev libwayland-dev \
-            libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev
+            libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
+            fonts-dejavu-core
 
       # The Rust tests do not use the interface, but Tauri needs the `dist` folder to exist.
       - name: Placeholder interface
