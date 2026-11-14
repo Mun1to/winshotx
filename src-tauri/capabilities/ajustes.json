@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "ajustes",
+  "description": "La ventana de ajustes mide lo que mide su pestaña: cambiar su tamaño y, si se saldría de la pantalla, subirla.",
+  "windows": ["main"],
+  "permissions": ["core:window:allow-set-size", "core:window:allow-set-position"]
+}
