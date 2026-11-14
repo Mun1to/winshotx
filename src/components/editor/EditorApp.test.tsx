@@ -498,7 +498,8 @@ describe("el marco del estudio en la vista previa", () => {
     });
     expect(marco.style.background).toContain("linear-gradient");
     expect(marco.style.padding).not.toBe("");
-    const imagen = marco.firstElementChild as HTMLElement;
+    // S25 (marco): entre el fondo y la imagen va la caja de la carcasa (sin caja si no hay).
+    const imagen = marco.querySelector("[data-imagen]") as HTMLElement;
     expect(imagen.style.borderRadius).not.toBe("");
     fireEvent.click(screen.getByRole("button", { name: "Sin fondo" }));
     await waitFor(() => expect(container.querySelector("[data-marco]")).toBeNull());
@@ -632,5 +633,34 @@ describe("silenciar la vista previa", () => {
     const { container } = await abrirVideo();
     expect(screen.getByRole("button", { name: "Oír la vista previa (M)" })).toBeInTheDocument();
     expect(container.querySelector("video")!.volume).toBe(0);
+  });
+});
+
+// S25 (marco): la ventana y el portátil en la vista previa, con la imagen en su hueco.
+describe("el marco de ventana o de portátil en la vista previa", () => {
+  it("la ventana se dibuja alrededor y la imagen queda dentro, debajo de la barra", async () => {
+    localStorage.setItem("winshotx.tema", "oscuro");
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 1200, height: 700, right: 1200, bottom: 700, x: 0, y: 0, toJSON() {},
+    } as DOMRect);
+    prepararLarga();
+    const { container } = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    const pieza = await waitFor(() => {
+      const el = container.querySelector("[data-pieza]") as HTMLElement | null;
+      expect(el).not.toBeNull();
+      return el!;
+    });
+    expect(container.querySelector('[data-carcasa="ventana-oscura"]')).not.toBeNull();
+    // La barra arriba: el relleno de arriba es mucho más que el de los lados.
+    expect(parseFloat(pieza.style.paddingTop)).toBeGreaterThan(parseFloat(pieza.style.paddingLeft) * 10);
+    expect(pieza.querySelector("[data-imagen]")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Portátil" }));
+    await waitFor(() => expect(container.querySelector('[data-carcasa="portatil"]')).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Ninguno" }));
+    await waitFor(() => expect(container.querySelector("[data-pieza]")).toBeNull());
+    vi.restoreAllMocks();
+    localStorage.removeItem("winshotx.tema");
   });
 });

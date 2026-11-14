@@ -233,6 +233,10 @@ pub struct Edicion {
     pub sonido_pc: Option<VolumenDePista>,
     /// Y el del micrófono, igual.
     pub microfono: Option<VolumenDePista>,
+    // S25 (marco)
+    /// La ventana o el portátil alrededor de la captura. `None` es sin marco, como hasta ahora.
+    /// Solo se pinta con aire alrededor (`margin` mayor que cero).
+    pub carcasa: Option<crate::encode::carcasa::Carcasa>,
 }
 
 // S10 (sonidos)

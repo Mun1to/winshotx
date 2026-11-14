@@ -15,11 +15,12 @@ use serde_json::Value;
 
 use crate::agente::ordenes::{Formato, OpcionesDeGrabar, PedidoDeExportar};
 use crate::contrato::{ClicElegido, FondoElegido, MarcoCamara, Suavizado};
+use crate::encode::carcasa::CarcasaElegida;
 use crate::exporter::ExportRequest;
 use crate::presets::Preset;
 use crate::record::SessionData;
 use crate::recorder::RecordOptions;
-use crate::settings::Settings;
+use crate::settings::{Settings, Theme};
 
 /// Lo que se le pasa a `recorder::start`. Lo que el agente no dice sale de los ajustes, igual
 /// que cuando graba la persona desde el overlay; salvo la marimba, que va apagada si no se
@@ -55,11 +56,13 @@ fn ms(segundos: f64) -> u64 {
     (segundos.max(0.0) * 1000.0).round() as u64
 }
 
-/// La petición de exportar entera. Falla si el estilo no existe o el trozo cae fuera.
+/// La petición de exportar entera. Falla si el estilo no existe o el trozo cae fuera. `tema` es
+/// el de los ajustes de winshotx: con él sale clara u oscura la ventana de un estilo con marco.
 pub fn peticion_de_exportar(
     session: &SessionData,
     pedido: &PedidoDeExportar,
     presets: &[Preset],
+    tema: Theme,
 ) -> Result<ExportRequest, String> {
     let formato = formato_de(pedido, session);
     let mut r = crate::recorder::peticion_por_defecto(session);
@@ -67,7 +70,7 @@ pub fn peticion_de_exportar(
     r.file = pedido.salida.as_ref().map(|p| p.to_string_lossy().into_owned());
     if let Some(nombre) = pedido.estilo.as_deref() {
         let preset = buscar_estilo(presets, nombre)?;
-        aplicar_estilo(&mut r, &preset.estilo, session);
+        aplicar_estilo(&mut r, &preset.estilo, session, tema);
     }
     if pedido.desde.is_some() || pedido.hasta.is_some() {
         let total = session.duration_ms();
@@ -162,7 +165,7 @@ fn camara(v: Option<&Value>) -> Option<MarcoCamara> {
 /// Pone un estilo guardado en la petición, como `aplicarEstilo` en `ExportPanel.tsx`: el panel
 /// (`panelDe`) y lo del plan que no es de la grabación (`edicionDe`). Nunca los zooms a mano,
 /// los cortes ni lo tapado. Un estilo sin cámara no quita la de esta grabación.
-pub fn aplicar_estilo(r: &mut ExportRequest, estilo: &Value, session: &SessionData) {
+pub fn aplicar_estilo(r: &mut ExportRequest, estilo: &Value, session: &SessionData, tema: Theme) {
     let zoom = numero(estilo, "zoom", 1.0, 3.0, 1.0);
     let velocidad_zoom = numero(estilo, "velocidadZoom", 0.25, 4.0, 1.0);
     let puntero = numero(estilo, "puntero", 0.0, 4.0, 1.0);
@@ -211,6 +214,15 @@ pub fn aplicar_estilo(r: &mut ExportRequest, estilo: &Value, session: &SessionDa
         ClicElegido::Propio { ruta } => !ruta.is_empty(),
         _ => true,
     });
+    // S25 (marco): la ventana o el portátil, solo con aire, como `panelDe`; uno que esta versión
+    // no conoce, ninguno, como `leerEstilo`. La ventana, clara u oscura como las de winshotx (en
+    // «Automático», como las de Windows): lo mismo que manda el editor con `carcasaParaPedir`.
+    e.carcasa = estilo
+        .get("carcasa")
+        .and_then(Value::as_str)
+        .and_then(CarcasaElegida::de_nombre)
+        .filter(|_| margen > 0)
+        .map(|c| c.con_tema(c == CarcasaElegida::Ventana && crate::platform::tema::oscuro(tema)));
 }
 
 #[cfg(test)]
@@ -270,7 +282,7 @@ mod pruebas {
     fn exportar_sin_nada_es_lo_mismo_que_sin_editor() {
         let s = sesion();
         let pedido = PedidoDeExportar { sesion: "abc123".into(), ..Default::default() };
-        let r = peticion_de_exportar(&s, &pedido, &[]).unwrap();
+        let r = peticion_de_exportar(&s, &pedido, &[], Theme::Sistema).unwrap();
         let base = crate::recorder::peticion_por_defecto(&s);
         assert_eq!(format!("{r:?}"), format!("{base:?}"));
         assert_eq!((r.format.as_str(), r.audio, r.file.as_deref()), ("mp4", true, None));
@@ -289,19 +301,19 @@ mod pruebas {
             velocidad: Some(2.0),
             ..Default::default()
         };
-        let r = peticion_de_exportar(&s, &pedido, &[]).unwrap();
+        let r = peticion_de_exportar(&s, &pedido, &[], Theme::Sistema).unwrap();
         assert_eq!((r.format.as_str(), r.file.as_deref()), ("gif", Some(r"C:\v\demo.gif")));
         assert_eq!((r.desde_ms, r.hasta_ms), (Some(1500), Some(9000)));
         assert_eq!((r.zoom, r.speed, r.audio), (2.0, 2.0, false));
         assert!((segundos_exportados(&s, &r) - 3.75).abs() < 1e-9);
         // Un final más allá de la grabación se queda en el final; un principio fuera, error.
         let largo = PedidoDeExportar { sesion: "abc123".into(), hasta: Some(99.0), ..Default::default() };
-        assert_eq!(peticion_de_exportar(&s, &largo, &[]).unwrap().hasta_ms, Some(10_000));
+        assert_eq!(peticion_de_exportar(&s, &largo, &[], Theme::Sistema).unwrap().hasta_ms, Some(10_000));
         let fuera = PedidoDeExportar { sesion: "abc123".into(), desde: Some(10.0), ..Default::default() };
-        assert!(peticion_de_exportar(&s, &fuera, &[]).unwrap_err().contains("lasts 10.00 s"));
+        assert!(peticion_de_exportar(&s, &fuera, &[], Theme::Sistema).unwrap_err().contains("lasts 10.00 s"));
         // A velocidad normal y en MP4, con su sonido.
         let normal = PedidoDeExportar { sesion: "abc123".into(), velocidad: Some(1.0), ..Default::default() };
-        assert!(peticion_de_exportar(&s, &normal, &[]).unwrap().audio);
+        assert!(peticion_de_exportar(&s, &normal, &[], Theme::Sistema).unwrap().audio);
     }
 
     #[test]
@@ -344,7 +356,7 @@ mod pruebas {
     fn un_estilo_guardado_sale_con_los_numeros_del_panel() {
         let s = sesion();
         let pedido = PedidoDeExportar { sesion: "abc123".into(), estilo: Some("  tutorial ".into()), ..Default::default() };
-        let r = peticion_de_exportar(&s, &pedido, &estilos()).unwrap();
+        let r = peticion_de_exportar(&s, &pedido, &estilos(), Theme::Sistema).unwrap();
         assert_eq!((r.zoom, r.zoom_speed, r.cursor), (2.0, 1.5, 64.0));
         assert_eq!((r.clicks, r.keys, r.smooth_cursor, r.hide_idle_cursor), (true, true, false, true));
         assert_eq!((r.margin, r.corners, r.background.as_str(), r.shadow), (96, 19, "menta", false));
@@ -357,6 +369,45 @@ mod pruebas {
         assert_eq!(e.clic, Some(ClicElegido::Grave));
         // Nunca los zooms, los cortes ni lo tapado.
         assert!(e.zooms.is_none() && e.tramos.is_none() && e.tapar.is_empty());
+        // Ese estilo no lleva marco.
+        assert_eq!(e.carcasa, None);
+    }
+
+    /// S25 (marco): un estilo con la ventana o el portátil los lleva al archivo, como el panel.
+    /// La ventana, clara u oscura con el tema de winshotx (en «Automático», el de Windows, que es
+    /// lo que diga `platform::tema`); sin aire, ninguno (`panelDe`); y uno que esta versión no
+    /// conoce, tampoco (`leerEstilo`). Un estilo sin marco quita el que hubiera, como el panel.
+    #[test]
+    fn un_estilo_con_marco_lo_lleva_con_el_tema_de_winshotx() {
+        use crate::encode::carcasa::Carcasa;
+        let s = sesion();
+        let con = |estilo: Value, tema: Theme| {
+            let presets = [Preset { nombre: "Marco".into(), estilo }];
+            let pedido = PedidoDeExportar { sesion: "abc123".into(), estilo: Some("marco".into()), ..Default::default() };
+            peticion_de_exportar(&s, &pedido, &presets, tema).unwrap()
+        };
+        let ventana = json!({"aire": 0.05, "carcasa": "ventana", "fondoElegido": {"tipo": "color", "rgb": [10, 20, 30]}});
+        let r = con(ventana.clone(), Theme::Oscuro);
+        assert_eq!(r.edicion.carcasa, Some(Carcasa::Ventana { oscura: true }));
+        assert_eq!((r.margin, r.edicion.fondo), (96, Some(FondoElegido::Color { rgb: [10, 20, 30] })), "con su aire y su fondo");
+        assert_eq!(con(ventana.clone(), Theme::Claro).edicion.carcasa, Some(Carcasa::Ventana { oscura: false }));
+        let de_windows = crate::platform::tema::oscuro(Theme::Sistema);
+        assert_eq!(con(ventana, Theme::Sistema).edicion.carcasa, Some(Carcasa::Ventana { oscura: de_windows }));
+        assert_eq!(con(json!({"aire": 0.05, "carcasa": "portatil"}), Theme::Oscuro).edicion.carcasa, Some(Carcasa::Portatil));
+        // Sin aire no hay marco, y uno desconocido o roto no cuenta.
+        for estilo in [
+            json!({"aire": 0, "carcasa": "ventana"}),
+            json!({"carcasa": "portatil"}),
+            json!({"aire": 0.05, "carcasa": "tableta"}),
+            json!({"aire": 0.05, "carcasa": {"tipo": "ventana"}}),
+        ] {
+            assert_eq!(con(estilo.clone(), Theme::Oscuro).edicion.carcasa, None, "{estilo}");
+        }
+        // Encima de una petición que ya llevaba marco, un estilo sin él lo quita.
+        let mut r = crate::recorder::peticion_por_defecto(&s);
+        r.edicion.carcasa = Some(Carcasa::Portatil);
+        aplicar_estilo(&mut r, &json!({"aire": 0.05}), &s, Theme::Claro);
+        assert_eq!(r.edicion.carcasa, None);
     }
 
     /// Lo que falta, de fábrica (`ESTILO_DE_FABRICA`); y lo roto, también.
@@ -364,7 +415,7 @@ mod pruebas {
     fn un_estilo_viejo_o_roto_se_lee_de_fabrica() {
         let s = sesion();
         let mut r = crate::recorder::peticion_por_defecto(&s);
-        aplicar_estilo(&mut r, &json!({"zoom": 9, "fondo": "fucsia", "aire": "mucho", "camara": {"forma": "estrella"}}), &s);
+        aplicar_estilo(&mut r, &json!({"zoom": 9, "fondo": "fucsia", "aire": "mucho", "camara": {"forma": "estrella"}}), &s, Theme::Sistema);
         assert_eq!((r.zoom, r.zoom_speed, r.cursor), (3.0, 1.0, 44.0));
         assert_eq!((r.margin, r.corners, r.background.as_str(), r.shadow, r.smooth_cursor), (0, 0, "blanco", true, true));
         assert!(r.edicion.fondo.is_none() && r.edicion.camara.is_none() && r.edicion.clic.is_none());
@@ -375,7 +426,7 @@ mod pruebas {
         let mut s = sesion();
         s.camara = Some(crate::contrato::CamaraGrabada { archivo: "camara.mp4".into(), ancho: 640, alto: 480, desfase_ms: 0 });
         let pedido = PedidoDeExportar { sesion: "abc123".into(), estilo: Some("Redes".into()), ..Default::default() };
-        let r = peticion_de_exportar(&s, &pedido, &estilos()).unwrap();
+        let r = peticion_de_exportar(&s, &pedido, &estilos(), Theme::Sistema).unwrap();
         assert!(r.edicion.camara.is_some(), "la de fábrica de `peticion_por_defecto` se queda");
         assert_eq!(r.zoom, 1.5);
     }
@@ -384,8 +435,8 @@ mod pruebas {
     fn un_estilo_que_no_existe_dice_cuales_hay() {
         let s = sesion();
         let pedido = PedidoDeExportar { sesion: "abc123".into(), estilo: Some("Cine".into()), ..Default::default() };
-        let e = peticion_de_exportar(&s, &pedido, &estilos()).unwrap_err();
+        let e = peticion_de_exportar(&s, &pedido, &estilos(), Theme::Sistema).unwrap_err();
         assert!(e.contains("\"Cine\"") && e.contains("\"Redes\", \"Tutorial\""), "{e}");
-        assert!(peticion_de_exportar(&s, &pedido, &[]).unwrap_err().contains("no saved styles"));
+        assert!(peticion_de_exportar(&s, &pedido, &[], Theme::Sistema).unwrap_err().contains("no saved styles"));
     }
 }

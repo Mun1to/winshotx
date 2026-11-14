@@ -808,3 +808,78 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
     expect(screen.getByRole("switch", { name: "你的麦克风" })).toBeInTheDocument();
   });
 });
+
+// S25 (marco): la captura dentro de una ventana de Windows 11 o de un portátil.
+describe("el marco de ventana o de portátil", () => {
+  beforeEach(() => localStorage.setItem("winshotx.tema", "claro"));
+
+  it("sale con sus tres opciones, en «Ninguno», y sin marco no viaja nada", async () => {
+    pintar();
+    for (const nombre of ["Ninguno", "Ventana", "Portátil"]) {
+      expect(screen.getByRole("button", { name: nombre })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Ninguno" })).toHaveAttribute("aria-pressed", "true");
+    expect((await guardarYEsperar()).carcasa).toBeNull();
+  });
+
+  it("elegir la ventana sin fondo pone el fondo, y viaja con el tema de winshotx", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    expect(screen.getByRole("button", { name: "Ventana" })).toHaveAttribute("aria-pressed", "true");
+    expect(await guardarYEsperar()).toMatchObject({ margin: 40, carcasa: { tipo: "ventana", oscura: false } });
+  });
+
+  it("con el tema oscuro, la ventana oscura", async () => {
+    localStorage.setItem("winshotx.tema", "oscuro");
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    expect(await guardarYEsperar()).toMatchObject({ carcasa: { tipo: "ventana", oscura: true } });
+  });
+
+  it("el portátil viaja como portátil, también en una foto", async () => {
+    pintar({ format: "still", frameCount: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "Portátil" }));
+    expect(await guardarYEsperar()).toMatchObject({ format: "png", carcasa: { tipo: "portatil" } });
+  });
+
+  it("con marco, las esquinas son las suyas: el deslizador se va y vuelve sin él", () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Océano" }));
+    expect(screen.getByRole("slider", { name: "Esquinas redondeadas" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Portátil" }));
+    expect(screen.queryByRole("slider", { name: "Esquinas redondeadas" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ninguno" }));
+    expect(screen.getByRole("slider", { name: "Esquinas redondeadas" })).toBeInTheDocument();
+  });
+
+  it("«Sin fondo» quita también el marco, y volver a poner un fondo no lo trae", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sin fondo" }));
+    expect(screen.getByRole("button", { name: "Ninguno" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Coral" }));
+    expect(await guardarYEsperar()).toMatchObject({ background: "coral", carcasa: null });
+  });
+
+  it("el peso que se estima cuenta con la barra de la ventana", () => {
+    pintar({ format: "still", frameCount: 1 });
+    const sin = screen.getByText(/≈/).textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Blanco" }));
+    const conFondo = screen.getByText(/≈/).textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    const conVentana = screen.getByText(/≈/).textContent;
+    expect(conFondo).not.toBe(sin);
+    expect(conVentana).not.toBe(conFondo);
+  });
+
+  it("en inglés y en chino", () => {
+    aplicarIdioma("en");
+    const { unmount } = pintar();
+    expect(screen.getByRole("button", { name: "Window" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Laptop" })).toBeInTheDocument();
+    unmount();
+    aplicarIdioma("zh");
+    pintar();
+    expect(screen.getByRole("button", { name: "笔记本电脑" })).toBeInTheDocument();
+  });
+});

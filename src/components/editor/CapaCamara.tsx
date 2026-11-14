@@ -37,6 +37,12 @@ interface Props {
   hueco: RefObject<HTMLElement | null>;
   /** Los píxeles de aire del marco del estudio alrededor de la imagen, en la vista previa. */
   aire: number;
+  // S25 (marco)
+  /**
+   * Con ventana o portátil, lo que hay alrededor de la imagen por cada lado (aire y carcasa),
+   * que ya no es lo mismo arriba que abajo. Cuando viene, manda sobre `aire`.
+   */
+  alrededor?: { izquierda: number; arriba: number; derecha: number; abajo: number };
   /** Mientras se dibuja o se recorta no se agarra: lo que se arrastra es la marca. */
   quieta: boolean;
   /** El instante que se enseña cuando no hay vídeo de vista previa todavía. */
@@ -64,7 +70,7 @@ const DESVIO_MAXIMO_S = 0.15;
  * El `<video>` de la cámara va a su aire y se recoloca solo si se aleja del vídeo de la
  * pantalla: buscar un instante en cada fotograma haría que la cara fuera a saltos.
  */
-export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, quieta, msParado }: Props) {
+export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, alrededor, quieta, msParado }: Props) {
   const t = useT();
   const [camara, setCamara] = useState<CamaraDeLaSesion | null>(null);
   const ancla = useRef<HTMLDivElement>(null);
@@ -106,11 +112,12 @@ export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, q
         setSitio(null);
         return;
       }
+      const lados = alrededor ?? { izquierda: aire, arriba: aire, derecha: aire, abajo: aire };
       const nuevo = {
-        left: ca.left - ch.left - aire,
-        top: ca.top - ch.top - aire,
-        ancho: ca.width + aire * 2,
-        alto: ca.height + aire * 2,
+        left: ca.left - ch.left - lados.izquierda,
+        top: ca.top - ch.top - lados.arriba,
+        ancho: ca.width + lados.izquierda + lados.derecha,
+        alto: ca.height + lados.arriba + lados.abajo,
       };
       setSitio((antes) =>
         antes &&
@@ -127,7 +134,7 @@ export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, q
     observador.observe(a);
     observador.observe(h);
     return () => observador.disconnect();
-  }, [hueco, aire]);
+  }, [hueco, aire, alrededor?.izquierda, alrededor?.arriba, alrededor?.derecha, alrededor?.abajo]);
 
   // La sesión trae cámara y nadie la ha tocado: sale la de fábrica.
   useEffect(() => {

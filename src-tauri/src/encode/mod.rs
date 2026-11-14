@@ -21,6 +21,8 @@ pub mod lupa;
 pub mod fondo_video;
 // S4 (capturas)
 pub mod marco_captura;
+// S25 (marco)
+pub mod carcasa;
 // S7 (cursor)
 pub mod clic;
 // S8 (cámara en el Estudio)

@@ -526,6 +526,12 @@ export const EN: Record<string, string> = {
   "Coral": "Coral",
   "Esquinas redondeadas": "Rounded corners",
   "rectas": "square",
+  // S25 (marco): la captura dentro de una ventana o de un portátil
+  "Marco": "Frame",
+  "Marco:": "Frame:",
+  "Ninguno": "None",
+  "Ventana": "Window",
+  "Portátil": "Laptop",
   "Puntero": "Pointer",
   "Movimiento suave": "Smooth movement",
   "Esconderlo cuando no se mueve": "Hide it when it stops",
@@ -628,8 +634,8 @@ export const EN: Record<string, string> = {
   "30 s": "30 sec",
   "Hasta cerrarla": "Until closed",
   "Fondo en las capturas": "Background on shots",
-  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
-    "Every shot you copy or save comes out on a background, with padding, a shadow and rounded corners, ready to post. They are the same backgrounds as the editor's Studio. It is not added when editing, pinning or reading text.",
+  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Con marco, va dentro de una ventana de Windows 11 (clara u oscura, como las de winshotx) o de un portátil. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
+    "Every shot you copy or save comes out on a background, with padding, a shadow and rounded corners, ready to post. With a frame, it sits inside a Windows 11 window (light or dark, like winshotx's own) or a laptop. They are the same backgrounds as the editor's Studio. It is not added when editing, pinning or reading text.",
   "las capturas salen tal cual": "shots come out as they are",
   "se pone al copiar y al guardar": "added when copying and saving",
   Poco: "Little",

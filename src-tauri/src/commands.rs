@@ -173,7 +173,15 @@ fn entregar(
 ) -> Result<StillResult> {
     let state = app.state::<AppState>();
     // S4 (capturas): el fondo de las capturas (E1), en lo que se copia y se guarda.
-    let marco_capturas = state.settings.read().marco_capturas.clone();
+    let marco_capturas = {
+        let ajustes = state.settings.read();
+        let mut marco = ajustes.marco_capturas.clone();
+        // S25 (marco): la ventana del marco, clara u oscura como las de winshotx ahora mismo.
+        if marco.carcasa.is_some() {
+            marco.ventana_oscura = crate::platform::tema::oscuro(ajustes.theme);
+        }
+        marco
+    };
     let image = marco_capturas.para_la_accion(image, action);
     let (width, height) = (image.width(), image.height());
     let (copy_after, con_sonido) = {

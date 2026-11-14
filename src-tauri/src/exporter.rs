@@ -524,6 +524,8 @@ fn marco_de(request: &ExportRequest) -> marco::Marco {
         fondo: marco::Fondo::elegido(&request.background, request.edicion.fondo.as_ref()),
         sombra: request.shadow,
         esquinas: request.corners.min(400),
+        // S25 (marco)
+        carcasa: request.edicion.carcasa,
     }
 }
 
@@ -2225,6 +2227,7 @@ mod el_orden_de_exportar {
             fondo: marco::Fondo::desde("blanco"),
             sombra: false,
             esquinas: 0,
+            carcasa: None,
         }
     }
 
@@ -2396,6 +2399,7 @@ mod el_orden_de_exportar {
                 fondo: marco::Fondo::desde("blanco"),
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
             &[],
             &[mitad_derecha()],
@@ -2771,7 +2775,7 @@ mod medir {
         };
         let indices: Vec<usize> = (0..cuantos).collect();
         let delays = vec![33u32; cuantos];
-        let marco = marco::Marco { margen: 0, fondo: marco::Fondo::desde("blanco"), sombra: false, esquinas: 0 };
+        let marco = marco::Marco { margen: 0, fondo: marco::Fondo::desde("blanco"), sombra: false, esquinas: 0, carcasa: None };
         let opciones = mp4::Mp4Options { width: ancho, height: alto, fps: 30, quality: 75 };
 
         let vestir = |imagen: image::RgbaImage| enmarcar_y_anotar(imagen, ancho, alto, marco, &[], &[], None);

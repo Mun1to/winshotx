@@ -12,6 +12,9 @@
 
 use image::{Rgba, RgbaImage};
 
+// S25 (marco)
+use super::carcasa::{self, Carcasa, Forma, Geometria};
+
 /// De qué color es el aire de alrededor.
 ///
 /// Los de nombre son unos pocos elegidos, no un selector de color: con la rueda entera, la
@@ -219,9 +222,45 @@ pub struct Marco {
     /// El radio de las esquinas de la captura, en píxeles. Solo se nota con aire alrededor:
     /// sin fondo detrás no hay nada que asome por la esquina.
     pub esquinas: u32,
+    // S25 (marco)
+    /// La ventana o el portátil que envuelve la captura. Con ella, las esquinas son las suyas
+    /// y no las de `esquinas`, y la sombra la echa la pieza entera. Solo con aire: sin fondo
+    /// detrás no hay dónde poner sus esquinas ni su sombra (`carcasa_puesta`).
+    pub carcasa: Option<Carcasa>,
 }
 
 impl Marco {
+    // S25 (marco)
+    /// La carcasa que se pinta de verdad: ninguna sin aire alrededor.
+    pub fn carcasa_puesta(&self) -> Option<Carcasa> {
+        if self.margen == 0 {
+            None
+        } else {
+            self.carcasa
+        }
+    }
+
+    // S25 (marco)
+    /// Lo que se pone encima del fondo para una captura de ese tamaño: la captura sola con
+    /// sus esquinas, o metida en su carcasa. Sin el aire.
+    pub fn geometria(&self, ancho: u32, alto: u32) -> Geometria {
+        match self.carcasa_puesta() {
+            Some(c) => carcasa::geometria(c, ancho, alto),
+            None => {
+                // Nunca más que media captura: con más, las dos esquinas de un lado se pisarían.
+                let r = self.esquinas.min(ancho.min(alto) / 2) as f32;
+                Geometria {
+                    ancho,
+                    alto,
+                    x: 0,
+                    y: 0,
+                    radios: [r; 4],
+                    sombra: vec![Forma::recta(0.0, 0.0, ancho as f32, alto as f32, r)],
+                }
+            }
+        }
+    }
+
     /// El tamaño que tendrá la imagen con el marco puesto.
     ///
     /// **Los dos lados salen pares.** H.264 no acepta un ancho o un alto impar, y una
@@ -232,6 +271,14 @@ impl Marco {
             return (ancho, alto);
         }
         let par = |n: u32| n + (n % 2);
+        // S25 (marco): con carcasa, la pieza es la captura más la barra o el bisel.
+        let (ancho, alto) = match self.carcasa_puesta() {
+            Some(c) => {
+                let g = carcasa::geometria(c, ancho, alto);
+                (g.ancho, g.alto)
+            }
+            None => (ancho, alto),
+        };
         (par(ancho + self.margen * 2), par(alto + self.margen * 2))
     }
 
@@ -293,12 +340,16 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
 
     // La captura va centrada. Si el redondeo a par ha dejado un píxel de más, se lo queda
     // el lado derecho y el de abajo: repartir medio píxel no existe.
-    let izquierda = marco.margen as usize;
-    let arriba = marco.margen as usize;
+    // S25 (marco): con carcasa, la captura va dentro de ella, debajo de la barra o del bisel.
+    let pieza = marco.geometria(ancho_f, alto_f);
+    let izquierda = (marco.margen + pieza.x) as usize;
+    let arriba = (marco.margen + pieza.y) as usize;
 
     // Nunca más que media captura: con más, las dos esquinas de un lado se pisarían.
-    let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
-    let banda = radio.ceil() as u32;
+    let medio = (ancho_f.min(alto_f) / 2) as f32;
+    let radios = pieza.radios.map(|r| r.min(medio).max(0.0));
+    let banda_arriba = radios[0].max(radios[1]).ceil() as u32;
+    let banda_abajo = radios[2].max(radios[3]).ceil() as u32;
     // Una captura de pantalla es opaca entera, y entonces una fila que no toca ninguna
     // esquina se copia de golpe: `sobre` dejaría el píxel de la captura tal cual.
     let opaca = imagen.as_raw().chunks_exact(4).all(|p| p[3] == 255);
@@ -308,7 +359,7 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
     for y in 0..alto_f {
         let de = &origen[y as usize * fila..(y as usize + 1) * fila];
         let inicio = ((y as usize + arriba) * ancho + izquierda) * 4;
-        let en_una_esquina = radio > 0.0 && (y < banda || y >= alto_f.saturating_sub(banda));
+        let en_una_esquina = y < banda_arriba || (banda_abajo > 0 && y >= alto_f.saturating_sub(banda_abajo));
         if opaca && !en_una_esquina {
             destino[inicio..inicio + fila].copy_from_slice(de);
             continue;
@@ -321,7 +372,7 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
             let encima = sobre(arriba_px, debajo);
             // Lo que cae fuera del arco de una esquina deja ver el fondo, con el borde
             // suavizado: un píxel cubierto a medias se mezcla a medias, o sale dentado.
-            let cubre = cobertura(x, y, ancho_f, alto_f, radio);
+            let cubre = cobertura(x, y, ancho_f, alto_f, radios);
             let sale = if cubre >= 1.0 { encima } else { entre(debajo, encima, cubre) };
             destino[j..j + 4].copy_from_slice(&sale.0);
         }
@@ -331,14 +382,14 @@ pub fn poner(imagen: &RgbaImage, marco: Marco) -> RgbaImage {
 
 /// Lo que identifica un fondo ya pintado: el tamaño de la captura y todo lo del marco. Con
 /// una imagen, su número en `RUTAS`: dos imágenes distintas nunca comparten fondo.
-type Clave = (u32, u32, u32, Fondo, bool, u32);
+type Clave = (u32, u32, u32, Fondo, bool, u32, Option<Carcasa>);
 
 /// El fondo con su sombra para una captura de ese tamaño, pintado la primera vez que se
 /// pide y guardado para los siguientes fotogramas. Uno solo: se exporta un vídeo cada vez.
 fn base(marco: Marco, ancho_f: u32, alto_f: u32) -> std::sync::Arc<RgbaImage> {
     static GUARDADO: std::sync::Mutex<Option<(Clave, std::sync::Arc<RgbaImage>)>> =
         std::sync::Mutex::new(None);
-    let clave = (ancho_f, alto_f, marco.margen, marco.fondo, marco.sombra, marco.esquinas);
+    let clave = (ancho_f, alto_f, marco.margen, marco.fondo, marco.sombra, marco.esquinas, marco.carcasa_puesta());
     if let Ok(guardado) = GUARDADO.lock() {
         if let Some((k, lienzo)) = guardado.as_ref() {
             if *k == clave {
@@ -381,6 +432,11 @@ fn pintar_base(marco: Marco, ancho_f: u32, alto_f: u32) -> RgbaImage {
     if marco.sombra {
         aplicar_sombra(&mut lienzo, &mascara_de_sombra(marco, ancho_f, alto_f));
     }
+    // S25 (marco): la ventana o el portátil, encima del fondo y de su sombra. La captura va
+    // después, en cada fotograma, en el hueco que deja.
+    if let Some(c) = marco.carcasa_puesta() {
+        carcasa::Capa::nueva(c, ancho_f, alto_f).poner(&mut lienzo, marco.margen, marco.margen);
+    }
     lienzo
 }
 
@@ -409,14 +465,14 @@ pub fn cubrir(imagen: &RgbaImage, ancho: u32, alto: u32) -> RgbaImage {
 
 /// Lo que identifica un fondo animado ya abierto: el vídeo, el tamaño de la captura y el
 /// marco. Con un `None` dentro, ese vídeo no se pudo leer y no se vuelve a intentar.
-type ClaveAnimada = (Lamina, u32, u32, u32, bool, u32);
+type ClaveAnimada = (Lamina, u32, u32, u32, bool, u32, Option<Carcasa>);
 
 /// El fondo animado en ese instante, pintado por su hilo. `None` si el vídeo no se puede
 /// leer: quien llama pinta negro.
 fn base_animada(video: Lamina, ms: u64, marco: Marco, ancho_f: u32, alto_f: u32) -> Option<std::sync::Arc<RgbaImage>> {
     use super::fondo_video::Animado;
     static ABIERTO: std::sync::Mutex<Option<(ClaveAnimada, Option<Animado>)>> = std::sync::Mutex::new(None);
-    let clave = (video, ancho_f, alto_f, marco.margen, marco.sombra, marco.esquinas);
+    let clave = (video, ancho_f, alto_f, marco.margen, marco.sombra, marco.esquinas, marco.carcasa_puesta());
     let mut abierto = ABIERTO.lock().unwrap_or_else(|e| e.into_inner());
     // Dos intentos: el hilo se cierra solo cuando lleva un rato sin uso, y entonces se
     // vuelve a abrir desde el instante que se pida.
@@ -425,9 +481,15 @@ fn base_animada(video: Lamina, ms: u64, marco: Marco, ancho_f: u32, alto_f: u32)
             let ruta = ruta_de(video)?;
             let (ancho, alto) = marco.medida(ancho_f, alto_f);
             let mascara = marco.sombra.then(|| mascara_de_sombra(marco, ancho_f, alto_f));
+            // S25 (marco): la carcasa se pinta una vez y se pone encima de cada fotograma del fondo.
+            let capa = marco.carcasa_puesta().map(|c| carcasa::Capa::nueva(c, ancho_f, alto_f));
+            let margen = marco.margen;
             let vestir: super::fondo_video::Vestir = Box::new(move |lienzo: &mut RgbaImage| {
                 if let Some(m) = &mascara {
                     aplicar_sombra(lienzo, m);
+                }
+                if let Some(c) = &capa {
+                    c.poner(lienzo, margen, margen);
                 }
             });
             *abierto = Some((clave, Some(Animado::abrir(ruta, ancho, alto, vestir))));
@@ -448,23 +510,20 @@ fn base_animada(video: Lamina, ms: u64, marco: Marco, ancho_f: u32, alto_f: u32)
 
 /// Cuánto de un píxel de la captura queda dentro de sus esquinas redondeadas: 1 en todo lo
 /// que no es esquina, 0 fuera del arco, y lo de en medio en el borde.
-fn cobertura(x: u32, y: u32, ancho: u32, alto: u32, radio: f32) -> f32 {
-    if radio <= 0.0 {
-        return 1.0;
-    }
+fn cobertura(x: u32, y: u32, ancho: u32, alto: u32, radios: [f32; 4]) -> f32 {
     let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
     let (w, h) = (ancho as f32, alto as f32);
-    let cx = if px < radio {
-        radio
-    } else if px > w - radio {
-        w - radio
-    } else {
-        return 1.0;
-    };
-    let cy = if py < radio {
-        radio
-    } else if py > h - radio {
-        h - radio
+    // S25 (marco): cada esquina con su radio (en la ventana, solo las dos de abajo). El orden
+    // es el de `carcasa::Forma`: arriba a la izquierda y siguiendo las agujas del reloj.
+    let [ai, ad, bd, bi] = radios;
+    let (radio, cx, cy) = if px < ai && py < ai {
+        (ai, ai, ai)
+    } else if px > w - ad && py < ad {
+        (ad, w - ad, ad)
+    } else if px > w - bd && py > h - bd {
+        (bd, w - bd, h - bd)
+    } else if px < bi && py > h - bi {
+        (bi, bi, h - bi)
     } else {
         return 1.0;
     };
@@ -492,29 +551,45 @@ fn entre(a: Rgba<u8>, b: Rgba<u8>, t: f32) -> Rgba<u8> {
 fn mascara_de_sombra(marco: Marco, ancho_f: u32, alto_f: u32) -> Vec<u8> {
     let (ancho, alto) = marco.medida(ancho_f, alto_f);
     let margen = marco.margen;
-    let radio = marco.esquinas.min(ancho_f.min(alto_f) / 2) as f32;
     let caida = (margen as f32 * SOMBRA_CAIDA).round() as i32;
     let borrosa = (margen as f32 * SOMBRA_BORROSA).max(1.0);
-
-    let x0 = margen as i32;
-    let y0 = margen as i32 + caida;
-    let x1 = x0 + ancho_f as i32;
-    let y1 = y0 + alto_f as i32;
-
     let mut mascara = vec![0u8; ancho as usize * alto as usize];
-    for y in 0..alto as i32 {
-        for x in 0..ancho as i32 {
-            // Lo lejos que está el píxel del rectángulo de la sombra, por fuera. Con las
-            // esquinas redondeadas la sombra también lo es: se mide al rectángulo encogido
-            // el radio, y se le resta el radio.
-            let fuera_x = ((x0 as f32 + radio) - x as f32).max(x as f32 - (x1 - 1) as f32 + radio).max(0.0);
-            let fuera_y = ((y0 as f32 + radio) - y as f32).max(y as f32 - (y1 - 1) as f32 + radio).max(0.0);
-            let distancia = ((fuera_x * fuera_x + fuera_y * fuera_y).sqrt() - radio).max(0.0);
-            if distancia >= borrosa {
-                continue;
+    // S25 (marco): la sombra la echa la pieza entera. Sin carcasa es la captura con sus
+    // esquinas, como siempre; con el portátil son dos formas, la tapa y la base, y cada
+    // píxel se queda con la más oscura de las dos.
+    let pieza = marco.geometria(ancho_f, alto_f);
+    let alcance = borrosa.ceil() as i32 + 1;
+    for forma in &pieza.sombra {
+        let x0 = margen as i32 + forma.x.round() as i32;
+        let y0 = margen as i32 + forma.y.round() as i32 + caida;
+        let x1 = x0 + forma.ancho.round() as i32;
+        let y1 = y0 + forma.alto.round() as i32;
+        let (medio_x, medio_y) = ((x0 + x1 - 1) as f32 / 2.0, (y0 + y1 - 1) as f32 / 2.0);
+        let tope = (forma.ancho.min(forma.alto) / 2.0).max(0.0);
+        // Solo lo que puede alcanzar la sombra: más allá de lo borroso no oscurece nada.
+        for y in (y0 - alcance).max(0)..(y1 + alcance).min(alto as i32) {
+            for x in (x0 - alcance).max(0)..(x1 + alcance).min(ancho as i32) {
+                // El radio de la esquina de ese cuarto de la forma.
+                let radio = match (x as f32 > medio_x, y as f32 > medio_y) {
+                    (false, false) => forma.radios[0],
+                    (true, false) => forma.radios[1],
+                    (true, true) => forma.radios[2],
+                    (false, true) => forma.radios[3],
+                }
+                .min(tope);
+                // Lo lejos que está el píxel del rectángulo de la sombra, por fuera. Con las
+                // esquinas redondeadas la sombra también lo es: se mide al rectángulo encogido
+                // el radio, y se le resta el radio.
+                let fuera_x = ((x0 as f32 + radio) - x as f32).max(x as f32 - (x1 - 1) as f32 + radio).max(0.0);
+                let fuera_y = ((y0 as f32 + radio) - y as f32).max(y as f32 - (y1 - 1) as f32 + radio).max(0.0);
+                let distancia = ((fuera_x * fuera_x + fuera_y * fuera_y).sqrt() - radio).max(0.0);
+                if distancia >= borrosa {
+                    continue;
+                }
+                let fuerza = (1.0 - distancia / borrosa) * 0.42;
+                let i = y as usize * ancho as usize + x as usize;
+                mascara[i] = mascara[i].max((fuerza * 255.0) as u8);
             }
-            let fuerza = (1.0 - distancia / borrosa) * 0.42;
-            mascara[y as usize * ancho as usize + x as usize] = (fuerza * 255.0) as u8;
         }
     }
     mascara
@@ -578,6 +653,7 @@ mod tests {
                 fondo: Fondo::Atardecer,
                 sombra: true,
                 esquinas: 0,
+                carcasa: None,
             },
         );
         assert_eq!(fuera.dimensions(), (40, 30));
@@ -593,6 +669,7 @@ mod tests {
                 fondo: Fondo::Blanco,
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
         );
         assert_eq!(fuera.dimensions(), (60, 50));
@@ -605,6 +682,7 @@ mod tests {
             fondo: Fondo::Blanco,
             sombra: false,
             esquinas: 0,
+            carcasa: None,
         };
         let fuera = poner(&cuadro(20, 20), marco);
         // Las cuatro esquinas de la captura, y ni un píxel más allá.
@@ -624,6 +702,7 @@ mod tests {
                 fondo: Fondo::Negro,
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             };
             let (a, b) = marco.medida(ancho, alto);
             assert_eq!(a % 2, 0, "el ancho {a} es impar (venía de {ancho})");
@@ -641,6 +720,7 @@ mod tests {
                 fondo: Fondo::Negro,
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
         );
         let (ancho, alto) = fuera.dimensions();
@@ -659,6 +739,7 @@ mod tests {
                 fondo: Fondo::Atardecer,
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
         );
         let (ancho, alto) = fuera.dimensions();
@@ -674,6 +755,7 @@ mod tests {
             fondo: Fondo::Blanco,
             sombra: true,
             esquinas: 0,
+            carcasa: None,
         };
         let fuera = poner(&cuadro(40, 40), marco);
         let claro = |p: Rgba<u8>| p.0[0] as u32 + p.0[1] as u32 + p.0[2] as u32;
@@ -695,6 +777,7 @@ mod tests {
                 fondo: Fondo::Blanco,
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
         );
         assert_eq!(*fuera.get_pixel(30, 62), Rgba([255, 255, 255, 255]));
@@ -713,6 +796,7 @@ mod tests {
                 fondo: Fondo::Negro,
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
         );
         assert_eq!(*fuera.get_pixel(14, 14), Rgba([255, 0, 0, 255]));
@@ -729,6 +813,7 @@ mod tests {
             fondo: Fondo::Blanco,
             sombra: false,
             esquinas: 0,
+            carcasa: None,
         };
         // Una captura de 400 x 400 exportada a 100 x 100, con 40 px de aire.
         let fuera = enmarcar(cuadro(400, 400), 100, 100, marco);
@@ -749,6 +834,7 @@ mod tests {
                 fondo: Fondo::Blanco,
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
         );
         assert_eq!(fuera.dimensions(), (100, 100));
@@ -788,6 +874,7 @@ mod tests {
                 fondo,
                 sombra: true,
                 esquinas: 0,
+                carcasa: None,
             };
             let fuera = poner(&captura, marco);
             let ruta = carpeta.join(format!("{nombre}.png"));
@@ -811,6 +898,7 @@ mod tests {
             fondo: Fondo::Negro,
             sombra: false,
             esquinas: 0,
+            carcasa: None,
         };
         let enmarcada = enmarcar(cuadro(60, 40), 60, 40, marco);
         let (ancho, alto) = marco.medida(60, 40);
@@ -841,7 +929,7 @@ mod esquinas {
     fn redondeada(esquinas: u32, sombra: bool) -> RgbaImage {
         poner(
             &RgbaImage::from_pixel(40, 30, ROJO),
-            Marco { margen: 10, fondo: Fondo::Blanco, sombra, esquinas },
+            Marco { margen: 10, fondo: Fondo::Blanco, sombra, esquinas, carcasa: None },
         )
     }
 
@@ -897,7 +985,7 @@ mod fondos_propios {
     const ROJO: Rgba<u8> = Rgba([220, 30, 30, 255]);
 
     fn con(fondo: Fondo, margen: u32) -> Marco {
-        Marco { margen, fondo, sombra: false, esquinas: 0 }
+        Marco { margen, fondo, sombra: false, esquinas: 0, carcasa: None }
     }
 
     /// Los mismos números que comprueba `src/lib/fondos.test.ts`: si uno cambia y el otro no,

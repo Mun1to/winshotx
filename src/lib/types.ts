@@ -385,7 +385,8 @@ export interface Settings {
    * ciento del lado corto (0 = sin fondo) y `fondo`, uno de los del Estudio. Opcional
    * aquí porque Rust siempre lo manda y unos ajustes viejos no lo traen.
    */
-  marcoCapturas?: { aire: number; fondo: Background; elegido?: FondoElegido | null };
+  // S25 (marco): `carcasa` es la ventana o el portátil alrededor de cada captura.
+  marcoCapturas?: { aire: number; fondo: Background; elegido?: FondoElegido | null; carcasa?: "ventana" | "portatil" | null };
   /** La miniatura de la esquina después de capturar una foto. */
   miniatura?: boolean;
   /** Cuántos segundos se queda la miniatura. 0 es hasta cerrarla. */

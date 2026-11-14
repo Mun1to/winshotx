@@ -34,6 +34,14 @@ import { Opcion, Opciones } from "../ui/Opcion";
 // S11 (pistas)
 import { conPistas, pistaDe } from "../../lib/pistas";
 import { MandosDePistas } from "./MandosDePistas";
+// S25 (marco)
+import {
+  carcasaParaPedir,
+  geometria as geometriaDeLaCarcasa,
+  MARCOS,
+  ventanaOscura,
+  type CarcasaElegida,
+} from "../../lib/carcasa";
 
 /**
  * Los cuatro formatos, con lo que hace cada uno dicho en palabras: «H.264 por hardware»
@@ -211,6 +219,30 @@ export function ExportPanel({
   const [sombra, setSombra] = useState(true);
   /** El radio de las esquinas sobre el fondo, en píxeles del archivo. */
   const [esquinas, setEsquinas] = useState(0);
+  // S25 (marco)
+  /**
+   * La ventana o el portátil alrededor de la captura. Solo con fondo: sin aire detrás, sus
+   * esquinas y su sombra no tienen dónde verse, así que sin fondo cuenta como «Ninguno».
+   */
+  const [carcasa, setCarcasa] = useState<CarcasaElegida | null>(null);
+  const carcasaPuesta = margen > 0 ? carcasa : null;
+  /**
+   * La ventana sale clara u oscura como las de winshotx (en automático, como las de Windows):
+   * así se parece a las ventanas de quien la usa sin un cuarto botón. Se sigue al sistema
+   * mientras el editor está abierto, para que lo que se ve sea lo que sale.
+   */
+  const [oscura, setOscura] = useState(ventanaOscura);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const sistema = window.matchMedia("(prefers-color-scheme: dark)");
+    const mirar = () => setOscura(ventanaOscura());
+    sistema.addEventListener("change", mirar);
+    window.addEventListener("storage", mirar);
+    return () => {
+      sistema.removeEventListener("change", mirar);
+      window.removeEventListener("storage", mirar);
+    };
+  }, []);
   /**
    * Quitarle al puntero los temblores de la mano. **Encendido de fábrica**, como en Screen
    * Studio y en Cap: es lo que hace que un vídeo de pantalla se vea hecho a propósito, y
@@ -276,10 +308,12 @@ export function ExportPanel({
               esquinas: esquinas / Math.max(1, width),
               fondo,
               sombra,
+              // S25 (marco): con el tamaño del archivo, que es con lo que se mide la carcasa.
+              carcasa: carcasaPuesta ? { elegida: carcasaPuesta, oscura, ancho: width, alto: height } : null,
             }
           : null,
     });
-  }, [zoom, cursor, aros, teclas, suave, esconder, velocidadZoom, volumen, velocidad, margen, esquinas, fondo, sombra, width, onEstudio]);
+  }, [zoom, cursor, aros, teclas, suave, esconder, velocidadZoom, volumen, velocidad, margen, esquinas, fondo, sombra, width, height, carcasaPuesta, oscura, onEstudio]);
 
   /**
    * Elegir un fondo sin aire pone el aire, las esquinas y la sombra que se ven bien a ese
@@ -289,6 +323,8 @@ export function ExportPanel({
   const elegirFondo = (elegido: Background | null) => {
     if (elegido === null) {
       setMargen(0);
+      // S25 (marco): sin fondo no hay marco; volver a poner un fondo no lo trae de vuelta.
+      setCarcasa(null);
       return;
     }
     setFondo(elegido);
@@ -306,7 +342,7 @@ export function ExportPanel({
    */
   const medidas = { ancho: width, altoGrabado: session.region.height };
   const estiloAhora = estiloDe(
-    { zoom, velocidadZoom, cursor, aros, teclas, suave, esconder, margen, esquinas, fondo, sombra },
+    { zoom, velocidadZoom, cursor, aros, teclas, suave, esconder, margen, esquinas, fondo, sombra, carcasa: carcasaPuesta },
     edicion,
     medidas,
   );
@@ -324,6 +360,8 @@ export function ExportPanel({
     setEsquinas(p.esquinas);
     setFondo(p.fondo);
     setSombra(p.sombra);
+    // S25 (marco)
+    setCarcasa(p.carcasa ?? null);
     // El fondo propio, el suavizado, esconder al escribir, el clic, la onda, la estela, acercarse
     // al escribir y la cámara. Nunca los zooms, los cortes ni lo tapado, que son de este vídeo.
     // Un estilo sin cámara (guardado con una grabación que no la tenía, o sin tocarla) no
@@ -376,8 +414,10 @@ export function ExportPanel({
     // A 2x el vídeo dura la mitad, así que también pesa la mitad.
     const seconds = segundos / velocidad;
     // El marco crece por fuera, así que el archivo también: la estimación cuenta con él.
-    const w = width + margen * 2;
-    const h = height + margen * 2;
+    // S25 (marco): y con la ventana o el portátil, que crecen por fuera de la captura.
+    const pieza = carcasaPuesta ? geometriaDeLaCarcasa(carcasaPuesta, width, height) : { ancho: width, alto: height };
+    const w = pieza.ancho + margen * 2;
+    const h = pieza.alto + margen * 2;
     if (format === "png") return w * h * 3 * 0.35;
     // Medido sobre capturas de verdad: un JPEG de calidad 85 se queda en torno a
     // 0,13 bytes por pixel, que es donde sale este factor.
@@ -385,7 +425,7 @@ export function ExportPanel({
     if (format === "gif") return w * h * (quality / 100) * 0.12 * fps * seconds;
     const bitrate = 1_000_000 + (quality / 100) * 11_000_000;
     return (bitrate / 8) * seconds;
-  }, [format, width, height, margen, quality, fps, segundos, velocidad]);
+  }, [format, width, height, margen, carcasaPuesta, quality, fps, segundos, velocidad]);
 
   const run = async (copyToClipboard: boolean, file: string | null = null) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
@@ -437,6 +477,8 @@ export function ExportPanel({
         // S11 (pistas): cada pista con su mando, solo las que trae la grabación.
         sonidoPc: session.sonidoPc ? pc : null,
         microfono: session.microfono ? voz : null,
+        // S25 (marco): la ventana con el tema de ahora, el mismo que enseña la vista previa.
+        carcasa: carcasaParaPedir(carcasaPuesta, oscura),
       });
       setResult(res);
     } catch (e) {
@@ -604,17 +646,40 @@ export function ExportPanel({
                   value={margen}
                   onChange={setMargen}
                 />
-                <Slider
-                  label={t("Esquinas redondeadas")}
-                  hint={esquinas === 0 ? t("rectas") : `${esquinas} px`}
-                  min={0}
-                  max={60}
-                  value={esquinas}
-                  onChange={setEsquinas}
-                />
+                {/* S25 (marco): con ventana o portátil, las esquinas son las suyas. */}
+                {!carcasaPuesta && (
+                  <Slider
+                    label={t("Esquinas redondeadas")}
+                    hint={esquinas === 0 ? t("rectas") : `${esquinas} px`}
+                    min={0}
+                    max={60}
+                    value={esquinas}
+                    onChange={setEsquinas}
+                  />
+                )}
                 <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />
               </div>
             )}
+          </Grupo>
+
+          {/* S25 (marco): la captura dentro de una ventana de Windows 11 o de un portátil. Elegir
+              uno sin fondo pone el fondo, como elegir un fondo pone el aire: sin nada detrás no
+              se vería. */}
+          <Grupo titulo={t("Marco")}>
+            <Opciones>
+              {MARCOS.map((m) => (
+                <Opcion
+                  key={m.id ?? "ninguno"}
+                  puesta={carcasaPuesta === m.id}
+                  onClick={() => {
+                    setCarcasa(m.id);
+                    if (m.id && margen === 0) elegirFondo(fondo);
+                  }}
+                >
+                  {t(m.nombre)}
+                </Opcion>
+              ))}
+            </Opciones>
           </Grupo>
 
           {/* El puntero, el zoom y los atajos solo con tiempo dentro: una foto no tiene

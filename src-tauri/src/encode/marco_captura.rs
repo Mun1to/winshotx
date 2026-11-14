@@ -18,6 +18,8 @@ use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 
 use super::marco::{self, Fondo, Marco};
+// S25 (marco)
+use super::carcasa::CarcasaElegida;
 
 /// Lo que se guarda en los ajustes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -32,6 +34,16 @@ pub struct MarcoCaptura {
     /// nombre, igual que en el Estudio. Lo pone elegir un estilo guardado para las capturas;
     /// sin él, el de nombre de siempre.
     pub elegido: Option<crate::contrato::FondoElegido>,
+    // S25 (marco)
+    /// La ventana o el portátil alrededor de cada captura, con el fondo puesto. `None` es sin
+    /// marco, que es como viene. Uno que esta versión no conoce se lee como ninguno.
+    #[serde(deserialize_with = "super::carcasa::leer_elegida")]
+    pub carcasa: Option<CarcasaElegida>,
+    /// Si la ventana sale oscura. **No se guarda**: lo pone quien entrega la captura justo
+    /// antes, con el tema de winshotx de ese momento (`platform::tema`), para que siga al de
+    /// Windows cuando cambia solo al atardecer.
+    #[serde(skip)]
+    pub ventana_oscura: bool,
 }
 
 impl Default for MarcoCaptura {
@@ -40,6 +52,9 @@ impl Default for MarcoCaptura {
             aire: 0,
             fondo: "atardecer".into(),
             elegido: None,
+            // S25 (marco)
+            carcasa: None,
+            ventana_oscura: false,
         }
     }
 }
@@ -70,6 +85,8 @@ impl MarcoCaptura {
             fondo: Fondo::elegido(&self.fondo, self.elegido.as_ref()),
             sombra: true,
             esquinas,
+            // S25 (marco)
+            carcasa: self.carcasa.map(|c| c.con_tema(self.ventana_oscura)),
         })
     }
 
@@ -123,6 +140,7 @@ mod pruebas {
             aire: 8,
             fondo: "negro".into(),
             elegido: None,
+            ..Default::default()
         };
         let salida = ajuste.aplicar(&captura(400, 200)).unwrap();
         // 8 % de 200 son 16 píxeles por lado.
@@ -139,6 +157,7 @@ mod pruebas {
             aire: 8,
             fondo: "blanco".into(),
             elegido: None,
+            ..Default::default()
         };
         let pequena = ajuste.para(300, 120).unwrap().margen;
         let grande = ajuste.para(3840, 2160).unwrap().margen;
@@ -156,6 +175,7 @@ mod pruebas {
             aire: 14,
             fondo: "blanco".into(),
             elegido: None,
+            ..Default::default()
         };
         let marco = ajuste.para(400, 300).unwrap();
         assert!(marco.sombra);
@@ -176,6 +196,7 @@ mod pruebas {
             aire: 8,
             fondo: "menta".into(),
             elegido: None,
+            ..Default::default()
         };
         for accion in ["copy", "save", "save_as"] {
             let salida = ajuste.para_la_accion(captura(200, 100), accion);
@@ -194,6 +215,7 @@ mod pruebas {
             aire: 4,
             fondo: "fucsia".into(),
             elegido: None,
+            ..Default::default()
         };
         assert_eq!(ajuste.para(100, 100).unwrap().fondo, Fondo::Blanco);
     }
@@ -206,6 +228,7 @@ mod pruebas {
             aire: 8,
             fondo: "atardecer".into(),
             elegido: Some(crate::contrato::FondoElegido::Color { rgb: [10, 200, 30] }),
+            ..Default::default()
         };
         let salida = ajuste.aplicar(&captura(400, 200)).unwrap();
         assert_eq!(salida.get_pixel(2, 2).0, [10, 200, 30, 255], "la esquina es el color propio");
