@@ -526,6 +526,12 @@ export const EN: Record<string, string> = {
   "Coral": "Coral",
   "Esquinas redondeadas": "Rounded corners",
   "rectas": "square",
+  // S25 (marco): la captura dentro de una ventana o de un portátil
+  "Marco": "Frame",
+  "Marco:": "Frame:",
+  "Ninguno": "None",
+  "Ventana": "Window",
+  "Portátil": "Laptop",
   "Puntero": "Pointer",
   "Movimiento suave": "Smooth movement",
   "Esconderlo cuando no se mueve": "Hide it when it stops",
@@ -628,8 +634,8 @@ export const EN: Record<string, string> = {
   "30 s": "30 sec",
   "Hasta cerrarla": "Until closed",
   "Fondo en las capturas": "Background on shots",
-  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
-    "Every shot you copy or save comes out on a background, with padding, a shadow and rounded corners, ready to post. They are the same backgrounds as the editor's Studio. It is not added when editing, pinning or reading text.",
+  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Con marco, va dentro de una ventana de Windows 11 (clara u oscura, como las de winshotx) o de un portátil. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
+    "Every shot you copy or save comes out on a background, with padding, a shadow and rounded corners, ready to post. With a frame, it sits inside a Windows 11 window (light or dark, like winshotx's own) or a laptop. They are the same backgrounds as the editor's Studio. It is not added when editing, pinning or reading text.",
   "las capturas salen tal cual": "shots come out as they are",
   "se pone al copiar y al guardar": "added when copying and saving",
   Poco: "Little",
@@ -655,6 +661,16 @@ export const EN: Record<string, string> = {
   "Las fotos que guardes y los vídeos que exportes salen aquí, de lo más nuevo a lo más viejo.":
     "The shots you save and the videos you export show up here, newest first.",
   "ese archivo no es del historial": "that file is not in the history",
+  // S26: buscar en el historial por el texto de las fotos
+  "Buscar en el texto de las fotos": "Search the text in your shots",
+  "Borrar la búsqueda": "Clear the search",
+  "El texto se lee aquí, en tu PC, y no sale de él.": "The text is read here, on your PC, and never leaves it.",
+  "Ninguna foto lleva escrito «{texto}»": "No shot has “{texto}” written on it",
+  "Busca en el texto de las fotos, que se lee aquí, en tu PC, y no sale de él.":
+    "It searches the text in your shots, which is read here, on your PC, and never leaves it.",
+  "Queda 1 foto por leer: si lo lleva, saldrá aquí.": "1 shot left to read: if it has it, it will show up here.",
+  "Quedan {n} fotos por leer: las que lo lleven irán saliendo.":
+    "{n} shots left to read: the ones that have it will show up as they are read.",
   // S5 (scroll)
   "Captura con scroll": "Scrolling capture",
   "Captura con scroll: baja la página y la junta en una imagen · S": "Scrolling capture: scrolls the page and joins it into one image · S",

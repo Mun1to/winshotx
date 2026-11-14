@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Frame } from "lucide-react";
 import { FONDOS } from "../../lib/fondos";
+// S25 (marco)
+import { MARCOS } from "../../lib/carcasa";
 import { useT } from "../../lib/i18n";
 import { AVISO_PRESETS, type PresetGuardado } from "../../lib/ipc";
 import { estiloDeLasCapturas, leerPresets, marcoCapturasDe, type MarcoCapturas } from "../../lib/presets";
@@ -61,7 +63,7 @@ export function FondoEnLasCapturas({ settings, patch }: Props) {
       icon={<Frame className="size-4" />}
       label={t("Fondo en las capturas")}
       explicacion={t(
-        "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.",
+        "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Con marco, va dentro de una ventana de Windows 11 (clara u oscura, como las de winshotx) o de un portátil. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.",
       )}
       hint={marco.aire === 0 ? t("las capturas salen tal cual") : t("se pone al copiar y al guardar")}
       stacked
@@ -89,6 +91,26 @@ export function FondoEnLasCapturas({ settings, patch }: Props) {
                     !propio && marco.fondo === f.id ? "border-marca" : "border-linea hover:border-suave"
                   }`}
                 />
+              ))}
+            </div>
+          )}
+          {/* S25 (marco): la ventana o el portátil, solo con fondo, como en el Estudio. */}
+          {marco.aire > 0 && (
+            <div role="radiogroup" aria-label={t("Marco")} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="text-[13px] text-texto">{t("Marco:")}</span>
+              {MARCOS.map((m) => (
+                <button
+                  key={m.id ?? "ninguno"}
+                  type="button"
+                  role="radio"
+                  aria-checked={(marco.carcasa ?? null) === m.id}
+                  onClick={() => patch({ marcoCapturas: { ...marco, carcasa: m.id } })}
+                  className={`border-b-2 py-0.5 text-[13px] font-semibold transition-colors ${
+                    (marco.carcasa ?? null) === m.id ? "border-marca text-texto" : "border-transparent text-suave hover:text-texto"
+                  }`}
+                >
+                  {t(m.nombre)}
+                </button>
               ))}
             </div>
           )}

@@ -40,6 +40,8 @@ mod sonidos;
 mod agente;
 // S22 (abrir a mano)
 mod arranque;
+// S26 (buscar en el historial)
+mod historial_texto;
 
 use std::time::{Duration, SystemTime};
 
@@ -208,6 +210,8 @@ pub fn run() {
             app.manage(AppState::new(config.clone(), temp_root, recien_actualizado));
             // S15 (agente): el canal para agentes de IA, con el estado ya puesto.
             agente::arrancar(&handle);
+            // S26 (buscar en el historial): el lector del texto de las fotos, en su hilo.
+            historial_texto::arrancar(&handle);
 
             // Si el usuario nos dio la tecla Impr Pant hay que comprobarlo en cada
             // arranque: una actualizacion de Windows o un paseo por Configuracion se la

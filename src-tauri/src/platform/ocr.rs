@@ -39,7 +39,13 @@ pub fn leer_texto(png: &[u8]) -> Result<String> {
     // asincrono: leer una captura tarda decimas y esto ya corre en su propio comando.
     let motor = motor()?;
     let resultado = motor.RecognizeAsync(&mapa)?.join()?;
+    texto_de(&resultado)
+}
 
+/// Las líneas de lo que ha leído el motor, de arriba abajo, con las palabras de cada una
+/// separadas por un espacio.
+#[cfg(windows)]
+fn texto_de(resultado: &windows::Media::Ocr::OcrResult) -> Result<String> {
     let mut lineas = Vec::new();
     for linea in resultado.Lines()? {
         let palabras: Vec<String> = linea
@@ -52,6 +58,119 @@ pub fn leer_texto(png: &[u8]) -> Result<String> {
         }
     }
     Ok(lineas.join("\n"))
+}
+
+/// Lo que se solapan dos tiras seguidas de una foto demasiado alta, en píxeles: una línea
+/// de texto que cae justo en el corte sale entera en una de las dos.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub const SOLAPE_DE_TIRAS: u32 = 120;
+
+/// Cómo se parte en tiras una foto de `alto` píxeles para que ninguna pase de `maximo`:
+/// dónde empieza cada una y cuánto mide. Una foto que cabe es una sola tira.
+///
+/// Hace falta por las capturas con scroll: el lector de Windows no acepta imágenes de más
+/// de `OcrEngine::MaxImageDimension` píxeles de lado, y una página larga cosida pasa de eso.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn tiras(alto: u32, maximo: u32, solape: u32) -> Vec<(u32, u32)> {
+    if alto <= maximo {
+        return vec![(0, alto)];
+    }
+    let paso = maximo.saturating_sub(solape).max(1);
+    let mut lista = Vec::new();
+    let mut y = 0;
+    loop {
+        let trozo = (alto - y).min(maximo);
+        lista.push((y, trozo));
+        if y + trozo >= alto {
+            return lista;
+        }
+        y += paso;
+    }
+}
+
+/// Un lector para muchas fotos seguidas, con el motor creado una sola vez (S26: el texto
+/// del historial, que lee la carpeta de capturas entera poco a poco).
+#[cfg(windows)]
+pub struct Lector {
+    motor: windows::Media::Ocr::OcrEngine,
+    /// El lado más grande que acepta el motor.
+    maximo: u32,
+}
+
+#[cfg(windows)]
+impl Lector {
+    pub fn nuevo() -> Result<Self> {
+        let maximo = windows::Media::Ocr::OcrEngine::MaxImageDimension()?;
+        Ok(Self { motor: motor()?, maximo })
+    }
+
+    /// Lee una foto del disco (PNG, JPEG o lo que sepa abrir Windows) y devuelve su texto.
+    ///
+    /// La imagen la abre Windows directamente del archivo, sin pasar por Rust: no hay que
+    /// descomprimirla aquí ni volver a comprimirla para el lector. Una foto más ancha de lo
+    /// que acepta el motor se reduce, y una más alta (una captura con scroll de veinte
+    /// pantallas) se lee a tiras que se solapan un poco.
+    pub fn leer_archivo(&self, ruta: &std::path::Path) -> Result<String> {
+        use windows::Graphics::Imaging::{
+            BitmapAlphaMode, BitmapBounds, BitmapPixelFormat, BitmapTransform, ColorManagementMode,
+            ExifOrientationMode,
+        };
+
+        let bytes = std::fs::read(ruta)?;
+        let decodificador = decodificador(&bytes)?;
+        let (ancho, alto) = (decodificador.PixelWidth()?, decodificador.PixelHeight()?);
+        if ancho <= self.maximo && alto <= self.maximo {
+            // En BGRA de 8 bits siempre: un PNG de 16 bits por canal saldría en un formato
+            // que el motor no acepta.
+            let mapa = decodificador
+                .GetSoftwareBitmapConvertedAsync(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied)?
+                .join()?;
+            return texto_de(&self.motor.RecognizeAsync(&mapa)?.join()?);
+        }
+
+        let escala = (self.maximo as f64 / ancho as f64).min(1.0);
+        let ancho_leido = ((ancho as f64 * escala).round() as u32).clamp(1, self.maximo);
+        let alto_leido = ((alto as f64 * escala).round() as u32).max(1);
+        let mut trozos = Vec::new();
+        for (y, alto_tira) in tiras(alto_leido, self.maximo, SOLAPE_DE_TIRAS) {
+            let transformacion = BitmapTransform::new()?;
+            if escala < 1.0 {
+                transformacion.SetScaledWidth(ancho_leido)?;
+                transformacion.SetScaledHeight(alto_leido)?;
+            }
+            // El recorte se aplica después de escalar, en los píxeles ya reducidos.
+            transformacion.SetBounds(BitmapBounds { X: 0, Y: y, Width: ancho_leido, Height: alto_tira })?;
+            let mapa = decodificador
+                .GetSoftwareBitmapTransformedAsync(
+                    BitmapPixelFormat::Bgra8,
+                    BitmapAlphaMode::Premultiplied,
+                    &transformacion,
+                    ExifOrientationMode::IgnoreExifOrientation,
+                    ColorManagementMode::DoNotColorManage,
+                )?
+                .join()?;
+            let texto = texto_de(&self.motor.RecognizeAsync(&mapa)?.join()?)?;
+            if !texto.is_empty() {
+                trozos.push(texto);
+            }
+        }
+        Ok(trozos.join("\n"))
+    }
+}
+
+/// Un decodificador de Windows sobre unos bytes de imagen que ya están en memoria.
+#[cfg(windows)]
+fn decodificador(bytes: &[u8]) -> Result<windows::Graphics::Imaging::BitmapDecoder> {
+    use windows::Graphics::Imaging::BitmapDecoder;
+    use windows::Storage::Streams::{DataWriter, InMemoryRandomAccessStream};
+
+    let flujo = InMemoryRandomAccessStream::new()?;
+    let escritor = DataWriter::CreateDataWriter(&flujo.GetOutputStreamAt(0)?)?;
+    escritor.WriteBytes(bytes)?;
+    escritor.StoreAsync()?.join()?;
+    escritor.FlushAsync()?.join()?;
+    flujo.Seek(0)?;
+    Ok(BitmapDecoder::CreateAsync(&flujo)?.join()?)
 }
 
 /// Lee la imagen y devuelve sus líneas, cada una con sus palabras y el rectángulo de cada
@@ -134,8 +253,31 @@ pub fn leer_palabras(_png: &[u8]) -> crate::error::Result<Vec<Vec<crate::sensibl
     Err(crate::error::AppError::Unsupported)
 }
 
+#[cfg(test)]
+mod tiras_de_una_foto {
+    use super::tiras;
+
+    #[test]
+    fn una_foto_que_cabe_es_una_sola_tira() {
+        assert_eq!(tiras(1080, 10_000, 120), [(0, 1080)]);
+        assert_eq!(tiras(10_000, 10_000, 120), [(0, 10_000)]);
+    }
+
+    /// Ninguna pasa del máximo, se solapan lo dicho, y la última acaba justo en el borde.
+    #[test]
+    fn una_foto_alta_se_parte_sin_dejarse_nada() {
+        let lista = tiras(25_000, 10_000, 120);
+        assert_eq!(lista, [(0, 10_000), (9_880, 10_000), (19_760, 5_240)]);
+        for par in lista.windows(2) {
+            assert_eq!(par[0].0 + par[0].1 - par[1].0, 120, "solape entre {par:?}");
+        }
+        let ultima = lista.last().unwrap();
+        assert_eq!(ultima.0 + ultima.1, 25_000);
+    }
+}
+
 #[cfg(all(test, windows))]
-mod pruebas {
+pub(crate) mod pruebas {
     use super::*;
 
     /// Escribe una frase con la fuente del sistema y la lee de vuelta.
@@ -260,6 +402,14 @@ mod pruebas {
 
     /// Texto negro sobre blanco con la fuente del sistema, devuelto como PNG.
     fn pintar_lineas(lineas: &[&str], ancho: i32, alto: i32) -> Vec<u8> {
+        let colocadas: Vec<(i32, &str)> =
+            lineas.iter().enumerate().map(|(i, l)| (24 + (i as i32) * 96, *l)).collect();
+        pintar_textos(&colocadas, ancho, alto)
+    }
+
+    /// Lo mismo, con cada línea a la altura que se le diga: para pintar una captura muy alta
+    /// con texto arriba, abajo y justo en el corte entre dos tiras (S26).
+    pub(crate) fn pintar_textos(lineas: &[(i32, &str)], ancho: i32, alto: i32) -> Vec<u8> {
         use windows::Win32::Foundation::COLORREF;
         use windows::Win32::Graphics::Gdi::*;
         use windows::core::HSTRING;
@@ -302,9 +452,9 @@ mod pruebas {
             SetBkMode(dc, TRANSPARENT);
             SetTextColor(dc, COLORREF(0x0000_0000));
 
-            for (i, linea) in lineas.iter().enumerate() {
+            for (y, linea) in lineas {
                 let utf16: Vec<u16> = linea.encode_utf16().collect();
-                let _ = TextOutW(dc, 24, 24 + (i as i32) * 96, &utf16);
+                let _ = TextOutW(dc, 24, *y, &utf16);
             }
 
             // Los píxeles del DIB vienen en BGRA; `image` los quiere en RGBA.

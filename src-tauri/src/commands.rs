@@ -173,7 +173,15 @@ fn entregar(
 ) -> Result<StillResult> {
     let state = app.state::<AppState>();
     // S4 (capturas): el fondo de las capturas (E1), en lo que se copia y se guarda.
-    let marco_capturas = state.settings.read().marco_capturas.clone();
+    let marco_capturas = {
+        let ajustes = state.settings.read();
+        let mut marco = ajustes.marco_capturas.clone();
+        // S25 (marco): la ventana del marco, clara u oscura como las de winshotx ahora mismo.
+        if marco.carcasa.is_some() {
+            marco.ventana_oscura = crate::platform::tema::oscuro(ajustes.theme);
+        }
+        marco
+    };
     let image = marco_capturas.para_la_accion(image, action);
     let (width, height) = (image.width(), image.height());
     let (copy_after, con_sonido) = {
@@ -205,6 +213,8 @@ fn entregar(
             // capturas guardadas dentro del mismo segundo dejaban una sola.
             let path = crate::archivos::destino(&directory, "png")?;
             png::save(&image, &path, width, height)?;
+            // S26: su texto se lee ya, en el hilo del historial, sin que la captura espere.
+            crate::historial_texto::avisar(app);
             if copy_after {
                 let bytes = png::to_bytes(&image)?;
                 result.copied = crate::platform::clipboard::copy_image(&image, &bytes).is_ok();
@@ -222,6 +232,8 @@ fn entregar(
                 return Ok(result);
             };
             png::save(&image, &path, width, height)?;
+            // Si la ha dejado en la carpeta de capturas, sale en el historial y se lee (S26).
+            crate::historial_texto::avisar(app);
             if copy_after {
                 let bytes = png::to_bytes(&image)?;
                 result.copied = crate::platform::clipboard::copy_image(&image, &bytes).is_ok();
@@ -385,6 +397,7 @@ pub async fn save_pinned(app: AppHandle, path: String) -> Result<String> {
     let directory = PathBuf::from(app.state::<AppState>().settings.read().save_directory.clone());
     let destino = crate::archivos::destino(&directory, "png")?;
     std::fs::copy(&origen, &destino)?;
+    crate::historial_texto::avisar(&app);
     Ok(destino.to_string_lossy().to_string())
 }
 

@@ -43,6 +43,8 @@ import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
 import { cursorEn, ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
 import { cssDelFondo } from "../../lib/fondos";
 import { FondoVivo } from "./FondoVivo";
+// S25 (marco)
+import { CarcasaVista } from "./CarcasaVista";
 import { CapaCamara } from "./CapaCamara";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
 import { useT } from "../../lib/i18n";
@@ -511,6 +513,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         : { width: 0, height: 0, aire: 0, radio: 0 },
     [medidaDelHueco, session, estudio.marco],
   );
+  // S25 (marco): lo que ocupa la ventana o el portátil en la vista previa, si hay.
+  const carcasaDeLaVista = cajaDeLaVista.carcasa ?? null;
 
   // El volumen del estudio también se oye en la vista previa. Hasta el 100 %: un vídeo del
   // navegador no sube de ahí, y por encima solo lo nota el archivo.
@@ -880,16 +884,46 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               }
             >
             {estudio.marco && cajaDeLaVista.aire > 0 && <FondoVivo elegido={edicion.fondo} />}
+            {/*
+              S25 (marco): la ventana o el portátil, alrededor de la captura. Es una caja con el
+              relleno de lo que crece la carcasa por cada lado y el dibujo detrás; sin carcasa no
+              genera caja (`display: contents`) y todo queda como antes.
+            */}
+            <div
+              data-pieza={carcasaDeLaVista ? "" : undefined}
+              style={
+                carcasaDeLaVista
+                  ? {
+                      position: "relative",
+                      padding: `${carcasaDeLaVista.arriba}px ${carcasaDeLaVista.derecha}px ${carcasaDeLaVista.abajo}px ${carcasaDeLaVista.izquierda}px`,
+                    }
+                  : { display: "contents" }
+              }
+            >
+            {carcasaDeLaVista && estudio.marco?.carcasa && (
+              <CarcasaVista
+                elegida={estudio.marco.carcasa.elegida}
+                oscura={estudio.marco.carcasa.oscura}
+                geometria={carcasaDeLaVista.geometria}
+                ancho={estudio.marco.carcasa.ancho}
+                alto={estudio.marco.carcasa.alto}
+                k={carcasaDeLaVista.k}
+                sombra={estudio.marco.sombra ? cajaDeLaVista.aire : null}
+              />
+            )}
             <div
               // `overflow-hidden` porque la camara del zoom escala el video dentro de
               // esta caja, y lo que se sale por los lados no tiene que verse.
+              data-imagen=""
               className="relative overflow-hidden"
               style={{
-                borderRadius: cajaDeLaVista.radio || undefined,
+                borderRadius: carcasaDeLaVista
+                  ? carcasaDeLaVista.geometria.radios.map((r) => `${r * carcasaDeLaVista.k}px`).join(" ")
+                  : cajaDeLaVista.radio || undefined,
                 // La misma sombra que pone Rust: cae hacia abajo un 22 % del aire y se
-                // difumina en un 45 %.
+                // difumina en un 45 %. Con carcasa la echa ella, no la captura.
                 boxShadow:
-                  estudio.marco?.sombra && cajaDeLaVista.aire > 0
+                  estudio.marco?.sombra && cajaDeLaVista.aire > 0 && !carcasaDeLaVista
                     ? `0 ${Math.round(cajaDeLaVista.aire * 0.22)}px ${Math.round(cajaDeLaVista.aire * 0.9)}px rgba(0, 0, 0, 0.42)`
                     : undefined,
                 aspectRatio: `${session.region.width} / ${session.region.height}`,
@@ -940,6 +974,17 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   onMarco={(camara) => setEdicion((antes) => ({ ...antes, camara }))}
                   hueco={hueco}
                   aire={estudio.marco ? cajaDeLaVista.aire : 0}
+                  // S25 (marco): la burbuja va sobre el vídeo exportado entero, carcasa incluida.
+                  alrededor={
+                    carcasaDeLaVista
+                      ? {
+                          izquierda: cajaDeLaVista.aire + carcasaDeLaVista.izquierda,
+                          arriba: cajaDeLaVista.aire + carcasaDeLaVista.arriba,
+                          derecha: cajaDeLaVista.aire + carcasaDeLaVista.derecha,
+                          abajo: cajaDeLaVista.aire + carcasaDeLaVista.abajo,
+                        }
+                      : undefined
+                  }
                   quieta={herramienta !== null || recortando}
                   msParado={posicionMs}
                 />
@@ -1007,6 +1052,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 }
               />
               <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
+            </div>
             </div>
             </div>
             {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo. */}

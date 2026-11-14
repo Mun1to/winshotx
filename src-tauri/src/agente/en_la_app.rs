@@ -121,6 +121,7 @@ impl Hace for EnLaApp {
         let (ancho, alto) = imagen.dimensions();
         crate::encode::png::save(&imagen, &ruta, ancho, alto)
             .map_err(|e| format!("Could not save {} ({e}).", ruta.display()))?;
+        crate::historial_texto::avisar(&self.app);
         Ok(Captura { archivo: ruta, ancho, alto })
     }
 
@@ -165,8 +166,12 @@ impl Hace for EnLaApp {
             return Err(format!("Session {} is still recording. Send \"stop\" first.", pedido.sesion));
         }
         let session = crate::exporter::load_session(&self.app, &pedido.sesion).map_err(|_| sesion_que_no_esta(&pedido.sesion))?;
-        let presets = state.settings.read().presets.clone();
-        let peticion = traduccion::peticion_de_exportar(&session, pedido, &presets)?;
+        // S25 (marco): con el tema, para que la ventana de un estilo con marco salga como en el editor.
+        let (presets, tema) = {
+            let ajustes = state.settings.read();
+            (ajustes.presets.clone(), ajustes.theme)
+        };
+        let peticion = traduccion::peticion_de_exportar(&session, pedido, &presets, tema)?;
         let duracion = traduccion::segundos_exportados(&session, &peticion);
         let hecho = crate::exporter::export(&self.app, peticion)
             .map_err(|e| format!("winshotx could not export session {} ({e}).", pedido.sesion))?;
