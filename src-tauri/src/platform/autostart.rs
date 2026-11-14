@@ -118,7 +118,7 @@ fn set_registro(enabled: bool) -> Result<()> {
     };
 
     let exe = std::env::current_exe()?;
-    let command = format!("\"{}\"", exe.to_string_lossy());
+    let command = orden_de_arranque(&exe.to_string_lossy());
     let key_path = wide(RUN_KEY);
     let value_name = wide(VALUE_NAME);
 
@@ -178,6 +178,10 @@ fn set_registro(enabled: bool) -> Result<()> {
 /// Un ejecutable suelto (uno de pruebas, uno recien descargado, uno en un pendrive) no tiene
 /// por que apoderarse del arranque de nadie, asi que aqui solo actua el que vive dentro de
 /// la carpeta que Windows tiene registrada como la instalacion.
+///
+/// **Y desde la 0.4.7, con `--autostart` detras** (S22): abierta a mano salen los ajustes, y
+/// sin la bandera el arranque con Windows pareceria abierta a mano. Las entradas de antes no
+/// la llevan y se reescriben aqui, tambien la de una copia suelta si apunta a ella misma.
 #[cfg(windows)]
 pub fn revisar_ruta() {
     // Dentro de un MSIX el arranque va por `StartupTask` y el registro esta virtualizado:
@@ -191,14 +195,9 @@ pub fn revisar_ruta() {
     let exe = exe.to_string_lossy().to_string();
 
     // Sin instalacion registrada (una copia portable, alguien que se bajo el .exe y ya)
-    // esto no tiene ni con que comparar, y quedarse callado es lo correcto.
-    let Some(instalacion) = donde_esta_instalada() else {
-        return;
-    };
-    if !dentro_de(&instalacion, &exe) {
-        return;
-    }
-    if !hay_que_corregir(leer_valor(RUN_KEY, VALUE_NAME).as_deref(), &exe) {
+    // no hay con que comparar la ruta: solo se le pone la bandera a su propia entrada.
+    let instalada = donde_esta_instalada().is_some_and(|carpeta| dentro_de(&carpeta, &exe));
+    if !hay_que_corregir(leer_valor(RUN_KEY, VALUE_NAME).as_deref(), &exe, instalada) {
         return;
     }
     if let Err(error) = set_registro(true) {
@@ -243,18 +242,33 @@ fn dentro_de(carpeta: &str, exe: &str) -> bool {
     limpiar(exe).starts_with(&format!("{carpeta}\\"))
 }
 
-/// Si lo que hay escrito en el arranque no es este ejecutable.
+/// Lo que se escribe en el arranque: este ejecutable, entre comillas, y la bandera que dice
+/// que lo ha arrancado Windows (ver `arranque`).
+#[cfg(windows)]
+fn orden_de_arranque(exe: &str) -> String {
+    format!("\"{exe}\" {}", crate::arranque::AL_ENCENDER)
+}
+
+/// Si lo que hay escrito en el arranque no es lo que tiene que haber.
+///
+/// La copia instalada manda: otra ruta, ninguna entrada o la suya sin la bandera, se reescribe.
+/// Una copia suelta solo puede ponerle la bandera a una entrada que ya es suya; la de otra no
+/// la toca, por lo del binario de pruebas.
 ///
 /// Aparte para poder probarla: lo de dentro son llamadas al registro de Windows, y lo que
-/// aqui se puede equivocar es la comparacion de rutas, no la lectura.
+/// aqui se puede equivocar es la comparacion, no la lectura.
 #[cfg(windows)]
-fn hay_que_corregir(registrado: Option<&str>, mio: &str) -> bool {
+fn hay_que_corregir(registrado: Option<&str>, mio: &str, soy_la_instalada: bool) -> bool {
     let Some(registrado) = registrado else {
-        // No hay entrada y el ajuste dice que si: hay que ponerla.
-        return true;
+        // No hay entrada y el ajuste dice que si: hay que ponerla, y la pone la instalada.
+        return soy_la_instalada;
     };
-    let limpiar = |ruta: &str| ruta.trim().trim_matches('"').trim().to_lowercase();
-    limpiar(registrado) != limpiar(mio)
+    let limpiar = |orden: &str| orden.replace('"', "").trim().to_lowercase();
+    let registrado = limpiar(registrado);
+    if registrado == limpiar(&orden_de_arranque(mio)) {
+        return false;
+    }
+    soy_la_instalada || registrado == limpiar(mio)
 }
 
 /// Un valor de texto del registro del usuario, o nada si no esta.
@@ -329,44 +343,77 @@ pub fn set(_enabled: bool) -> Result<()> {
 
 #[cfg(all(test, windows))]
 mod tests {
-    use super::{dentro_de, hay_que_corregir};
+    use super::{dentro_de, hay_que_corregir, orden_de_arranque};
 
     const INSTALADA: &str = r#""C:\Apps\Random APPS\winshotx""#;
     const MIO: &str = r"C:\Apps\Random APPS\winshotx\winshotx.exe";
+    const PRUEBAS: &str = r"C:\ct\release\winshotx.exe";
 
     /// El caso de Munir, tal cual estaba en su registro el 4 de septiembre de 2026.
     #[test]
     fn una_copia_vieja_en_otra_carpeta_se_corrige() {
         let vieja = r#""C:\Users\Muni\AppData\Local\winshotx\winshotx.exe""#;
         assert!(
-            hay_que_corregir(Some(vieja), MIO),
+            hay_que_corregir(Some(vieja), MIO, true),
             "arrancaba la 0.1.18 de otra carpeta y le pedia actualizar en cada encendido"
         );
     }
 
     #[test]
+    fn se_escribe_con_comillas_y_la_bandera() {
+        assert_eq!(
+            orden_de_arranque(MIO),
+            r#""C:\Apps\Random APPS\winshotx\winshotx.exe" --autostart"#
+        );
+    }
+
+    #[test]
     fn la_ruta_buena_se_deja_en_paz() {
-        let puesta = format!("\"{MIO}\"");
-        assert!(!hay_que_corregir(Some(&puesta), MIO));
+        assert!(!hay_que_corregir(Some(&orden_de_arranque(MIO)), MIO, true));
     }
 
     /// Se escriben con comillas, pero una entrada puesta a mano puede no llevarlas, y
     /// reescribir el registro en cada arranque por unas comillas seria tonto.
     #[test]
     fn las_comillas_no_cuentan() {
-        assert!(!hay_que_corregir(Some(MIO), MIO));
+        assert!(!hay_que_corregir(Some(&format!("{MIO} --autostart")), MIO, true));
     }
 
     /// Windows no distingue mayusculas en las rutas, asi que aqui tampoco.
     #[test]
     fn las_mayusculas_tampoco_cuentan() {
-        assert!(!hay_que_corregir(Some(&MIO.to_uppercase()), MIO));
+        let puesta = orden_de_arranque(MIO).to_uppercase();
+        assert!(!hay_que_corregir(Some(&puesta), MIO, true));
     }
 
     #[test]
     fn sin_entrada_ninguna_hay_que_ponerla() {
         // El ajuste dice que arranca sola; si no hay entrada, no arranca sola.
-        assert!(hay_que_corregir(None, MIO));
+        assert!(hay_que_corregir(None, MIO, true));
+    }
+
+    /// S22: lo que escribian todas las versiones hasta la 0.4.6. Sin la bandera, el arranque
+    /// con Windows abriria los ajustes en cada encendido, como si la hubieran abierto a mano.
+    #[test]
+    fn la_entrada_de_antes_gana_la_bandera() {
+        let de_antes = format!("\"{MIO}\"");
+        assert!(hay_que_corregir(Some(&de_antes), MIO, true));
+    }
+
+    /// Una copia portable no tiene instalacion con la que compararse, pero si su entrada ya
+    /// apunta a ella, ponerle la bandera no le quita el arranque a nadie.
+    #[test]
+    fn una_copia_suelta_le_pone_la_bandera_a_la_suya() {
+        assert!(hay_que_corregir(Some(&format!("\"{PRUEBAS}\"")), PRUEBAS, false));
+        assert!(!hay_que_corregir(Some(&orden_de_arranque(PRUEBAS)), PRUEBAS, false));
+    }
+
+    /// Y la de otra no la toca, ni vieja ni nueva, ni la pone si no hay: eso es de la instalada.
+    #[test]
+    fn una_copia_suelta_no_toca_la_entrada_de_otra() {
+        assert!(!hay_que_corregir(Some(&format!("\"{MIO}\"")), PRUEBAS, false));
+        assert!(!hay_que_corregir(Some(&orden_de_arranque(MIO)), PRUEBAS, false));
+        assert!(!hay_que_corregir(None, PRUEBAS, false));
     }
 
     /// El ejecutable instalado es el que manda, y el `InstallLocation` de Munir lleva las
@@ -381,9 +428,8 @@ mod tests {
     /// se creia el bueno porque solo miraba `current_exe()`. Una copia suelta no manda.
     #[test]
     fn un_binario_de_pruebas_no_se_queda_el_arranque() {
-        let pruebas = r"C:\ct\release\winshotx.exe";
         assert!(
-            !dentro_de(INSTALADA, pruebas),
+            !dentro_de(INSTALADA, PRUEBAS),
             "un ejecutable de fuera de la instalacion no puede tocar el arranque de nadie"
         );
     }
