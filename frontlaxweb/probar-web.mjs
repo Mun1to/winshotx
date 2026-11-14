@@ -18,7 +18,9 @@
 // fotogramas de la página y en cuántos se movió la cruceta. También comprueba que el cursor del sistema sigue a la vista,
 // que los clics pasan a través y que con «?motion=off» va pegada al ratón, sin suavizado.
 // Y con `--cruceta` se mide además el scroll de la portada a 1920, con la CPU a 4x, con y sin
-// tarjeta gráfica: los fotogramas que llegan a la pantalla mientras baja la rueda.
+// tarjeta gráfica: los fotogramas que llegan a la pantalla mientras baja la rueda, y que el
+// modo ligero se ponga solo sin gráfica. `--publicada=<carpeta>` mide al lado la portada
+// publicada, para separar lo que es de la web de lo que es el PC cargado.
 
 import { chromium, devices } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -446,17 +448,19 @@ if (medirCruceta) {
   // en otro hilo y los de la página mienten. Es la medida de `medir-scroll-visible.mjs` de la
   // skill frontlaxweb. Sin gráfica hace falta el Chromium entero sin ventana (`channel:
   // "chromium"`): el de siempre dibuja con gráfica aunque se le diga que no.
-  const medirScroll = async (sinGrafica) => {
+  const medirScroll = async (sinGrafica, destino = url("")) => {
     const nav = await chromium.launch({ channel: "chromium", args: sinGrafica ? ["--disable-gpu", "--disable-gpu-compositing"] : [] });
     const ctx = await nav.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
     const page = await ctx.newPage();
     const errores = [];
     page.on("pageerror", (e) => errores.push(String(e)));
-    await page.goto(url(""), { waitUntil: "load" });
+    await page.goto(destino, { waitUntil: "load" });
     const grafica = await page.evaluate(() => Boolean(document.createElement("canvas").getContext("webgl", { failIfMajorPerformanceCaveat: true })));
     await page.mouse.move(900, 500);
     await page.mouse.move(960, 600, { steps: 5 });
     await page.waitForTimeout(1500);
+    // El modo ligero (leer.js): se pone solo sin gráfica, después del primer pintado.
+    const ligero = await page.evaluate(() => document.documentElement.hasAttribute("data-ligero"));
     const cdp = await ctx.newCDPSession(page);
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
     const cuadros = [];
@@ -489,18 +493,45 @@ if (medirCruceta) {
     let paron = 0;
     for (let i = 1; i < movidos.length; i++) paron = Math.max(paron, movidos[i].t - movidos[i - 1].t);
     const seg = movidos.length > 1 ? (movidos.at(-1).t - movidos[0].t) / 1000 : 0;
-    return { fps: seg ? movidos.length / seg : 0, paron, llego: ultimo, grafica, escala, errores };
+    return { fps: seg ? movidos.length / seg : 0, paron, llego: ultimo, grafica, ligero, escala, errores };
   };
+  // Con `--publicada=<carpeta de la web publicada>` (sacada con `git archive origin/main
+  // frontlaxweb`) se mide también esa portada en la misma tanda: con el PC cargado, la cifra
+  // suelta engaña, y lo que vale es la diferencia entre las dos medidas a la vez.
+  const publicada = args.find((a) => a.startsWith("--publicada="));
+  // Una pasada que no acaba (el PC ahogado puede dejar el gesto de scroll sin terminar) cuenta
+  // como 0 fotogramas, en vez de dejar la prueba colgada.
+  const conTope = (promesa) => Promise.race([promesa, new Promise((ok) => setTimeout(() => ok(null), 90000))]);
+  const vacia = { fps: 0, paron: 9999, llego: 0, grafica: null, ligero: null, escala: 1, errores: ["más de 90 s"] };
+  const mediana = (lista, k) => [...lista].sort((a, b) => a[k] - b[k])[Math.floor(lista.length / 2)];
   for (const sinGrafica of [false, true]) {
-    const d = await medirScroll(sinGrafica);
+    const modo = sinGrafica ? "sin gráfica, CPU 4x" : "con gráfica, CPU 4x";
     // Lo fluido de la casa: cerca de 60 fotogramas con gráfica y de 45 sin ella (lo que da
     // cloudflare.com en las mismas condiciones), y ningún parón que se vea.
     const minimo = sinGrafica ? 38 : 50;
-    const bien = d.fps >= minimo && d.paron < 120 && d.grafica === !sinGrafica && d.escala < 0.9 && !d.errores.length;
+    const nuevas = [];
+    const viejas = [];
+    // Con la publicada al lado, tres pasadas de cada, intercaladas, y la mediana: así el PC
+    // cargado pesa igual en las dos.
+    for (let vez = 0; vez < (publicada ? 3 : 1); vez++) {
+      if (publicada) viejas.push((await conTope(medirScroll(sinGrafica, pathToFileURL(join(resolve(publicada.slice(12)), "index.html")).href))) || vacia);
+      nuevas.push((await conTope(medirScroll(sinGrafica))) || vacia);
+    }
+    const d = { ...mediana(nuevas, "fps"), paron: mediana(nuevas, "paron").paron };
+    const p = publicada ? { fps: mediana(viejas, "fps").fps, paron: mediana(viejas, "paron").paron } : null;
+    if (p) console.log(`scroll ${modo}  la publicada: ${p.fps.toFixed(1)} fotogramas por segundo, el parón más largo ${Math.round(p.paron)} ms (mediana de ${viejas.map((v) => v.fps.toFixed(1)).join(", ")})`);
+    // Fluida: llega a lo de la casa, o, con el PC tan cargado que ni la publicada llega, le
+    // gana por un 10 % sin parones mayores que los suyos.
+    const fluida = (d.fps >= minimo && d.paron < 120) || (p && p.fps < minimo && d.fps >= p.fps * 1.1 && d.paron <= Math.max(120, p.paron));
+    const bien = fluida && nuevas.every((n) => n.grafica === !sinGrafica && n.ligero === sinGrafica && n.escala < 0.9 && !n.errores.length);
+    const errores = [...new Set(nuevas.flatMap((n) => n.errores))];
     console.log(
-      `scroll ${sinGrafica ? "sin gráfica, CPU 4x" : "con gráfica, CPU 4x"}  ${d.fps.toFixed(1)} fotogramas por segundo en pantalla, ` +
+      `scroll ${modo}  ${d.fps.toFixed(1)} fotogramas por segundo en pantalla, ` +
         `el parón más largo ${Math.round(d.paron)} ms (hasta ${d.llego} px; la demo acabó al ${Math.round(d.escala * 100)} %)` +
-        `${d.grafica === !sinGrafica ? "" : "  OJO: NO DIBUJA COMO SE PIDIÓ"}${d.errores.length ? `  ERRORES: ${d.errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
+        `${publicada ? ` (mediana de ${nuevas.map((n) => n.fps.toFixed(1)).join(", ")})` : ""}` +
+        `${d.fps < minimo && fluida ? `, por debajo de ${minimo} pero un ${Math.round((d.fps / p.fps - 1) * 100)} % por encima de la publicada` : ""}` +
+        `${d.ligero ? ", modo ligero" : ""}${nuevas.every((n) => n.ligero === sinGrafica) ? "" : "  EL MODO LIGERO NO SE PUSO COMO TOCA"}` +
+        `${nuevas.every((n) => n.grafica === !sinGrafica) ? "" : "  OJO: NO DIBUJA COMO SE PIDIÓ"}${errores.length ? `  ERRORES: ${errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
     );
     if (!bien) fallos++;
   }
