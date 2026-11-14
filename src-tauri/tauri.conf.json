@@ -67,6 +67,18 @@
         "installMode": "currentUser"
       }
     },
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/applications/com.munir.winshotx.desktop": "../packaging/linux/com.munir.winshotx.desktop"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/applications/com.munir.winshotx.desktop": "../packaging/linux/com.munir.winshotx.desktop"
+        }
+      }
+    },
     "shortDescription": "Captura y grabación de pantalla local",
     "longDescription": "Captura de región, grabación a GIF y MP4 y editor de recorte, todo local y sin dependencias externas."
   }

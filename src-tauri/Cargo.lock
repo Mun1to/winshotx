@@ -6301,6 +6301,8 @@ dependencies = [
  "clipboard-win",
  "color_quant",
  "fontdb",
+ "futures-channel",
+ "futures-util",
  "gif",
  "gtk",
  "image",

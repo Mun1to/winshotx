@@ -20,6 +20,9 @@ pub mod webview;
 pub mod window_style;
 // S21 (Linux): la carpeta de imagenes de XDG, xdg-open y el gestor de archivos.
 pub mod xdg;
+// S21 (Linux): presentarse al portal con el nombre de la app, y los atajos de Wayland.
+#[cfg(target_os = "linux")]
+pub mod portal;
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S2 (grabación)
 // S3 (fondos)

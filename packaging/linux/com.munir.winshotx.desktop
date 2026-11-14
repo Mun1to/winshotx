@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=winshotx
+Comment=Screen capture and recording
+Exec=winshotx
+Icon=winshotx
+NoDisplay=true
+Terminal=false

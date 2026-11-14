@@ -76,6 +76,13 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     static DE_UNO_EN_UNO: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
     let _turno = DE_UNO_EN_UNO.lock();
 
+    // En Wayland el plugin no puede coger ninguna tecla (solo sabe X11) y aun asi dice que la
+    // tiene: los atajos los pone el escritorio, por el portal.
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return atajos_de_wayland(app, settings);
+    }
+
     let manager = app.global_shortcut();
     let state = app.state::<AppState>();
 
@@ -247,6 +254,129 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     status
 }
 
+/// Los atajos de Wayland: se le piden al escritorio la captura y la captura al editor, con las
+/// teclas de los ajustes como sugerencia. El escritorio pregunta (GNOME ensenna un dialogo
+/// donde la persona confirma o cambia la tecla) y lo que quede puesto lo apunta el portal en
+/// `AppState::shortcuts` cuando conteste. Grabar no se pide hasta que grabe (Fase 2 del plan de
+/// Linux), ni Impr Pant, que en GNOME y en KDE ya es del escritorio.
+#[cfg(target_os = "linux")]
+fn atajos_de_wayland(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
+    use crate::platform::portal::{pedir_atajos, Peticion};
+    // Los mismos textos de la interfaz (`src/lib/textos-en.ts` y `textos-zh.ts`).
+    let (captura, editor) = match crate::tray::idioma(app) {
+        "es" => ("Capturar una región", "Capturar y abrir el editor"),
+        "zh" => ("区域截图", "截图并打开编辑器"),
+        _ => ("Capture a region", "Capture and open the editor"),
+    };
+    let tecla_captura = tecla_para_el_portal(&settings.capture_shortcut);
+    // Dos atajos con la misma tecla no los pone nadie: el del editor va entonces sin sugerencia
+    // y la elige la persona en el dialogo.
+    let tecla_editor =
+        tecla_para_el_portal(&settings.edit_shortcut).filter(|tecla| Some(tecla) != tecla_captura.as_ref());
+    pedir_atajos(
+        app,
+        vec![
+            Peticion { id: "capture", descripcion: captura.into(), tecla: tecla_captura },
+            Peticion { id: "edit", descripcion: editor.into(), tecla: tecla_editor },
+        ],
+    );
+    *app.state::<AppState>().shortcuts.read()
+}
+
+/// Un atajo de los ajustes (`CmdOrCtrl+Shift+2`, el formato del plugin) escrito como lo pide el
+/// portal: los modificadores `CTRL`, `ALT`, `SHIFT` y `LOGO`, y la tecla con su nombre de
+/// xkbcommon (`2`, `l`, `Print`, `F5`, `Return`), unidos con `+`. Lo dice la especificacion
+/// de atajos de freedesktop (specifications.freedesktop.org/shortcuts, `CTRL+SHIFT+a`).
+///
+/// `None` si la tecla no tiene equivalente seguro: entonces se pide el atajo sin sugerencia y
+/// la tecla la pone la persona en el dialogo del escritorio, que es mejor que proponer otra.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn tecla_para_el_portal(atajo: &str) -> Option<String> {
+    let mut modificadores: Vec<&str> = Vec::new();
+    let mut tecla: Option<String> = None;
+    for parte in atajo.split('+').map(str::trim).filter(|p| !p.is_empty()) {
+        let modificador = match parte.to_ascii_lowercase().as_str() {
+            "cmdorctrl" | "commandorcontrol" | "ctrl" | "control" => Some("CTRL"),
+            "alt" | "option" | "altgr" => Some("ALT"),
+            "shift" => Some("SHIFT"),
+            "super" | "meta" | "cmd" | "command" => Some("LOGO"),
+            _ => None,
+        };
+        match modificador {
+            Some(m) => {
+                if !modificadores.contains(&m) {
+                    modificadores.push(m);
+                }
+            }
+            // Dos teclas que no son modificadores: no es un atajo que se pueda escribir.
+            None if tecla.is_some() => return None,
+            None => tecla = Some(nombre_xkb(parte)?),
+        }
+    }
+    let tecla = tecla?;
+    // Siempre en el mismo orden, el de los ejemplos de la especificacion.
+    let mut partes: Vec<&str> =
+        ["CTRL", "ALT", "SHIFT", "LOGO"].into_iter().filter(|m| modificadores.contains(m)).collect();
+    partes.push(&tecla);
+    Some(partes.join("+"))
+}
+
+/// El nombre de xkbcommon de una tecla del plugin (sin el `XKB_KEY_` delante).
+fn nombre_xkb(tecla: &str) -> Option<String> {
+    // `KeyA` y `Digit2` son los codigos que guarda el selector de teclas; `A` y `2`, lo que
+    // escribe una persona a mano.
+    let sin_prefijo = tecla
+        .strip_prefix("Key")
+        .filter(|resto| resto.len() == 1)
+        .or_else(|| tecla.strip_prefix("Digit").filter(|resto| resto.len() == 1))
+        .unwrap_or(tecla);
+    let mut letras = sin_prefijo.chars();
+    if let (Some(c), None) = (letras.next(), letras.next()) {
+        if c.is_ascii_alphanumeric() {
+            return Some(c.to_ascii_lowercase().to_string());
+        }
+    }
+    if let Some(numero) = sin_prefijo.strip_prefix('F').and_then(|n| n.parse::<u8>().ok()) {
+        return (1..=24).contains(&numero).then(|| format!("F{numero}"));
+    }
+    if let Some(cifra) = sin_prefijo.strip_prefix("Numpad").filter(|n| n.len() == 1 && n.chars().all(|c| c.is_ascii_digit())) {
+        return Some(format!("KP_{cifra}"));
+    }
+    let nombre = match sin_prefijo.to_ascii_lowercase().as_str() {
+        "printscreen" | "print" => "Print",
+        "space" => "space",
+        "enter" | "return" => "Return",
+        "tab" => "Tab",
+        "escape" | "esc" => "Escape",
+        "backspace" => "BackSpace",
+        "delete" => "Delete",
+        "insert" => "Insert",
+        "home" => "Home",
+        "end" => "End",
+        "pageup" => "Page_Up",
+        "pagedown" => "Page_Down",
+        "arrowup" | "up" => "Up",
+        "arrowdown" | "down" => "Down",
+        "arrowleft" | "left" => "Left",
+        "arrowright" | "right" => "Right",
+        "minus" => "minus",
+        "equal" => "equal",
+        "comma" => "comma",
+        "period" => "period",
+        "slash" => "slash",
+        "backslash" => "backslash",
+        "semicolon" => "semicolon",
+        "quote" => "apostrophe",
+        "backquote" => "grave",
+        "bracketleft" => "bracketleft",
+        "bracketright" => "bracketright",
+        "pause" => "Pause",
+        "scrolllock" => "Scroll_Lock",
+        _ => return None,
+    };
+    Some(nombre.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,5 +405,30 @@ mod tests {
         ] {
             assert!(sugerida.parse::<Shortcut>().is_ok(), "{sugerida}");
         }
+    }
+
+    /// Las teclas de fabrica y las que propone la bienvenida, como las pide el portal de atajos.
+    #[test]
+    fn los_atajos_se_escriben_como_los_pide_el_portal() {
+        assert_eq!(tecla_para_el_portal("CmdOrCtrl+Shift+2").as_deref(), Some("CTRL+SHIFT+2"));
+        assert_eq!(tecla_para_el_portal("Super+Shift+KeyL").as_deref(), Some("SHIFT+LOGO+l"));
+        assert_eq!(tecla_para_el_portal("Ctrl+Alt+A").as_deref(), Some("CTRL+ALT+a"));
+        assert_eq!(tecla_para_el_portal("Alt+X").as_deref(), Some("ALT+x"));
+        assert_eq!(tecla_para_el_portal("Shift+Digit5").as_deref(), Some("SHIFT+5"));
+        assert_eq!(tecla_para_el_portal("PrintScreen").as_deref(), Some("Print"));
+        assert_eq!(tecla_para_el_portal("Ctrl+F12").as_deref(), Some("CTRL+F12"));
+        assert_eq!(tecla_para_el_portal("Ctrl+Shift+Numpad7").as_deref(), Some("CTRL+SHIFT+KP_7"));
+        assert_eq!(tecla_para_el_portal("Ctrl+Shift+Backquote").as_deref(), Some("CTRL+SHIFT+grave"));
+        assert_eq!(tecla_para_el_portal("Shift+ArrowLeft").as_deref(), Some("SHIFT+Left"));
+    }
+
+    /// Lo que no tiene traduccion segura no se inventa: se pide sin sugerencia.
+    #[test]
+    fn lo_que_no_se_puede_escribir_va_sin_sugerencia() {
+        assert_eq!(tecla_para_el_portal(""), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+Shift"), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+A+B"), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+MediaPlayPause"), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+F25"), None);
     }
 }

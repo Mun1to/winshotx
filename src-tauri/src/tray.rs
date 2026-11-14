@@ -71,6 +71,13 @@ pub fn al_cambiar_los_ajustes(app: &AppHandle) {
     let _ = app;
 }
 
+/// El idioma en que habla la app fuera de sus ventanas (el menu de la bandeja, lo que se le
+/// cuenta al escritorio): el de los ajustes, o el del sistema si ahi pone «el del sistema».
+#[cfg(target_os = "linux")]
+pub fn idioma(app: &AppHandle) -> &'static str {
+    linux::idioma(app)
+}
+
 /// El idioma de un `LANG` (o `LC_ALL`, `LC_MESSAGES`): `es_ES.UTF-8` es espannol. Lo mismo que
 /// hace la interfaz con el idioma del navegador (`src/lib/i18n.ts`).
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
@@ -129,7 +136,7 @@ mod linux {
         }
     }
 
-    fn idioma(app: &AppHandle) -> &'static str {
+    pub fn idioma(app: &AppHandle) -> &'static str {
         match app.state::<AppState>().settings.read().language {
             Language::Es => "es",
             Language::En => "en",

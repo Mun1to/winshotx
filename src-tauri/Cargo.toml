@@ -85,6 +85,10 @@ features = [
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
 ashpd = { version = "0.12", default-features = false, features = ["tokio"] }
+# Para escuchar los atajos del portal a la vez que llegan cambios de los ajustes. Son las
+# mismas que ya trae ashpd: no compilan nada nuevo.
+futures-channel = "0.3"
+futures-util = { version = "0.3", default-features = false }
 fontdb = "0.24"
 ab_glyph = "0.2"
 

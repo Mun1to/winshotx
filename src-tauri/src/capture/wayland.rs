@@ -212,6 +212,8 @@ fn foto_del_portal() -> Result<RgbaImage> {
     let inicio = Instant::now();
     let hilo = std::thread::spawn(|| {
         tauri::async_runtime::block_on(async {
+            // Antes de la primera llamada al portal, o se queda sin nombre para siempre.
+            crate::platform::portal::registrar_la_app().await;
             let respuesta = ashpd::desktop::screenshot::Screenshot::request()
                 .interactive(false)
                 .modal(false)
