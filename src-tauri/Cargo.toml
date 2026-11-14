@@ -75,6 +75,19 @@ features = [
   "Win32_System_IO", "Win32_System_Console", "Win32_System_WindowsProgramming", "Win32_System_JobObjects",
 ]
 
+# Linux (S21, Fase 1 del plan de Linux). Todo esto ya va dentro de Tauri o es Rust puro:
+# - gtk: el portapapeles con varios formatos a la vez, y la pantalla completa en un monitor
+#   concreto. Es la misma version que trae Tauri, asi que no compila nada nuevo.
+# - ashpd: los portales de xdg-desktop-portal (la foto de Wayland, los atajos globales, la
+#   carpeta con el archivo marcado). La 0.12 es la ultima que cabe en nuestro rust-version.
+# - fontdb + ab_glyph: las letras sin GDI (el numero de los pasos, el texto al exportar, la
+#   pastilla de las teclas), con las fuentes que ya tiene el sistema.
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+ashpd = { version = "0.12", default-features = false, features = ["tokio"] }
+fontdb = "0.24"
+ab_glyph = "0.2"
+
 # El binario tiene que caber en unos pocos MB: nada de simbolos ni unidades sueltas.
 [profile.release]
 opt-level = "s"
