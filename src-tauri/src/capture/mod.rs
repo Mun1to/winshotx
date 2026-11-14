@@ -170,6 +170,19 @@ pub fn preparar() {
     wgc::preparar();
 }
 
+/// Hace que el escritorio pregunte por el permiso de capturas, si le toca preguntar: en
+/// Wayland se pide una foto al portal y se tira (la primera vez sale el dialogo del
+/// escritorio; con el permiso ya dado, no sale nada). En X11 y en Windows no hay permiso que
+/// pedir. Tiene que llamarse con una ventana de winshotx con el foco (ver
+/// `platform::portal::pedir_permiso_con_la_ventana`).
+pub fn pedir_permiso_de_capturas() -> Result<()> {
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return wayland::foto_del_portal().map(|_| ());
+    }
+    Ok(())
+}
+
 /// Congela todas las pantallas. Congelar la imagen evita pelearse con ventanas
 /// transparentes y da lupa exacta.
 pub fn freeze_all() -> Result<Vec<Freeze>> {

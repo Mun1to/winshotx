@@ -189,6 +189,9 @@ export const isStoreBuild = () => invoke<boolean>("is_store_build");
 
 export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
 
+/** En Linux con Wayland, que el escritorio pregunte ya por el permiso de capturas (ver el comando). */
+export const pedirPermisoDeCapturas = () => invoke<boolean>("pedir_permiso_de_capturas");
+
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
 
 /** Las pantallas que hay, para elegir cuál vigila el anillo. No captura nada. */

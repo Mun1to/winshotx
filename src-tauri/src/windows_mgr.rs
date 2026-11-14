@@ -262,6 +262,12 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
                 Ok(freezes) => freezes,
                 Err(error) => {
                     eprintln!("no se ha podido congelar la pantalla: {error}");
+                    // En Wayland, casi siempre es el permiso de capturas, que no se puede
+                    // pedir desde un atajo sin una ventana nuestra delante.
+                    #[cfg(target_os = "linux")]
+                    if en_wayland() && intencion_del_portal(&error) {
+                        crate::platform::portal::pedir_permiso_con_la_ventana(&app);
+                    }
                     continue;
                 }
             };
@@ -690,6 +696,13 @@ pub fn precrear_overlays(app: &AppHandle) {
         let _ = window.set_size(PhysicalSize::new(monitor.width, monitor.height));
         let _ = window.show();
     }
+}
+
+/// Si el error es el portal diciendo que no (sin permiso, o el dialogo que no pudo salir), y no
+/// otra cosa (el portal que no esta, una foto que no se puede leer).
+#[cfg(target_os = "linux")]
+fn intencion_del_portal(error: &crate::error::AppError) -> bool {
+    error.to_string().contains("Portal request didn't succeed")
 }
 
 /// Si las ventanas van por Wayland, donde ninguna app puede colocar las suyas.

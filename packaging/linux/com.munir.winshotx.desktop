@@ -1,8 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=winshotx
-Comment=Screen capture and recording
+Comment=Screen capture and recording, all on your computer
+Comment[es]=Captura y grabación de pantalla, todo en tu ordenador
+Comment[zh_CN]=屏幕截图与录制，全部在本机完成
 Exec=winshotx
 Icon=winshotx
-NoDisplay=true
+Categories=Utility;Graphics;
+StartupWMClass=com.munir.winshotx
 Terminal=false

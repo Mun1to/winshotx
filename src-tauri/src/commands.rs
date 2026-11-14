@@ -873,6 +873,22 @@ pub async fn clear_cache(app: AppHandle) -> Result<CacheStats> {
     cache_stats(app.clone()).await
 }
 
+/// La bienvenida lo pide al abrirse: es el momento en que winshotx tiene el foco, y el unico
+/// en que el escritorio deja preguntar por el permiso de capturas (en Wayland; en lo demas no
+/// hay nada que pedir). Devuelve si se puede capturar.
+#[tauri::command]
+pub async fn pedir_permiso_de_capturas() -> Result<bool> {
+    tauri::async_runtime::spawn_blocking(|| match capture::pedir_permiso_de_capturas() {
+        Ok(()) => true,
+        Err(error) => {
+            eprintln!("[portal] permiso de capturas: {error}");
+            false
+        }
+    })
+    .await
+    .map_err(|error| AppError::Msg(error.to_string()))
+}
+
 #[tauri::command]
 pub async fn shortcut_status(state: State<'_, AppState>) -> Result<crate::hotkeys::ShortcutStatus> {
     Ok(*state.shortcuts.read())

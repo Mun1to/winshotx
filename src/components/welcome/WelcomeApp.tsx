@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { listen } from "@tauri-apps/api/event";
 import {
   Camera,
   Check,
@@ -12,13 +13,20 @@ import {
   Scissors,
   Video,
 } from "lucide-react";
-import { getSettings, setSettings, shortcutStatus, usePrintScreen } from "../../lib/ipc";
+import {
+  getSettings,
+  pedirPermisoDeCapturas,
+  setSettings,
+  shortcutStatus,
+  usePrintScreen,
+} from "../../lib/ipc";
 import type {
   CaptureFlow,
   PrintScreenState,
   Settings,
   ShortcutStatus,
 } from "../../lib/types";
+import { EVENTS } from "../../lib/types";
 import { partesDeAtajo } from "../../lib/teclas";
 import { ShortcutField } from "../settings/ShortcutField";
 import { Marca } from "../ui/Marca";
@@ -63,6 +71,15 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     void getSettings().then(setAjustes);
     void shortcutStatus().then(setAtajos);
+    // En Wayland el escritorio pone los atajos cuando la persona acepta su dialogo, despues
+    // de que esta pantalla ya haya preguntado.
+    const cambios = listen<ShortcutStatus>(EVENTS.shortcutsChanged, ({ payload }) => setAtajos(payload));
+    // Ahora winshotx tiene el foco, y es el unico momento en que GNOME deja preguntar por el
+    // permiso de capturas: desde un atajo no sale el dialogo. Fuera de Wayland no hace nada.
+    void pedirPermisoDeCapturas().catch(() => {});
+    return () => {
+      void cambios.then((quitar) => quitar());
+    };
   }, []);
 
   /** Se guarda en cuanto se toca algo: si la ventana se cierra a medias, no se pierde. */

@@ -471,6 +471,7 @@ export const EVENTS = {
   checkUpdate: "winshotx://check-update",
   /** La ventana de ajustes vuelve a estar a la vista: toca refrescar lo de dentro. */
   settingsShown: "winshotx://settings-shown",
+  shortcutsChanged: "winshotx://shortcuts-changed",
   /** El anillo de los últimos segundos se ha encendido, apagado o ha guardado algo. */
   replay: "winshotx://replay",
   /**

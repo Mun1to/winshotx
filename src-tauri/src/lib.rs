@@ -52,6 +52,11 @@ pub const EVENT_CHECK_UPDATE: &str = "winshotx://check-update";
 /// se haya quedado viejo mientras estaba escondida.
 pub const EVENT_SETTINGS_SHOWN: &str = "winshotx://settings-shown";
 
+/// Los atajos que han quedado puestos han cambiado sin que nadie los pidiera desde una
+/// ventana: en Wayland el escritorio contesta tarde, cuando la persona acepta su dialogo.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub const EVENT_SHORTCUTS_CHANGED: &str = "winshotx://shortcuts-changed";
+
 /// El overlay se reutiliza entre capturas (ver windows_mgr::open_overlays): esto le dice
 /// a una ventana que YA estaba montada que hay una captura nueva que cargar, porque no va
 /// a recibir un remontaje que dispare su arranque solo.
@@ -171,6 +176,14 @@ pub fn run() {
     if !platform::webview::hay_con_que_pintar() {
         return;
     }
+    // S21 (Linux): las ventanas se presentan al escritorio con el identificador de la app, no
+    // con el nombre del binario. GNOME casa cada ventana con el `.desktop` de ese nombre, y solo
+    // deja enseñar el permiso de capturas a la app que cree que tiene el foco comparando con el
+    // nombre con que winshotx se registra en el portal (`platform::portal::ID_DE_LA_APP`). Con
+    // `winshotx` a secas, nunca coincidian (medido en el laboratorio de S21). Va antes de que
+    // GTK arranque: GTK solo pone el nombre del binario si nadie ha puesto otro.
+    #[cfg(target_os = "linux")]
+    gtk::glib::set_prgname(Some(platform::portal::ID_DE_LA_APP));
     // El cronometro del camino del atajo, solo si se pide: ver `crono`.
     if std::env::args().any(|arg| arg == "--crono") {
         crono::activar();
@@ -353,6 +366,7 @@ pub fn run() {
             commands::cache_stats,
             commands::clear_cache,
             commands::shortcut_status,
+            commands::pedir_permiso_de_capturas,
             commands::list_screens,
             commands::show_screen_number,
             commands::replay_status,

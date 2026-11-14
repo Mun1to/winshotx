@@ -14,15 +14,16 @@ use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures_util::future::{select, Either};
 use futures_util::StreamExt;
 use tauri::async_runtime::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::state::AppState;
 use crate::windows_mgr::{self, OverlayIntent};
 
-/// El identificador de la app, el de `tauri.conf.json`. El portal solo acepta el registro si
-/// encuentra un `.desktop` con este nombre: lo instalan el .deb y el .rpm
-/// (`packaging/linux/com.munir.winshotx.desktop`), y el AppImage lo deja en la carpeta del
-/// usuario (`dejar_el_desktop_del_appimage`).
+/// El identificador de la app, el de `tauri.conf.json`, que es tambien el nombre con que GTK
+/// presenta las ventanas (`lib.rs`, `set_prgname`). El portal solo acepta el registro si
+/// encuentra un `.desktop` con este nombre: el .deb y el .rpm lo instalan como la entrada del
+/// menu (`packaging/linux/com.munir.winshotx.desktop`), y el AppImage deja uno escondido en la
+/// carpeta del usuario (`dejar_el_desktop_del_appimage`).
 pub const ID_DE_LA_APP: &str = "com.munir.winshotx";
 
 /// Si el portal ha aceptado ya el registro: `None` mientras no se ha intentado.
@@ -207,6 +208,12 @@ async fn atender(app: AppHandle, mut peticiones: UnboundedReceiver<Vec<Peticion>
             // antes de abrir otra: lo que llega es nuestro y de ahora.
             Either::Right((Some(senal), _)) => {
                 if sesion.is_some() {
+                    // El permiso de traer una ventana al frente, que el escritorio da con cada
+                    // pulsacion (GNOME lo manda). Ver `pedir_permiso_con_la_ventana`.
+                    *ULTIMO_TOKEN.lock() = senal
+                        .options()
+                        .get("activation_token")
+                        .and_then(|valor| String::try_from(valor.clone()).ok());
                     disparar(&app, senal.shortcut_id());
                 }
             }
@@ -254,16 +261,57 @@ fn anotar(app: &AppHandle, atados: &[Shortcut]) {
     let captura = con_tecla("capture");
     let editor = con_tecla("edit");
     let state = app.state::<AppState>();
-    {
+    let estado = {
         let mut estado = state.shortcuts.write();
         estado.capture = captura.is_some();
         estado.edit = editor.is_some();
-    }
+        *estado
+    };
+    // La bienvenida y los ajustes preguntan el estado al abrirse, y el escritorio puede
+    // contestar despues (cuando la persona acepta su dialogo).
+    let _ = app.emit(crate::EVENT_SHORTCUTS_CHANGED, estado);
     eprintln!(
         "[atajo] portal: captura={} editor={}",
         captura.map(|s| s.trigger_description()).unwrap_or("-"),
         editor.map(|s| s.trigger_description()).unwrap_or("-"),
     );
+}
+
+/// El token de activacion de la ultima tecla del portal, sin gastar.
+static ULTIMO_TOKEN: parking_lot::Mutex<Option<String>> = parking_lot::Mutex::new(None);
+
+/// La foto del portal ha fallado al pulsar un atajo. Lo normal es que falte el permiso de
+/// capturas: el portal pregunta la primera vez, pero GNOME solo deja preguntar a la app que
+/// tiene el foco («Only the focused app is allowed to show a system access dialog», medido en
+/// el laboratorio de S21), y quien pulsa un atajo esta en otra app.
+///
+/// Se trae la ventana de winshotx al frente con el token de esa pulsacion y se pide el permiso
+/// desde ahi: sale el dialogo del escritorio encima de nuestra ventana, y la siguiente pulsacion
+/// ya captura. Una sola vez por sesion: si la persona dice que no, no se le insiste.
+pub fn pedir_permiso_con_la_ventana(app: &AppHandle) {
+    static YA_PEDIDO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if YA_PEDIDO.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    let token = ULTIMO_TOKEN.lock().take();
+    let dentro = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let (Some(token), Some(ventana)) = (token, dentro.get_webview_window("main")) {
+            use gtk::prelude::GtkWindowExt;
+            if let Ok(gtk) = ventana.gtk_window() {
+                gtk.set_startup_id(&token);
+            }
+        }
+        let _ = windows_mgr::show_settings(&dentro);
+        std::thread::spawn(|| {
+            // Que el escritorio haya dado el foco a la ventana antes de preguntar.
+            std::thread::sleep(std::time::Duration::from_millis(700));
+            match crate::capture::pedir_permiso_de_capturas() {
+                Ok(()) => eprintln!("[portal] permiso de capturas: concedido"),
+                Err(error) => eprintln!("[portal] permiso de capturas: {error}"),
+            }
+        });
+    });
 }
 
 /// Lo mismo que hacen las teclas del plugin en X11 y en Windows (`hotkeys::on_capture`).

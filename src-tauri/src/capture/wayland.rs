@@ -208,7 +208,7 @@ pub fn congelar(indices: &[usize]) -> Result<Vec<Freeze>> {
 /// nosotros y no lo quiere nadie mas (GNOME lo deja en la carpeta de imagenes si no se
 /// borra), asi que se borra en cuanto se ha leido, pero solo si es de ahora mismo: nunca se
 /// borra algo que ya estuviera ahi.
-fn foto_del_portal() -> Result<RgbaImage> {
+pub(super) fn foto_del_portal() -> Result<RgbaImage> {
     let inicio = Instant::now();
     let hilo = std::thread::spawn(|| {
         tauri::async_runtime::block_on(async {
