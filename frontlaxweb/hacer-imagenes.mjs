@@ -11,6 +11,7 @@
 //   editor-XX.webp      el editor con ese recorte, el fondo «Atardecer», esquinas y sombra
 //   bienvenida-XX.webp  la bienvenida, para la guía
 //   ajustes-XX.webp     los ajustes en la pestaña Capturar, para la guía
+//   app-XX.webp         los ajustes en la pestaña La app (carpeta, caché, código), para privacidad
 //
 // Y escribe en demo.js (entre «escritorio:desde» y «escritorio:hasta») dónde quedó cada cosa
 // en la foto: el recorte que la demo trae de serie y el botón al que va el puntero. Se miden
@@ -148,7 +149,14 @@ const pesos = [];
 
 for (const idioma of ["es", "en"]) {
   /* ---------------- 0. la bienvenida y los ajustes: van en la guía, así que antes que su foto */
-  for (const [nombre, extra] of [["bienvenida", ["--bienvenida"]], ["ajustes", []]]) {
+  // Cada una a la altura de lo que lleva, como la ventana de verdad desde que se ajusta a su
+  // contenido: a 760 fijos, media foto era ventana vacía y en la guía se veía como un hueco.
+  const ventanas = [
+    ["bienvenida", ["--bienvenida", "--alto=470"]],
+    ["ajustes", ["--alto=600"]],
+    ["app", ["--seccion=app", "--alto=560"]],
+  ];
+  for (const [nombre, extra] of ventanas) {
     const png = join(temporal, `${nombre}-${idioma}.png`);
     await fotografiar([png, `--idioma=${idioma}`, ...extra]);
     pesos.push([`${nombre}-${idioma}.webp`, await aWebp(png, join(aqui, "img", `${nombre}-${idioma}.webp`))]);

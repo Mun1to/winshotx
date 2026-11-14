@@ -162,7 +162,7 @@ ${menu}
       )}
     </header>
 
-    <div class="leer-rejilla">
+    <div class="leer-rejilla con-lado">
       <nav class="leer-indice" aria-label="Versiones" data-aria-en="Versions">
 ${indice}
       </nav>
@@ -170,6 +170,15 @@ ${indice}
       <div class="texto">
 ${versiones.map(entrada).join("\n\n")}
       </div>
+
+      <figure class="leer-lado">
+        <img src="../img/editor-es.webp" data-src-en="../img/editor-en.webp" width="1280" height="800" loading="lazy" alt="El editor de winshotx con una captura sobre el fondo Atardecer del Estudio" data-alt-en="The winshotx editor with a screenshot on the Studio's Sunset background">
+        ${bilingue(
+          "figcaption",
+          "El editor, con una captura sobre el fondo «Atardecer» del Estudio. Cada versión llega sola: cuando sale una nueva, <b>Ajustes</b> dice «Actualizar ahora».",
+          "The editor, with a screenshot on the Studio's «Sunset» background. Each version arrives by itself: when a new one is out, <b>Settings</b> says «Update now».",
+        )}
+      </figure>
     </div>
   </div>
 </main>

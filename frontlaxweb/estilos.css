@@ -1245,6 +1245,17 @@ html.quieto .valvula.con-mov { display: inline; }
   .con-foto { grid-template-columns: minmax(0, 1fr); }
   .con-foto > figure { position: static; max-width: 640px; margin-top: 8px; }
 }
+/* Las páginas sin fotos en sus apartados (privacidad, novedades) llevan una al lado de toda
+   la página, pegada al bajar: en un monitor grande, sin ella, el tercio derecho se queda vacío.
+   Por debajo de 1600 el hueco es poco y la foto dejaría el texto por debajo de 50 caracteres,
+   así que no sale (ni se descarga: es lazy). */
+.leer-lado { display: none; }
+@media (min-width: 1600px) {
+  .leer-rejilla.con-lado { grid-template-columns: 230px minmax(0, 1fr) clamp(300px, 30%, 520px); }
+  .leer-lado { display: block; position: sticky; top: calc(var(--nav-alto) + 18px); margin-top: 8px; }
+  .leer-lado img { width: 100%; height: auto; border-radius: 12px; box-shadow: var(--sombra-foto); }
+  .leer-lado figcaption { margin-top: 12px; font-size: 15px; color: var(--suave); }
+}
 
 /* Las preguntas de la guía son las mismas de la portada, a lo ancho de la columna. */
 .texto .faq { margin-top: 24px; }

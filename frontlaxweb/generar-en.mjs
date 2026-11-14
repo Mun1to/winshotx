@@ -254,6 +254,7 @@ const PAGINAS = [
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
       'src="../leer.js?v=': 'src="../../leer.js?v=',
+      'src="../img/': 'src="../../img/',
       '<a class="idioma" id="idioma" href="../en/privacy/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../privacidad/" hreflang="es" lang="es">Español</a>',
     },
@@ -266,6 +267,7 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}novedades/">`]: `<meta property="og:url" content="${BASE}en/changelog/">`,
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"name": "Novedades", "item": "${BASE}novedades/" }`]: `"name": "What's new", "item": "${BASE}en/changelog/" }`,
+      'src="../img/': 'src="../../img/',
       'href="../logo.svg': 'href="../../logo.svg',
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
