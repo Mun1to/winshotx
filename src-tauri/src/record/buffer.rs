@@ -240,6 +240,19 @@ impl Anillo {
 
     /// Guarda el fotograma y, si toca, cambia de trozo y tira lo que ya no cabe.
     pub fn empujar(&mut self, rgba: &[u8], width: u32, height: u32, ts_ms: u64) -> Result<bool> {
+        self.empujar_con_pistas(rgba, width, height, ts_ms, None)
+    }
+
+    /// Lo mismo sabiendo que fuera de `pistas` no cambio nada desde el ultimo empujado. Ver
+    /// `FrameCache::push_rgba_con_pistas`.
+    pub fn empujar_con_pistas(
+        &mut self,
+        rgba: &[u8],
+        width: u32,
+        height: u32,
+        ts_ms: u64,
+        pistas: Option<&[super::delta::Parche]>,
+    ) -> Result<bool> {
         if ts_ms.saturating_sub(self.inicio_ms) >= SEGMENTO_MS {
             self.rotar(ts_ms)?;
             self.podar(ts_ms);
@@ -248,7 +261,7 @@ impl Anillo {
             .cache
             .as_mut()
             .ok_or_else(|| AppError::Msg("el anillo está cerrado".into()))?;
-        cache.push_rgba(rgba, width, height, ts_ms)
+        cache.push_rgba_con_pistas(rgba, width, height, ts_ms, pistas)
     }
 
     /// Cierra el trozo que se estaba escribiendo y abre otro.
@@ -351,6 +364,152 @@ impl Anillo {
     pub fn limpiar(mut self) {
         self.cache = None;
         let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// La imagen que va al anillo: lo que llega de la captura, puesto al dia y guardado.
+///
+/// **S29.** Hasta la 0.4.8 cada fotograma llegaba ENTERO (ocho megabytes a 1920x1080) y
+/// aqui se le daba la vuelta a los colores entero y se comparaba entero con el anterior,
+/// aunque solo se hubiera movido el raton: medido en la maquina de Munir, el 57 % de un
+/// nucleo con su escritorio de trabajo delante. Ahora la captura manda, cuando Windows
+/// sabe decirlo, SOLO las zonas que cambiaron (`win::CapturedFrame::zonas`), y aqui se
+/// pegan sobre la copia de la pantalla que se guarda (`actual`), se comparan solo ahi y se
+/// guarda solo eso. Con un fotograma entero (el primero, tras una pausa, cada dos segundos
+/// de seguro, o en un Windows que no dice las zonas) se hace lo de siempre.
+///
+/// Esta separada de `replay::Cocina` para que los bancos midan ESTE codigo y no una copia.
+pub struct ImagenDelAnillo {
+    /// Lo que mide la pantalla que se graba.
+    ancho: u32,
+    alto: u32,
+    /// A que tamanno se guarda, si no es el de la pantalla.
+    destino: Option<(u32, u32)>,
+    reduccion: Option<crate::encode::escalar::Reduccion>,
+    /// La pantalla tal cual esta ahora, en RGBA. Vacio hasta el primer entero.
+    actual: Vec<u8>,
+    /// La pantalla reducida, si se guarda a menos tamanno.
+    escalado: Vec<u8>,
+    /// Lo que ha cambiado desde lo ultimo que se guardo. `None` es «no se sabe»: se compara
+    /// entero. Vacio es «nada».
+    pistas: Option<Vec<super::delta::Parche>>,
+}
+
+impl ImagenDelAnillo {
+    pub fn nueva(ancho: u32, alto: u32, destino: Option<(u32, u32)>) -> Self {
+        Self {
+            ancho,
+            alto,
+            destino,
+            reduccion: destino.map(|(w, h)| crate::encode::escalar::Reduccion::nueva(ancho, alto, w, h)),
+            actual: Vec::new(),
+            escalado: Vec::new(),
+            pistas: None,
+        }
+    }
+
+    fn tamanno(&self) -> usize {
+        self.ancho as usize * self.alto as usize * 4
+    }
+
+    /// Pone al dia la pantalla con lo que llega de la captura, en BGRA: entero si `zonas`
+    /// es `None`, o esas zonas una detras de otra. Devuelve el bufer para reciclarlo.
+    ///
+    /// Hay que pasarle TODOS los fotogramas con zonas, en orden: cada uno solo dice lo que
+    /// cambio desde el anterior. Los enteros si se pueden saltar, porque dejan viejo todo lo
+    /// de antes (ver `replay::Cocina::trabajar`).
+    pub fn recibir(&mut self, mut bgra: Vec<u8>, zonas: Option<Vec<super::delta::Parche>>) -> Vec<u8> {
+        match zonas {
+            None => {
+                if bgra.len() != self.tamanno() {
+                    return bgra;
+                }
+                crate::recorder::bgra_a_rgba_en_sitio(&mut bgra);
+                let cambiado = if self.actual.len() == bgra.len() {
+                    Some(super::delta::zonas_cambiadas(&self.actual, &bgra, self.ancho, self.alto))
+                } else {
+                    None
+                };
+                std::mem::swap(&mut self.actual, &mut bgra);
+                self.sumar_pistas(cambiado);
+                bgra
+            }
+            Some(zonas) => {
+                if self.actual.len() != self.tamanno() {
+                    // Zonas sin pantalla debajo: no deberia pasar (la captura empieza
+                    // siempre por un entero), y si pasa, el entero de seguro lo arregla.
+                    return bgra;
+                }
+                let fila = self.ancho as usize * 4;
+                for (z, tramo) in super::delta::trozos_de_zonas(&zonas) {
+                    let Some(pixeles) = bgra.get(tramo) else {
+                        self.pistas = None;
+                        break;
+                    };
+                    let largo = z.width as usize * 4;
+                    for (i, origen) in pixeles.chunks_exact(largo).enumerate() {
+                        let inicio = (z.y as usize + i) * fila + z.x as usize * 4;
+                        if let Some(destino) = self.actual.get_mut(inicio..inicio + largo) {
+                            crate::recorder::bgra_a_rgba_copiando(origen, destino);
+                        }
+                    }
+                }
+                self.sumar_pistas(Some(zonas));
+                bgra
+            }
+        }
+    }
+
+    fn sumar_pistas(&mut self, nuevas: Option<Vec<super::delta::Parche>>) {
+        match (self.pistas.as_mut(), nuevas) {
+            (Some(pistas), Some(nuevas)) => {
+                pistas.extend(nuevas);
+                if pistas.len() > 32 {
+                    super::delta::juntar_zonas(pistas, 8);
+                }
+            }
+            (_, None) => self.pistas = None,
+            // «No se sabe» + algo sigue siendo «no se sabe».
+            (None, Some(_)) => {}
+        }
+    }
+
+    /// Guarda en el anillo la pantalla como esta. Devuelve si se escribio algo (false si
+    /// es igual que la ultima guardada).
+    pub fn guardar(&mut self, anillo: &mut Anillo, ts_ms: u64) -> Result<bool> {
+        if self.actual.len() != self.tamanno() {
+            return Ok(false);
+        }
+        let pistas = self.pistas.replace(Vec::new());
+        match (self.destino, self.reduccion.as_ref()) {
+            (Some((w, h)), Some(reduccion)) => {
+                // Se reduce SOLO lo que cambio y se pega sobre el reducido de antes: reducir
+                // 1080p a 720p entero son 10-12 ms de CPU por fotograma. Ver
+                // `escalar::Reduccion`.
+                let necesita = (w as usize) * (h as usize) * 4;
+                let pistas = if self.escalado.len() != necesita {
+                    self.escalado = vec![0u8; necesita];
+                    None
+                } else {
+                    pistas
+                };
+                let afectadas: Option<Vec<_>> = pistas.map(|pistas| {
+                    pistas
+                        .into_iter()
+                        .map(|cambio| {
+                            let zona = reduccion.zona_afectada(cambio);
+                            reduccion.reducir_zona(&self.actual, zona, &mut self.escalado);
+                            zona
+                        })
+                        .collect()
+                });
+                if afectadas.is_none() {
+                    reduccion.reducir_zona(&self.actual, reduccion.entera(), &mut self.escalado);
+                }
+                anillo.empujar_con_pistas(&self.escalado, w, h, ts_ms, afectadas.as_deref())
+            }
+            _ => anillo.empujar_con_pistas(&self.actual, self.ancho, self.alto, ts_ms, pistas.as_deref()),
+        }
     }
 }
 
@@ -557,6 +716,178 @@ mod tests {
 
         anillo.limpiar();
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Todo lo guardado en el anillo, ya cosido y vuelto a dibujar: (marca, imagen).
+    fn leer_lo_guardado(anillo: &mut Anillo, ahora: u64, dir: &Path, ancho: u32, alto: u32) -> Vec<(u64, Vec<u8>)> {
+        let (segmentos, corte, _copia) = anillo.instantanea(ahora).unwrap();
+        let destino = dir.join("frames.bin");
+        // Al coser, el reloj empieza en cero en el primer fotograma guardado: se le suma
+        // para comparar con la marca de verdad.
+        let (frames, t0) = ensamblar(&segmentos, corte, ahora, 60, &destino).unwrap();
+        let session = SessionData {
+            id: "prueba".into(),
+            dir: dir.to_path_buf(),
+            region: Rect { x: 0, y: 0, width: ancho, height: alto },
+            fps: 60,
+            format: "mp4".into(),
+            has_audio: false,
+            width: ancho,
+            height: alto,
+            mp4_path: None,
+            audio: None,
+            clics: Vec::new(),
+            teclas: Vec::new(),
+            cursor: Vec::new(),
+            cursor_capturado: false,
+            formas: Vec::new(),
+            punteros: Vec::new(),
+            cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
+            escritura: Vec::new(),
+            pistas: None,
+            frames,
+        };
+        (0..session.frames.len())
+            .map(|i| {
+                let imagen = crate::record::read_frame(&session, i).unwrap();
+                (session.frames[i].timestamp_ms + t0, imagen.into_raw())
+            })
+            .collect()
+    }
+
+    /// **S29, la prueba de calidad del anillo por zonas.** La misma pantalla de mentira se
+    /// guarda por los dos caminos: el de siempre (fotograma entero, comparado entero) y el
+    /// nuevo (`ImagenDelAnillo` con las zonas holgadas que daria Windows, enteros de vez en
+    /// cuando, y tandas de varios fotogramas guardadas de una vez). Lo que sale del anillo
+    /// tiene que ser, pixel a pixel, la pantalla que habia en ese instante: a tamanno de
+    /// pantalla y reducido.
+    #[test]
+    fn la_imagen_por_zonas_guarda_lo_mismo_que_la_entera() {
+        use crate::record::delta::{self, Parche};
+        let (w, h) = (160u32, 90u32);
+        let mut s = 11u32;
+        let mut azar = move || {
+            s = s.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            s >> 8
+        };
+        // Un fondo con textura, un cuadrado que cruza, un parpadeo lejos y, cada cincuenta
+        // vueltas, media pantalla nueva (lo que obliga a guardar entero).
+        let fondo: Vec<u8> = (0..w * h * 4).map(|i| if i % 4 == 3 { 255 } else { ((i / 4) % 251) as u8 }).collect();
+        let mut fuente = Vec::new();
+        let mut actual = fondo.clone();
+        for paso in 0..240u32 {
+            let mut f = actual.clone();
+            if paso % 7 != 3 {
+                let x0 = (paso * 3) % (w - 8);
+                for y in 40..48 {
+                    for x in x0..x0 + 8 {
+                        let p = ((y * w + x) * 4) as usize;
+                        f[p..p + 3].copy_from_slice(&[255, 255, (paso % 256) as u8]);
+                    }
+                }
+                let p = ((5 * w + 150) * 4) as usize;
+                f[p] = if paso % 2 == 0 { 0 } else { 255 };
+            }
+            if paso % 50 == 25 {
+                for v in f[(w * 4 * 10) as usize..(w * 4 * 70) as usize].iter_mut() {
+                    *v = v.wrapping_add(paso as u8);
+                }
+                for p in f.chunks_exact_mut(4) {
+                    p[3] = 255;
+                }
+            }
+            fuente.push((u64::from(paso) * 16, f.clone()));
+            actual = f;
+        }
+        let a_bgra = |rgba: &[u8]| -> Vec<u8> {
+            let mut v = rgba.to_vec();
+            crate::recorder::bgra_a_rgba_en_sitio(&mut v);
+            v
+        };
+
+        for destino in [None, Some((106u32, 60u32))] {
+            let dir = temporal(&format!("zonas-{}", destino.is_some()));
+            let (gw, gh) = destino.unwrap_or((w, h));
+            let mut entera = Anillo::nuevo(&dir.join("entera"), 600_000, 60, u64::MAX).unwrap();
+            let mut por_zonas = Anillo::nuevo(&dir.join("zonas"), 600_000, 60, u64::MAX).unwrap();
+            let mut imagen = ImagenDelAnillo::nueva(w, h, destino);
+            let reduccion = destino.map(|(dw, dh)| crate::encode::escalar::Reduccion::nueva(w, h, dw, dh));
+            let como_se_guarda = |rgba: &[u8]| -> Vec<u8> {
+                match reduccion.as_ref() {
+                    None => rgba.to_vec(),
+                    Some(r) => {
+                        let mut salida = vec![0u8; (gw * gh * 4) as usize];
+                        r.reducir_zona(rgba, r.entera(), &mut salida);
+                        salida
+                    }
+                }
+            };
+
+            let mut anterior: Option<&Vec<u8>> = None;
+            for (i, (ts, f)) in fuente.iter().enumerate() {
+                entera.empujar(&como_se_guarda(f), gw, gh, *ts).unwrap();
+
+                // Lo que mandaria la captura nueva: entero al empezar y cada 37, y si no
+                // las zonas que cambiaron, holgadas, una detras de otra en BGRA.
+                match anterior {
+                    Some(previo) if i % 37 != 0 => {
+                        let mut zonas: Vec<Parche> = delta::zonas_cambiadas(previo, f, w, h)
+                            .into_iter()
+                            .map(|z| {
+                                let (x, y) = (z.x.saturating_sub(azar() % 4), z.y.saturating_sub(azar() % 3));
+                                Parche {
+                                    x,
+                                    y,
+                                    width: (z.x + z.width + azar() % 5).min(w) - x,
+                                    height: (z.y + z.height + azar() % 4).min(h) - y,
+                                }
+                            })
+                            .collect();
+                        // Y a veces una zona que Windows da por cambiada sin que cambie nada.
+                        if azar() % 3 == 0 {
+                            zonas.push(Parche { x: 100, y: 70, width: 20, height: 10 });
+                        }
+                        if zonas.is_empty() {
+                            // Windows no manda nada si nada cambio.
+                        } else {
+                            let mut empaquetado = Vec::new();
+                            for z in &zonas {
+                                empaquetado.extend(a_bgra(&delta::recortar(f, w, *z)));
+                            }
+                            imagen.recibir(empaquetado, Some(zonas));
+                        }
+                    }
+                    _ => {
+                        imagen.recibir(a_bgra(f), None);
+                    }
+                }
+                anterior = Some(f);
+                // Tandas: a veces llegan dos o tres antes de guardar.
+                if azar() % 3 != 0 {
+                    imagen.guardar(&mut por_zonas, *ts).unwrap();
+                }
+            }
+            let ahora = fuente.last().unwrap().0 + 16;
+            imagen.guardar(&mut por_zonas, ahora - 16).unwrap();
+
+            for (nombre, anillo) in [("entera", &mut entera), ("zonas", &mut por_zonas)] {
+                let guardado = leer_lo_guardado(anillo, ahora, &dir.join(format!("sesion-{nombre}")), gw, gh);
+                assert!(guardado.len() > 100, "{nombre}: solo {} fotogramas", guardado.len());
+                for (ts, pixeles) in &guardado {
+                    let original = &fuente.iter().find(|(t, _)| t == ts).expect("una marca que no existe").1;
+                    assert!(
+                        *pixeles == como_se_guarda(original),
+                        "{nombre} {destino:?}: el fotograma de {ts} ms no es la pantalla de ese instante"
+                    );
+                }
+                println!("{nombre} {destino:?}: {} fotogramas, todos exactos", guardado.len());
+            }
+            entera.limpiar();
+            por_zonas.limpiar();
+            let _ = std::fs::remove_dir_all(&dir);
+        }
     }
 
     /// Un anillo que corre toda la tarde no puede llenar el disco.

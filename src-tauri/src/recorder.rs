@@ -145,6 +145,21 @@ pub(crate) fn bgra_a_rgba_en_sitio(pixeles: &mut [u8]) {
     }
 }
 
+/// Lo mismo, copiando de `origen` a `destino` (del mismo largo) en la misma pasada. Lo usa
+/// el anillo para pegar las zonas que cambian (S29).
+pub(crate) fn bgra_a_rgba_copiando(origen: &[u8], destino: &mut [u8]) {
+    for (o, d) in origen.chunks_exact(4).zip(destino.chunks_exact_mut(4)) {
+        let v = u32::from_le_bytes([o[0], o[1], o[2], o[3]]);
+        d.copy_from_slice(&dar_la_vuelta(v).to_le_bytes());
+    }
+}
+
+/// B y R cambian de sitio; G y A se quedan.
+#[inline(always)]
+fn dar_la_vuelta(v: u32) -> u32 {
+    (v & 0xFF00_FF00) | ((v & 0x0000_00FF) << 16) | ((v >> 16) & 0x0000_00FF)
+}
+
 /// Media Foundation quiere las filas al reves; la captura las entrega derechas.
 ///
 /// Escribe en un buffer que se le presta y se reutiliza fotograma tras fotograma: reservar
@@ -697,6 +712,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         min_interval_ms: 0,
         start: reloj_inicio,
         reciclados,
+        solo_cambios: false,
     };
     let control = match ventana {
         Some(hwnd) => win::start_window(hwnd, false, fps, flags_base)?,

@@ -19,6 +19,11 @@ pub mod punteros;
 pub mod audio;
 #[cfg(test)]
 mod bench_anillo;
+#[cfg(all(test, windows))]
+pub(crate) mod banco_ventana;
+// TEMPORAL (S29): la captura de la 0.4.8 para medir antes y despues. Se borra al acabar.
+#[cfg(all(test, windows))]
+mod viejo_s29;
 mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
@@ -29,6 +34,8 @@ pub mod pistas;
 pub mod raton;
 pub mod realce;
 pub mod teclas;
+#[cfg(windows)]
+pub mod comparar_gpu;
 #[cfg(windows)]
 pub mod win;
 
@@ -265,6 +272,20 @@ impl FrameCache {
     /// Devuelve false cuando el fotograma es identico al anterior: en ese caso
     /// no se escribe nada y solo se alarga la duracion del ultimo, como ScreenToGif.
     pub fn push_rgba(&mut self, rgba: &[u8], width: u32, height: u32, ts_ms: u64) -> Result<bool> {
+        self.push_rgba_con_pistas(rgba, width, height, ts_ms, None)
+    }
+
+    /// Lo mismo, sabiendo que fuera de `pistas` nada ha cambiado desde el ultimo que se
+    /// empujo (S29: lo dice Windows). Con pistas solo se compara dentro de ellas; sin
+    /// pistas, el fotograma entero, como siempre.
+    pub fn push_rgba_con_pistas(
+        &mut self,
+        rgba: &[u8],
+        width: u32,
+        height: u32,
+        ts_ms: u64,
+        pistas: Option<&[Parche]>,
+    ) -> Result<bool> {
         // Que ha cambiado respecto al ultimo guardado, comparando filas enteras de memoria.
         // Esto sustituye al hash que habia antes, que leia un byte de cada cinco: comparar
         // de verdad cuesta lo mismo (una pasada por el fotograma) y no se le escapa nada.
@@ -277,7 +298,10 @@ impl FrameCache {
         // pantalla que los abarca. Ver `delta::zonas_cambiadas`.
         let zonas = match self.anterior.as_ref() {
             Some(previo) => {
-                let zonas = delta::zonas_cambiadas(previo, rgba, width, height);
+                let zonas = match pistas {
+                    Some(pistas) => delta::zonas_cambiadas_en(previo, rgba, width, height, pistas),
+                    None => delta::zonas_cambiadas(previo, rgba, width, height),
+                };
                 if zonas.is_empty() {
                     return Ok(false);
                 }
