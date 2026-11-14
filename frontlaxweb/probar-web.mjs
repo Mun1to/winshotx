@@ -58,11 +58,22 @@ for (const ruta of paginas) {
         visible: document.documentElement.clientWidth,
       }));
       const desborda = ancho > visible + 1;
+      // Una foto con la ruta mal no deja nada en la consola de file://: se ve rota y ya (pasó
+      // con la de novedades en inglés). Así que se cargan todas, también las perezosas y las
+      // escondidas a ese ancho, y se mira que cada una tenga píxeles.
+      const rotas = await page.evaluate(async () => {
+        const locales = [...document.images].filter((i) => i.src.startsWith("file:"));
+        for (const i of locales) i.loading = "eager";
+        const cargada = (i) => (i.complete ? null : new Promise((ok) => { i.onload = i.onerror = ok; setTimeout(ok, 8000); }));
+        await Promise.all(locales.map(cargada));
+        return locales.filter((i) => !i.naturalWidth).map((i) => i.getAttribute("src"));
+      });
       // Los errores de red de file:// (el contador de GitHub, las fuentes) no son de la web.
       const propios = errores.filter((e) => !/net::ERR|Failed to load resource|api\.github\.com/i.test(e));
-      if (desborda || propios.length) fallos++;
+      if (desborda || propios.length || rotas.length) fallos++;
       console.log(
         `${nombre.padEnd(34)} ${desborda ? `SE SALE (${ancho} > ${visible})` : "ancho bien"}` +
+          `${rotas.length ? `  FOTOS ROTAS: ${rotas.join(", ")}` : ""}` +
           `${propios.length ? `  ERRORES: ${propios.join(" | ")}` : ""}`,
       );
       await ctx.close();
