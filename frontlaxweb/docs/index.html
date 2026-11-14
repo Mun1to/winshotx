@@ -30,7 +30,7 @@
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../estilos.css?v=f43f3f9d">
+<link rel="stylesheet" href="../estilos.css?v=cd8357e3">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -60,7 +60,7 @@
       "name": "¿Es una alternativa libre a la Herramienta de Recortes?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección ya pintada 114 ms después del atajo con tres pantallas (la del ratón; las otras dos a los 233 ms), contra los 920 ms de la de Windows; y gasta 33 MB contra 253 MB. La de Windows sigue ganando en venir puesta y en hablar todos los idiomas de Windows; tapar datos personales sola lo hace winshotx desde la 0.3.0, y ademas con mosaico, que destruye los pixeles en vez de emborronarlos, y la comparativa de la portada lo dice, punto por punto."
+        "text": "Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección ya pintada 114 ms después del atajo con tres pantallas (la del ratón; las otras dos a los 233 ms), contra los 920 ms de la de Windows; y gasta 33 MB contra 253 MB. La de Windows sigue ganando en venir puesta y en hablar todos los idiomas de Windows; tapar datos personales sola lo hace winshotx desde la 0.3.0, y además con mosaico, que destruye los píxeles en vez de emborronarlos, y la comparativa de la portada lo dice, punto por punto."
       }
     },
     {
@@ -68,7 +68,7 @@
       "name": "¿Sube mis capturas a algún sitio?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub, y se puede apagar."
+        "text": "No. Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub, y la de la Microsoft Store ni eso."
       }
     },
     {
@@ -92,7 +92,7 @@
       "name": "¿Cómo hago que Win+Mayús+S deje de abrir la Herramienta de Recortes?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Con el interruptor Quedarme con Win+Mayús+S , en Ajustes → Teclas de Windows . Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante Win+S , la búsqueda. No surte efecto hasta que cierras sesión y vuelves a entrar, y al desactivarlo vuelve todo. Está separado a propósito: liberar Impr Pant no cuesta nada, y nadie debería perder su búsqueda de propina por eso."
+        "text": "Con el interruptor Quedarme con Win+Mayús+S , en Ajustes → Teclas de Windows . Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante Win+S , la búsqueda. El botón «Aplicar» reinicia el Explorador para que surta efecto, y al desactivarlo vuelve todo. Está separado a propósito: liberar Impr Pant no cuesta nada, y nadie debería perder su búsqueda de propina por eso."
       }
     },
     {
@@ -100,7 +100,7 @@
       "name": "¿Cómo pego un GIF en Slack o en Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Usa Copiar en el panel de exportación. Una imagen va al portapapeles como imagen, y un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta."
+        "text": "Usa Copiar en el panel de exportación. Un PNG va al portapapeles como imagen, y un JPG, un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta."
       }
     },
     {
@@ -116,7 +116,7 @@
       "name": "¿Funciona en macOS o en Linux?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Todavía no. El código compila en los dos, pero cada función específica de plataforma está detrás de una guarda de Windows con un stub para el resto, así que portarlo es rellenar esos stubs. Los que importan son captura, grabación, codificación MP4, portapapeles y arranque automático."
+        "text": "Todavía no: hoy es solo para Windows 10 y 11."
       }
     }
   ]
@@ -126,107 +126,119 @@
 <body>
 
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="marca" viewBox="0 0 64 64">
+<symbol id="marca" viewBox="0 0 64 64">
     <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
       <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
       <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
     </g>
     <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
   </symbol>
-  <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
-  </symbol>
-  <symbol id="i-github" viewBox="0 0 16 16">
+<symbol id="i-github" viewBox="0 0 16 16">
     <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
   </symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 9 6 6 6-6"/></symbol>
 </svg>
 
-<nav>
-  <div class="env">
-    <a class="marca solo-logo" href="../" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
+<nav class="barra">
+  <div class="env barra-dentro">
+    <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
     <span class="enlaces">
-      <a href="../#numeros" data-en="Numbers">Números</a>
+      <a href="../#funciones" data-en="Features">Funciones</a>
       <a href="../#demo" data-en="Try it">Pruébalo</a>
-      <a href="../#frente-a-frente" data-en="Head to head">Comparativa</a>
-      <a href="../#que-hace" data-en="Features">Qué hace</a>
-      <a href="../#atajos" data-en="Shortcuts">Atajos</a>
-      <a class="aqui" href="./" data-en="Docs">Guía</a>
+      <a href="../#comparativa" data-en="Compare">Comparativa</a>
+      <a class="aqui" aria-current="page" href="../docs/" data-en="Docs">Guía</a>
       <a href="../novedades/" data-en="What's new">Novedades</a>
     </span>
     <span class="acciones">
-      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
-        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
-      </a>
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
       <a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>
+      <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download">Descargar</span></a>
     </span>
   </div>
 </nav>
 
-<main class="env guia">
-
-  <h1 data-en="winshotx documentation">Guía de winshotx</h1>
-  <p class="entradilla" data-en="Everything the app does, in the order you are going to need it. It fits on one page on purpose.">
+<main class="leer">
+  <div class="env">
+    <header class="leer-cabeza">
+      <h1 data-en="winshotx documentation">Guía de winshotx</h1>
+      <p class="entradilla" data-en="Everything the app does, in the order you are going to need it. It fits on one page on purpose.">
     Todo lo que hace la aplicación, en el orden en que lo vas a necesitar. Cabe en una sola página a propósito.
   </p>
+    </header>
 
-  <div class="indice">
-    <a href="#instalar" data-en="Install">Instalar</a>
-    <a href="#capturar" data-en="Capture">Capturar</a>
-    <a href="#grabar" data-en="Record">Grabar</a>
-    <a href="#editor" data-en="Editor">Editor</a>
-    <a href="#exportar" data-en="Export">Exportar</a>
-    <a href="#atajos-guia" data-en="Shortcuts">Atajos</a>
-    <a href="#ajustes" data-en="Settings">Ajustes</a>
-    <a href="#agentes" data-en="AI agents">Agentes de IA</a>
-    <a href="#preguntas" data-en="Questions">Preguntas</a>
-  </div>
+    <div class="leer-rejilla">
+      <nav class="leer-indice" aria-label="En esta página" data-aria-en="On this page">
+        <a href="#instalar" data-en="Install">Instalar</a>
+        <a href="#capturar" data-en="Capture">Capturar</a>
+        <a href="#grabar" data-en="Record">Grabar</a>
+        <a href="#editor" data-en="Editor">Editor</a>
+        <a href="#exportar" data-en="Export">Exportar</a>
+        <a href="#atajos-guia" data-en="Shortcuts">Atajos</a>
+        <a href="#ajustes" data-en="Settings">Ajustes</a>
+        <a href="#agentes" data-en="AI agents">Agentes de IA</a>
+        <a href="#preguntas" data-en="Questions">Preguntas</a>
+      </nav>
 
-  <section id="instalar">
+      <div class="texto">
+
+  <section id="instalar" class="con-foto">
+  <div>
+    <div data-demo="recorte">
     <h2 data-en="Install">Instalar</h2>
     <p data-en="Download the installer and run it. It weighs 2.94 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.">
       Descarga el instalador y ábrelo. Pesa 2,94 MB, se instala solo para tu usuario y nunca sale la ventana de permisos de administrador. Necesita Windows 10 versión 1903 o superior.
     </p>
     <div class="botones">
-      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
+      <a class="btn uno" data-demo="boton" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
         <span data-en="Download for Windows">Descargar para Windows</span></a>
-      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx/releases" data-en="All versions">Todas las versiones</a>
+      <a class="btn dos" href="https://github.com/Mun1to/winshotx/releases" data-en="All versions">Todas las versiones</a>
+    </div>
     </div>
     <p data-en="It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the &lt;code&gt;^&lt;/code&gt; arrow on the taskbar.">
       Vive en la bandeja del sistema, sin ventana propia. Windows esconde los iconos nuevos, así que si no lo ves está detrás de la flecha <code>^</code> de la barra de tareas.
     </p>
-    <p data-en="It updates itself. When a new version is out, a button shows up in &lt;b&gt;Ajustes → Actualizaciones&lt;/b&gt;, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.">
-      Se actualiza sola. Cuando hay versión nueva aparece un botón en <b>Ajustes → Actualizaciones</b>, y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas y la firma se comprueba antes de instalar nada, así que un archivo manipulado no entra.
+    <p data-en="It updates itself. When a new version is out, the bottom bar of &lt;b&gt;Settings&lt;/b&gt; shows a button for it, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.">
+      Se actualiza sola. Cuando hay versión nueva, la barra de abajo de <b>Ajustes</b> dice «Actualizar ahora», y con un clic se descarga, se instala y se reinicia. Las descargas van firmadas y la firma se comprueba antes de instalar nada, así que un archivo manipulado no entra.
     </p>
-    <p data-en="The first time it opens on its own with four steps: the shortcuts, how you prefer to capture, whether the &lt;kbd&gt;Impr Pant&lt;/kbd&gt; key should open winshotx instead of the Snipping Tool, and whether it should start with Windows. You can see it again in &lt;b&gt;Ajustes → Sistema → Bienvenida&lt;/b&gt;." data-html>
-      La primera vez se abre sola con cuatro pasos: los atajos, cómo prefieres capturar, si quieres que la tecla <kbd>Impr Pant</kbd> abra winshotx en vez de la Herramienta de Recortes y si debe arrancar con Windows. Se puede volver a ver en <b>Ajustes → Sistema → Bienvenida</b>.
+    <p data-en="The first time it opens on its own with four steps: the shortcuts, how you prefer to capture, whether the &lt;kbd&gt;Impr Pant&lt;/kbd&gt; key should open winshotx instead of the Snipping Tool, and whether it should start with Windows. You can see it again in &lt;b&gt;Settings → The app → Welcome&lt;/b&gt;." data-html>
+      La primera vez se abre sola con cuatro pasos: los atajos, cómo prefieres capturar, si quieres que la tecla <kbd>Impr Pant</kbd> abra winshotx en vez de la Herramienta de Recortes y si debe arrancar con Windows. Se puede volver a ver en <b>Ajustes → La app → Bienvenida</b>.
     </p>
+  </div>
+    <figure><img src="../img/bienvenida-es.webp" data-src-en="../img/bienvenida-en.webp" width="840" height="760" alt="La bienvenida de winshotx, que se abre sola la primera vez" data-alt-en="The winshotx welcome screen, which opens by itself the first time"></figure>
   </section>
 
-  <section id="capturar">
+  <section id="capturar" class="con-foto">
+  <div>
     <h2 data-en="Capture a region">Capturar una región</h2>
     <p data-en="Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;2&lt;/kbd&gt;. The screen freezes and you drag over what you want. It is a frozen screenshot, not a transparent window, which is why the magnifier is exact to the pixel and nothing flickers underneath.">
       Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd>. La pantalla se congela y arrastras sobre lo que quieras. Es una foto congelada, no una ventana transparente, y por eso la lupa es exacta al píxel y no parpadea nada por debajo.
     </p>
-    <ul role="list">
+    <ul class="lista">
       <li data-en="&lt;b&gt;Snapping to windows.&lt;/b&gt; Move the cursor without dragging and the window underneath lights up; one click takes it whole, with its real coordinates." data-html><b>Ajuste a las ventanas.</b> Mueve el cursor sin arrastrar y la ventana de debajo se resalta; un clic la coge entera, con sus coordenadas reales.</li>
       <li data-en="&lt;b&gt;Magnifier.&lt;/b&gt; While there is no selection, a 6× loupe follows the cursor and shows the hex code of the pixel underneath. That is the fastest way to pull a colour off the screen." data-html><b>Lupa.</b> Mientras no hay selección, una lupa de 6× sigue al cursor y enseña el código hexadecimal del píxel de debajo. Es la forma más rápida de sacar un color de la pantalla.</li>
       <li data-en="&lt;b&gt;Fine tuning.&lt;/b&gt; The arrow keys move the selection one pixel at a time, &lt;kbd&gt;Shift&lt;/kbd&gt; moves it ten, and &lt;kbd&gt;Alt&lt;/kbd&gt; resizes instead of moving." data-html><b>Ajuste fino.</b> Las flechas mueven la selección de píxel en píxel, con <kbd>Shift</kbd> de diez en diez, y con <kbd>Alt</kbd> redimensionan en vez de mover.</li>
       <li data-en="&lt;b&gt;Several monitors.&lt;/b&gt; Every screen freezes at once, each at its own scaling, and a 100 × 100 selection produces a 100 × 100 file in real pixels." data-html><b>Varios monitores.</b> Se congelan todas las pantallas a la vez, cada una con su escalado, y una selección de 100 × 100 produce un archivo de 100 × 100 píxeles reales.</li>
       <li data-en="&lt;b&gt;Straight into the editor.&lt;/b&gt; &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;L&lt;/kbd&gt; takes the same shot and opens the editor the moment you let go, skipping the toolbar. For the shot you have to work on." data-html><b>Derecho al editor.</b> <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> hace la misma captura y abre el editor en cuanto sueltas, sin pasar por la barra. Para la captura que hay que trabajar.</li>
     </ul>
-    <p data-en="What happens when you let go depends on the profile picked in &lt;b&gt;Ajustes → Captura&lt;/b&gt;, and both use the same shortcut and the same selection." data-html>
-      Lo que pasa al soltar depende del perfil que tengas en <b>Ajustes → Captura</b>, y los dos usan el mismo atajo y la misma selección.
+    <p data-en="What happens when you let go depends on the profile picked in &lt;b&gt;Settings → Capture&lt;/b&gt;, and both use the same shortcut and the same selection." data-html>
+      Lo que pasa al soltar depende del perfil que tengas en <b>Ajustes → Capturar</b>, y los dos usan el mismo atajo y la misma selección.
     </p>
-    <ul role="list">
-      <li data-en="&lt;b&gt;Sale la barra.&lt;/b&gt; A small toolbar appears over the selection: copy, save, open in the editor, record as GIF, record as video, or cancel with &lt;kbd&gt;Esc&lt;/kbd&gt;. It is the complete one." data-html><b>Sale la barra.</b> Aparece una barra pequeña sobre la selección: copiar, guardar, abrir en el editor, grabar en GIF, grabar en vídeo, o cancelar con <kbd>Esc</kbd>. Es la completa.</li>
+    <ul class="lista">
+      <li data-en="&lt;b&gt;Sale la barra.&lt;/b&gt; A small toolbar appears next to the selection: copy, save, save to…, edit, pin, copy the text, read a QR code or cancel with &lt;kbd&gt;Esc&lt;/kbd&gt;." data-html><b>Sale la barra.</b> Aparece una barra pequeña junto a la selección: copiar, guardar, guardar en…, editar, anclar, copiar el texto, leer un código QR o cancelar con <kbd>Esc</kbd>.</li>
       <li data-en="&lt;b&gt;Se copia sola.&lt;/b&gt; Nothing appears: you let go of the mouse and the image is already in the clipboard, ready to paste. A single click on a window copies it whole." data-html><b>Se copia sola.</b> No aparece nada: sueltas el ratón y la imagen ya está en el portapapeles, lista para pegar. Un clic sobre una ventana la copia entera.</li>
     </ul>
-    <p class="nota" data-en="The recording shortcut always shows the toolbar, whichever profile is set: it has to ask whether you want a GIF or a video.">
-      El atajo de grabar siempre saca la barra, tengas el perfil que tengas: tiene que preguntar si quieres GIF o vídeo.
-    </p>
+    <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span data-en="Photo, video or GIF are picked before cropping, on the top bar or with F, V and G. The recording shortcut opens already on video: when you let go of the mouse, it starts recording.">Foto, vídeo o GIF se eligen antes de recortar, en la barra de arriba o con F, V y G. El atajo de grabar abre ya en vídeo: al soltar el ratón, empieza a grabar.</span></p>
+  </div>
+    <figure><img src="../img/capturar-es.webp" data-src-en="../img/capturar-en.webp" width="1140" height="720" loading="lazy" alt="La selección de winshotx sobre una pantalla congelada, con su barra para copiar, guardar o editar" data-alt-en="The winshotx selection over a frozen screen, with its bar to copy, save or edit"></figure>
   </section>
 
-  <section id="grabar">
+  <section id="grabar" class="con-foto">
+  <div>
     <h2 data-en="Record">Grabar</h2>
     <p data-en="Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt;, drag over the area and press the same shortcut again to stop. While it records you see a thin frame around the region and a small bar with the timer.">
       Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, arrastra sobre la zona y pulsa el mismo atajo otra vez para parar. Mientras graba se ve un marco fino alrededor de la región y una barra pequeña con el contador.
@@ -237,17 +249,18 @@
     <p data-en="It records sound too: the system audio (whatever the speakers are playing) and your microphone, each recorded on its own track and with its own volume in the editor. Each has its own switch in Settings and either can go alone. Exporting at a speed other than 1× comes out silent, and the panel says so beforehand: stretching a track without touching its pitch is another problem entirely.">
       También graba sonido: el audio del sistema (lo que suene por los altavoces) y tu micrófono, cada uno grabado en su propia pista y con su volumen en el editor. Cada uno tiene su interruptor en Ajustes y cualquiera de los dos puede ir solo. Exportar a una velocidad distinta de 1× sale mudo, y el panel lo dice antes: estirar una pista sin tocarle el tono es otro problema entero.
     </p>
-    <p class="nota" data-en="&lt;b&gt;The last few seconds.&lt;/b&gt; With the ring on, winshotx records all the time and drops the old, so &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;6&lt;/kbd&gt; keeps the last 15, 30 or 60 seconds without having pressed record beforehand. You pick the screen, the quality and the smoothness, and it tells you up front how much disk it can take. Saving does not stop the recording." data-html>
-      <b>Los últimos segundos.</b> Con el anillo encendido, winshotx graba todo el rato y va tirando lo viejo, así que <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> se queda con los últimos 15, 30 o 60 segundos sin haber dado a grabar antes. Eliges pantalla, calidad y fluidez, y te dice de antemano cuánto disco puede ocupar. Guardar no interrumpe la grabación.
-    </p>
+    <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span data-en="&lt;b&gt;The last few seconds.&lt;/b&gt; With the ring on, winshotx records all the time and drops the old, so &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;6&lt;/kbd&gt; keeps the last 15, 30 or 60 seconds without having pressed record beforehand. You pick the screen, the quality and the smoothness, and it tells you up front how much disk it can take. Saving does not stop the recording." data-html><b>Los últimos segundos.</b> Con el anillo encendido, winshotx graba todo el rato y va tirando lo viejo, así que <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> se queda con los últimos 15, 30 o 60 segundos sin haber dado a grabar antes. Eliges pantalla, calidad y fluidez, y te dice de antemano cuánto disco puede ocupar. Guardar no interrumpe la grabación.</span></p>
+  </div>
+    <figure><img src="../img/grabar-es.webp" data-src-en="../img/grabar-en.webp" width="1140" height="720" loading="lazy" alt="Una zona elegida para grabar en vídeo, con su botón rojo de grabar" data-alt-en="An area picked to record as video, with its red record button"></figure>
   </section>
 
-  <section id="editor">
+  <section id="editor" class="con-foto">
+  <div>
     <h2 data-en="The editor">El editor</h2>
     <p data-en="When the recording stops, the editor opens with the whole clip: the recording fits across a timeline you trim by dragging its edges, and on the right the studio makes it look good.">
       Al parar la grabación se abre el editor con el clip entero: la grabación cabe a lo ancho de una línea de tiempo que se recorta arrastrando sus bordes, y a la derecha el estudio la deja bonita.
     </p>
-    <ul role="list">
+    <ul class="lista">
       <li data-en="&lt;b&gt;The timeline.&lt;/b&gt; The whole recording across the window, laid out by time. Click it to jump there, or drag along it." data-html><b>La línea de tiempo.</b> La grabación entera a lo ancho de la ventana, repartida por tiempo. Pincha en ella para saltar ahí, o arrástrala para recorrerla.</li>
       <li data-en="&lt;b&gt;Trimming.&lt;/b&gt; Drag the two blue edges to keep a piece, and the preview shows the exact cut while you drag; or press &lt;kbd&gt;I&lt;/kbd&gt; and &lt;kbd&gt;O&lt;/kbd&gt; to cut where it is. It cuts to the millisecond, even inside a stretch where the screen does not change." data-html><b>Recortar.</b> Arrastra los dos bordes azules para quedarte con un trozo, y la vista previa enseña el corte exacto mientras arrastras; o pulsa <kbd>I</kbd> y <kbd>O</kbd> para cortar donde está. Corta al milisegundo, también dentro de un rato en el que la pantalla no cambia.</li>
       <li data-en="&lt;b&gt;Vertical of one click.&lt;/b&gt; 9:16, 4:5, 1:1 and 16:9 place the biggest crop with that shape, centred, and you drag it wherever you want without losing the proportion. What you record off a monitor is always landscape, so getting to 9:16 always means cropping the image." data-html><b>Vertical de un clic.</b> 9:16, 4:5, 1:1 y 16:9 colocan el trozo más grande con esa forma, centrado, y lo arrastras donde quieras sin perder la proporción. Lo que se graba de un monitor sale siempre apaisado, así que llegar a 9:16 pasa siempre por encuadrar.</li>
@@ -255,10 +268,15 @@
       <li data-en="&lt;b&gt;Scale.&lt;/b&gt; Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons." data-html><b>Escala.</b> El ancho y el alto van encadenados por defecto, así que la proporción no se rompe. Hay botones de 100, 75 y 50 por ciento.</li>
       <li data-en="&lt;b&gt;Zoom on every click.&lt;/b&gt; The camera moves in on each click of the recording, and how much you decide &lt;em&gt;after&lt;/em&gt; recording: the clicks were written down while it recorded, so raising it, lowering it or dropping it never means recording again. And you choose how fast it moves: slow, normal or fast." data-html><b>Zoom a cada clic.</b> La cámara se acerca a cada clic de la grabación, y cuánto lo decides <em>después</em> de grabar: los clics quedaron anotados, así que subirlo, bajarlo o quitarlo no obliga a volver a grabar. Y eliges a qué velocidad se mueve: lenta, normal o rápida.</li>
       <li data-en="&lt;b&gt;Rings, keys and cursor.&lt;/b&gt; A ring where you pressed, a badge with the shortcut you just typed (only shortcuts with a modifier, never a lone key: a password has no Ctrl in front) and the pointer drawn at the size you ask for, with smooth movement that takes the hand shake out and the option to hide it when it stops." data-html><b>Aros, teclas y cursor.</b> Un aro donde pulsaste, una pastilla con el atajo que acabas de teclear (solo atajos con modificador, nunca una tecla suelta: una contraseña no lleva Ctrl delante) y el puntero dibujado del tamaño que pidas, con movimiento suave que le quita los temblores de la mano y la opción de esconderlo cuando se para.</li>
-      <li data-en="&lt;b&gt;Background, corners and shadow.&lt;/b&gt; Eight backgrounds to pick from, air around the capture, rounded corners and a shadow, shown in the preview as you change them. For when the video goes into a slide or a post." data-html><b>Fondo, esquinas y sombra.</b> Ocho fondos para elegir, aire alrededor, esquinas redondeadas y sombra, y la vista previa lo enseña según lo tocas. Para cuando el vídeo va a una diapositiva o a un post.</li>
+      <li data-en="&lt;b&gt;Background, corners and shadow.&lt;/b&gt; Eight built-in backgrounds or your own (an image, your desktop, a video or a colour), air around the capture, rounded corners and a shadow, shown in the preview as you change them. For when the video goes into a slide or a post." data-html><b>Fondo, esquinas y sombra.</b> Ocho fondos de serie o uno tuyo (una imagen, tu escritorio, un vídeo o un color), aire alrededor, esquinas redondeadas y sombra, y la vista previa lo enseña según lo tocas. Para cuando el vídeo va a una diapositiva o a un post.</li>
       <li data-en="&lt;b&gt;Speed.&lt;/b&gt; 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens." data-html><b>Velocidad.</b> 0,5×, 2× o 4× sobre lo grabado. Un tutorial tiene tramos en los que no pasa nada.</li>
-      <li data-en="&lt;b&gt;Six marks to annotate.&lt;/b&gt; Arrow, rectangle, text, highlight, numbered step and a mosaic that destroys private data. They go on the video too, not only on a still." data-html><b>Seis marcas para anotar.</b> Flecha, rectángulo, texto, resaltado, paso numerado y mosaico que destruye los datos privados. Van también sobre el vídeo, no solo sobre una foto.</li>
+      <li data-en="&lt;b&gt;Eleven tools to annotate.&lt;/b&gt; Arrow, curved arrow, line, rectangle, ellipse, pen, text (typed right on the image), highlight, numbered step, spotlight and a mosaic that destroys private data. They go on the video too, not only on a still." data-html><b>Once herramientas para anotar.</b> Flecha, flecha curva, línea, rectángulo, elipse, lápiz, texto (se escribe encima de la imagen), resaltado, paso numerado, foco y mosaico, que destruye los datos privados. Van también sobre el vídeo, no solo sobre una foto.</li>
+      <li data-en="&lt;b&gt;Zooms by hand.&lt;/b&gt; Click the lane under the timeline to put a zoom there: drag it, stretch it by its edges and decide how close it gets and whether it follows the mouse." data-html><b>Zooms a mano.</b> Haz clic en el carril de debajo de la línea de tiempo y pones un zoom ahí: se arrastra, se estira por los bordes y decides cuánto se acerca y si sigue al ratón.</li>
+      <li data-en="&lt;b&gt;Hide data.&lt;/b&gt; One button finds emails, phone numbers, cards and IDs and pixelates them, in a video too." data-html><b>Tapar datos.</b> Un botón busca correos, teléfonos, tarjetas y DNI y les pone mosaico, también en un vídeo.</li>
+      <li data-en="&lt;b&gt;Sound and webcam.&lt;/b&gt; The PC sound and your microphone are separate tracks, each with its own volume, and they warn you if they were recorded silent; your webcam sits on top, round or with the corners you like. &lt;kbd&gt;M&lt;/kbd&gt; mutes the preview." data-html><b>El sonido y la cámara.</b> El sonido del PC y tu micrófono van en pistas separadas, cada una con su volumen, y avisan si se grabaron mudas; tu cámara va encima, redonda o con las esquinas que quieras. <kbd>M</kbd> silencia la vista previa.</li>
     </ul>
+  </div>
+    <figure><img src="../img/editor-es.webp" data-src-en="../img/editor-en.webp" width="1280" height="800" loading="lazy" alt="El editor de winshotx con un fondo del Estudio, esquinas redondeadas y sombra" data-alt-en="The winshotx editor with a Studio background, rounded corners and a shadow"></figure>
   </section>
 
   <section id="exportar">
@@ -266,7 +284,7 @@
     <p data-en="Four formats: PNG and JPG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.">
       Cuatro formatos: PNG y JPG para una imagen, GIF para algo que haga bucle en un chat, y MP4 para lo que dure más. El panel enseña el tamaño estimado antes de escribir nada.
     </p>
-    <table class="tabla-guia">
+    <div class="tabla"><table>
       <thead><tr>
         <th data-en="Format">Formato</th>
         <th data-en="How it is made">Cómo se hace</th>
@@ -294,9 +312,9 @@
           <td data-en="Anything longer than a few seconds, or with a lot of movement.">Todo lo que pase de unos segundos, o con mucho movimiento.</td>
         </tr>
       </tbody>
-    </table>
-    <p data-en="&lt;b&gt;Save&lt;/b&gt; writes the file to disk. &lt;b&gt;Copy&lt;/b&gt; puts it on the clipboard: a still goes as an image, and a GIF or an MP4 go &lt;b&gt;two ways at once, as a file and as their written path&lt;/b&gt;. Where files can be dropped (Slack, Discord, File Explorer) the video is pasted; in any text box, its path." data-html>
-      <b>Guardar</b> escribe el archivo en el disco. <b>Copiar</b> lo deja en el portapapeles: una imagen va como imagen, y un GIF o un MP4 van <b>de dos maneras a la vez, como archivo y como su ruta escrita</b>. Donde se pueden soltar archivos (Slack, Discord, el Explorador) se pega el vídeo; en cualquier caja de texto, su ruta.
+    </table></div>
+    <p data-en="&lt;b&gt;Save&lt;/b&gt; writes the file to disk. &lt;b&gt;Copy&lt;/b&gt; puts it on the clipboard: a PNG goes as an image, and a JPG, a GIF or an MP4 go &lt;b&gt;two ways at once, as a file and as their written path&lt;/b&gt;. Where files can be dropped (Slack, Discord, File Explorer) the video is pasted; in any text box, its path." data-html>
+      <b>Guardar</b> escribe el archivo en el disco. <b>Copiar</b> lo deja en el portapapeles: un PNG va como imagen, y un JPG, un GIF o un MP4 van <b>de dos maneras a la vez, como archivo y como su ruta escrita</b>. Donde se pueden soltar archivos (Slack, Discord, el Explorador) se pega el vídeo; en cualquier caja de texto, su ruta.
     </p>
     <p data-en="If you happen to have &lt;code&gt;ffmpeg&lt;/code&gt; on your &lt;code&gt;PATH&lt;/code&gt;, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.">
       Si resulta que tienes <code>ffmpeg</code> en el <code>PATH</code>, el panel ofrece además un motor de máxima calidad. Nunca se descarga ni se distribuye: sin él, todo lo de arriba funciona igual.
@@ -305,7 +323,7 @@
 
   <section id="atajos-guia">
     <h2 data-en="Shortcuts">Atajos</h2>
-    <table class="tabla-guia">
+    <div class="tabla"><table>
       <thead><tr><th data-en="Key">Tecla</th><th data-en="What it does">Qué hace</th></tr></thead>
       <tbody>
         <tr>
@@ -314,6 +332,8 @@
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd></th><td data-en="Record a region, press again to stop">Grabar una región, púlsalo otra vez para parar</td></tr>
         <tr>
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd></th><td data-en="Keep the last seconds, while «the last few seconds» is on">Quedarte con los últimos segundos, mientras «los últimos segundos» esté encendido</td></tr>
+        <tr>
+          <th scope="row"><kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></th><td data-en="Capture and open the editor straight away">Capturar y abrir el editor directamente</td></tr>
         <tr>
           <th scope="row"><kbd>Impr Pant</kbd></th><td data-en="Capture a region, if you took the key from the Snipping Tool">Capturar una región, si le has quitado la tecla a la Herramienta de Recortes</td></tr>
 
@@ -324,7 +344,7 @@
         <tr>
           <th scope="row"><kbd>E</kbd></th><td data-en="Open the selection in the editor">Abrir la selección en el editor</td></tr>
         <tr>
-          <th scope="row"><kbd>G</kbd> / <kbd>V</kbd></th><td data-en="Record the selection as GIF or as video">Grabar la selección como GIF o como vídeo</td></tr>
+          <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></th><td data-en="Save the selection wherever you choose">Guardar la selección donde elijas</td></tr>
         <tr>
           <th scope="row"><kbd>A</kbd></th><td data-en="Pin the selection: it floats on top of everything, right where it was">Anclar la selección: se queda flotando encima de todo, donde estaba</td></tr>
         <tr>
@@ -333,6 +353,10 @@
           <th scope="row"><kbd>C</kbd></th><td data-en="Copy the colour under the cursor, the one the loupe is showing">Copiar el color bajo el cursor, el que enseña la lupa</td></tr>
         <tr>
           <th scope="row"><kbd>R</kbd></th><td data-en="Repeat the last capture, on the same region">Repetir la última captura, sobre la misma región</td></tr>
+        <tr>
+          <th scope="row"><kbd>S</kbd></th><td data-en="Scrolling capture: it scrolls the page down by itself and stitches it into one image">Captura con scroll: baja la página sola y la junta en una imagen</td></tr>
+        <tr>
+          <th scope="row"><kbd>W</kbd></th><td data-en="Record only the window underneath">Grabar solo la ventana de debajo</td></tr>
         <tr>
           <th scope="row"><kbd>F</kbd> / <kbd>V</kbd> / <kbd>G</kbd></th><td data-en="Choose photo, video or GIF before cropping">Elegir foto, vídeo o GIF antes de recortar</td></tr>
         <tr>
@@ -346,16 +370,17 @@
         <tr>
           <th scope="row"><kbd>Esc</kbd></th><td data-en="Cancel">Cancelar</td></tr>
       </tbody>
-    </table>
-    <p data-en="Inside the editor: drag the blue edges of the timeline to trim, or &lt;kbd&gt;I&lt;/kbd&gt; and &lt;kbd&gt;O&lt;/kbd&gt; cut where the preview is; &lt;kbd&gt;space&lt;/kbd&gt; plays, &lt;kbd&gt;C&lt;/kbd&gt; crops the image, the arrows step through frames, &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;S&lt;/kbd&gt; exports with whatever the panel has set, and &lt;kbd&gt;Esc&lt;/kbd&gt; closes.">
-      Dentro del editor: arrastra los bordes azules de la línea de tiempo para recortar, o <kbd>I</kbd> y <kbd>O</kbd> cortan donde está la vista previa; <kbd>espacio</kbd> reproduce, <kbd>C</kbd> encuadra la imagen, las flechas avanzan fotograma a fotograma, <kbd>Ctrl</kbd>+<kbd>S</kbd> exporta con lo que tenga puesto el panel y <kbd>Esc</kbd> cierra.
+    </table></div>
+    <p data-en="Inside the editor: drag the blue edges of the timeline to trim, or &lt;kbd&gt;I&lt;/kbd&gt; and &lt;kbd&gt;O&lt;/kbd&gt; cut where the preview is; &lt;kbd&gt;space&lt;/kbd&gt; plays, &lt;kbd&gt;C&lt;/kbd&gt; crops the image, the arrows step through frames, &lt;kbd&gt;M&lt;/kbd&gt; mutes the preview, &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;S&lt;/kbd&gt; exports with whatever the panel has set, and &lt;kbd&gt;Esc&lt;/kbd&gt; closes.">
+      Dentro del editor: arrastra los bordes azules de la línea de tiempo para recortar, o <kbd>I</kbd> y <kbd>O</kbd> cortan donde está la vista previa; <kbd>espacio</kbd> reproduce, <kbd>C</kbd> encuadra la imagen, las flechas avanzan fotograma a fotograma, <kbd>M</kbd> silencia la vista previa, <kbd>Ctrl</kbd>+<kbd>S</kbd> exporta con lo que tenga puesto el panel y <kbd>Esc</kbd> cierra.
     </p>
-    <p data-en="And to annotate, six marks: &lt;kbd&gt;1&lt;/kbd&gt; arrow, &lt;kbd&gt;2&lt;/kbd&gt; box, &lt;kbd&gt;3&lt;/kbd&gt; text, &lt;kbd&gt;4&lt;/kbd&gt; highlight, &lt;kbd&gt;5&lt;/kbd&gt; numbered step and &lt;kbd&gt;6&lt;/kbd&gt; hide details. &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Z&lt;/kbd&gt; undoes the last one, and the steps number themselves.">
-      Y para anotar, seis marcas: <kbd>1</kbd> flecha, <kbd>2</kbd> rectángulo, <kbd>3</kbd> texto, <kbd>4</kbd> resaltar, <kbd>5</kbd> paso numerado y <kbd>6</kbd> tapar datos. <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshace la última, y los pasos se numeran solos.
+    <p data-en="And to annotate: &lt;kbd&gt;1&lt;/kbd&gt; arrow, &lt;kbd&gt;2&lt;/kbd&gt; box, &lt;kbd&gt;3&lt;/kbd&gt; text, &lt;kbd&gt;4&lt;/kbd&gt; highlight, &lt;kbd&gt;5&lt;/kbd&gt; numbered step and &lt;kbd&gt;6&lt;/kbd&gt; mosaic. &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Z&lt;/kbd&gt; undoes the last one, and the steps number themselves.">
+      Y para anotar: <kbd>1</kbd> flecha, <kbd>2</kbd> rectángulo, <kbd>3</kbd> texto, <kbd>4</kbd> resaltar, <kbd>5</kbd> paso numerado y <kbd>6</kbd> mosaico. <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshace la última, y los pasos se numeran solos.
     </p>
   </section>
 
-  <section id="ajustes">
+  <section id="ajustes" class="con-foto">
+  <div>
     <h2 data-en="Settings">Ajustes</h2>
     <p data-en="Right click the tray icon: winshotx draws its own menu there, with the ring switch and every shortcut written next to what it does. From there, &lt;b&gt;Settings&lt;/b&gt;. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so." data-html>
       Pincha con el botón derecho en el icono de la bandeja: ahí winshotx dibuja su propio menú, con el interruptor del anillo y cada atajo escrito al lado de lo que hace. Desde ahí, <b>Ajustes</b>. Los dos atajos globales se cambian pulsando el campo y tecleando la combinación nueva; si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
@@ -363,19 +388,22 @@
     <p data-en="Under them there is a switch that hands the &lt;kbd&gt;Impr Pant&lt;/kbd&gt; key over from the Snipping Tool, and it says whether Windows actually let go of it." data-html>
       Debajo hay un interruptor que le quita la tecla <kbd>Impr Pant</kbd> a la Herramienta de Recortes, y dice si Windows la ha soltado de verdad.
     </p>
-    <p data-en="It is four tabs, with nothing hidden three levels deep:">
-      Son cuatro pestañas, y nada escondido tres niveles hacia dentro:
+    <p data-en="It is five tabs, with nothing hidden three levels deep:">
+      Son cinco pestañas, y nada escondido tres niveles hacia dentro:
     </p>
-    <ul role="list">
+    <ul class="lista">
       <li data-en="&lt;b&gt;Capture.&lt;/b&gt; The shortcut, how long it waits before capturing (none, 3 or 5 seconds), hiding the desktop icons while the shot lasts, the cursor, the magnifier, what happens when you let go of the mouse, and whether saving also copies." data-html><b>Capturar.</b> El atajo, cuánto espera antes de capturar (nada, 3 o 5 segundos), ocultar los iconos del escritorio mientras dura el disparo, el cursor, la lupa, qué pasa al soltar el ratón y si guardar copia además.</li>
-      <li data-en="&lt;b&gt;Record.&lt;/b&gt; The shortcut, the frame rate, system audio and microphone, opening the editor when it ends, and the whole &lt;em&gt;last few seconds&lt;/em&gt; ring: how much it keeps, which screen, quality and smoothness." data-html><b>Grabar.</b> El atajo, los fotogramas por segundo, el audio del sistema y el micrófono, abrir el editor al terminar, y todo el anillo de <em>los últimos segundos</em>: cuánto se guarda, qué pantalla, calidad y fluidez.</li>
+      <li data-en="&lt;b&gt;Record.&lt;/b&gt; The shortcut, the frame rate, system audio and microphone, opening the editor when it ends, the webcam, and the whole &lt;em&gt;last few seconds&lt;/em&gt; ring: how much it keeps, which screen, quality and smoothness." data-html><b>Grabar.</b> El atajo, los fotogramas por segundo, el audio del sistema y el micrófono, abrir el editor al terminar, la cámara, y todo el anillo de <em>los últimos segundos</em>: cuánto se guarda, qué pantalla, calidad y fluidez.</li>
+      <li data-en="&lt;b&gt;History.&lt;/b&gt; What you saved, photos and videos, newest first: copy it again, show it in its folder or send it to the bin." data-html><b>Historial.</b> Lo que has guardado, fotos y vídeos, de lo más nuevo a lo más viejo: copiarlo otra vez, verlo en su carpeta o mandarlo a la papelera.</li>
       <li data-en="&lt;b&gt;Windows keys.&lt;/b&gt; Taking &lt;kbd&gt;Impr Pant&lt;/kbd&gt; and &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;S&lt;/kbd&gt; away from the Snipping Tool, and removing the Snipping Tool if you want it gone for good." data-html><b>Teclas de Windows.</b> Quitarle <kbd>Impr Pant</kbd> y <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> a la Herramienta de Recortes, y desinstalarla si la quieres fuera del todo.</li>
-      <li data-en="&lt;b&gt;The app.&lt;/b&gt; Destination folder, recording cache, theme (automatic, light or dark), language (automatic, Spanish or English), the welcome screen, a six stop tour of the settings, and starting with Windows." data-html><b>La app.</b> Carpeta de destino, caché de grabaciones, tema (automático, claro u oscuro), idioma (automático, español o inglés), la bienvenida, un tour de seis paradas por los ajustes y arrancar con Windows.</li>
+      <li data-en="&lt;b&gt;The app.&lt;/b&gt; Destination folder, recording cache, theme (automatic, light or dark), language (automatic, Spanish, English or Chinese), the welcome screen, a seven stop tour of the settings, and starting with Windows." data-html><b>La app.</b> Carpeta de destino, caché de grabaciones, tema (automático, claro u oscuro), idioma (automático, español, inglés o chino), la bienvenida, un tour de siete paradas por los ajustes y arrancar con Windows.</li>
     </ul>
-    <p data-en="Every row explains itself: leave the pointer on the icon beside its name and a bubble says what it does and when it is worth turning on. And a bar at the bottom, there in all four tabs, holds what gets touched often: theme, language, what happens on release, the tour, and updates, which when you are up to date is a green tick and nothing more.">
-      Cada fila se explica sola: deja el puntero en el icono de su nombre y sale un globo con lo que hace y cuándo merece la pena encenderlo. Y abajo hay una barra, en las cuatro pestañas, con lo que se toca a menudo: tema, idioma, qué pasa al soltar, el tour y las actualizaciones, que estando al día son un tick verde y nada más.
+    <p data-en="Every row explains itself: leave the pointer on the icon beside its name and a bubble says what it does and when it is worth turning on. And a bar at the bottom, there in all five tabs, holds what gets touched often: theme, language, what happens on release, the tour, Support and updates, which when you are up to date say «Up to date» with a green tick.">
+      Cada fila se explica sola: deja el puntero en el icono de su nombre y sale un globo con lo que hace y cuándo merece la pena encenderlo. Y abajo hay una barra, en las cinco pestañas, con lo que se toca a menudo: tema, idioma, qué pasa al soltar, el tour, «Apoyar» y las actualizaciones, que estando al día dicen «Al día» con su tick verde.
     </p>
-    <p><a href="../#demo" data-en="You can click through all of it in the demo on the home page, without installing anything.">Puedes tocarlo todo en la demo de la portada, sin instalar nada.</a></p>
+    <p data-html data-en="You can click through all of it in &lt;a href=&quot;../#demo&quot;&gt;the demo on the home page&lt;/a&gt;, without installing anything.">Puedes tocarlo todo en <a href="../#demo">la demo de la portada</a>, sin instalar nada.</p>
+  </div>
+    <figure><img src="../img/ajustes-es.webp" data-src-en="../img/ajustes-en.webp" width="840" height="760" loading="lazy" alt="Los ajustes de winshotx, en la pestaña Capturar" data-alt-en="The winshotx settings, on the Capture tab"></figure>
   </section>
 
   <section id="agentes">
@@ -389,71 +417,105 @@
     <p data-en="Without MCP, any script can do the same from a terminal with &lt;code&gt;winshotx.exe agent&lt;/code&gt;: it answers with one line of JSON that says what happened and where the file is." data-html>
       Sin MCP, cualquier programa hace lo mismo desde una terminal con <code>winshotx.exe agent</code>: contesta con una línea de JSON que dice qué ha pasado y dónde está el archivo.
     </p>
-    <p class="nota" data-en="&lt;b&gt;A recording started by an agent looks exactly like one of yours&lt;/b&gt;, with the red frame and the bar, so you always know when the screen is being recorded. And it makes no sound unless the agent asks for it." data-html>
-      <b>Una grabación que empieza un agente se ve igual que una tuya</b>, con el marco rojo y la barra, así que siempre sabes cuándo se graba la pantalla. Y no suena nada si el agente no lo pide.
-    </p>
+    <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span data-en="&lt;b&gt;A recording started by an agent looks exactly like one of yours&lt;/b&gt;, with the red frame and the bar, so you always know when the screen is being recorded. And it makes no sound unless the agent asks for it." data-html><b>Una grabación que empieza un agente se ve igual que una tuya</b>, con el marco rojo y la barra, así que siempre sabes cuándo se graba la pantalla. Y no suena nada si el agente no lo pide.</span></p>
     <p data-en="&lt;a href=&quot;https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.md&quot;&gt;How to add it to each agent, and every command&lt;/a&gt;." data-html><a href="https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.es.md">Cómo se añade a cada agente, y todas las órdenes</a>.</p>
   </section>
 
   <section id="preguntas">
     <h2 data-en="Questions people actually ask">Preguntas que la gente hace de verdad</h2>
-
-    <h3 data-en="How do I record a GIF of my screen on Windows?">¿Cómo grabo un GIF de la pantalla en Windows?</h3>
-    <p data-en="Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt;, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.">
-      Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, arrastra sobre la zona y púlsalo otra vez para parar. Se abre el editor con todos los fotogramas y el panel escribe el GIF. No hay que instalar FFmpeg.
-    </p>
-
-    <h3 data-en="Is this a free alternative to the Snipping Tool?">¿Es una alternativa libre a la Herramienta de Recortes?</h3>
-    <p data-en="Yes, MIT licensed and open source. Measured on the same machine it shows the selection already painted 114 ms after the shortcut with three screens (the one under the mouse; the other two by 233 ms), against the Windows one's 920 ms; and it uses 33 MB against 253 MB. The Windows one still wins at coming preinstalled and at speaking every language Windows speaks; covering up personal data on its own is something winshotx does from 0.3.0, and with a mosaic, which destroys the pixels instead of smudging them, and the comparison on the home page says so, point by point.">
-      Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección ya pintada 114 ms después del atajo con tres pantallas (la del ratón; las otras dos a los 233 ms), contra los 920 ms de la de Windows; y gasta 33 MB contra 253 MB. La de Windows sigue ganando en venir puesta y en hablar todos los idiomas de Windows; tapar datos personales sola lo hace winshotx desde la 0.3.0, y ademas con mosaico, que destruye los pixeles en vez de emborronarlos, y la comparativa de la portada lo dice, punto por punto.
-    </p>
-
-    <h3 data-en="Does it upload my screenshots anywhere?">¿Sube mis capturas a algún sitio?</h3>
-    <p data-en="No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off.">
-      No. Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub, y se puede apagar.
-    </p>
-
-    <h3 data-en="Can I change the keyboard shortcut?">¿Puedo cambiar el atajo de teclado?</h3>
-    <p data-en="Yes, in &lt;b&gt;Ajustes&lt;/b&gt;. Click the field and press the combination you want.">
-      Sí, en <b>Ajustes</b>. Pulsa el campo y teclea la combinación que quieras.
-    </p>
-
-    <h3 data-en="Can I capture with the Print Screen key?">¿Puedo capturar con la tecla Impr Pant?</h3>
-    <p data-en="Yes. In &lt;b&gt;Settings → Windows keys&lt;/b&gt; a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is." data-html>
-      Sí. En <b>Ajustes → Teclas de Windows</b> hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está.
-    </p>
-
-    <h3 data-en="How do I stop Win+Shift+S from opening the Snipping Tool?">¿Cómo hago que Win+Mayús+S deje de abrir la Herramienta de Recortes?</h3>
-    <p data-en="With the &lt;b&gt;Quedarme con Win+Mayús+S&lt;/b&gt; switch, in &lt;b&gt;Settings → Windows keys&lt;/b&gt;. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes &lt;b&gt;Win+S&lt;/b&gt;, the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing &lt;kbd&gt;Impr Pant&lt;/kbd&gt; costs nothing, and nobody should lose their search as a side effect of that." data-html>
-      Con el interruptor <b>Quedarme con Win+Mayús+S</b>, en <b>Ajustes → Teclas de Windows</b>. Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante <b>Win+S</b>, la búsqueda. No surte efecto hasta que cierras sesión y vuelves a entrar, y al desactivarlo vuelve todo. Está separado a propósito: liberar <kbd>Impr Pant</kbd> no cuesta nada, y nadie debería perder su búsqueda de propina por eso.
-    </p>
-
-    <h3 data-en="How do I paste a GIF into Slack or Discord?">¿Cómo pego un GIF en Slack o en Discord?</h3>
-    <p data-en="Use &lt;b&gt;Copy&lt;/b&gt; in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead.">
-      Usa <b>Copiar</b> en el panel de exportación. Una imagen va al portapapeles como imagen, y un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta.
-    </p>
-
-    <h3 data-en="Does it need administrator rights?">¿Hace falta ser administrador?</h3>
-    <p data-en="No. It installs for your user only, so the administrator prompt never shows up.">
-      No. Se instala solo para tu usuario, así que la ventana de permisos no aparece nunca.
-    </p>
-
-    <h3 data-en="Does it work on macOS or Linux?">¿Funciona en macOS o en Linux?</h3>
-    <p data-en="Not yet. The code compiles on both, but every platform specific function is behind a Windows guard with a stub for the rest, so porting means filling those stubs in. Capture, recording, MP4 encoding, clipboard and autostart are the ones that matter.">
-      Todavía no. El código compila en los dos, pero cada función específica de plataforma está detrás de una guarda de Windows con un stub para el resto, así que portarlo es rellenar esos stubs. Los que importan son captura, grabación, codificación MP4, portapapeles y arranque automático.
-    </p>
+    <div class="faq">
+      <details>
+        <summary><h3 data-en="How do I record a GIF of my screen on Windows?">¿Cómo grabo un GIF de la pantalla en Windows?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt;, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.">Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, arrastra sobre la zona y púlsalo otra vez para parar. Se abre el editor con todos los fotogramas y el panel escribe el GIF. No hay que instalar FFmpeg.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="Is this a free alternative to the Snipping Tool?">¿Es una alternativa libre a la Herramienta de Recortes?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="Yes, MIT licensed and open source. Measured on the same machine it shows the selection already painted 114 ms after the shortcut with three screens (the one under the mouse; the other two by 233 ms), against the Windows one's 920 ms; and it uses 33 MB against 253 MB. The Windows one still wins at coming preinstalled and at speaking every language Windows speaks; covering up personal data on its own is something winshotx does from 0.3.0, and with a mosaic, which destroys the pixels instead of smudging them, and the comparison on the home page says so, point by point.">Sí, con licencia MIT y código abierto. Medido en el mismo equipo, enseña la selección ya pintada 114 ms después del atajo con tres pantallas (la del ratón; las otras dos a los 233 ms), contra los 920 ms de la de Windows; y gasta 33 MB contra 253 MB. La de Windows sigue ganando en venir puesta y en hablar todos los idiomas de Windows; tapar datos personales sola lo hace winshotx desde la 0.3.0, y además con mosaico, que destruye los píxeles en vez de emborronarlos, y la comparativa de la portada lo dice, punto por punto.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="Does it upload my screenshots anywhere?">¿Sube mis capturas a algún sitio?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and the Microsoft Store version does not even do that.">No. Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub, y la de la Microsoft Store ni eso.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="Can I change the keyboard shortcut?">¿Puedo cambiar el atajo de teclado?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="Yes, in &lt;b&gt;Ajustes&lt;/b&gt;. Click the field and press the combination you want.">Sí, en <b>Ajustes</b>. Pulsa el campo y teclea la combinación que quieras.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="Can I capture with the Print Screen key?">¿Puedo capturar con la tecla Impr Pant?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="Yes. In &lt;b&gt;Settings → Windows keys&lt;/b&gt; a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is." data-html>Sí. En <b>Ajustes → Teclas de Windows</b> hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx, y la app lo pregunta la primera vez que la abres. Apaga el ajuste de Windows que le cede esa tecla, y al desactivarlo lo deja exactamente como estaba. <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> es otra historia: esa la atiende Windows antes que cualquier programa y no la cede a nadie, así que se queda como está.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="How do I stop Win+Shift+S from opening the Snipping Tool?">¿Cómo hago que Win+Mayús+S deje de abrir la Herramienta de Recortes?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="With the &lt;b&gt;Quedarme con Win+Mayús+S&lt;/b&gt; switch, in &lt;b&gt;Settings → Windows keys&lt;/b&gt;. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes &lt;b&gt;Win+S&lt;/b&gt;, the search, with it. Its Apply button restarts File Explorer so it takes effect, and turning it off puts everything back. It is a separate switch on purpose: freeing &lt;kbd&gt;Impr Pant&lt;/kbd&gt; costs nothing, and nobody should lose their search as a side effect of that." data-html>Con el interruptor <b>Quedarme con Win+Mayús+S</b>, en <b>Ajustes → Teclas de Windows</b>. Esa tecla la atiende Windows antes de que la vea ningún programa, así que no se la puede quedar ni un atajo, ni un hook de teclado, ni una política del sistema; lo único que funciona es apagar la S en los atajos de la tecla Windows. Tiene un precio y el interruptor lo dice antes de que lo pulses: esa lista va por letra y no por combinación, así que se lleva por delante <b>Win+S</b>, la búsqueda. El botón «Aplicar» reinicia el Explorador para que surta efecto, y al desactivarlo vuelve todo. Está separado a propósito: liberar <kbd>Impr Pant</kbd> no cuesta nada, y nadie debería perder su búsqueda de propina por eso.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="How do I paste a GIF into Slack or Discord?">¿Cómo pego un GIF en Slack o en Discord?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="Use &lt;b&gt;Copy&lt;/b&gt; in the export panel. A PNG goes to the clipboard as an image, and a JPG, a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead.">Usa <b>Copiar</b> en el panel de exportación. Un PNG va al portapapeles como imagen, y un JPG, un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="Does it need administrator rights?">¿Hace falta ser administrador?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="No. It installs for your user only, so the administrator prompt never shows up.">No. Se instala solo para tu usuario, así que la ventana de permisos no aparece nunca.</p></div>
+      </details>
+      <details>
+        <summary><h3 data-en="Does it work on macOS or Linux?">¿Funciona en macOS o en Linux?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p data-en="Not yet: today it is for Windows 10 and 11 only.">Todavía no: hoy es solo para Windows 10 y 11.</p></div>
+      </details>
+    </div>
   </section>
 
+      </div>
+    </div>
+  </div>
 </main>
 
-<footer>
+<footer class="pie">
   <div class="env">
-    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
-    <a href="../privacidad/" data-en="Privacy">Privacidad</a>
-    <span data-html data-en="Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt; · &lt;a href=&quot;https://github.com/Mun1to/winshotx/issues&quot;&gt;report a problem&lt;/a&gt;">Hecho por <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">informar de un problema</a></span>
-    <a class="cafe" href="https://buymeacoffee.com/munito" rel="noopener"><svg class="chico"><use href="#i-coffee"/></svg> <span data-en="Buy me a coffee">Invítame a un café</span></a>
+    <div class="pie-rejilla">
+      <div class="quien">
+        <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+        <p data-en="Screenshots and screen recording for Windows. Free, open source and with no account.">Capturas y grabación de pantalla para Windows. Gratis, de código abierto y sin cuenta.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Product">Producto</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe" data-en="Download">Descargar</a></li>
+          <li><a href="../novedades/" data-en="What's new">Novedades</a></li>
+          <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener" data-en="Portable version">Versión portable</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Help">Ayuda</h2>
+        <ul>
+          <li><a href="../docs/" data-en="Docs">Guía</a></li>
+          <li><a href="../#preguntas" data-en="Questions">Preguntas</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/issues" rel="noopener" data-en="Report a bug">Avisar de un fallo</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Code">Código</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/blob/main/LICENSE" rel="noopener" data-en="MIT licence">Licencia MIT</a></li>
+          <li><a href="../docs/#agentes" data-en="For AI agents">Para agentes de IA</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="More">Más</h2>
+        <ul>
+          <li><a href="../privacidad/" data-en="Privacy">Privacidad</a></li>
+          <li><a href="https://buymeacoffee.com/munito" rel="noopener" data-en="Buy me a coffee">Invítame a un café</a></li>
+          <li><a class="valvula sin-mov" href="?motion=off" data-en="Fewer animations">Menos animaciones</a><a class="valvula con-mov" href="./" data-en="All animations">Con animaciones</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pie-abajo">
+      <span data-html data-en="© 2026 winshotx · Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt;">© 2026 winshotx · Hecho por <a href="https://munito.dev">Munir Torres</a></span>
+      <span data-en="No accounts, no cloud and no surprises">Sin cuentas, sin nube y sin sorpresas</span>
+    </div>
   </div>
 </footer>
 
+<script src="../leer.js?v=6f97ed17"></script>
 </body>
 </html>

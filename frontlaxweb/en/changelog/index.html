@@ -30,7 +30,7 @@
 <link rel="icon" href="../../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../../estilos.css?v=f43f3f9d">
+<link rel="stylesheet" href="../../estilos.css?v=cd8357e3">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -47,52 +47,103 @@
 <!-- Esta página la escribe generar-novedades.mjs a partir de novedades/versiones.json: no se
      edita a mano, que se pisa la próxima vez. -->
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="marca" viewBox="0 0 64 64">
+<symbol id="marca" viewBox="0 0 64 64">
     <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
       <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
       <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
     </g>
     <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
   </symbol>
-  <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
-  </symbol>
-  <symbol id="i-github" viewBox="0 0 16 16">
+<symbol id="i-github" viewBox="0 0 16 16">
     <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
   </symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
 </svg>
 
-<nav>
-  <div class="env">
-    <a class="marca solo-logo" href="../" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
+<nav class="barra">
+  <div class="env barra-dentro">
+    <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
     <span class="enlaces">
-      <a href="../#numeros">Numbers</a>
+      <a href="../#funciones">Features</a>
       <a href="../#demo">Try it</a>
-      <a href="../#frente-a-frente">Head to head</a>
-      <a href="../#que-hace">Features</a>
-      <a href="../#atajos">Shortcuts</a>
+      <a href="../#comparativa">Compare</a>
       <a href="../docs/">Docs</a>
-      <a class="aqui" href="../changelog/">What's new</a>
+      <a class="aqui" aria-current="page" href="../changelog/">What's new</a>
     </span>
     <span class="acciones">
-      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
-        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
-      </a>
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
       <a class="idioma" id="idioma" href="../../novedades/" hreflang="es" lang="es">Español</a>
+      <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download</span></a>
     </span>
   </div>
 </nav>
 
-<main class="env guia novedades">
+<main class="leer novedades">
+  <div class="env">
+    <header class="leer-cabeza">
+      <h1>What's new</h1>
+      <p class="entradilla">What each version brings, newest first. The app updates itself from <b>Settings</b>, and the latest is <b>0.4.6</b>.</p>
+    </header>
 
-<h1>What's new</h1>
+    <div class="leer-rejilla">
+      <nav class="leer-indice" aria-label="Versions">
+        <a href="#v0-4-6">0.4.6</a>
+        <a href="#v0-4-5">0.4.5</a>
+        <a href="#v0-4-0">0.4.0</a>
+        <a href="#v0-3-8">0.3.8</a>
+        <a href="#v0-3-7">0.3.7</a>
+        <a href="#v0-3-6">0.3.6</a>
+        <a href="#v0-3-5">0.3.5</a>
+        <a href="#v0-3-4">0.3.3 to 0.3.4</a>
+        <a href="#v0-3-2">0.3.2</a>
+        <a href="#v0-3-1">0.3.1</a>
+        <a href="#v0-3-0">0.3.0</a>
+        <a href="#v0-2-28">0.2.28</a>
+        <a href="#v0-2-27">0.2.27</a>
+        <a href="#v0-2-26">0.2.26</a>
+        <a href="#v0-2-25">0.2.25</a>
+        <a href="#v0-2-24">0.2.24</a>
+        <a href="#v0-2-23">0.2.23</a>
+        <a href="#v0-2-22">0.2.22</a>
+        <a href="#v0-2-21">0.2.19 to 0.2.21</a>
+        <a href="#v0-2-18">0.2.13 to 0.2.18</a>
+        <a href="#v0-2-12">0.2.12</a>
+        <a href="#v0-2-11">0.2.11</a>
+        <a href="#v0-2-10">0.2.10</a>
+        <a href="#v0-2-9">0.2.9</a>
+        <a href="#v0-2-8">0.2.8</a>
+        <a href="#v0-2-7">0.2.7</a>
+        <a href="#v0-2-6">0.2.6</a>
+        <a href="#v0-2-5">0.2.5</a>
+        <a href="#v0-2-4">0.2.4</a>
+        <a href="#v0-2-3">0.2.3</a>
+        <a href="#v0-2-2">0.2.2</a>
+        <a href="#v0-2-1">0.2.1</a>
+        <a href="#v0-2-0">0.2.0</a>
+        <a href="#v0-1-19">0.1.19</a>
+        <a href="#v0-1-18">0.1.18</a>
+        <a href="#v0-1-17">0.1.17</a>
+        <a href="#v0-1-15">0.1.14 to 0.1.15</a>
+        <a href="#v0-1-13">0.1.13</a>
+        <a href="#v0-1-12">0.1.12</a>
+        <a href="#v0-1-11">0.1.11</a>
+        <a href="#v0-1-10">0.1.10</a>
+        <a href="#v0-1-9">0.1.9</a>
+        <a href="#v0-1-8">0.1.8</a>
+        <a href="#v0-1-7">0.1.7</a>
+        <a href="#v0-1-6">0.1.6</a>
+        <a href="#v0-1-5">0.1.4 to 0.1.5</a>
+        <a href="#v0-1-3">0.1.2 to 0.1.3</a>
+        <a href="#v0-1-1">0.1.1</a>
+        <a href="#v0-1-0">0.1.0</a>
+      </nav>
 
-<p class="entradilla">What each version brings, newest first. The app updates itself from <b>Settings</b>, and the latest is <b>0.4.6</b>.</p>
-
+      <div class="texto">
 <section id="v0-4-6">
   <h2>Type on the image and mute the preview</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.4.6" rel="noopener">Version 0.4.6</a> · 14 November 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Text is typed right on the image</b>: with the «T» you click wherever you want, type in place, and it is kept with Enter or a click outside. Escape throws it away.</li>
     <li><b>Mute the preview</b> with the speaker next to play, or with the <b>M</b> key. The video you save still comes out with its sound.</li>
     <li><b>A track that was recorded silent says so</b>: if the microphone sent nothing or the app that was playing was turned way down in the Windows volume mixer, you see it under its control instead of thinking the preview is broken.</li>
@@ -103,7 +154,7 @@
 <section id="v0-4-5">
   <h2>AI agents, your voice on its own track and a rounded webcam</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.4.5" rel="noopener">Version 0.4.5</a> · 12 November 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>For AI agents</b>: Claude Code, Codex or Cursor record your screen, stop, export the video and take screenshots with winshotx, through the winshotx agent command or its MCP server. The red frame shows while they record, as always.</li>
     <li><b>Your microphone and the PC sound, each on its own track</b>: in the editor you turn each one up, down or off on its own.</li>
     <li><b>Sounds</b>: pick the click sound (soft, deep, tap or your own), and a short <b>marimba</b> tells you right before recording, without ending up in the video.</li>
@@ -115,7 +166,7 @@
 <section id="v0-4-0">
   <h2>Zooms you place, your own backgrounds and your webcam</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.4.0" rel="noopener">Version 0.4.0</a> · 12 November 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Zooms you place</b>: every zoom is a block on the timeline that you add, move, stretch or remove, and while recording <b>Ctrl+Shift+9</b> drops one where the mouse is. You can also cut a piece out of the middle and speed up the slow parts.</li>
     <li><b>Your own backgrounds</b> (an image, your wallpaper, any colour or a video that moves with the recording) and <b>your webcam</b>, wherever you want it, in a circle or a square and with a border.</li>
     <li>The <b>pointer</b>: smoothing none, little or a lot, a click sound and a ripple on every click, a motion trail, and it hides and zooms in while you type. With <b>named styles</b>, the same look carries over to the next recording.</li>
@@ -127,7 +178,7 @@
 <section id="v0-3-8">
   <h2>Trim on the timeline</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.8" rel="noopener">Version 0.3.8</a> · 8 November 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Trim</b> on the timeline: drag its two blue edges and the preview shows the exact cut, down to the millisecond.</li>
     <li>A new <b>Studio</b> panel: eight backgrounds, rounded corners and a shadow, a smooth pointer that loses the hand shake, the zoom speed and the volume.</li>
     <li>A <b>simpler</b> editor: drawing tools on top, play and time next to the timeline, and the save buttons named.</li>
@@ -139,7 +190,7 @@
 <section id="v0-3-7">
   <h2>Recordings keep their ending</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.7" rel="noopener">Version 0.3.7</a> · 29 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Recordings no longer lose their <b>ending</b> when the screen stops changing: they last exactly what the recording bar said, pauses left out.</li>
     <li>A <b>still</b> stretch in the middle of a recording keeps its full length, where before it was cut to 10 seconds.</li>
     <li>Hovering highlights the <b>window you can see</b>, not a smaller one hidden behind it.</li>
@@ -151,7 +202,7 @@
 <section id="v0-3-6">
   <h2>The toolbar no longer gets recorded</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.6" rel="noopener">Version 0.3.6</a> · 21 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The <b>recording toolbar</b> no longer ends up inside the video, not even when recording the whole screen: you still see it and click it, and the video shows what is behind.</li>
     <li>If your Windows does not support the <b>modern capture</b>, the settings say so, instead of leaving you guessing why photos of some windows come out with black patches.</li>
   </ul>
@@ -160,7 +211,7 @@
 <section id="v0-3-5">
   <h2>Shots without black holes</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.5" rel="noopener">Version 0.3.5</a> · 21 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Shots of windows drawn by the <b>graphics card</b> no longer come out with black holes.</li>
     <li>Photos now use the same modern capture as recordings: in the test, 19 to 34 of every 80 photos used to come out wrong, and now <b>none</b> do.</li>
     <li>Where Windows cannot use it without adding a yellow border, the <b>old capture</b> is still used, and taking a photo is no slower.</li>
@@ -170,7 +221,7 @@
 <section id="v0-3-4">
   <h2>A clearer editor</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.4" rel="noopener">Versions 0.3.3 to 0.3.4</a> · 17 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Recording a <b>small</b> strip, under 64 pixels a side, gives you a video again.</li>
     <li>One-click <b>aspect ratios</b>: 9:16, 4:5, 1:1 and 16:9, with the crop already placed and centred.</li>
     <li>The editor opens <b>right away</b> when you rescue the last few seconds, and saving is 22% faster.</li>
@@ -182,7 +233,7 @@
 <section id="v0-3-2">
   <h2>The marks follow the window</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.2" rel="noopener">Version 0.3.2</a> · 16 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The click <b>rings</b> and the mouse trail no longer stay behind when you move the window you are recording: they go with it.</li>
   </ul>
 </section>
@@ -190,7 +241,7 @@
 <section id="v0-3-1">
   <h2>Record a single window</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.1" rel="noopener">Version 0.3.1</a> · 16 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Press <b>W</b> with a window highlighted and only that window gets recorded.</li>
     <li>Whatever passes <b>in front of it</b> (a notification, another window, the file explorer) no longer lands in the video.</li>
   </ul>
@@ -199,7 +250,7 @@
 <section id="v0-3-0">
   <h2>Cover personal data in one click</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.3.0" rel="noopener">Version 0.3.0</a> · 16 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The editor's <b>shield</b> looks for emails, phone numbers, cards, bank accounts and ID numbers, and drops a mosaic over each one.</li>
     <li>It does not go by shape alone: it checks the <b>check digit</b> of the card and the IBAN, and the letter of the ID number, so it will not cover half a document by mistake.</li>
     <li><b>Copy the text</b> out of an image from inside the editor too, and from a recording.</li>
@@ -211,7 +262,7 @@
 <section id="v0-2-28">
   <h2>Capture straight into the editor</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.28" rel="noopener">Version 0.2.28</a> · 15 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Win+Shift+L</b> captures and opens the editor in one go, skipping the selection toolbar.</li>
     <li>Handy when you already know you are going to point at something, cover up a detail or crop before sending it.</li>
     <li>Your <b>usual shortcut</b> is untouched, and if another program has taken that combination, you can set your own in the settings.</li>
@@ -221,7 +272,7 @@
 <section id="v0-2-27">
   <h2>Marks stay inside the image</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.27" rel="noopener">Version 0.2.27</a> · 15 October 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The marks you draw on a shot (arrow, box, highlight, blur, numbered steps and text) no longer <b>land outside</b> the image.</li>
     <li>If you <b>crop</b> the shot, whatever falls outside now disappears instead of showing up squashed against the border.</li>
     <li>An arrow pointing outwards keeps its direction, and a step or a text against the edge fits <b>whole</b>.</li>
@@ -231,7 +282,7 @@
 <section id="v0-2-26">
   <h2>Save wherever you want</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.26" rel="noopener">Version 0.2.26</a> · 20 September 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Ctrl+Shift+S</b> saves each shot wherever you want, with the folder and name you choose, and Ctrl+S still goes to your usual folder.</li>
     <li>If you record while <b>narrating</b> with nothing playing on the speakers, your voice now makes it into the video.</li>
     <li>The <b>tray menu</b> no longer sneaks into the video while you record.</li>
@@ -242,7 +293,7 @@
 <section id="v0-2-25">
   <h2>See what is being recorded</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.25" rel="noopener">Version 0.2.25</a> · 12 September 2026</p>
-  <ul>
+  <ul class="lista">
     <li>A thin <b>red frame</b> surrounds what is being recorded, and the bar says whether it goes to MP4 or GIF and whether sound is coming in.</li>
     <li>The <b>pointer</b> in the video is your real cursor, with its own shape, and it can be drawn bigger without looking blocky or showing two.</li>
     <li>The click <b>zoom</b> moves with inertia instead of jumping, and it shows live in the editor before you save.</li>
@@ -253,7 +304,7 @@
 <section id="v0-2-24">
   <h2>The magnifier stays clear</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.24" rel="noopener">Version 0.2.24</a> · 9 September 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The <b>magnifier</b> no longer sits on top of what you are looking at: near an edge it flips to the other side.</li>
     <li>The <b>action bar</b> no longer ends up off screen: when the selection is as tall as the display, it moves inside, against the bottom edge.</li>
     <li>With full screen and the action bar turned on, the bar now appears so you can copy, save, edit or pin, the same as with <b>Ctrl+A</b>.</li>
@@ -263,7 +314,7 @@
 <section id="v0-2-23">
   <h2>The selection opens instantly</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.23" rel="noopener">Version 0.2.23</a> · 5 September 2026</p>
-  <ul>
+  <ul class="lista">
     <li>With three screens, the selection is already painted <b>114 milliseconds</b> after the shortcut, against 590 before.</li>
     <li>The “Getting the capture ready” screen is gone: no screen shows until its image is in place, and the one under the mouse goes <b>first</b>.</li>
   </ul>
@@ -272,7 +323,7 @@
 <section id="v0-2-22">
   <h2>Much faster GIFs</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.22" rel="noopener">Version 0.2.22</a> · 5 September 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Saving as GIF</b> is 4 to 36 times faster depending on quality, with truer colours.</li>
     <li>A GIF now lasts exactly as long as the recording did: it used to come out 10% <b>too fast</b>.</li>
     <li><b>Cropping and copying</b> answer sooner, because they no longer read the screen back from disk.</li>
@@ -282,7 +333,7 @@
 <section id="v0-2-21">
   <h2>Options at hand while capturing</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.21" rel="noopener">Versions 0.2.19 to 0.2.21</a> · 4 September 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Whether the <b>action bar</b> appears when you let go of the mouse is now chosen on the top bar (or with B), and it is remembered for next time.</li>
     <li>The <b>last few seconds</b> step aside for half a second while a capture opens, so the shortcut is not slowed down, and the rescued clip has no gap in it.</li>
     <li>The <b>Smoothness</b> row says what the measured combinations cost, and the most expensive one says it in amber.</li>
@@ -294,7 +345,7 @@
 <section id="v0-2-18">
   <h2>Captures open sooner</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.18" rel="noopener">Versions 0.2.13 to 0.2.18</a> · 31 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>With several screens, they are all frozen <b>at once</b> instead of one after another, so the selection shows up sooner and more steadily.</li>
     <li><b>Back to back</b> captures open sooner and no longer get slower one after another.</li>
     <li>The <b>first capture</b> of the day opens sooner too, because the selection windows get ready while the app starts.</li>
@@ -305,7 +356,7 @@
 <section id="v0-2-12">
   <h2>Leave with a single Esc</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.12" rel="noopener">Version 0.2.12</a> · 31 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>A single <b>Esc</b> closes the capture, where the first one used to just clear the selection.</li>
     <li>You can start a crop by <b>dragging</b> under the top bar, and with the pointer over it the bar steps aside so you can see what is underneath.</li>
   </ul>
@@ -314,7 +365,7 @@
 <section id="v0-2-11">
   <h2>About, and how to help</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.11" rel="noopener">Version 0.2.11</a> · 30 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Settings → The app now has an <b>About</b> section: who makes winshotx, the site, the code and where to report a bug.</li>
     <li>The <b>guided tour</b> ends on how you can help: a coffee, a star on GitHub or a bug report.</li>
   </ul>
@@ -323,7 +374,7 @@
 <section id="v0-2-10">
   <h2>The shutter makes a sound</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.10" rel="noopener">Version 0.2.10</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The <b>Shutter sound</b> setting finally does something: a camera click plays when you capture, copy, save, open in the editor, pin or read the text.</li>
     <li>It comes <b>off</b>, as before, and its row now has an explanation on hover.</li>
   </ul>
@@ -332,7 +383,7 @@
 <section id="v0-2-9">
   <h2>Saving videos 4.5 times faster</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.9" rel="noopener">Version 0.2.9</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>A 50 second recording took <b>two minutes</b> to save, and now it takes <b>27 seconds</b>.</li>
     <li>Shrinking a video no longer makes some <b>letters</b> thinner than others.</li>
     <li><b>Copying</b> a video leaves the file and its path too: where files can be dropped you paste the video, and in a text box, the path.</li>
@@ -342,7 +393,7 @@
 <section id="v0-2-8">
   <h2>A quieter bottom bar</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.8" rel="noopener">Version 0.2.8</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>When you are up to date, updates are just a <b>green tick</b> in the bottom bar, which is also the button to check again.</li>
     <li>The full sentence comes back when there is something to say: a <b>new version</b>, a download under way, a pending restart or an error.</li>
   </ul>
@@ -351,7 +402,7 @@
 <section id="v0-2-7">
   <h2>A new tray menu</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.7" rel="noopener">Version 0.2.7</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The <b>tray menu</b> is now a small winshotx window, with the same colours as the rest of the app.</li>
     <li>The last few seconds turn on with a <b>switch</b> right there, each entry shows its shortcut and the version sits on top.</li>
     <li>While you record, the record entry says <b>Stop</b>, and a second right click closes the menu.</li>
@@ -362,7 +413,7 @@
 <section id="v0-2-6">
   <h2>Every setting, explained</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.6" rel="noopener">Version 0.2.6</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Rest the mouse on a setting's <b>icon</b> and it explains what it does, what it costs and when to turn it on.</li>
     <li><b>28 of the 29</b> rows have an explanation, in Spanish and in English.</li>
     <li>It also shows with the <b>keyboard</b>, reaching the icon with Tab, and Escape hides it, so it works with a screen reader.</li>
@@ -372,7 +423,7 @@
 <section id="v0-2-5">
   <h2>Copy takes what you drew</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.5" rel="noopener">Version 0.2.5</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>When you <b>copy</b> a shot, what you paste now carries the arrows and boxes you drew, the crop, the frame, the scale and the zoom, as saving always did.</li>
   </ul>
 </section>
@@ -380,7 +431,7 @@
 <section id="v0-2-4">
   <h2>Play, for real this time</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.4" rel="noopener">Version 0.2.4</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The preview of what you rescue gets ready in <b>half the time</b> (from 21 to 11 seconds), and saving still comes out at the quality you ask for.</li>
     <li>While it gets ready, the button shows the <b>percentage</b> and looks disabled: “Preparing playback… 45%”.</li>
     <li>If the preview does not come out, it says so too, instead of leaving you <b>waiting</b>.</li>
@@ -391,7 +442,7 @@
 <section id="v0-2-3">
   <h2>Play works on rescued clips</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.3" rel="noopener">Version 0.2.3</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The <b>play</b> button now works on what you rescue from the last few seconds.</li>
     <li>The editor opens <b>right away</b> with what is ready, and play turns on by itself as soon as the preview video is done.</li>
     <li>Meanwhile the button shows up <b>disabled</b> with “preparing playback…” instead of just sitting there.</li>
@@ -402,7 +453,7 @@
 <section id="v0-2-2">
   <h2>Quality, by size</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.2" rel="noopener">Version 0.2.2</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The last few seconds row says where it records from, at what size and how many <b>megabytes per second</b> it writes to disk.</li>
     <li>Quality is picked by <b>size</b>: 720p, 1080p or the screen's own, and dropping to 720p keeps 30 seconds in 438 MB instead of 987 MB.</li>
     <li>When you pick a screen, its <b>number</b> shows on that screen for two seconds.</li>
@@ -413,7 +464,7 @@
 <section id="v0-2-1">
   <h2>Pick the screen and quality</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.1" rel="noopener">Version 0.2.1</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Pick which <b>screen</b> the last few seconds watch: the one with the mouse or a specific one, and if you unplug it, it falls back to the mouse's.</li>
     <li>Pick the <b>quality</b>: 15, 30 or 60 frames per second.</li>
     <li>Before you turn it on, it says how much <b>disk</b> it can take up, and that number is the real cap.</li>
@@ -425,7 +476,7 @@
 <section id="v0-2-0">
   <h2>The last few seconds, always recorded</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.2.0" rel="noopener">Version 0.2.0</a> · 29 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>The last few seconds</b>: winshotx keeps recording and throws away the old, and <b>Ctrl+Shift+6</b> keeps the last 15, 30 or 60 seconds without stopping.</li>
     <li>It comes <b>off</b> and is turned on in Settings → Record, and the row always says which screen it is watching and how much disk it uses.</li>
     <li>Pick the <b>speed</b> when saving a video (0.5×, 2× or 4×), and the panel warns beforehand that at any other speed it comes out silent.</li>
@@ -436,7 +487,7 @@
 <section id="v0-1-19">
   <h2>Zoom on clicks</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.19" rel="noopener">Version 0.1.19</a> · 28 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Zoom on clicks</b>: when saving, the camera moves in on where you click and follows the mouse smoothly, and it comes off by default.</li>
     <li>A big, sharp <b>pointer</b> can be drawn on the video, and the editor warns if the recording already has the Windows one, so you do not get two.</li>
     <li>The click <b>rings</b> and the shortcuts are decided in the editor when saving, so you can drop them without recording again.</li>
@@ -448,7 +499,7 @@
 <section id="v0-1-18">
   <h2>Crop and save as JPG</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.18" rel="noopener">Version 0.1.18</a> · 27 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Crop</b> the framing of a shot or a recording in the editor, not only its length.</li>
     <li>Save a shot as <b>JPG</b>, which weighs far less when you send it by email.</li>
     <li><b>C</b> copies the colour under the cursor, and the selection stays open in case you want more.</li>
@@ -460,7 +511,7 @@
 <section id="v0-1-17">
   <h2>Draw on your shots</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.17" rel="noopener">Version 0.1.17</a> · 27 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Draw</b> on a shot before saving it: arrow, box, text, highlight and hide details, with keys 1 to 5 and Ctrl+Z to undo.</li>
     <li><b>Pin</b> a shot on top of everything with A, and <b>T</b> copies the text out of the image without it leaving your computer.</li>
     <li>Put the shot on a <b>background</b> when saving, with margin and shadow.</li>
@@ -472,7 +523,7 @@
 <section id="v0-1-15">
   <h2>Records the system sound</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.15" rel="noopener">Versions 0.1.14 to 0.1.15</a> · 27 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>It records the <b>system sound</b>, which reaches the saved video and plays in the editor.</li>
     <li>Long recordings take up <b>far less</b> disk: only what changes between frames is stored.</li>
     <li>The <b>recording bar</b> stays on the screen you are recording.</li>
@@ -482,7 +533,7 @@
 <section id="v0-1-13">
   <h2>Now in English too</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.13" rel="noopener">Version 0.1.13</a> · 27 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>winshotx speaks <b>English</b>, and picks the language from Windows.</li>
     <li>It is translated <b>in full</b>, tray menu included.</li>
   </ul>
@@ -491,7 +542,7 @@
 <section id="v0-1-12">
   <h2>Light theme</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.12" rel="noopener">Version 0.1.12</a> · 26 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>A <b>light theme</b> arrives, following the Windows one by default.</li>
     <li>After an update, the app opens <b>Settings</b> instead of quietly going back to the tray.</li>
   </ul>
@@ -500,7 +551,7 @@
 <section id="v0-1-11">
   <h2>Countdown and repeat capture</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.11" rel="noopener">Version 0.1.11</a> · 26 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>R</b> takes the last capture again in the same spot, and <b>0</b> takes every screen at once in a single image.</li>
     <li>A <b>countdown</b> of 3 or 5 seconds before capturing, so you can shoot an open menu, and an option to hide the desktop icons in the shot.</li>
     <li>Two <b>guide lines</b> cross the screen while you aim, to line the crop up with whatever is on the far side.</li>
@@ -512,7 +563,7 @@
 <section id="v0-1-10">
   <h2>Each screen shows its own</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.10" rel="noopener">Version 0.1.10</a> · 26 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>With two or three monitors, the other screens showed the <b>main one repeated</b> and the crop came from it: not any more.</li>
     <li><b>Capturing is faster</b>: the selection windows get ready at startup and are reused, instead of being built for every capture.</li>
     <li>In exchange, the app takes a little longer to <b>start</b>, which happens once a day.</li>
@@ -522,7 +573,7 @@
 <section id="v0-1-9">
   <h2>A bar on top when capturing</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.9" rel="noopener">Version 0.1.9</a> · 25 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Selecting brings up a <b>bar on top</b>, where Windows puts its own, to pick photo, video or GIF before cropping (keys F, V and G).</li>
     <li>With several monitors, each screen shows its <b>number</b>, and 1, 2 or 3 takes that whole screen, wherever the mouse is.</li>
     <li>Highlighted windows carry <b>their name</b> on top, so it is clear a click captures them whole.</li>
@@ -534,7 +585,7 @@
 <section id="v0-1-8">
   <h2>Win+Shift+S without signing out</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.8" rel="noopener">Version 0.1.8</a> · 25 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>Taking <b>Win+Shift+S</b> no longer needs you to sign out: the <b>Apply</b> button restarts Explorer and it is ready in two seconds.</li>
     <li>Simpler settings: <b>four groups</b> instead of five, and eleven of the eighteen rows on a single line.</li>
     <li>A warning no longer reads like a fact: <b>amber</b> for what to read before touching, green for what is already sorted.</li>
@@ -546,7 +597,7 @@
 <section id="v0-1-7">
   <h2>Welcome and capture profiles</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.7" rel="noopener">Version 0.1.7</a> · 25 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The first time, a <b>welcome</b> walks you through what cannot be guessed: how to capture, the shortcuts and whether it starts with Windows.</li>
     <li>Two capture <b>profiles</b>: the selection copies itself when you let go of the mouse, or a bar with options comes up.</li>
     <li>The <b>Print Screen</b> key can open winshotx instead of the Snipping Tool.</li>
@@ -558,7 +609,7 @@
 <section id="v0-1-6">
   <h2>New logo and icon</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.6" rel="noopener">Version 0.1.6</a> · 24 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>winshotx gets a new <b>logo</b>, which is also the app icon and reads well in the system tray.</li>
     <li>The <b>shortcut</b> field no longer keeps waiting for keys after saving one, nor saves combinations Windows cannot use.</li>
   </ul>
@@ -567,7 +618,7 @@
 <section id="v0-1-5">
   <h2>More reliable settings and recording</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.5" rel="noopener">Versions 0.1.4 to 0.1.5</a> · 23 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The <b>Settings</b> window now fits on small displays or with enlarged text, and it refreshes every time you open it.</li>
     <li>The <b>recording bar</b> no longer stays floating with no buttons when something fails while stopping.</li>
     <li>Moving the end of the <b>trim</b> no longer skips a frame, which also ended up in the saved file.</li>
@@ -579,7 +630,7 @@
 <section id="v0-1-3">
   <h2>Update with one button</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.3" rel="noopener">Versions 0.1.2 to 0.1.3</a> · 21 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>The app <b>updates</b> from Settings with one button: it checks for a new version on its own and installs nothing until you press it.</li>
     <li>Every download is checked against a <b>signature</b>, so a tampered installer is rejected.</li>
     <li>Anyone on 0.1.1 or older has to install this one <b>by hand</b>, because those versions cannot tell them.</li>
@@ -590,7 +641,7 @@
 <section id="v0-1-1">
   <h2>Goodbye to the black screen</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.1" rel="noopener">Version 0.1.1</a> · 21 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li>In 0.1.0 the screen went <b>black</b> when capturing or recording and nothing could be done: fixed, and if it fails again it warns you and Esc gets you out.</li>
     <li><b>Ctrl+S</b> saves from the editor without reaching for the mouse.</li>
     <li>The recording bar warns in <b>amber</b> when the cache goes over 1 GB.</li>
@@ -602,7 +653,7 @@
 <section id="v0-1-0">
   <h2>First public release</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.1.0" rel="noopener">Version 0.1.0</a> · 20 August 2026</p>
-  <ul>
+  <ul class="lista">
     <li><b>Capture</b> a region over the frozen screen, with a magnifier that gives the exact colour of each pixel, or a whole window with one click.</li>
     <li><b>Record</b> the region at 15, 30 or 60 frames per second.</li>
     <li>An <b>editor</b> with thumbnails, start and end trimming, loop playback and resizing that keeps the proportions.</li>
@@ -610,17 +661,59 @@
     <li>A <b>1.5 MB</b> installer, no administrator rights and nothing else to install.</li>
   </ul>
 </section>
-
+      </div>
+    </div>
+  </div>
 </main>
 
-<footer>
+<footer class="pie">
   <div class="env">
-    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
-    <a href="../privacy/">Privacy</a>
-    <span>Made by <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">report a problem</a></span>
-    <a class="cafe" href="https://buymeacoffee.com/munito" rel="noopener"><svg class="chico"><use href="#i-coffee"/></svg> <span>Buy me a coffee</span></a>
+    <div class="pie-rejilla">
+      <div class="quien">
+        <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+        <p>Screenshots and screen recording for Windows. Free, open source and with no account.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Product</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download</a></li>
+          <li><a href="../changelog/">What's new</a></li>
+          <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Portable version</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Help</h2>
+        <ul>
+          <li><a href="../docs/">Docs</a></li>
+          <li><a href="../#preguntas">Questions</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/issues" rel="noopener">Report a bug</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Code</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/blob/main/LICENSE" rel="noopener">MIT licence</a></li>
+          <li><a href="../docs/#agentes">For AI agents</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">More</h2>
+        <ul>
+          <li><a href="../privacy/">Privacy</a></li>
+          <li><a href="https://buymeacoffee.com/munito" rel="noopener">Buy me a coffee</a></li>
+          <li><a class="valvula sin-mov" href="?motion=off">Fewer animations</a><a class="valvula con-mov" href="./">All animations</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pie-abajo">
+      <span>© 2026 winshotx · Made by <a href="https://munito.dev">Munir Torres</a></span>
+      <span>No accounts, no cloud and no surprises</span>
+    </div>
   </div>
 </footer>
 
+<script src="../../leer.js?v=6f97ed17"></script>
 </body>
 </html>
