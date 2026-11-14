@@ -16,6 +16,7 @@ on:
       - "packaging/linux/**"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/linux.yml"
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - "packaging/linux/**"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/linux.yml"
   workflow_dispatch:
 
@@ -87,7 +89,12 @@ jobs:
       - name: System libraries
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends             pkg-config clang libclang-dev             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev             libdbus-1-dev libpipewire-0.3-dev libgbm-dev libdrm-dev libwayland-dev             libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev             patchelf file xdg-utils
+          apt-get install -y --no-install-recommends \
+            pkg-config clang libclang-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
+            libdbus-1-dev libpipewire-0.3-dev libgbm-dev libdrm-dev libwayland-dev \
+            libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
+            patchelf file xdg-utils
 
       - uses: pnpm/action-setup@v4
         with:
