@@ -47,6 +47,28 @@ const ESPERA_HISTORIAL_MS = 250;
 
 const esperar = (ms: number) => new Promise<null>((listo) => window.setTimeout(() => listo(null), ms));
 
+/**
+ * Lo que se espera como mucho al siguiente cuadro antes de contestar a una apertura.
+ *
+ * Rust tiene el menú aparcado fuera de las pantallas hasta que la página contesta a ESA
+ * apertura (issue #15: un menú sin pintar salía a la vista en blanco). Se contesta con el
+ * cuadro siguiente, que es el que se va a ver, pero un navegador aparcado puede no pintar
+ * cuadros (lo mismo que el overlay): si no llega en este plazo, se contesta igual, que una
+ * página que contesta está viva.
+ */
+const PLAZO_CUADRO_MS = 30;
+
+function alSiguienteCuadro(hacer: () => void) {
+  let hecho = false;
+  const una = () => {
+    if (hecho) return;
+    hecho = true;
+    hacer();
+  };
+  requestAnimationFrame(una);
+  window.setTimeout(una, PLAZO_CUADRO_MS);
+}
+
 /** «hace 3 min», que es lo unico que hace falta saber de cuando se hizo. */
 function hace(segundos: number, t: (texto: string, vars?: Record<string, string | number>) => string): string {
   if (segundos < 60) return t("hace un momento");
@@ -87,26 +109,45 @@ export function TrayMenu() {
     setEstado(suyo);
   }, []);
 
+  /** La apertura que ha avisado Rust la última vez; 0 en una página recién cargada. */
+  const apertura = useRef(0);
+
+  // La ventana se ajusta a lo que mide el menú: con el anillo apagado hay una entrada
+  // menos, y un alto fijo dejaría un trozo vacío debajo. Cada medida dice además a qué
+  // apertura contesta.
+  const medir = useCallback(() => {
+    const caja = tarjeta.current;
+    if (!caja) return;
+    void resizeTrayMenu(Math.ceil(caja.getBoundingClientRect().height), apertura.current);
+  }, []);
+
   useEffect(() => {
     void cargar();
     const etiqueta = getCurrentWindow().label;
-    const unlisten = listen(EVENTS.trayMenuOpened, () => void cargar(), { target: etiqueta });
+    const unlisten = listen<number | null>(
+      EVENTS.trayMenuOpened,
+      (evento) => {
+        apertura.current = typeof evento.payload === "number" ? evento.payload : 0;
+        // Primero se contesta con lo que ya hay pintado, y luego se relee el estado: el
+        // historial puede tardar un cuarto de segundo y el menú no tiene que esperarlo.
+        alSiguienteCuadro(medir);
+        void cargar();
+      },
+      { target: etiqueta },
+    );
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [cargar]);
+  }, [cargar, medir]);
 
-  // La ventana se ajusta a lo que mide el menú: con el anillo apagado hay una entrada
-  // menos, y un alto fijo dejaría un trozo vacío debajo.
   useEffect(() => {
     const caja = tarjeta.current;
     if (!caja) return;
-    const medir = () => void resizeTrayMenu(Math.ceil(caja.getBoundingClientRect().height));
     medir();
     const observador = new ResizeObserver(medir);
     observador.observe(caja);
     return () => observador.disconnect();
-  }, [estado]);
+  }, [estado, medir]);
 
   // Escape cierra, como cualquier menú.
   useEffect(() => {

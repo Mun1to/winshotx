@@ -192,8 +192,12 @@ SetWindowLongPtrW(hwnd, GWL_EXSTYLE, actual | WS_EX_NOACTIVATE as isize | WS_EX_
 ```
 
 `WS_EX_NOACTIVATE` es una propiedad de la ventana, no del momento en que se muestra: Windows deja
-de activarla para siempre, tambien al hacerle clic encima. Vive en
-`platform::window_style::never_focus` y se aplica una sola vez, al construirla.
+de activarla, tambien al hacerle clic encima. Vive en `platform::window_style::never_focus`.
+
+**CORREGIDA el 14 de noviembre de 2026:** «se aplica una sola vez, al construirla» no basta. tao
+reescribe el estilo extendido entero en cada `show()` y `hide()` de Tauri, y se lleva el bit por
+delante: con el arreglo tal cual estaba, la segunda cuenta atras volvia a poder quitar el foco.
+Ahora lo mantiene un vigilante en la ventana; ver la trampa 51.
 
 **Cuidado con lo que eso implica:** una ventana que nunca coge el foco tampoco recibe teclado. Por
 eso durante la cuenta atras no se puede pulsar Escape para cancelar, y esta aceptado a proposito:
@@ -1396,3 +1400,52 @@ Lo que si vale: comparar el color de la foto con el dibujo que se le dio a la ve
 pinta y que cambia al pausar. Para mirarlo encima de algo (`ver_el_marco`), el color sale de la
 foto y el alfa del dibujo. Como queda encima de las ventanas de verdad solo se ve en una
 grabacion de verdad.
+
+## 51. Todas las ventanas de Tauri dicen ser ventanas de la aplicacion, y tao lo repite en cada `show()`
+
+La issue #15: al parar una grabacion se abria el editor y encima salia un recuadro blanco sin
+nada, del ancho exacto del menu de la bandeja (284 px logicos). Quien la abrio usa MyDockFinder,
+un dock de terceros con la bandeja en una barra de arriba, y al pulsar en lo blanco se convertia
+en el menu. Era el menu, escondido, ensennado por fuera y sin pintar.
+
+Dos cosas de Tauri que lo permiten, y ninguna da error:
+
+- **Toda ventana sin padre lleva `WS_EX_APPWINDOW`**, la marca de «ventana de la aplicacion»
+  (tao, `WindowFlags::ON_TASKBAR`). `skip_taskbar(true)` no la quita: le borra el boton a la
+  barra de tareas de Windows con `ITaskbarList::DeleteTab`, y nada mas. Un dock o una barra de
+  terceros no mira ese boton, mira la marca, y trata un menu, un overlay o una cuenta atras como
+  una ventana mas de la app que puede volver a ensennar.
+- **tao reescribe el estilo extendido ENTERO cada vez que cambia algo de la ventana**, tambien al
+  ensennarla o esconderla (`WindowFlags::apply_diff` hace `SetWindowLongW(GWL_EXSTYLE, ...)` con lo
+  que calcula el). Cualquier bit puesto a mano (`WS_EX_TOOLWINDOW`, `WS_EX_NOACTIVATE`) dura hasta
+  el siguiente `show()` o `hide()` de Tauri. Asi se perdia el arreglo de la trampa 9.
+
+**El arreglo es un vigilante en el procedimiento de la ventana** (`platform/guardia.rs`):
+`SetWindowLongPtrW(GWLP_WNDPROC)` con uno propio que, en `WM_STYLECHANGING`, vuelve a poner
+`WS_EX_TOOLWINDOW` (y lo que pida quien llama) y quita `WS_EX_APPWINDOW` en cada reescritura. Al
+menu se le pone ademas un cerrojo: en `WM_WINDOWPOSCHANGING` se le quita `SWP_SHOWWINDOW` a todo
+intento de ensennarlo que winshotx no haya permitido antes, y el permiso se gasta al esconderlo.
+Asi nada de fuera lo saca, venga por `ShowWindow`, `SetWindowPos`, `WS_VISIBLE` a pelo o desde
+otro proceso.
+
+- **`SetWindowLongPtrW` y no `SetWindowSubclass`:** el de comctl32 solo existe en la v6, que el
+  ejecutable de `cargo test --lib` no carga (no lleva manifiesto); con el dentro no arrancaria
+  ninguna prueba.
+- **Minimizar desde fuera una ventana escondida la rompe para siempre:** `ShowWindow(SW_MINIMIZE)`
+  la deja minimizada en -32000, y el `show()` de Tauri la ensenna minimizada, en ningun sitio. Con
+  el codigo de antes, el menu ya no volvia a salir en toda la sesion. Ahora, si esta minimizada,
+  se rehace.
+- **Una pagina de WebView2 muerta se queda en blanco toda la sesion:** ni wry ni Tauri escuchan
+  `ProcessFailed`. Por eso el menu no sale a la vista hasta que su pagina contesta a ESA apertura
+  (con el numero que le manda Rust), y si no contesta en un segundo se rehace la ventana.
+
+Se prueba sin pantalla en `platform::guardia::tests` (ventanas de Windows a pelo, con el
+`WS_EX_APPWINDOW` de Tauri) y, con la app de verdad fuera de las pantallas, con un banco que
+levanta el menu real con su pagina (no va en `cargo test --lib` porque enlaza wry, que pide
+comctl32 v6; roba el foco un instante en cada apertura). Con el codigo de antes, ese banco da
+11 pasos en rojo; con el arreglo, ninguno.
+
+Lo que queda sin el vigilante a proposito: los overlays y la barra de grabar. Los overlays van a
+pantalla completa y por encima de la barra de tareas, y cambiarles el tipo de ventana sin poder
+mirarlo en una pantalla de verdad era arriesgar la captura entera; la barra de grabar se crea y
+se cierra en cada grabacion, no se queda escondida.

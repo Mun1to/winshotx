@@ -14,7 +14,7 @@
 //! 34 de `docs/TRAMPAS.md`: una ventana escondida no arranca su interfaz, y nada que toque
 //! una ventana puede hacerse desde otro hilo.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -118,9 +118,15 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     // transparente: eso deja un halo negro alrededor. Trampa conocida de esta app.
     crate::platform::window_style::rounded_corners(&window);
 
+    // Issue #15: un dock de terceros (MyDockFinder, con la bandeja en su barra de arriba)
+    // enseñaba este menú escondido, en blanco, encima del editor. Tauri lo marca como
+    // ventana de la app; fuera de esa lista, y con cerrojo: solo lo enseña `mostrar`.
+    crate::platform::guardia::fuera_de_la_lista(&window, 0, true);
+
     // Aqui se esta en el hilo principal (lo llama el clic de la bandeja), asi que preguntar
     // por la ventana a pelo no espera a nadie.
     let menu = window.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+    MENU.store(menu, Ordering::Relaxed);
 
     // Un menu se cierra al pulsar en otro sitio. El del sistema lo hacia solo; aqui se
     // hace al perder el foco, que es lo mismo visto desde dentro... casi siempre.
@@ -170,6 +176,11 @@ fn al_perder_el_foco(app: &AppHandle, menu: isize) {
         let en_el_principal = app.clone();
         let _ = app.run_on_main_thread(move || {
             let app = en_el_principal;
+            // La que pierde el foco es una que [`rehacer`] acaba de tirar: no es la de ahora,
+            // y esconder la de ahora la dejaria sin salir.
+            if menu != MENU.load(Ordering::Relaxed) {
+                return;
+            }
             let delante = crate::platform::window_style::primer_plano();
             if menu != 0 && delante == menu {
                 if ENFOCADO.load(Ordering::Relaxed) {
@@ -217,9 +228,16 @@ fn apuntar(app: &AppHandle, que: &str) {
     }
 }
 
+/// La ventana del menu a pelo, guardada al crearla: se esconde desde los hilos de las
+/// ordenes, y preguntarle a Tauri por ella desde ahi espera sin plazo (trampa 34).
+static MENU: AtomicIsize = AtomicIsize::new(0);
+
 pub fn esconder(app: &AppHandle) {
-    APARCADO_ESPERANDO.store(false, Ordering::Relaxed);
+    ESPERANDO.store(0, Ordering::Relaxed);
     if let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) {
+        // Por Windows y por Tauri: si algo de fuera la hubiera ensennado, Tauri la seguiria
+        // creyendo escondida y su `hide()` no haria nada (la miniatura de la 0.4.0).
+        crate::platform::window_style::esconder_hwnd(MENU.load(Ordering::Relaxed));
         let _ = window.hide();
     }
 }
@@ -249,86 +267,170 @@ fn esta_a_la_vista(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-/// Donde se aparca el menu mientras su pagina carga la primera vez: fuera de todas las
-/// pantallas, pero visible, para que el navegador de dentro pinte (escondido, Windows lo
-/// duerme, trampa 33). Es lo mismo que hacen los overlays.
+/// Donde se aparca el menu mientras su pagina contesta: fuera de todas las pantallas, pero
+/// visible, para que el navegador de dentro pinte (escondido, Windows lo duerme, trampa
+/// 33). Es lo mismo que hacen los overlays.
 const APARCADO: (i32, i32) = (-20_000, -20_000);
 
 /// Lo que mide la pagina, como poco, cuando ya tiene el menu dentro. Antes de cargar mide
 /// cero (la caja vacia) y la ventana se queda en 80.
 const ALTO_CON_MENU: f64 = 120.0;
 
-/// Si la primera apertura sigue aparcada esperando a que la pagina se mida.
-static APARCADO_ESPERANDO: AtomicBool = AtomicBool::new(false);
+/// Cada apertura lleva su numero, y la pagina lo devuelve al medirse.
+static APERTURA: AtomicU32 = AtomicU32::new(0);
 
-/// Lo que se espera a la pagina antes de sacar el menu aunque no se haya medido.
-const RESCATE_APARCADO: Duration = Duration::from_millis(1500);
+/// La apertura que espera aparcada a que su pagina conteste; 0 si ninguna.
+static ESPERANDO: AtomicU32 = AtomicU32::new(0);
+
+/// Si la que espera es una ventana recien creada: su pagina todavia no sabe ningun numero
+/// y contesta con 0.
+static ESPERANDO_NUEVA: AtomicBool = AtomicBool::new(false);
+
+/// Lo que se espera a una pagina recien creada antes de sacar el menu aunque no conteste:
+/// tarda medio segundo en cargar, y sin menu no se puede ni salir de la app.
+const RESCATE_NUEVA: Duration = Duration::from_millis(1500);
+
+/// Lo que se espera a una pagina que ya estaba cargada. Contesta en unas decenas de ms; si
+/// en un segundo no lo ha hecho, esta muerta o colgada y se rehace la ventana.
+const RESCATE_REUTILIZADA: Duration = Duration::from_millis(1000);
+
+/// La pantalla del icono de la bandeja.
+fn pantalla_del_anclaje(anclaje: (i32, i32)) -> Option<MonitorSitio> {
+    monitor_de(anclaje.0, anclaje.1)
+}
 
 /// Lo coloca sobre el icono de la bandeja y lo ensenna.
 ///
-/// **La primera vez no sale hasta que esta entero.** La ventana se crea en ese clic y su
-/// pagina tarda medio segundo en cargar: ensennada ya, salia vacia con 300 px, encogia a
-/// 80, crecia con el menu y volvia a crecer con las ultimas capturas, cuatro saltos delante
-/// de Munir («la primera como que parpadea pero no se abre bien»). Ahora se aparca fuera de
-/// las pantallas y es [`redimensionar`] quien la trae cuando la pagina mide el menu entero.
+/// **No sale a la vista hasta que su pagina contesta a ESA apertura.** Se ensenna aparcado
+/// fuera de las pantallas, se le avisa con el numero de la apertura, y es [`redimensionar`]
+/// quien lo trae cuando la pagina contesta con ese numero.
+///
+/// - La primera vez, porque la ventana se crea en ese clic y su pagina tarda medio segundo:
+///   ensennada ya, salia vacia con 300 px, encogia a 80, crecia con el menu y volvia a crecer
+///   con las ultimas capturas, cuatro saltos delante de Munir («la primera como que
+///   parpadea pero no se abre bien»).
+/// - Las demas, desde la issue #15: un menu sin pintar salia a la vista en blanco. Una
+///   pagina que ya estaba cargada contesta en unas decenas de ms; si no contesta, la
+///   ventana se rehace con una pagina nueva ([`rehacer`]) en vez de sacar una en blanco.
 fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
+    *ULTIMO_ANCLAJE.lock() = Some(anclaje);
     let nueva = app.get_webview_window(TRAY_MENU_LABEL).is_none();
-    apuntar(app, if nueva { "clic: se abre por primera vez" } else { "clic: se abre" });
-    DEVUELTOS.store(0, Ordering::Relaxed);
-    let window = ventana(app)?;
-    if nueva {
-        *ULTIMO_ANCLAJE.lock() = Some(anclaje);
-        APARCADO_ESPERANDO.store(true, Ordering::Relaxed);
-        let _ = window.set_position(PhysicalPosition::new(APARCADO.0, APARCADO.1));
-        crate::platform::window_style::fuera_de_la_captura(
-            &window,
-            app.state::<crate::state::AppState>().is_recording(),
-        );
-        window.show()?;
-        window.set_focus()?;
-        apuntar(app, "aparcado fuera de la pantalla hasta que la pagina se mida");
-        // Si la pagina no llega a medirse, el menu sale igual: sin el no se puede ni salir.
-        let suyo = app.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(RESCATE_APARCADO);
-            let en_el_principal = suyo.clone();
-            let _ = suyo.run_on_main_thread(move || {
-                if APARCADO_ESPERANDO.swap(false, Ordering::Relaxed) {
-                    apuntar(&en_el_principal, "la pagina no se ha medido a tiempo: se saca igual");
-                    colocar(&en_el_principal);
-                }
-            });
-        });
+    let menu = MENU.load(Ordering::Relaxed);
+    if !nueva && crate::platform::window_style::minimizada(menu) {
+        // `show()` la ensennaria minimizada, en ningun sitio que se vea.
+        apuntar(app, "clic: algo de fuera lo ha minimizado, se rehace");
+        rehacer(app);
         return Ok(());
     }
-    let escala = window.scale_factor().unwrap_or(1.0);
-    let medida = window
-        .outer_size()
-        .unwrap_or(PhysicalSize::new(
-            (MENU_ANCHO * escala) as u32,
-            (MENU_ALTO_INICIAL * escala) as u32,
-        ));
-
-    *ULTIMO_ANCLAJE.lock() = Some(anclaje);
-    let (x, y) = sitio_del_menu(
-        anclaje,
-        medida.width as i32,
-        medida.height as i32,
-        monitor_de(anclaje.0, anclaje.1),
-    );
-    let _ = window.set_position(PhysicalPosition::new(x, y));
+    apuntar(app, if nueva { "clic: se abre por primera vez" } else { "clic: se abre" });
+    // Lo que la #15 no podia contar: si algo de fuera ha intentado ensennarlo escondido.
+    let vetos = crate::platform::guardia::vetos(menu);
+    if vetos > 0 {
+        apuntar(app, &format!("algo de fuera ha intentado ensennarlo {vetos} veces: no ha podido"));
+    }
+    DEVUELTOS.store(0, Ordering::Relaxed);
+    let window = ventana(app)?;
+    let apertura = APERTURA.fetch_add(1, Ordering::Relaxed).wrapping_add(1).max(1);
+    ESPERANDO_NUEVA.store(nueva, Ordering::Relaxed);
+    ESPERANDO.store(apertura, Ordering::Relaxed);
+    let _ = window.set_position(PhysicalPosition::new(APARCADO.0, APARCADO.1));
     // La ventana se reutiliza de una vez para otra, asi que esto se decide cada vez que se
     // abre y no al crearla: grabando, fuera del video; el resto del tiempo, normal.
     crate::platform::window_style::fuera_de_la_captura(
         &window,
         app.state::<crate::state::AppState>().is_recording(),
     );
+    crate::platform::guardia::permitir(MENU.load(Ordering::Relaxed));
     window.show()?;
     window.set_focus()?;
-    // La ventana se reutiliza, asi que hay que decirle que vuelva a leer el estado: el
-    // anillo puede haberse encendido desde los ajustes desde la ultima vez.
-    let _ = window.emit_to(TRAY_MENU_LABEL, crate::EVENT_TRAY_MENU_OPENED, ());
+    if !nueva {
+        // Que vuelva a leer el estado (el anillo puede haberse encendido desde los ajustes)
+        // y que conteste con este numero. Una recien creada lee el estado al cargar.
+        let _ = window.emit_to(TRAY_MENU_LABEL, crate::EVENT_TRAY_MENU_OPENED, apertura);
+    }
+    apuntar(app, &format!("apertura {apertura}: aparcado hasta que la pagina conteste"));
+
+    let suyo = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(if nueva { RESCATE_NUEVA } else { RESCATE_REUTILIZADA });
+        let en_el_principal = suyo.clone();
+        let _ = suyo.run_on_main_thread(move || {
+            let app = en_el_principal;
+            if ESPERANDO
+                .compare_exchange(apertura, 0, Ordering::Relaxed, Ordering::Relaxed)
+                .is_err()
+            {
+                return;
+            }
+            if nueva {
+                apuntar(&app, "la pagina no se ha medido a tiempo: se saca igual");
+                colocar(&app);
+            } else {
+                apuntar(&app, "la pagina no ha contestado: se rehace la ventana");
+                rehacer(&app);
+            }
+        });
+    });
     Ok(())
+}
+
+/// Lo que se espera entre vistazos a que Tauri suelte la ventana destruida.
+const RELEVO: Duration = Duration::from_millis(50);
+/// Y cuantos vistazos, como mucho, antes de abrir los ajustes en su lugar.
+const RELEVOS: u32 = 20;
+
+/// Tira la ventana del menu y abre otra en el mismo sitio, con una pagina nueva.
+///
+/// Para cuando la de ahora no sirve: su pagina no contesta (el proceso del navegador de
+/// dentro se ha caido o colgado, y ni wry ni Tauri escuchan `ProcessFailed`: sin esto, el
+/// menu se quedaria en blanco para toda la sesion) o algo de fuera la ha minimizado.
+///
+/// `destroy()` va por el bucle de la app, asi que la etiqueta no queda libre hasta una
+/// vuelta despues: se mira cada poco, y la nueva se abre en cuanto la vieja se ha ido.
+fn rehacer(app: &AppHandle) {
+    let Some(anclaje) = *ULTIMO_ANCLAJE.lock() else {
+        return;
+    };
+    ESPERANDO.store(0, Ordering::Relaxed);
+    let vieja = MENU.swap(0, Ordering::Relaxed);
+    if let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) {
+        crate::platform::window_style::esconder_hwnd(vieja);
+        let _ = window.destroy();
+    }
+    let suyo = app.clone();
+    std::thread::spawn(move || {
+        for _ in 0..RELEVOS {
+            std::thread::sleep(RELEVO);
+            let (listo, hecho) = std::sync::mpsc::channel();
+            let en_el_principal = suyo.clone();
+            let _ = suyo.run_on_main_thread(move || {
+                let app = en_el_principal;
+                let terminado = match app.get_webview_window(TRAY_MENU_LABEL) {
+                    // Sigue la vieja: todavia no se ha ido.
+                    Some(w) if w.hwnd().map(|h| h.0 as isize).unwrap_or(0) == vieja => false,
+                    // Ya hay otra: la ha abierto un clic mientras tanto.
+                    Some(_) => true,
+                    None => {
+                        if let Err(error) = mostrar(&app, anclaje) {
+                            eprintln!("[bandeja] no se ha podido rehacer el menú: {error}");
+                            let _ = crate::windows_mgr::show_settings(&app);
+                        }
+                        true
+                    }
+                };
+                let _ = listo.send(terminado);
+            });
+            if hecho.recv_timeout(Duration::from_secs(5)).unwrap_or(true) {
+                return;
+            }
+        }
+        // Sin menu no habria ni forma de salir: los ajustes tienen su boton de Salir.
+        let en_el_principal = suyo.clone();
+        let _ = suyo.run_on_main_thread(move || {
+            apuntar(&en_el_principal, "la ventana vieja no se va: se abren los ajustes");
+            let _ = crate::windows_mgr::show_settings(&en_el_principal);
+        });
+    });
 }
 
 /// Abre el menu, o lo cierra si ya estaba abierto.
@@ -351,12 +453,14 @@ pub fn alternar(app: &AppHandle, anclaje: (i32, i32)) {
     }
 }
 
-/// Le da a la ventana el alto que ha medido su contenido.
+/// Le da a la ventana el alto que ha medido su contenido, y la trae a su sitio si estaba
+/// aparcada esperando a que su pagina contestara a esta apertura (`apertura`, 0 si la
+/// pagina acaba de cargar y aun no sabe ninguna).
 ///
 /// Se vuelve a colocar despues de crecer: el menu esta anclado al icono de la bandeja por
 /// su borde de ABAJO, asi que si solo cambiara el alto, crecería hacia abajo y se metería
 /// debajo de la barra de tareas.
-pub fn redimensionar(app: &AppHandle, alto: f64) {
+pub fn redimensionar(app: &AppHandle, alto: f64, apertura: u32) {
     let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) else {
         return;
     };
@@ -365,16 +469,47 @@ pub fn redimensionar(app: &AppHandle, alto: f64) {
     let alto_px = (alto * escala).round().max(80.0) as u32;
     let _ = window.set_size(PhysicalSize::new(ancho, alto_px));
 
-    // La primera apertura, aparcada: solo sale cuando la pagina ya tiene el menu dentro.
-    if APARCADO_ESPERANDO.load(Ordering::Relaxed) {
+    let esperando = ESPERANDO.load(Ordering::Relaxed);
+    if esperando != 0 {
+        if !es_la_que_espera(apertura, esperando, ESPERANDO_NUEVA.load(Ordering::Relaxed)) {
+            apuntar(
+                app,
+                &format!("contesta la apertura {apertura} y se espera la {esperando}: sigue aparcado"),
+            );
+            return;
+        }
         if alto < ALTO_CON_MENU {
             apuntar(app, &format!("la pagina mide {alto:.0}: aun vacia, sigue aparcado"));
             return;
         }
-        APARCADO_ESPERANDO.store(false, Ordering::Relaxed);
-        apuntar(app, &format!("la pagina mide {alto:.0}: se trae a su sitio"));
+        if ESPERANDO
+            .compare_exchange(esperando, 0, Ordering::Relaxed, Ordering::Relaxed)
+            .is_err()
+        {
+            return;
+        }
+        apuntar(
+            app,
+            &format!("la pagina contesta a la apertura {esperando} y mide {alto:.0}: se trae a su sitio"),
+        );
+        colocar(app);
+        return;
     }
-    colocar(app);
+    // Ya en su sitio, crece o encoge (las ultimas capturas llegan despues) y se recoloca.
+    // Escondido no se mueve: la proxima apertura lo aparca igual.
+    if window.is_visible().unwrap_or(false) {
+        colocar(app);
+    }
+}
+
+/// Si una respuesta de la pagina es la de la apertura que espera aparcada.
+///
+/// Solo la de su numero: una medida que llega tarde de la vez anterior (el historial tarda
+/// un cuarto de segundo) no dice nada de si la pagina esta viva ahora. El 0 es el de una
+/// pagina recien cargada, que aun no ha recibido ningun numero, y solo vale si la ventana
+/// que espera es nueva: en una reutilizada, un 0 es de antes de la primera reapertura.
+fn es_la_que_espera(apertura: u32, esperando: u32, nueva: bool) -> bool {
+    esperando != 0 && (apertura == esperando || (apertura == 0 && nueva))
 }
 
 /// Pone el menu encima del icono de la bandeja, con el alto que tenga ahora.
@@ -390,7 +525,7 @@ fn colocar(app: &AppHandle) {
             anclaje,
             ancho as i32,
             alto_px as i32,
-            monitor_de(anclaje.0, anclaje.1),
+            pantalla_del_anclaje(anclaje),
         );
         let _ = window.set_position(PhysicalPosition::new(x, y));
     }
@@ -444,5 +579,15 @@ mod tests {
         );
         assert!((-1912..0).contains(&x), "se ha ido a la pantalla principal: {x}");
         assert_eq!(y, 742);
+    }
+
+    /// Issue #15: el menu solo sale a la vista cuando su pagina contesta a ESA apertura.
+    #[test]
+    fn solo_vale_la_respuesta_de_esta_apertura() {
+        assert!(es_la_que_espera(7, 7, false));
+        assert!(!es_la_que_espera(6, 7, false), "una respuesta vieja lo ha sacado");
+        assert!(!es_la_que_espera(0, 7, false), "un 0 en una ventana reutilizada lo ha sacado");
+        assert!(es_la_que_espera(0, 1, true), "la pagina recien cargada contesta con 0");
+        assert!(!es_la_que_espera(7, 0, false), "sin nadie esperando no hay nada que sacar");
     }
 }
