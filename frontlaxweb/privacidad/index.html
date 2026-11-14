@@ -30,6 +30,19 @@
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
+<script>
+// El dial de movimiento de la casa, igual que en la portada (ver index.html): sin él, el
+// enlace «Menos animaciones» del pie no hacía nada en esta página.
+(function () {
+  var h = document.documentElement;
+  var q = new URLSearchParams(location.search).get("motion");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var gain = q === "off" ? 0 : q === "full" ? 1 : reduce ? 0.25 : 1;
+  h.style.setProperty("--motion-gain", String(gain));
+  h.classList.toggle("motion", gain > 0);
+  h.classList.toggle("quieto", gain === 0);
+})();
+</script>
 <link rel="stylesheet" href="../estilos.css?v=82afc1c2">
 <script type="application/ld+json">
 {
