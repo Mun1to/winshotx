@@ -25,3 +25,7 @@
 
 /*.svg
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# Las fotos de la portada y de la guía (img/) tampoco llevan huella: como las PNG.
+/*.webp
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
