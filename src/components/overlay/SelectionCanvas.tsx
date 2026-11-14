@@ -1088,6 +1088,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       : null;
   const highlight = !active && hovered ? hovered : null;
   const sitioBarra = active ? sitioDeLaBarra(active, window.innerHeight) : null;
+  const conBarraDeAcciones =
+    active !== null && mode.kind === "idle" && !alVuelo && !alEditor && !conScroll;
+  /**
+   * Si la barra de acciones se ha ido ENCIMA del recorte (debajo no cabía): ahí es donde va
+   * la etiqueta de la medida, y la tapaba entera. Pasa con todo recorte alto pegado abajo,
+   * y con 9:16 pasa a menudo, justo cuando la etiqueta dice la proporción. Visto en una
+   * ventana de verdad, en la pantalla de abajo al 125 % (S27).
+   */
+  const barraEncima =
+    conBarraDeAcciones && sitioBarra !== null && sitioBarra.volteada && sitioBarra.top <= active!.y;
   const magnifierVisible =
     cursorAqui &&
     payload.settings.showMagnifier &&
@@ -1171,7 +1181,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
                 : "libre"
             }
             left={active.x + 2}
-            top={active.y > 30 ? active.y - 30 : active.y + 6}
+            top={!barraEncima && active.y > 30 ? active.y - 30 : active.y + 6}
           />
         </>
       )}
@@ -1207,7 +1217,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       )}
 
       <AnimatePresence>
-        {active && mode.kind === "idle" && !alVuelo && !alEditor && !conScroll && (
+        {conBarraDeAcciones && active && (
           <FloatingToolbar
             key="toolbar"
             left={clamp(active.x + active.width / 2, 190, window.innerWidth - 190)}

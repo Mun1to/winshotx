@@ -582,6 +582,25 @@ describe("la proporción fija (S27)", () => {
     await waitFor(() => expect(botonProporcion().title).toBe("Proporción del recorte: libre · X"));
   });
 
+  it("si la barra de acciones sube encima del recorte, la medida se mete dentro y no queda tapada", async () => {
+    // Un 9:16 alto pegado abajo: debajo no cabe la barra y se va encima, justo donde iba la
+    // etiqueta. Visto en una ventana de verdad al 125 %.
+    const lienzo = await abrir();
+    emite(EVENTO_PROPORCION, "9:16");
+    await waitFor(() => expect(botonProporcion()).toHaveTextContent("9:16"));
+    arrastrar(lienzo, { x: 300, y: 200 }, { x: 600, y: ALTO - 10 });
+    const barra = (await screen.findByLabelText("Copiar")).closest("div.absolute") as HTMLElement;
+    expect(barra.className).toContain("-translate-y-full");
+    const pieDeLaBarra = parseFloat(barra.style.top);
+    const etiqueta = screen.getByText("· 9:16").closest("div") as HTMLElement;
+    expect(parseFloat(etiqueta.style.top)).toBeGreaterThan(pieDeLaBarra);
+
+    // Y con la barra debajo, la etiqueta sigue encima del recorte, como siempre.
+    arrastrar(lienzo, { x: 300, y: 100 }, { x: 400, y: 200 });
+    const otra = screen.getByText("· 9:16").closest("div") as HTMLElement;
+    expect(parseFloat(otra.style.top)).toBeLessThan(100);
+  });
+
   it("la eligen las otras pantallas y llega a esta", async () => {
     await abrir();
     emite(EVENTO_PROPORCION, "9:16");
