@@ -1106,6 +1106,9 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     // de reintentar cuando el atajo estaba cogido por otra aplicacion y ya se ha
     // cerrado. `register` empieza desregistrando todo, asi que repetirlo no molesta.
     crate::hotkeys::register(&app, &settings);
+    if previous.language != settings.language {
+        crate::tray::al_cambiar_los_ajustes(&app);
+    }
     if previous.start_with_windows != settings.start_with_windows {
         crate::platform::autostart::set(settings.start_with_windows)?;
     }
