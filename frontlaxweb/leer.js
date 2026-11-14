@@ -85,3 +85,33 @@ document.querySelectorAll(".faq").forEach((lista) => {
   addEventListener("resize", marcar);
   marcar();
 })();
+
+/* ------------------------------------------------- las tablas, apiladas en el móvil */
+// Una tabla de cuatro columnas no cabe en 360 px: o se desliza de lado o se lee a dos
+// palabras por renglón. En lo estrecho, cada fila pasa a ser una ficha, con su título
+// arriba y cada dato en su renglón, y delante de cada dato el nombre de su columna, que
+// se saca de la cabecera (así vale igual en la página inglesa). Las de dos columnas
+// (tecla y lo que hace) no lo necesitan: se entiende sola.
+// El CSS solo las apila si llevan `.apilable`, que la pone esto: sin JS, la tabla se
+// queda como estaba, deslizando, pero nunca sin saber de qué columna es cada dato.
+// Y como apilarla con CSS le quita a algunos lectores de pantalla la idea de tabla, se
+// le dicen los papeles a mano.
+document.querySelectorAll(".tabla-comparar, .texto .tabla").forEach((caja) => {
+  const tabla = caja.querySelector("table");
+  const cabeza = tabla && tabla.tHead && tabla.tHead.rows[0];
+  if (!cabeza) return;
+  const nombres = [...cabeza.cells].map((c) => c.textContent.trim());
+  const papel = (el, p) => { if (!el.hasAttribute("role")) el.setAttribute("role", p); };
+  papel(tabla, "table");
+  [...tabla.children].forEach((g) => papel(g, "rowgroup"));
+  [...tabla.rows].forEach((fila) => {
+    papel(fila, "row");
+    [...fila.cells].forEach((celda, i) => {
+      const enCabeza = fila.parentElement.tagName === "THEAD";
+      papel(celda, enCabeza ? "columnheader" : celda.tagName === "TH" ? "rowheader" : "cell");
+      if (!enCabeza && celda.tagName === "TD" && nombres.length > 2 && nombres[i]) celda.dataset.col = nombres[i];
+    });
+  });
+  caja.classList.add("apilable");
+  if (nombres.length > 2) caja.classList.add("con-etiquetas");
+});

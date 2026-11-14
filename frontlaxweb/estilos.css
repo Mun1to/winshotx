@@ -1066,6 +1066,28 @@ html.motion .medidas:not(.vistas) .llena { --lleno: 0; }
 .fuentes a:hover { color: var(--texto); }
 @media (max-width: 860px) { .medidas { grid-template-columns: 1fr; } }
 
+/* En lo estrecho, cada fila de una tabla es una ficha (lo pone leer.js, ver allí por qué):
+   el título de la fila arriba y cada dato en su renglón, con el nombre de su columna
+   delante. La cabecera se esconde a la vista, no al lector de pantalla, y por eso la
+   etiqueta de delante lleva el texto alternativo vacío: no se lee dos veces. */
+@media (max-width: 860px) {
+  .tabla-comparar.apilable { overflow: visible; margin-top: 44px; border-top: 2px solid var(--linea-viva); }
+  .tabla-comparar.apilable table { min-width: 0; }
+  .tabla-comparar.apilable :is(table, tbody, tr, th, td) { display: block; }
+  .tabla-comparar.apilable tbody tr { padding: 16px 0 12px; border-bottom: 1px solid var(--linea); }
+  .tabla-comparar.apilable tbody th { padding: 0 0 8px; border: 0; font-size: 17.5px; line-height: 1.35; }
+  .tabla-comparar.apilable td {
+    display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 12px;
+    padding: 6px 10px; border: 0; border-radius: 8px; font-size: 15.5px;
+  }
+  .tabla-comparar.apilable td::before { content: attr(data-col); content: attr(data-col) / ""; color: var(--texto); font-weight: 600; }
+  .tabla-comparar.apilable td.nuestra { background: var(--nuestra); }
+  .tabla-comparar.apilable td.nuestra::before { color: var(--azul); }
+  .tabla-comparar.apilable tbody tr:hover :is(td, th) { background: none; }
+  .tabla-comparar.apilable tbody tr:hover td.nuestra { background: var(--nuestra); }
+  .tabla-comparar.apilable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
 /* ---------- el cierre ---------- */
 .cierre .botones { justify-content: center; margin-top: 30px; }
 .cierre .entradilla { margin-inline: auto; }
@@ -1236,6 +1258,22 @@ html.quieto .valvula.con-mov { display: inline; }
 .texto thead th { font-weight: 700; border-bottom: 2px solid var(--linea-viva); }
 .texto tbody th { font-weight: 650; white-space: nowrap; }
 .texto tbody tr:hover > * { background: var(--realce); }
+/* Y en el móvil, apiladas como la comparativa: la fila es una ficha con su título arriba.
+   La de los atajos (dos columnas) no lleva etiquetas; la de los formatos sí. */
+@media (max-width: 640px) {
+  .texto .tabla.apilable { overflow: visible; border-top: 2px solid var(--linea-viva); }
+  .texto .tabla.apilable :is(table, tbody, tr, th, td) { display: block; }
+  .texto .tabla.apilable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .texto .tabla.apilable tbody tr { padding: 14px 0; border-bottom: 1px solid var(--linea); }
+  .texto .tabla.apilable :is(th, td) { padding: 0; border: 0; }
+  .texto .tabla.apilable tbody th { padding-bottom: 6px; white-space: normal; }
+  .texto .tabla.apilable td + td { margin-top: 8px; }
+  .texto .tabla.con-etiquetas td::before {
+    content: attr(data-col); content: attr(data-col) / "";
+    display: block; font-size: 14px; font-weight: 600; color: var(--suave); margin-bottom: 2px;
+  }
+  .texto .tabla.apilable tbody tr:hover > * { background: none; }
+}
 
 /* Una sección con la foto de la app al lado: lo que se cuenta y cómo se ve, juntos. En
    pantallas estrechas la foto baja debajo del texto, nunca se quita. */
