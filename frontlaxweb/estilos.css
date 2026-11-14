@@ -210,6 +210,13 @@ nav.barra { position: sticky; top: 0; z-index: 50; padding: 14px 0; }
 .btn.dos, .btn.fantasma { background: var(--realce-medio); color: var(--texto); box-shadow: inset 0 0 0 1.5px var(--linea); }
 .btn.dos:hover, .btn.fantasma:hover { background: var(--realce-fuerte); }
 .btn:focus-visible, .barra a:focus-visible { outline: 2px solid var(--azul); outline-offset: 3px; }
+/* En el móvil, dos botones que no caben en una fila bajaban cada uno con su ancho, uno
+   largo y otro corto debajo, sin alinear. Ahora van uno encima del otro y del mismo ancho;
+   donde el texto va centrado (la portada, el cierre, la 404), centrados. */
+@media (max-width: 520px) {
+  .botones:has(.btn + .btn) { flex-direction: column; align-items: stretch; width: min(100%, 340px); }
+  .portada .botones, .cierre .botones, .perdida .botones { margin-inline: auto; }
+}
 
 .letra-chica { margin-top: 14px; font-size: 15px; color: var(--suave); }
 /* El azul de marca sobre el gris de esta linea no llega al 3 de contraste que pide la norma
