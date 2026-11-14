@@ -73,6 +73,8 @@ features = [
   # consola de la orden `agent` (el exe de release es de subsistema Windows).
   "Win32_System_Pipes", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization",
   "Win32_System_IO", "Win32_System_Console", "Win32_System_WindowsProgramming", "Win32_System_JobObjects",
+  # S22 (abrir a mano): saber si la copia de la Store la ha arrancado su tarea de inicio.
+  "ApplicationModel_Activation",
 ]
 
 # Linux (S21, Fase 1 del plan de Linux). Todo esto ya va dentro de Tauri o es Rust puro:

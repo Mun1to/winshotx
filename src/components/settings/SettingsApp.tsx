@@ -91,6 +91,13 @@ import { ShortcutField } from "./ShortcutField";
 // S21 (Linux): lo que solo es de Windows se esconde, y en Wayland las teclas las pone el escritorio.
 import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
 import { OrdenDelAtajo, TeclaPuesta } from "./TeclaDelEscritorio";
+import { useVentanaALaMedida } from "../../lib/ventanaALaMedida";
+
+/**
+ * Lo más que crece la ventana en el historial, en px lógicos: lo que medía de alto cuando
+ * todas las pestañas abrían igual (840 x 760). Con más fotos, baja con la rueda.
+ */
+const ALTO_HISTORIAL = 760;
 
 /** La inyecta Vite desde package.json: escribirla a mano acababa en cuatro copias. */
 const VERSION = __VERSION__;
@@ -460,6 +467,22 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     }
   }, []);
 
+  // S24: la ventana mide lo que mide la pestaña que enseña (ver `ventanaALaMedida.ts`). El
+  // historial es lo único que no se ajusta del todo: con un año de capturas sería una ventana
+  // de la altura de la pantalla, así que se queda en lo que medían antes los ajustes y baja
+  // con la rueda, que en una galería de fotos es lo normal.
+  const hueco = useRef<HTMLDivElement>(null);
+  const contenido = useRef<HTMLDivElement>(null);
+  const { sobra } = useVentanaALaMedida(hueco, contenido, {
+    // S21: hasta saber dónde corre tampoco se pinta nada.
+    listo: settings !== null && donde !== null,
+    maximo: seccion === "historial" ? ALTO_HISTORIAL : undefined,
+    // El cambio de pestaña ya lo ve el ResizeObserver, pero ese solo avisa al pintar: se pide
+    // también aquí para no depender de él. Y el aviso de error va fuera del hueco, así que
+    // tampoco lo vería.
+    otraVez: `${seccion}|${error ?? ""}`,
+  });
+
   // Hasta saber dónde corre no se pinta nada: en Linux se verían un instante las teclas de Windows.
   if (!settings || !donde) {
     return (
@@ -471,7 +494,6 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-lienzo">
-      <MarcaDeAgua />
       <SettingsHeader
         activa={seccion}
         onCambiar={setSeccion}
@@ -482,11 +504,16 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
       />
 
       <div className="relative min-h-0 flex-1">
-      <div className="h-full overflow-y-auto px-4 py-4" data-scroll-ajustes>
+      <MarcaDeAgua />
+      {/* `relative` para que las tarjetas vayan por encima del logo de fondo, que va antes. */}
+      <div ref={hueco} className="relative h-full overflow-y-auto" data-scroll-ajustes>
         {/* Dos columnas, que es para lo que se subio la navegacion arriba. Las columnas
             de las secciones con cuatro bloques se escriben a mano (ver «grabar» y «la
             app»): dejandoselo a la rejilla, los dos bloques largos caian del mismo lado
-            y se salian de la ventana con la otra columna a medio llenar. */}
+            y se salian de la ventana con la otra columna a medio llenar.
+            Los márgenes van en este envoltorio y no en el hueco: lo que mide él es lo que
+            pide la ventana (S24). */}
+        <div ref={contenido} className="px-4 py-4" data-contenido-ajustes>
         <div className="grid grid-cols-2 items-start gap-4">
 
             {seccion === "capturar" && (
@@ -1286,9 +1313,13 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
               </>
             )}
         </div>
+        </div>
       </div>
-      {/* El desvanecido dice «esto sigue»: cortado a hueso, lo de abajo no se busca. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-lienzo to-transparent" />
+      {/* El desvanecido dice «esto sigue»: cortado a hueso, lo de abajo no se busca. Solo
+          cuando de verdad sigue: cabiendo, tapaba el borde de abajo de las tarjetas. */}
+      {sobra && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-lienzo to-transparent" />
+      )}
       </div>
 
       <BarraRapida

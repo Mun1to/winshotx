@@ -17,8 +17,9 @@
  *     arrastrar con el ratón de verdad pide a Rust el arrastre.
  *  2. El historial: la quinta pestaña, la rejilla con sus miniaturas y sus fechas, y las
  *     acciones al pasar el ratón.
- *  3. «Después de capturar» en Capturar, y que la pestaña sigue cabiendo sin rueda en la
- *     ventana de 840 x 760 que pide `tauri.conf.json`.
+ *  3. «Después de capturar» en Capturar, y que la pestaña sigue cabiendo sin rueda en 840 x 760.
+ *     Desde S24 la ventana mide lo justo de cada pestaña (613 en Capturar): eso lo comprueba
+ *     `probar-medida-ajustes.mjs`.
  *
  * Lo que NO puede probar: soltar la miniatura en WhatsApp. Eso es el arrastre de Windows
  * (OLE) con un ratón de verdad sobre otra app, y solo lo puede mirar Munir.

@@ -26,12 +26,82 @@ pub const ESPERA_AL_ARRANCAR: Duration = Duration::from_secs(15);
 /// podido hablar con ella, ya en inglés y para un agente.
 pub fn pedir(peticion: &Value) -> Result<Value, String> {
     let exe = std::env::current_exe().map_err(|e| format!("Could not find winshotx.exe itself ({e})."))?;
+    // S22: el aviso de que la arranca un agente, para que no abra los ajustes. Vive hasta que
+    // acaba la petición; la app lo mira nada más arrancar, mucho antes. Ver `AvisoDeArranque`.
+    let aviso = std::cell::OnceCell::new();
     pedir_con(
         &tuberia::nombre(),
         &con_rutas_absolutas(peticion),
-        &|| arrancar_app(&exe),
+        &|| {
+            aviso.get_or_init(AvisoDeArranque::poner);
+            arrancar_app(&exe)
+        },
         ESPERA_AL_ARRANCAR,
     )
+}
+
+/// El nombre del aviso de `AvisoDeArranque`. `Local\` es la sesión de Windows de este usuario.
+#[cfg(windows)]
+const AVISO: &str = r"Local\winshotx-la-arranca-un-agente";
+
+/// Mientras vive, la app que arranque sabe que la ha pedido un agente y no abre los ajustes (S22,
+/// ver `arranque`).
+///
+/// No puede ir en un argumento: dentro de la terminal de Claude Code la app la acaba lanzando el
+/// Explorador (ver `arrancar_app`), y `explorer.exe "<exe>"` no le pasa nada más. Así que el
+/// cliente deja puesto un evento con nombre mientras espera, y la app mira al arrancar si existe.
+/// Lo mira antes de abrir su tubería, así que el cliente no ha podido conectar ni quitarlo aún.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub struct AvisoDeArranque(#[cfg(windows)] windows::Win32::Foundation::HANDLE);
+
+impl AvisoDeArranque {
+    /// `None` si Windows no lo deja crear: entonces la app abrirá los ajustes, que molesta pero
+    /// no rompe nada.
+    pub fn poner() -> Option<Self> {
+        #[cfg(windows)]
+        {
+            use windows::core::PCWSTR;
+            use windows::Win32::System::Threading::CreateEventW;
+            let nombre: Vec<u16> = AVISO.encode_utf16().chain(std::iter::once(0)).collect();
+            unsafe { CreateEventW(None, true, false, PCWSTR(nombre.as_ptr())) }.ok().map(Self)
+        }
+        #[cfg(not(windows))]
+        None
+    }
+}
+
+#[cfg(windows)]
+impl Drop for AvisoDeArranque {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = windows::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
+}
+
+/// Si hay un agente esperando a que arranque winshotx (ver `AvisoDeArranque`).
+///
+/// «Acceso denegado» también es que sí: el aviso existe, pero lo ha puesto un agente que corre
+/// como administrador y esta app, que no lo es, no puede abrirlo.
+pub fn la_esta_arrancando_un_agente() -> bool {
+    #[cfg(windows)]
+    {
+        use windows::core::PCWSTR;
+        use windows::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED};
+        use windows::Win32::System::Threading::{OpenEventW, SYNCHRONIZATION_SYNCHRONIZE};
+        let nombre: Vec<u16> = AVISO.encode_utf16().chain(std::iter::once(0)).collect();
+        match unsafe { OpenEventW(SYNCHRONIZATION_SYNCHRONIZE, false, PCWSTR(nombre.as_ptr())) } {
+            Ok(evento) => {
+                unsafe {
+                    let _ = CloseHandle(evento);
+                }
+                true
+            }
+            Err(e) => e.code() == ERROR_ACCESS_DENIED.to_hresult(),
+        }
+    }
+    #[cfg(not(windows))]
+    false
 }
 
 /// `pedir` con todo lo de fuera a mano: el nombre de la tubería, cómo se arranca la app y
@@ -115,9 +185,9 @@ pub fn con_rutas_absolutas(peticion: &Value) -> Value {
 /// enseguida. Es interno (no sale en `--help`); ver `arrancar_app`.
 pub const LANZADERA: &str = "--agent-launcher";
 
-/// Arranca winshotx sin argumentos (se queda en la bandeja, como al encender el PC), en la
-/// carpeta de su exe, sin heredarle ningún identificador (sus entrada, salida y errores quedan
-/// a nulo) y **fuera del árbol y del job de quien la pide**.
+/// Arranca winshotx sin argumentos (se queda en la bandeja, como al encender el PC, porque `pedir`
+/// pone antes el `AvisoDeArranque`), en la carpeta de su exe, sin heredarle ningún identificador
+/// (sus entrada, salida y errores quedan a nulo) y **fuera del árbol y del job de quien la pide**.
 ///
 /// Lo de fuera es lo que importa. Claude Code, al cerrarse en Windows, mata a los 300 ms el árbol
 /// entero de procesos del servidor MCP, y un cliente puede meterlo además en un job que mata todo
@@ -279,6 +349,36 @@ mod pruebas {
 
     fn sin_arrancar() -> Result<(), String> {
         panic!("la app ya estaba escuchando: no había que arrancarla")
+    }
+
+    /// S22: mientras el cliente tiene puesto el aviso, la app que arranca lo ve (este proceso y
+    /// otro, que es lo que pasa de verdad), y en cuanto lo suelta deja de verlo y vuelve a abrir
+    /// los ajustes cuando la abren a mano. Todo en una prueba: dos que tocasen el mismo aviso a
+    /// la vez se pisarían.
+    #[cfg(windows)]
+    #[test]
+    fn el_aviso_de_arranque_se_ve_mientras_vive() {
+        let aviso = AvisoDeArranque::poner().expect("Windows no ha dejado crear el aviso");
+        assert!(la_esta_arrancando_un_agente());
+        let otro = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "agente::cliente::pruebas::otro_proceso_mira_el_aviso", "--ignored"])
+            .env("WINSHOTX_MIRA_EL_AVISO", "1")
+            .output()
+            .unwrap();
+        let contado = String::from_utf8_lossy(&otro.stdout);
+        assert!(otro.status.success() && contado.contains("1 passed"), "{contado}");
+        drop(aviso);
+        assert!(!la_esta_arrancando_un_agente(), "soltado el aviso, abrirla a mano vuelve a enseñar los ajustes");
+    }
+
+    /// La otra mitad de la de arriba, que la lanza en otro proceso.
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn otro_proceso_mira_el_aviso() {
+        if std::env::var_os("WINSHOTX_MIRA_EL_AVISO").is_some() {
+            assert!(la_esta_arrancando_un_agente(), "otro proceso no ve el aviso");
+        }
     }
 
     #[cfg(windows)]
@@ -501,8 +601,13 @@ mod pruebas {
     #[test]
     #[ignore]
     fn un_agente_graba_dos_segundos() {
+        // Con el aviso puesto, como `pedir`: si no, desde la 0.4.7 la app abriría los ajustes.
+        let aviso = std::cell::OnceCell::new();
         let arrancar = || match std::env::var_os("WINSHOTX_EXE") {
-            Some(exe) => arrancar_app(Path::new(&exe)),
+            Some(exe) => {
+                aviso.get_or_init(AvisoDeArranque::poner);
+                arrancar_app(Path::new(&exe))
+            }
             None => Err("abre winshotx (la versión con el canal) o pon WINSHOTX_EXE con la ruta de su exe".into()),
         };
         let pide = |v: Value| {

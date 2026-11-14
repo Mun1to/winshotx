@@ -16,7 +16,7 @@
         "title": "winshotx · ajustes",
         "url": "index.html",
         "width": 840,
-        "height": 760,
+        "height": 613,
         "resizable": true,
         "decorations": true,
         "transparent": false,
@@ -25,7 +25,7 @@
         "visible": false,
         "skipTaskbar": false,
         "minWidth": 780,
-        "minHeight": 420,
+        "minHeight": 280,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-background-timer-throttling"
       }
     ],

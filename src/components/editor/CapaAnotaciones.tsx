@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import {
   controlDeCurva,
+  desplazar,
   FOCO_OSCURECE,
   simplificarTrazo,
   type Anotacion,
@@ -22,6 +23,13 @@ import { useT } from "../../lib/i18n";
  * medir el archivo, así que guardarlas en píxeles obligaría a recalcularlas cada vez que
  * alguien toca «Dimensiones», y una sola que se olvidara dejaría la flecha señalando a
  * otro sitio.
+ *
+ * **Lo dibujado se coge y se mueve** (S23): pulsar encima de una marca la elige y
+ * arrastrarla la mueve, con la herramienta que sea o sin ninguna; pulsar donde no hay nada
+ * dibuja. Un doble clic en un texto lo abre para reescribirlo en el mismo campo donde se
+ * escribió. Quien decide qué se ha pulsado es el navegador: cada marca lleva encima su
+ * silueta invisible y algo más gruesa que su trazo, así que una línea fina se coge aunque
+ * se falle por unos píxeles, y la de encima gana a la de debajo, como se ve.
  */
 interface Props {
   herramienta: Herramienta | null;
@@ -34,6 +42,19 @@ interface Props {
    * que se escribe encima mida lo que va a medir en el archivo.
    */
   anchoImagen: number;
+  /** El sitio en `anotaciones` de la marca elegida, que se ve con su halo. */
+  elegida?: number | null;
+  onElegir?: (indice: number | null) => void;
+  /** Una marca movida o un texto reescrito: la marca entera, como queda. */
+  onCambiar?: (indice: number, anotacion: Anotacion) => void;
+  /** Un texto que se ha dejado vacío al reescribirlo: se quita. */
+  onBorrar?: (indice: number) => void;
+  /**
+   * Mientras otra capa necesita los clics de la imagen (colocar el punto de un zoom), lo
+   * dibujado no se coge: quien pulsa encima de una flecha para acercar la cámara ahí quiere
+   * acercarla, no llevarse la flecha.
+   */
+  quieta?: boolean;
 }
 
 /** Dónde se está escribiendo un texto, de 0 a 1, y lo que lleva escrito. */
@@ -41,12 +62,50 @@ interface Escribiendo {
   x: number;
   y: number;
   valor: string;
+  color: string;
+  /** Si se reescribe un texto que ya estaba, su sitio en la lista. */
+  indice?: number;
 }
 
-export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anchoImagen }: Props) {
+/** Lo que mide el trazo de las marcas en la pantalla, en píxeles. */
+const GROSOR = 6;
+/** Lo que se puede fallar al pulsar una marca, en píxeles a cada lado de su trazo. */
+const MARGEN = 6;
+/** Lo que tiene que moverse el ratón para que un clic sea un arrastre, en píxeles. */
+const UMBRAL = 3;
+/** El tiempo entre dos clics para que sean un doble clic: el de Windows de serie. */
+const DOBLE_CLIC_MS = 500;
+
+/** Las marcas que se cogen por dentro, porque son una mancha y no un trazo. */
+const LLENAS: ReadonlySet<Herramienta> = new Set(["highlight", "blur", "step"]);
+
+const nada = () => {};
+
+export function CapaAnotaciones({
+  herramienta,
+  color,
+  anotaciones,
+  onAnadir,
+  anchoImagen,
+  elegida = null,
+  onElegir = nada,
+  onCambiar = nada,
+  onBorrar = nada,
+  quieta = false,
+}: Props) {
   const t = useT();
   const marco = useRef<SVGSVGElement>(null);
   const [dibujando, setDibujando] = useState<Anotacion | null>(null);
+  /** La marca que se está arrastrando, ya movida, mientras no se suelta. */
+  const [movida, setMovida] = useState<{ indice: number; marca: Anotacion } | null>(null);
+  /** El último clic sobre una marca, para saber si el siguiente es un doble clic. */
+  const ultimoClic = useRef<{ indice: number; cuando: number; x: number; y: number } | null>(null);
+  /** Quita los oyentes del arrastre en curso, si lo hay. */
+  const soltarArrastre = useRef<(() => void) | null>(null);
+  useEffect(() => () => soltarArrastre.current?.(), []);
+  // Lo de ahora, para lo que se guarda desde un oyente o un efecto viejo.
+  const vivas = useRef(anotaciones);
+  vivas.current = anotaciones;
   /**
    * El texto que se está escribiendo encima de la imagen. Va también en una ref porque se
    * guarda desde dos sitios que llegan juntos con el mismo clic (pulsar fuera en la imagen,
@@ -76,15 +135,119 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anc
     ];
   };
 
-  /** Deja el texto escrito como una marca más. Sin nada escrito, no deja nada. */
+  /**
+   * Deja el texto escrito como una marca más. Sin nada escrito, no deja nada.
+   *
+   * Si era uno que ya estaba, se queda con lo nuevo en su mismo sitio; y vaciado del todo,
+   * se quita, que es lo que quiere quien borra todas sus letras y pulsa Intro.
+   */
   const guardarTexto = () => {
     const sitio = abierto.current;
     if (!sitio) return;
     abierto.current = null;
     setEscribiendo(null);
     const escrito = sitio.valor.trim();
-    if (escrito) onAnadir({ kind: "text", x1: sitio.x, y1: sitio.y, x2: sitio.x, y2: sitio.y, color, text: escrito });
+    if (sitio.indice !== undefined) {
+      const antes = vivas.current[sitio.indice];
+      if (antes?.kind !== "text") return;
+      if (!escrito) onBorrar(sitio.indice);
+      else if (escrito !== antes.text) onCambiar(sitio.indice, { ...antes, text: escrito });
+      return;
+    }
+    if (escrito) {
+      onAnadir({ kind: "text", x1: sitio.x, y1: sitio.y, x2: sitio.x, y2: sitio.y, color: sitio.color, text: escrito });
+    }
   };
+
+  /**
+   * Pulsar encima de una marca: la elige, y si se arrastra, la mueve.
+   *
+   * El arrastre se sigue desde la ventana y no desde la capa, porque sin herramienta la capa
+   * no recibe el ratón (deja pasar los clics a la cámara y al zoom de debajo) y porque quien
+   * arrastra hasta el borde se sale un poco: la marca se para en el borde y sigue cogida.
+   * Mientras dura, la marca movida solo se pinta aquí; el cambio de verdad sale una vez, al
+   * soltar, para que Ctrl+Z la devuelva de un golpe a donde estaba y no paso a paso.
+   */
+  const agarrar = (e: React.PointerEvent, indice: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Con un texto a medias, pulsar otra cosa lo guarda y nada más, como pulsar en vacío.
+    if (abierto.current) {
+      guardarTexto();
+      return;
+    }
+    const marca = anotaciones[indice];
+    const caja = marco.current?.getBoundingClientRect();
+    if (!marca || !caja || caja.width === 0 || caja.height === 0) return;
+    // Cancelar el clic (arriba) también le quita al navegador el mover el foco. Si se queda
+    // en un campo del panel, Supr borraría una letra de ese campo en vez de la marca.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    onElegir(indice);
+
+    const ahora = performance.now();
+    const antes = ultimoClic.current;
+    ultimoClic.current = { indice, cuando: ahora, x: e.clientX, y: e.clientY };
+    if (
+      marca.kind === "text" &&
+      antes?.indice === indice &&
+      ahora - antes.cuando < DOBLE_CLIC_MS &&
+      Math.hypot(e.clientX - antes.x, e.clientY - antes.y) < UMBRAL * 2
+    ) {
+      ultimoClic.current = null;
+      setEscribiendo({ x: marca.x1, y: marca.y1, valor: marca.text, color: marca.color, indice });
+      return;
+    }
+
+    const [x0, y0] = [e.clientX, e.clientY];
+    let movido = false;
+    let ultima = marca;
+    const seguir = (ev: PointerEvent) => {
+      const [dx, dy] = [ev.clientX - x0, ev.clientY - y0];
+      if (!movido && Math.hypot(dx, dy) < UMBRAL) return;
+      // Un arrastre no es la mitad de un doble clic.
+      movido = true;
+      ultimoClic.current = null;
+      ultima = desplazar(marca, dx / caja.width, dy / caja.height);
+      setMovida({ indice, marca: ultima });
+    };
+    const quitar = () => {
+      window.removeEventListener("pointermove", seguir);
+      window.removeEventListener("pointerup", soltarla);
+      window.removeEventListener("pointercancel", cancelar);
+      soltarArrastre.current = null;
+    };
+    const soltarla = () => {
+      quitar();
+      if (movido) onCambiar(indice, ultima);
+      setMovida(null);
+    };
+    // Si el sistema se lleva el ratón (una ventana que sale encima), la marca vuelve.
+    const cancelar = () => {
+      quitar();
+      setMovida(null);
+    };
+    soltarArrastre.current?.();
+    window.addEventListener("pointermove", seguir);
+    window.addEventListener("pointerup", soltarla);
+    window.addEventListener("pointercancel", cancelar);
+    soltarArrastre.current = quitar;
+  };
+
+  // Pulsar en cualquier otro sitio suelta lo elegido. Se mira en todo el documento porque,
+  // sin herramienta, el clic en vacío no llega a la capa: se lo lleva lo de debajo. Los
+  // botones y los campos no lo sueltan, para que Supr siga sabiendo qué borrar después de
+  // tocar la barra.
+  useEffect(() => {
+    if (elegida === null) return;
+    const fuera = (e: PointerEvent) => {
+      const donde = e.target instanceof Element ? e.target : null;
+      if (donde?.closest("[data-agarre], button, input, select, textarea, [role='slider']")) return;
+      onElegir(null);
+    };
+    document.addEventListener("pointerdown", fuera, true);
+    return () => document.removeEventListener("pointerdown", fuera, true);
+  }, [elegida, onElegir]);
 
   const tirarTexto = () => {
     abierto.current = null;
@@ -120,7 +283,7 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anc
     // El texto no se arrastra: se pulsa donde va, se escribe ahí mismo, y Intro o pulsar
     // fuera lo deja puesto.
     if (herramienta === "text") {
-      setEscribiendo({ x, y, valor: "" });
+      setEscribiendo({ x, y, valor: "", color });
       return;
     }
     // Y el paso tampoco, y además se numera solo. Numerar a mano es justo lo que se olvida
@@ -163,11 +326,20 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anc
     setDibujando(null);
   };
 
-  const todas = dibujando ? [...anotaciones, dibujando] : anotaciones;
+  // La que se arrastra se pinta ya movida, y la que se está dibujando va encima de todas.
+  const puestas = movida
+    ? anotaciones.map((a, i) => (i === movida.indice ? movida.marca : a))
+    : anotaciones;
+  const todas = dibujando ? [...puestas, dibujando] : puestas;
   // El foco va debajo de todo y todos juntos en un velo, igual que al exportar
   // (`encode::anotacion::pintar`): así no oscurece lo dibujado ni se tapan entre ellos.
   const focos = todas.filter((a) => a.kind === "focus");
-  const textos = todas.filter((a) => a.kind === "text");
+  // Con su sitio en la lista, que es lo que dice cuál se coge. El que se está reescribiendo
+  // no se pinta: el campo va justo encima, con la misma letra, y se verían dos.
+  const textos = puestas
+    .map((a, i) => [a, i] as const)
+    .filter(([a, i]) => a.kind === "text" && i !== escribiendo?.indice);
+  const coger = quieta ? "none" : undefined;
 
   return (
     <>
@@ -208,12 +380,37 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anc
             fill="#000000"
             opacity={FOCO_OSCURECE}
             mask={`url(#${idDelVelo})`}
+            pointerEvents="none"
           />
         </g>
       )}
-      {todas.map((a, i) => (
-        <Marca key={i} anotacion={a} />
-      ))}
+      {todas.map((a, i) =>
+        // La que se está dibujando todavía no es de nadie: no se coge.
+        i >= puestas.length ? (
+          <Marca key={i} anotacion={a} />
+        ) : a.kind === "text" ? null : (
+          <g key={i} data-agarre={i} onPointerDown={(e) => agarrar(e, i)}>
+            {i === elegida && <Halo anotacion={a} />}
+            <Marca anotacion={a} />
+            {/*
+              Lo que se pulsa: la misma silueta, invisible y con unos píxeles más de trazo,
+              para coger una línea fina sin tener que acertarle. Las manchas (resaltado,
+              tapado, paso) se cogen además por dentro.
+            */}
+            <g
+              data-silueta=""
+              stroke="transparent"
+              strokeWidth={GROSOR + 2 * MARGEN}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill={LLENAS.has(a.kind) ? "transparent" : "none"}
+              style={{ pointerEvents: coger ?? (LLENAS.has(a.kind) ? "all" : "stroke"), cursor: "move" }}
+            >
+              <Silueta anotacion={a} />
+            </g>
+          </g>
+        ),
+      )}
     </svg>
     {/*
       Los textos van en HTML y no en el SVG: el SVG va estirado a 1000 x 1000, y un texto
@@ -223,8 +420,20 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anc
     */}
     {(textos.length > 0 || escribiendo) && (
       <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ containerType: "size" }}>
-        {textos.map((a, i) => (
-          <span key={i} data-marca="text" style={letraDelTexto(anchoImagen, a.x1, a.y1, a.color)}>
+        {textos.map(([a, i]) => (
+          <span
+            key={i}
+            data-marca="text"
+            data-agarre={i}
+            onPointerDown={(e) => agarrar(e, i)}
+            style={{
+              ...letraDelTexto(anchoImagen, a.x1, a.y1, a.color),
+              pointerEvents: coger ?? "auto",
+              cursor: "move",
+              userSelect: "none",
+              ...(i === elegida ? { filter: HALO_DEL_TEXTO } : {}),
+            }}
+          >
             {a.text}
           </span>
         ))}
@@ -255,8 +464,8 @@ export function CapaAnotaciones({ herramienta, color, anotaciones, onAnadir, anc
             className="pointer-events-auto rounded-sm border-0 bg-transparent outline-[1.5px] outline-offset-2 outline-current outline-dashed placeholder:text-current placeholder:opacity-55"
             style={
               {
-                ...letraDelTexto(anchoImagen, escribiendo.x, escribiendo.y, color),
-                caretColor: color,
+                ...letraDelTexto(anchoImagen, escribiendo.x, escribiendo.y, escribiendo.color),
+                caretColor: escribiendo.color,
                 // El campo crece con lo que se escribe, como el texto que va a quedar.
                 fieldSizing: "content",
                 minWidth: "1ch",
@@ -320,6 +529,95 @@ function conCamino(marca: Anotacion, camino: Punto[], final = false): Anotacion 
 
 /** Lo que mide el aro de un paso, en el sistema de 1000 del SVG. */
 const RADIO_PASO = 38;
+
+/**
+ * El contorno de una marca, sin color ni grosor: lo pinta quien lo usa.
+ *
+ * Sirve para dos cosas que tienen que caer justo encima de lo dibujado: la silueta invisible
+ * que se pulsa para coger la marca y el halo de la elegida. El texto no está, porque va en
+ * HTML y se coge y se marca él solo.
+ */
+function Silueta({ anotacion: a, radioPaso = RADIO_PASO }: { anotacion: Anotacion; radioPaso?: number }) {
+  const [x1, y1, x2, y2] = [a.x1 * 1000, a.y1 * 1000, a.x2 * 1000, a.y2 * 1000];
+  const [izq, arr] = [Math.min(x1, x2), Math.min(y1, y2)];
+  const [ancho, alto] = [Math.abs(x2 - x1), Math.abs(y2 - y1)];
+  const ve = "non-scaling-stroke";
+  const puntas = (desdeX: number, desdeY: number) =>
+    puntaDeFlecha(desdeX, desdeY, x2, y2).map(([px, py], i) => (
+      <line key={i} x1={x2} y1={y2} x2={px} y2={py} vectorEffect={ve} />
+    ));
+  switch (a.kind) {
+    case "box":
+    case "highlight":
+    case "blur":
+    case "focus":
+      return <rect x={izq} y={arr} width={ancho} height={alto} vectorEffect={ve} />;
+    case "ellipse":
+      return <ellipse cx={izq + ancho / 2} cy={arr + alto / 2} rx={ancho / 2} ry={alto / 2} vectorEffect={ve} />;
+    case "line":
+      return <line x1={x1} y1={y1} x2={x2} y2={y2} vectorEffect={ve} />;
+    case "arrow":
+      return (
+        <>
+          <line x1={x1} y1={y1} x2={x2} y2={y2} vectorEffect={ve} />
+          {puntas(x1, y1)}
+        </>
+      );
+    case "curve": {
+      const [cx, cy] = a.puntos?.[0] ? [a.puntos[0][0] * 1000, a.puntos[0][1] * 1000] : [(x1 + x2) / 2, (y1 + y2) / 2];
+      const [dx, dy] = Math.hypot(x2 - cx, y2 - cy) > 0.5 ? [cx, cy] : [x1, y1];
+      return (
+        <>
+          <path d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`} vectorEffect={ve} />
+          {puntas(dx, dy)}
+        </>
+      );
+    }
+    case "pen":
+      return (
+        <polyline
+          points={(a.puntos?.length ? a.puntos : [[a.x1, a.y1], [a.x2, a.y2]])
+            .map(([px, py]) => `${px * 1000},${py * 1000}`)
+            .join(" ")}
+          vectorEffect={ve}
+        />
+      );
+    case "step":
+      return (
+        <ellipse cx={metido(x1, RADIO_PASO)} cy={metido(y1, RADIO_PASO)} rx={radioPaso} ry={radioPaso} vectorEffect={ve} />
+      );
+    default:
+      return null;
+  }
+}
+
+/**
+ * Cómo se ve la marca elegida: con un borde blanco pegado a su forma y una sombra corta por
+ * fuera, como una pegatina levantada del papel. Sin recuadro alrededor ni asas en las
+ * esquinas: las asas dirían que se puede estirar, y aquí solo se mueve. El blanco se ve
+ * sobre lo oscuro y la sombra sobre lo claro, así que se ve elegida sobre cualquier
+ * captura y con cualquiera de los cinco colores.
+ */
+function Halo({ anotacion: a }: { anotacion: Anotacion }) {
+  // Las manchas no tienen trazo: el halo va por su borde. Y el del paso, un poco por fuera
+  // de su aro blanco, que si no se fundiría con él.
+  const trazo = LLENAS.has(a.kind) ? 0 : GROSOR;
+  const radioPaso = RADIO_PASO + 9;
+  return (
+    <g data-halo="" fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
+      <g stroke="rgba(0, 0, 0, 0.45)" strokeWidth={trazo + 10}>
+        <Silueta anotacion={a} radioPaso={radioPaso} />
+      </g>
+      <g stroke="#ffffff" strokeWidth={trazo + 6}>
+        <Silueta anotacion={a} radioPaso={radioPaso} />
+      </g>
+    </g>
+  );
+}
+
+/** El halo del texto elegido: el mismo borde blanco y la misma sombra, siguiendo las letras. */
+const HALO_DEL_TEXTO =
+  "drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55))";
 
 /**
  * El centro de una marca de un clic, metido lo justo para que la marca quepa entera.

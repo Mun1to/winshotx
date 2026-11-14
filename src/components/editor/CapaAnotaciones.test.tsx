@@ -222,7 +222,8 @@ describe("lo que ya está dibujado", () => {
 
   it("se pinta todo lo que hay, en su orden", () => {
     const { svg } = pintar({ anotaciones: marcas, herramienta: null });
-    expect(svg.querySelectorAll("rect")).toHaveLength(1);
+    // Sin contar la silueta invisible que lleva cada una para cogerla.
+    expect([...svg.querySelectorAll("rect")].filter((r) => !r.closest("[data-silueta]"))).toHaveLength(1);
     expect(screen.getByText("aquí")).toBeInTheDocument();
   });
 

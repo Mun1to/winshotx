@@ -122,6 +122,8 @@ console.log("\nCerrando el binario de pruebas y volviendo a arrancar la instalad
 matarTodos();
 await espera(1000);
 if (existsSync(INSTALADA)) {
-  const instalada = spawn(INSTALADA, [], { detached: true, stdio: "ignore" });
+  // Con `--autostart` vuelve a la bandeja como estaba: sin nada, desde la 0.4.7 abriría los
+  // ajustes, que es lo que hace abrirla a mano.
+  const instalada = spawn(INSTALADA, ["--autostart"], { detached: true, stdio: "ignore" });
   instalada.unref();
 }

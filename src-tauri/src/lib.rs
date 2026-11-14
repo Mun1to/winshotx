@@ -38,6 +38,8 @@ mod presets;
 mod sonidos;
 // S15 (agente)
 mod agente;
+// S22 (abrir a mano)
+mod arranque;
 
 use std::time::{Duration, SystemTime};
 
@@ -188,6 +190,11 @@ pub fn run() {
     if std::env::args().any(|arg| arg == "--crono") {
         crono::activar();
     }
+    // Quien ha arrancado este proceso, para saber si se abren los ajustes (ver `arranque`).
+    // El aviso del agente se mira aqui, antes de abrir su tuberia: hasta que la tuberia
+    // exista, el agente no puede haber conectado ni haberlo quitado.
+    let argumentos: Vec<String> = std::env::args().skip(1).collect();
+    let lo_arranca_un_agente = agente::cliente::la_esta_arrancando_un_agente();
 
     tauri::Builder::default()
         // Tiene que ir la primera: si ya hay un winshotx vivo, esta instancia se
@@ -195,8 +202,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // Una segunda instancia con `--capture` es la forma de disparar una captura
             // desde fuera (un guion, otra herramienta, el cronometro, el atajo puesto a mano
-            // en Sway), `--edit` la de capturar y abrir el editor, y `--cancel` la cierra. Sin
-            // argumentos, lo de siempre: ensennar los ajustes.
+            // en Sway), `--edit` la de capturar y abrir el editor, y `--cancel` la cierra. Abierta a
+            // mano otra vez, lo de siempre: ensennar los ajustes.
             let intencion = if args.iter().any(|arg| arg == "--capture") {
                 Some(windows_mgr::OverlayIntent::Capture)
             } else if args.iter().any(|arg| arg == "--edit") {
@@ -214,14 +221,21 @@ pub fn run() {
                 windows_mgr::close_overlays(app);
                 return;
             }
-            let _ = windows_mgr::show_settings(app);
+            // El primero es el nombre del programa.
+            let argumentos = args.get(1..).unwrap_or_default();
+            if arranque::la_segunda_abre_los_ajustes(
+                argumentos,
+                agente::cliente::la_esta_arrancando_un_agente(),
+            ) {
+                let _ = windows_mgr::show_settings(app);
+            }
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
             // S21 (Linux): con que pinta GTK (X11 o Wayland) cambia como se hace la foto, como
             // se colocan las ventanas y que atajos hay. Se mira aqui, en el hilo de GTK.
@@ -313,12 +327,17 @@ pub fn run() {
             std::thread::spawn(capture::preparar);
 
             // La primera vez se abre sola con la bienvenida: recien instalada, la app
-            // vive en la bandeja y sin esto no habria nada que mirar. Y al actualizar
-            // igual, que es el mismo problema: si no, se reinicia y no se ve nada.
-            if !config.onboarded
-                || recien_actualizado
-                || std::env::args().any(|arg| arg == "--settings")
-            {
+            // vive en la bandeja y sin esto no habria nada que mirar. Al actualizar igual,
+            // que es el mismo problema: si no, se reinicia y no se ve nada. Y abierta a mano
+            // tambien (S22), pero no cuando arranca sola con Windows, desde la Store al
+            // iniciar sesion o la arranca un agente. Ver `arranque`.
+            if arranque::ensenar_ajustes(&arranque::Arranque {
+                argumentos: &argumentos,
+                onboarded: config.onboarded,
+                recien_actualizado,
+                por_la_store: arranque::por_la_store(),
+                lo_arranca_un_agente,
+            }) {
                 windows_mgr::show_settings(&handle)?;
             }
             Ok(())
