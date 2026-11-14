@@ -43,9 +43,12 @@
   h.style.setProperty("--motion-gain", String(gain));
   h.classList.toggle("motion", gain > 0);
   h.classList.toggle("quieto", gain === 0);
+  // Lo que hace el CSS por su cuenta al bajar (la demo que se encoge) no puede multiplicar
+  // por el dial dentro de una animación sin dejar de ir fluido: con esto elige la suave.
+  h.classList.toggle("suave", gain > 0 && gain < 1);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=6ec2c46c">
+<link rel="stylesheet" href="../estilos.css?v=394a5bd3">
 <link rel="preload" as="image" href="../img/escritorio-en.webp">
 <script type="application/ld+json">
 {
@@ -1269,6 +1272,6 @@
 
 <script src="../cruceta.js?v=a40756ff"></script>
 <script src="../leer.js?v=a3468ef2"></script>
-<script src="../demo.js?v=97b9b8d5"></script>
+<script src="../demo.js?v=fb9dcea2"></script>
 </body>
 </html>

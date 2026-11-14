@@ -406,6 +406,46 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 }
 
 
+/* ---------- la demo se encoge y se redondea al bajar, como la portada de cattory.co/es ----------
+   La pidió Munito el 14-nov. Desde que su cabeza llega bajo la barra hasta que su final pasa
+   por el mismo sitio, la demo entera va de su tamaño a un 85 % y sus esquinas se redondean:
+   se encoge mientras se va, sin quedarse fijada. Lo mueve el navegador ligado al scroll
+   (`animation-timeline`), sin una línea de JavaScript y fuera del hilo de la página, así que
+   va fluido aunque la página esté ocupada; donde no existe, la demo se queda como siempre.
+   Se sigue usando encogida: demo.js pasa el ratón a sus medidas de dentro (`escalaDe`).
+   El dial de la casa: con «reducir movimiento», un cuarto del recorrido (`html.suave`); con
+   `?motion=off`, nada. Las esquinas van a saltos de un píxel (`steps`): redondearlas obliga
+   a volver a pintar la demo, y así se pinta 22 veces en todo el recorrido, no en cada
+   fotograma. */
+@supports (animation-timeline: view()) {
+  html.motion .escaparate > .env {
+    transform-origin: 50% 0;
+    view-timeline: --vitrina block;
+    view-timeline-inset: var(--nav-alto) 0px;
+    animation: vitrina-encoge linear both;
+    animation-timeline: --vitrina;
+    animation-range: exit-crossing 0% exit-crossing 100%;
+  }
+  html.motion.suave .escaparate > .env { animation-name: vitrina-encoge-suave; }
+  html.motion .escaparate .marco {
+    animation: vitrina-redondea steps(22, end) both;
+    animation-timeline: --vitrina;
+    animation-range: exit-crossing 0% exit-crossing 100%;
+  }
+  /* En el móvil la demo ya va casi a todo el ancho: se encoge menos. */
+  @media (max-width: 860px) {
+    html.motion .escaparate > .env { animation-name: vitrina-encoge-movil; }
+    html.motion.suave .escaparate > .env { animation-name: vitrina-encoge-movil-suave; }
+    html.motion .escaparate .marco { animation-name: vitrina-redondea-movil; }
+  }
+}
+@keyframes vitrina-encoge { to { scale: .85; } }
+@keyframes vitrina-encoge-suave { to { scale: .9625; } }
+@keyframes vitrina-encoge-movil { to { scale: .92; } }
+@keyframes vitrina-encoge-movil-suave { to { scale: .98; } }
+@keyframes vitrina-redondea { to { border-radius: 38px; } }
+@keyframes vitrina-redondea-movil { to { border-radius: 30px; } }
+
 /* ---------- marco de las demos ---------- */
 .cabecera-demo {
   display: flex; align-items: flex-end; justify-content: space-between;

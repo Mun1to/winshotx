@@ -17,6 +17,8 @@
 // fluido): el ratón de Playwright cruza la portada durante dos segundos y se cuentan los
 // fotogramas de la página y en cuántos se movió la cruceta. También comprueba que el cursor del sistema sigue a la vista,
 // que los clics pasan a través y que con «?motion=off» va pegada al ratón, sin suavizado.
+// Y con `--cruceta` se mide además el scroll de la portada a 1920, con la CPU a 4x, con y sin
+// tarjeta gráfica: los fotogramas que llegan a la pantalla mientras baja la rueda.
 
 import { chromium, devices } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -115,6 +117,79 @@ for (const ruta of paginas) {
       `; con motion=off ${Math.abs(quieta.abajo.ancho - quieta.arriba.ancho) < 1 ? "se queda igual" : "SE MUEVE"}${bien ? "" : "  MAL"}`,
   );
   if (!bien) fallos++;
+}
+
+// La demo de la portada se encoge y se redondea al bajar, y se sigue usando encogida: con
+// la página a media demo (85-95 %), se arrastra una selección, se mueve la captura anclada y
+// se escribe en el editor, y se mira que cada cosa caiga donde está el ratón. Se repite con
+// la demo a su tamaño, para comparar. Con «?motion=off» no se encoge.
+{
+  const probarDemo = async (cuanto, extra = "") => {
+    const ctx = await navegador.newContext({ viewport: { width: 1440, height: 1300 } });
+    const page = await ctx.newPage();
+    await page.goto(url("", extra), { waitUntil: "load" });
+    await page.evaluate(() => (document.documentElement.style.scrollBehavior = "auto"));
+    // Sin que salga el puntero de mentira que enseña la demo la primera vez.
+    await page.evaluate(() => window.dispatchEvent(new Event("pointerdown")));
+    await page.evaluate((f) => {
+      const env = document.querySelector("#demo .env");
+      scrollTo(0, env.getBoundingClientRect().top + scrollY - 90 + f * env.offsetHeight);
+    }, cuanto);
+    await page.waitForTimeout(400);
+    const escala = await page.evaluate(() => { const e = document.querySelector("#demo .env"); return e.getBoundingClientRect().width / e.offsetWidth; });
+    const lejos = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+    const notas = {};
+    // 1. Arrastrar sobre la pantalla de la demo, en la parte que se ve.
+    const caja = await page.locator("#caja").boundingBox();
+    const desde = [caja.x + caja.width * 0.3, caja.y + caja.height * 0.72];
+    const hasta = [caja.x + caja.width * 0.55, caja.y + caja.height * 0.9];
+    await page.mouse.move(...desde);
+    await page.mouse.down();
+    await page.mouse.move(...hasta, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    const sel = await page.locator("#sel").boundingBox();
+    notas.seleccion = lejos([sel.x, sel.y, sel.x + sel.width, sel.y + sel.height], [...desde, ...hasta]);
+    // 2. Anclarla y moverla con el ratón.
+    await page.evaluate(() => document.querySelector('#herramientas [data-accion="anclar"]').click());
+    await page.waitForTimeout(300);
+    const antes = await page.locator(".anclada").boundingBox();
+    const agarre = [antes.x + antes.width / 2, antes.y + antes.height / 2];
+    await page.mouse.move(...agarre);
+    await page.mouse.down();
+    await page.mouse.move(agarre[0] + 90, agarre[1] - 30, { steps: 6 });
+    await page.mouse.up();
+    const despues = await page.locator(".anclada").boundingBox();
+    notas.anclada = lejos([despues.x - antes.x, despues.y - antes.y], [90, -30]);
+    // 3. El editor: el texto se escribe donde se pincha.
+    await page.evaluate(() => {
+      document.querySelector('.pestana[data-panel="p-edi"]').click();
+      document.querySelector('[data-marca="texto"]').click();
+    });
+    await page.waitForTimeout(400);
+    const lienzo = await page.locator("#p-edi .edi-fondo canvas").first().boundingBox();
+    const punto = [lienzo.x + lienzo.width * 0.6, Math.min(lienzo.y + lienzo.height * 0.8, 1250)];
+    await page.mouse.click(...punto);
+    await page.waitForTimeout(200);
+    // El campo sale donde se pincha, y se puede escribir en él (antes se cerraba solo).
+    const hayCampo = (await page.locator(".edi-escribe").count()) > 0;
+    const campo = hayCampo ? await page.locator(".edi-escribe").boundingBox() : null;
+    if (hayCampo) await page.keyboard.type("Hola");
+    const escrito = hayCampo ? await page.locator(".edi-escribe").inputValue() : "";
+    notas.texto = campo && escrito === "Hola" ? lejos([campo.x, campo.y], punto) : 999;
+    await ctx.close();
+    return { escala, notas };
+  };
+  for (const [cuanto, extra, que] of [[0, "", "a su tamaño"], [0.45, "", "encogida"], [0.45, "?motion=off", "con motion=off"]]) {
+    const { escala, notas } = await probarDemo(cuanto, extra);
+    const desvio = Math.max(...Object.values(notas));
+    const bien = desvio <= 3 && (que !== "encogida" || escala < 0.95) && (que !== "con motion=off" || escala > 0.999);
+    console.log(
+      `demo ${que.padEnd(15)} al ${Math.round(escala * 100)} %: la selección se desvía ${notas.seleccion.toFixed(1)} px del ratón, ` +
+        `la anclada ${notas.anclada.toFixed(1)} px y el texto ${notas.texto.toFixed(1)} px${bien ? "" : "  MAL"}`,
+    );
+    if (!bien) fallos++;
+  }
 }
 
 // Las órdenes de la terminal (winget, PowerShell) se copian con un clic: cada una se pulsa
@@ -231,6 +306,72 @@ if (medirCruceta) {
     );
     if (!d.hay || !d.movidos || d.cursorTapado || d.pointerEvents !== "none" || d.errores.length) fallos++;
     if (extra && !d.directa) fallos++;
+  }
+
+  // El scroll por la portada (la barra que se compacta, la demo que se encoge al irse), con la
+  // CPU a 4x, con tarjeta gráfica y sin ella (como el ordenador de clase de Munito). Se cuentan
+  // los fotogramas que LLEGAN A LA PANTALLA con el scroll movido (la emisión de pantalla de
+  // Chrome, que trae la posición de cada uno), no los de la página: el scroll del navegador va
+  // en otro hilo y los de la página mienten. Es la medida de `medir-scroll-visible.mjs` de la
+  // skill frontlaxweb. Sin gráfica hace falta el Chromium entero sin ventana (`channel:
+  // "chromium"`): el de siempre dibuja con gráfica aunque se le diga que no.
+  const medirScroll = async (sinGrafica) => {
+    const nav = await chromium.launch({ channel: "chromium", args: sinGrafica ? ["--disable-gpu", "--disable-gpu-compositing"] : [] });
+    const ctx = await nav.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+    const page = await ctx.newPage();
+    const errores = [];
+    page.on("pageerror", (e) => errores.push(String(e)));
+    await page.goto(url(""), { waitUntil: "load" });
+    const grafica = await page.evaluate(() => Boolean(document.createElement("canvas").getContext("webgl", { failIfMajorPerformanceCaveat: true })));
+    await page.mouse.move(900, 500);
+    await page.mouse.move(960, 600, { steps: 5 });
+    await page.waitForTimeout(1500);
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    const cuadros = [];
+    cdp.on("Page.screencastFrame", (f) => {
+      cuadros.push({ t: f.metadata.timestamp * 1000, y: f.metadata.scrollOffsetY });
+      cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {});
+    });
+    await cdp.send("Page.startScreencast", { format: "jpeg", quality: 5, everyNthFrame: 1, maxWidth: 192, maxHeight: 108 });
+    await page.waitForTimeout(400);
+    const t0 = Date.now();
+    // De arriba del todo hasta pasada la demo: la barra se compacta y la demo se encoge entera.
+    await cdp.send("Input.synthesizeScrollGesture", { x: 960, y: 600, yDistance: -2600, speed: 1200, gestureSourceType: "mouse" });
+    let ultimo = -1;
+    for (let i = 0, quieto = 0; i < 40 && quieto < 3; i++) {
+      await page.waitForTimeout(250);
+      const y = await page.evaluate(() => Math.round(scrollY));
+      quieto = y === ultimo ? quieto + 1 : 0;
+      ultimo = y;
+    }
+    const t1 = Date.now();
+    await cdp.send("Page.stopScreencast");
+    const escala = await page.evaluate(() => { const e = document.querySelector("#demo .env"); return e.getBoundingClientRect().width / e.offsetWidth; });
+    await nav.close();
+    const movidos = [];
+    let antes = null;
+    for (const c of cuadros.filter((c) => c.t >= t0 && c.t <= t1)) {
+      if (antes !== null && Math.abs(c.y - antes) > 0.5) movidos.push(c);
+      antes = c.y;
+    }
+    let paron = 0;
+    for (let i = 1; i < movidos.length; i++) paron = Math.max(paron, movidos[i].t - movidos[i - 1].t);
+    const seg = movidos.length > 1 ? (movidos.at(-1).t - movidos[0].t) / 1000 : 0;
+    return { fps: seg ? movidos.length / seg : 0, paron, llego: ultimo, grafica, escala, errores };
+  };
+  for (const sinGrafica of [false, true]) {
+    const d = await medirScroll(sinGrafica);
+    // Lo fluido de la casa: cerca de 60 fotogramas con gráfica y de 45 sin ella (lo que da
+    // cloudflare.com en las mismas condiciones), y ningún parón que se vea.
+    const minimo = sinGrafica ? 38 : 50;
+    const bien = d.fps >= minimo && d.paron < 120 && d.grafica === !sinGrafica && d.escala < 0.9 && !d.errores.length;
+    console.log(
+      `scroll ${sinGrafica ? "sin gráfica, CPU 4x" : "con gráfica, CPU 4x"}  ${d.fps.toFixed(1)} fotogramas por segundo en pantalla, ` +
+        `el parón más largo ${Math.round(d.paron)} ms (hasta ${d.llego} px; la demo acabó al ${Math.round(d.escala * 100)} %)` +
+        `${d.grafica === !sinGrafica ? "" : "  OJO: NO DIBUJA COMO SE PIDIÓ"}${d.errores.length ? `  ERRORES: ${d.errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
+    );
+    if (!bien) fallos++;
   }
 }
 

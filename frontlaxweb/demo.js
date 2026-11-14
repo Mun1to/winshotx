@@ -222,6 +222,10 @@ let tocado = false; // la persona ya ha hecho algo: el fantasma no vuelve a sali
 let ini = { x: 0, y: 0 };
 let fin = { x: 0, y: 0 };
 
+/** Lo encogida que está la demo ahora (1 si no lo está): la portada la encoge y la
+ *  redondea al bajar. Lo que se cuenta en proporciones (de 0 a 1 sobre su caja) no lo nota;
+ *  lo que convierte píxeles del ratón en píxeles de dentro tiene que dividir por esto. */
+const escalaDe = (el) => el.getBoundingClientRect().width / el.offsetWidth || 1;
 const enCaja = (e) => {
   const r = caja.getBoundingClientRect();
   return { x: clamp((e.clientX - r.left) / r.width, 0, 1), y: clamp((e.clientY - r.top) / r.height, 0, 1) };
@@ -505,12 +509,14 @@ function anclar(r) {
   anclada.addEventListener("pointerdown", (e) => {
     if (e.target.closest(".anclada-x")) return;
     anclada.setPointerCapture(e.pointerId);
-    agarre = { x: e.clientX - anclada.offsetLeft, y: e.clientY - anclada.offsetTop };
+    // El ratón va en píxeles de la pantalla, y `left`/`top` en los de dentro de la demo.
+    const k = escalaDe(caja);
+    agarre = { x: e.clientX / k - anclada.offsetLeft, y: e.clientY / k - anclada.offsetTop, k };
   });
   anclada.addEventListener("pointermove", (e) => {
     if (!agarre) return;
-    anclada.style.left = `${clamp(e.clientX - agarre.x, -anclada.offsetWidth / 2, caja.clientWidth - anclada.offsetWidth / 2)}px`;
-    anclada.style.top = `${clamp(e.clientY - agarre.y, 0, caja.clientHeight - 30)}px`;
+    anclada.style.left = `${clamp(e.clientX / agarre.k - agarre.x, -anclada.offsetWidth / 2, caja.clientWidth - anclada.offsetWidth / 2)}px`;
+    anclada.style.top = `${clamp(e.clientY / agarre.k - agarre.y, 0, caja.clientHeight - 30)}px`;
   });
   anclada.addEventListener("pointerup", () => (agarre = null));
 }
@@ -1051,8 +1057,10 @@ function escribirEn(p) {
   campo.placeholder = frase("escribe");
   const r = lienzoEditor.getBoundingClientRect();
   const v = vista.getBoundingClientRect();
-  campo.style.left = `${r.left - v.left + p.x * r.width}px`;
-  campo.style.top = `${r.top - v.top + p.y * r.height}px`;
+  // Medidas de la pantalla pasadas a las de dentro de la demo, que puede ir encogida.
+  const k = escalaDe(vista);
+  campo.style.left = `${(r.left - v.left + p.x * r.width) / k}px`;
+  campo.style.top = `${(r.top - v.top + p.y * r.height) / k}px`;
   campo.style.color = color;
   vista.appendChild(campo);
   let hecho = false;
