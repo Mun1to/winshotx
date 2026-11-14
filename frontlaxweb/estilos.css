@@ -187,6 +187,56 @@ nav.barra { position: sticky; top: 0; z-index: 50; padding: 14px 0; }
 /* En el móvil no se descarga un programa de Windows: ahí sobra el botón. */
 @media (max-width: 640px) { .barra .baja { display: none; } }
 
+/* El menú del móvil y la tableta: un botón con su nombre y, al abrirlo, un panel opaco
+   debajo de la barra con las cinco páginas, cada una con su zona de dedo de 48 px. En el
+   móvil va a lo ancho de la barra; en la tableta, a la derecha, debajo del botón. */
+.barra-dentro { position: relative; }
+.menu { display: none; }
+@media (max-width: 1020px) {
+  .menu { display: block; }
+  .menu > summary {
+    display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px;
+    border-radius: 10px; list-style: none; cursor: pointer; user-select: none;
+    font: 600 15px/1 var(--letra); color: var(--texto); transition: background .18s;
+  }
+  .menu > summary::-webkit-details-marker { display: none; }
+  .menu > summary:hover, .menu[open] > summary { background: var(--realce-medio); }
+  .menu > summary:focus-visible { outline: 2px solid var(--azul); outline-offset: 3px; }
+  .menu > summary svg { width: 20px; height: 20px; }
+  .menu .cierra, .menu[open] .abre { display: none; }
+  .menu[open] .cierra { display: block; }
+  .menu-panel {
+    position: absolute; top: calc(100% + 8px); right: 0; width: min(320px, 100%);
+    display: grid; padding: 8px; border-radius: 16px; text-align: left;
+    background: var(--panel); box-shadow: 0 0 0 1px var(--linea), var(--sombra-barra);
+    transform-origin: top right;
+  }
+  .menu[open] .menu-panel { animation: menu-entra .18s cubic-bezier(.2, .7, .2, 1); }
+  .menu-panel a {
+    display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px;
+    border-radius: 10px; font-size: 17px; font-weight: 550; color: var(--texto);
+  }
+  .menu-panel a:hover { background: var(--realce-medio); text-decoration: none; }
+  .menu-panel a.aqui { text-decoration: none; box-shadow: inset 3px 0 0 var(--azul); }
+  .menu-panel svg { width: 20px; height: 20px; flex: none; color: var(--suave); }
+  /* GitHub ya está en la barra en la tableta: en el panel solo sale en el móvil. */
+  .menu-panel .menu-gh { display: none; margin-top: 6px; border-top: 1px solid var(--linea); border-radius: 0 0 10px 10px; color: var(--suave); font-size: 16px; }
+}
+@media (max-width: 520px) {
+  .barra .gh { display: none; }
+  .menu-panel { left: 0; width: auto; transform-origin: top center; }
+  .menu-panel .menu-gh { display: flex; }
+}
+/* En lo más estrecho (360) no caben el logo, «English» y «Menú» con su nombre: el botón se
+   queda con el dibujo, y el nombre sigue ahí para el lector de pantalla. */
+@media (max-width: 379px) {
+  .menu > summary { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .menu > summary span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@keyframes menu-entra {
+  from { opacity: 0; transform: translateY(calc(-6px * var(--motion-gain, 1))) scale(.98); }
+}
+
 /* ---------- botones: el principal relleno y vivo, el segundo con fondo suave y el mismo tamaño ---------- */
 .botones { display: flex; flex-wrap: wrap; gap: 12px; }
 .btn {

@@ -115,3 +115,16 @@ document.querySelectorAll(".tabla-comparar, .texto .tabla").forEach((caja) => {
   caja.classList.add("apilable");
   if (nombres.length > 2) caja.classList.add("con-etiquetas");
 });
+
+/* ----------------------------------------------------------- el menú del móvil */
+// Es un <details>, que ya se abre y se cierra solo. Esto lo cierra al elegir una sección
+// de esta misma página (si no, se queda abierto encima de lo que has pedido ver), con
+// Escape y al tocar fuera de él.
+document.querySelectorAll("details.menu").forEach((menu) => {
+  const cerrar = () => { menu.open = false; };
+  menu.querySelectorAll(".menu-panel a").forEach((a) => a.addEventListener("click", cerrar));
+  addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && menu.open) { cerrar(); menu.querySelector("summary").focus(); }
+  });
+  document.addEventListener("click", (e) => { if (menu.open && !menu.contains(e.target)) cerrar(); });
+});

@@ -45,7 +45,7 @@
   h.classList.toggle("quieto", gain === 0);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=a6c47276">
+<link rel="stylesheet" href="../estilos.css?v=a64d7b76">
 <link rel="preload" as="image" href="../img/escritorio-en.webp">
 <script type="application/ld+json">
 {
@@ -210,6 +210,8 @@
       <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
     <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -378,6 +380,20 @@
       <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
       <a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>
       <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download</span></a>
+      <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
+           y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
+           Un <details> se abre y se cierra sin JavaScript; leer.js?v=3ae62134 solo lo cierra al elegir. -->
+      <details class="menu">
+        <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span>Menu</span></summary>
+        <div class="menu-panel">
+          <a href="#funciones">Features</a>
+          <a href="#demo">Try it</a>
+          <a href="#comparativa">Compare</a>
+          <a href="docs/">Docs</a>
+          <a href="changelog/">What's new</a>
+          <a class="menu-gh" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg><span>The code, on GitHub</span></a>
+        </div>
+      </details>
     </span>
   </div>
 </nav>
@@ -1249,7 +1265,7 @@
 </footer>
 
 <script src="../cruceta.js?v=a40756ff"></script>
-<script src="../leer.js?v=6f97ed17"></script>
-<script src="../demo.js?v=ec43980c"></script>
+<script src="../leer.js?v=3ae62134"></script>
+<script src="../demo.js?v=0b69e18f"></script>
 </body>
 </html>
