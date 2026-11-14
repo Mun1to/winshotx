@@ -426,7 +426,7 @@ fn pintar_ventana(imagen: &mut RgbaImage, g: &Geometria, oscura: bool, ancho_f: 
     ];
     trazos(imagen, caja(max), &cuadrado, grosor, glifo_color);
     // Cerrar: las dos diagonales.
-    let (x, y, lado) = cerrar;
+    let (x, y, _) = cerrar;
     let equis = [((x + a, y + a), (x + z, y + z)), ((x + z, y + a), (x + a, y + z))];
     trazos(imagen, caja(cerrar), &equis, grosor, glifo_color);
 }
