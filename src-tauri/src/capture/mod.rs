@@ -1,5 +1,8 @@
 #[cfg(test)]
 mod bench_freeze;
+// S27 (proporción fija): que el PNG guardado salga de la proporción exacta.
+#[cfg(test)]
+mod proporcion_pruebas;
 #[cfg(windows)]
 mod wgc;
 // S5 (scroll): la captura con scroll, que cose las fotos de una zona mientras baja.

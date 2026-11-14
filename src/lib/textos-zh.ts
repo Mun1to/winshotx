@@ -368,6 +368,9 @@ export const ZH: Record<string, string> = {
   "Elegir qué hacer": "选择要执行的操作",
   "Al soltar, elegir qué hacer con el recorte · B":
     "松开后选择对框选内容执行的操作 · B",
+  "Proporción del recorte": "框选比例",
+  "Proporción del recorte: {cual} · X": "框选比例：{cual} · X",
+  libre: "自由",
   "Ajustes de winshotx": "winshotx 设置",
 
   // 编辑器缩略图条
