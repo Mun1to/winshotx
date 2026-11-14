@@ -48,7 +48,7 @@
   h.classList.toggle("suave", gain > 0 && gain < 1);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=394a5bd3">
+<link rel="stylesheet" href="../estilos.css?v=dd7176ae">
 <link rel="preload" as="image" href="../img/escritorio-en.webp">
 <script type="application/ld+json">
 {
@@ -199,11 +199,6 @@
       <path d="M24 24 40 40"/><path d="M40 24 24 40"/>
     </g>
   </symbol>
-  <!-- Las flechas de las notas: gordas, onduladas y con la punta abierta, como de rotulador. -->
-  <symbol id="flecha-sube" viewBox="0 0 92 70"><path d="M86 64C72 60 58 52 46 40S24 16 12 9"/><path d="M8 26 10 7 29 10"/></symbol>
-  <symbol id="flecha-lado" viewBox="0 0 92 70"><path d="M4 34C18 16 32 48 50 30S76 16 86 30"/><path d="M71 19 87 31 70 41"/></symbol>
-  <symbol id="flecha-baja" viewBox="0 0 92 70"><path d="M10 6C30 6 48 14 58 28S70 52 78 62"/><path d="M62 58 79 64 82 46"/></symbol>
-
   <g id="lucide">
     <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
@@ -385,7 +380,7 @@
       <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download</span></a>
       <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
            y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
-           Un <details> se abre y se cierra sin JavaScript; leer.js?v=a3468ef2 solo lo cierra al elegir. -->
+           Un <details> se abre y se cierra sin JavaScript; leer.js?v=86551d0d solo lo cierra al elegir. -->
       <details class="menu">
         <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span>Menu</span></summary>
         <div class="menu-panel">
@@ -420,9 +415,13 @@
          Decía «dos» hasta la 0.4.7 (2.948.934 bytes, cabía por 186) y la 0.4.8 se pasó por
          22.748. Antes de subir el peso del instalador, mira que siga cabiendo; si no, se cambia. -->
     <div class="fans">
-      <div class="fan f-a"><svg class="flecha" aria-hidden="true"><use href="#flecha-sube"/></svg><p><b>114 ms.</b> You didn't even get to blink.</p></div>
+      <!-- Las flechas de las notas se dibujan aquí con JavaScript (el script común, «las
+           flechas de las notas»), de la nota a lo que señala (data-flecha), medidas en la
+           página: así la punta llega siempre a su sitio, a cualquier ancho y en los dos idiomas. -->
+      <svg class="garabatos" aria-hidden="true"></svg>
+      <div class="fan f-a" data-flecha=".portada h1 em" data-punta="final" data-sale="arriba" data-curva="0.2"><p><b>114 ms.</b> You didn't even get to blink.</p></div>
       <div class="fan f-b"><p>Free for real: <b>no 7-day trial</b> and no subscription.</p></div>
-      <div class="fan f-c"><svg class="flecha" aria-hidden="true"><use href="#flecha-lado"/></svg><p>It fits on <b>three floppy disks</b>. Real ones.</p></div>
+      <div class="fan f-c" data-flecha=".portada .nota" data-punta="inicio" data-sale="derecha" data-curva="0.1"><p>It fits on <b>three floppy disks</b>. Real ones.</p></div>
       <div class="fan f-d"><p><b>No account.</b> It doesn't even ask for your email.</p></div>
     </div>
   </div>
@@ -1021,7 +1020,7 @@
       <div class="fan suelta" style="--giro:-3deg"><p>Your agent records the demo. <b>You go grab a coffee.</b></p></div>
       <div class="botones"><a class="btn dos" href="docs/#agentes">How to connect it</a></div>
     </div>
-    <!-- Cada orden de la terminal se copia con un clic (leer.js?v=a3468ef2): por eso es un grupo y no
+    <!-- Cada orden de la terminal se copia con un clic (leer.js?v=86551d0d): por eso es un grupo y no
          una imagen, y cada línea `.orden` va suelta, sin su «PS>», que no se escribe. -->
     <div class="terminal" role="group" aria-label="A terminal with the winshotx commands for agents">
       <div class="terminal-barra"><i></i><i></i><i></i><span>PowerShell</span></div>
@@ -1271,7 +1270,7 @@
 </footer>
 
 <script src="../cruceta.js?v=a40756ff"></script>
-<script src="../leer.js?v=a3468ef2"></script>
+<script src="../leer.js?v=86551d0d"></script>
 <script src="../demo.js?v=fb9dcea2"></script>
 </body>
 </html>

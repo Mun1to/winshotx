@@ -165,6 +165,122 @@ document.querySelectorAll("details.menu").forEach((menu) => {
   if (document.fonts) document.fonts.ready.then(medir);
 })();
 
+/* ------------------------------------- las flechas de las notas de la portada */
+// Cada nota con `data-flecha` señala un texto: la de «114 ms» el final de «parpadees», la
+// de los disquetes el principio de «Instalador de 2,97 MB». Antes eran dibujos fijos y la
+// punta iba girada respecto al trazo, separada de él y, la de los disquetes, 150 px antes
+// de lo que señalaba («esto sigue roto, esta flecha bro omg», Munito, 14-nov). Ahora se
+// miden la nota y el texto en la página y se traza una curva de rotulador entre los dos;
+// la punta se abre desde el final exacto del trazo, en la dirección en la que llega.
+// `data-sale`: por dónde sale de la nota (arriba o derecha). `data-curva`: cuánto se
+// comba, en partes del largo, y hacia qué lado (con signo). Solo se vuelve a medir cuando
+// cambia el tamaño de la cabecera o llega la letra; el scroll no la toca.
+// El halo que corta la cruceta por detrás tiene que ser invisible: no puede ser un color
+// liso, porque detrás está la luz azul del titular (`.portada::before`) y un liso se veía
+// como un contorno. Se pinta dos veces: el fondo de la página y, encima, esa misma luz,
+// copiada de su CSS en un degradado del SVG con las mismas medidas.
+(function () {
+  const portada = document.querySelector(".portada");
+  const lienzo = portada && portada.querySelector(".garabatos");
+  if (!lienzo) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const nuevo = (tipo, atributos) => {
+    const el = document.createElementNS(NS, tipo);
+    for (const [k, v] of Object.entries(atributos)) el.setAttribute(k, v);
+    return el;
+  };
+  const luz = nuevo("radialGradient", { id: "garabatos-luz", gradientUnits: "userSpaceOnUse" });
+  const paradaFin = nuevo("stop", { class: "luz-fin" });
+  luz.append(nuevo("stop", { offset: "0", class: "luz" }), paradaFin);
+  const defs = nuevo("defs", {});
+  defs.append(luz);
+  lienzo.append(defs);
+  const flechas = [...document.querySelectorAll(".portada .fan[data-flecha]")].map((nota) => {
+    const halo = nuevo("path", { class: "halo" });
+    const haloLuz = nuevo("path", { class: "halo-luz", stroke: "url(#garabatos-luz)" });
+    const trazo = nuevo("path", { class: "trazo" });
+    lienzo.append(halo, haloLuz, trazo);
+    return { nota, caminos: [halo, haloLuz, trazo], destino: document.querySelector(nota.dataset.flecha) };
+  });
+
+  // «radial-gradient(58% 48% at 50% 32%, <color>, transparent 72%)» sobre la caja del ::before.
+  const copiarLuz = (base) => {
+    const antes = getComputedStyle(portada, "::before");
+    const m = antes.backgroundImage.match(/radial-gradient\(([\d.]+)% ([\d.]+)% at ([\d.]+)% ([\d.]+)%.*\s([\d.]+)%\)$/);
+    if (!m) return false;
+    const p = portada.getBoundingClientRect();
+    const ancho = p.width;
+    const alto = parseFloat(antes.height);
+    const arriba = p.top + parseFloat(antes.top) - base.top;
+    const [rx, ry, cx, cy, hasta] = m.slice(1).map((v) => parseFloat(v) / 100);
+    const x = p.left - base.left + cx * ancho;
+    const y = arriba + cy * alto;
+    luz.setAttribute("cx", x);
+    luz.setAttribute("cy", y);
+    luz.setAttribute("r", rx * ancho);
+    luz.setAttribute("gradientTransform", `translate(${x} ${y}) scale(1 ${(ry * alto) / (rx * ancho)}) translate(${-x} ${-y})`);
+    paradaFin.setAttribute("offset", hasta);
+    return true;
+  };
+
+  // La caja de la primera o de la última letra de un texto, sin los espacios de los lados.
+  const letra = (el, alFinal) => {
+    const textos = [];
+    const paseo = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = paseo.nextNode(); n; n = paseo.nextNode()) if (n.data.trim()) textos.push(n);
+    if (!textos.length) return null;
+    const n = alFinal ? textos[textos.length - 1] : textos[0];
+    const i = alFinal ? n.data.trimEnd().length - 1 : n.data.search(/\S/);
+    const rango = document.createRange();
+    rango.setStart(n, i);
+    rango.setEnd(n, i + 1);
+    return rango.getBoundingClientRect();
+  };
+
+  const dibujar = () => {
+    // Primero se lee todo y luego se escribe, para no recalcular la página en cada flecha.
+    if (getComputedStyle(lienzo).display === "none") return;
+    const base = lienzo.getBoundingClientRect();
+    lienzo.classList.toggle("con-luz", copiarLuz(base));
+    const medidas = flechas.map((f) => {
+      const t = f.destino && letra(f.destino, f.nota.dataset.punta === "final");
+      const n = f.nota.firstElementChild.getBoundingClientRect();
+      return { f, t, n, cuerpo: parseFloat(getComputedStyle(f.nota).fontSize) || 22 };
+    });
+    for (const { f, t, n, cuerpo } of medidas) {
+      if (!t) continue;
+      const hueco = cuerpo * 0.5;
+      const alFinal = f.nota.dataset.punta === "final";
+      // La punta, a media altura de las minúsculas, separada de la letra.
+      const fin = [(alFinal ? t.right + hueco : t.left - hueco) - base.left, t.top + t.height * 0.58 - base.top];
+      const ini = f.nota.dataset.sale === "arriba"
+        ? [n.left + n.width * 0.42 - base.left, n.top - hueco * 0.8 - base.top]
+        : [n.right + hueco * 0.8 - base.left, n.top + n.height * 0.42 - base.top];
+      const d = [fin[0] - ini[0], fin[1] - ini[1]];
+      const largo = Math.hypot(d[0], d[1]);
+      if (largo < cuerpo * 2) { f.caminos.forEach((c) => c.removeAttribute("d")); continue; }
+      const normal = [-d[1] / largo, d[0] / largo];
+      const k = parseFloat(f.nota.dataset.curva) || 0;
+      // Un poco más combada al salir que al llegar, como cuando se hace de un tirón.
+      const c1 = [ini[0] + d[0] * 0.28 + normal[0] * k * 1.15 * largo, ini[1] + d[1] * 0.28 + normal[1] * k * 1.15 * largo];
+      const c2 = [ini[0] + d[0] * 0.7 + normal[0] * k * 0.85 * largo, ini[1] + d[1] * 0.7 + normal[1] * k * 0.85 * largo];
+      // La dirección en la que llega el trazo, y hacia atrás desde ahí, las dos patas de la
+      // punta: algo distintas entre sí, como a mano, pero las dos desde el mismo punto.
+      const atras = Math.atan2(c2[1] - fin[1], c2[0] - fin[0]);
+      const pata = (giro, largoPata) => [fin[0] + Math.cos(atras + giro) * largoPata, fin[1] + Math.sin(atras + giro) * largoPata];
+      const p1 = pata(0.47, cuerpo * 0.56);
+      const p2 = pata(-0.56, cuerpo * 0.5);
+      const r = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+      const camino = `M${r(ini)}C${r(c1)} ${r(c2)} ${r(fin)}M${r(p1)}L${r(fin)}L${r(p2)}`;
+      f.caminos.forEach((c) => c.setAttribute("d", camino));
+    }
+  };
+  dibujar();
+  new ResizeObserver(dibujar).observe(document.querySelector(".portada > .env"));
+  addEventListener("load", dibujar);
+  if (document.fonts) document.fonts.ready.then(dibujar);
+})();
+
 /* ------------------------------------------- las órdenes se copian con un clic */
 // Una orden para pegar en la terminal (winget, la de añadirlo a Claude Code, las del
 // agente) se pincha entera y va al portapapeles, con su aviso de copiado ahí mismo. Lo

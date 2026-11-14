@@ -335,7 +335,13 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   transform: rotate(var(--giro, -4deg));
 }
 .fan b { font-weight: 700; color: var(--texto); }
-.fan .flecha { display: none; }
+/* En la portada la cruceta pasa por detrás de las notas: con un halo suave del color del
+   fondo, su línea se corta antes de tocar la letra y no parece que la tache. Suave y no un
+   contorno: detrás está la luz azul del titular, y un borde liso se vería. */
+.portada .fan p { text-shadow: 0 0 3px var(--fondo), 0 0 6px var(--fondo), 0 0 9px var(--fondo); }
+/* Las flechas de las notas (las dibuja leer.js): solo en pantalla ancha, donde la nota está
+   al lado de lo que señala. */
+.garabatos { display: none; }
 /* En pantalla ancha, la cabecera es una rejilla de tres columnas: el titular a lo ancho, y
    debajo, lo de en medio en la central y las notas en las de los lados, cada una a la
    altura de lo que comenta (las de arriba junto a la bajada, las de abajo junto a los
@@ -357,17 +363,27 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   .portada > .env > .nota + .nota { grid-row: 5; }
   .fans { display: contents; }
   .fan { width: 11em; max-width: 100%; font-size: clamp(20px, 1.45vw, 26px); }
-  .fan .flecha {
-    display: block; position: absolute; width: 92px; height: 70px; overflow: visible;
-    fill: none; stroke: currentColor; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round;
+  /* Un solo lienzo encima de la cabecera, quieto, con las flechas medidas en la página: el
+     trazo de rotulador y, debajo, un halo del color del fondo. La cruceta que sigue al ratón
+     es del mismo azul y pasa por detrás: sin halo, su línea tocaba la flecha y parecía que
+     la flecha chocaba con una raya (foto de Munito, 14-nov). */
+  /* Por debajo de todo lo de la cabecera (z-index -1 dentro de su `.env`) y por encima de la
+     cruceta, que va fuera: así el brillo del botón de descargar se pinta encima del halo y
+     el halo no le hace una muesca. */
+  .garabatos {
+    display: block; position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; overflow: visible;
+    pointer-events: none; fill: none; stroke-linecap: round; stroke-linejoin: round;
   }
+  .garabatos .trazo { stroke: var(--azul); stroke-width: 3px; }
+  .garabatos .halo, .garabatos .halo-luz { stroke: var(--fondo); stroke-width: 13px; }
+  .garabatos .halo-luz { stroke: url(#garabatos-luz); }
+  .garabatos:not(.con-luz) .halo-luz { display: none; }
+  .garabatos .luz, .garabatos .luz-fin { stop-color: var(--halo); }
+  .garabatos .luz-fin { stop-opacity: 0; }
   .fan.f-b { grid-column: 1; grid-row: 2; justify-self: start; margin-top: 20px; --giro: -7deg; }
   .fan.f-a { grid-column: 3; grid-row: 2; justify-self: end; margin-top: 34px; --giro: 6deg; }
-  .fan.f-a .flecha { left: 18%; bottom: 100%; transform: rotate(-12deg); }
-  /* La de los disquetes señala el tamaño del instalador: deja sitio a su flecha para que
-     acabe antes de la letra, no encima. */
+  /* La de los disquetes señala el tamaño del instalador: deja sitio a su flecha. */
   .fan.f-c { grid-column: 1; grid-row: 4 / 6; justify-self: end; max-width: calc(100% - 84px); margin-right: 84px; --giro: 4deg; }
-  .fan.f-c .flecha { left: calc(100% + 6px); top: 0; width: 74px; height: 56px; }
   .fan.f-d { grid-column: 3; grid-row: 3 / 6; justify-self: end; --giro: -5deg; }
 }
 @media (min-width: 1600px) {

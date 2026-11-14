@@ -119,6 +119,134 @@ for (const ruta of paginas) {
   if (!bien) fallos++;
 }
 
+// Las flechas de las notas de la portada (las dibuja leer.js): la punta llega a su texto sin
+// tocarlo y unida al trazo, en la dirección en la que llega; la flecha no pisa ningún texto
+// ni botón; y la cruceta que pasa por detrás se corta antes de tocarla (se hacen dos fotos,
+// con la línea cruzando y sin ella, y ningún píxel cambiado puede caer a menos de 2 px del
+// trazo). Munito mandó dos veces la de los disquetes rota, 14-nov.
+for (const ruta of ["", "en/"]) {
+  for (const ancho of [1180, 1440, 1920, 2560]) {
+    for (const tema of ["dark", "light"]) {
+      const ctx = await navegador.newContext({ viewport: { width: ancho, height: 1000 }, colorScheme: tema });
+      const page = await ctx.newPage();
+      await page.goto(url(ruta), { waitUntil: "load" });
+      await page.waitForTimeout(400);
+      const datos = await page.evaluate(() => {
+        const lienzo = document.querySelector(".portada .garabatos");
+        const base = lienzo.getBoundingClientRect();
+        const cajas = [];
+        const env = document.querySelector(".portada > .env");
+        const paseo = document.createTreeWalker(env, NodeFilter.SHOW_TEXT);
+        for (let n = paseo.nextNode(); n; n = paseo.nextNode()) {
+          if (!n.data.trim()) continue;
+          const r = document.createRange();
+          r.selectNodeContents(n);
+          cajas.push(...[...r.getClientRects()].filter((c) => c.width && c.height));
+        }
+        cajas.push(...[...env.querySelectorAll(".btn")].map((b) => b.getBoundingClientRect()));
+        const letra = (el, alFinal) => {
+          const textos = [];
+          const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          for (let n = w.nextNode(); n; n = w.nextNode()) if (n.data.trim()) textos.push(n);
+          const n = alFinal ? textos.at(-1) : textos[0];
+          const i = alFinal ? n.data.trimEnd().length - 1 : n.data.search(/\S/);
+          const r = document.createRange();
+          r.setStart(n, i);
+          r.setEnd(n, i + 1);
+          return r.getBoundingClientRect();
+        };
+        return [...document.querySelectorAll(".portada .fan[data-flecha]")].map((nota) => {
+          const trazo = [...lienzo.querySelectorAll(".trazo")][[...document.querySelectorAll(".portada .fan[data-flecha]")].indexOf(nota)];
+          const d = trazo.getAttribute("d") || "";
+          const num = d.match(/-?[\d.]+/g)?.map(Number) || [];
+          // M ini C c1 c2 fin M p1 L punta L p2
+          const [, , , , c2x, c2y, fx, fy, p1x, p1y, px, py, p2x, p2y] = num;
+          const alFinal = nota.dataset.punta === "final";
+          const t = letra(document.querySelector(nota.dataset.flecha), alFinal);
+          const punta = { x: fx + base.left, y: fy + base.top };
+          const hueco = alFinal ? punta.x - t.right : t.left - punta.x;
+          const unida = num.length === 14 && Math.hypot(px - fx, py - fy) < 0.01;
+          const llega = Math.atan2(fy - c2y, fx - c2x);
+          const pata = (x, y) => Math.atan2(fy - y, fx - x);
+          const dif = (a, b) => Math.abs(((a - b + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+          const torcida = Math.abs(dif(pata(p1x, p1y), llega) - dif(pata(p2x, p2y), llega)) * 180 / Math.PI;
+          const largo = trazo.getTotalLength();
+          let pisa = 0;
+          for (let s = 0; s <= largo; s += 2) {
+            const q = trazo.getPointAtLength(s);
+            const x = q.x + base.left, y = q.y + base.top;
+            if (cajas.some((c) => x > c.left - 2 && x < c.right + 2 && y > c.top - 2 && y < c.bottom + 2)) pisa++;
+          }
+          const medio = trazo.getPointAtLength(largo * 0.35);
+          return {
+            hueco, alto: punta.y >= t.top && punta.y <= t.bottom, unida, torcida, pisa,
+            luz: lienzo.classList.contains("con-luz"), cruce: { x: medio.x + base.left, y: medio.y + base.top },
+          };
+        });
+      });
+      // La cruceta por encima de cada flecha: con la línea vertical y sin ella.
+      const cruza = [];
+      for (const [i, f] of datos.entries()) {
+        const x = Math.round(f.cruce.x) + 0.5;
+        const clip = { x: Math.round(f.cruce.x) - 14, y: Math.round(f.cruce.y) - 14, width: 28, height: 28 };
+        // El ratón lejos del cruce (la cruceta deja un hueco a su alrededor) y dentro de la
+        // cabecera, que es donde se dibuja.
+        const fondo = await page.evaluate(() => document.querySelector(".portada").getBoundingClientRect().bottom);
+        const y = f.cruce.y + 70 < fondo - 10 ? f.cruce.y + 70 : f.cruce.y - 70;
+        await page.mouse.move(x, y + 30);
+        await page.mouse.move(x, y, { steps: 6 });
+        await page.waitForTimeout(700);
+        const con = (await page.screenshot({ clip })).toString("base64");
+        await page.mouse.move(2, 2);
+        await page.waitForTimeout(900);
+        const sin = (await page.screenshot({ clip })).toString("base64");
+        cruza.push(await page.evaluate(async ({ con, sin, clip, i }) => {
+          const pix = async (b64) => {
+            const img = new Image();
+            img.src = `data:image/png;base64,${b64}`;
+            await img.decode();
+            const c = document.createElement("canvas");
+            c.width = img.width;
+            c.height = img.height;
+            const g = c.getContext("2d");
+            g.drawImage(img, 0, 0);
+            return g.getImageData(0, 0, c.width, c.height).data;
+          };
+          const [a, b] = [await pix(con), await pix(sin)];
+          const lienzo = document.querySelector(".portada .garabatos");
+          const base = lienzo.getBoundingClientRect();
+          const cerca = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          cerca.setAttribute("d", lienzo.querySelectorAll(".trazo")[i].getAttribute("d"));
+          cerca.style.cssText = "stroke: #000; stroke-width: 7px; fill: none; stroke-linecap: round; stroke-linejoin: round";
+          lienzo.append(cerca);
+          let cambiados = 0;
+          let tocan = 0;
+          for (let y = 0; y < clip.height; y++) for (let x = 0; x < clip.width; x++) {
+            const k = (y * clip.width + x) * 4;
+            if (Math.max(Math.abs(a[k] - b[k]), Math.abs(a[k + 1] - b[k + 1]), Math.abs(a[k + 2] - b[k + 2])) <= 8) continue;
+            cambiados++;
+            if (cerca.isPointInStroke(new DOMPoint(clip.x + x + 0.5 - base.left, clip.y + y + 0.5 - base.top))) tocan++;
+          }
+          cerca.remove();
+          return { cambiados, tocan };
+        }, { con, sin, clip, i }));
+      }
+      await ctx.close();
+      datos.forEach((f, i) => {
+        const c = cruza[i];
+        const bien = f.hueco >= 4 && f.hueco <= 22 && f.alto && f.unida && f.torcida < 8 && !f.pisa && f.luz && c.cambiados > 4 && !c.tocan;
+        console.log(
+          `flecha ${i + 1} ${(ruta || "es").padEnd(3)} ${ancho} ${tema === "dark" ? "oscuro" : "claro "}: punta a ${f.hueco.toFixed(1)} px de su texto` +
+            `${f.alto ? "" : " (A OTRA ALTURA)"}, ${f.unida ? "unida al trazo" : "SUELTA DEL TRAZO"}, patas ${f.torcida < 8 ? "derechas" : `TORCIDAS ${f.torcida.toFixed(0)}°`}` +
+            `, ${f.pisa ? `PISA TEXTO EN ${f.pisa} PUNTOS` : "no pisa nada"}; la cruceta ${c.cambiados > 4 ? (c.tocan ? `LA TOCA (${c.tocan} píxeles)` : "pasa por detrás sin tocarla") : "NO SE VE EN LA FOTO"}` +
+            `${f.luz ? "" : ", SIN LA LUZ DEL HALO"}${bien ? "" : "  MAL"}`,
+        );
+        if (!bien) fallos++;
+      });
+    }
+  }
+}
+
 // La demo de la portada se encoge y se redondea al bajar, y se sigue usando encogida: con
 // la página a media demo (85-95 %), se arrastra una selección, se mueve la captura anclada y
 // se escribe en el editor, y se mira que cada cosa caiga donde está el ratón. Se repite con
