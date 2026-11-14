@@ -1,6 +1,7 @@
 // Saca las imágenes de la portada de la app DE VERDAD, sin abrir nada en el escritorio.
 //
 //   pnpm build                           (una vez: el banco de fotos usa el bundle de dist/)
+//                                        (y ffmpeg en el PATH, para el vídeo del editor)
 //   node frontlaxweb/hacer-imagenes.mjs
 //
 // Deja en frontlaxweb/img/, en español y en inglés:
@@ -116,6 +117,17 @@ function fotografiar(args) {
   });
 }
 
+/** ffmpeg, el del PATH, como en scripts/probar-editor.mjs. */
+function ffmpeg(args) {
+  return new Promise((ok, mal) => {
+    const hijo = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...args], { stdio: ["ignore", "ignore", "pipe"] });
+    let error = "";
+    hijo.stderr.on("data", (d) => (error += d));
+    hijo.on("error", () => mal(new Error("no encuentro ffmpeg: hace falta para el vídeo del editor (winget install Gyan.FFmpeg)")));
+    hijo.on("exit", (code) => (code === 0 ? ok() : mal(new Error(`ffmpeg salió con ${code}:\n${error}`))));
+  });
+}
+
 /** Levanta el banco con --servir y devuelve la URL de la pantalla y cómo apagarlo. */
 function servirBanco(args) {
   return new Promise((ok, mal) => {
@@ -209,7 +221,12 @@ for (const idioma of ["es", "en"]) {
   /* ---------------- 3. el editor con ese recorte y el fondo «Atardecer» del Estudio */
   const pngRecorte = join(temporal, `recorte-${idioma}.png`);
   await writeFile(pngRecorte, await convertir(pngEscritorio, recorte, "image/png"));
-  const { url, apagar } = await servirBanco([`--editor=${pngRecorte}`, "--duracion=12", `--idioma=${idioma}`, `--ancho=${EDITOR.ancho}`, `--alto=${EDITOR.alto}`]);
+  // Sin MP4, el editor se queda diciendo «Preparando el vídeo…» abajo a la izquierda, que es
+  // lo que ve el usuario los primeros segundos y no lo que se quiere enseñar. Doce segundos
+  // de ese mismo recorte quieto bastan para que salga el botón de reproducir.
+  const mp4Recorte = join(temporal, `recorte-${idioma}.mp4`);
+  await ffmpeg(["-loop", "1", "-i", pngRecorte, "-t", "12", "-r", "30", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p", mp4Recorte]);
+  const { url, apagar } = await servirBanco([`--editor=${pngRecorte}`, `--video=${mp4Recorte}`, "--duracion=12", `--idioma=${idioma}`, `--ancho=${EDITOR.ancho}`, `--alto=${EDITOR.alto}`]);
   try {
     const ctxEditor = await navegador.newContext({
       viewport: { width: EDITOR.ancho, height: EDITOR.alto },
