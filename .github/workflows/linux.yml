@@ -12,12 +12,18 @@ on:
     branches: [main, "plan/**"]
     paths:
       - "src-tauri/**"
-      - "src/lib/**"
+      - "src/**"
+      - "packaging/linux/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
       - ".github/workflows/linux.yml"
   pull_request:
     paths:
       - "src-tauri/**"
-      - "src/lib/**"
+      - "src/**"
+      - "packaging/linux/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
       - ".github/workflows/linux.yml"
   workflow_dispatch:
 
@@ -61,3 +67,57 @@ jobs:
       - name: Tests
         working-directory: src-tauri
         run: cargo test --lib --locked
+
+  # The .deb, the .rpm and the AppImage, signed for the updater. Nothing is published: Linux
+  # ships when it has almost everything Windows has (decision 1 of the Linux plan), so for now
+  # they only stay as artifacts of the run, to install them on clean distributions. Pull
+  # requests from forks do not get the signing key, so they skip this job.
+  packages:
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    container: rust:1-bookworm
+    timeout-minutes: 90
+    env:
+      # linuxdeploy is an AppImage itself, and a container has no FUSE to mount it.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System libraries
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends             pkg-config clang libclang-dev             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev             libdbus-1-dev libpipewire-0.3-dev libgbm-dev libdrm-dev libwayland-dev             libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev             patchelf file xdg-utils
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # The key's password is empty: GitHub cannot store an empty secret, and the bundler
+      # reads an empty value as "no password".
+      - name: Packages
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: pnpm tauri build --bundles deb,rpm,appimage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winshotx-linux
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/*/*.sig
