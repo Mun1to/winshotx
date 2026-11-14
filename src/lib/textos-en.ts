@@ -217,7 +217,7 @@ export const EN: Record<string, string> = {
   Atrás: "Back",
   Siguiente: "Next",
   Listo: "Done",
-  "Todo está en estas cuatro": "It is all in these four",
+  "Todo está en estas cinco": "It is all in these five",
   "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.":
     "There are no other screens or hidden menus: everything you can change lives here, and each section fits without scrolling.",
   "La tecla que lo empieza todo": "The key that starts everything",

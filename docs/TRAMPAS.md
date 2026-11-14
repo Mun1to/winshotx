@@ -1449,3 +1449,23 @@ Lo que queda sin el vigilante a proposito: los overlays y la barra de grabar. Lo
 pantalla completa y por encima de la barra de tareas, y cambiarles el tipo de ventana sin poder
 mirarlo en una pantalla de verdad era arriesgar la captura entera; la barra de grabar se crea y
 se cierra en cada grabacion, no se queda escondida.
+
+## 52. Lo que una pagina pide a su ventana sin permiso falla en silencio
+
+**Sintoma:** la ventana de ajustes llamaba a `setSize` desde agosto de 2026 y su alto era siempre
+el de `tauri.conf.json`. Los comentarios decian que mandaba esa linea; mandaba el otro archivo.
+Cada vez que hizo falta mas alto se cambiaron los dos, y por eso nunca se noto.
+
+**Causa:** en Tauri v2 cada orden de ventana necesita su permiso en `src-tauri/capabilities/`.
+`core:default` trae las que leen (`inner_size`, `outer_size`, `outer_position`, `scale_factor`,
+`current_monitor`) pero no las que cambian (`set_size`, `set_position`). Sin permiso, la promesa
+de JavaScript se rechaza, y si nadie la espera ni la mira, no pasa nada visible.
+
+**Por que no lo ve ninguna prueba del frontend:** en Vitest y en el navegador sin ventana de
+`scripts/` el Tauri es de mentira y contesta a todo. Al hacer que los ajustes midan lo que mide su
+pestanna (S24, 14 de noviembre), todo cuadraba en Edge sin ventana y en una ventana de verdad no
+crecia.
+
+**Arreglo:** `capabilities/ajustes.json` da `set-size` y `set-position` solo a la ventana `main`, y
+`tests/permisos.rs` se pone rojo si faltan. Lo que se pida nuevo a una ventana desde su pagina,
+se mira en una ventana de verdad antes de darlo por bueno.

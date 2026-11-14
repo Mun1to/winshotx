@@ -587,6 +587,38 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   await arrastrarDe(enPx(agarre), enPx([agarre[0], agarre[1] + 0.1]));
   const lapizFinal = await verticesDelLapiz();
 
+  // S24: con la elipse elegida, pinchar el azul de la barra se lo cambia, y Ctrl+Z se lo
+  // devuelve. La elipse y no la línea: las sondas de Rust de abajo buscan rojo en la línea.
+  c = await medirCapa();
+  const colorDeLaElipse = () => pagina.locator('[data-marca="ellipse"]').getAttribute("stroke");
+  const otraElipse = await dondeSeVe('[data-marca="ellipse"]');
+  const [ox, oy] = enPx([otraElipse.x2, (otraElipse.y1 + otraElipse.y2) / 2]);
+  await pagina.mouse.click(ox + 4, oy);
+  const rojaAntes = await colorDeLaElipse();
+  await pagina.getByRole("button", { name: "#0a9bff", exact: true }).click();
+  const azul = await colorDeLaElipse();
+  const pulsado = await pagina.getByRole("button", { name: "#0a9bff", exact: true }).getAttribute("aria-pressed");
+  await pagina.keyboard.press("Control+z");
+  const deshecha = await colorDeLaElipse();
+  const lapizSigue = await verticesDelLapiz();
+  comprueba(
+    rojaAntes === "#ef4444" && azul === "#0a9bff" && pulsado === "true" && deshecha === "#ef4444",
+    `con la elipse elegida, pinchar el azul se lo cambia y Ctrl+Z se lo devuelve (${rojaAntes} → ${azul} → ${deshecha})`,
+  );
+  comprueba(
+    lapizSigue.every((p, i) => Math.abs(p[1] - lapizFinal[i][1]) < 0.001),
+    "y ese Ctrl+Z solo quita el color: el lápiz sigue donde se movió",
+  );
+  // Elegida otra vez y en azul, para que «Guardar» la lleve así.
+  await pagina.mouse.click(ox + 4, oy);
+  await pagina.getByRole("button", { name: "#0a9bff", exact: true }).click();
+  // Y sin nada elegido, el color no toca lo que ya está: es para lo próximo.
+  await pagina.keyboard.press("Escape");
+  await pagina.getByRole("button", { name: "#22c55e", exact: true }).click();
+  const sigueAzul = await colorDeLaElipse();
+  comprueba(sigueAzul === "#0a9bff", `sin nada elegido, pinchar el verde no cambia la elipse (${sigueAzul})`);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "12d-s24-elipse-azul.png") });
+
   await pagina.getByRole("button", { name: "Guardar MP4" }).click();
   await pagina.waitForFunction(() => window.__llamadas.filter((l) => l.cmd === "export_media").length >= 2);
   const peticion = await pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request);
@@ -611,6 +643,12 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     ahora.length === marcas.length && !ahora.some((m) => m.kind === "arrow"),
     `sin marcas de más ni de menos: ${ahora.map((m) => m.kind).join(", ")}`,
   );
+  const colores = ahora.map((m) => `${m.kind} ${m.color}`);
+  comprueba(
+    ahora.find((m) => m.kind === "ellipse")?.color === "#0a9bff" &&
+      ahora.filter((m) => !["ellipse", "focus"].includes(m.kind)).every((m) => m.color === "#ef4444"),
+    `y la elipse va en azul y las demás en su rojo (S24): ${colores.join(", ")}`,
+  );
 
   // Lo que se ve, para que Rust lo pinte de verdad y mire que sale ahí
   // (`exporter::exportar_de_verdad::lo_movido_sale_donde_se_ve`, con --ignored).
@@ -624,6 +662,14 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     { que: "el lápiz, donde se ve ahora", debe: "pintado", ...caja(lapizFinal[mitad], 0.006) },
     { que: "el lápiz, donde estaba", debe: "limpio", ...caja(lapizAntes[mitad], 0.006) },
   ];
+  // S24: la elipse, recoloreada con el azul de la barra, sale azul y sin el rojo de antes.
+  // La caja va en su borde de la derecha, a media altura, que es por donde pasa el trazo.
+  const elipseGuardada = ahora.find((m) => m.kind === "ellipse");
+  const bordeDeLaElipse = [elipseGuardada.x2, (elipseGuardada.y1 + elipseGuardada.y2) / 2];
+  sondas.push(
+    { que: "la elipse, en el azul que se le puso", debe: "azul", ...caja(bordeDeLaElipse, 0.008) },
+    { que: "la elipse, sin el rojo de antes", debe: "limpio", ...caja(bordeDeLaElipse, 0.008) },
+  );
   const volcado = join(tmpdir(), "winshotx-probar-editor", "s23-lo-movido.json");
   writeFileSync(volcado, JSON.stringify({ ancho: peticion.width, alto: peticion.height, annotations: ahora, sondas }, null, 1));
   console.log(`  (lo que se ve, para Rust: ${volcado})`);

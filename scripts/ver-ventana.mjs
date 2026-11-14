@@ -51,12 +51,21 @@ const bandera = (nombre, pordefecto) => {
 
 const salida = resolve(args.find((a) => !a.startsWith("--")) ?? "ventana.png");
 const ancho = bandera("ancho", "840");
-// El mismo alto que pide `tauri.conf.json`, para ver lo que de verdad entra sin rueda.
-// Estuvo en 640 mientras la ventana medía 510, así que las fotos enseñaban 130 px de más
-// y una sección que se salía por abajo parecía caber. Si se cambia el alto de la ventana,
-// se cambia aquí.
-const alto = bandera("alto", "760");
 const bienvenida = args.includes("--bienvenida");
+// El alto de la foto. Desde S24 (14-nov-2026) los ajustes miden lo que mide su pestaña, así
+// que sin --alto el banco hace lo que la app: una primera pasada sin foto en la que la
+// página pide su alto (`setSize`, que aquí se apunta), y la foto a ese alto. Con --alto=N se
+// fuerza, por ejemplo para ver una ventana que alguien ha encogido a mano.
+//
+// La bienvenida sigue pidiendo 840 x 640 fijos, y las demás ventanas no piden nada: van a
+// 760 si no se dice otra cosa. Estuvo en 640 mientras la ventana medía 510, así que las
+// fotos enseñaban 130 px de más y una sección que se salía por abajo parecía caber: el alto
+// de la foto tiene que ser el de la ventana de verdad.
+const altoForzado = bandera("alto", null);
+const alto = altoForzado ?? (bienvenida ? "640" : "760");
+// El alto útil de la pantalla de mentira, en px lógicos (sin la barra de tareas): para ver
+// qué pasa en una pantalla baja, como un portátil de 768 al 125 % (--zona=566 --escala=1.25).
+const zona = Number(bandera("zona", "1032"));
 // Win+Mayús+S pedida pero todavía no conseguida, que es cuando sale el botón de aplicar.
 const teclaPendiente = args.includes("--tecla-pendiente");
 // El anillo de los últimos segundos, encendido: con él apagado la sección no cuenta nada.
@@ -404,6 +413,41 @@ Object.assign(window.__TAURI_INTERNALS__, {
       }
       return Promise.resolve(null);
     }
+    // S24: la ventana de mentira, para que la página pueda medirse y pedir su alto. Mide lo
+    // que mide el navegador sin ventana, con una barra de título de 32 px encima, y está
+    // arriba del todo de una pantalla de 1920 de ancho con --zona de alto útil.
+    const dpr = devicePixelRatio;
+    const fisico = (n) => Math.round(n * dpr);
+    if (cmd === "plugin:window|scale_factor") return Promise.resolve(dpr);
+    if (cmd === "plugin:window|inner_size") {
+      return Promise.resolve({ width: fisico(innerWidth), height: fisico(innerHeight) });
+    }
+    if (cmd === "plugin:window|outer_size") {
+      return Promise.resolve({ width: fisico(innerWidth), height: fisico(innerHeight + 32) });
+    }
+    if (cmd === "plugin:window|outer_position") return Promise.resolve({ x: 0, y: 0 });
+    if (cmd === "plugin:window|current_monitor") {
+      const util = { position: { x: 0, y: 0 }, size: { width: fisico(1920), height: fisico(${zona}) } };
+      return Promise.resolve({
+        name: "banco",
+        scaleFactor: dpr,
+        position: util.position,
+        size: { width: fisico(1920), height: fisico(${zona} + 48) },
+        workArea: util,
+      });
+    }
+    if (cmd === "plugin:window|set_size") {
+      // Lo que se pide queda en el DOM para la primera pasada, que lo lee con --dump-dom.
+      const s = args.value?.size ?? args.value;
+      let m = document.querySelector('meta[name="winshotx-medida"]');
+      if (!m) {
+        m = document.createElement("meta");
+        m.name = "winshotx-medida";
+        document.head.appendChild(m);
+      }
+      m.content = [s.width, s.height, s.type ?? "Logical", dpr].join(",");
+      return Promise.resolve(null);
+    }
     if (cmd.startsWith("plugin:")) return Promise.resolve(null);
     return Promise.resolve(null);
   },
@@ -664,7 +708,7 @@ if (!navegador) {
   process.exit(1);
 }
 
-server.listen(0, () => {
+server.listen(0, async () => {
   let pagina = overlay ? "overlay.html" : "index.html";
   // La cuenta atrás es una ventanita cuadrada de 132 px, pero el navegador sin ventana no
   // baja de unos 500: por debajo de eso deja el lienzo a 500 igual y la foto sale recortada
@@ -695,23 +739,67 @@ server.listen(0, () => {
     console.log(url);
     return;
   }
-  const hijo = spawn(navegador, [
-    "--headless=new",
-    "--disable-gpu",
-    "--hide-scrollbars",
-    `--window-size=${w},${h}`,
-    ...(escala ? [`--force-device-scale-factor=${escala}`] : []),
-    ...(dom ? ["--dump-dom"] : [`--screenshot=${salida}`]),
-    // Sin esto sale la pantalla antes de que React pinte nada.
-    `--virtual-time-budget=${tiempo}`,
-    // Y así se fotografía lo que ve quien tiene puesto "reducir movimiento" en Windows,
-    // que es como la app se comporta desde que respeta esa preferencia.
-    "--force-prefers-reduced-motion",
-    url,
-  ], dom ? { stdio: "inherit" } : undefined);
-  hijo.on("exit", (code) => {
-    server.close();
-    if (!dom) console.log(code === 0 ? `hecha: ${salida}` : `el navegador salió con ${code}`);
-    process.exit(code ?? 1);
+  const lanzar = (alto, volcar, mirar) =>
+    spawn(navegador, [
+      "--headless=new",
+      "--disable-gpu",
+      "--hide-scrollbars",
+      `--window-size=${w},${alto}`,
+      ...(escala ? [`--force-device-scale-factor=${escala}`] : []),
+      ...(volcar ? ["--dump-dom"] : [`--screenshot=${salida}`]),
+      // Sin esto sale la pantalla antes de que React pinte nada.
+      `--virtual-time-budget=${tiempo}`,
+      // Y así se fotografía lo que ve quien tiene puesto "reducir movimiento" en Windows,
+      // que es como la app se comporta desde que respeta esa preferencia.
+      "--force-prefers-reduced-motion",
+      url,
+    ], { stdio: mirar ? ["ignore", "pipe", "ignore"] : volcar ? "inherit" : undefined });
+  const fotografiar = (alto) => {
+    const hijo = lanzar(alto, dom, false);
+    hijo.on("exit", (code) => {
+      server.close();
+      if (!dom) console.log(code === 0 ? `hecha: ${salida} (${w} x ${alto})` : `el navegador salió con ${code}`);
+      process.exit(code ?? 1);
+    });
+  };
+  // Los ajustes, sin --alto: primero se deja que la página pida su alto, como en la app.
+  const ajustes = pagina === "index.html" && !bienvenida && altoForzado === null;
+  if (!ajustes) {
+    fotografiar(h);
+    return;
+  }
+  // La primera pasada va con Playwright y reloj de verdad, no con el reloj virtual: el
+  // ResizeObserver que hace que la ventana se ajuste al cambiar de pestaña solo avisa cuando
+  // el navegador pinta, y con el reloj virtual la foto llegaba antes del siguiente pintado.
+  // La mitad de las veces La app salía con el alto de Capturar (comprobado el 14-nov-2026).
+  const { chromium } = await import("playwright");
+  const edge = await chromium.launch({ channel: "msedge", headless: true });
+  const contexto = await edge.newContext({
+    viewport: { width: Number(w), height: Number(h) },
+    deviceScaleFactor: Number(escala ?? 1),
+    reducedMotion: "reduce",
   });
+  const p = await contexto.newPage();
+  await p.goto(url);
+  // Lo que tarda en hacer su recorrido el guion de la sección o del tour, y después se
+  // espera a que el alto pedido deje de cambiar.
+  await p.waitForTimeout(1200 + (tour !== null ? 900 + 300 * Number(tour) : 0));
+  const leer = () =>
+    p.evaluate(() => document.querySelector('meta[name="winshotx-medida"]')?.content ?? null);
+  let pedida = await leer();
+  for (let i = 0; i < 10; i++) {
+    await p.waitForTimeout(300);
+    const otra = await leer();
+    if (otra === pedida) break;
+    pedida = otra;
+  }
+  await edge.close();
+  if (!pedida) {
+    console.log(`la página no pidió alto: foto a ${h}`);
+    fotografiar(h);
+    return;
+  }
+  const [, altoPedido, tipo, dpr] = pedida.split(",");
+  const css = tipo === "Physical" ? Number(altoPedido) / Number(dpr) : Number(altoPedido);
+  fotografiar(String(Math.ceil(css - 0.01)));
 });

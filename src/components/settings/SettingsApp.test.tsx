@@ -7,10 +7,10 @@
  * espannol igual, porque el componente la escribio a pelo sin pasarla por `t()`. Ha pasado.
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
-import { llamadas, responde } from "../../test/preparar";
+import { llamadas, responde, ventana } from "../../test/preparar";
 import type { ReplayStatus, Settings } from "../../lib/types";
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
@@ -618,5 +618,79 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
     }
     expect(pantalla).toContain("Zoom key");
     expect(pantalla).toContain("Record the camera too");
+  });
+});
+
+/**
+ * S24: la ventana mide lo que mide su pestaña. Aquí no hay maquetación (happy-dom no mide
+ * nada), así que se le dice cuánto mide cada pestaña y se mira qué pide la ventana. Lo de
+ * medir de verdad se comprobó en Edge sin ventana (ver el Informe S24 del BUZON).
+ */
+describe("la ventana a la medida de su pestaña", () => {
+  /** Lo que mide cada pestaña por dentro, sin la cabecera ni la barra de abajo. */
+  const MIDE: Record<string, number> = { capturar: 521, grabar: 650, teclas: 214 };
+  afterEach(() => vi.restoreAllMocks());
+
+  function medirComoEdge() {
+    // Fuera del hueco (cabecera de 48 y barra de 44) van 92 px; el hueco es el resto.
+    const real = Element.prototype.getBoundingClientRect;
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      if (!this.hasAttribute("data-contenido-ajustes")) return real.call(this);
+      const activa = document
+        .querySelector('[data-tour="secciones"] button[aria-pressed="true"]')
+        ?.textContent?.trim();
+      const alto = activa === "Grabar" ? MIDE.grabar : activa?.startsWith("Teclas") ? MIDE.teclas : MIDE.capturar;
+      return { x: 0, y: 48, top: 48, left: 0, right: 840, bottom: 48 + alto, width: 840, height: alto, toJSON: () => ({}) } as DOMRect;
+    });
+    vi.spyOn(document.documentElement, "clientHeight", "get").mockImplementation(() => ventana.dentro.height);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute("data-scroll-ajustes") ? ventana.dentro.height - 92 : 0;
+    });
+  }
+
+  it("abre con el alto de Capturar, sin el hueco de los 760 de antes", async () => {
+    medirComoEdge();
+    await abrirAjustes();
+    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 840, height: 613 }));
+  });
+
+  it("crece para Grabar y encoge para Teclas, sin mover el borde de arriba", async () => {
+    medirComoEdge();
+    await abrirAjustes();
+    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(613));
+    const posiciones = ventana.posiciones.length;
+    fireEvent.click(screen.getByRole("button", { name: "Grabar" }));
+    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(742));
+    fireEvent.click(screen.getByRole("button", { name: "Teclas de Windows" }));
+    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(306));
+    // La primera vez se recentra; después las pestañas se quedan debajo del ratón.
+    expect(ventana.posiciones.length).toBe(posiciones);
+  });
+
+  it("en una pantalla baja se queda dentro de la zona útil", async () => {
+    medirComoEdge();
+    ventana.escala = 1.25;
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("button", { name: "Grabar" }));
+    // La pantalla de prueba tiene 1032 de zona útil y 40 de marco: a 125 %, 742 lógicos son
+    // 928 físicos, que caben. Lo que no cabe lo prueba `ventanaALaMedida.test.ts`.
+    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(928));
+  });
+});
+
+/** S24: en cada parada del tour, la pestaña de su sección se ve encendida en la cabecera. */
+describe("el tour enciende la pestaña de cada parada", () => {
+  it("la primera ilumina la cabecera entera; las demás, lo suyo y su pestaña", async () => {
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("button", { name: /Tour/ }));
+    const agujeros = () =>
+      [...document.querySelectorAll("[data-tour-velo] [data-agujero]")].map((a) => a.getAttribute("data-agujero"));
+    await waitFor(() => expect(agujeros()).toEqual(["objetivo"]));
+    for (let i = 0; i < 20; i += 1) {
+      const siguiente = screen.queryByRole("button", { name: "Siguiente" });
+      if (!siguiente) break;
+      fireEvent.click(siguiente);
+      await waitFor(() => expect(agujeros()).toEqual(["objetivo", "pestana"]));
+    }
   });
 });

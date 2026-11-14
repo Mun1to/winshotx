@@ -173,4 +173,37 @@ describe("lo dibujado, con el editor entero", () => {
     expect(marcas).toHaveLength(1);
     expect(marcas[0]).toMatchObject({ kind: "text", text: "hola, Munito", x1: 0.5, y1: 0.5 });
   });
+
+  // S24: con algo elegido, pinchar un color de la barra se lo cambia; sin nada, es para lo próximo.
+  const colorDeLaCaja = (container: HTMLElement) => container.querySelector('[data-agarre="0"] > rect')?.getAttribute("stroke");
+  const elegirCaja = (container: HTMLElement) => {
+    fireEvent.pointerDown(silueta(container), { clientX: 140, clientY: 70 });
+    fireEvent.pointerUp(window, { clientX: 140, clientY: 70 });
+  };
+
+  it("con la caja elegida, pinchar un color se lo cambia, «Guardar» lo manda y Ctrl+Z se lo devuelve", async () => {
+    const { container } = await abrir();
+    dibujarCaja(container);
+    expect(colorDeLaCaja(container)).toBe("#ef4444");
+    elegirCaja(container);
+    fireEvent.click(screen.getByRole("button", { name: "#0a9bff" }));
+    expect(colorDeLaCaja(container)).toBe("#0a9bff");
+    // La paleta enseña el color de lo elegido.
+    expect(screen.getByRole("button", { name: "#0a9bff" })).toHaveAttribute("aria-pressed", "true");
+    const [caja] = await loQueSeGuarda();
+    expect(caja.color).toBe("#0a9bff");
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(colorDeLaCaja(container)).toBe("#ef4444");
+    // Y deshacer solo le quita el color: la caja sigue ahí.
+    expect(container.querySelector('[data-agarre="0"]')).not.toBeNull();
+  });
+
+  it("sin nada elegido, el color es solo para lo próximo que se dibuje", async () => {
+    const { container } = await abrir();
+    dibujarCaja(container);
+    fireEvent.click(screen.getByRole("button", { name: "#22c55e" }));
+    expect(colorDeLaCaja(container)).toBe("#ef4444");
+    dibujarCaja(container);
+    expect(container.querySelector('[data-agarre="1"] > rect')?.getAttribute("stroke")).toBe("#22c55e");
+  });
 });

@@ -209,7 +209,7 @@ export const ZH: Record<string, string> = {
   Atrás: "上一步",
   Siguiente: "下一步",
   Listo: "完成",
-  "Todo está en estas cuatro": "全部就在这四个页面",
+  "Todo está en estas cinco": "全部就在这五个页面",
   "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.":
     "没有其他隐藏页面或菜单：所有可更改项都分布在这里，每页无需滚动即可看完。",
   "La tecla que lo empieza todo": "一切从按下这个键开始",
