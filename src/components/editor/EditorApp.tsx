@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -34,7 +34,8 @@ import { BarraAnotar } from "./BarraAnotar";
 import { CapaAnotaciones } from "./CapaAnotaciones";
 import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
-import { COLORES, COLOR_RESALTADO, type Anotacion, type Herramienta } from "../../lib/anotaciones";
+import { COLORES, COLOR_RESALTADO, type Herramienta } from "../../lib/anotaciones";
+import { aplicarCambio, SIN_MARCAS } from "../../lib/historialDeMarcas";
 import { ExportPanel } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
@@ -138,9 +139,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [zoomElegido, setZoomElegido] = useState<number | null>(null);
   /** Los trozos de las tijeras: lo que se queda, lo que se quita y a qué velocidad. */
   const [piezas, setPiezas] = useState<Pieza[]>([]);
-  /** Lo dibujado encima, en el orden en que se hizo. */
-  const [anotaciones, setAnotaciones] = useState<Anotacion[]>([]);
+  /**
+   * Lo dibujado encima, en el orden en que se hizo, lo que está elegido y cómo estaba antes
+   * de cada cambio, para que Ctrl+Z lo devuelva (S23: lo dibujado se mueve y se edita).
+   */
+  const [marcas, cambiarMarcas] = useReducer(aplicarCambio, SIN_MARCAS);
+  const anotaciones = marcas.lista;
+  const elegirMarca = useCallback((indice: number | null) => cambiarMarcas({ tipo: "elegir", indice }), []);
   const [herramienta, setHerramienta] = useState<Herramienta | null>(null);
+  // Cambiar de herramienta suelta lo elegido: quien coge otra herramienta va a dibujar.
+  useEffect(() => elegirMarca(null), [herramienta, elegirMarca]);
   const [colorMarca, setColorMarca] = useState(COLORES[0]);
   /**
    * La vista previa sin sonido. Solo calla lo que se oye aquí: el archivo sale con el sonido
@@ -442,7 +450,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         setAviso(t("No he encontrado datos personales en esta imagen"));
         return;
       }
-      setAnotaciones((previas) => [...previas, ...marcas]);
+      // Todas de una vez: un Ctrl+Z quita lo que tapó este botón entero.
+      cambiarMarcas({ tipo: "anadir", marcas });
       const detalle = resumen.map(([clase, cuantos]) => `${cuantos} ${clase}`).join(", ");
       setAviso(t("Tapado: {detalle}", { detalle }));
     } catch (e) {
@@ -559,10 +568,15 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       } else if (key === "i") {
         markIn();
       } else if (key === "z" && (e.ctrlKey || e.metaKey)) {
-        // Deshacer la última marca. Va antes que las teclas sueltas para que `Ctrl+Z` no
+        // Deshacer el último cambio de lo dibujado: lo puesto se quita, lo movido vuelve a
+        // su sitio y lo borrado vuelve. Va antes que las teclas sueltas para que `Ctrl+Z` no
         // caiga en ninguna otra rama.
         e.preventDefault();
-        setAnotaciones((previas) => previas.slice(0, -1));
+        cambiarMarcas({ tipo: "deshacer" });
+      } else if ((e.key === "Delete" || e.key === "Backspace") && marcas.elegida !== null) {
+        // Supr borra lo elegido, y la tecla de borrar también, como en cualquier editor.
+        e.preventDefault();
+        cambiarMarcas({ tipo: "borrar", indice: marcas.elegida });
       } else if (key >= "1" && key <= "6" && !e.ctrlKey) {
         // Las seis herramientas de anotar, en el orden en que están en la barra.
         const cual = (["arrow", "box", "text", "highlight", "step", "blur"] as Herramienta[])[
@@ -586,17 +600,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         // Escape sale primero de lo que se este haciendo. Cerrar el editor tira los
         // fotogramas, asi que no puede ser lo que pase al pulsar Escape sin querer
         // mientras se coloca un marco de recorte.
-        if (recortando) setRecortando(false);
+        if (marcas.elegida !== null) elegirMarca(null);
+        else if (recortando) setRecortando(false);
         else if (herramienta) setHerramienta(null);
         else void cerrar();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // `recortando` y `herramienta` entran aqui porque Escape los mira: sin ellos el
+    // `recortando`, `herramienta` y lo elegido entran aqui porque Escape los mira: sin ellos el
   // manejador se queda con la foto vieja del estado y cierra el editor, tirando los
   // fotogramas, en vez de soltar lo que se estuviera haciendo.
-  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido]);
+  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
@@ -802,8 +817,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             color={colorMarca}
             onColor={setColorMarca}
             cuantas={anotaciones.length}
-            onDeshacer={() => setAnotaciones((previas) => previas.slice(0, -1))}
-            onBorrarTodo={() => setAnotaciones([])}
+            puedeDeshacer={marcas.antes.length > 0}
+            onDeshacer={() => cambiarMarcas({ tipo: "deshacer" })}
+            onBorrarTodo={() => cambiarMarcas({ tipo: "borrarTodo" })}
             onTaparDatos={() => void taparDatos()}
             onCopiarTexto={() => void copiarTexto()}
             buscandoDatos={buscandoDatos}
@@ -965,8 +981,21 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 // El resaltado es un marcador, y un marcador es amarillo: no se elige.
                 color={herramienta === "highlight" ? COLOR_RESALTADO : colorMarca}
                 anotaciones={anotaciones}
-                onAnadir={(marca) => setAnotaciones((previas) => [...previas, marca])}
+                onAnadir={(marca) => cambiarMarcas({ tipo: "anadir", marcas: [marca] })}
                 anchoImagen={session.region.width}
+                elegida={marcas.elegida}
+                onElegir={elegirMarca}
+                onCambiar={(indice, marca) => cambiarMarcas({ tipo: "cambiar", indice, marca })}
+                onBorrar={(indice) => cambiarMarcas({ tipo: "borrar", indice })}
+                // Con un bloque de zoom fijo elegido, pulsar la imagen coloca su punto
+                // (`CapaEstudio`), también encima de una flecha.
+                quieta={
+                  session.format !== "still" &&
+                  bloqueElegido?.modo === "fijo" &&
+                  !playing &&
+                  herramienta === null &&
+                  !recortando
+                }
               />
               <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
             </div>
