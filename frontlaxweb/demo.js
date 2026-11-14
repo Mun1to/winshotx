@@ -84,9 +84,18 @@ const FRASES = {
   nombreFoto: ["Captura", "Capture"],
   nombreVideo: ["Grabación", "Recording"],
 };
+/* Con el dedo (el móvil, la demo a pantalla completa), lo que se le pide a quien la prueba se
+   dice con el dedo: no hay ratón que mover ni teclas que pulsar. */
+const FRASES_DEDO = {
+  pistaSel: ["Esto no es un vídeo: <b>arrastra el dedo sobre la pantalla</b>, como harías con el ratón en la tuya.", "This isn't a video: <b>drag your finger over the screen</b>, just like you would with the mouse on yours."],
+  pistaHay: ["Copia, guarda, ancla o pulsa el <b>lápiz</b> para abrirla en el editor. Arriba pasas a vídeo y GIF.", "Copy, save, pin, or press the <b>pencil</b> to open it in the editor. Up top you can switch to video and GIF."],
+  pistaGrabar: ["Ahora pulsa <b>Grabar</b> y arrastra el dedo por dentro, tocando algo: saldrá en el vídeo.", "Now press <b>Record</b> and drag your finger around inside, tapping something: it will be in the video."],
+  pistaGrabando: ["Grabando: <b>arrastra el dedo y toca</b> dentro del marco rojo.", "Recording: <b>drag your finger and tap</b> inside the red frame."],
+};
+const conDedo = matchMedia("(pointer: coarse)");
 /* Cada idioma tiene su propia URL, así que aquí solo hay que leer cuál es esta página. */
 const idioma = document.documentElement.lang === "en" ? "en" : "es";
-const frase = (clave) => FRASES[clave][idioma === "en" ? 1 : 0];
+const frase = (clave) => ((conDedo.matches && FRASES_DEDO[clave]) || FRASES[clave])[idioma === "en" ? 1 : 0];
 const conMedida = (clave, r) => frase(clave).replace("{m}", `${Math.round(r.w)} × ${Math.round(r.h)}`);
 
 /* Dónde está cada cosa en la foto del escritorio. Lo escribe hacer-imagenes.mjs al sacar la
@@ -219,6 +228,7 @@ PUNTOS.forEach(() => cajaTiradores.appendChild(document.createElement("i")));
 let arrastrando = false;
 let hay = false;
 let tocado = false; // la persona ya ha hecho algo: el fantasma no vuelve a salir
+let capaAbierta = false; // la demo a pantalla completa, en el móvil (abajo, «la demo en el móvil»)
 let ini = { x: 0, y: 0 };
 let fin = { x: 0, y: 0 };
 
@@ -260,7 +270,8 @@ function pintarSeleccion() {
   medida.style.top = r.y * caja.clientHeight > 30 ? `calc(${pct(r.y)} - 26px)` : `calc(${pct(r.y + r.h)} + 8px)`;
 }
 
-function pintarLupa(p) {
+/** Con el dedo, la lupa va encima del dedo: a su lado quedaba debajo de la mano. */
+function pintarLupa(p, dedo = false) {
   const lado = 116 / 6; // zoom 6x, el de la app
   lente.clearRect(0, 0, 116, 116);
   lente.drawImage(escritorio, p.x * ANCHO - lado / 2, p.y * ALTO - lado / 2, lado, lado, 0, 0, 116, 116);
@@ -282,6 +293,11 @@ function pintarLupa(p) {
     hex.textContent = ("#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("")).toUpperCase();
   }
   lupa.style.display = "block";
+  if (dedo) {
+    lupa.style.left = `calc(${clamp(p.x, 0.06, 0.94) * 100}% - 58px)`;
+    lupa.style.top = p.y > 0.35 ? `calc(${p.y * 100}% - 200px)` : `calc(${p.y * 100}% + 70px)`;
+    return;
+  }
   lupa.style.left = p.x > 0.8 ? `calc(${p.x * 100}% - 136px)` : `calc(${p.x * 100}% + 20px)`;
   lupa.style.top = p.y > 0.75 ? `calc(${p.y * 100}% - 150px)` : `calc(${p.y * 100}% + 20px)`;
 }
@@ -343,7 +359,7 @@ caja.addEventListener("pointermove", (e) => {
     fin = p;
     pintarSeleccion();
   }
-  if (!hay && !fantasmaVivo) pintarLupa(p);
+  if (!hay && !fantasmaVivo) pintarLupa(p, e.pointerType !== "mouse");
 });
 caja.addEventListener("pointerup", (e) => {
   if (!arrastrando) return;
@@ -585,7 +601,17 @@ document.addEventListener("keydown", (e) => {
   if (e.target.closest && e.target.closest("input, textarea, [contenteditable]")) return;
   const k = e.key.toLowerCase();
   if (panelVisto === "p-sel") {
+    // La selección que está haciendo el puntero de muestra no es de nadie: Escape lo para y la
+    // quita, y a pantalla completa además cierra la capa.
+    if (e.key === "Escape" && fantasmaVivo) {
+      pararFantasma();
+      tocado = true;
+      arrastrando = false;
+      return limpiar();
+    }
     if (e.key === "Escape" && (hay || arrastrando || pantallaEntera || grabando)) {
+      // Lo usa la demo: a pantalla completa, este Escape no cierra la capa (el siguiente sí).
+      e.preventDefault();
       if (grabando) return terminarGrabacion();
       pantallaEntera = false;
       pintarModo();
@@ -618,6 +644,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 const demoALaVista = () => {
+  if (capaAbierta) return true;
   const r = $("demo").getBoundingClientRect();
   return r.top < innerHeight * 0.6 && r.bottom > innerHeight * 0.4;
 };
@@ -1541,6 +1568,210 @@ candado.setAttribute("role", "switch");
 const marcarCandado = () => candado.setAttribute("aria-checked", candado.dataset.on === "1" ? "true" : "false");
 marcarCandado();
 candado.addEventListener("click", () => queueMicrotask(marcarCandado));
+
+/* ================================================== la demo en el móvil === */
+/* Por debajo de 861 px la demo es la app de escritorio entera, encogida para caber (estilos.css,
+   «la demo en el móvil»), como las de Orquio y Adeorq. A ese tamaño no se puede pulsar nada
+   dentro: la caja entera es un botón que la abre a pantalla completa, y debajo va «Pantalla
+   completa». Abierta, la caja de la demo se queda fija encima de la página (sin pedirle al
+   navegador su pantalla completa, que la anuncia con un aviso encima), con «Reiniciar» y
+   «Cerrar», la página de debajo quieta y sin poder tocarse, y ahí se maneja con el dedo. La
+   cierran «Cerrar», Escape y Atrás. */
+(function () {
+  const seccion = $("demo");
+  const env = seccion.querySelector(".env");
+  const hueco = seccion.querySelector(".hueco-demo");
+  const pantalla = $("pantalla-demo");
+  const escala = pantalla.querySelector(".escala-demo");
+  const botonCerrar = seccion.querySelector('[data-capa="cerrar"]');
+  const movil = matchMedia("(max-width: 860px)");
+  const tumbado = matchMedia("(orientation: landscape)");
+  let entrada = false; // la capa puso una entrada en el historial (para que Atrás la cierre)
+  let saltarVuelta = false;
+  let quien = null; // lo que la abrió: al cerrar, el foco vuelve ahí
+  let dormidos = [];
+
+  /** La escala: fuera, lo que mide la caja a lo ancho; dentro, lo que quepa en su hueco. */
+  function colocar() {
+    if (!movil.matches) {
+      escala.style.removeProperty("--demo-k");
+      return;
+    }
+    const W = parseFloat(getComputedStyle(seccion).getPropertyValue("--demo-ancho")) || 1152;
+    const H = (W * 10) / 16;
+    let k;
+    if (capaAbierta) {
+      // Tumbado, la demo llena el hueco que le deja la fila de arriba; de pie va a lo ancho, y
+      // el alto solo pone tope si con lo demás no cupiera. El marco de la caja (1 px a cada
+      // lado) va aparte de la demo encogida.
+      const alto = tumbado.matches ? hueco.clientHeight : env.clientHeight * 0.55;
+      k = Math.max(0.05, Math.min((hueco.clientWidth - 2) / W, (alto - 2) / H));
+      pantalla.style.setProperty("--caja-w", `${Math.floor(W * k) + 2}px`);
+      pantalla.style.setProperty("--caja-h", `${Math.floor(H * k) + 2}px`);
+    } else {
+      pantalla.style.removeProperty("--caja-w");
+      pantalla.style.removeProperty("--caja-h");
+      k = pantalla.clientWidth / W;
+    }
+    escala.style.setProperty("--demo-k", String(k));
+  }
+
+  /** En el móvil y sin abrir, la caja es un botón y lo de dentro no se alcanza ni con el tabulador. */
+  function ponerPapel() {
+    const boton = movil.matches && !capaAbierta;
+    escala.inert = boton;
+    if (boton) {
+      pantalla.setAttribute("role", "button");
+      pantalla.tabIndex = 0;
+      pantalla.setAttribute("aria-label", idioma === "en" ? "See the demo full screen" : "Ver la demo a pantalla completa");
+    } else {
+      pantalla.removeAttribute("role");
+      pantalla.removeAttribute("tabindex");
+      pantalla.removeAttribute("aria-label");
+    }
+  }
+
+  function abrir(e) {
+    if (capaAbierta || !movil.matches) return;
+    quien = e && e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
+    capaAbierta = true;
+    // La sección se queda con su alto: la página de debajo no se mueve ni un píxel.
+    seccion.style.minHeight = `${seccion.offsetHeight}px`;
+    seccion.classList.add("en-grande");
+    document.documentElement.classList.add("capa-abierta");
+    env.setAttribute("role", "dialog");
+    env.setAttribute("aria-modal", "true");
+    dormidos = [...document.body.children].filter((el) => el !== seccion && !el.inert && el.tagName !== "SCRIPT");
+    dormidos.forEach((el) => (el.inert = true));
+    ponerPapel();
+    colocar();
+    try {
+      history.pushState({ capaDemo: true }, "");
+      entrada = true;
+    } catch {
+      entrada = false;
+    }
+    botonCerrar.focus({ preventScroll: true });
+  }
+
+  function quitar() {
+    if (!capaAbierta) return;
+    capaAbierta = false;
+    seccion.classList.remove("en-grande");
+    document.documentElement.classList.remove("capa-abierta");
+    seccion.style.removeProperty("min-height");
+    env.removeAttribute("role");
+    env.removeAttribute("aria-modal");
+    dormidos.forEach((el) => (el.inert = false));
+    dormidos = [];
+    ponerPapel();
+    colocar();
+    if (quien && quien.isConnected) quien.focus({ preventScroll: true });
+  }
+
+  /** «Cerrar» y Escape: se cierra ya, y se gasta la entrada del historial para que Atrás no haga nada raro luego. */
+  function cerrar() {
+    if (!capaAbierta) return;
+    const gastar = entrada && history.state && history.state.capaDemo;
+    entrada = false;
+    quitar();
+    if (gastar) {
+      saltarVuelta = true;
+      history.back();
+    }
+  }
+  addEventListener("popstate", () => {
+    if (saltarVuelta) {
+      saltarVuelta = false;
+      return;
+    }
+    entrada = false;
+    quitar();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!capaAbierta || e.key !== "Escape" || e.defaultPrevented) return;
+    if (e.target.closest && e.target.closest("input, textarea, [contenteditable]")) return;
+    e.preventDefault();
+    cerrar();
+  });
+
+  /* «Reiniciar»: la demo como al llegar, sin recargar la página. Se apunta ahora cómo está cada
+     control (aún nadie ha tocado nada) y al reiniciar se pulsa lo que haga falta para volver. */
+  const inicio = {
+    entradas: [...seccion.querySelectorAll("input")].map((i) => [i, i.value]),
+    palancas: [...seccion.querySelectorAll(".palanca")].map((p) => [p, p.dataset.on]),
+    grupos: [...seccion.querySelectorAll(".segmentado, .mini-seg, .his-filtros, #edi-fondos")].map((g) => [
+      g,
+      [...g.querySelectorAll("button")].findIndex((b) => b.classList.contains("viva")),
+    ]),
+    plegables: [...seccion.querySelectorAll(".edi-plegable")].map((p) => [p, p.classList.contains("abierto")]),
+    ajuste: (seccion.querySelector(".pes-set button.viva") || {}).dataset?.set,
+  };
+  function reiniciar() {
+    pararFantasma();
+    if (grabando) {
+      clearInterval(grabando.tic);
+      grabando = null;
+      marcoRojo.hidden = true;
+      barraGrabando.hidden = true;
+      $("reloj-grabando").textContent = "0:00";
+    }
+    caja.querySelectorAll(".anclada").forEach((a) => a.remove());
+    for (const [i, v] of inicio.entradas) {
+      if (i.value === v) continue;
+      i.value = v;
+      i.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    for (const [p, on] of inicio.palancas) if (p.dataset.on !== on) p.click();
+    if (candado.dataset.on !== "1") candado.click();
+    for (const [g, n] of inicio.grupos) {
+      const b = g.querySelectorAll("button")[n];
+      if (b && !b.classList.contains("viva")) b.click();
+    }
+    for (const [p, abierto] of inicio.plegables) if (p.classList.contains("abierto") !== abierto) p.querySelector(".edi-plegar").click();
+    if (inicio.ajuste) irAjuste(inicio.ajuste);
+    historial.length = 0;
+    pintarHistorial();
+    resultado.hidden = true;
+    abrirEditor(fuenteDeSerie());
+    ponerEstudio();
+    modo = "foto";
+    pantallaEntera = false;
+    ponerAlSoltar("barra");
+    irA("p-sel");
+    limpiar();
+    pintarModo();
+    avisoEl.style.display = "none";
+    // Y el puntero de la primera vez vuelve a enseñar cómo se recorta.
+    tocado = false;
+    setTimeout(lanzarFantasma, 400);
+  }
+
+  pantalla.addEventListener("click", (e) => {
+    if (pantalla.getAttribute("role") === "button") abrir(e);
+  });
+  pantalla.addEventListener("keydown", (e) => {
+    if (pantalla.getAttribute("role") !== "button" || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault();
+    abrir(e);
+  });
+  seccion.querySelector('[data-capa="abrir"]').addEventListener("click", abrir);
+  botonCerrar.addEventListener("click", cerrar);
+  seccion.querySelector('[data-capa="reiniciar"]').addEventListener("click", reiniciar);
+  movil.addEventListener("change", () => {
+    if (!movil.matches) quitar();
+    ponerPapel();
+    colocar();
+  });
+  tumbado.addEventListener("change", colocar);
+  const vigia = new ResizeObserver(colocar);
+  vigia.observe(pantalla);
+  vigia.observe(hueco);
+  ponerPapel();
+  colocar();
+  // La pista de la página viene escrita para el ratón: con el dedo, se dice con el dedo.
+  if (conDedo.matches && panelVisto === "p-sel" && !hay) decir("pistaSel");
+})();
 
 /* ===================================================== el resto de la portada === */
 /* Capturar, grabar y editar: un paso cada 260 px de rueda mientras la sección está pegada. */

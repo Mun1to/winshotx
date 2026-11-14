@@ -413,13 +413,115 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 .demo-pie { display: flex; justify-content: center; margin-top: 16px; min-height: 26px; }
 
 /* Las tres ventanas miden lo mismo, la de una pantalla de 16:10, para que cambiar de pestaña
-   no mueva la página. En el móvil cada una toma su alto. */
-@media (min-width: 861px) {
-  .escaparate .marco { aspect-ratio: 16 / 10; display: flex; flex-direction: column; }
-  .escaparate #p-sel .lienzo-caja { flex: 1; aspect-ratio: auto; }
-  .escaparate #p-edi .edi-cuerpo { flex: 1; min-height: 0; }
-  .escaparate #p-set .ajustes { flex: 1; min-height: 0; overflow: auto; align-content: start; }
+   no mueva la página. También en el móvil, donde va la app de escritorio entera, encogida. */
+.escaparate .marco { aspect-ratio: 16 / 10; display: flex; flex-direction: column; }
+.escaparate #p-sel .lienzo-caja { flex: 1; aspect-ratio: auto; }
+.escaparate #p-edi .edi-cuerpo { flex: 1; min-height: 0; }
+.escaparate #p-set .ajustes { flex: 1; min-height: 0; overflow: auto; align-content: start; }
+
+/* ---------- la demo en el móvil: la app entera, encogida, y a pantalla completa al tocarla ----------
+   Como la de Orquio (y la ventana de Adeorq): «hay que hacer la demo como adeorq… que se pueda ver
+   todo bien… que haya un botón de expandir y verlo en pantalla completa» (Munito, 9-nov), y en
+   winshotx, «hay que mejorar el diseño de la web en móvil, sobre todo de la demo» (14-nov). Por
+   debajo de 861 px la demo es la app a su tamaño de escritorio (`--demo-ancho`, el de un portátil
+   de 1440), encogida con `transform` hasta caber (la escala la pone demo.js); a ese tamaño no se
+   puede pulsar nada dentro, así que la caja entera es un botón que la abre a pantalla completa, y
+   debajo van el botón grande y la frase. A pantalla completa (`.en-grande`) la caja de la demo se
+   queda fija encima de la página, con su cabecera, y ahí sí se maneja con el dedo. */
+.escaparate { --demo-ancho: 1152px; }
+.capa-cabeza, .demo-movil, .capa-gira { display: none; }
+@media (max-width: 860px) {
+  .pantalla-demo {
+    position: relative; aspect-ratio: 16 / 10; overflow: hidden; cursor: pointer;
+    border: 1px solid var(--borde); border-radius: var(--radio); background: #161618;
+    box-shadow: 0 30px 80px #0008; -webkit-tap-highlight-color: transparent;
+  }
+  .pantalla-demo:focus-visible { outline: 2px solid var(--azul); outline-offset: 4px; }
+  .escala-demo {
+    position: absolute; left: 0; top: 0; width: var(--demo-ancho);
+    transform-origin: 0 0; transform: scale(var(--demo-k, .3)); pointer-events: none;
+  }
+  /* El marco lo pone la caja de fuera, a su tamaño de verdad: dentro, encogido, sería de un tercio de píxel. */
+  .escala-demo .marco { border: 0; border-radius: 0; box-shadow: none; }
+  /* El alto del lienzo del editor iba por el de la ventana (46vh): aquí va por el de la demo,
+     el que tendría en ese portátil. */
+  .escaparate .escala-demo .edi-fondo canvas { max-height: calc(var(--demo-ancho) * .36); }
+  /* La pista de arriba dice «arrastra sobre la pantalla»: encogida no se puede, así que sale
+     dentro, a pantalla completa. Fuera, el botón y la frase. */
+  .escaparate:not(.en-grande) .pista-demo { display: none; }
+  .demo-cabeza { margin-bottom: 16px; }
+  .demo-movil { display: grid; justify-items: center; gap: 12px; margin-top: 18px; }
+  .demo-movil .btn { width: min(100%, 440px); }
+  .demo-movil p { color: var(--suave); font-size: 15.5px; text-align: center; }
+
+  /* A pantalla completa: la caja de la demo, fija encima de todo, sin pedirle al navegador su
+     pantalla completa (Chrome lo anuncia con un aviso encima, y en Orquio se quitó por eso). La
+     sección se queda con su alto en la página, así que la página de debajo no se mueve. */
+  .escaparate.en-grande > .env {
+    position: fixed; inset: 0; z-index: 100; width: auto; margin: 0;
+    display: grid; align-content: stretch; column-gap: 16px;
+    /* De pie, la demo va a lo ancho y todo lo suyo (pestañas, pista, demo y aviso) junto y en
+       medio del alto que queda debajo de la cabecera: sola en medio dejaba dos huecos grandes. */
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto auto auto minmax(0, 1fr);
+    grid-template-areas: "titulo botones" ". ." "tabs tabs" "pista pista" "demo demo" "aviso aviso" "gira gira" ". .";
+    padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+      max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: var(--fondo); overflow: hidden; overscroll-behavior: contain;
+    /* Quieta: el encogido de al bajar es de la página, no de la capa. */
+    animation: none !important; scale: none !important;
+  }
+  .en-grande .capa-cabeza, .en-grande .demo-cabeza { display: contents; }
+  .en-grande .capa-titulo {
+    grid-area: titulo; align-self: center; min-width: 0;
+    font: 700 17px/1.2 var(--letra-titulo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .en-grande .capa-botones { grid-area: botones; display: flex; gap: 8px; }
+  .en-grande .pestanas { grid-area: tabs; justify-self: center; }
+  .en-grande .pista-demo { grid-area: pista; margin-top: 12px; text-align: center; font-size: 15.5px; line-height: 1.45; min-height: 2.9em; }
+  .en-grande .hueco-demo { grid-area: demo; display: grid; place-items: center; min-height: 0; margin-top: 16px; }
+  .en-grande .pantalla-demo { aspect-ratio: auto; width: var(--caja-w, 100%); height: var(--caja-h, auto); cursor: auto; }
+  .en-grande .escala-demo { pointer-events: auto; }
+  .en-grande .marco, .en-grande .pantalla-demo { animation: none !important; }
+  .en-grande .demo-movil { display: none; }
+  /* El aviso de lo que pasa (copiada, anclada…) tiene su sitio guardado: si apareciera y
+     desapareciera empujando, la demo cambiaría de tamaño a cada aviso. */
+  .en-grande .aviso { grid-area: aviso; display: flex !important; visibility: hidden; min-height: 44px; margin-top: 10px; }
+  .en-grande .aviso[style*="flex"] { visibility: visible; }
+  .capa-boton {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 14px;
+    border: 0; border-radius: 10px; cursor: pointer; white-space: nowrap;
+    font: 650 15px/1 var(--letra); background: var(--realce-medio); color: var(--texto);
+    box-shadow: inset 0 0 0 1.5px var(--linea);
+  }
+  .capa-boton.cierra { background: var(--azul-boton); color: #fff; box-shadow: none; }
+  .capa-boton svg { width: 17px; height: 17px; flex: none; }
+  .capa-boton:focus-visible { outline: 2px solid var(--azul); outline-offset: 3px; }
+  /* De pie, la demo se queda en una franja: girar el móvil la deja el doble de grande. */
+  @media (orientation: portrait) and (pointer: coarse) {
+    .en-grande .capa-gira { display: block; grid-area: gira; color: var(--suave); font-size: 15px; text-align: center; margin-top: 6px; }
+  }
+  /* Tumbado, todo en una fila arriba y lo que se dice, a la derecha de la demo. */
+  @media (orientation: landscape) {
+    .escaparate.en-grande > .env {
+      grid-template-columns: minmax(0, 1fr) minmax(190px, 28%);
+      grid-template-rows: auto auto minmax(0, 1fr);
+      grid-template-areas: "tabs botones" "demo pista" "demo aviso";
+      column-gap: 20px;
+    }
+    .en-grande .capa-titulo { display: none; }
+    .en-grande .pestanas { justify-self: start; margin-top: 0; align-self: center; }
+    .en-grande .capa-botones { justify-self: end; }
+    .en-grande .hueco-demo { margin-top: 12px; }
+    .en-grande .pista-demo { margin-top: 12px; text-align: left; align-self: start; min-height: 0; }
+    .en-grande .aviso { align-self: start; justify-content: flex-start; text-align: left; }
+  }
 }
+@media (prefers-color-scheme: light) and (max-width: 860px) {
+  .pantalla-demo { border-color: #00000029; box-shadow: 0 30px 70px #00000038; }
+}
+/* Con la capa abierta, la página de debajo no se mueve (y en Android, tirar hacia abajo no la recarga). */
+html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 
 
 /* ---------- la demo se encoge y se redondea al bajar, como la portada de cattory.co/es ----------
@@ -452,7 +554,13 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   @media (max-width: 860px) {
     html.motion .escaparate > .env { animation-name: vitrina-encoge-movil; }
     html.motion.suave .escaparate > .env { animation-name: vitrina-encoge-movil-suave; }
-    html.motion .escaparate .marco { animation-name: vitrina-redondea-movil; }
+    /* Las esquinas que se ven en el móvil son las de la caja de fuera (la demo va encogida dentro). */
+    html.motion .escaparate .marco { animation: none; }
+    html.motion .escaparate .pantalla-demo {
+      animation: vitrina-redondea-movil steps(22, end) both;
+      animation-timeline: --vitrina;
+      animation-range: exit-crossing 0% exit-crossing 100%;
+    }
   }
 }
 @keyframes vitrina-encoge { to { scale: .85; } }
@@ -734,10 +842,6 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   display: flex; width: 300px; flex: none; flex-direction: column; gap: 4px;
   border-left: 1px solid var(--borde); background: #00000033; padding: 12px 16px 16px;
 }
-@media (max-width: 860px) {
-  .edi-cuerpo { flex-direction: column; }
-  .edi-panel { width: auto; border-left: 0; border-top: 1px solid var(--borde); }
-}
 .edi-pestanas { display: flex; gap: 20px; border-bottom: 1px solid var(--borde); }
 .edi-pestanas button {
   margin-bottom: -1px; padding: 4px 0 8px; border: 0; border-bottom: 3px solid transparent;
@@ -813,11 +917,6 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 }
 .edi-resultado svg { color: var(--app-azul-claro); flex: none; }
 .edi-resultado:hover { color: #fff; }
-@media (max-width: 640px) {
-  .edi-derecha .con-nombre span, .edi-marcas .con-nombre span { display: none; }
-  .edi-tiempo { padding: 10px 8px; gap: 4px; }
-  .edi-linea { padding: 0 10px; }
-}
 
 /* ---------- 3. ajustes: mismo grid de dos columnas y banda a lo ancho ---------- */
 .ajustes {
@@ -826,10 +925,6 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 }
 .ajustes .columna { display: grid; align-content: start; gap: 12px; min-width: 0; }
 .ajustes .a-lo-ancho { grid-column: span 2; }
-@media (max-width: 780px) {
-  .ajustes { grid-template-columns: 1fr; }
-  .ajustes .a-lo-ancho { grid-column: span 1; }
-}
 .tarjeta { border: 1px solid #ffffff14; border-radius: 12px; background: #ffffff08; overflow: hidden; }
 /* El nombre del grupo va dentro de su tarjeta y en azul, que es como se ve en la app. */
 .tarjeta h3 {

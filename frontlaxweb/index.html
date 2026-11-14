@@ -48,7 +48,7 @@
   h.classList.toggle("suave", gain > 0 && gain < 1);
 })();
 </script>
-<link rel="stylesheet" href="estilos.css?v=e412923c">
+<link rel="stylesheet" href="estilos.css?v=3b428701">
 <link rel="preload" as="image" href="img/escritorio-es.webp" data-href-en="img/escritorio-en.webp">
 <script type="application/ld+json">
 {
@@ -212,7 +212,11 @@
       <path d="M4 7h16M4 12h16M4 17h16"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
-    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></symbol>
+    <symbol id="i-rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+    <symbol id="i-play"viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></symbol>
@@ -433,7 +437,18 @@
 
 <!-- ======================= el escaparate: la demo, en vez de una foto ======================= -->
 <section id="demo" class="escaparate" aria-label="Demo" data-aria-en="Demo">
-  <div class="env">
+  <!-- En el móvil, la demo es la app de escritorio entera, encogida para caber (como las de
+       Orquio y Adeorq), y tocarla la abre a pantalla completa: entonces esta caja se queda fija
+       encima de la página, con su cabecera, y ahí sí se maneja con el dedo (demo.js?v=37b95cc1, «la demo
+       en el móvil»). En el ordenador la cabecera, el botón y la frase no salen. -->
+  <div class="env" aria-label="La demo de winshotx" data-aria-en="The winshotx demo">
+    <div class="capa-cabeza">
+      <p class="capa-titulo" data-en="The demo">La demo</p>
+      <span class="capa-botones">
+        <button type="button" class="capa-boton" data-capa="reiniciar"><svg aria-hidden="true"><use href="#i-rotate-ccw"/></svg><span data-en="Reset">Reiniciar</span></button>
+        <button type="button" class="capa-boton cierra" data-capa="cerrar"><svg aria-hidden="true"><use href="#i-x"/></svg><span data-en="Close">Cerrar</span></button>
+      </span>
+    </div>
     <div class="demo-cabeza">
       <div class="pestanas" role="tablist">
         <button class="pestana" role="tab" aria-selected="true" data-panel="p-sel">
@@ -448,6 +463,13 @@
       </div>
       <p class="pista-demo" id="pista-demo" aria-live="polite" data-html data-en="This isn't a video: &lt;b&gt;drag over the screen below&lt;/b&gt;, just like you would on yours.">Esto no es un vídeo: <b>arrastra sobre la pantalla de abajo</b>, como harías en la tuya.</p>
     </div>
+
+    <!-- La pantalla de la demo. En el ordenador, estas dos cajas no hacen nada; en el móvil, la
+         de fuera es el hueco con su marco y la de dentro, la app a su tamaño de escritorio,
+         encogida con `transform` (demo.js?v=37b95cc1 pone la escala). -->
+    <div class="hueco-demo">
+    <div class="pantalla-demo" id="pantalla-demo">
+    <div class="escala-demo">
 
     <!-- ======================= 1. seleccionar ======================= -->
     <!-- Lo de dentro es la ventana de selección de la 0.4.6: la barra de modos de arriba y,
@@ -942,8 +964,18 @@
         </span>
       </footer>
     </div>
+    </div>
+    </div>
+    </div>
+
+    <!-- Debajo de la demo, solo en el móvil: verla en grande y que se ve mejor en el ordenador. -->
+    <div class="demo-movil">
+      <button type="button" class="btn uno" data-capa="abrir"><svg aria-hidden="true"><use href="#i-maximize"/></svg><span data-en="Full screen">Pantalla completa</span></button>
+      <p data-en="The demo looks better on a computer.">La demo se ve mejor en el ordenador.</p>
+    </div>
 
     <p class="aviso" id="aviso" aria-live="polite"><svg width="16" height="16" aria-hidden="true"><use href="#i-check"/></svg><span></span></p>
+    <p class="capa-gira" data-en="Turn your phone sideways to see it bigger.">Gira el móvil para verla más grande.</p>
   </div>
 </section>
 
@@ -1276,6 +1308,6 @@
 
 <script src="cruceta.js?v=a40756ff"></script>
 <script src="leer.js?v=2f585109"></script>
-<script src="demo.js?v=fb9dcea2"></script>
+<script src="demo.js?v=37b95cc1"></script>
 </body>
 </html>
