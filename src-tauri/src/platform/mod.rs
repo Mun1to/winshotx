@@ -12,6 +12,7 @@ pub mod empaquetado;
 pub mod marco;
 pub mod clipboard;
 pub mod desktop_icons;
+pub mod guardia;
 pub mod ocr;
 pub mod snipping;
 pub mod sonido;

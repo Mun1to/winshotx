@@ -33,20 +33,16 @@ pub fn rounded_corners(_window: &tauri::WebviewWindow) {}
 /// el temporizador existe para fotografiar un menu abierto, y robarle el foco al menu lo
 /// cierra, que es exactamente lo que veniamos a evitar. `WS_EX_NOACTIVATE` se lo prohibe
 /// a Windows, y `WS_EX_TOOLWINDOW` la deja fuera de Alt+Tab.
+///
+/// **Y se quedan puestos.** Hasta el 14-nov-2026 se escribían una vez, y tao los borraba en
+/// el primer `show()` o `hide()` de Tauri (reescribe el estilo extendido entero cada vez):
+/// de la segunda cuenta atrás en adelante, la ventana volvía a poder quitar el foco y a
+/// llevar la marca de ventana de la app. Ahora los mantiene el vigilante de `guardia`.
 #[cfg(windows)]
 pub fn never_focus(window: &tauri::WebviewWindow) {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    };
+    use windows::Win32::UI::WindowsAndMessaging::WS_EX_NOACTIVATE;
 
-    let Ok(handle) = window.hwnd() else { return };
-    unsafe {
-        let hwnd = HWND(handle.0);
-        let actual = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        let nuevo = actual | (WS_EX_NOACTIVATE.0 as isize) | (WS_EX_TOOLWINDOW.0 as isize);
-        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, nuevo);
-    }
+    crate::platform::guardia::fuera_de_la_lista(window, WS_EX_NOACTIVATE.0, false);
 }
 
 #[cfg(not(windows))]

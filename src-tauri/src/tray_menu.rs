@@ -14,7 +14,7 @@
 //! 34 de `docs/TRAMPAS.md`: una ventana escondida no arranca su interfaz, y nada que toque
 //! una ventana puede hacerse desde otro hilo.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -118,9 +118,15 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     // transparente: eso deja un halo negro alrededor. Trampa conocida de esta app.
     crate::platform::window_style::rounded_corners(&window);
 
+    // Issue #15: un dock de terceros (MyDockFinder, con la bandeja en su barra de arriba)
+    // enseñaba este menú escondido, en blanco, encima del editor. Tauri lo marca como
+    // ventana de la app; fuera de esa lista, y con cerrojo: solo lo enseña `mostrar`.
+    crate::platform::guardia::fuera_de_la_lista(&window, 0, true);
+
     // Aqui se esta en el hilo principal (lo llama el clic de la bandeja), asi que preguntar
     // por la ventana a pelo no espera a nadie.
     let menu = window.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+    MENU.store(menu, Ordering::Relaxed);
 
     // Un menu se cierra al pulsar en otro sitio. El del sistema lo hacia solo; aqui se
     // hace al perder el foco, que es lo mismo visto desde dentro... casi siempre.
@@ -217,9 +223,16 @@ fn apuntar(app: &AppHandle, que: &str) {
     }
 }
 
+/// La ventana del menu a pelo, guardada al crearla: se esconde desde los hilos de las
+/// ordenes, y preguntarle a Tauri por ella desde ahi espera sin plazo (trampa 34).
+static MENU: AtomicIsize = AtomicIsize::new(0);
+
 pub fn esconder(app: &AppHandle) {
     APARCADO_ESPERANDO.store(false, Ordering::Relaxed);
     if let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) {
+        // Por Windows y por Tauri: si algo de fuera la hubiera ensennado, Tauri la seguiria
+        // creyendo escondida y su `hide()` no haria nada (la miniatura de la 0.4.0).
+        crate::platform::window_style::esconder_hwnd(MENU.load(Ordering::Relaxed));
         let _ = window.hide();
     }
 }
@@ -274,6 +287,11 @@ const RESCATE_APARCADO: Duration = Duration::from_millis(1500);
 fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
     let nueva = app.get_webview_window(TRAY_MENU_LABEL).is_none();
     apuntar(app, if nueva { "clic: se abre por primera vez" } else { "clic: se abre" });
+    // Lo que la #15 no podia contar: si algo de fuera ha intentado ensennarlo escondido.
+    let vetos = crate::platform::guardia::vetos(MENU.load(Ordering::Relaxed));
+    if vetos > 0 {
+        apuntar(app, &format!("algo de fuera ha intentado ensennarlo {vetos} veces: no ha podido"));
+    }
     DEVUELTOS.store(0, Ordering::Relaxed);
     let window = ventana(app)?;
     if nueva {
@@ -284,6 +302,7 @@ fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
             &window,
             app.state::<crate::state::AppState>().is_recording(),
         );
+        crate::platform::guardia::permitir(MENU.load(Ordering::Relaxed));
         window.show()?;
         window.set_focus()?;
         apuntar(app, "aparcado fuera de la pantalla hasta que la pagina se mida");
@@ -323,6 +342,7 @@ fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
         &window,
         app.state::<crate::state::AppState>().is_recording(),
     );
+    crate::platform::guardia::permitir(MENU.load(Ordering::Relaxed));
     window.show()?;
     window.set_focus()?;
     // La ventana se reutiliza, asi que hay que decirle que vuelva a leer el estado: el
