@@ -19,3 +19,30 @@ Files:
 
 The AppImage installs nothing, so it writes a hidden `com.munir.winshotx.desktop` pointing to
 itself into `~/.local/share/applications` at runtime.
+
+## Shortcuts on desktops without the GlobalShortcuts portal
+
+On X11 winshotx grabs its keys itself. On Wayland it asks the desktop through the GlobalShortcuts
+portal (GNOME 48+, KDE Plasma). Sway and the other wlroots compositors have no such portal, so
+the welcome screen and the settings show the commands to bind by hand instead:
+
+```
+winshotx --capture   # capture a region
+winshotx --edit      # capture and open the editor
+```
+
+A second `winshotx` started with one of those flags hands it to the running one and exits, so
+the key works only while winshotx is running. Sway does not read XDG autostart entries, so the
+first line of this example starts it with the session (`~/.config/sway/config`):
+
+```
+exec winshotx --autostart
+bindsym Print exec winshotx --capture
+bindsym Shift+Print exec winshotx --edit
+```
+
+For the AppImage, use the path of the `.AppImage` file instead of `winshotx`; the app shows the
+exact command. The same commands work as custom shortcuts on any other desktop, and on Hyprland,
+whose portal registers the shortcuts but leaves binding them to `hyprland.conf`.
+
+Screenshots on Sway go through `xdg-desktop-portal-wlr`, which needs PipeWire running.

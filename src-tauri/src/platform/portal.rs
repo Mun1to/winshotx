@@ -158,8 +158,15 @@ enum Orden {
 static CANAL: OnceLock<UnboundedSender<Orden>> = OnceLock::new();
 
 /// Lo que ha puesto el escritorio en cada atajo, para la bienvenida y los ajustes.
-static TECLAS: parking_lot::Mutex<TeclasDelEscritorio> =
-    parking_lot::Mutex::new(TeclasDelEscritorio { capture: None, edit: None });
+static TECLAS: parking_lot::Mutex<TeclasDelEscritorio> = parking_lot::Mutex::new(TeclasDelEscritorio {
+    capture: None,
+    edit: None,
+    a_mano: false,
+    orden: String::new(),
+});
+
+/// Que el escritorio no deja pedirle atajos: no tiene el portal, o no se le pueden escuchar.
+static A_MANO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Le pide al escritorio estos atajos, en lugar de los de la vez anterior. Vuelve enseguida:
 /// el escritorio puede preguntar (un dialogo de GNOME), y lo que quede puesto se apunta en
@@ -176,7 +183,19 @@ pub fn pedir_atajos(app: &AppHandle, peticiones: Vec<Peticion>) {
 /// Las teclas que el escritorio ha dado a los atajos, o `None` si winshotx no le pide los
 /// atajos al escritorio (fuera de Wayland las pone el plugin, y mandan los ajustes).
 pub fn teclas_del_escritorio() -> Option<TeclasDelEscritorio> {
-    CANAL.get().map(|_| TECLAS.lock().clone())
+    CANAL.get().map(|_| TeclasDelEscritorio {
+        a_mano: A_MANO.load(std::sync::atomic::Ordering::Relaxed),
+        orden: crate::platform::xdg::orden_de_la_app(),
+        ..TECLAS.lock().clone()
+    })
+}
+
+/// Donde no se le pueden pedir los atajos al escritorio, la persona los pone a mano en su
+/// configuracion: la bienvenida y los ajustes le ensennan la orden. Se avisa como cualquier
+/// otro cambio de teclas, porque la bienvenida puede haber preguntado antes de saberse.
+fn sin_atajos_del_escritorio(app: &AppHandle) {
+    A_MANO.store(true, std::sync::atomic::Ordering::Relaxed);
+    anotar(app, &[]);
 }
 
 /// Pide al escritorio que ensenne donde se cambian las teclas de winshotx: su propia ventana
@@ -204,14 +223,14 @@ enum Senal {
 /// cierra, el escritorio suelta las teclas), que se rehace cuando cambian los atajos.
 async fn atender(app: AppHandle, mut ordenes: UnboundedReceiver<Orden>) {
     if !registrar_la_app().await {
-        anotar(&app, &[]);
+        sin_atajos_del_escritorio(&app);
         return;
     }
     let portal = match GlobalShortcuts::new().await {
         Ok(portal) => portal,
         Err(error) => {
             eprintln!("[atajo] el escritorio no tiene el portal de atajos: {error}");
-            anotar(&app, &[]);
+            sin_atajos_del_escritorio(&app);
             return;
         }
     };
@@ -219,7 +238,7 @@ async fn atender(app: AppHandle, mut ordenes: UnboundedReceiver<Orden>) {
         Ok(senales) => senales.map(Senal::Pulsado),
         Err(error) => {
             eprintln!("[atajo] no se pueden escuchar los atajos del portal: {error}");
-            anotar(&app, &[]);
+            sin_atajos_del_escritorio(&app);
             return;
         }
     };
@@ -379,7 +398,8 @@ fn anotar(app: &AppHandle, atados: &[Shortcut]) {
             atajo: atajo_de_la_descripcion(s.trigger_description()),
         })
     };
-    *TECLAS.lock() = TeclasDelEscritorio { capture: tecla(captura), edit: tecla(editor) };
+    *TECLAS.lock() =
+        TeclasDelEscritorio { capture: tecla(captura), edit: tecla(editor), ..Default::default() };
     let state = app.state::<AppState>();
     let estado = {
         let mut estado = state.shortcuts.write();

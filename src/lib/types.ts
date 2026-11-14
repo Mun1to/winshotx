@@ -431,6 +431,13 @@ export interface TeclaDelEscritorio {
 export interface TeclasDelEscritorio {
   capture: TeclaDelEscritorio | null;
   edit: TeclaDelEscritorio | null;
+  /**
+   * Que este escritorio no deja pedirle atajos (Sway y los demás de wlroots): la tecla se pone
+   * a mano en su configuración, con `orden` y `--capture` o `--edit`.
+   */
+  aMano: boolean;
+  /** Cómo se escribe winshotx ahí: `winshotx`, o la ruta del AppImage. */
+  orden: string;
 }
 
 /** Una pantalla del sistema, para poder elegir cuál se vigila. */

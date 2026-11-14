@@ -90,7 +90,7 @@ import { MarcaDeAgua } from "../ui/MarcaDeAgua";
 import { ShortcutField } from "./ShortcutField";
 // S21 (Linux): lo que solo es de Windows se esconde, y en Wayland las teclas las pone el escritorio.
 import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
-import { TeclaPuesta } from "./TeclaDelEscritorio";
+import { OrdenDelAtajo, TeclaPuesta } from "./TeclaDelEscritorio";
 
 /** La inyecta Vite desde package.json: escribirla a mano acababa en cuatro copias. */
 const VERSION = __VERSION__;
@@ -278,8 +278,13 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const enLinux = donde?.sistema === "linux";
   const enWayland = donde?.wayland ?? false;
   const teclasDelEscritorio = useTeclasDelEscritorio(enWayland);
+  // Si «Cambiar» no abre nada (Hyprland, o un escritorio que winshotx no conoce), queda lo
+  // mismo que donde no hay portal: poner la tecla a mano con la orden.
+  const [sinVentanaDeTeclas, setSinVentanaDeTeclas] = useState(false);
+  const teclasAMano = enWayland && (teclasDelEscritorio?.aMano || sinVentanaDeTeclas);
+  const ordenDeLaApp = teclasDelEscritorio?.orden ?? "winshotx";
   const cambiarTeclas = useCallback(() => {
-    void cambiarTeclasEnElEscritorio().catch((e) => setError(String(e)));
+    void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
   }, []);
 
   const refrescar = useCallback(() => {
@@ -494,14 +499,18 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     icon={<Camera className="size-4" />}
                     label={t("Capturar región")}
                     explicacion={
-                      enWayland
+                      teclasAMano
+                        ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).")
+                        : enWayland
                         ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. En Wayland la tecla la elige el escritorio: winshotx le propone una, y la aceptas o la cambias en su ventana con «Cambiar».")
                         : enLinux
                           ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. El escritorio se reserva algunas combinaciones y esas no llegan hasta aquí.")
                           : t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.")
                     }
                     hint={
-                      enWayland
+                      teclasAMano
+                        ? t("ponla en los atajos del escritorio")
+                        : enWayland
                         ? teclasDelEscritorio?.capture
                           ? t("la tecla la elige el escritorio")
                           : t("todavía sin tecla: pulsa «Cambiar»")
@@ -509,9 +518,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                           ? undefined
                           : t("esa combinación está ocupada")
                     }
-                    tone={enWayland && teclasDelEscritorio?.capture ? "normal" : "warn"}
+                    tone={teclasAMano || (enWayland && teclasDelEscritorio?.capture) ? "normal" : "warn"}
                     control={
-                      enWayland ? (
+                      teclasAMano ? (
+                        <OrdenDelAtajo orden={ordenDeLaApp} accion="capture" />
+                      ) : enWayland ? (
                         <span className="flex items-center gap-1.5">
                           <TeclaPuesta tecla={teclasDelEscritorio?.capture ?? null} />
                           <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
@@ -532,7 +543,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       "La misma captura, pero al soltar el ratón se abre el editor en vez de la barra de siempre. Para la captura que hay que trabajar: señalar algo con una flecha, tapar un dato o recortar antes de mandarla.",
                     )}
                     hint={
-                      enWayland
+                      teclasAMano
+                        ? t("ponla en los atajos del escritorio")
+                        : enWayland
                         ? teclasDelEscritorio?.edit
                           ? t("la tecla la elige el escritorio")
                           : t("todavía sin tecla: pulsa «Cambiar»")
@@ -540,9 +553,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                           ? undefined
                           : t("esa combinación está ocupada")
                     }
-                    tone={enWayland && teclasDelEscritorio?.edit ? "normal" : "warn"}
+                    tone={teclasAMano || (enWayland && teclasDelEscritorio?.edit) ? "normal" : "warn"}
                     control={
-                      enWayland ? (
+                      teclasAMano ? (
+                        <OrdenDelAtajo orden={ordenDeLaApp} accion="edit" />
+                      ) : enWayland ? (
                         <span className="flex items-center gap-1.5">
                           <TeclaPuesta tecla={teclasDelEscritorio?.edit ?? null} />
                           <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>

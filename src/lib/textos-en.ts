@@ -756,4 +756,9 @@ export const EN: Record<string, string> = {
   "Esto es lo que queda configurado. Todo se cambia después en los ajustes, que se abren desde winshotx en el menú de aplicaciones.": "This is what is set up. Everything can be changed later in the settings, which open from winshotx in the applications menu.",
   "se queda esperando, sin ventana": "waits in the background, with no window",
   "Pulsa el atajo cuando quieras. Los ajustes se abren desde winshotx en el menú de aplicaciones.": "Press the shortcut whenever you like. The settings open from winshotx in the applications menu.",
+  "Copiar la orden": "Copy the command",
+  "En Sway, por ejemplo, van en ~/.config/sway/config:": "In Sway, for example, they go in ~/.config/sway/config:",
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).": "Freezes the screen the moment you press it and lets you crop on top of that still shot. This desktop does not let apps ask for keys: put this command in its keyboard shortcuts (in Sway, a bindsym line in ~/.config/sway/config).",
+  "ponla en los atajos del escritorio": "add it to the desktop's shortcuts",
+  "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "This desktop does not let apps ask for their keys. Add them yourself in its keyboard shortcuts, with these two commands:",
 };

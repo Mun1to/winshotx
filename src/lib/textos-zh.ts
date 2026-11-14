@@ -756,4 +756,9 @@ export const ZH: Record<string, string> = {
   "Esto es lo que queda configurado. Todo se cambia después en los ajustes, que se abren desde winshotx en el menú de aplicaciones.": "这些是目前的设置。之后都可以在设置里修改，从应用菜单里打开 winshotx 就能进入设置。",
   "se queda esperando, sin ventana": "在后台等待，不显示窗口",
   "Pulsa el atajo cuando quieras. Los ajustes se abren desde winshotx en el menú de aplicaciones.": "随时按下快捷键。设置可以从应用菜单里的 winshotx 打开。",
+  "Copiar la orden": "复制命令",
+  "En Sway, por ejemplo, van en ~/.config/sway/config:": "例如在 Sway 中，写在 ~/.config/sway/config 里：",
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).": "按下的那一刻冻结屏幕，让你在这张静止的画面上裁剪。这个桌面不允许应用申请按键：请把这条命令加到它的键盘快捷键里（在 Sway 中，是 ~/.config/sway/config 里的一行 bindsym）。",
+  "ponla en los atajos del escritorio": "请加到桌面的快捷键里",
+  "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "这个桌面不允许应用申请按键。请用下面两条命令，自己加到它的键盘快捷键里：",
 };

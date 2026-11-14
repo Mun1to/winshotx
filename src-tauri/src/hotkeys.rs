@@ -392,9 +392,15 @@ pub struct TeclaDelEscritorio {
 
 /// Las teclas que el escritorio ha dado a los dos atajos que se le piden en Wayland.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TeclasDelEscritorio {
     pub capture: Option<TeclaDelEscritorio>,
     pub edit: Option<TeclaDelEscritorio>,
+    /// Que este escritorio no deja pedirle atajos (Sway y los demas de wlroots no tienen el
+    /// portal): la tecla se pone a mano en su configuracion, con `orden` y `--capture`.
+    pub a_mano: bool,
+    /// Como se escribe winshotx en esa configuracion: `winshotx`, o la ruta del AppImage.
+    pub orden: String,
 }
 
 /// Lo contrario de [`tecla_para_el_portal`]: lo que el escritorio dice que ha puesto, con el

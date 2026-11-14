@@ -294,15 +294,62 @@ pub fn arrancar_al_entrar(encender: bool) -> crate::error::Result<()> {
             _ => Ok(()),
         };
     }
-    // El AppImage se ejecuta desde una carpeta temporal que cambia cada vez: lo que se apunta
-    // es el archivo .AppImage, que es lo que la persona tiene en el disco.
-    let ejecutable = std::env::var_os("APPIMAGE")
-        .map(PathBuf::from)
-        .filter(|ruta| ruta.is_absolute())
-        .map_or_else(std::env::current_exe, Ok)?;
+    let ejecutable = ejecutable_de_la_app()?;
     std::fs::create_dir_all(&carpeta)?;
     std::fs::write(&ruta, entrada_de_arranque(&ejecutable.to_string_lossy()))?;
     Ok(())
+}
+
+/// El archivo que hay que lanzar para abrir winshotx. El AppImage se ejecuta desde una carpeta
+/// temporal que cambia cada vez: lo que vale es el archivo .AppImage, que es lo que la persona
+/// tiene en el disco.
+#[cfg(target_os = "linux")]
+fn ejecutable_de_la_app() -> std::io::Result<PathBuf> {
+    std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .filter(|ruta| ruta.is_absolute())
+        .map_or_else(std::env::current_exe, Ok)
+}
+
+/// Como se escribe winshotx en un atajo del escritorio, para donde no se le pueden pedir los
+/// atajos (Sway y los demas de wlroots no tienen el portal): `winshotx` si es el del PATH (el
+/// .deb y el .rpm lo dejan en /usr/bin), o su ruta (el AppImage, una copia suelta).
+#[cfg(target_os = "linux")]
+pub fn orden_de_la_app() -> String {
+    let Ok(ejecutable) = ejecutable_de_la_app() else {
+        return "winshotx".into();
+    };
+    let mismo = |otro: &Path| match (otro.canonicalize(), ejecutable.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    let en_el_path = std::env::var_os("PATH")
+        .is_some_and(|path| std::env::split_paths(&path).any(|carpeta| mismo(&carpeta.join("winshotx"))));
+    orden_para(&ejecutable.to_string_lossy(), en_el_path)
+}
+
+/// La orden con la ruta como la lee una consola, que es como la lanzan Sway (`exec` pasa por
+/// `sh -c`) y GNOME: sin comillas si no hacen falta, y si no entre comillas dobles, escapando lo
+/// que dentro de ellas tiene significado.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn orden_para(ejecutable: &str, en_el_path: bool) -> String {
+    if en_el_path {
+        return "winshotx".into();
+    }
+    let sin_comillas = !ejecutable.is_empty()
+        && ejecutable.bytes().all(|b| b.is_ascii_alphanumeric() || b"/._-+".contains(&b));
+    if sin_comillas {
+        return ejecutable.to_string();
+    }
+    let mut orden = String::from("\"");
+    for letra in ejecutable.chars() {
+        if matches!(letra, '"' | '\\' | '$' | '`') {
+            orden.push('\\');
+        }
+        orden.push(letra);
+    }
+    orden.push('"');
+    orden
 }
 
 /// `$XDG_CONFIG_HOME/autostart`, o `~/.config/autostart` si no esta puesta o no es absoluta
@@ -340,6 +387,16 @@ fn entrada_de_arranque(ejecutable: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// La orden para un atajo puesto a mano: `winshotx` si es el del PATH, la ruta tal cual si
+    /// no lleva nada raro, y entre comillas, con lo de dentro escapado, si lo lleva.
+    #[test]
+    fn la_orden_del_atajo_se_lee_bien_en_una_consola() {
+        assert_eq!(orden_para("/usr/bin/winshotx", true), "winshotx");
+        assert_eq!(orden_para("/home/ana/Apps/winshotx_0.4.7_amd64.AppImage", false), "/home/ana/Apps/winshotx_0.4.7_amd64.AppImage");
+        assert_eq!(orden_para("/home/ana/Mis cosas/winshotx.AppImage", false), "\"/home/ana/Mis cosas/winshotx.AppImage\"");
+        assert_eq!(orden_para("/tmp/a\"b$c`d\\e", false), r#""/tmp/a\"b\$c\`d\\e""#);
+    }
 
     /// La entrada que arranca winshotx al entrar en la sesion apunta al ejecutable, entre
     /// comillas, y con la bandera que la deja en la bandeja sin ventana.

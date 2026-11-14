@@ -10,7 +10,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
-import { llamadas, responde } from "../../test/preparar";
+import { falla, llamadas, responde } from "../../test/preparar";
 import type { ReplayStatus, Settings } from "../../lib/types";
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
@@ -662,6 +662,44 @@ describe("en Linux", () => {
     expect(screen.getByText("Sin tecla")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "Cambiar" })[0]);
     expect(llamadas.some((l) => l.comando === "cambiar_teclas_en_el_escritorio")).toBe(true);
+  });
+
+  it("donde el escritorio no deja pedir teclas (Sway), enseña la orden y la copia", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", {
+      capture: null,
+      edit: null,
+      aMano: true,
+      orden: "\"/home/ana/Mis cosas/winshotx.AppImage\"",
+    });
+    await abrirAjustes();
+    await waitFor(() =>
+      expect(screen.getAllByText("ponla en los atajos del escritorio")).toHaveLength(2),
+    );
+    expect(screen.getByText("\"/home/ana/Mis cosas/winshotx.AppImage\" --capture")).toBeInTheDocument();
+    expect(screen.getByText("\"/home/ana/Mis cosas/winshotx.AppImage\" --edit")).toBeInTheDocument();
+    // Sin «Cambiar» ni «Sin tecla»: aquí no hay ventana del escritorio que abrir.
+    expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Sin tecla")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Copiar la orden" })[1]);
+    await waitFor(() =>
+      expect(llamadas.filter((l) => l.comando === "copiar_orden_del_atajo").at(-1)?.args).toEqual({
+        accion: "edit",
+      }),
+    );
+  });
+
+  it("si Cambiar no abre nada (Hyprland), pasa a la orden para ponerla a mano", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, aMano: false, orden: "winshotx" });
+    falla("cambiar_teclas_en_el_escritorio", "Unsupported");
+    await abrirAjustes();
+    await waitFor(() =>
+      expect(screen.getAllByText("todavía sin tecla: pulsa «Cambiar»")).toHaveLength(2),
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Cambiar" })[0]);
+    await waitFor(() => expect(screen.getByText("winshotx --capture")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
   });
 
   it("en Windows sigue todo como estaba", async () => {

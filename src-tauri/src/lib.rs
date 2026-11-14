@@ -194,10 +194,18 @@ pub fn run() {
         // cierra y le pasa el testigo, en vez de robarle los atajos globales.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // Una segunda instancia con `--capture` es la forma de disparar una captura
-            // desde fuera (un guion, otra herramienta, el cronometro), y `--cancel` la
-            // cierra. Sin argumentos, lo de siempre: ensennar los ajustes.
-            if args.iter().any(|arg| arg == "--capture") {
-                if let Err(error) = windows_mgr::open_overlays(app, windows_mgr::OverlayIntent::Capture) {
+            // desde fuera (un guion, otra herramienta, el cronometro, el atajo puesto a mano
+            // en Sway), `--edit` la de capturar y abrir el editor, y `--cancel` la cierra. Sin
+            // argumentos, lo de siempre: ensennar los ajustes.
+            let intencion = if args.iter().any(|arg| arg == "--capture") {
+                Some(windows_mgr::OverlayIntent::Capture)
+            } else if args.iter().any(|arg| arg == "--edit") {
+                Some(windows_mgr::OverlayIntent::Edit)
+            } else {
+                None
+            };
+            if let Some(intencion) = intencion {
+                if let Err(error) = windows_mgr::open_overlays(app, intencion) {
                     eprintln!("no se ha podido abrir el overlay: {error}");
                 }
                 return;
@@ -370,6 +378,7 @@ pub fn run() {
             commands::plataforma,
             commands::teclas_del_escritorio,
             commands::cambiar_teclas_en_el_escritorio,
+            commands::copiar_orden_del_atajo,
             commands::list_screens,
             commands::show_screen_number,
             commands::replay_status,

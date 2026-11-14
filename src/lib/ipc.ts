@@ -203,6 +203,10 @@ export const teclasDelEscritorio = () => invoke<TeclasDelEscritorio | null>("tec
 /** Que el escritorio enseñe su ventana para cambiar las teclas de winshotx (Wayland). */
 export const cambiarTeclasEnElEscritorio = () => invoke<void>("cambiar_teclas_en_el_escritorio");
 
+/** Copia `winshotx --capture` o `winshotx --edit`, para ponerla a mano en el escritorio. */
+export const copiarOrdenDelAtajo = (accion: "capture" | "edit") =>
+  invoke<void>("copiar_orden_del_atajo", { accion });
+
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
 
 /** Las pantallas que hay, para elegir cuál vigila el anillo. No captura nada. */

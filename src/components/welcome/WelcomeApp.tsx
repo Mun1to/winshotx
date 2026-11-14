@@ -34,7 +34,7 @@ import { partesDeAtajo } from "../../lib/teclas";
 import { ShortcutField } from "../settings/ShortcutField";
 // S21 (Linux): sin el paso de Impr Pant, y en Wayland las teclas las pone el escritorio.
 import { RowButton } from "../settings/Section";
-import { TeclaPuesta } from "../settings/TeclaDelEscritorio";
+import { EjemploDeSway, OrdenDelAtajo, TeclaPuesta } from "../settings/TeclaDelEscritorio";
 import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
 import { Marca } from "../ui/Marca";
 import { Switch } from "../ui/Switch";
@@ -79,11 +79,16 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   const donde = usePlataforma();
   const enLinux = donde?.sistema === "linux";
   const enWayland = donde?.wayland ?? false;
-  const teclas = useTeclasDelEscritorio(enWayland);
+  // Si «Cambiar» no abre nada (Hyprland, o un escritorio que winshotx no conoce), las teclas se
+  // ponen a mano, igual que donde no hay portal.
+  const [sinVentanaDeTeclas, setSinVentanaDeTeclas] = useState(false);
+  const delEscritorio = useTeclasDelEscritorio(enWayland);
+  const teclas =
+    delEscritorio && sinVentanaDeTeclas ? { ...delEscritorio, aMano: true } : delEscritorio;
   const pasos = enLinux ? PASOS_EN_LINUX : PASOS;
   const nombre = pasos[paso];
   const cambiarTeclas = useCallback(() => {
-    void cambiarTeclasEnElEscritorio().catch((e) => setError(String(e)));
+    void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
   }, []);
 
   useEffect(() => {
@@ -439,6 +444,7 @@ function HolaEnWayland({
   onCambiar: () => void;
 }) {
   const t = useT();
+  const aMano = teclas?.aMano ?? false;
   const tarjetas = [
     { id: "capture", icono: <Camera className="size-4 text-tenue" />, titulo: t("Capturar una región") },
     { id: "edit", icono: <SquarePen className="size-4 text-tenue" />, titulo: t("Capturar y abrir el editor") },
@@ -452,7 +458,9 @@ function HolaEnWayland({
       />
 
       <p className="mt-4 text-[12px] text-apagado">
-        {t("Estas son las dos teclas con las que se llama. En Wayland las elige el escritorio: acepta las que te propone en su ventana, o cámbialas ahí con «Cambiar».")}
+        {aMano
+          ? t("Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:")
+          : t("Estas son las dos teclas con las que se llama. En Wayland las elige el escritorio: acepta las que te propone en su ventana, o cámbialas ahí con «Cambiar».")}
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
@@ -463,12 +471,24 @@ function HolaEnWayland({
               {tarjeta.titulo}
             </span>
             <span className="mt-2.5 flex items-center gap-1.5">
-              <TeclaPuesta tecla={teclas?.[tarjeta.id] ?? null} />
-              <RowButton onClick={onCambiar}>{t("Cambiar")}</RowButton>
+              {aMano ? (
+                <OrdenDelAtajo orden={teclas?.orden ?? "winshotx"} accion={tarjeta.id} />
+              ) : (
+                <>
+                  <TeclaPuesta tecla={teclas?.[tarjeta.id] ?? null} />
+                  <RowButton onClick={onCambiar}>{t("Cambiar")}</RowButton>
+                </>
+              )}
             </span>
           </div>
         ))}
       </div>
+
+      {aMano && (
+        <div className="mt-3">
+          <EjemploDeSway orden={teclas?.orden ?? "winshotx"} />
+        </div>
+      )}
 
       <p className="mt-3 text-[12px] text-tenue">
         {t("Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.")}
@@ -702,7 +722,9 @@ function Final({
         <div className="flex items-center justify-between px-4 py-2.5">
           <span className="text-[13px] text-suave">{t("Capturar una región")}</span>
           <span className="flex items-center gap-2">
-            {teclas !== undefined ? (
+            {teclas?.aMano ? (
+              <code className="font-mono text-[11px] text-apagado">{`${teclas.orden || "winshotx"} --capture`}</code>
+            ) : teclas !== undefined ? (
               <TeclaPuesta tecla={teclas?.capture ?? null} />
             ) : (
               <Atajo valor={ajustes.captureShortcut} />

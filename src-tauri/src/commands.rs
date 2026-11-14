@@ -942,6 +942,29 @@ pub async fn cambiar_teclas_en_el_escritorio() -> Result<()> {
     }
 }
 
+/// Copia la orden para poner a mano un atajo del escritorio (`winshotx --capture` o
+/// `winshotx --edit`), donde no se le pueden pedir los atajos. La orden la monta Rust y no la
+/// interfaz, como en `copy_color`: la pagina no escribe lo que quiera en el portapapeles.
+#[tauri::command]
+pub async fn copiar_orden_del_atajo(accion: String) -> Result<()> {
+    let bandera = match accion.as_str() {
+        "capture" => "--capture",
+        "edit" => "--edit",
+        _ => return Err(AppError::Msg("ese atajo no existe".into())),
+    };
+    #[cfg(target_os = "linux")]
+    {
+        let orden = format!("{} {bandera}", crate::platform::xdg::orden_de_la_app());
+        crate::platform::clipboard::copy_text(&orden)?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = bandera;
+        Err(AppError::Unsupported)
+    }
+}
+
 #[tauri::command]
 pub async fn shortcut_status(state: State<'_, AppState>) -> Result<crate::hotkeys::ShortcutStatus> {
     Ok(*state.shortcuts.read())
