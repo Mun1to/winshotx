@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Pause, Play, VideoOff, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, VideoOff, Volume1, Volume2, VolumeX } from "lucide-react";
 import {
   discardSession,
   ffmpegAvailable,
@@ -68,18 +68,19 @@ import { volumenDelClicEnVista } from "../../lib/sonidoDeClic";
 // S11 (pistas)
 import { SonidoPorPistas } from "./SonidoPorPistas";
 import { conPistas } from "../../lib/pistas";
-
-/** Dónde se recuerda que la vista previa va sin sonido. */
-const CLAVE_VISTA_CALLADA = "winshotx.vistaCallada";
-
-/** Si la vista previa se dejó callada en este ordenador. Sin almacenamiento, suena. */
-function vistaCalladaRecordada(): boolean {
-  try {
-    return localStorage.getItem(CLAVE_VISTA_CALLADA) === "1";
-  } catch {
-    return false;
-  }
-}
+// S31 (volumen de la vista previa)
+import { Slider } from "../ui/Slider";
+import {
+  alternar,
+  conNivel,
+  escalon,
+  flechaDeOtro,
+  guardar as guardarVolumenDeLaVista,
+  leer as leerVolumenDeLaVista,
+  loQueSuena,
+  mover,
+  type VolumenDeLaVista,
+} from "../../lib/volumenDeLaVista";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -154,22 +155,22 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   useEffect(() => elegirMarca(null), [herramienta, elegirMarca]);
   const [colorMarca, setColorMarca] = useState(COLORES[0]);
   /**
-   * La vista previa sin sonido. Solo calla lo que se oye aquí: el archivo sale con el sonido
-   * que digan sus mandos. Se recuerda en este ordenador, porque quien edita sin sonido (en
+   * Lo que se oye en la vista previa: callada o no (el altavoz y la M) y su volumen (S31, el
+   * deslizador de al lado). Solo cambia lo que se oye aquí: el archivo sale con el sonido que
+   * digan sus mandos. Se recuerda en este ordenador, porque quien edita sin sonido o bajito (en
    * clase, en la oficina) lo quiere igual en el vídeo siguiente.
    */
-  const [callada, setCallada] = useState(vistaCalladaRecordada);
-  const alternarSonido = useCallback(() => {
-    setCallada((antes) => {
-      const ahora = !antes;
-      try {
-        localStorage.setItem(CLAVE_VISTA_CALLADA, ahora ? "1" : "0");
-      } catch {
-        // Sin almacenamiento se calla igual; solo no se recuerda.
-      }
+  const [vista, setVista] = useState(leerVolumenDeLaVista);
+  const cambiarVista = useCallback((cambio: (antes: VolumenDeLaVista) => VolumenDeLaVista) => {
+    setVista((antes) => {
+      const ahora = cambio(antes);
+      guardarVolumenDeLaVista(ahora);
       return ahora;
     });
   }, []);
+  const alternarSonido = useCallback(() => cambiarVista(alternar), [cambiarVista]);
+  /** Por cuánto se multiplica lo que suena en la vista previa, de 0 a 1. */
+  const suenaLaVista = loQueSuena(vista);
   /** El trozo que se exporta, de 0 a 1. Sin marco puesto sale la captura entera. */
   const [recorte, setRecorte] = useState<Recorte | null>(null);
   const [recortando, setRecortando] = useState(false);
@@ -522,10 +523,12 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   // S11 (pistas): con el PC y la voz por separado suenan sus dos pistas, cada una a su volumen
   // (`SonidoPorPistas`), y el vídeo, que las trae sumadas, se calla.
   const suenanLasPistas = conPistas(session) && !pistasRotas;
+  /** Hay vídeo que oír, y con él, el altavoz y su volumen al lado del play. */
+  const hayVideo = !!session?.mp4Path;
   useEffect(() => {
     const video = videoRef.current;
-    if (video) video.volume = callada || suenanLasPistas ? 0 : Math.min(1, Math.max(0, estudio.volumen));
-  }, [estudio.volumen, session?.mp4Path, suenanLasPistas, callada]);
+    if (video) video.volume = suenanLasPistas ? 0 : Math.min(1, Math.max(0, estudio.volumen)) * suenaLaVista;
+  }, [estudio.volumen, session?.mp4Path, suenanLasPistas, suenaLaVista]);
 
   /** Lo que dura lo que se queda. */
   const keptMs = Math.max(0, hastaMs - desdeMs);
@@ -597,6 +600,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       } else if (key === "m" && !e.ctrlKey && !e.metaKey) {
         // M de mudo, como en casi cualquier reproductor de vídeo.
         alternarSonido();
+      } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && hayVideo && !flechaDeOtro(e.target)) {
+        // Arriba y abajo, el volumen de la vista previa, como en casi cualquier reproductor.
+        e.preventDefault();
+        const sentido = e.key === "ArrowUp" ? 1 : -1;
+        cambiarVista((antes) => mover(antes, sentido));
       } else if (e.key === "ArrowLeft") {
         ir(fotogramaVecino(frames, posicionMs, -1));
       } else if (e.key === "ArrowRight") {
@@ -616,7 +624,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     // `recortando`, `herramienta` y lo elegido entran aqui porque Escape los mira: sin ellos el
   // manejador se queda con la foto vieja del estado y cierra el editor, tirando los
   // fotogramas, en vez de soltar lo que se estuviera haciendo.
-  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca]);
+  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca, hayVideo, cambiarVista]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
@@ -777,13 +785,37 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       <button
         type="button"
         onClick={alternarSonido}
-        aria-label={callada ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
-        aria-pressed={callada}
-        title={callada ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
+        aria-label={suenaLaVista === 0 ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
+        aria-pressed={suenaLaVista === 0}
+        title={suenaLaVista === 0 ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
         className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
       >
-        {callada ? <VolumeX className="size-[22px]" /> : <Volume2 className="size-[22px]" />}
+        {escalon(vista) === "sin" ? (
+          <VolumeX className="size-[22px]" />
+        ) : escalon(vista) === "bajo" ? (
+          <Volume1 className="size-[22px]" />
+        ) : (
+          <Volume2 className="size-[22px]" />
+        )}
       </button>
+      {/*
+        S31: y su volumen, de 0 a 100. Suelto al ratón, el foco se va: así la M, el espacio y las
+        flechas siguen siendo del editor, que con el foco en el deslizador no las oiría.
+      */}
+      <div
+        className="w-20 pr-1"
+        title={t("Volumen de la vista previa: {porCiento} % (↑ ↓)", { porCiento: Math.round(suenaLaVista * 100) })}
+        onPointerUp={(e) => (e.target as HTMLElement).blur?.()}
+      >
+        <Slider
+          ariaLabel={t("Volumen de la vista previa")}
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round(suenaLaVista * 100)}
+          onChange={(v) => cambiarVista((antes) => conNivel(antes, v / 100))}
+        />
+      </div>
     </>
   ) : previaFallida ? (
     <span
@@ -997,7 +1029,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   microfono={session.microfono}
                   volumenPc={edicion.sonidoPc}
                   volumenMicrofono={edicion.microfono}
-                  callada={callada}
+                  volumenDeLaVista={suenaLaVista}
                   msParado={posicionMs}
                   onFallo={(motivo) => {
                     console.warn(`[winshotx] la pista no suena en la vista previa (${motivo}): suena el vídeo`);
@@ -1026,7 +1058,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   piezas={piezas}
                   desdeMs={desdeMs}
                   hastaMs={hastaMs}
-                  volumen={callada ? 0 : volumenDelClicEnVista(edicion.sonidoClic, estudio.velocidad)}
+                  volumen={volumenDelClicEnVista(edicion.sonidoClic, estudio.velocidad) * suenaLaVista}
                   clic={edicion.clic}
                 />
               )}

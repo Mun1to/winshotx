@@ -455,6 +455,8 @@ export const EN: Record<string, string> = {
   "Escribe aquí": "Type here",
   "Silenciar la vista previa (M)": "Mute the preview (M)",
   "Oír la vista previa (M)": "Unmute the preview (M)",
+  "Volumen de la vista previa": "Preview volume",
+  "Volumen de la vista previa: {porCiento} % (↑ ↓)": "Preview volume: {porCiento}% (↑ ↓)",
   "Deshacer (Ctrl+Z)": "Undo (Ctrl+Z)",
   "Últimas capturas": "Latest shots",
   "Copiar {nombre}": "Copy {nombre}",

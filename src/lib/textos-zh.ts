@@ -446,6 +446,8 @@ export const ZH: Record<string, string> = {
   "Escribe aquí": "在此输入",
   "Silenciar la vista previa (M)": "预览静音 (M)",
   "Oír la vista previa (M)": "取消预览静音 (M)",
+  "Volumen de la vista previa": "预览音量",
+  "Volumen de la vista previa: {porCiento} % (↑ ↓)": "预览音量：{porCiento}% (↑ ↓)",
   "Deshacer (Ctrl+Z)": "撤销 (Ctrl+Z)",
   "Últimas capturas": "最新截图",
   "Copiar {nombre}": "复制{nombre}",

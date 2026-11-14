@@ -1024,6 +1024,13 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   let e = await estado();
   comprueba(e.video.volumen === 0, `el vídeo, que trae las dos sumadas, va callado (volumen ${e.video.volumen})`);
 
+  // S31: el volumen de la vista previa, al lado del altavoz. Nace a la mitad, nunca a tope.
+  const volumenDeLaVista = pagina.getByRole("slider", { name: "Volumen de la vista previa" });
+  comprueba(
+    (await volumenDeLaVista.inputValue()) === "50",
+    `el volumen de la vista previa nace a la mitad: ${await volumenDeLaVista.inputValue()}`,
+  );
+
   await pagina.getByRole("button", { name: "Reproducir" }).click();
   await pagina.waitForTimeout(1500);
   e = await estado();
@@ -1033,14 +1040,14 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   );
 
   // El volumen de la voz, en vivo, y el PC apagado se calla sin parar el vídeo.
-  const volumenes = pagina.getByRole("slider", { name: "Volumen" });
+  const volumenes = pagina.getByRole("slider", { name: "Volumen", exact: true });
   await volumenes.nth(1).fill("40");
   await pagina.getByRole("switch", { name: "Sonido del PC" }).click();
   await pagina.waitForTimeout(300);
   e = await estado();
   comprueba(
-    Math.abs(e.voz.volumen - 0.4) < 1e-6 && !e.voz.parada && e.pc.parada && !e.video.parado,
-    `la voz al 40 % suena a ${e.voz.volumen} y el PC apagado se calla (parado: ${e.pc.parada})`,
+    Math.abs(e.voz.volumen - 0.2) < 1e-6 && !e.voz.parada && e.pc.parada && !e.video.parado,
+    `la voz al 40 %, con la vista a la mitad, suena a ${e.voz.volumen} y el PC apagado se calla (parado: ${e.pc.parada})`,
   );
 
   // Un salto del vídeo (como el de un corte) se lleva las pistas con él.
@@ -1071,11 +1078,60 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   await pagina.waitForTimeout(300);
   e = await estado();
   comprueba(
-    !e.voz.parada && Math.abs(e.voz.volumen - 0.4) < 1e-6,
-    `con la M vuelve a sonar a su 40 %: ${JSON.stringify(e.voz)}`,
+    !e.voz.parada && Math.abs(e.voz.volumen - 0.2) < 1e-6,
+    `con la M vuelve a sonar a su 40 % por la mitad de la vista: ${JSON.stringify(e.voz)}`,
+  );
+
+  // S31: el deslizador con un ratón de verdad, al 80 % de su largo. Al soltarlo el foco se va,
+  // así que la M y las flechas siguen siendo del editor.
+  const caja = await volumenDeLaVista.boundingBox();
+  await pagina.mouse.click(caja.x + caja.width * 0.8, caja.y + caja.height / 2);
+  await pagina.waitForTimeout(300);
+  e = await estado();
+  const marca = Number(await volumenDeLaVista.inputValue());
+  comprueba(
+    marca >= 70 && marca <= 90 && Math.abs(e.voz.volumen - 0.4 * (marca / 100)) < 1e-6 && !e.voz.parada,
+    `con el ratón al ${marca} %, la voz suena a ${e.voz.volumen} (su 40 % por el ${marca} %)`,
+  );
+  comprueba(
+    (await pagina.evaluate(() => document.activeElement?.tagName)) !== "INPUT",
+    "al soltar el deslizador, el foco vuelve al editor",
+  );
+  comprueba(
+    (await pagina.locator(".lucide-volume-2").count()) === 1,
+    "por encima de la mitad, el altavoz enseña las dos ondas",
+  );
+  for (let vez = 0; vez < 4; vez++) await pagina.keyboard.press("ArrowDown");
+  await pagina.waitForTimeout(300);
+  e = await estado();
+  comprueba(
+    (await volumenDeLaVista.inputValue()) === String(marca - 40) && Math.abs(e.voz.volumen - 0.4 * ((marca - 40) / 100)) < 1e-6,
+    `cuatro veces abajo, al ${await volumenDeLaVista.inputValue()} %: la voz suena a ${e.voz.volumen}`,
+  );
+  comprueba(
+    (await pagina.locator(".lucide-volume-1").count()) === 1,
+    "por debajo de la mitad, una onda",
+  );
+  await pagina.keyboard.press("m");
+  await pagina.waitForTimeout(300);
+  e = await estado();
+  comprueba(
+    e.voz.volumen === 0 && (await volumenDeLaVista.inputValue()) === "0" && (await pagina.locator(".lucide-volume-x").count()) === 1,
+    `la M después del ratón: callada, el deslizador a 0 y el altavoz tachado`,
+  );
+  await pagina.keyboard.press("m");
+  await pagina.waitForTimeout(300);
+  comprueba(
+    (await volumenDeLaVista.inputValue()) === String(marca - 40),
+    `y al volver, el ${await volumenDeLaVista.inputValue()} % que había`,
   );
   await pagina.getByRole("button", { name: "Pausar" }).click();
-  if (fotos) await pagina.screenshot({ path: join(fotos, "14-pistas.png") });
+  if (fotos) {
+    await pagina.screenshot({ path: join(fotos, "14-pistas.png") });
+    // La fila del play de cerca: el play, el altavoz, su volumen y el reloj.
+    const fila = await pagina.locator("[data-pista]").boundingBox();
+    await pagina.screenshot({ path: join(fotos, "14b-volumen-de-la-vista.png"), clip: { x: 0, y: fila.y - 20, width: 520, height: fila.height + 40 } });
+  }
 
   const antes = await pagina.evaluate(() => (window.__llamadas ?? []).filter((l) => l.cmd === "export_media").length);
   await pagina.getByRole("button", { name: "Guardar MP4" }).click();
@@ -1086,7 +1142,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
       peticion.sonidoPc?.encendida === false &&
       peticion.microfono?.encendida === true &&
       Math.abs(peticion.microfono.volumen - 0.4) < 1e-6,
-    `«Guardar» manda sus volúmenes aunque la vista previa vaya callada: ${JSON.stringify({ audio: peticion.audio, sonidoPc: peticion.sonidoPc, microfono: peticion.microfono })}`,
+    `«Guardar» manda sus volúmenes, no los de la vista previa: ${JSON.stringify({ audio: peticion.audio, sonidoPc: peticion.sonidoPc, microfono: peticion.microfono })}`,
   );
 
   // Con la ventana minimizada no hay pintadas. Se apagan aquí a propósito (va lo último, que

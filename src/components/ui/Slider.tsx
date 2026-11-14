@@ -5,6 +5,8 @@ interface Props {
   step?: number;
   onChange: (value: number) => void;
   label?: string;
+  /** El nombre para el lector de pantalla cuando no lleva rótulo encima (S31, la barra del play). */
+  ariaLabel?: string;
   hint?: string;
   disabled?: boolean;
 }
@@ -16,6 +18,7 @@ export function Slider({
   step = 1,
   onChange,
   label,
+  ariaLabel,
   hint,
   disabled = false,
 }: Props) {
@@ -32,7 +35,7 @@ export function Slider({
         type="range"
         // La etiqueta esta al lado, dentro del mismo `label`, pero el lector de pantalla
         // llega antes al control que al texto: sin esto anuncia «control deslizante» y ya.
-        aria-label={label}
+        aria-label={label ?? ariaLabel}
         min={min}
         max={max}
         step={step}
