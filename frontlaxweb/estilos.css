@@ -110,6 +110,9 @@
   --letra-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
   --letra-mano: "Ink Free", "Segoe Print", "Bradley Hand", "Chalkboard SE", "Comic Sans MS", cursive;
   --nav-alto: 90px;
+  /* El aire de arriba y de abajo de cada sección. Era clamp(72px, 10vh, 130px): 160 px
+     entre dos secciones en el móvil y 216 a 1920, y la página se leía a trozos sueltos. */
+  --aire: clamp(48px, 7.5vh, 104px);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -223,7 +226,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
    ademas de ahorrar trabajo al cargar, sin esto los lienzos de la demo se repintaban en cada
    fotograma de la cruceta aunque no se vieran. `auto` en el tamanno hace que, una vez vista,
    cada seccion recuerde lo que mide y el scroll no salte. */
-.seccion { padding: clamp(72px, 10vh, 130px) 0; content-visibility: auto; contain-intrinsic-size: auto 900px; }
+.seccion { padding: var(--aire) 0; content-visibility: auto; contain-intrinsic-size: auto 900px; }
 .cabeza-seccion { max-width: 760px; }
 .cabeza-seccion.centrado { margin-inline: auto; }
 
@@ -910,7 +913,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 
 
 /* ---------- lo que es de verdad: cuatro cifras sueltas, sin cajas ---------- */
-.pruebas { padding: clamp(40px, 6vh, 80px) 0 clamp(24px, 4vh, 48px); }
+.pruebas { padding: clamp(40px, 6vh, 80px) 0 var(--aire); }
 .pruebas .env { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
 .prueba b {
   display: block; font: 750 clamp(34px, 2.9vw, 50px)/1.05 var(--letra-titulo);
@@ -925,6 +928,15 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
    tanto: el texto cambia a la izquierda y la foto de la app a la derecha. La rueda es la
    del navegador, nadie la secuestra; solo se mira por dónde va. */
 .momentos { --paso: 260px; position: relative; }
+/* Lo pegado mide una pantalla y su contenido va centrado, así que al entrar y al salir
+   dejaba media pantalla vacía (240 px arriba y 300 abajo a 1920). demo.js mide ese vacío
+   y lo resta con estos márgenes, dejando el aire de una sección normal; lo vacío que
+   queda encima de la sección de al lado no se queda los clics. */
+@media (min-width: 861px) {
+  .momentos { margin-block: calc(-1 * var(--momentos-sube, 0px)) calc(-1 * var(--momentos-baja, 0px)); }
+  .momentos-pegado { pointer-events: none; }
+  .momentos-pegado > * { pointer-events: auto; }
+}
 .momentos-pista { height: calc(100svh + 2 * var(--paso) + 40px); }
 .momentos-pegado {
   position: sticky; top: 0; height: 100svh; padding-top: var(--nav-alto);
@@ -958,6 +970,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 .foto { border-radius: 12px; box-shadow: var(--sombra-foto); background: #111; }
 .momento .foto-movil { display: none; }
 @media (max-width: 860px) {
+  .momentos { padding-bottom: var(--aire); }
   .momentos-pista { height: auto; }
   .momentos-pegado { position: static; height: auto; padding-top: 0; display: block; }
   .momentos-textos { gap: 64px; }

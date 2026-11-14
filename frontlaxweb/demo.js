@@ -1563,6 +1563,30 @@ candado.addEventListener("click", () => queueMicrotask(marcarCandado));
     { passive: true },
   );
   addEventListener("resize", mirar);
+
+  // El vacío de arriba y de abajo de lo pegado (ver estilos.css, .momentos): se mide lo que
+  // sobra entre el borde de la pantalla pegada y su contenido, y se deja solo el aire de
+  // una sección normal. Se vuelve a medir si cambia el ancho, el alto o llegan las letras.
+  const seccion = pistaMomentos.closest(".momentos");
+  const pegado = pistaMomentos.querySelector(".momentos-pegado");
+  const ajustarAire = () => {
+    if (!pegado || innerWidth <= 860) {
+      seccion.style.removeProperty("--momentos-sube");
+      seccion.style.removeProperty("--momentos-baja");
+      return;
+    }
+    const caja = pegado.getBoundingClientRect();
+    const hijos = [...pegado.children].map((h) => h.getBoundingClientRect()).filter((r) => r.height);
+    if (!hijos.length) return;
+    const arriba = Math.min(...hijos.map((r) => r.top)) - caja.top;
+    const abajo = caja.bottom - Math.max(...hijos.map((r) => r.bottom));
+    const aire = parseFloat(getComputedStyle(document.querySelector(".seccion") || seccion).paddingTop) || 0;
+    seccion.style.setProperty("--momentos-sube", `${Math.max(0, Math.round(arriba - aire))}px`);
+    seccion.style.setProperty("--momentos-baja", `${Math.max(0, Math.round(abajo - aire))}px`);
+  };
+  new ResizeObserver(ajustarAire).observe(pegado || pistaMomentos);
+  if (document.fonts) document.fonts.ready.then(ajustarAire);
+  ajustarAire();
   // Los nombres de arriba llevan al paso: bajan la página justo hasta él.
   pasos.forEach((b, i) =>
     b.addEventListener("click", () => {
