@@ -239,7 +239,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 .portada .botones { justify-content: center; margin-top: 34px; }
 .nota { color: var(--suave); font-size: 15.5px; margin-top: 18px; }
 .nota + .nota { margin-top: 6px; }
-.nota code { color: var(--texto); font-size: 14.5px; }
+.nota code { color: var(--texto); font-size: 14.5px; white-space: nowrap; }
 .nota a { color: var(--texto); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .nota a:hover { color: var(--azul); }
 
@@ -255,23 +255,42 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 }
 .fan b { font-weight: 700; color: var(--texto); }
 .fan .flecha { display: none; }
+/* En pantalla ancha, la cabecera es una rejilla de tres columnas: el titular a lo ancho, y
+   debajo, lo de en medio en la central y las notas en las de los lados, cada una a la
+   altura de lo que comenta (las de arriba junto a la bajada, las de abajo junto a los
+   botones y el tamaño del instalador). Antes iban sueltas, por porcentajes del alto, y a
+   según qué ancho pisaban la caja del titular y el garabato tocaba «Instalador de 2,94 MB». */
 @media (min-width: 1180px) {
-  .fans { position: absolute; inset: 0; display: block; margin: 0; max-width: none; pointer-events: none; }
-  .fan { position: absolute; width: 11em; font-size: clamp(20px, 1.45vw, 26px); pointer-events: auto; }
+  .portada > .env {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 620px) minmax(0, 1fr);
+    align-items: center;
+  }
+  .portada > .env > * { grid-column: 2; }
+  .portada > .env > h1 { grid-column: 1 / -1; grid-row: 1; }
+  /* En dos líneas en los dos idiomas: en inglés cabía en una, tan ancha que la flecha de
+     «114 ms» cruzaba la palabra «blink». */
+  .portada h1 em { display: block; }
+  .portada > .env > .bajada { grid-row: 2; }
+  .portada > .env > .botones { grid-row: 3; }
+  .portada > .env > .nota { grid-row: 4; text-wrap: balance; }
+  .portada > .env > .nota + .nota { grid-row: 5; }
+  .fans { display: contents; }
+  .fan { width: 11em; max-width: 100%; font-size: clamp(20px, 1.45vw, 26px); }
   .fan .flecha {
     display: block; position: absolute; width: 92px; height: 70px; overflow: visible;
     fill: none; stroke: currentColor; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round;
   }
-  /* Los cuatro sitios, en el hueco que deja la bajada a cada lado. */
-  .fan.f-a { right: 0; top: 41%; --giro: 6deg; }
+  .fan.f-b { grid-column: 1; grid-row: 2; justify-self: start; margin-top: 20px; --giro: -7deg; }
+  .fan.f-a { grid-column: 3; grid-row: 2; justify-self: end; margin-top: 34px; --giro: 6deg; }
   .fan.f-a .flecha { left: 18%; bottom: 100%; transform: rotate(-12deg); }
-  .fan.f-b { left: 0; top: 43%; --giro: -7deg; }
-  .fan.f-c { left: 2%; top: 73%; --giro: 4deg; }
-  .fan.f-c .flecha { left: 100%; top: 6%; }
-  .fan.f-d { right: 1%; top: 75%; --giro: -5deg; }
+  /* La de los disquetes señala el tamaño del instalador: deja sitio a su flecha para que
+     acabe antes de la letra, no encima. */
+  .fan.f-c { grid-column: 1; grid-row: 4 / 6; justify-self: end; max-width: calc(100% - 84px); margin-right: 84px; --giro: 4deg; }
+  .fan.f-c .flecha { left: calc(100% + 6px); top: 0; width: 74px; height: 56px; }
+  .fan.f-d { grid-column: 3; grid-row: 3 / 6; justify-self: end; --giro: -5deg; }
 }
 @media (min-width: 1600px) {
-  .fan.f-a { right: 3%; } .fan.f-b { left: 3%; } .fan.f-c { left: 6%; } .fan.f-d { right: 5%; }
+  .fan.f-b, .fan.f-d { margin-inline: 3%; }
 }
 /* Las notas sueltas de otras secciones: al lado de su titular, giradas, y en el móvil debajo. */
 /* Van en su sitio del texto también en pantalla ancha: la regla de arriba las sacaba del
