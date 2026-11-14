@@ -25,7 +25,7 @@
  * Sale con 0 si todo cuadra y con 1 si algo no.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -456,6 +456,177 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     (de("pen")?.puntos?.length ?? 0) >= 10 && de("pen").puntos.length < 100,
     `el lápiz viaja con su trazo aclarado: ${de("pen")?.puntos?.length} puntos`,
   );
+
+  // ── S23: lo dibujado se coge, se mueve y se reescribe, con el ratón de verdad ──────
+  console.log("\nLo dibujado se coge y se mueve (S23)");
+  /**
+   * La caja de la imagen AHORA. No vale la de antes: la imagen cambia de sitio (al guardar,
+   * el panel crece una línea), y un gesto calculado con la caja vieja cae unos píxeles más
+   * allá, que en una línea fina es no cogerla.
+   */
+  const medirCapa = () =>
+    pagina.evaluate(() => {
+      const r = document.querySelector("[data-agarre]").ownerSVGElement.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    });
+  let c = await medirCapa();
+  if (Math.abs(c.width - capa.width) > 0.5 || Math.abs(c.y - capa.y) > 0.5) {
+    console.log(`  (la imagen se ha movido desde que se dibujó: ${JSON.stringify(capa)} → ${JSON.stringify(c)})`);
+  }
+  /** Dónde se ve algo de la vista previa, de 0 a 1 sobre la imagen: su caja en la pantalla. */
+  const dondeSeVe = (selector, cual = 0) =>
+    pagina.evaluate(
+      ([selector, cual]) => {
+        const c = document.querySelector("[data-agarre]").ownerSVGElement.getBoundingClientRect();
+        const r = document.querySelectorAll(selector)[cual]?.getBoundingClientRect();
+        return r && { x1: (r.left - c.x) / c.width, y1: (r.top - c.y) / c.height, x2: (r.right - c.x) / c.width, y2: (r.bottom - c.y) / c.height };
+      },
+      [selector, cual],
+    );
+  const centro = (r) => [(r.x1 + r.x2) / 2, (r.y1 + r.y2) / 2];
+  /** Los vértices del lápiz, de 0 a 1, como los pinta la vista previa. */
+  const verticesDelLapiz = () =>
+    pagina.evaluate(() =>
+      document.querySelector('[data-marca="pen"]').getAttribute("points").split(" ").map((p) => p.split(",").map((v) => Number(v) / 1000)),
+    );
+  /** Arrastra con el ratón de verdad, en pasos, de un punto a otro (en píxeles). */
+  async function arrastrarDe([x0, y0], [x1, y1]) {
+    await pagina.mouse.move(x0, y0);
+    await pagina.mouse.down();
+    await pagina.mouse.move(x1, y1, { steps: 8 });
+    await pagina.mouse.up();
+  }
+  const enPx = ([x, y]) => [c.x + c.width * x, c.y + c.height * y];
+
+  // Primero sin herramienta: Escape suelta la de texto. Lo de la imagen deja pasar los
+  // clics, salvo encima de una marca.
+  await pagina.keyboard.press("Escape");
+  comprueba((await pagina.locator("svg.cursor-crosshair").count()) === 0, "Escape suelta la herramienta y no cierra nada");
+
+  // La línea, cogida 4 píxeles por debajo de su trazo: lo fino se coge sin acertarle.
+  c = await medirCapa();
+  const lineaAntes = await dondeSeVe('[data-marca="line"]');
+  const [lx, ly] = enPx(centro(lineaAntes));
+  await arrastrarDe([lx, ly + 4], [lx - c.width * 0.1, ly + 4 + c.height * 0.1]);
+  const lineaDespues = await dondeSeVe('[data-marca="line"]');
+  comprueba(
+    Math.abs(lineaDespues.x1 - lineaAntes.x1 + 0.1) < 0.01 && Math.abs(lineaDespues.y1 - lineaAntes.y1 - 0.1) < 0.01,
+    `la línea, cogida 4 px por debajo, se mueve con el ratón: de ${centro(lineaAntes).map((v) => v.toFixed(3))} a ${centro(lineaDespues).map((v) => v.toFixed(3))}`,
+  );
+  const elegidas = await pagina.locator("[data-halo]").count();
+  comprueba(elegidas === 1, `y queda elegida, con su halo (${elegidas})`);
+  if (fotos) {
+    await pagina.screenshot({ path: join(fotos, "12-s23-linea-elegida.png") });
+    const [cx, cy] = enPx(centro(lineaDespues));
+    await pagina.screenshot({ path: join(fotos, "12b-s23-linea-elegida-cerca.png"), clip: { x: cx - 260, y: cy - 60, width: 520, height: 120 } });
+  }
+
+  // El texto de arriba, arrastrado desde sus letras.
+  c = await medirCapa();
+  const textoAntes = await dondeSeVe('[data-marca="text"]', 0);
+  await arrastrarDe(enPx(centro(textoAntes)), enPx([centro(textoAntes)[0] + 0.2, centro(textoAntes)[1] + 0.1]));
+  const textoDespues = await dondeSeVe('[data-marca="text"]', 0);
+  comprueba(
+    Math.abs(textoDespues.x1 - textoAntes.x1 - 0.2) < 0.01 && Math.abs(textoDespues.y1 - textoAntes.y1 - 0.1) < 0.01,
+    `el texto se arrastra desde sus letras: de ${textoAntes.x1.toFixed(3)},${textoAntes.y1.toFixed(3)} a ${textoDespues.x1.toFixed(3)},${textoDespues.y1.toFixed(3)}`,
+  );
+  if (fotos) {
+    const [cx, cy] = enPx(centro(textoDespues));
+    await pagina.screenshot({ path: join(fotos, "12c-s23-texto-elegido-cerca.png"), clip: { x: cx - 160, y: cy - 40, width: 320, height: 80 } });
+  }
+
+  // Doble clic en el texto de abajo: se abre con lo que decía, y se reescribe.
+  c = await medirCapa();
+  const abajoAntes = await dondeSeVe('[data-marca="text"]', 1);
+  await pagina.mouse.dblclick(...enPx(centro(abajoAntes)));
+  const abierto = await pagina.evaluate(() => document.querySelector("input[aria-label=Texto]")?.value);
+  comprueba(abierto === "abajo", `el doble clic abre el texto con lo que decía: «${abierto}»`);
+  await pagina.keyboard.press("End");
+  await pagina.keyboard.type(" del todo");
+  await pagina.keyboard.press("Enter");
+  const reescrito = await pagina.evaluate(() => [...document.querySelectorAll('[data-marca="text"]')].map((e) => e.textContent));
+  comprueba(
+    reescrito.join(" | ") === "Hola Munito | abajo del todo",
+    `Intro lo deja reescrito en el mismo texto, sin otro de más: ${reescrito.join(" | ")}`,
+  );
+
+  // La elipse, pulsada 4 px por fuera de su trazo: elegida, borrada con Supr y vuelta con Ctrl+Z.
+  c = await medirCapa();
+  const elipse = await dondeSeVe('[data-marca="ellipse"]');
+  const [ex, ey] = enPx([elipse.x2, (elipse.y1 + elipse.y2) / 2]);
+  await pagina.mouse.click(ex + 4, ey);
+  await pagina.keyboard.press("Delete");
+  const sinElipse = await pagina.locator('[data-marca="ellipse"]').count();
+  await pagina.keyboard.press("Control+z");
+  const conElipse = await pagina.locator('[data-marca="ellipse"]').count();
+  comprueba(sinElipse === 0 && conElipse === 1, `Supr borra la elegida y Ctrl+Z la devuelve (${sinElipse} y ${conElipse})`);
+
+  // Con una herramienta puesta, pulsar encima de algo lo coge en vez de dibujar otra cosa.
+  await pagina.getByRole("button", { name: "Flecha · 1", exact: true }).click();
+  c = await medirCapa();
+  const cuantasAntes = await pagina.locator("[data-agarre]").count();
+  const lapizAntes = await verticesDelLapiz();
+  const agarre = lapizAntes[Math.floor(lapizAntes.length / 2)];
+  await arrastrarDe(enPx(agarre), enPx([agarre[0], agarre[1] + 0.1]));
+  const lapizDespues = await verticesDelLapiz();
+  const cuantasDespues = await pagina.locator("[data-agarre]").count();
+  comprueba(
+    lapizDespues.every((p, i) => Math.abs(p[0] - lapizAntes[i][0]) < 0.002 && Math.abs(p[1] - lapizAntes[i][1] - 0.1) < 0.01) &&
+      cuantasDespues === cuantasAntes,
+    `con la flecha puesta, arrastrar el lápiz lo mueve entero y no dibuja una flecha (${cuantasAntes} marcas antes, ${cuantasDespues} después)`,
+  );
+  // Ctrl+Z lo devuelve de un golpe, no movimiento a movimiento.
+  await pagina.keyboard.press("Control+z");
+  const lapizDeshecho = await verticesDelLapiz();
+  comprueba(
+    lapizDeshecho.every((p, i) => Math.abs(p[1] - lapizAntes[i][1]) < 0.001),
+    "Ctrl+Z devuelve el lápiz a donde estaba, de un golpe",
+  );
+  // Y otra vez abajo, para que «Guardar» lo lleve movido.
+  c = await medirCapa();
+  await arrastrarDe(enPx(agarre), enPx([agarre[0], agarre[1] + 0.1]));
+  const lapizFinal = await verticesDelLapiz();
+
+  await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+  await pagina.waitForFunction(() => window.__llamadas.filter((l) => l.cmd === "export_media").length >= 2);
+  const peticion = await pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request);
+  const ahora = peticion.annotations;
+  const linea = ahora.find((m) => m.kind === "line");
+  const lineaVieja = de("line");
+  comprueba(
+    linea && Math.abs(linea.x1 - lineaVieja.x1 + 0.1) < 0.01 && Math.abs(linea.y1 - lineaVieja.y1 - 0.1) < 0.01 && Math.abs(linea.x2 - linea.x1 - (lineaVieja.x2 - lineaVieja.x1)) < 1e-6,
+    `«Guardar» manda la línea movida y del mismo largo: ${linea?.x1.toFixed(3)},${linea?.y1.toFixed(3)} (antes ${lineaVieja.x1.toFixed(3)},${lineaVieja.y1.toFixed(3)})`,
+  );
+  const textosAhora = ahora.filter((m) => m.kind === "text").map((m) => `${m.text}@${m.x1.toFixed(2)},${m.y1.toFixed(2)}`);
+  comprueba(
+    textosAhora.join(" ") === "Hola Munito@0.30,0.20 abajo del todo@0.30,0.97",
+    `y los textos, el movido donde se soltó y el reescrito en su sitio: ${textosAhora.join(" ")}`,
+  );
+  const lapiz = ahora.find((m) => m.kind === "pen");
+  comprueba(
+    lapiz.puntos.length === de("pen").puntos.length && lapiz.puntos.every((p, i) => Math.abs(p[1] - de("pen").puntos[i][1] - 0.1) < 0.01),
+    "y el lápiz con su trazo entero bajado",
+  );
+  comprueba(
+    ahora.length === marcas.length && !ahora.some((m) => m.kind === "arrow"),
+    `sin marcas de más ni de menos: ${ahora.map((m) => m.kind).join(", ")}`,
+  );
+
+  // Lo que se ve, para que Rust lo pinte de verdad y mire que sale ahí
+  // (`exporter::exportar_de_verdad::lo_movido_sale_donde_se_ve`, con --ignored).
+  const caja = (c, r) => ({ x1: c[0] - r, y1: c[1] - r, x2: c[0] + r, y2: c[1] + r });
+  const mitad = Math.floor(lapizFinal.length / 2);
+  const sondas = [
+    { que: "la línea, donde se ve ahora", debe: "pintado", ...caja(centro(lineaDespues), 0.006) },
+    { que: "la línea, donde estaba", debe: "limpio", ...caja(centro(lineaAntes), 0.006) },
+    { que: "el texto de arriba, donde se ve ahora", debe: "pintado", ...textoDespues },
+    { que: "el texto de arriba, donde estaba", debe: "limpio", ...textoAntes },
+    { que: "el lápiz, donde se ve ahora", debe: "pintado", ...caja(lapizFinal[mitad], 0.006) },
+    { que: "el lápiz, donde estaba", debe: "limpio", ...caja(lapizAntes[mitad], 0.006) },
+  ];
+  const volcado = join(tmpdir(), "winshotx-probar-editor", "s23-lo-movido.json");
+  writeFileSync(volcado, JSON.stringify({ ancho: peticion.width, alto: peticion.height, annotations: ahora, sondas }, null, 1));
+  console.log(`  (lo que se ve, para Rust: ${volcado})`);
   await pagina.close();
   apagar();
 }
