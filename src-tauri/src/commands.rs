@@ -889,6 +889,59 @@ pub async fn pedir_permiso_de_capturas() -> Result<bool> {
     .map_err(|error| AppError::Msg(error.to_string()))
 }
 
+/// Donde corre winshotx, para que la interfaz no ensenne lo que ahi no existe (las teclas de
+/// Windows en Linux) y sepa quien pone los atajos: en Wayland, el escritorio.
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct Plataforma {
+    /// `windows`, `linux` o `macos`.
+    pub sistema: &'static str,
+    /// Si las ventanas van por Wayland. Entonces las teclas las decide el escritorio.
+    pub wayland: bool,
+}
+
+#[tauri::command]
+pub fn plataforma() -> Plataforma {
+    let sistema = if cfg!(windows) {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "linux"
+    };
+    #[cfg(target_os = "linux")]
+    let wayland = crate::platform::xdg::es_wayland();
+    #[cfg(not(target_os = "linux"))]
+    let wayland = false;
+    Plataforma { sistema, wayland }
+}
+
+/// Las teclas que el escritorio ha dado a los atajos de Wayland, o `null` si los atajos los
+/// pone winshotx (Windows y X11): ahi mandan los ajustes.
+#[tauri::command]
+pub fn teclas_del_escritorio() -> Option<crate::hotkeys::TeclasDelEscritorio> {
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::portal::teclas_del_escritorio()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
+/// Que el escritorio ensenne donde se cambian las teclas de winshotx (solo Wayland).
+#[tauri::command]
+pub async fn cambiar_teclas_en_el_escritorio() -> Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::portal::cambiar_en_el_escritorio().await.map_err(AppError::Msg)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err(AppError::Unsupported)
+    }
+}
+
 #[tauri::command]
 pub async fn shortcut_status(state: State<'_, AppState>) -> Result<crate::hotkeys::ShortcutStatus> {
     Ok(*state.shortcuts.read())

@@ -154,6 +154,38 @@ pub fn abrir(que: &std::ffi::OsStr) -> std::io::Result<()> {
     Ok(())
 }
 
+/// La pagina de los atajos de winshotx en los ajustes del escritorio, para cuando el portal no
+/// sabe ensennar la suya (`ConfigureShortcuts` llego en su version 2, y el GNOME 50 del
+/// laboratorio da la 1). En GNOME es Configuracion › Aplicaciones › winshotx, que lleva
+/// «Atajos globales» (medido en el laboratorio de S21); en KDE, los atajos de Plasma (sin
+/// probar). En los demas escritorios no se sabe cual es: `Unsupported`.
+#[cfg(target_os = "linux")]
+pub fn abrir_los_atajos_del_escritorio(id: &str) -> crate::error::Result<()> {
+    let escritorio = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().to_ascii_lowercase();
+    let es = |nombre: &str| escritorio.split(':').any(|d| d == nombre);
+    let mut orden = if es("gnome") {
+        let mut orden = std::process::Command::new("gnome-control-center");
+        orden.args(["applications", id]);
+        orden
+    } else if es("kde") {
+        let mut orden = std::process::Command::new("systemsettings");
+        orden.arg("kcm_keys");
+        orden
+    } else {
+        return Err(crate::error::AppError::Unsupported);
+    };
+    orden
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    sin_el_entorno_del_appimage(&mut orden);
+    let mut hijo = orden.spawn()?;
+    std::thread::spawn(move || {
+        let _ = hijo.wait();
+    });
+    Ok(())
+}
+
 /// Ensenna el archivo marcado dentro de su carpeta, como el «Mostrar en la carpeta» de
 /// Windows.
 ///

@@ -6,16 +6,21 @@
 //! conexion para todo el proceso, asi que `registrar_la_app` va antes que cualquier otra
 //! llamada a un portal: la foto de Wayland la espera, y los atajos tambien.
 
+use std::pin::Pin;
 use std::sync::{LazyLock, OnceLock};
 
-use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut, Shortcut};
+use ashpd::desktop::global_shortcuts::{
+    Activated, GlobalShortcuts, NewShortcut, Shortcut, ShortcutsChanged,
+};
 use ashpd::desktop::Session;
 use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use futures_channel::oneshot;
 use futures_util::future::{select, Either};
-use futures_util::StreamExt;
+use futures_util::{Stream, StreamExt};
 use tauri::async_runtime::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::hotkeys::{atajo_de_la_descripcion, TeclaDelEscritorio, TeclasDelEscritorio};
 use crate::state::AppState;
 use crate::windows_mgr::{self, OverlayIntent};
 
@@ -139,8 +144,22 @@ pub struct Peticion {
     pub tecla: Option<String>,
 }
 
-/// Por donde le llegan las peticiones a la tarea que habla con el portal.
-static CANAL: OnceLock<UnboundedSender<Vec<Peticion>>> = OnceLock::new();
+/// Lo que se le puede mandar a la tarea que habla con el portal.
+enum Orden {
+    /// Estos atajos, en lugar de los de la vez anterior.
+    Atar(Vec<Peticion>),
+    /// Que el escritorio ensenne su ventana para cambiar las teclas, y por aqui se contesta si
+    /// ha salido alguna.
+    Configurar(oneshot::Sender<Result<(), String>>),
+}
+
+/// Por donde le llegan las ordenes a la tarea que habla con el portal. Solo existe en Wayland:
+/// la abre el primer `pedir_atajos`.
+static CANAL: OnceLock<UnboundedSender<Orden>> = OnceLock::new();
+
+/// Lo que ha puesto el escritorio en cada atajo, para la bienvenida y los ajustes.
+static TECLAS: parking_lot::Mutex<TeclasDelEscritorio> =
+    parking_lot::Mutex::new(TeclasDelEscritorio { capture: None, edit: None });
 
 /// Le pide al escritorio estos atajos, en lugar de los de la vez anterior. Vuelve enseguida:
 /// el escritorio puede preguntar (un dialogo de GNOME), y lo que quede puesto se apunta en
@@ -151,12 +170,39 @@ pub fn pedir_atajos(app: &AppHandle, peticiones: Vec<Peticion>) {
         tauri::async_runtime::spawn(atender(app.clone(), recibir));
         enviar
     });
-    let _ = canal.unbounded_send(peticiones);
+    let _ = canal.unbounded_send(Orden::Atar(peticiones));
+}
+
+/// Las teclas que el escritorio ha dado a los atajos, o `None` si winshotx no le pide los
+/// atajos al escritorio (fuera de Wayland las pone el plugin, y mandan los ajustes).
+pub fn teclas_del_escritorio() -> Option<TeclasDelEscritorio> {
+    CANAL.get().map(|_| TECLAS.lock().clone())
+}
+
+/// Pide al escritorio que ensenne donde se cambian las teclas de winshotx: su propia ventana
+/// (`ConfigureShortcuts` del portal), o si no la tiene, la pagina de la app en sus ajustes. Lo
+/// que la persona cambie llega despues con la senal `ShortcutsChanged`. `Err` con el porque
+/// si no ha salido nada.
+pub async fn cambiar_en_el_escritorio() -> Result<(), String> {
+    let Some(canal) = CANAL.get() else {
+        return Err("aquí las teclas no las pone el escritorio".into());
+    };
+    let (contestar, respuesta) = oneshot::channel();
+    canal
+        .unbounded_send(Orden::Configurar(contestar))
+        .map_err(|_| "los atajos del escritorio no están en marcha".to_string())?;
+    respuesta.await.unwrap_or_else(|_| Err("los atajos del escritorio no están en marcha".into()))
+}
+
+/// Lo que dice el escritorio por su cuenta: que se ha pulsado un atajo, o que han cambiado.
+enum Senal {
+    Pulsado(Activated),
+    Cambiados(ShortcutsChanged),
 }
 
 /// La tarea de los atajos: una sesion del portal viva mientras la app lo este (si la sesion se
 /// cierra, el escritorio suelta las teclas), que se rehace cuando cambian los atajos.
-async fn atender(app: AppHandle, mut peticiones: UnboundedReceiver<Vec<Peticion>>) {
+async fn atender(app: AppHandle, mut ordenes: UnboundedReceiver<Orden>) {
     if !registrar_la_app().await {
         anotar(&app, &[]);
         return;
@@ -169,44 +215,78 @@ async fn atender(app: AppHandle, mut peticiones: UnboundedReceiver<Vec<Peticion>
             return;
         }
     };
-    let mut pulsados = match portal.receive_activated().await {
-        Ok(senales) => Box::pin(senales),
+    let pulsados = match portal.receive_activated().await {
+        Ok(senales) => senales.map(Senal::Pulsado),
         Err(error) => {
             eprintln!("[atajo] no se pueden escuchar los atajos del portal: {error}");
             anotar(&app, &[]);
             return;
         }
     };
+    // Sin esta senal los atajos funcionan igual: solo se pierde ver en los ajustes la tecla que
+    // la persona cambie en el escritorio.
+    let cambiados: Pin<Box<dyn Stream<Item = Senal> + Send>> =
+        match portal.receive_shortcuts_changed().await {
+            Ok(senales) => Box::pin(senales.map(Senal::Cambiados)),
+            Err(error) => {
+                eprintln!("[atajo] no se oyen los cambios de teclas del escritorio: {error}");
+                Box::pin(futures_util::stream::pending())
+            }
+        };
+    let mut senales = futures_util::stream::select(Box::pin(pulsados), cambiados);
     let mut sesion: Option<Session<'_, GlobalShortcuts<'_>>> = None;
     let mut pedidos: Vec<Peticion> = Vec::new();
+    let mut atados: Vec<Shortcut> = Vec::new();
     loop {
-        match select(peticiones.next(), pulsados.next()).await {
-            Either::Left((Some(mut nuevos), _)) => {
+        match select(ordenes.next(), senales.next()).await {
+            Either::Left((Some(orden), _)) => {
                 // Cada ajuste que se toca vuelve a pedir los atajos: vale el ultimo.
-                while let Ok(mas) = peticiones.try_recv() {
-                    nuevos = mas;
-                }
-                if sesion.is_some() && nuevos == pedidos {
-                    continue;
-                }
-                if let Some(vieja) = sesion.take() {
-                    let _ = vieja.close().await;
-                }
-                pedidos = nuevos;
-                match atar(&portal, &pedidos).await {
-                    Ok((nueva, atados)) => {
-                        sesion = Some(nueva);
-                        anotar(&app, &atados);
+                let mut nuevos = None;
+                let mut esperan: Vec<oneshot::Sender<Result<(), String>>> = Vec::new();
+                let mut siguiente = Some(orden);
+                while let Some(orden) = siguiente.take().or_else(|| ordenes.try_recv().ok()) {
+                    match orden {
+                        Orden::Atar(peticiones) => nuevos = Some(peticiones),
+                        Orden::Configurar(contestar) => esperan.push(contestar),
                     }
-                    Err(error) => {
-                        eprintln!("[atajo] el escritorio no ha puesto los atajos: {error}");
-                        anotar(&app, &[]);
+                }
+                let configurar = !esperan.is_empty();
+                let mut resultado: Result<(), String> = Ok(());
+                let cambian = nuevos.as_ref().is_some_and(|n| sesion.is_none() || *n != pedidos);
+                // Sin sesion (la persona cancelo el dialogo, o el escritorio no los puso),
+                // cambiar las teclas es volver a pedirlas: el escritorio ensenna su dialogo.
+                let repetir = configurar && sesion.is_none() && !pedidos.is_empty();
+                if let Some(nuevos) = nuevos.filter(|_| cambian) {
+                    pedidos = nuevos;
+                }
+                if cambian || repetir {
+                    if let Some(vieja) = sesion.take() {
+                        let _ = vieja.close().await;
                     }
+                    match atar(&portal, &pedidos).await {
+                        Ok((nueva, puestos)) => {
+                            sesion = Some(nueva);
+                            atados = puestos;
+                        }
+                        Err(error) => {
+                            eprintln!("[atajo] el escritorio no ha puesto los atajos: {error}");
+                            resultado = Err(error.to_string());
+                            atados.clear();
+                        }
+                    }
+                    anotar(&app, &atados);
+                } else if let (true, Some(sesion)) = (configurar, sesion.as_ref()) {
+                    resultado = configurar_en_el_escritorio(&portal, sesion).await;
+                } else if configurar {
+                    resultado = Err("el escritorio no ha puesto ningún atajo".into());
+                }
+                for contestar in esperan {
+                    let _ = contestar.send(resultado.clone());
                 }
             }
-            // El portal manda la senal solo a quien abrio la sesion, y la sesion vieja se cierra
-            // antes de abrir otra: lo que llega es nuestro y de ahora.
-            Either::Right((Some(senal), _)) => {
+            // El portal manda las senales solo a quien abrio la sesion, y la sesion vieja se
+            // cierra antes de abrir otra: lo que llega es nuestro y de ahora.
+            Either::Right((Some(Senal::Pulsado(senal)), _)) => {
                 if sesion.is_some() {
                     // El permiso de traer una ventana al frente, que el escritorio da con cada
                     // pulsacion (GNOME lo manda). Ver `pedir_permiso_con_la_ventana`.
@@ -217,11 +297,44 @@ async fn atender(app: AppHandle, mut peticiones: UnboundedReceiver<Vec<Peticion>
                     disparar(&app, senal.shortcut_id());
                 }
             }
+            Either::Right((Some(Senal::Cambiados(cambio)), _)) => {
+                if sesion.is_some() {
+                    // La senal puede traer solo los que han cambiado: se cambian esos y los
+                    // demas se quedan como estaban.
+                    for nuevo in cambio.shortcuts() {
+                        match atados.iter_mut().find(|viejo| viejo.id() == nuevo.id()) {
+                            Some(viejo) => *viejo = nuevo.clone(),
+                            None => atados.push(nuevo.clone()),
+                        }
+                    }
+                    anotar(&app, &atados);
+                }
+            }
             Either::Left((None, _)) | Either::Right((None, _)) => break,
         }
     }
     if let Some(vieja) = sesion.take() {
         let _ = vieja.close().await;
+    }
+}
+
+/// La ventana del escritorio para cambiar las teclas de esta sesion, y si el portal no la tiene
+/// (la version 1, la de GNOME 50), la pagina de winshotx en los ajustes del escritorio.
+async fn configurar_en_el_escritorio(
+    portal: &GlobalShortcuts<'_>,
+    sesion: &Session<'_, GlobalShortcuts<'_>>,
+) -> Result<(), String> {
+    match portal.configure_shortcuts(sesion, None, None::<ashpd::ActivationToken>).await {
+        Ok(()) => {
+            eprintln!("[atajo] el escritorio ensenna sus teclas");
+            Ok(())
+        }
+        Err(error) => {
+            eprintln!("[atajo] el portal no ensenna las teclas ({error}): a los ajustes del escritorio");
+            crate::platform::xdg::abrir_los_atajos_del_escritorio(ID_DE_LA_APP).map_err(|_| {
+                "este escritorio no deja cambiar las teclas desde winshotx: cámbialas en sus ajustes de teclado".to_string()
+            })
+        }
     }
 }
 
@@ -260,6 +373,13 @@ fn anotar(app: &AppHandle, atados: &[Shortcut]) {
     };
     let captura = con_tecla("capture");
     let editor = con_tecla("edit");
+    let tecla = |atajo: Option<&Shortcut>| {
+        atajo.map(|s| TeclaDelEscritorio {
+            texto: s.trigger_description().to_string(),
+            atajo: atajo_de_la_descripcion(s.trigger_description()),
+        })
+    };
+    *TECLAS.lock() = TeclasDelEscritorio { capture: tecla(captura), edit: tecla(editor) };
     let state = app.state::<AppState>();
     let estado = {
         let mut estado = state.shortcuts.write();

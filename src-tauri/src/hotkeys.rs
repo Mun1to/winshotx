@@ -377,6 +377,120 @@ fn nombre_xkb(tecla: &str) -> Option<String> {
     Some(nombre.into())
 }
 
+/// La tecla que el escritorio ha puesto a un atajo de Wayland (`platform::portal`): en
+/// Wayland la elige la persona en el dialogo del escritorio, y la de los ajustes es solo la
+/// que se le propuso.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TeclaDelEscritorio {
+    /// Tal cual la escribe el escritorio: `Press <Shift><Control>2` en GNOME.
+    pub texto: String,
+    /// La misma con el formato de los ajustes (`CmdOrCtrl+Shift+Digit2`), para pintarla como
+    /// las demas. `None` si no se ha sabido leer: entonces se ensenna el texto.
+    pub atajo: Option<String>,
+}
+
+/// Las teclas que el escritorio ha dado a los dos atajos que se le piden en Wayland.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct TeclasDelEscritorio {
+    pub capture: Option<TeclaDelEscritorio>,
+    pub edit: Option<TeclaDelEscritorio>,
+}
+
+/// Lo contrario de [`tecla_para_el_portal`]: lo que el escritorio dice que ha puesto, con el
+/// formato de los ajustes. El portal no fija como se escribe (es una «descripcion» para
+/// personas), asi que se leen las dos formas que hay: la de GTK que usa GNOME
+/// (`Press <Shift><Control>2`, medido en el laboratorio de S21 con GNOME 50) y la de Qt que
+/// usa KDE (`Ctrl+Shift+2`, sin probar).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn atajo_de_la_descripcion(texto: &str) -> Option<String> {
+    let texto = texto.trim();
+    let (modificadores, tecla): (Vec<&str>, &str) = if let Some(inicio) = texto.find('<') {
+        // GTK: los modificadores entre angulos, pegados, y la tecla detras.
+        let mut resto = &texto[inicio..];
+        let mut modificadores = Vec::new();
+        while let Some(dentro) = resto.strip_prefix('<') {
+            let fin = dentro.find('>')?;
+            modificadores.push(&dentro[..fin]);
+            resto = &dentro[fin + 1..];
+        }
+        (modificadores, resto.trim())
+    } else {
+        // Qt: todo unido con `+`, en la ultima palabra (por si el escritorio le pone algo delante).
+        let ultima = texto.split_whitespace().last()?;
+        let mut partes: Vec<&str> = ultima.split('+').collect();
+        let tecla = partes.pop()?;
+        (partes, tecla)
+    };
+    let mut ctrl = false;
+    let mut supr = false;
+    let mut shift = false;
+    let mut alt = false;
+    for modificador in modificadores {
+        match modificador.to_ascii_lowercase().as_str() {
+            "control" | "ctrl" | "primary" => ctrl = true,
+            "shift" => shift = true,
+            "alt" | "mod1" => alt = true,
+            "super" | "meta" | "mod4" | "logo" | "win" => supr = true,
+            _ => return None,
+        }
+    }
+    let tecla = codigo_de_tecla(tecla)?;
+    // En el orden en que los escribe el selector de teclas de los ajustes.
+    let mut partes: Vec<&str> = Vec::new();
+    if ctrl {
+        partes.push("CmdOrCtrl");
+    }
+    if supr {
+        partes.push("Super");
+    }
+    if shift {
+        partes.push("Shift");
+    }
+    if alt {
+        partes.push("Alt");
+    }
+    partes.push(&tecla);
+    Some(partes.join("+"))
+}
+
+/// El nombre de una tecla en GTK o en Qt, con el codigo fisico que guardan los ajustes.
+fn codigo_de_tecla(tecla: &str) -> Option<String> {
+    let mut letras = tecla.chars();
+    if let (Some(c), None) = (letras.next(), letras.next()) {
+        if c.is_ascii_digit() {
+            return Some(format!("Digit{c}"));
+        }
+        if c.is_ascii_alphabetic() {
+            return Some(format!("Key{}", c.to_ascii_uppercase()));
+        }
+        return None;
+    }
+    if let Some(numero) = tecla.strip_prefix(['F', 'f']).and_then(|n| n.parse::<u8>().ok()) {
+        return (1..=24).contains(&numero).then(|| format!("F{numero}"));
+    }
+    let codigo = match tecla.to_ascii_lowercase().as_str() {
+        "print" | "printscreen" | "print screen" | "sys_req" => "PrintScreen",
+        "space" => "Space",
+        "return" | "enter" => "Enter",
+        "tab" => "Tab",
+        "escape" | "esc" => "Escape",
+        "backspace" => "Backspace",
+        "delete" | "del" => "Delete",
+        "insert" | "ins" => "Insert",
+        "home" => "Home",
+        "end" => "End",
+        "page_up" | "pageup" | "pgup" | "prior" => "PageUp",
+        "page_down" | "pagedown" | "pgdown" | "next" => "PageDown",
+        "up" => "ArrowUp",
+        "down" => "ArrowDown",
+        "left" => "ArrowLeft",
+        "right" => "ArrowRight",
+        _ => return None,
+    };
+    Some(codigo.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -430,5 +544,31 @@ mod tests {
         assert_eq!(tecla_para_el_portal("Ctrl+A+B"), None);
         assert_eq!(tecla_para_el_portal("Ctrl+MediaPlayPause"), None);
         assert_eq!(tecla_para_el_portal("Ctrl+F25"), None);
+    }
+
+    /// Lo que devuelve el escritorio se lee con el formato de los ajustes, para pintarlo con
+    /// las mismas teclas. La primera es la frase exacta de GNOME 50 en el laboratorio.
+    #[test]
+    fn la_tecla_que_pone_el_escritorio_se_lee_como_las_de_los_ajustes() {
+        let leer = |texto: &str| atajo_de_la_descripcion(texto);
+        assert_eq!(leer("Press <Shift><Control>2").as_deref(), Some("CmdOrCtrl+Shift+Digit2"));
+        assert_eq!(leer("<Shift><Super>l").as_deref(), Some("Super+Shift+KeyL"));
+        assert_eq!(leer("<Primary><Alt>a").as_deref(), Some("CmdOrCtrl+Alt+KeyA"));
+        assert_eq!(leer("Print").as_deref(), Some("PrintScreen"));
+        assert_eq!(leer("<Control>F12").as_deref(), Some("CmdOrCtrl+F12"));
+        assert_eq!(leer("<Shift>Page_Down").as_deref(), Some("Shift+PageDown"));
+        // Como lo escribe Qt (KDE).
+        assert_eq!(leer("Ctrl+Shift+2").as_deref(), Some("CmdOrCtrl+Shift+Digit2"));
+        assert_eq!(leer("Meta+Shift+L").as_deref(), Some("Super+Shift+KeyL"));
+    }
+
+    /// Lo que no se entiende no se inventa: la interfaz ensenna entonces el texto tal cual.
+    #[test]
+    fn lo_que_no_se_sabe_leer_no_se_convierte() {
+        assert_eq!(atajo_de_la_descripcion(""), None);
+        assert_eq!(atajo_de_la_descripcion("Press <Shift><Control>"), None);
+        assert_eq!(atajo_de_la_descripcion("<Shift><Hyper>2"), None);
+        assert_eq!(atajo_de_la_descripcion("<Control>XF86AudioPlay"), None);
+        assert_eq!(atajo_de_la_descripcion("<Control"), None);
     }
 }
