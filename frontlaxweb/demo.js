@@ -1055,7 +1055,6 @@ function escribirEn(p) {
   campo.style.top = `${r.top - v.top + p.y * r.height}px`;
   campo.style.color = color;
   vista.appendChild(campo);
-  campo.focus();
   let hecho = false;
   const guardar = (vale) => {
     if (hecho) return;
@@ -1068,7 +1067,13 @@ function escribirEn(p) {
     if (e.key === "Enter") guardar(true);
     if (e.key === "Escape") guardar(false);
   });
-  campo.addEventListener("blur", () => guardar(true));
+  // El foco, después del clic: el campo nace en el `pointerdown`, y el `mousedown` que
+  // viene detrás se lleva el foco a la página, así que el campo se cerraba vacío al momento
+  // y con el ratón no había forma de escribir.
+  setTimeout(() => {
+    campo.focus();
+    campo.addEventListener("blur", () => guardar(true));
+  }, 0);
 }
 
 document.querySelector(".edi-derecha").addEventListener("click", (e) => {
