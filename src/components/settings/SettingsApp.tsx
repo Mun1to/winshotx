@@ -475,7 +475,6 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-lienzo">
-      <MarcaDeAgua />
       <SettingsHeader
         activa={seccion}
         onCambiar={setSeccion}
@@ -485,7 +484,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
       />
 
       <div className="relative min-h-0 flex-1">
-      <div ref={hueco} className="h-full overflow-y-auto" data-scroll-ajustes>
+      <MarcaDeAgua />
+      {/* `relative` para que las tarjetas vayan por encima del logo de fondo, que va antes. */}
+      <div ref={hueco} className="relative h-full overflow-y-auto" data-scroll-ajustes>
         {/* Dos columnas, que es para lo que se subio la navegacion arriba. Las columnas
             de las secciones con cuatro bloques se escriben a mano (ver «grabar» y «la
             app»): dejandoselo a la rejilla, los dos bloques largos caian del mismo lado
