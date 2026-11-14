@@ -1,17 +1,14 @@
-/* winshotx dentro de la página. Las dos pantallas están rehechas a partir del código de la
-   app: mismas medidas, mismos textos y los mismos iconos de lucide. Sin dependencias. */
+/* winshotx dentro de la página. Las tres pantallas están rehechas a partir del código de la
+   0.4.6: mismas medidas, mismos textos, mismos atajos y los mismos iconos de lucide. El
+   escritorio congelado es una foto de verdad (nuestra guía), y lo que haces en una pestaña
+   sigue en la otra: lo que recortas se abre en el editor, lo que grabas sale en su línea de
+   tiempo y lo que guardas aparece en el Historial de los ajustes. Sin dependencias. */
 
 /* ------------------------------------------------- lo que comparte con la app */
 const AZUL_APP = "#3b82f6";
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-function formatDuration(ms) {
-  const total = Math.max(0, Math.round(ms / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-}
-function formatTimecode(ms) {
-  const centis = Math.floor((ms % 1000) / 10);
-  return `${formatDuration(Math.floor(ms / 1000) * 1000)}.${String(centis).padStart(2, "0")}`;
-}
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -20,80 +17,137 @@ function formatBytes(bytes) {
   const decimal = document.documentElement.lang === "en" ? "." : ",";
   return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", decimal)} MB`;
 }
-function plural(cantidad, singular, terminacion = "s") {
-  return `${cantidad} ${singular}${cantidad === 1 ? "" : terminacion}`;
+/** «0:03.2»: minutos, segundos y décimas, como el reloj del editor. */
+function tiempo(ms) {
+  const d = Math.max(0, Math.floor(ms / 100));
+  return `${Math.floor(d / 600)}:${String(Math.floor((d % 600) / 10)).padStart(2, "0")}.${d % 10}`;
 }
-const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+
+/* El dial de movimiento de la casa (el script del <head>): 1, 0,25 o 0. */
+const GANANCIA = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--motion-gain")) || 0;
+
+/* Las imágenes van al lado de este archivo, y la página inglesa vive un nivel más abajo:
+   se resuelven contra la dirección del propio script, no contra la de la página. */
+const BASE = new URL(".", document.currentScript ? document.currentScript.src : location.href);
 
 /* --------------------------------------------------------------- idiomas */
-/* El botón dice a qué idioma cambias: si pone English, la página está en español. */
 const FRASES = {
+  pistaSel: ["Esto no es un vídeo: <b>arrastra sobre la pantalla de abajo</b>, como harías en la tuya.", "This isn't a video: <b>drag over the screen below</b>, just like you would on yours."],
+  pistaFantasma: ["Así se recorta. <b>Ahora tú</b>: arrastra donde quieras, o pulsa el lápiz para editarla.", "That's how you crop. <b>Your turn</b>: drag anywhere, or press the pencil to edit it."],
+  pistaHay: ["Copia, guarda, ancla o pulsa el <b>lápiz</b> para abrirla en el editor. <kbd>V</kbd> y <kbd>G</kbd> pasan a vídeo y GIF.", "Copy, save, pin, or press the <b>pencil</b> to open it in the editor. <kbd>V</kbd> and <kbd>G</kbd> switch to video and GIF."],
+  pistaGrabar: ["Ahora pulsa <b>Grabar</b>, mueve el ratón por dentro y haz algún clic: saldrá en el vídeo.", "Now press <b>Record</b>, move the mouse inside and click something: it will be in the video."],
+  pistaGrabando: ["Grabando: <b>mueve el ratón y haz clic</b> dentro del marco rojo.", "Recording: <b>move the mouse and click</b> inside the red frame."],
+  pistaEdiVideo: ["Dale al <b>play</b>, pon un zoom en el carril de abajo, cambia el fondo o dibuja encima.", "Hit <b>play</b>, add a zoom on the lane below, change the background or draw on top."],
+  pistaEdiFoto: ["Dibuja encima con las marcas de arriba, cambia el fondo y <b>guárdala</b>.", "Draw on it with the marks up top, change the background and <b>save it</b>."],
+  pistaSet: ["Los ajustes de verdad, con sus cinco pestañas. Lo que guardes en la demo sale en el <b>Historial</b>.", "The real settings, with their five tabs. Whatever you save in the demo shows up in <b>History</b>."],
   teQuedasCon: ["Te quedas con {trozo} de {total}", "Keeping {trozo} of {total}"],
   arrastra: ["Arrastra los bordes azules para recortar", "Drag the blue edges to trim"],
   principio: ["Principio: arrástralo para recortar (tecla I)", "Start: drag it to trim (key I)"],
   final: ["Final: arrástralo para recortar (tecla O)", "End: drag it to trim (key O)"],
+  quitarZoom: ["Quitar este zoom", "Remove this zoom"],
   reproducir: ["Reproducir", "Play"],
   pausar: ["Pausar", "Pause"],
   paraMp4: ["Vídeo con sonido. Se abre en cualquier sitio.", "Video with sound. Opens anywhere."],
   paraGif: ["Se repite solo y sin sonido. Para pegarlo en un chat.", "Loops on its own, with no sound. For pasting into a chat."],
-  paraPng: ["Solo el fotograma que estás viendo, sin perder nada.", "Just the frame you are looking at, with nothing lost."],
-  paraJpg: ["Solo el fotograma que estás viendo, mucho más ligero.", "Just the frame you are looking at, much lighter."],
+  paraPng: ["La imagen tal cual, sin perder nada.", "The image as it is, with nothing lost."],
+  paraJpg: ["La imagen, mucho más ligera.", "The image, much lighter."],
+  paraPngVideo: ["Solo el fotograma que estás viendo, sin perder nada.", "Just the frame you are looking at, with nothing lost."],
+  paraJpgVideo: ["Solo el fotograma que estás viendo, mucho más ligero.", "Just the frame you are looking at, much lighter."],
   guardado: ["Guardado", "Saved"],
-  copiar: ["Copiada al portapapeles", "Copied to the clipboard"],
-  guardar: ["Guardada en Pictures\\winshotx", "Saved to Pictures\\winshotx"],
-  editar: ["Abriendo el editor", "Opening the editor"],
-  gif: ["Grabando un GIF de esa región", "Recording a GIF of that region"],
-  video: ["Grabando vídeo de esa región", "Recording video of that region"],
-  pantallaFoto: ["Pantalla entera capturada", "Whole screen captured"],
-  pantallaVideo: ["Grabando la pantalla entera", "Recording the whole screen"],
-  pantallaGif: ["Grabando la pantalla entera en GIF", "Recording the whole screen to GIF"],
+  copiado: ["copiado", "copied"],
+  abrirCarpeta: ["abrir carpeta", "open folder"],
+  copiada: ["Copiada al portapapeles · {m} px. Pégala donde quieras.", "Copied to the clipboard · {m} px. Paste it anywhere."],
+  noCopia: ["En la app va directa al portapapeles; desde una web, tu navegador no deja copiar imágenes.", "In the app it goes straight to the clipboard; from a web page, your browser won't copy images."],
+  guardada: ["Guardada · {m} px. La tienes en tus descargas.", "Saved · {m} px. It's in your downloads."],
+  guardadaApp: ["Guardada en Pictures\\winshotx · {m} px", "Saved to Pictures\\winshotx · {m} px"],
+  texto: ["En la app, la T lee el texto de la imagen con el lector de Windows y te lo deja copiado.", "In the app, T reads the text in the image with Windows' own reader and copies it for you."],
+  anclada: ["Anclada encima de todo. Arrástrala, o ciérrala con la X.", "Pinned on top of everything. Drag it around, or close it with the X."],
+  scroll: ["Con scroll, la app baja sola por la ventana y junta toda la página en una imagen larga.", "With scrolling, the app scrolls the window by itself and stitches the whole page into one long image."],
+  soltarBarra: ["Al soltar el ratón sale la barra, como ahora.", "When you release the mouse, the bar shows up, as now."],
+  soltarCopia: ["Al soltar el ratón, la captura se copia sola. Lo mismo está en los ajustes.", "When you release the mouse, the capture copies itself. The same switch is in the settings."],
+  pantallaFoto: ["Pantalla entera capturada · {m} px", "Whole screen captured · {m} px"],
   cartelFoto: ["o clic para capturarla entera", "or click to capture it whole"],
   cartelVideo: ["o clic para grabarla entera", "or click to record it whole"],
   cartelGif: ["o clic para grabarla entera en GIF", "or click to record it whole to GIF"],
-  copiado: ["copiado", "copied"],
-  abrirCarpeta: ["abrir carpeta", "open folder"],
+  grabarVideo: ["Grabar vídeo", "Record video"],
+  grabarGif: ["Grabar GIF", "Record GIF"],
+  tapar: ["No hay correos, teléfonos, tarjetas ni DNI en esta imagen: no hay nada que tapar.", "There are no emails, phone numbers, cards or IDs in this image: nothing to cover."],
+  copiarTexto: ["En la app, esto lee el texto con el lector de Windows y lo copia.", "In the app, this reads the text with Windows' own reader and copies it."],
+  acelerar: ["En esta grabación no se escribe nada: esto acelera los ratos en los que tecleas.", "Nobody types in this recording: this speeds up the stretches where you type."],
+  fondoArchivo: ["En la app, aquí eliges una imagen, un vídeo o un color tuyo.", "In the app, this is where you pick your own image, video or colour."],
+  estilo: ["En la app, esto guarda el fondo, las esquinas y el puntero con un nombre para la próxima grabación.", "In the app, this saves the background, corners and pointer under a name for the next recording."],
+  encuadrar: ["Arrastra sobre la imagen para quedarte con un trozo.", "Drag over the image to keep just a piece of it."],
+  escribe: ["Escribe aquí", "Type here"],
   exportar: ["Exportar", "Export"],
   bloqueada: ["Proporción bloqueada", "Aspect ratio locked"],
   libre: ["Proporción libre", "Aspect ratio free"],
+  nombreFoto: ["Captura", "Capture"],
+  nombreVideo: ["Grabación", "Recording"],
 };
 /* Cada idioma tiene su propia URL, así que aquí solo hay que leer cuál es esta página. */
 const idioma = document.documentElement.lang === "en" ? "en" : "es";
 const frase = (clave) => FRASES[clave][idioma === "en" ? 1 : 0];
+const conMedida = (clave, r) => frase(clave).replace("{m}", `${Math.round(r.w)} × ${Math.round(r.h)}`);
+
+/* Dónde está cada cosa en la foto del escritorio. Lo escribe hacer-imagenes.mjs al sacar la
+   foto: el recorte de la guía que sale de serie en el editor y el botón al que va el puntero. */
+/* escritorio:desde */
+const ESCRITORIO = {
+  es: {"ancho":1600,"alto":1000,"recorte":{"x":440,"y":343,"w":557,"h":266},"boton":{"x":462,"y":532,"w":251,"h":54}},
+  en: {"ancho":1600,"alto":1000,"recorte":{"x":440,"y":343,"w":557,"h":266},"boton":{"x":462,"y":532,"w":240,"h":54}},
+}[idioma];
+/* escritorio:hasta */
+
+const $ = (id) => document.getElementById(id);
+const pista = $("pista-demo");
+const avisoEl = $("aviso");
+let avisoReloj = 0;
+function aviso(texto) {
+  avisoEl.style.display = "flex";
+  avisoEl.querySelector("span").textContent = texto;
+  clearTimeout(avisoReloj);
+  avisoReloj = setTimeout(() => (avisoEl.style.display = "none"), 5200);
+}
+function decir(clave) {
+  pista.innerHTML = frase(clave);
+}
 
 /* ---------------------------------------------------------------- pestañas */
-document.querySelectorAll(".pestana").forEach((boton) => {
-  boton.addEventListener("click", () => {
-    document.querySelectorAll(".pestana").forEach((otro) => {
-      const activo = otro === boton;
-      otro.setAttribute("aria-selected", String(activo));
-      document.getElementById(otro.dataset.panel).hidden = !activo;
-    });
+const pestanas = [...document.querySelectorAll(".pestana")];
+let panelVisto = "p-sel";
+function irA(panel) {
+  pestanas.forEach((otro) => {
+    const activo = otro.dataset.panel === panel;
+    otro.setAttribute("aria-selected", String(activo));
+    $(otro.dataset.panel).hidden = !activo;
   });
-});
-// Las cuatro pestannas de dentro de ajustes: capturar, grabar, teclas y la app. Son las
-// mismas que tiene la ventana de verdad, asi que se pasa de una a otra igual que alli.
-document.querySelectorAll(".pes-set button").forEach((boton) => {
-  boton.addEventListener("click", () => {
-    document.querySelectorAll(".pes-set button").forEach((otro) => {
-      const activo = otro === boton;
-      otro.classList.toggle("viva", activo);
-      document.getElementById(otro.dataset.set).hidden = !activo;
-    });
-  });
-});
+  panelVisto = panel;
+  if (panel !== "p-edi") parar();
+  if (panel === "p-sel") decir(hay ? "pistaHay" : "pistaSel");
+  if (panel === "p-edi") decir(fuente.tipo === "foto" ? "pistaEdiFoto" : "pistaEdiVideo");
+  if (panel === "p-set") decir("pistaSet");
+  if (panel === "p-edi") refrescarEditor();
+}
+pestanas.forEach((boton) => boton.addEventListener("click", () => irA(boton.dataset.panel)));
 
-// Los segmentados (fotogramas, calidad, tema, idioma...) y la barra de abajo: al pulsar
-// uno, se enciende ese y se apagan sus hermanos. Sin esto la demo se ve pero no responde.
-document.querySelectorAll(".segmentado, .mini-seg").forEach((grupo) => {
+// Las cinco pestañas de dentro de ajustes, las mismas que la ventana de verdad.
+function irAjuste(id) {
+  document.querySelectorAll(".pes-set button").forEach((otro) => {
+    const activo = otro.dataset.set === id;
+    otro.classList.toggle("viva", activo);
+    $(otro.dataset.set).hidden = !activo;
+  });
+}
+document.querySelectorAll(".pes-set button").forEach((b) => b.addEventListener("click", () => irAjuste(b.dataset.set)));
+
+// Los segmentados y la barra de abajo: al pulsar uno, se enciende ese y se apagan sus hermanos.
+document.querySelectorAll(".segmentado, .mini-seg, .his-filtros").forEach((grupo) => {
   grupo.querySelectorAll("button").forEach((boton) => {
     boton.addEventListener("click", () => {
-      grupo.querySelectorAll("button").forEach((otro) => {
-        otro.classList.toggle("viva", otro === boton);
-      });
+      grupo.querySelectorAll("button").forEach((otro) => otro.classList.toggle("viva", otro === boton));
     });
   });
 });
-
 document.querySelectorAll(".palanca").forEach((p) => {
   p.addEventListener("click", () => {
     p.dataset.on = p.dataset.on === "1" ? "0" : "1";
@@ -103,112 +157,74 @@ document.querySelectorAll(".palanca").forEach((p) => {
 });
 
 /* ======================================================= 1. seleccionar === */
-const ANCHO = 1280;
-const ALTO = 800;
-const escritorio = document.getElementById("escritorio");
+const ANCHO = ESCRITORIO.ancho;
+const ALTO = ESCRITORIO.alto;
+const escritorio = $("escritorio");
 escritorio.width = ANCHO;
 escritorio.height = ALTO;
 const pincel = escritorio.getContext("2d", { willReadFrequently: true });
+/* Si la foto viene de otro sitio (al abrir la página como archivo, sin servidor) el lienzo
+   queda «manchado» y no deja leer sus píxeles: la lupa sigue, pero sin el color. */
+let limpio = false;
 
-function ventana(c, x, y, w, h, titulo, tono) {
-  c.fillStyle = "#00000055";
-  c.beginPath();
-  c.roundRect(x + 6, y + 10, w, h, 12);
-  c.fill();
-  c.fillStyle = "#1b1b21";
-  c.beginPath();
-  c.roundRect(x, y, w, h, 12);
-  c.fill();
-  c.fillStyle = "#25252d";
-  c.beginPath();
-  c.roundRect(x, y, w, 34, [12, 12, 0, 0]);
-  c.fill();
-  ["#ff5f57", "#febc2e", "#28c840"].forEach((color, i) => {
-    c.fillStyle = color;
-    c.beginPath();
-    c.arc(x + 18 + i * 17, y + 17, 5, 0, Math.PI * 2);
-    c.fill();
-  });
-  c.fillStyle = "#8b8b98";
-  c.font = "13px ui-sans-serif, system-ui, sans-serif";
-  c.fillText(titulo, x + 78, y + 22);
-  let fila = y + 58;
-  for (let i = 0; fila < y + h - 22; i++, fila += 22) {
-    c.fillStyle = i % 4 === 0 ? tono : "#ffffff14";
-    const ancho = i % 4 === 0 ? 120 : 60 + ((i * 83) % (w - 130));
-    c.beginPath();
-    c.roundRect(x + 20, fila, Math.min(ancho, w - 40), 10, 5);
-    c.fill();
-  }
-}
-
-(function pintarEscritorio() {
+// Mientras llega la foto, un fondo oscuro con el mismo tono.
+(function () {
   const cielo = pincel.createLinearGradient(0, 0, ANCHO, ALTO);
-  cielo.addColorStop(0, "#0d2a4a");
-  cielo.addColorStop(0.5, "#10365e");
-  cielo.addColorStop(1, "#071a2e");
+  cielo.addColorStop(0, "#0d1420");
+  cielo.addColorStop(1, "#0b0b0d");
   pincel.fillStyle = cielo;
   pincel.fillRect(0, 0, ANCHO, ALTO);
-
-  const halo = pincel.createRadialGradient(340, 200, 20, 340, 200, 520);
-  halo.addColorStop(0, "#0a9bff3d");
-  halo.addColorStop(1, "#0a9bff00");
-  pincel.fillStyle = halo;
-  pincel.fillRect(0, 0, ANCHO, ALTO);
-
-  ventana(pincel, 90, 110, 520, 400, "informe.md", "#0a9bff");
-  ventana(pincel, 520, 300, 640, 420, "terminal", "#3ddc84");
-
-  pincel.fillStyle = "#0c0c11d9";
-  pincel.fillRect(0, ALTO - 52, ANCHO, 52);
-  ["#0a9bff", "#3ddc84", "#febc2e", "#ff5f57", "#a78bfa", "#8b8b98"].forEach((color, i) => {
-    pincel.fillStyle = color;
-    pincel.globalAlpha = 0.85;
-    pincel.beginPath();
-    pincel.roundRect(ANCHO / 2 - 150 + i * 52, ALTO - 39, 26, 26, 7);
-    pincel.fill();
-    pincel.globalAlpha = 1;
-  });
 })();
+const fotoEscritorio = new Image();
+fotoEscritorio.decoding = "async";
+fotoEscritorio.addEventListener("load", () => {
+  pincel.drawImage(fotoEscritorio, 0, 0, ANCHO, ALTO);
+  try {
+    pincel.getImageData(0, 0, 1, 1);
+    limpio = true;
+  } catch {
+    limpio = false;
+  }
+  hex.hidden = !limpio;
+  pintarMiniaturas();
+  refrescarEditor();
+});
+fotoEscritorio.src = new URL(`img/escritorio-${idioma}.webp`, BASE).href;
 
-const caja = document.getElementById("caja");
-const velo = document.getElementById("velo");
-const sel = document.getElementById("sel");
-const cajaTiradores = document.getElementById("tiradores");
-const medida = document.getElementById("medida");
-const lupa = document.getElementById("lupa");
-const hex = document.getElementById("hex");
-const herramientas = document.getElementById("herramientas");
-const modos = document.getElementById("modos");
-const eligePantalla = document.getElementById("elige-pantalla");
-const cartelPantalla = document.getElementById("cartel-pantalla");
+const caja = $("caja");
+const velo = $("velo");
+const sel = $("sel");
+const cajaTiradores = $("tiradores");
+const medida = $("medida");
+const lupa = $("lupa");
+const hex = $("hex");
+const herramientas = $("herramientas");
+const modos = $("modos");
+const eligePantalla = $("elige-pantalla");
+const cartelPantalla = $("cartel-pantalla");
 const botonGrabar = herramientas.querySelector(".grabar");
+const fantasma = $("fantasma");
+const lente = $("zoom").getContext("2d");
+lente.imageSmoothingEnabled = false;
+
 /* Qué sale del recorte. Se elige arriba, antes de recortar, igual que en la app. */
 let modo = "foto";
 let pantallaEntera = false;
-const aviso = document.getElementById("aviso");
-const lente = document.getElementById("zoom").getContext("2d");
-lente.imageSmoothingEnabled = false;
+let alSoltar = "barra";
 
 // los ocho tiradores de SelectionHandles: esquinas y puntos medios
-const PUNTOS = [
-  [0, 0], [0.5, 0], [1, 0],
-  [0, 0.5], [1, 0.5],
-  [0, 1], [0.5, 1], [1, 1],
-];
+const PUNTOS = [[0, 0], [0.5, 0], [1, 0], [0, 0.5], [1, 0.5], [0, 1], [0.5, 1], [1, 1]];
 PUNTOS.forEach(() => cajaTiradores.appendChild(document.createElement("i")));
 
 let arrastrando = false;
 let hay = false;
+let tocado = false; // la persona ya ha hecho algo: el fantasma no vuelve a salir
 let ini = { x: 0, y: 0 };
 let fin = { x: 0, y: 0 };
 
 const enCaja = (e) => {
   const r = caja.getBoundingClientRect();
-  return {
-    x: clamp((e.clientX - r.left) / r.width, 0, 1),
-    y: clamp((e.clientY - r.top) / r.height, 0, 1),
-  };
+  return { x: clamp((e.clientX - r.left) / r.width, 0, 1), y: clamp((e.clientY - r.top) / r.height, 0, 1) };
 };
 const rectangulo = () => ({
   x: Math.min(ini.x, fin.x),
@@ -216,10 +232,12 @@ const rectangulo = () => ({
   w: Math.abs(fin.x - ini.x),
   h: Math.abs(fin.y - ini.y),
 });
+/** El recorte en píxeles de la foto del escritorio. */
+const enPixeles = (r) => ({ x: r.x * ANCHO, y: r.y * ALTO, w: r.w * ANCHO, h: r.h * ALTO });
+const pct = (v) => `${v * 100}%`;
 
 function pintarSeleccion() {
   const r = rectangulo();
-  const pct = (v) => `${v * 100}%`;
   sel.style.display = "block";
   sel.style.left = pct(r.x);
   sel.style.top = pct(r.y);
@@ -227,18 +245,15 @@ function pintarSeleccion() {
   sel.style.height = pct(r.h);
   sel.style.boxShadow = "0 0 0 9999px #000000a6";
   velo.style.display = "none";
-
   cajaTiradores.style.display = "block";
   [...cajaTiradores.children].forEach((t, i) => {
     t.style.left = pct(r.x + r.w * PUNTOS[i][0]);
     t.style.top = pct(r.y + r.h * PUNTOS[i][1]);
   });
-
   medida.style.display = "block";
   medida.textContent = `${Math.round(r.w * ANCHO)} × ${Math.round(r.h * ALTO)}`;
   medida.style.left = pct(r.x);
-  medida.style.top =
-    r.y * caja.clientHeight > 30 ? `calc(${pct(r.y)} - 26px)` : `calc(${pct(r.y + r.h)} + 8px)`;
+  medida.style.top = r.y * caja.clientHeight > 30 ? `calc(${pct(r.y)} - 26px)` : `calc(${pct(r.y + r.h)} + 8px)`;
 }
 
 function pintarLupa(p) {
@@ -258,9 +273,10 @@ function pintarLupa(p) {
   lente.strokeStyle = AZUL_APP;
   lente.lineWidth = 2;
   lente.strokeRect(55, 55, 7, 7);
-
-  const d = pincel.getImageData(Math.round(p.x * ANCHO), Math.round(p.y * ALTO), 1, 1).data;
-  hex.textContent = ("#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("")).toUpperCase();
+  if (limpio) {
+    const d = pincel.getImageData(Math.round(p.x * ANCHO), Math.round(p.y * ALTO), 1, 1).data;
+    hex.textContent = ("#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("")).toUpperCase();
+  }
   lupa.style.display = "block";
   lupa.style.left = p.x > 0.8 ? `calc(${p.x * 100}% - 136px)` : `calc(${p.x * 100}% + 20px)`;
   lupa.style.top = p.y > 0.75 ? `calc(${p.y * 100}% - 150px)` : `calc(${p.y * 100}% + 20px)`;
@@ -273,9 +289,7 @@ function colocarHerramientas() {
   const cabeAbajo = (r.y + r.h) * caja.clientHeight + 56 < caja.clientHeight;
   const centro = (r.x + r.w / 2) * caja.clientWidth;
   herramientas.style.left = `${clamp(centro - ancho / 2, 8, caja.clientWidth - ancho - 8)}px`;
-  herramientas.style.top = cabeAbajo
-    ? `calc(${(r.y + r.h) * 100}% + 10px)`
-    : `calc(${r.y * 100}% - 54px)`;
+  herramientas.style.top = cabeAbajo ? `calc(${(r.y + r.h) * 100}% + 10px)` : `calc(${r.y * 100}% - 54px)`;
 }
 
 function limpiar() {
@@ -286,70 +300,106 @@ function limpiar() {
   medida.style.display = "none";
   herramientas.style.display = "none";
   velo.style.display = "block";
-  aviso.style.display = "none";
+  if (panelVisto === "p-sel" && !grabando) decir("pistaSel");
 }
 
-caja.addEventListener("pointerdown", (e) => {
-  if (e.target.closest(".herramientas") || e.target.closest(".modos")) return;
-  if (pantallaEntera) return llevarsePantalla();
-  caja.setPointerCapture(e.pointerId);
-  arrastrando = true;
-  hay = false;
-  herramientas.style.display = "none";
-  aviso.style.display = "none";
-  ini = fin = enCaja(e);
-  pintarSeleccion();
-});
-
-caja.addEventListener("pointermove", (e) => {
-  const p = enCaja(e);
-  if (arrastrando) {
-    fin = p;
-    pintarSeleccion();
-  }
-  if (!hay) pintarLupa(p);
-});
-
-caja.addEventListener("pointerup", (e) => {
-  if (!arrastrando) return;
-  arrastrando = false;
-  fin = enCaja(e);
+/** Lo que pasa al soltar, venga del ratón o del fantasma. */
+function soltarSeleccion() {
   const r = rectangulo();
   if (r.w * ANCHO < 24 || r.h * ALTO < 24) return limpiar();
   hay = true;
   lupa.style.display = "none";
   pintarSeleccion();
+  if (alSoltar === "copia" && modo === "foto") {
+    copiarRecorte(enPixeles(r));
+    return limpiar();
+  }
   colocarHerramientas();
+  decir(modo === "foto" ? "pistaHay" : "pistaGrabar");
+}
+
+caja.addEventListener("pointerdown", (e) => {
+  if (e.target.closest(".herramientas, .modos, .anclada, .barra-grabando")) return;
+  pararFantasma();
+  tocado = true;
+  if (grabando) return;
+  if (pantallaEntera) return llevarsePantalla();
+  caja.setPointerCapture(e.pointerId);
+  arrastrando = true;
+  hay = false;
+  herramientas.style.display = "none";
+  ini = fin = enCaja(e);
+  pintarSeleccion();
+});
+caja.addEventListener("pointermove", (e) => {
+  if (e.pointerType === "mouse" && !fantasmaVivo) tocado = tocado || arrastrando;
+  const p = enCaja(e);
+  if (grabando) return apuntarGrabacion(p, false);
+  if (arrastrando) {
+    fin = p;
+    pintarSeleccion();
+  }
+  if (!hay && !fantasmaVivo) pintarLupa(p);
+});
+caja.addEventListener("pointerup", (e) => {
+  if (!arrastrando) return;
+  arrastrando = false;
+  fin = enCaja(e);
+  soltarSeleccion();
+});
+caja.addEventListener("pointerleave", () => {
+  if (!arrastrando && !hay) lupa.style.display = "none";
 });
 
 /* --------------------------------------------- la barra de modos de arriba */
-
-/* Qué botones tienen sentido con lo que hay elegido: en vídeo o GIF no se copia
-   una imagen, se empieza a grabar, así que sale un botón y no tres. */
 function pintarModo() {
   modos.querySelectorAll("[data-modo]").forEach((b) => {
-    const activo = b.dataset.modo === modo || (b.dataset.modo === "pantalla" && pantallaEntera);
-    b.classList.toggle("viva", activo);
+    b.classList.toggle("viva", b.dataset.modo === modo || (b.dataset.modo === "pantalla" && pantallaEntera));
   });
+  modos.querySelector("[data-accion=scroll]").hidden = modo !== "foto";
+  modos.querySelector("[data-accion=soltar]").hidden = modo !== "foto";
   eligePantalla.classList.toggle("viva", pantallaEntera);
-  cartelPantalla.textContent = frase(
-    modo === "video" ? "cartelVideo" : modo === "gif" ? "cartelGif" : "cartelFoto",
-  );
-  const grabando = modo !== "foto";
-  botonGrabar.hidden = !grabando;
-  herramientas.querySelectorAll("[data-accion=copiar],[data-accion=guardar],[data-accion=editar]")
-    .forEach((b) => (b.hidden = grabando));
+  cartelPantalla.textContent = frase(modo === "video" ? "cartelVideo" : modo === "gif" ? "cartelGif" : "cartelFoto");
+  const grabandoModo = modo !== "foto";
+  botonGrabar.hidden = !grabandoModo;
+  $("texto-grabar").textContent = frase(modo === "gif" ? "grabarGif" : "grabarVideo");
+  herramientas.querySelectorAll("[data-accion]:not(.grabar):not(.mata)").forEach((b) => (b.hidden = grabandoModo));
   if (pantallaEntera) limpiar();
+  else if (hay) {
+    colocarHerramientas();
+    decir(modo === "foto" ? "pistaHay" : "pistaGrabar");
+  }
 }
+
+function ponerAlSoltar(valor) {
+  alSoltar = valor;
+  modos.querySelector("[data-accion=soltar]").classList.toggle("viva", valor === "copia");
+  // El mismo ajuste vive en dos sitios de la ventana de ajustes: se mantienen iguales.
+  [$("seg-soltar"), $("mini-soltar")].forEach((grupo) => {
+    [...grupo.querySelectorAll("button")].forEach((b, i) => b.classList.toggle("viva", i === (valor === "copia" ? 1 : 0)));
+  });
+}
+[$("seg-soltar"), $("mini-soltar")].forEach((grupo) => {
+  [...grupo.querySelectorAll("button")].forEach((b, i) => b.addEventListener("click", () => ponerAlSoltar(i ? "copia" : "barra")));
+});
 
 modos.addEventListener("click", (e) => {
   const boton = e.target.closest("button");
   if (!boton) return;
-  if (boton.dataset.accion === "cancelar") {
+  tocado = true;
+  pararFantasma();
+  const accion = boton.dataset.accion;
+  if (accion === "cancelar") {
     pantallaEntera = false;
     limpiar();
     return pintarModo();
   }
+  if (accion === "scroll") return aviso(frase("scroll"));
+  if (accion === "soltar") {
+    ponerAlSoltar(alSoltar === "barra" ? "copia" : "barra");
+    return aviso(frase(alSoltar === "copia" ? "soltarCopia" : "soltarBarra"));
+  }
+  if (accion === "ajustes") return irA("p-set");
   if (boton.dataset.modo === "pantalla") pantallaEntera = !pantallaEntera;
   else modo = boton.dataset.modo;
   pintarModo();
@@ -359,148 +409,690 @@ modos.addEventListener("click", (e) => {
 function llevarsePantalla() {
   pantallaEntera = false;
   pintarModo();
-  aviso.style.display = "flex";
-  aviso.querySelector("span").textContent =
-    `${frase(modo === "video" ? "pantallaVideo" : modo === "gif" ? "pantallaGif" : "pantallaFoto")} · ${ANCHO} × ${ALTO} px`;
+  const r = { x: 0, y: 0, w: ANCHO, h: ALTO };
+  if (modo === "foto") {
+    guardarEnHistorial("foto", r);
+    aviso(conMedida("pantallaFoto", r));
+  } else {
+    ini = { x: 0, y: 0 };
+    fin = { x: 1, y: 1 };
+    empezarGrabacion();
+  }
 }
 
-caja.addEventListener("pointerleave", () => {
-  if (!arrastrando && !hay) lupa.style.display = "none";
-});
+/* --------------------------------------------- la barra de la captura */
+/** El recorte, pintado en un lienzo suyo. */
+function lienzoDe(r) {
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(r.w));
+  c.height = Math.max(1, Math.round(r.h));
+  c.getContext("2d").drawImage(escritorio, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height);
+  return c;
+}
+function copiarLienzo(c, r) {
+  if (!limpio || !navigator.clipboard || typeof ClipboardItem === "undefined") return aviso(frase("noCopia"));
+  c.toBlob((blob) => {
+    navigator.clipboard
+      .write([new ClipboardItem({ "image/png": blob })])
+      .then(() => aviso(conMedida("copiada", r)))
+      .catch(() => aviso(frase("noCopia")));
+  }, "image/png");
+}
+function descargarLienzo(c, r, nombre) {
+  if (!limpio) return aviso(conMedida("guardadaApp", r));
+  c.toBlob((blob) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    aviso(conMedida("guardada", r));
+  }, "image/png");
+}
+const nombreArchivo = (ext) => {
+  const d = new Date();
+  const dos = (n) => String(n).padStart(2, "0");
+  return `winshotx-${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}-${dos(d.getHours())}${dos(d.getMinutes())}${dos(d.getSeconds())}.${ext}`;
+};
+function copiarRecorte(r) {
+  copiarLienzo(lienzoDe(r), r);
+  guardarEnHistorial("foto", r);
+}
 
 herramientas.addEventListener("click", (e) => {
   const boton = e.target.closest("button");
   if (!boton || boton.disabled) return;
-  if (boton.dataset.accion === "cancelar") return limpiar();
-  const r = rectangulo();
-  const clave = boton.dataset.accion === "grabar" ? modo : boton.dataset.accion;
-  aviso.style.display = "flex";
-  aviso.querySelector("span").textContent =
-    `${frase(clave)} · ${Math.round(r.w * ANCHO)} × ${Math.round(r.h * ALTO)} px`;
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (hay || arrastrando || pantallaEntera)) {
-    pantallaEntera = false;
-    pintarModo();
+  tocado = true;
+  pararFantasma();
+  const accion = boton.dataset.accion;
+  const r = enPixeles(rectangulo());
+  if (accion === "cancelar") return limpiar();
+  if (accion === "copiar") return copiarRecorte(r);
+  if (accion === "guardar" || accion === "guardar-en") {
+    descargarLienzo(lienzoDe(r), r, nombreArchivo("png"));
+    return guardarEnHistorial("foto", r);
+  }
+  if (accion === "editar") {
+    abrirEditor({ tipo: "foto", rect: r });
     return limpiar();
   }
-  // Solo cuando la demo está a la vista: si no, escribir en la página movería la barra.
-  if (document.getElementById("p-sel").hidden) return;
+  if (accion === "anclar") {
+    anclar(r);
+    return limpiar();
+  }
+  if (accion === "texto") return aviso(frase("texto"));
+  if (accion === "grabar") return empezarGrabacion();
+});
+
+/* Anclar: la captura se queda flotando encima, y se mueve arrastrándola. */
+function anclar(r) {
+  const anclada = document.createElement("div");
+  anclada.className = "anclada";
+  const c = lienzoDe(r);
+  const cerrar = document.createElement("button");
+  cerrar.className = "anclada-x";
+  cerrar.setAttribute("aria-label", idioma === "en" ? "Close" : "Cerrar");
+  cerrar.innerHTML = '<svg><use href="#i-x"/></svg>';
+  anclada.append(c, cerrar);
+  const k = Math.min(1, 280 / r.w, 200 / r.h) * (caja.clientWidth / ANCHO) * 1.6;
+  anclada.style.width = `${Math.max(90, r.w * k)}px`;
+  anclada.style.left = `${(r.x / ANCHO) * 100 + 2}%`;
+  anclada.style.top = `${(r.y / ALTO) * 100 + 2}%`;
+  caja.appendChild(anclada);
+  aviso(frase("anclada"));
+  cerrar.addEventListener("click", () => anclada.remove());
+  let agarre = null;
+  anclada.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".anclada-x")) return;
+    anclada.setPointerCapture(e.pointerId);
+    agarre = { x: e.clientX - anclada.offsetLeft, y: e.clientY - anclada.offsetTop };
+  });
+  anclada.addEventListener("pointermove", (e) => {
+    if (!agarre) return;
+    anclada.style.left = `${clamp(e.clientX - agarre.x, -anclada.offsetWidth / 2, caja.clientWidth - anclada.offsetWidth / 2)}px`;
+    anclada.style.top = `${clamp(e.clientY - agarre.y, 0, caja.clientHeight - 30)}px`;
+  });
+  anclada.addEventListener("pointerup", () => (agarre = null));
+}
+
+/* --------------------------------------------- grabar */
+let grabando = null;
+const marcoRojo = $("marco-rojo");
+const barraGrabando = $("barra-grabando");
+function empezarGrabacion() {
+  const r = rectangulo();
+  herramientas.style.display = "none";
+  cajaTiradores.style.display = "none";
+  medida.style.display = "none";
+  lupa.style.display = "none";
+  sel.style.boxShadow = "none";
+  sel.style.display = "none";
+  velo.style.display = "none";
+  marcoRojo.hidden = false;
+  marcoRojo.style.left = pct(r.x);
+  marcoRojo.style.top = pct(r.y);
+  marcoRojo.style.width = pct(r.w);
+  marcoRojo.style.height = pct(r.h);
+  barraGrabando.hidden = false;
+  const abajo = (r.y + r.h) * caja.clientHeight + 50 < caja.clientHeight;
+  barraGrabando.style.left = pct(r.x + r.w / 2);
+  barraGrabando.style.top = abajo ? `calc(${pct(r.y + r.h)} + 10px)` : `calc(${pct(r.y)} + 10px)`;
+  grabando = { rect: r, empezo: performance.now(), puntos: [], clics: [], formato: modo };
+  decir("pistaGrabando");
+  const reloj = $("reloj-grabando");
+  grabando.tic = setInterval(() => {
+    const s = Math.floor((performance.now() - grabando.empezo) / 1000);
+    reloj.textContent = `0:${String(s).padStart(2, "0")}`;
+    if (s >= 8) terminarGrabacion();
+  }, 200);
+}
+/** Cada movimiento y cada clic dentro del marco, para que salgan en el vídeo. */
+function apuntarGrabacion(p, clic) {
+  const r = grabando.rect;
+  const t = performance.now() - grabando.empezo;
+  const x = (p.x - r.x) / r.w;
+  const y = (p.y - r.y) / r.h;
+  if (x < -0.05 || x > 1.05 || y < -0.05 || y > 1.05) return;
+  grabando.puntos.push({ t, x: clamp(x, 0, 1), y: clamp(y, 0, 1) });
+  if (clic) grabando.clics.push(t);
+}
+caja.addEventListener("pointerdown", (e) => {
+  if (grabando && !e.target.closest(".barra-grabando")) apuntarGrabacion(enCaja(e), true);
+});
+function terminarGrabacion() {
+  if (!grabando) return;
+  clearInterval(grabando.tic);
+  const g = grabando;
+  grabando = null;
+  marcoRojo.hidden = true;
+  barraGrabando.hidden = true;
+  $("reloj-grabando").textContent = "0:00";
+  velo.style.display = "block";
+  hay = false;
+  const duracion = clamp(performance.now() - g.empezo, 1500, 8000);
+  const rect = enPixeles(g.rect);
+  abrirEditor({ tipo: g.formato === "gif" ? "gif" : "video", rect, duracion, puntos: g.puntos, clics: g.clics });
+}
+$("parar-grabando").addEventListener("click", terminarGrabacion);
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest && e.target.closest("input, textarea, [contenteditable]")) return;
   const k = e.key.toLowerCase();
-  if (k === "f" || k === "v" || k === "g") {
-    modo = k === "f" ? "foto" : k === "v" ? "video" : "gif";
-    pintarModo();
-  } else if (k === "p") {
-    pantallaEntera = !pantallaEntera;
-    pintarModo();
-  } else if (k === "1" && pantallaEntera) {
-    llevarsePantalla();
+  if (panelVisto === "p-sel") {
+    if (e.key === "Escape" && (hay || arrastrando || pantallaEntera || grabando)) {
+      if (grabando) return terminarGrabacion();
+      pantallaEntera = false;
+      pintarModo();
+      return limpiar();
+    }
+    if (!demoALaVista()) return;
+    if (hay && modo === "foto") {
+      const atajo = { enter: "copiar", e: "editar", a: "anclar", t: "texto" }[k];
+      if (atajo && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        return herramientas.querySelector(`[data-accion=${atajo}]`).click();
+      }
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (k === "f" || k === "v" || k === "g") {
+      modo = k === "f" ? "foto" : k === "v" ? "video" : "gif";
+      tocado = true;
+      pararFantasma();
+      pintarModo();
+    } else if (k === "p") {
+      pantallaEntera = !pantallaEntera;
+      pintarModo();
+    } else if (k === "1" && pantallaEntera) {
+      llevarsePantalla();
+    }
+  } else if (panelVisto === "p-edi" && demoALaVista() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const teclas = { 1: "flecha", 2: "caja", 3: "texto", 4: "resaltar", 5: "paso", 6: "mosaico" };
+    if (teclas[k]) elegirMarca(teclas[k]);
+    if (k === "m") $("silenciar").click();
   }
 });
+const demoALaVista = () => {
+  const r = $("demo").getBoundingClientRect();
+  return r.top < innerHeight * 0.6 && r.bottom > innerHeight * 0.4;
+};
 
 pintarModo();
 
+/* --------------------------------------------- el fantasma: la demo se enseña sola una vez */
+/* La primera vez que se ve, un puntero hace una selección sobre la guía para que se entienda
+   qué hay que hacer. En cuanto tocas algo, se aparta. Con el movimiento reducido o apagado
+   no se mueve: la selección aparece hecha. */
+let fantasmaVivo = false;
+let fantasmaCuadro = 0;
+function pararFantasma() {
+  if (!fantasmaVivo) return;
+  fantasmaVivo = false;
+  cancelAnimationFrame(fantasmaCuadro);
+  fantasma.classList.remove("visible", "pulsa");
+}
+function ponerFantasma(p) {
+  fantasma.style.left = pct(p.x);
+  fantasma.style.top = pct(p.y);
+}
+function lanzarFantasma() {
+  if (tocado || hay || panelVisto !== "p-sel") return;
+  const R = ESCRITORIO.recorte;
+  const a = { x: (R.x - 6) / ANCHO, y: (R.y - 6) / ALTO };
+  const b = { x: (R.x + R.w) / ANCHO, y: (R.y + R.h) / ALTO };
+  if (GANANCIA < 1) {
+    ini = a;
+    fin = b;
+    soltarSeleccion();
+    decir("pistaFantasma");
+    return;
+  }
+  fantasmaVivo = true;
+  fantasma.classList.add("visible");
+  const desde = { x: 0.88, y: 0.18 };
+  const t0 = performance.now();
+  const LLEGA = 900, ARRASTRA = 1300, ESPERA = 350;
+  const paso = (ahora) => {
+    if (!fantasmaVivo) return;
+    const t = ahora - t0;
+    if (t < LLEGA) {
+      const k = suave(t / LLEGA);
+      const p = { x: desde.x + (a.x - desde.x) * k, y: desde.y + (a.y - desde.y) * k };
+      ponerFantasma(p);
+      pintarLupa(p);
+    } else if (t < LLEGA + ARRASTRA) {
+      if (!arrastrando) {
+        arrastrando = true;
+        ini = fin = a;
+        lupa.style.display = "none";
+        fantasma.classList.add("pulsa");
+      }
+      const k = suave((t - LLEGA) / ARRASTRA);
+      fin = { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k };
+      ponerFantasma(fin);
+      pintarSeleccion();
+    } else if (t < LLEGA + ARRASTRA + ESPERA) {
+      if (arrastrando) {
+        arrastrando = false;
+        fin = b;
+        fantasma.classList.remove("pulsa");
+        soltarSeleccion();
+        decir("pistaFantasma");
+      }
+    } else {
+      // Se va hacia el lápiz de la barra y se queda ahí, señalándolo.
+      const lapiz = herramientas.querySelector("[data-accion=editar]").getBoundingClientRect();
+      const cr = caja.getBoundingClientRect();
+      const meta = { x: (lapiz.left + lapiz.width / 2 - cr.left) / cr.width, y: (lapiz.top + lapiz.height * 0.7 - cr.top) / cr.height };
+      const k = suave(clamp((t - LLEGA - ARRASTRA - ESPERA) / 700, 0, 1));
+      ponerFantasma({ x: b.x + (meta.x - b.x) * k, y: b.y + (meta.y - b.y) * k });
+      if (k >= 1) {
+        fantasmaVivo = false;
+        setTimeout(() => fantasma.classList.remove("visible"), 1600);
+        return;
+      }
+    }
+    fantasmaCuadro = requestAnimationFrame(paso);
+  };
+  fantasmaCuadro = requestAnimationFrame(paso);
+}
+new IntersectionObserver(
+  (entradas, vigia) => {
+    if (!entradas.some((x) => x.isIntersecting)) return;
+    vigia.disconnect();
+    setTimeout(lanzarFantasma, 500);
+  },
+  { threshold: 0.55 },
+).observe(caja);
+
 /* ========================================================== 2. editor === */
-// Calcado del editor de la 0.3.8: la grabación entera a lo ancho de la línea de tiempo, dos
-// asas para quedarse con un trozo, y el Estudio con los mismos fondos que la app.
-const REGION = { width: 800, height: 500 };
-const FPS_GRABADO = 30;
-const TOTAL = 90; // tres segundos de grabación de ejemplo
-const DURACION = Math.round((TOTAL * 1000) / FPS_GRABADO);
+// Calcado del editor de la 0.4.6: la grabación entera a lo ancho de la línea de tiempo, dos
+// asas para quedarse con un trozo, el carril de los zooms debajo, y el Estudio a la derecha.
+const lienzoEditor = $("lienzo-editor");
+const brocha = lienzoEditor.getContext("2d");
+const pistaTira = $("tira-pista");
+const reloj = $("edi-reloj");
+const dice = $("tira-dice");
+const totalTexto = $("tira-total");
+const entero = $("tira-entero");
+const ediSub = $("edi-sub");
+const botonPlay = $("reproducir");
+const tiempoEl = $("edi-tiempo");
+const carril = $("tira-zooms");
 const MINIATURAS = 10;
 const MINIMO = 200; // lo menos que se puede dejar, como en la app
 
-const lienzoEditor = document.getElementById("lienzo-editor");
-lienzoEditor.width = REGION.width;
-lienzoEditor.height = REGION.height;
-const brocha = lienzoEditor.getContext("2d");
+/** La grabación de serie: el puntero va al botón de descargar de la guía y lo pulsa. */
+function fuenteDeSerie() {
+  const R = ESCRITORIO.recorte;
+  const B = ESCRITORIO.boton;
+  const bx = (B.x + B.w / 2 - R.x) / R.w;
+  const by = (B.y + B.h / 2 - R.y) / R.h;
+  return { tipo: "video", rect: { ...R }, duracion: 3600, puntos: caminoHasta(bx, by, 3600), clics: [2150], zooms: [{ desde: 1650, hasta: 3350 }] };
+}
+/** Un puntero que llega a (x, y) con prisa al principio y despacio al final, y luego se queda. */
+function caminoHasta(x, y, duracion) {
+  const puntos = [];
+  const desde = { x: 0.92, y: 0.12 };
+  for (let t = 0; t <= duracion; t += 50) {
+    const k = suave(clamp(t / 2000, 0, 1));
+    const deriva = t > 2400 ? ((t - 2400) / 1200) * 0.025 : 0;
+    puntos.push({ t, x: desde.x + (x - desde.x) * k + deriva, y: desde.y + (y - desde.y) * k + deriva * 0.6 });
+  }
+  return puntos;
+}
 
-const pista = document.getElementById("tira-pista");
-const reloj = document.getElementById("edi-reloj");
-const dice = document.getElementById("tira-dice");
-const totalTexto = document.getElementById("tira-total");
-const entero = document.getElementById("tira-entero");
-const ediSub = document.getElementById("edi-sub");
-const botonPlay = document.getElementById("reproducir");
-
+let fuente = fuenteDeSerie();
+let DURACION = fuente.duracion;
 let posicion = 0;
 let desde = 0;
 let hasta = DURACION;
-let reproduciendo = null;
+let reproduciendo = 0;
 let agarrado = null;
+let marcas = [];
+let marcaViva = null; // la herramienta elegida arriba
+let color = "#f43f5e";
+let silencio = false;
 
-const indiceEn = (ms) => clamp(Math.floor((ms * FPS_GRABADO) / 1000), 0, TOTAL - 1);
-/** «0:03.2»: minutos, segundos y décimas, como el reloj del editor. */
-function tiempo(ms) {
-  const d = Math.max(0, Math.floor(ms / 100));
-  return `${Math.floor(d / 600)}:${String(Math.floor((d % 600) / 10)).padStart(2, "0")}.${d % 10}`;
+function abrirEditor(nueva) {
+  parar();
+  const R = nueva.rect;
+  if (nueva.tipo === "foto") {
+    fuente = { tipo: "foto", rect: R, duracion: 0, puntos: [], clics: [], zooms: [] };
+  } else {
+    let puntos = nueva.puntos || [];
+    let clics = nueva.clics || [];
+    const duracion = nueva.duracion || 3600;
+    // Si no se movió el ratón dentro, el vídeo enseña el camino de serie hacia el centro.
+    if (puntos.length < 4) {
+      puntos = caminoHasta(0.5, 0.55, duracion);
+      clics = [Math.min(duracion - 600, 2150)];
+    }
+    const zooms = clics.slice(0, 3).map((c) => ({ desde: Math.max(0, c - 500), hasta: Math.min(duracion, c + 1200) }));
+    fuente = { tipo: nueva.tipo, rect: R, duracion, puntos, clics, zooms: unirZooms(zooms) };
+  }
+  DURACION = Math.max(1, fuente.duracion);
+  posicion = 0;
+  desde = 0;
+  hasta = DURACION;
+  marcas = [];
+  formato = fuente.tipo === "foto" ? "png" : fuente.tipo === "gif" ? "gif" : "mp4";
+  ponerFormato(formato);
+  ajustarLienzo();
+  pintarMiniaturas();
+  irA("p-edi");
+}
+function unirZooms(lista) {
+  const orden = [...lista].sort((a, b) => a.desde - b.desde);
+  const juntos = [];
+  for (const z of orden) {
+    const ultimo = juntos[juntos.length - 1];
+    if (ultimo && z.desde <= ultimo.hasta) ultimo.hasta = Math.max(ultimo.hasta, z.hasta);
+    else juntos.push({ ...z });
+  }
+  return juntos;
 }
 
-/** Un fotograma de la grabación de ejemplo: el cursor llega al botón y lo pulsa. */
-function fotograma(c, w, h, i) {
-  const t = i / (TOTAL - 1);
-  c.fillStyle = "#101018";
-  c.fillRect(0, 0, w, h);
-  c.fillStyle = "#181820";
-  c.beginPath();
-  c.roundRect(w * 0.07, h * 0.1, w * 0.86, h * 0.8, 14);
-  c.fill();
+/* El lienzo mide lo que el recorte, con 1280 de ancho como mucho. */
+let W = 0;
+let H = 0;
+function ajustarLienzo() {
+  const R = fuente.rect;
+  const k = Math.min(1, 1280 / R.w);
+  W = Math.max(2, Math.round(R.w * k));
+  H = Math.max(2, Math.round(R.h * k));
+  lienzoEditor.width = W;
+  lienzoEditor.height = H;
+  $("ancho").value = Math.round(R.w);
+  $("alto").value = Math.round(R.h);
+  ediSub.textContent = "";
+}
 
-  c.fillStyle = "#2a2a36";
-  for (let f = 0; f < 3; f++) {
-    c.beginPath();
-    c.roundRect(w * 0.12, h * 0.2 + f * h * 0.11, w * (0.52 - f * 0.12), h * 0.05, 6);
-    c.fill();
+/** Dónde está el puntero en el instante t, de 0 a 1 dentro del recorte. */
+function punteroEn(t) {
+  const p = fuente.puntos;
+  if (!p.length) return null;
+  if (t <= p[0].t) return p[0];
+  for (let i = 1; i < p.length; i++) {
+    if (p[i].t >= t) {
+      const a = p[i - 1];
+      const b = p[i];
+      const k = (t - a.t) / Math.max(1, b.t - a.t);
+      return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k };
+    }
   }
-
-  const pulsado = t > 0.62;
-  c.fillStyle = pulsado ? AZUL_APP : "#2a5c96";
-  c.beginPath();
-  c.roundRect(w * 0.12, h * 0.62, w * 0.27, h * 0.14, 10);
-  c.fill();
-  c.fillStyle = "#fff";
-  c.font = `600 ${Math.round(h * 0.06)}px ui-sans-serif, system-ui, sans-serif`;
-  c.fillText(frase("exportar"), w * 0.163, h * 0.715);
-
-  if (pulsado) {
-    const onda = (t - 0.62) / 0.38;
-    c.strokeStyle = `rgba(59,130,246,${1 - onda})`;
-    c.lineWidth = 3;
-    c.beginPath();
-    c.roundRect(w * 0.12 - onda * 40, h * 0.62 - onda * 40, w * 0.27 + onda * 80, h * 0.14 + onda * 80, 16);
-    c.stroke();
+  return p[p.length - 1];
+}
+/** Con «Movimiento suave», la media de los últimos 240 ms: se le quita el temblor. */
+function punteroSuave(t) {
+  if (!$("p-edi").querySelector(".edi-solo-video .palanca").dataset.on === "1") return punteroEn(t);
+  let x = 0;
+  let y = 0;
+  let n = 0;
+  for (let d = 0; d <= 240; d += 40) {
+    const p = punteroEn(Math.max(0, t - d));
+    if (!p) return null;
+    x += p.x;
+    y += p.y;
+    n++;
   }
+  return { x: x / n, y: y / n };
+}
 
-  const avance = Math.min(1, t / 0.62);
-  const suave = 1 - Math.pow(1 - avance, 3);
-  const cx = w * 0.78 + (w * 0.23 - w * 0.78) * suave;
-  const cy = h * 0.22 + (h * 0.69 - h * 0.22) * suave;
+/** Cuánto se acerca la cámara en t: los zooms del carril y, si se pide, cada clic. */
+function acercamiento(t) {
+  let z = 1;
+  const RAMPA = 380;
+  const llevar = (a, b, cuanto) => {
+    if (t < a || t > b) return;
+    const entra = clamp((t - a) / RAMPA, 0, 1);
+    const sale = clamp((b - t) / RAMPA, 0, 1);
+    z = Math.max(z, 1 + (cuanto - 1) * suave(Math.min(entra, sale)));
+  };
+  for (const zo of fuente.zooms) llevar(zo.desde, zo.hasta, 2);
+  const porClics = Number($("zoom-clics").value) / 100;
+  if (porClics > 0) for (const c of fuente.clics) llevar(c - 300, c + 1500, 1 + porClics * 1.4);
+  return z;
+}
+
+function fotograma(c, w, h, t, conMarcas) {
+  const R = fuente.rect;
+  const esVideo = fuente.tipo !== "foto";
+  const z = esVideo ? acercamiento(t) : 1;
+  const p = esVideo ? punteroSuave(t) : null;
+  // La cámara mira al puntero, sin salirse del recorte.
+  const cx = clamp(p ? p.x : 0.5, 0.5 / z, 1 - 0.5 / z);
+  const cy = clamp(p ? p.y : 0.5, 0.5 / z, 1 - 0.5 / z);
+  const sx = R.x + (cx - 0.5 / z) * R.w;
+  const sy = R.y + (cy - 0.5 / z) * R.h;
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = "high";
+  c.drawImage(escritorio, sx, sy, R.w / z, R.h / z, 0, 0, w, h);
+  const enLienzo = (q) => ({ x: ((R.x + q.x * R.w - sx) / (R.w / z)) * w, y: ((R.y + q.y * R.h - sy) / (R.h / z)) * h });
+  if (esVideo && $("marcar-clics").dataset.on === "1") {
+    for (const clic of fuente.clics) {
+      const d = t - clic;
+      if (d < 0 || d > 600) continue;
+      const q = enLienzo(punteroEn(clic));
+      const k = d / 600;
+      c.strokeStyle = `rgba(59,130,246,${0.9 * (1 - k)})`;
+      c.lineWidth = 3 * (w / 800);
+      c.beginPath();
+      c.arc(q.x, q.y, (8 + 34 * k) * (w / 800) * z, 0, Math.PI * 2);
+      c.stroke();
+    }
+  }
+  if (p) dibujarPuntero(c, enLienzo(p), (Number($("puntero").value) / 32) * (w / 900) * Math.sqrt(z));
+  if (conMarcas) for (const m of marcas) dibujarMarca(c, m, w, h);
+}
+
+function dibujarPuntero(c, q, k) {
+  c.save();
+  c.translate(q.x, q.y);
+  c.scale(k * 1.6, k * 1.6);
   c.fillStyle = "#fff";
   c.strokeStyle = "#000";
-  c.lineWidth = 1.5;
+  c.lineWidth = 1.4;
+  c.lineJoin = "round";
   c.beginPath();
-  c.moveTo(cx, cy);
-  c.lineTo(cx, cy + h * 0.085);
-  c.lineTo(cx + w * 0.016, cy + h * 0.062);
-  c.lineTo(cx + w * 0.03, cy + h * 0.088);
-  c.lineTo(cx + w * 0.039, cy + h * 0.081);
-  c.lineTo(cx + w * 0.025, cy + h * 0.055);
-  c.lineTo(cx + w * 0.043, cy + h * 0.052);
+  c.moveTo(0, 0);
+  c.lineTo(0, 20);
+  c.lineTo(5, 15.5);
+  c.lineTo(8.6, 23);
+  c.lineTo(11.6, 21.6);
+  c.lineTo(8.2, 14.4);
+  c.lineTo(14.6, 14);
   c.closePath();
   c.fill();
   c.stroke();
+  c.restore();
 }
 
-/* --- la línea de tiempo, calcada de LineaDeTiempo: miniaturas por tiempo, velos, marco,
-       asas y cabezal, todo en tanto por ciento para que quepa entera en cualquier ancho --- */
+/* --- las marcas, en coordenadas del lienzo (de 0 a 1), dibujadas encima de cada fotograma --- */
+function dibujarMarca(c, m, w, h) {
+  const a = { x: m.a.x * w, y: m.a.y * h };
+  const b = { x: m.b.x * w, y: m.b.y * h };
+  const grosor = Math.max(3, w / 220);
+  c.save();
+  c.strokeStyle = m.color;
+  c.fillStyle = m.color;
+  c.lineWidth = grosor;
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  const an = Math.abs(b.x - a.x);
+  const al = Math.abs(b.y - a.y);
+  if (m.tipo === "flecha" || m.tipo === "curva" || m.tipo === "linea") {
+    let angulo = Math.atan2(b.y - a.y, b.x - a.x);
+    c.beginPath();
+    c.moveTo(a.x, a.y);
+    if (m.tipo === "curva") {
+      const ctrl = { x: (a.x + b.x) / 2 - (b.y - a.y) * 0.35, y: (a.y + b.y) / 2 + (b.x - a.x) * 0.35 };
+      c.quadraticCurveTo(ctrl.x, ctrl.y, b.x, b.y);
+      angulo = Math.atan2(b.y - ctrl.y, b.x - ctrl.x);
+    } else c.lineTo(b.x, b.y);
+    c.stroke();
+    if (m.tipo !== "linea") {
+      const punta = grosor * 4.2;
+      c.beginPath();
+      c.moveTo(b.x, b.y);
+      c.lineTo(b.x - punta * Math.cos(angulo - 0.45), b.y - punta * Math.sin(angulo - 0.45));
+      c.lineTo(b.x - punta * Math.cos(angulo + 0.45), b.y - punta * Math.sin(angulo + 0.45));
+      c.closePath();
+      c.fill();
+    }
+  } else if (m.tipo === "caja") {
+    c.beginPath();
+    c.roundRect(x, y, an, al, grosor * 1.4);
+    c.stroke();
+  } else if (m.tipo === "elipse") {
+    c.beginPath();
+    c.ellipse(x + an / 2, y + al / 2, an / 2, al / 2, 0, 0, Math.PI * 2);
+    c.stroke();
+  } else if (m.tipo === "resaltar") {
+    c.globalAlpha = 0.35;
+    c.fillRect(x, y, an, al);
+  } else if (m.tipo === "lapiz") {
+    c.beginPath();
+    m.puntos.forEach((q, i) => (i ? c.lineTo(q.x * w, q.y * h) : c.moveTo(q.x * w, q.y * h)));
+    c.stroke();
+  } else if (m.tipo === "paso") {
+    const r = Math.max(14, w / 46);
+    c.beginPath();
+    c.arc(a.x, a.y, r, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = m.color === "#171717" || m.color === "#eab308" ? "#fff" : "#fff";
+    c.font = `700 ${Math.round(r * 1.15)}px "Segoe UI", system-ui, sans-serif`;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(String(m.numero), a.x, a.y + r * 0.05);
+  } else if (m.tipo === "texto") {
+    const t = Math.max(18, w / 34);
+    c.font = `700 ${Math.round(t)}px "Segoe UI", system-ui, sans-serif`;
+    c.textBaseline = "top";
+    c.lineWidth = t / 5;
+    c.strokeStyle = m.color === "#171717" ? "#fff" : "#000a";
+    c.strokeText(m.texto, a.x, a.y);
+    c.fillText(m.texto, a.x, a.y);
+  } else if (m.tipo === "mosaico") {
+    // Se pinta en pequeño y se vuelve a estirar sin suavizar: los cuadros destruyen el
+    // detalle, como el de la app, y no hace falta leer ni un píxel.
+    if (an > 2 && al > 2) {
+      const tam = Math.max(6, w / 70);
+      const chico = document.createElement("canvas");
+      chico.width = Math.max(1, Math.round(an / tam));
+      chico.height = Math.max(1, Math.round(al / tam));
+      chico.getContext("2d").drawImage(c.canvas, x, y, an, al, 0, 0, chico.width, chico.height);
+      c.imageSmoothingEnabled = false;
+      c.drawImage(chico, 0, 0, chico.width, chico.height, x, y, an, al);
+    }
+  } else if (m.tipo === "foco") {
+    c.fillStyle = "rgba(0,0,0,.55)";
+    c.beginPath();
+    c.rect(0, 0, w, h);
+    c.roundRect(x, y, an, al, grosor * 2);
+    c.fill("evenodd");
+  }
+  c.restore();
+}
+
+const botonesMarca = [...document.querySelectorAll("[data-marca]")];
+function elegirMarca(tipo) {
+  marcaViva = marcaViva === tipo ? null : tipo;
+  botonesMarca.forEach((b) => b.classList.toggle("viva", b.dataset.marca === marcaViva));
+  lienzoEditor.classList.toggle("dibujando", Boolean(marcaViva));
+}
+botonesMarca.forEach((b) => b.addEventListener("click", () => elegirMarca(b.dataset.marca)));
+document.querySelectorAll("#colores .color").forEach((b) => {
+  b.addEventListener("click", () => {
+    color = getComputedStyle(b).getPropertyValue("--c").trim();
+    document.querySelectorAll("#colores .color").forEach((o) => o.classList.toggle("viva", o === b));
+  });
+});
+
+const enLienzoEditor = (e) => {
+  const r = lienzoEditor.getBoundingClientRect();
+  return { x: clamp((e.clientX - r.left) / r.width, 0, 1), y: clamp((e.clientY - r.top) / r.height, 0, 1) };
+};
+let dibujando = null;
+lienzoEditor.addEventListener("pointerdown", (e) => {
+  if (!marcaViva) return;
+  parar();
+  const p = enLienzoEditor(e);
+  if (marcaViva === "texto") return escribirEn(p);
+  if (marcaViva === "paso") {
+    marcas.push({ tipo: "paso", a: p, b: p, color, numero: marcas.filter((m) => m.tipo === "paso").length + 1 });
+    return refrescarEditor();
+  }
+  lienzoEditor.setPointerCapture(e.pointerId);
+  dibujando = { tipo: marcaViva, a: p, b: p, color, puntos: [p] };
+  marcas.push(dibujando);
+});
+lienzoEditor.addEventListener("pointermove", (e) => {
+  if (!dibujando) return;
+  const p = enLienzoEditor(e);
+  dibujando.b = p;
+  if (dibujando.tipo === "lapiz") dibujando.puntos.push(p);
+  refrescarEditor();
+});
+lienzoEditor.addEventListener("pointerup", () => {
+  if (!dibujando) return;
+  const m = dibujando;
+  dibujando = null;
+  const corta = Math.abs(m.a.x - m.b.x) + Math.abs(m.a.y - m.b.y) < 0.01;
+  if (corta && m.tipo !== "lapiz") marcas.pop();
+  refrescarEditor();
+});
+/* El texto se escribe encima de la imagen, en el sitio donde pinchas (0.4.6). */
+function escribirEn(p) {
+  const vista = $("edi-fondo");
+  const campo = document.createElement("input");
+  campo.className = "edi-escribe";
+  campo.placeholder = frase("escribe");
+  const r = lienzoEditor.getBoundingClientRect();
+  const v = vista.getBoundingClientRect();
+  campo.style.left = `${r.left - v.left + p.x * r.width}px`;
+  campo.style.top = `${r.top - v.top + p.y * r.height}px`;
+  campo.style.color = color;
+  vista.appendChild(campo);
+  campo.focus();
+  let hecho = false;
+  const guardar = (vale) => {
+    if (hecho) return;
+    hecho = true;
+    if (vale && campo.value.trim()) marcas.push({ tipo: "texto", a: p, b: p, color, texto: campo.value.trim() });
+    campo.remove();
+    refrescarEditor();
+  };
+  campo.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") guardar(true);
+    if (e.key === "Escape") guardar(false);
+  });
+  campo.addEventListener("blur", () => guardar(true));
+}
+
+document.querySelector(".edi-derecha").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  const accion = b.dataset.accion;
+  if (accion === "deshacer") marcas.pop();
+  if (accion === "quitar-todas") marcas = [];
+  if (accion === "tapar") aviso(frase("tapar"));
+  if (accion === "copiar-texto") aviso(frase("copiarTexto"));
+  refrescarEditor();
+});
+document.querySelector("[data-accion=encuadrar]").addEventListener("click", () => aviso(frase("encuadrar")));
+
+/* --- la línea de tiempo, calcada de LineaDeTiempo: miniaturas, velos, marco, asas y cabezal,
+       todo en tanto por ciento para que quepa entera en cualquier ancho --- */
 const minis = document.createElement("div");
 minis.className = "tira-minis";
+const lienzosMini = [];
 for (let k = 0; k < MINIATURAS; k++) {
   const mini = document.createElement("canvas");
   mini.width = 160;
   mini.height = 100;
-  fotograma(mini.getContext("2d"), mini.width, mini.height, indiceEn(((k + 0.5) / MINIATURAS) * DURACION));
+  lienzosMini.push(mini);
   minis.appendChild(mini);
 }
 const veloIzq = document.createElement("div");
@@ -518,36 +1110,79 @@ asaA.title = frase("principio");
 asaB.title = frase("final");
 asaA.innerHTML = asaB.innerHTML = "<i></i>";
 cabezal.className = "tira-cabezal";
-pista.append(minis, veloIzq, veloDer, marcoTira, asaA, asaB, cabezal);
+pistaTira.append(minis, veloIzq, veloDer, marcoTira, asaA, asaB, cabezal);
 
-const pct = (ms) => `${(clamp(ms, 0, DURACION) / DURACION) * 100}%`;
+function pintarMiniaturas() {
+  if (fuente.tipo === "foto") return;
+  const R = fuente.rect;
+  lienzosMini.forEach((mini, k) => {
+    mini.height = Math.round(160 * (R.h / R.w)) || 100;
+    fotograma(mini.getContext("2d"), mini.width, mini.height, ((k + 0.5) / MINIATURAS) * DURACION, false);
+  });
+}
+
+const porc = (ms) => `${(clamp(ms, 0, DURACION) / DURACION) * 100}%`;
+function pintarCarril() {
+  carril.querySelectorAll(".tira-zoom").forEach((z) => z.remove());
+  fuente.zooms.forEach((z, i) => {
+    const bloque = document.createElement("button");
+    bloque.className = "tira-zoom";
+    bloque.style.left = porc(z.desde);
+    bloque.style.width = `${((z.hasta - z.desde) / DURACION) * 100}%`;
+    bloque.title = frase("quitarZoom");
+    bloque.innerHTML = '<svg><use href="#i-zoom-in"/></svg> 2×';
+    bloque.addEventListener("click", (e) => {
+      e.stopPropagation();
+      fuente.zooms.splice(i, 1);
+      refrescarEditor();
+    });
+    carril.appendChild(bloque);
+  });
+  carril.classList.toggle("con-zooms", fuente.zooms.length > 0);
+}
+carril.addEventListener("click", (e) => {
+  if (fuente.tipo === "foto") return;
+  const r = carril.getBoundingClientRect();
+  const t = clamp((e.clientX - r.left) / r.width, 0, 1) * DURACION;
+  const largo = Math.min(1400, DURACION * 0.4);
+  const a = clamp(t - largo / 2, 0, DURACION - largo);
+  fuente.zooms = unirZooms([...fuente.zooms, { desde: a, hasta: a + largo }]);
+  posicion = a;
+  refrescarEditor();
+});
 
 function refrescarEditor() {
-  fotograma(brocha, REGION.width, REGION.height, indiceEn(posicion));
-  veloIzq.style.width = pct(desde);
-  veloDer.style.left = pct(hasta);
-  marcoTira.style.left = pct(desde);
-  marcoTira.style.right = `calc(100% - ${pct(hasta)})`;
-  asaA.style.left = pct(desde);
-  asaB.style.left = pct(hasta);
-  cabezal.style.left = pct(posicion);
-  reloj.textContent = tiempo(posicion);
-  const recortado = desde > 0 || hasta < DURACION;
-  dice.textContent = recortado
-    ? frase("teQuedasCon").replace("{trozo}", tiempo(hasta - desde)).replace("{total}", tiempo(DURACION))
-    : frase("arrastra");
-  totalTexto.textContent = recortado ? "" : tiempo(DURACION);
-  entero.hidden = !recortado;
-  ediSub.textContent = `${REGION.width} × ${REGION.height} · ${tiempo(hasta - desde)}`;
+  if (!W) ajustarLienzo();
+  const esFoto = fuente.tipo === "foto";
+  tiempoEl.hidden = esFoto;
+  fotograma(brocha, W, H, posicion, true);
+  if (!esFoto) {
+    veloIzq.style.width = porc(desde);
+    veloDer.style.left = porc(hasta);
+    marcoTira.style.left = porc(desde);
+    marcoTira.style.right = `calc(100% - ${porc(hasta)})`;
+    asaA.style.left = porc(desde);
+    asaB.style.left = porc(hasta);
+    cabezal.style.left = porc(posicion);
+    reloj.textContent = tiempo(posicion);
+    const recortado = desde > 0 || hasta < DURACION;
+    dice.textContent = recortado
+      ? frase("teQuedasCon").replace("{trozo}", tiempo(hasta - desde)).replace("{total}", tiempo(DURACION))
+      : frase("arrastra");
+    totalTexto.textContent = tiempo(hasta - desde);
+    entero.hidden = !recortado;
+    pintarCarril();
+  }
+  const R = fuente.rect;
+  ediSub.textContent = esFoto ? `${Math.round(R.w)} × ${Math.round(R.h)}` : `${Math.round(R.w)} × ${Math.round(R.h)} · ${tiempo(hasta - desde)}`;
   estimar();
 }
 
 const msEn = (clientX) => {
-  const r = pista.getBoundingClientRect();
+  const r = pistaTira.getBoundingClientRect();
   return Math.round(clamp((clientX - r.left) / Math.max(1, r.width), 0, 1) * DURACION);
 };
-
-pista.addEventListener("pointerdown", (e) => {
+pistaTira.addEventListener("pointerdown", (e) => {
   if (asaA.contains(e.target)) agarrado = "desde";
   else if (asaB.contains(e.target)) agarrado = "hasta";
   else {
@@ -557,11 +1192,10 @@ pista.addEventListener("pointerdown", (e) => {
   }
   if (agarrado === "desde") asaA.classList.add("agarrada");
   if (agarrado === "hasta") asaB.classList.add("agarrada");
-  pista.setPointerCapture(e.pointerId);
+  pistaTira.setPointerCapture(e.pointerId);
   refrescarEditor();
 });
-
-pista.addEventListener("pointermove", (e) => {
+pistaTira.addEventListener("pointermove", (e) => {
   if (!agarrado) return;
   const ms = msEn(e.clientX);
   // Mover un corte enseña ese sitio en la imagen, como en la app; y las asas nunca se
@@ -572,20 +1206,16 @@ pista.addEventListener("pointermove", (e) => {
   } else if (agarrado === "hasta") {
     hasta = clamp(ms, desde + MINIMO, DURACION);
     posicion = Math.max(desde, hasta - 1);
-  } else {
-    posicion = ms;
-  }
+  } else posicion = ms;
   refrescarEditor();
 });
-
 const soltar = () => {
   agarrado = null;
   asaA.classList.remove("agarrada");
   asaB.classList.remove("agarrada");
 };
-pista.addEventListener("pointerup", soltar);
-pista.addEventListener("pointercancel", soltar);
-
+pistaTira.addEventListener("pointerup", soltar);
+pistaTira.addEventListener("pointercancel", soltar);
 entero.addEventListener("click", () => {
   desde = 0;
   hasta = DURACION;
@@ -594,12 +1224,11 @@ entero.addEventListener("click", () => {
 
 function parar() {
   if (!reproduciendo) return;
-  clearInterval(reproduciendo);
-  reproduciendo = null;
+  cancelAnimationFrame(reproduciendo);
+  reproduciendo = 0;
   botonPlay.querySelector("use").setAttribute("href", "#i-play");
   botonPlay.setAttribute("aria-label", frase("reproducir"));
 }
-
 botonPlay.addEventListener("click", () => {
   if (reproduciendo) return parar();
   // Fuera del trozo o ya en su final: se empieza por su principio.
@@ -607,36 +1236,42 @@ botonPlay.addEventListener("click", () => {
   botonPlay.querySelector("use").setAttribute("href", "#i-pause");
   botonPlay.setAttribute("aria-label", frase("pausar"));
   let antes = performance.now();
-  reproduciendo = setInterval(() => {
-    const ahora = performance.now();
+  const paso = (ahora) => {
     posicion += ahora - antes;
     antes = ahora;
     // Como en la app: se para en el final del trozo, no da la vuelta.
     if (posicion >= hasta) {
       posicion = Math.max(desde, hasta - 1);
-      parar();
+      refrescarEditor();
+      return parar();
     }
     refrescarEditor();
-  }, 1000 / FPS_GRABADO);
+    reproduciendo = requestAnimationFrame(paso);
+  };
+  reproduciendo = requestAnimationFrame(paso);
 });
+$("silenciar").addEventListener("click", () => {
+  silencio = !silencio;
+  $("silenciar").querySelector("use").setAttribute("href", silencio ? "#i-volume-x" : "#i-volume-2");
+});
+$("tira-acelerar").addEventListener("click", () => aviso(frase("acelerar")));
 
 /* --- el panel: el formato, el Estudio, lo demás plegado y guardar --- */
-const formatos = document.getElementById("formatos");
-const para = document.getElementById("edi-para");
-const calidad = document.getElementById("calidad");
-const fpsRango = document.getElementById("fps");
-const ancho = document.getElementById("ancho");
-const alto = document.getElementById("alto");
-const candado = document.getElementById("candado");
-const resultado = document.getElementById("edi-resultado");
-const PARA = { mp4: "paraMp4", gif: "paraGif", png: "paraPng", jpg: "paraJpg" };
+const formatos = $("formatos");
+const para = $("edi-para");
+const calidad = $("calidad");
+const fpsRango = $("fps");
+const ancho = $("ancho");
+const alto = $("alto");
+const candado = $("candado");
+const resultado = $("edi-resultado");
 let formato = "mp4";
 let atado = true;
 
 function estimar() {
   const segundos = Math.max(0.1, (hasta - desde) / 1000);
-  const w = Number(ancho.value) || REGION.width;
-  const h = Number(alto.value) || REGION.height;
+  const w = Number(ancho.value) || W;
+  const h = Number(alto.value) || H;
   const q = Number(calidad.value);
   const f = Number(fpsRango.value);
   let bytes;
@@ -644,25 +1279,32 @@ function estimar() {
   else if (formato === "jpg") bytes = w * h * (q / 100) * 0.15;
   else if (formato === "gif") bytes = w * h * (q / 100) * 0.12 * f * segundos;
   else bytes = ((1_000_000 + (q / 100) * 11_000_000) / 8) * segundos;
-  document.getElementById("v-peso").textContent = `≈ ${formatBytes(Math.round(bytes))}`;
-  document.getElementById("v-calidad").textContent = `${q}%`;
-  document.getElementById("v-fps").textContent = `${f} fps`;
+  $("v-peso").textContent = `≈ ${formatBytes(Math.round(bytes))}`;
+  $("v-calidad").textContent = `${q}%`;
+  $("v-fps").textContent = `${f} fps`;
 }
 
+function ponerFormato(f) {
+  formato = f;
+  const esFoto = fuente.tipo === "foto";
+  [...formatos.children].forEach((b) => {
+    b.classList.toggle("viva", b.dataset.formato === f);
+    // Una foto no se guarda como vídeo: ahí solo quedan PNG y JPG, como en la app.
+    b.hidden = esFoto && (b.dataset.formato === "mp4" || b.dataset.formato === "gif");
+  });
+  const unaFoto = f === "png" || f === "jpg";
+  document.querySelectorAll(".edi-solo-video").forEach((c) => (c.hidden = unaFoto || esFoto));
+  $("fila-bucle").hidden = f !== "gif";
+  $("btn-guardar-formato").textContent = f.toUpperCase();
+  para.textContent = frase(
+    f === "mp4" ? "paraMp4" : f === "gif" ? "paraGif" : esFoto ? (f === "png" ? "paraPng" : "paraJpg") : f === "png" ? "paraPngVideo" : "paraJpgVideo",
+  );
+  estimar();
+}
 formatos.addEventListener("click", (e) => {
   const b = e.target.closest("button");
-  if (!b) return;
-  formato = b.dataset.formato;
-  [...formatos.children].forEach((otro) => otro.classList.toggle("viva", otro === b));
-  // PNG y JPG sacan UN fotograma: lo que va con el tiempo no pinta nada ahí.
-  const esUnaFoto = formato === "png" || formato === "jpg";
-  document.querySelectorAll(".edi-solo-video").forEach((c) => (c.hidden = esUnaFoto));
-  document.getElementById("fila-bucle").hidden = formato !== "gif";
-  document.getElementById("btn-guardar-formato").textContent = formato.toUpperCase();
-  para.textContent = frase(PARA[formato]);
-  estimar();
+  if (b) ponerFormato(b.dataset.formato);
 });
-para.textContent = frase(PARA[formato]);
 
 // Los dos desplegables, como en la app: el Estudio abierto y «Más ajustes» plegado. Lo de
 // dentro de uno cerrado no se puede pulsar ni alcanzar con el tabulador.
@@ -679,66 +1321,184 @@ document.querySelectorAll(".edi-plegable").forEach((plegable) => {
 });
 
 // Los fondos del Estudio se ven en la imagen, como en la vista previa de la app: el fondo
-// con su aire alrededor y las esquinas de la captura redondeadas.
-const fondos = document.getElementById("edi-fondos");
-const marcoFondo = document.getElementById("edi-fondo");
-const esquinas = document.getElementById("esquinas");
-const filaEsquinas = document.getElementById("fila-esquinas");
+// con su aire alrededor, las esquinas redondeadas y la sombra.
+const fondos = $("edi-fondos");
+const marcoFondo = $("edi-fondo");
+const esquinas = $("esquinas");
+const aire = $("aire");
+const sombra = $("sombra");
+let fondoActual = "linear-gradient(135deg, rgb(88 116 245), rgb(168 85 217))";
 for (const b of fondos.children) if (b.dataset.fondo) b.style.setProperty("--f", b.dataset.fondo);
 
-function ponerEsquinas() {
-  document.getElementById("v-esquinas").textContent = `${esquinas.value} px`;
-  lienzoEditor.style.borderRadius = marcoFondo.classList.contains("con-fondo") ? `${esquinas.value}px` : "";
+function ponerEstudio() {
+  const con = Boolean(fondoActual);
+  marcoFondo.classList.toggle("con-fondo", con);
+  marcoFondo.style.background = con ? fondoActual : "";
+  marcoFondo.style.backgroundSize = "cover";
+  // El aire se ve a escala: la vista previa enseña la imagen más pequeña de lo que sale.
+  marcoFondo.style.padding = con ? `${Math.round(Number(aire.value) * 0.42)}px` : "0";
+  $("v-aire").textContent = `${aire.value} px`;
+  $("v-esquinas").textContent = `${esquinas.value} px`;
+  lienzoEditor.style.borderRadius = con ? `${Math.round(Number(esquinas.value) * 0.6)}px` : "2px";
+  lienzoEditor.style.boxShadow = con && sombra.dataset.on === "1" ? "0 10px 30px #00000073" : "none";
+  for (const fila of ["fila-aire", "fila-esquinas", "fila-sombra"]) $(fila).hidden = !con;
 }
 fondos.addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
   [...fondos.children].forEach((otro) => otro.classList.toggle("viva", otro === b));
-  const conFondo = Boolean(b.dataset.fondo);
-  marcoFondo.classList.toggle("con-fondo", conFondo);
-  marcoFondo.style.background = b.dataset.fondo || "";
-  filaEsquinas.hidden = !conFondo;
-  ponerEsquinas();
+  fondoActual = b.dataset.fondo;
+  ponerEstudio();
 });
-esquinas.addEventListener("input", ponerEsquinas);
-
+[esquinas, aire].forEach((r) => r.addEventListener("input", ponerEstudio));
+sombra.addEventListener("click", () => queueMicrotask(ponerEstudio));
+document.querySelector(".edi-dos").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.accion === "fondo-escritorio") {
+    // Tu fondo de escritorio: aquí, la propia foto del escritorio de la demo.
+    [...fondos.children].forEach((otro) => otro.classList.remove("viva"));
+    fondoActual = `center / cover url("${fotoEscritorio.src}")`;
+    return ponerEstudio();
+  }
+  aviso(frase("fondoArchivo"));
+});
+document.querySelector("[data-accion=estilo]").addEventListener("click", () => aviso(frase("estilo")));
+["puntero", "zoom-clics"].forEach((id) =>
+  $(id).addEventListener("input", () => {
+    $("v-puntero").textContent = `${$("puntero").value} px`;
+    const z = Number($("zoom-clics").value);
+    const nombre = $("v-zoom-clics");
+    nombre.textContent = z ? `${z}%` : idioma === "en" ? "no zoom" : "sin zoom";
+    nombre.classList.toggle("apagado", !z);
+    pintarMiniaturas();
+    refrescarEditor();
+  }),
+);
+$("marcar-clics").addEventListener("click", () => queueMicrotask(refrescarEditor));
 [calidad, fpsRango].forEach((r) => r.addEventListener("input", estimar));
 
-function ligar(origen, destino, proporcion) {
+function ligar(origen, destino, eje) {
   origen.addEventListener("input", () => {
     if (!atado) return estimar();
     const v = Number(origen.value);
-    if (v > 0) destino.value = Math.round(v * proporcion);
+    const R = fuente.rect;
+    if (v > 0) destino.value = Math.round(eje === "alto" ? (v * R.h) / R.w : (v * R.w) / R.h);
     estimar();
   });
 }
-ligar(ancho, alto, REGION.height / REGION.width);
-ligar(alto, ancho, REGION.width / REGION.height);
-
+ligar(ancho, alto, "alto");
+ligar(alto, ancho, "ancho");
 candado.dataset.on = "1";
 candado.addEventListener("click", () => {
   atado = !atado;
   candado.dataset.on = atado ? "1" : "0";
   candado.title = atado ? frase("bloqueada") : frase("libre");
 });
-
-document.getElementById("porcientos").addEventListener("click", (e) => {
+$("porcientos").addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
-  ancho.value = Math.round((REGION.width * Number(b.dataset.pct)) / 100);
-  alto.value = Math.round((REGION.height * Number(b.dataset.pct)) / 100);
+  ancho.value = Math.round((fuente.rect.w * Number(b.dataset.pct)) / 100);
+  alto.value = Math.round((fuente.rect.h * Number(b.dataset.pct)) / 100);
   estimar();
 });
 
+/** La imagen como sale del editor: el fondo, su aire, las esquinas, la sombra y las marcas. */
+function componer() {
+  const pad = fondoActual ? Number(aire.value) * (W / Math.max(1, fuente.rect.w)) : 0;
+  const c = document.createElement("canvas");
+  c.width = Math.round(W + pad * 2);
+  c.height = Math.round(H + pad * 2);
+  const x = c.getContext("2d");
+  if (fondoActual) {
+    const colores = [...fondoActual.matchAll(/rgb\(([^)]+)\)/g)].map((m) => `rgb(${m[1]})`);
+    if (fondoActual.startsWith("center")) x.drawImage(escritorio, 0, 0, c.width, c.height);
+    else if (colores.length > 1) {
+      const g = x.createLinearGradient(0, 0, c.width, c.height);
+      g.addColorStop(0, colores[0]);
+      g.addColorStop(1, colores[1]);
+      x.fillStyle = g;
+      x.fillRect(0, 0, c.width, c.height);
+    } else {
+      x.fillStyle = colores[0] || "#000";
+      x.fillRect(0, 0, c.width, c.height);
+    }
+  }
+  const radio = fondoActual ? Number(esquinas.value) * (W / Math.max(1, fuente.rect.w)) : 0;
+  x.save();
+  if (fondoActual && sombra.dataset.on === "1") {
+    x.shadowColor = "rgba(0,0,0,.4)";
+    x.shadowBlur = 30;
+    x.shadowOffsetY = 10;
+    x.fillStyle = "#000";
+    x.beginPath();
+    x.roundRect(pad, pad, W, H, radio);
+    x.fill();
+  }
+  x.restore();
+  x.save();
+  x.beginPath();
+  x.roundRect(pad, pad, W, H, radio);
+  x.clip();
+  x.drawImage(lienzoEditor, pad, pad);
+  x.restore();
+  return c;
+}
+
 [["btn-guardar", false], ["btn-copiar", true], ["btn-guardar-en", false]].forEach(([id, copia]) => {
-  document.getElementById(id).addEventListener("click", () => {
-    const peso = document.getElementById("v-peso").textContent.replace("≈ ", "");
+  $(id).addEventListener("click", () => {
+    const peso = $("v-peso").textContent.replace("≈ ", "");
+    const esImagen = formato === "png" || formato === "jpg";
+    if (esImagen) {
+      const c = componer();
+      const r = { w: c.width, h: c.height };
+      if (copia) copiarLienzo(c, r);
+      else descargarLienzo(c, r, nombreArchivo("png"));
+      guardarEnHistorial("foto", fuente.rect, c);
+    } else guardarEnHistorial("video", fuente.rect, componer(), peso);
     resultado.hidden = false;
-    resultado.querySelector("span").textContent =
-      `${frase("guardado")} · ${peso} · ${copia ? frase("copiado") + " · " : ""}${frase("abrirCarpeta")}`;
+    resultado.querySelector("span").textContent = `${frase("guardado")} · ${peso} · ${copia ? frase("copiado") + " · " : ""}${frase("abrirCarpeta")}`;
   });
 });
 
+/* =================================================== 3. ajustes: el historial === */
+const historial = [];
+function guardarEnHistorial(tipo, r, lienzo, peso) {
+  const mini = document.createElement("canvas");
+  const fuenteImg = lienzo || lienzoDe(r);
+  mini.width = 320;
+  mini.height = Math.max(1, Math.round((320 * fuenteImg.height) / fuenteImg.width));
+  mini.getContext("2d").drawImage(fuenteImg, 0, 0, mini.width, mini.height);
+  const ext = tipo === "foto" ? "png" : formato;
+  historial.unshift({ tipo, mini, nombre: nombreArchivo(ext), peso: peso || formatBytes(Math.round(r.w * r.h * 3 * 0.35)) });
+  pintarHistorial();
+}
+let filtro = "todo";
+function pintarHistorial() {
+  const rejilla = $("his-rejilla");
+  rejilla.replaceChildren();
+  const lista = historial.filter((h) => filtro === "todo" || h.tipo === filtro);
+  $("his-vacio").hidden = lista.length > 0;
+  for (const h of lista) {
+    const fig = document.createElement("figure");
+    fig.className = "his-item";
+    const cap = document.createElement("figcaption");
+    cap.innerHTML = `<span>${h.nombre}</span><small>${h.tipo === "foto" ? frase("nombreFoto") : frase("nombreVideo")} · ${h.peso}</small>`;
+    fig.append(h.mini, cap);
+    rejilla.appendChild(fig);
+  }
+}
+$("his-filtros").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  filtro = b.dataset.filtro;
+  pintarHistorial();
+});
+
+/* ------------------------------------------------------------ al arrancar */
+ponerFormato("mp4");
+ponerEstudio();
+ajustarLienzo();
 refrescarEditor();
 
 // Los interruptores de la maqueta son botones vacios: el dibujo lo hace el CSS, asi que
@@ -747,14 +1507,10 @@ refrescarEditor();
 function nombrarPalancas() {
   for (const p of document.querySelectorAll(".palanca")) {
     const etiqueta = p.parentElement?.querySelector(".txt");
-    // textContent pega el nombre con el <small> de debajo cuando no hay espacio entre las
-    // etiquetas, y sale "Lupa de pixelzoom 6x...". Se recorren los nodos y se unen con uno.
     // Hay dos formas de fila: unas llevan el texto en hijos (<span> mas <small>) y otras
     // lo llevan suelto en el propio .txt. textContent las pega sin espacio cuando no hay
     // ninguno entre las etiquetas, asi que se recorren las hojas y se unen con un punto.
-    const hojas = etiqueta
-      ? [...etiqueta.querySelectorAll("span, small")].filter((n) => !n.querySelector("span, small"))
-      : [];
+    const hojas = etiqueta ? [...etiqueta.querySelectorAll("span, small")].filter((n) => !n.querySelector("span, small")) : [];
     const trozos = hojas.length ? hojas : etiqueta ? [etiqueta] : [];
     const nombre = trozos
       .map((n) => n.textContent.trim())
@@ -764,17 +1520,69 @@ function nombrarPalancas() {
     if (nombre) p.setAttribute("aria-label", nombre);
     p.setAttribute("role", "switch");
     p.setAttribute("aria-checked", p.dataset.on === "1" ? "true" : "false");
-    if (p.disabled) p.setAttribute("aria-disabled", "true");
   }
 }
 nombrarPalancas();
-// El candado de la proporcion tambien enciende y apaga, pero no es una .palanca, asi que
-// se queda fuera del bucle de arriba y necesita su propio par role + estado.
+// El candado de la proporcion tambien enciende y apaga, pero no es una .palanca.
 candado.setAttribute("role", "switch");
-const marcarCandado = () =>
-  candado.setAttribute("aria-checked", candado.dataset.on === "1" ? "true" : "false");
+const marcarCandado = () => candado.setAttribute("aria-checked", candado.dataset.on === "1" ? "true" : "false");
 marcarCandado();
-// El manejador de arriba cambia data-on en su propio escuchador; con la microtarea este
-// lee el valor ya actualizado en vez del anterior.
 candado.addEventListener("click", () => queueMicrotask(marcarCandado));
 
+/* ===================================================== el resto de la portada === */
+/* Capturar, grabar y editar: un paso cada 260 px de rueda mientras la sección está pegada. */
+(function () {
+  const pistaMomentos = $("momentos-pista");
+  if (!pistaMomentos) return;
+  const articulos = [...document.querySelectorAll(".momento")];
+  const fotos = [...document.querySelectorAll(".momentos-fotos img")];
+  const pasos = [...document.querySelectorAll("#pasos-momento button")];
+  const PASO = 260;
+  let actual = -1;
+  const poner = (i) => {
+    if (i === actual) return;
+    actual = i;
+    articulos.forEach((a, j) => a.classList.toggle("activo", j === i));
+    fotos.forEach((f, j) => f.classList.toggle("activa", j === i));
+    pasos.forEach((b, j) => (j === i ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current")));
+  };
+  let pendiente = false;
+  const mirar = () => {
+    pendiente = false;
+    if (getComputedStyle(pistaMomentos).height === "auto" || innerWidth <= 860) return poner(0);
+    const recorrido = -pistaMomentos.getBoundingClientRect().top;
+    poner(clamp(Math.floor((recorrido + PASO * 0.35) / PASO), 0, articulos.length - 1));
+  };
+  addEventListener(
+    "scroll",
+    () => {
+      if (pendiente) return;
+      pendiente = true;
+      requestAnimationFrame(mirar);
+    },
+    { passive: true },
+  );
+  addEventListener("resize", mirar);
+  // Los nombres de arriba llevan al paso: bajan la página justo hasta él.
+  pasos.forEach((b, i) =>
+    b.addEventListener("click", () => {
+      const arriba = pistaMomentos.getBoundingClientRect().top + scrollY;
+      scrollTo({ top: arriba + i * PASO + 2, behavior: GANANCIA ? "smooth" : "auto" });
+    }),
+  );
+  mirar();
+})();
+
+/* Las barras de las cifras se llenan cuando se ven, cada una a su velocidad de verdad. */
+(function () {
+  const medidas = $("medidas");
+  if (!medidas) return;
+  new IntersectionObserver(
+    (entradas, vigia) => {
+      if (!entradas.some((x) => x.isIntersecting)) return;
+      vigia.disconnect();
+      medidas.classList.add("vistas");
+    },
+    { threshold: 0.4 },
+  ).observe(medidas);
+})();

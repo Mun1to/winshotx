@@ -44,6 +44,11 @@
   --halo: #0a9bff26;           /* la luz azul detras del titular */
   --brillo-icono: #0a9bff73;   /* el resplandor de un icono suelto */
   --brillo-icono-vivo: #0a9bffb3;
+  --sombra-boton-fuerte: #0a9bffaa;
+  --sombra-foto: 0 40px 90px -30px #000000cc, 0 0 0 1px #ffffff14;
+  --brillo-demo: .34;          /* la luz morada de detras de la demo */
+  --no-barra: #5a5a66;         /* la barra de la otra herramienta en las cifras */
+  --medio: #f0b429;            /* un «a medias» en la comparativa */
   color-scheme: dark;
 }
 
@@ -88,269 +93,216 @@
     --halo: #0a9bff1f;
     --brillo-icono: #0a9bff40;
     --brillo-icono-vivo: #0a9bff73;
+    --sombra-boton-fuerte: #0077cc80;
+    --sombra-foto: 0 40px 80px -36px #1b2a4a73, 0 0 0 1px #00000017;
+    --brillo-demo: .2;
+    --no-barra: #a3a3ad;
+    --medio: #b45309;
   }
+}
+
+
+/* Las letras: la misma familia que la app y que Windows. La de las notas giradas es la de
+   escribir a mano que ya trae Windows (Ink Free), y fuera de Windows la que se le parezca. */
+:root {
+  --letra: "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --letra-titulo: "Segoe UI Variable Display", "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --letra-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  --letra-mano: "Ink Free", "Segoe Print", "Bradley Hand", "Chalkboard SE", "Comic Sans MS", cursive;
+  --nav-alto: 90px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 /* [hidden] tiene que ganar a los display de las reglas de abajo */
 [hidden] { display: none !important; }
 
-/* barras de desplazamiento como las del webview de la app, no las del sistema */
-
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scroll-padding-top: var(--nav-alto); }
+html.quieto { scroll-behavior: auto; }
 body {
   background: var(--fondo);
   color: var(--texto);
-  font: 16px/1.6 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font: 17px/1.6 var(--letra);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-.env { width: min(1120px, 100% - 40px); margin-inline: auto; }
+/* Ancho de pantalla grande de verdad: 1080 px como poco, el 80 % de la ventana y 1480 como
+   mucho. Con los 1120 de antes, a 1920 sobraban 400 px vacíos a cada lado. */
+.env { width: min(100% - 40px, clamp(1080px, 80vw, 1480px)); margin-inline: auto; }
 .centrado { text-align: center; }
 .centrado .entradilla { margin-inline: auto; }
 a { color: var(--azul-claro); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { font-family: inherit; }
+img { display: block; max-width: 100%; height: auto; }
+code { font-family: var(--letra-mono); font-size: .9em; }
+h1, h2, h3 { font-family: var(--letra-titulo); text-wrap: balance; }
+p { text-wrap: pretty; }
+b, strong { font-weight: 680; }
 
-/* ---------- cabecera: una barra ovalada que flota sobre la página ---------- */
-nav {
-  position: sticky; top: 0; z-index: 50; padding: 14px 0 12px;
-  background: linear-gradient(180deg, var(--fondo) 62%, transparent);
-}
-nav .env {
+/* ---------- la barra de arriba: una pieza flotante con el logo, el menú y descargar ---------- */
+nav.barra { position: sticky; top: 0; z-index: 50; padding: 14px 0; }
+.barra-dentro {
   /* 1fr a los lados para que el menú caiga en el centro exacto de la barra */
-  display: grid; grid-template-columns: 1fr auto 1fr;
-  align-items: center; gap: 16px; height: 58px; padding: 0 8px 0 18px;
-  border-radius: 999px; border: 1px solid var(--linea);
-  background: var(--vidrio); backdrop-filter: blur(18px);
-  box-shadow: var(--sombra-barra);
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px;
+  height: 62px; padding: 0 10px 0 18px; border-radius: 16px;
+  background: var(--vidrio); backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: 0 0 0 1px var(--linea), var(--sombra-barra);
 }
-.marca { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
-.marca svg { width: 26px; height: 26px; }
-.marca svg.chico { width: 20px; height: 20px; }
-nav .enlaces {
-  justify-self: center; display: flex; align-items: center; gap: 2px; font-size: 14px;
+.logo-nombre {
+  justify-self: start; display: inline-flex; align-items: center; gap: 10px;
+  font: 720 19px/1 var(--letra-titulo); letter-spacing: -0.02em; color: var(--texto);
 }
-nav .enlaces a {
-  color: var(--suave); padding: 9px 15px; border-radius: 999px;
-  transition: background .14s, color .14s;
+.logo-nombre:hover { text-decoration: none; }
+.marca-svg { width: 30px; height: 30px; flex: none; }
+.barra .enlaces { justify-self: center; display: flex; gap: 2px; font-size: 15.5px; }
+.barra .enlaces a {
+  padding: 8px 14px; border-radius: 10px; color: var(--suave);
+  transition: background .18s, color .18s;
 }
-nav .enlaces a:hover { color: var(--texto); background: var(--realce-medio); text-decoration: none; }
-nav .acciones { justify-self: end; display: flex; align-items: center; gap: 8px; }
-.idioma {
-  padding: 9px 18px; border-radius: 999px; border: 1px solid var(--linea);
-  background: var(--realce); color: var(--texto); font-size: 13.5px; font-weight: 600;
-  cursor: pointer; transition: background .14s, border-color .14s;
+.barra .enlaces a:hover { color: var(--texto); background: var(--realce-medio); text-decoration: none; }
+/* La página en la que estás: en texto y con su raya, no en una píldora quieta. */
+.barra .enlaces a.aqui {
+  color: var(--texto); text-decoration: underline 2px var(--azul); text-underline-offset: 9px;
 }
-.idioma:hover { background: var(--realce-fuerte); border-color: var(--linea-viva); }
+.barra .acciones { justify-self: end; display: flex; align-items: center; gap: 6px; }
+.barra .gh {
+  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px;
+  color: var(--suave); transition: background .18s, color .18s;
+}
+.barra .gh svg { width: 21px; height: 21px; }
+.barra .idioma {
+  padding: 9px 14px; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--texto);
+  transition: background .18s;
+}
+.barra .gh:hover, .barra .idioma:hover { background: var(--realce-medio); color: var(--texto); text-decoration: none; }
+.barra .baja { height: 42px; padding: 0 16px; font-size: 15px; border-radius: 10px; }
+.barra .baja svg { width: 17px; height: 17px; }
+@media (max-width: 1020px) {
+  .barra .enlaces { display: none; }
+  .barra-dentro { grid-template-columns: 1fr auto; }
+}
+/* En el móvil no se descarga un programa de Windows: ahí sobra el botón. */
+@media (max-width: 640px) { .barra .baja { display: none; } }
 
-/* Solo el logo, en un circulo del mismo alto y el mismo borde que el boton de idioma,
-   para que la esquina derecha de la barra sea una pieza y no dos cosas distintas. */
-/* 41.6 px es lo que mide el boton de idioma de al lado: 13.5 px de letra por el 1.6 de
-   interlineado del body, mas 9 de relleno arriba y abajo, mas los dos bordes. Se le da
-   ese tamano exacto para que los dos circulos de la esquina sean del mismo alto. */
-.gh {
-  display: grid; place-items: center; width: 41.6px; height: 41.6px;
-  border-radius: 999px; border: 1px solid var(--linea); background: var(--realce);
-  color: var(--texto); transition: background .14s, border-color .14s, color .14s;
-}
-.gh:hover { background: var(--realce-fuerte); border-color: var(--linea-viva); }
-.gh-marca { width: 22px; height: 22px; }
-@media (max-width: 900px) {
-  nav .env { grid-template-columns: 1fr auto; padding-right: 10px; }
-  nav .enlaces { display: none; }
-}
-
-/* ---------- portada ---------- */
-.portada { position: relative; padding: 86px 0 60px; text-align: center; }
-.portada::before {
-  content: ""; position: absolute; inset: -180px 0 auto; height: 520px; z-index: -1;
-  background: radial-gradient(ellipse 60% 50% at 50% 40%, var(--halo), transparent 70%);
-}
-.marca.solo-logo svg { width: 30px; height: 30px; }
-.firma { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 24px; }
-.portada .logo { width: 62px; height: 62px; }
-.firma .palabra { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; }
-
-/* ---------- comparación cara a cara ---------- */
-.duelo {
-  margin-top: 26px; border: 1px solid var(--borde); border-radius: var(--radio);
-  overflow-x: auto; background: var(--panel);
-}
-.duelo table {
-  width: 100%; min-width: 660px; border-collapse: collapse; margin: 0; font-size: 14px;
-  table-layout: fixed;
-}
-.duelo th, .duelo td { padding: 13px 18px; border-bottom: 1px solid var(--borde); text-align: left; }
-.duelo tr:last-child th, .duelo tr:last-child td { border-bottom: 0; }
-.duelo thead th {
-  position: sticky; top: 0; z-index: 1; background: var(--cabeza-tabla);
-  font-size: 14px; font-weight: 650; text-transform: none; letter-spacing: -0.01em; color: var(--texto);
-  border-bottom: 1px solid var(--linea);
-}
-/* Los dos contendientes ocupan lo mismo: si una columna es mas ancha que la otra, la
-   comparacion ya parece inclinada antes de leer ni un dato. */
-.duelo thead th:first-child { width: 38%; }
-.duelo thead th:not(:first-child) { width: 31%; }
-/* Las dos columnas comparadas van centradas y con cifras de ancho fijo, para que los
-   numeros queden en columna y se puedan comparar de un vistazo. */
-.duelo td { text-align: center; font-variant-numeric: tabular-nums; }
-.duelo thead th:not(:first-child) { text-align: center; }
-.duelo .equipo { justify-content: center; }
-/* Una linea separa a los dos, que es de lo que va la tabla. */
-.duelo th:nth-child(2), .duelo td:nth-child(2) { border-left: 1px solid var(--borde); }
-.duelo th:last-child, .duelo td:last-child { border-left: 1px solid var(--borde); }
-/* Y la columna de winshotx, un poco de azul de fondo para que se siga sin perderse. */
-.duelo thead th:last-child { background: var(--nuestra); }
-.duelo tbody td:last-child { background: var(--nuestra-suave); }
-
-.duelo tbody th {
-  font-weight: 650; font-size: 13.5px; text-transform: none; letter-spacing: -0.01em;
-  color: var(--texto);
-}
-.duelo tbody td { color: var(--apagado); white-space: nowrap; }
-.duelo tbody td.gana { color: var(--texto); font-weight: 650; background: var(--gana); }
-.duelo tbody td:last-child.gana { background: var(--gana-fuerte); }
-.duelo tbody td.empate { color: var(--texto); }
-.duelo tbody tr:hover td:not(.gana) { background: var(--realce); }
-.duelo tbody tr:hover td:last-child:not(.gana) { background: var(--nuestra); }
-/* Los tres primeros son los numeros medidos: el argumento entero de la pagina esta ahi,
-   asi que se leen mas grandes que el resto de la tabla. */
-.duelo tbody tr.cifras td { font-size: 17px; padding-top: 15px; padding-bottom: 15px; }
-.duelo tbody tr.cifras td.gana { font-weight: 700; letter-spacing: -0.01em; }
-.equipo { display: inline-flex; align-items: center; gap: 9px; }
-.equipo.nuestro { color: var(--azul); }
-.mini-marca { width: 20px; height: 20px; }
-/* los cuatro cuadraditos de Windows, sin traerse ninguna imagen */
-.ventanita {
-  width: 17px; height: 17px; flex: none;
-  background:
-    linear-gradient(#0078d4, #0078d4) 0 0 / 7.5px 7.5px no-repeat,
-    linear-gradient(#0078d4, #0078d4) 9.5px 0 / 7.5px 7.5px no-repeat,
-    linear-gradient(#0078d4, #0078d4) 0 9.5px / 7.5px 7.5px no-repeat,
-    linear-gradient(#0078d4, #0078d4) 9.5px 9.5px / 7.5px 7.5px no-repeat;
-}
-.duelo b.si, .duelo b.no {
-  display: inline-grid; place-items: center; width: 17px; height: 17px;
-  border-radius: 5px; margin-right: 5px; vertical-align: -3px;
-}
-.duelo b.si { color: var(--si); }
-.duelo b.no { color: var(--no); }
-.duelo b svg { width: 11px; height: 11px; }
-h1 { font-size: clamp(34px, 6vw, 60px); line-height: 1.06; letter-spacing: -0.035em; font-weight: 700; }
-h1 em { font-style: normal; color: var(--azul); }
-.bajada { margin: 20px auto 0; max-width: 62ch; font-size: clamp(16px, 2.2vw, 19px); color: var(--suave); }
-.botones { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 32px; }
+/* ---------- botones: el principal relleno y vivo, el segundo con fondo suave y el mismo tamaño ---------- */
+.botones { display: flex; flex-wrap: wrap; gap: 12px; }
 .btn {
-  display: inline-flex; align-items: center; gap: 9px;
-  padding: 13px 24px; border-radius: 12px;
-  font-weight: 600; font-size: 15px; border: 1px solid transparent;
-  transition: background .16s, transform .16s;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  height: 54px; padding: 0 26px; border: 0; border-radius: 12px; cursor: pointer;
+  font: 650 17px/1 var(--letra); white-space: nowrap;
+  transition: transform .18s, background .18s, box-shadow .18s;
 }
-.btn.primario { background: var(--azul-boton); color: #fff; box-shadow: 0 8px 30px var(--sombra-boton); }
+.btn:hover { text-decoration: none; }
+.btn svg { width: 19px; height: 19px; flex: none; }
+.btn.uno, .btn.primario {
+  background: var(--azul-boton); color: #fff;
+  box-shadow: 0 12px 30px -12px var(--sombra-boton-fuerte), inset 0 1px 0 #ffffff33;
+}
 /* En fondo oscuro lo natural seria aclarar al pasar por encima, pero eso tumba el
    contraste del texto blanco. Se oscurece y el movimiento lo marca la sombra. */
-.btn.primario:hover {
-  background: #0072c4; text-decoration: none; transform: translateY(-1px);
-  box-shadow: 0 10px 34px #0a9bff59;
+.btn.uno:hover, .btn.primario:hover {
+  background: #006bb8; transform: translateY(calc(-2px * var(--motion-gain, 1)));
+  box-shadow: 0 18px 38px -14px var(--sombra-boton-fuerte), inset 0 1px 0 #ffffff33;
 }
-.btn.fantasma { border-color: var(--linea); color: var(--texto); background: var(--realce); }
-.btn.fantasma:hover { background: var(--realce-medio); text-decoration: none; }
-.letra-chica { margin-top: 14px; font-size: 13.5px; color: var(--suave); }
-/* Mismo motivo que en el pie: el azul de marca sobre el gris de esta linea se queda en 1,22
-   de contraste, muy por debajo del 3 que pide la norma para distinguir un enlace por color.
-   Con subrayado se ve sin depender del color. */
+.btn.dos, .btn.fantasma { background: var(--realce-medio); color: var(--texto); box-shadow: inset 0 0 0 1.5px var(--linea); }
+.btn.dos:hover, .btn.fantasma:hover { background: var(--realce-fuerte); }
+.btn:focus-visible, .barra a:focus-visible { outline: 2px solid var(--azul); outline-offset: 3px; }
+
+.letra-chica { margin-top: 14px; font-size: 15px; color: var(--suave); }
+/* El azul de marca sobre el gris de esta linea no llega al 3 de contraste que pide la norma
+   para distinguir un enlace por su color: va subrayado. */
 .letra-chica a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .letra-chica a:hover { color: var(--texto); }
 
-/* ---------- números: sin cajas, solo el dato y una línea que los separa ---------- */
-.numeros { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 62px; }
-.dato { display: grid; gap: 3px; padding: 4px 18px; border-left: 1px solid var(--borde); }
-.dato:first-child { border-left: 0; }
-.dato .valor {
-  font-size: clamp(30px, 3.4vw, 40px); font-weight: 700; letter-spacing: -0.035em;
-  line-height: 1.1; color: var(--azul); font-variant-numeric: tabular-nums;
+/* ---------- títulos y secciones ---------- */
+h1 { font-size: clamp(40px, 5.2vw, 86px); line-height: 1.03; letter-spacing: -0.035em; font-weight: 750; }
+h1 em { font-style: normal; color: var(--azul); }
+h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.03em; font-weight: 720; }
+.entradilla { color: var(--suave); max-width: 62ch; font-size: clamp(18px, 1.25vw, 21px); margin-top: 16px; }
+/* Las secciones de la portada. Lo que esta fuera de la pantalla no se pinta hasta que llega:
+   ademas de ahorrar trabajo al cargar, sin esto los lienzos de la demo se repintaban en cada
+   fotograma de la cruceta aunque no se vieran. `auto` en el tamanno hace que, una vez vista,
+   cada seccion recuerde lo que mide y el scroll no salte. */
+.seccion { padding: clamp(72px, 10vh, 130px) 0; content-visibility: auto; contain-intrinsic-size: auto 900px; }
+.cabeza-seccion { max-width: 760px; }
+.cabeza-seccion.centrado { margin-inline: auto; }
+
+/* ---------- portada ---------- */
+.portada { position: relative; padding: clamp(36px, 6vh, 84px) 0 clamp(34px, 5vh, 60px); text-align: center; }
+.portada::before {
+  content: ""; position: absolute; inset: -220px 0 auto; height: 980px; z-index: -1; pointer-events: none;
+  background: radial-gradient(58% 48% at 50% 32%, var(--halo), transparent 72%);
 }
-.dato .que { font-size: 14px; color: var(--texto); }
-.dato .contra { font-size: 12.5px; color: var(--apagado); }
-@media (max-width: 760px) {
-  .numeros { grid-template-columns: 1fr 1fr; row-gap: 26px; }
-  .dato:nth-child(3) { border-left: 0; }
+.portada > .env { position: relative; z-index: 1; }
+.bajada { font-size: clamp(19px, 1.4vw, 24px); line-height: 1.5; color: var(--suave); max-width: 50ch; margin: 24px auto 0; }
+.bajada b { color: var(--texto); }
+.portada .botones { justify-content: center; margin-top: 34px; }
+.nota { color: var(--suave); font-size: 15.5px; margin-top: 18px; }
+.nota + .nota { margin-top: 6px; }
+.nota code { color: var(--texto); font-size: 14.5px; }
+.nota a { color: var(--texto); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.nota a:hover { color: var(--azul); }
+
+/* ---------- las notas giradas de los lados ----------
+   Texto suelto, girado y como escrito a mano con rotulador, sin caja, con lo que tiene
+   winshotx que no tienen las otras. En pantallas anchas van en los huecos de los lados del
+   titular; en las estrechas se recolocan en una fila debajo, nunca se quitan. */
+.fans { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 40px; margin: 34px auto 0; max-width: 760px; }
+.fan {
+  position: relative; max-width: 15em; color: var(--azul);
+  font: 400 20px/1.18 var(--letra-mano); text-wrap: balance;
+  transform: rotate(var(--giro, -4deg));
 }
-@media (max-width: 420px) {
-  .numeros { grid-template-columns: 1fr; row-gap: 22px; }
-  .dato { border-left: 0; padding-inline: 0; }
+.fan b { font-weight: 700; color: var(--texto); }
+.fan .flecha { display: none; }
+@media (min-width: 1180px) {
+  .fans { position: absolute; inset: 0; display: block; margin: 0; max-width: none; pointer-events: none; }
+  .fan { position: absolute; width: 11em; font-size: clamp(20px, 1.45vw, 26px); pointer-events: auto; }
+  .fan .flecha {
+    display: block; position: absolute; width: 92px; height: 70px; overflow: visible;
+    fill: none; stroke: currentColor; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round;
+  }
+  /* Los cuatro sitios, en el hueco que deja la bajada a cada lado. */
+  .fan.f-a { right: 0; top: 41%; --giro: 6deg; }
+  .fan.f-a .flecha { left: 18%; bottom: 100%; transform: rotate(-12deg); }
+  .fan.f-b { left: 0; top: 43%; --giro: -7deg; }
+  .fan.f-c { left: 2%; top: 73%; --giro: 4deg; }
+  .fan.f-c .flecha { left: 100%; top: 6%; }
+  .fan.f-d { right: 1%; top: 75%; --giro: -5deg; }
+}
+@media (min-width: 1600px) {
+  .fan.f-a { right: 3%; } .fan.f-b { left: 3%; } .fan.f-c { left: 6%; } .fan.f-d { right: 5%; }
+}
+/* Las notas sueltas de otras secciones: al lado de su titular, giradas, y en el móvil debajo. */
+.fan.suelta { display: inline-block; margin-top: 18px; }
+
+
+/* ---------- el escaparate: la demo, debajo del titular y del tamaño de una foto grande ---------- */
+.escaparate { position: relative; padding: 4px 0 clamp(48px, 7vh, 96px); scroll-margin-top: 4px; }
+/* La luz de detrás de la ventana: un solo brillo, el de la pieza principal de la página. */
+.escaparate::before {
+  content: ""; position: absolute; inset: 14% 10% 10%; z-index: -1; pointer-events: none;
+  background: linear-gradient(120deg, #5874f5, #a855d9); filter: blur(80px);
+  opacity: var(--brillo-demo); border-radius: 60px;
+}
+.demo-cabeza { display: grid; justify-items: center; gap: 8px; margin-bottom: 18px; text-align: center; }
+.pista-demo { color: var(--suave); font-size: 16.5px; min-height: 1.6em; }
+.pista-demo b { color: var(--texto); }
+.pista-demo kbd {
+  font: 600 13px/1 var(--letra); padding: 3px 7px; border-radius: 6px;
+  border: 1px solid var(--linea-viva); border-bottom-width: 2px; color: var(--texto);
+}
+.demo-pie { display: flex; justify-content: center; margin-top: 16px; min-height: 26px; }
+
+/* Las tres ventanas miden lo mismo, la de una pantalla de 16:10, para que cambiar de pestaña
+   no mueva la página. En el móvil cada una toma su alto. */
+@media (min-width: 861px) {
+  .escaparate .marco { aspect-ratio: 16 / 10; display: flex; flex-direction: column; }
+  .escaparate #p-sel .lienzo-caja { flex: 1; aspect-ratio: auto; }
+  .escaparate #p-edi .edi-cuerpo { flex: 1; min-height: 0; }
+  .escaparate #p-set .ajustes { flex: 1; min-height: 0; overflow: auto; align-content: start; }
 }
 
-/* ---------- los tres pilares, debajo de los numeros ---------- */
-/* Van dentro de la cabecera y no en una seccion aparte a proposito: quien llega tiene que
-   ver de un vistazo que es rapida (los numeros) y para que sirve (esto), sin bajar. */
-.pilares {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  margin-top: 54px;
-  text-align: left;
-}
-.pilar {
-  padding: 18px 18px 16px;
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  background: var(--panel);
-}
-/* El icono al lado del titulo y no encima: la tarjeta es un rotulo con tres funciones
-   debajo, y apilarlos le sumaba tres lineas de alto a cada una para no decir nada mas. */
-.cabeza-pilar { display: flex; align-items: center; gap: 11px; }
-.pilar h2 {
-  font-size: 18px;
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-.pilar ul {
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 7px;
-}
-/* La marca de verificacion se dibuja con el borde de una caja girada: un carácter suelto
-   cambia de forma con la fuente del sistema y aquí hay que verlo igual en todas partes. */
-.pilar li {
-  position: relative;
-  padding-left: 22px;
-  font-size: 13.5px;
-  color: var(--texto);
-  line-height: 1.45;
-}
-.pilar li::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  top: 4px;
-  width: 5px;
-  height: 9px;
-  border: solid var(--azul);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-/* El icono va suelto, con un resplandor de su color, y no metido en su cuadradito de
-   fondo azul: una caja alrededor de un icono es una «carcel» (GUSTOS-DE-DISENO, 1). */
-.ico-pilar { display: grid; place-items: center; flex: none; color: var(--azul); }
-.ico-pilar svg { width: 22px; height: 22px; filter: drop-shadow(0 0 8px var(--brillo-icono)); }
-@media (max-width: 900px) {
-  .pilares { grid-template-columns: 1fr; gap: 14px; margin-top: 40px; }
-}
-
-/* ---------- secciones ---------- */
-/* solo las secciones de la página; dentro de las demos hay <section> propias */
-body > section { padding: 74px 0; }
-/* Lo que esta fuera de la pantalla no se pinta hasta que llega. Ademas de ahorrar trabajo al
-   cargar, sin esto los lienzos de la demo se volvian a copiar en cada fotograma de la cruceta
-   aunque no se vieran: con la CPU a 4x la portada bajaba de 60 a 50 fotogramas. `auto` en el
-   tamano hace que, una vez vista, cada seccion recuerde lo que mide y el scroll no salte. */
-body > section { content-visibility: auto; contain-intrinsic-size: auto 900px; }
-h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03em; margin: 0 0 12px; font-weight: 700; }
-.entradilla { color: var(--suave); max-width: 65ch; }
 
 /* ---------- marco de las demos ---------- */
 .cabecera-demo {
@@ -808,6 +760,120 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .al-dia { display: grid; place-items: center; width: 26px; height: 26px; margin-left: auto; border-radius: 8px; color: #34d399; }
 .al-dia svg { width: 15px; height: 15px; }
 .aviso-fila { color: #fbbf24 !important; }
+
+/* ---------- lo nuevo de la 0.4.6 dentro de la demo ---------- */
+.escaparate .aviso { justify-content: center; margin-top: 14px; font-size: 15px; text-align: center; }
+/* «Copiar» es el único con su nombre y en azul, como en la barra de verdad. */
+.herramientas button.acento { gap: 6px; background: var(--app-azul); color: #fff; font-size: 13px; font-weight: 600; padding: 0 12px; }
+.herramientas button.acento:hover { background: var(--app-azul-claro); color: #fff; }
+.herramientas button.grabar .punto, .barra-grabando .punto { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.modos button[data-accion="soltar"].viva { background: #ffffff26; color: #fff; }
+.marco-rojo {
+  position: absolute; z-index: 5; pointer-events: none; border-radius: 8px;
+  box-shadow: 0 0 0 2px #ef4444, 0 0 0 6px #ef444426, 0 8px 24px #0006;
+}
+.barra-grabando {
+  position: absolute; z-index: 6; translate: -50% 0; display: flex; align-items: center; gap: 10px;
+  padding: 6px 6px 6px 12px; border-radius: 12px; background: #171717f0; border: 1px solid #ffffff1a;
+  color: #f87171; font: 600 13px/1 var(--letra); box-shadow: 0 20px 40px -12px #000c;
+}
+.barra-grabando span { color: #fff; font-variant-numeric: tabular-nums; }
+.barra-grabando button { border: 0; border-radius: 8px; padding: 7px 12px; background: #ef4444; color: #fff; font: inherit; cursor: pointer; }
+.barra-grabando button:hover { background: #f87171; }
+/* El puntero que hace la primera selección solo. */
+.fantasma { position: absolute; z-index: 7; width: 26px; height: 26px; margin: -3px 0 0 -4px; pointer-events: none; opacity: 0; transition: opacity .3s, scale .12s; }
+.fantasma.visible { opacity: 1; }
+.fantasma.pulsa { scale: .86; }
+.fantasma svg { width: 100%; height: 100%; fill: #fff; stroke: #000; stroke-width: 1.4; stroke-linejoin: round; filter: drop-shadow(0 2px 4px #0008); }
+/* Una captura anclada: flota encima, con su sombra, y se arrastra. */
+.anclada { position: absolute; z-index: 4; cursor: grab; border-radius: 6px; box-shadow: 0 0 0 1px #3b82f6aa, 0 18px 40px #000a; touch-action: none; }
+.anclada:active { cursor: grabbing; }
+.anclada canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+.anclada-x {
+  position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 24px; height: 24px;
+  border: 0; border-radius: 6px; background: #171717e6; color: #e5e5e5; cursor: pointer;
+}
+.anclada-x svg { width: 14px; height: 14px; }
+.anclada-x:hover { background: #ef4444; color: #fff; }
+
+/* El editor de la 0.4.6: dos filas de marcas cuando no caben, y la vista crece con la ventana. */
+.edi-marcas { flex-wrap: wrap; row-gap: 4px; }
+.edi-derecha { flex-wrap: wrap; }
+.edi-marcas .con-nombre svg, .edi-derecha .con-nombre svg { margin-right: 6px; }
+.escaparate .edi-fondo { max-height: 100%; position: relative; }
+.escaparate .edi-fondo canvas { max-height: min(46vh, 430px); cursor: default; }
+.edi-fondo canvas.dibujando { cursor: crosshair; }
+.edi-escribe {
+  position: absolute; z-index: 3; min-width: 140px; padding: 2px 6px; border: 1px dashed #ffffff99;
+  border-radius: 4px; background: #00000059; font: 700 18px/1.2 var(--letra); outline: none;
+}
+.edi-tiempo { align-items: flex-start; }
+.edi-mandos { display: flex; align-items: center; gap: 2px; flex: none; height: 52px; }
+.edi-vol { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: #e5e5e5; cursor: pointer; }
+.edi-vol:hover { background: #ffffff14; }
+.edi-vol svg { width: 19px; height: 19px; }
+/* El carril de los zooms, debajo de las miniaturas: un clic pone un bloque y otro lo quita. */
+.tira-zooms {
+  position: relative; height: 34px; margin-top: 8px; border-radius: 6px; cursor: copy;
+  background: #ffffff0a; border: 1px dashed #ffffff1f;
+}
+.tira-zooms-pista { position: absolute; left: 12px; top: 50%; translate: 0 -50%; font-size: 13px; color: #a3a3a3; pointer-events: none; white-space: nowrap; }
+.tira-zooms.con-zooms .tira-zooms-pista { opacity: .45; }
+.tira-zoom {
+  position: absolute; top: 3px; bottom: 3px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 34px; border: 0; border-radius: 5px; background: #8b5cf6; color: #fff; font: 600 12px/1 var(--letra); cursor: pointer;
+}
+.tira-zoom:hover { background: #a78bfa; }
+.tira-zoom svg { width: 13px; height: 13px; }
+.tira-botones { display: flex; gap: 6px; margin-left: auto; }
+.tira-boton {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: #ffffff14; color: #e5e5e5; font: 500 13px/1 var(--letra); cursor: pointer;
+}
+.tira-boton:hover:not(:disabled) { background: #ffffff26; color: #fff; }
+.tira-boton:disabled { opacity: .4; cursor: default; }
+.tira-boton svg { width: 15px; height: 15px; }
+.escaparate .edi-panel { min-height: 0; padding-bottom: 12px; }
+.edi-scroll { flex: 1; min-height: 0; overflow: auto; margin-right: -10px; padding-right: 10px; }
+.edi-ancho, .edi-dos button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 34px;
+  border: 0; border-radius: 8px; background: #ffffff14; color: #f5f5f5; font: 500 13px/1 var(--letra); cursor: pointer;
+}
+.edi-ancho:hover, .edi-dos button:hover { background: #ffffff26; }
+.edi-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.edi-dos svg { width: 16px; height: 16px; }
+.segmentado.cinco { grid-template-columns: repeat(5, auto); }
+
+/* Ajustes: la marca de agua, el historial y la barra de abajo de la 0.4.6. */
+#p-set { isolation: isolate; }
+.marca-agua { position: absolute; right: 22px; bottom: 58px; width: 190px; height: 190px; color: #ffffff0d; z-index: -1; pointer-events: none; }
+#p-set .ajustes { background: transparent; }
+#p-set { background: #161618; }
+.historial { display: block; }
+.his-cab { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--borde); }
+.his-filtros { display: flex; gap: 20px; }
+.his-filtros button {
+  margin-bottom: -1px; padding: 6px 0 10px; border: 0; border-bottom: 3px solid transparent; background: none;
+  color: #a3a3a3; font: 600 15px/1.2 var(--letra); cursor: pointer;
+}
+.his-filtros button.viva { color: #fff; border-bottom-color: var(--app-azul); }
+.his-carpeta {
+  display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border: 0; border-radius: 8px;
+  background: #ffffff14; color: #f5f5f5; font: 600 13px/1 var(--letra); cursor: pointer;
+}
+.his-carpeta svg { width: 16px; height: 16px; }
+.his-vacio { display: grid; justify-items: center; gap: 8px; padding: 90px 20px; text-align: center; }
+.his-vacio b { font-size: 16px; color: #fff; }
+.his-vacio span { max-width: 40ch; font-size: 13.5px; color: #d4d4d4; }
+.his-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; padding-top: 14px; }
+.his-item { margin: 0; }
+.his-item canvas { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; background: #0006; }
+.his-item figcaption { display: grid; margin-top: 6px; font-size: 12px; color: #e5e5e5; }
+.his-item figcaption span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.his-item small { color: #a3a3a3; font-size: 12px; }
+.barra-set-derecha { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.barra-set .al-dia { display: inline-flex; width: auto; gap: 5px; padding: 0 6px; margin: 0; font-size: 12px; color: #d4d4d4; }
+.barra-set .al-dia svg { color: #34d399; }
 /* el Switch de la app: 40 x 22 con la bolita de 18 */
 .palanca {
   width: 40px; height: 22px; border-radius: 99px; background: #ffffff26; border: 0;
@@ -821,196 +887,203 @@ h2 { font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -0.03
 .palanca[data-on="1"]::after { left: 20px; }
 .palanca:disabled { opacity: .4; cursor: default; }
 
-/* ---------- rejillas y tabla ---------- */
-/* Doce tarjetas en tres columnas: cuatro filas exactas y ningun hueco.
-   Estuvo con once mas una destacada a lo ancho, y la cuarta fila se quedaba con dos
-   tarjetas y un agujero al lado, que es lo primero que se ve al llegar aqui.
-   Cada fila toma el alto de su tarjeta mas larga (lo que hace la rejilla por su cuenta)
-   y no se igualan TODAS entre si: forzar eso dejaba medio cuerpo de aire debajo de los
-   textos cortos, que se ve peor que una fila mas baja que otra. */
-.rejilla {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 16px; margin-top: 30px;
-}
-.caja {
-  background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio);
-  padding: 24px; transition: border-color .18s, transform .18s, background .18s, box-shadow .18s;
-}
-.caja:hover {
-  border-color: #0a9bff5c; background: var(--panel-vivo); transform: translateY(-3px);
-  box-shadow: 0 16px 32px -20px #0006;
-}
-/* Suelto y con su resplandor, igual que en los pilares: sin el cuadradito alrededor. */
-.caja .ico { display: block; margin-bottom: 14px; color: var(--azul); }
-.caja .ico svg {
-  display: block; width: 26px; height: 26px;
-  filter: drop-shadow(0 0 8px var(--brillo-icono)); transition: filter .18s;
-}
-/* El icono se ilumina con su tarjeta: sin esto el hover mueve la caja entera y el icono
-   se queda igual, que es lo que hace que un hover parezca a medio hacer. */
-.caja:hover .ico svg { filter: drop-shadow(0 0 12px var(--brillo-icono-vivo)); }
-.caja h3 { font-size: 16.5px; margin-bottom: 7px; letter-spacing: -0.015em; }
-/* `pretty` evita que la ultima linea se quede con una palabra suelta, que con parrafos
-   de tres o cuatro lineas pasa en casi todas y hace que la rejilla se vea sucia. */
-.caja p { font-size: 14px; line-height: 1.62; color: var(--suave); text-wrap: pretty; }
 
-/* Con dos columnas los pares siguen cuadrando (seis filas), y con una, cada tarjeta se
-   mide sola: ahi igualar alturas solo dejaria huecos debajo del texto corto. */
-@media (max-width: 1000px) {
-  .rejilla { grid-template-columns: repeat(2, 1fr); }
+/* ---------- lo que es de verdad: cuatro cifras sueltas, sin cajas ---------- */
+.pruebas { padding: clamp(40px, 6vh, 80px) 0 clamp(24px, 4vh, 48px); }
+.pruebas .env { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
+.prueba b {
+  display: block; font: 750 clamp(34px, 2.9vw, 50px)/1.05 var(--letra-titulo);
+  letter-spacing: -0.035em; color: var(--texto); font-variant-numeric: tabular-nums;
 }
-@media (max-width: 760px) {
-  .rejilla { grid-template-columns: 1fr; grid-auto-rows: auto; }
+.prueba span { display: block; margin-top: 8px; color: var(--suave); font-size: 16.5px; line-height: 1.45; }
+.prueba a { color: inherit; }
+@media (max-width: 860px) { .pruebas .env { grid-template-columns: 1fr 1fr; row-gap: 30px; } }
+
+/* ---------- capturar, grabar y editar: un paso cada 2 o 3 golpes de rueda ----------
+   La pista mide una pantalla más 260 px por paso, y lo de dentro se queda pegado mientras
+   tanto: el texto cambia a la izquierda y la foto de la app a la derecha. La rueda es la
+   del navegador, nadie la secuestra; solo se mira por dónde va. */
+.momentos { --paso: 260px; position: relative; }
+.momentos-pista { height: calc(100svh + 2 * var(--paso) + 40px); }
+.momentos-pegado {
+  position: sticky; top: 0; height: 100svh; padding-top: var(--nav-alto);
+  display: grid; grid-template-columns: 5fr 7fr; gap: clamp(32px, 5vw, 96px); align-items: center;
 }
+.momentos-textos { display: grid; }
+.momento { grid-area: 1 / 1; transition: opacity .45s, transform .55s cubic-bezier(.2, .7, .2, 1), visibility .45s; }
+.momento:not(.activo) {
+  opacity: 0; visibility: hidden;
+  transform: translateY(calc(18px * var(--motion-gain, 1)));
+}
+.pasos-momento { display: flex; gap: 22px; margin-bottom: 30px; border-bottom: 1px solid var(--linea); }
+.pasos-momento button {
+  margin-bottom: -1px; padding: 4px 0 10px; border: 0; border-bottom: 3px solid transparent;
+  background: none; color: var(--suave); font: 650 16px/1.3 var(--letra); cursor: pointer;
+  transition: color .18s, border-color .18s;
+}
+.pasos-momento button:hover { color: var(--texto); }
+.pasos-momento button[aria-current="step"] { color: var(--texto); border-bottom-color: var(--azul); }
+.ico-suelto { display: block; width: 34px; height: 34px; color: var(--azul); filter: drop-shadow(0 0 12px var(--brillo-icono)); }
+.momento h2 { margin-top: 18px; }
+.momento p { margin-top: 16px; max-width: 40ch; color: var(--suave); font-size: clamp(18px, 1.25vw, 21px); }
+.lista { list-style: none; display: grid; gap: 12px; margin-top: 26px; font-size: 17.5px; }
+.lista li { display: flex; gap: 12px; align-items: flex-start; }
+.lista .ok { width: 20px; height: 20px; flex: none; margin-top: 4px; color: var(--azul); }
+.momentos-fotos { position: relative; }
+.momentos-fotos img { width: 100%; transition: opacity .5s, transform .6s cubic-bezier(.2, .7, .2, 1); }
+.momentos-fotos img + img { position: absolute; inset: 0; }
+.momentos-fotos img:not(.activa) { opacity: 0; transform: translateY(calc(26px * var(--motion-gain, 1))) scale(.985); }
+/* Una foto de la app es contenido: lleva su esquina, su sombra y su borde fino. */
+.foto { border-radius: 12px; box-shadow: var(--sombra-foto); background: #111; }
+.momento .foto-movil { display: none; }
+@media (max-width: 860px) {
+  .momentos-pista { height: auto; }
+  .momentos-pegado { position: static; height: auto; padding-top: 0; display: block; }
+  .momentos-textos { gap: 64px; }
+  .momento { grid-area: auto; }
+  .momento:not(.activo) { opacity: 1; visibility: visible; transform: none; }
+  .momento .foto-movil { display: block; margin-top: 28px; }
+  .momentos-fotos, .pasos-momento { display: none; }
+}
+
+/* ---------- para agentes de IA ---------- */
+.agentes .env { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(32px, 5vw, 96px); align-items: center; }
+.agentes p { margin-top: 16px; color: var(--suave); font-size: clamp(18px, 1.25vw, 21px); max-width: 42ch; }
+.agentes .botones { margin-top: 30px; }
+/* La terminal: oscura en los dos temas, como la de verdad. */
+.terminal {
+  border-radius: 14px; overflow: hidden; background: #0c0c10; color: #e6e6ee;
+  box-shadow: var(--sombra-foto); font: 15px/1.7 var(--letra-mono);
+}
+.terminal-barra {
+  display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px;
+  background: #16161c; color: #9a9aa8; font: 13px/1 var(--letra);
+}
+.terminal-barra i { width: 11px; height: 11px; border-radius: 50%; background: #ffffff24; }
+.terminal pre { margin: 0; padding: 22px 24px 26px; overflow-x: auto; white-space: pre; font: inherit; }
+.terminal .ps { color: #6fb7ff; }
+.terminal .com { color: #8e8e9c; }
+.terminal .ok { color: #7ee2b0; }
+@media (max-width: 860px) { .agentes .env { grid-template-columns: 1fr; } .terminal { font-size: 13px; } }
+
+/* ---------- novedades: las tres últimas, las escribe generar-novedades.mjs ---------- */
+.novedades-portada { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 3vw, 56px); margin-top: 44px; }
+.novedad { border-top: 2px solid var(--linea); padding-top: 22px; }
+.novedad:first-child { border-top-color: var(--azul); }
+.novedad .cuando { color: var(--suave); font-size: 15px; }
+.novedad h3 { margin-top: 8px; font-size: clamp(21px, 1.5vw, 25px); line-height: 1.2; letter-spacing: -0.02em; font-weight: 700; }
+.novedad h3 a { color: var(--texto); }
+.novedad h3 a:hover { color: var(--azul); text-decoration: none; }
+.novedad p { margin-top: 10px; color: var(--suave); font-size: 16.5px; }
+.novedades-mas { margin-top: 36px; }
+@media (max-width: 860px) { .novedades-portada { grid-template-columns: 1fr; } }
 
 /* ---------- preguntas frecuentes ----------
-   Animadas de verdad: `open` no se anima (aparece/desaparece de golpe), asi que el
-   JS mantiene `data-abierta` puesta mientras dura la transicion y solo esa marca
-   controla lo visual. Sin JS sigue funcionando como un <details> normal, sin
-   animacion y sin exclusividad (ver @media (scripting: none) mas abajo). */
-.faq-grid { display: grid; grid-template-columns: 280px 1fr; gap: 48px; align-items: start; }
-.faq-lateral { position: sticky; top: 100px; }
-.faq-marca { width: 40px; height: 40px; margin-bottom: 16px; }
-.faq-lateral h2 { font-size: 26px; margin-bottom: 10px; }
-.faq-lateral .entradilla { font-size: 14px; margin-bottom: 20px; }
-
-.faq { --faq-ms: 380ms; display: flex; flex-direction: column; gap: 10px; }
-.faq details {
-  background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio);
-  padding: 18px 22px; transition: border-color .18s, background .18s;
-}
-.faq details:hover { border-color: #0a9bff5c; }
-.faq details[data-abierta], .faq details[open] { background: var(--panel-vivo); border-color: #0a9bff3d; }
+   Sueltas, una por fila con su raya, sin caja alrededor. Animadas de verdad: `open` no se
+   anima, asi que el JS mantiene `data-abierta` mientras dura la transicion y solo esa
+   marca controla lo visual. Sin JS sigue siendo un <details> normal. */
+.preguntas .env { display: grid; grid-template-columns: 4fr 8fr; gap: clamp(32px, 5vw, 96px); align-items: start; }
+.preguntas .lateral { position: sticky; top: calc(var(--nav-alto) + 20px); }
+.preguntas .lateral .botones { margin-top: 26px; }
+.faq { --faq-ms: 380ms; display: flex; flex-direction: column; border-bottom: 1px solid var(--linea); }
+.faq details { border-top: 1px solid var(--linea); padding: 0 6px; transition: background .18s; }
+.faq details:hover { background: var(--realce); }
 .faq summary {
-  cursor: pointer; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
-  list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; padding: 22px 0; font-size: clamp(18px, 1.3vw, 21px); font-weight: 650; letter-spacing: -0.01em;
 }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary:focus-visible { outline: 2px solid var(--azul); outline-offset: 4px; border-radius: 4px; }
-.faq summary h3 { font-size: inherit; font-weight: inherit; letter-spacing: inherit; margin: 0; }
-.faq-chevron {
-  width: 18px; height: 18px; color: var(--azul); flex: none;
-  transition: transform var(--faq-ms) cubic-bezier(.4, 0, .2, 1);
-}
+.faq summary h3 { font: inherit; letter-spacing: inherit; margin: 0; }
+.faq-chevron { width: 20px; height: 20px; color: var(--azul); flex: none; transition: transform var(--faq-ms) cubic-bezier(.4, 0, .2, 1); }
 .faq details[data-abierta] .faq-chevron { transform: rotate(180deg); }
-
-/* El truco: la fila de la rejilla pasa de 0fr a 1fr. Un max-height a ojo se queda
-   corto con respuestas largas o va a saltos; esto se ajusta solo al contenido. */
+/* El truco: la fila de la rejilla pasa de 0fr a 1fr. Un max-height a ojo se queda corto con
+   respuestas largas o va a saltos; esto se ajusta solo al contenido. */
 .faq-cajon {
   display: grid; grid-template-rows: 0fr; opacity: 0;
-  transition: grid-template-rows var(--faq-ms) ease-in-out, opacity calc(var(--faq-ms) * .75) ease-in-out,
-    margin-top var(--faq-ms) ease-in-out;
+  transition: grid-template-rows var(--faq-ms) ease-in-out, opacity calc(var(--faq-ms) * .75) ease-in-out;
 }
-.faq details[data-abierta] .faq-cajon { grid-template-rows: 1fr; opacity: 1; margin-top: 14px; }
-.faq-cajon > p { overflow: hidden; font-size: 14px; color: var(--suave); max-width: 60ch; margin: 0; }
-.faq details code { background: var(--realce-medio); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
-
-@media (prefers-reduced-motion: reduce) {
-  .faq-cajon, .faq-chevron { transition-duration: 140ms; }
-}
-/* Sin JavaScript: <details> nativo, abre y cierra de golpe, sin exclusividad. */
+.faq details[data-abierta] .faq-cajon { grid-template-rows: 1fr; opacity: 1; }
+.faq-cajon > p { overflow: hidden; padding-bottom: 0; font-size: 17px; color: var(--suave); max-width: 64ch; margin: 0; transition: padding-bottom var(--faq-ms) ease-in-out; }
+.faq details[data-abierta] .faq-cajon > p { padding-bottom: 24px; }
+.faq code { color: var(--texto); }
+@media (prefers-reduced-motion: reduce) { .faq-cajon, .faq-chevron, .faq-cajon > p { transition-duration: 140ms; } }
 @media (scripting: none) {
-  .faq details[open] .faq-cajon { grid-template-rows: 1fr; opacity: 1; margin-top: 14px; }
+  .faq details[open] .faq-cajon { grid-template-rows: 1fr; opacity: 1; }
+  .faq details[open] .faq-cajon > p { padding-bottom: 24px; }
   .faq details[open] .faq-chevron { transform: rotate(180deg); }
 }
-
-@media (max-width: 760px) {
-  .faq-grid { grid-template-columns: 1fr; gap: 24px; }
-  .faq-lateral { position: static; }
+@media (max-width: 860px) {
+  .preguntas .env { grid-template-columns: 1fr; gap: 28px; }
+  .preguntas .lateral { position: static; }
 }
 
-table { width: 100%; border-collapse: collapse; margin-top: 26px; font-size: 14.5px; }
-th, td { padding: 12px 14px; border-bottom: 1px solid var(--borde); text-align: left; }
-th { font-size: 14px; color: var(--texto); font-weight: 650; }
-tbody tr:hover { background: var(--realce); }
-.llave-tabla kbd {
-  font: 500 12px/1 ui-monospace, monospace; padding: 5px 7px; border-radius: 6px;
-  background: var(--realce-medio); border: 1px solid var(--linea); color: var(--texto); margin-right: 3px;
+/* ---------- la comparativa, abajo del todo ---------- */
+.medidas { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 3vw, 56px); margin-top: 48px; }
+.medida-num { font: 760 clamp(56px, 5.6vw, 100px)/1 var(--letra-titulo); letter-spacing: -0.045em; color: var(--azul); font-variant-numeric: tabular-nums; }
+.medida-que { margin-top: 12px; font-size: 19px; font-weight: 650; }
+/* Las dos barras de cada cifra: largas lo que mide cada una. La del tiempo se llena a su
+   velocidad de verdad cuando se ve: la de winshotx en 114 ms y la de Windows en 920. */
+.barras { display: grid; gap: 10px; margin-top: 18px; }
+.barra-medida { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; font-size: 15px; color: var(--suave); }
+.barra-medida .nombre { grid-column: 1 / -1; }
+.barra-medida .pista { height: 10px; border-radius: 99px; background: var(--realce-medio); overflow: hidden; }
+.barra-medida .llena {
+  display: block; height: 100%; width: var(--largo); border-radius: inherit; background: var(--no-barra);
+  transform-origin: left; transform: scaleX(var(--lleno, 1));
+}
+.barra-medida.nuestra .llena { background: var(--azul); }
+.barra-medida.nuestra .cuanto { color: var(--texto); font-weight: 700; }
+.barra-medida .cuanto { font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: right; }
+html.motion .medidas:not(.vistas) .llena { --lleno: 0; }
+.medidas.vistas .llena { transition: transform var(--dura, 600ms) linear; }
+
+.tabla-comparar { margin-top: 64px; overflow-x: auto; }
+.tabla-comparar table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 16px; table-layout: fixed; margin: 0; }
+.tabla-comparar th, .tabla-comparar td { padding: 15px 16px; border-bottom: 1px solid var(--linea); text-align: left; vertical-align: top; }
+.tabla-comparar thead th {
+  position: sticky; top: 0; font: 700 16px/1.3 var(--letra); color: var(--texto);
+  border-bottom: 2px solid var(--linea-viva); background: var(--fondo); vertical-align: bottom;
+}
+.tabla-comparar thead th:first-child { width: 27%; }
+.tabla-comparar thead a { color: inherit; }
+.tabla-comparar thead .nuestra { color: var(--azul); }
+.tabla-comparar tbody th { font-weight: 650; color: var(--texto); }
+.tabla-comparar td { color: var(--suave); }
+.tabla-comparar td.nuestra { color: var(--texto); background: var(--nuestra-suave); }
+.tabla-comparar thead th.nuestra { background: color-mix(in srgb, var(--fondo), var(--azul) 8%); }
+.tabla-comparar .si, .tabla-comparar .no, .tabla-comparar .medio { display: inline-flex; align-items: flex-start; gap: 8px; }
+.tabla-comparar .si svg, .tabla-comparar .no svg, .tabla-comparar .medio svg { width: 17px; height: 17px; flex: none; margin-top: 4px; }
+.tabla-comparar .si svg { color: var(--si); }
+.tabla-comparar .no svg { color: var(--no); }
+.tabla-comparar .medio svg { color: var(--medio); }
+.tabla-comparar tbody tr:hover td, .tabla-comparar tbody tr:hover th { background: var(--realce); }
+.tabla-comparar tbody tr:hover td.nuestra { background: var(--nuestra); }
+.fuentes { margin-top: 26px; color: var(--suave); font-size: 15px; max-width: 90ch; }
+.fuentes a { color: var(--suave); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.fuentes a:hover { color: var(--texto); }
+@media (max-width: 860px) { .medidas { grid-template-columns: 1fr; } }
+
+/* ---------- el cierre ---------- */
+.cierre .botones { justify-content: center; margin-top: 30px; }
+.cierre .entradilla { margin-inline: auto; }
+
+/* ---------- el pie, por grupos con nombre ---------- */
+.pie { border-top: 1px solid var(--linea); padding: 64px 0 40px; margin-top: 24px; color: var(--suave); }
+.pie-rejilla { display: grid; grid-template-columns: 1.5fr repeat(4, 1fr); gap: 32px; }
+.pie .quien p { margin-top: 14px; font-size: 15.5px; max-width: 30ch; }
+.pie-titulo { font: 700 16px/1.3 var(--letra); color: var(--texto); margin-bottom: 14px; letter-spacing: 0; }
+.pie ul { list-style: none; display: grid; gap: 10px; font-size: 15.5px; }
+.pie li a { color: var(--suave); }
+.pie li a:hover { color: var(--texto); }
+.pie-abajo { display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-top: 52px; font-size: 15px; }
+.pie-abajo a { color: var(--suave); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.pie-abajo a:hover { color: var(--texto); }
+@media (max-width: 860px) {
+  .pie-rejilla { grid-template-columns: 1fr 1fr; }
+  .pie .quien { grid-column: 1 / -1; }
 }
 
-footer { border-top: 1px solid var(--borde); padding: 40px 0 60px; color: var(--suave); font-size: 14px; }
-footer .env { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
-
-/* Un enlace metido dentro de una frase no se puede distinguir solo por el color. Sobre el gris
-   del pie, el azul de marca queda en 1,26 de contraste y la norma pide 3 o un subrayado, asi
-   que aqui va subrayado desde el principio y no solo al pasar el raton. */
-footer a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-footer a:hover { color: var(--texto); }
-
-/* El unico enlace del pie que pide algo, asi que se separa de los otros: sin subrayado y
-   con su icono, para que se lea como un boton pequenno y no como parte de la frase de al
-   lado. En movil el pie se apila y este cae el ultimo, que es donde tiene que estar. */
-footer a.cafe {
-  display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
-  padding: 7px 12px; border: 1px solid var(--borde); border-radius: 999px;
-  color: var(--suave); transition: border-color 0.15s ease, color 0.15s ease;
-}
-footer a.cafe:hover { border-color: var(--azul); color: var(--texto); }
-footer a.cafe svg { width: 15px; height: 15px; }
-
-/* ---------- la guia ---------- */
-.guia { max-width: 780px; padding-top: 56px; padding-bottom: 40px; }
-.guia h1 { font-size: clamp(32px, 5vw, 46px); letter-spacing: -0.025em; line-height: 1.08; }
-.guia .entradilla { margin-top: 14px; font-size: 17px; color: var(--suave); max-width: 62ch; }
-.guia section { padding: 0; margin-top: 54px; scroll-margin-top: 96px; }
-.guia h2 {
-  font-size: 26px; letter-spacing: -0.02em;
-  padding-bottom: 12px; border-bottom: 1px solid var(--borde);
-}
-.guia h3 { margin-top: 28px; font-size: 17px; letter-spacing: -0.01em; }
-.guia p { margin-top: 14px; color: var(--suave); line-height: 1.65; }
-.guia h3 + p { margin-top: 8px; }
-.guia ul { margin-top: 16px; padding-left: 0; list-style: none; display: grid; gap: 12px; }
-.guia li {
-  position: relative; padding-left: 20px; color: var(--suave); line-height: 1.6;
-}
-.guia li::before {
-  content: ""; position: absolute; left: 3px; top: 10px;
-  width: 6px; height: 6px; border-radius: 99px; background: var(--azul);
-}
-.guia b { color: var(--texto); font-weight: 650; }
-.guia .botones { justify-content: flex-start; margin-top: 22px; }
-.guia .nota {
-  margin-top: 18px; padding: 14px 16px; border-radius: 12px;
-  border: 1px solid var(--nota-borde); background: var(--nota-fondo); color: var(--nota-texto); font-size: 14.5px;
-}
-.guia code {
-  padding: 2px 6px; border-radius: 6px; background: var(--realce-medio);
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .9em; color: var(--texto);
-}
-
-/* el indice: una fila de fichas que se parte sola en pantallas estrechas */
-/* El indice va en texto, sin fichas: cada apartado en su color de enlace y separados por
-   el aire. Una ficha alrededor de cada palabra es una pildora (GUSTOS-DE-DISENO, 1). */
-.indice { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 26px; }
-.indice a { padding: 4px 0; color: var(--azul-claro); font-size: 15px; font-weight: 600; }
-
-.tabla-guia { width: 100%; margin-top: 18px; border-collapse: collapse; font-size: 14.5px; }
-.tabla-guia th {
-  text-align: left; padding: 10px 12px; font-size: 14px; font-weight: 650;
-  color: var(--texto);
-  border-bottom: 1px solid var(--borde);
-}
-.tabla-guia td { padding: 12px; color: var(--suave); border-bottom: 1px solid var(--borde); vertical-align: top; }
-.tabla-guia tr:last-child td { border-bottom: 0; }
-.tabla-guia td:first-child { color: var(--texto); white-space: nowrap; }
-
-.guia kbd {
-  display: inline-block; padding: 2px 7px; border-radius: 6px;
-  border: 1px solid var(--linea-viva); border-bottom-width: 2px; background: var(--realce-medio);
-  font-family: inherit; font-size: .85em; font-weight: 600; color: var(--texto);
-}
-nav .enlaces a.aqui { color: var(--texto); background: var(--realce-medio); }
-
-@media (max-width: 720px) {
-  .tabla-guia { display: block; overflow-x: auto; }
-}
-
-.tabla-guia th[scope="row"] {
-  text-align: left; padding: 12px; font-size: inherit; font-weight: 600;
-  text-transform: none; letter-spacing: normal; color: var(--texto);
-  white-space: nowrap; vertical-align: top;
-}
 
 /* El segmentado que va al lado de su nombre y no debajo: cada boton ocupa lo que ocupa su
    texto, para que la fila entera quepa en una linea. Es lo que hace que la seccion de los
@@ -1087,12 +1160,120 @@ nav .enlaces a.aqui { color: var(--texto); background: var(--realce-medio); }
 .valvula.con-mov, html.quieto .valvula.sin-mov { display: none; }
 html.quieto .valvula.con-mov { display: inline; }
 
-/* ---------- novedades (generar-novedades.mjs) ----------
-   La misma pagina que la guia, con las versiones mas juntas: son muchas y cortas. */
-.novedades section { margin-top: 44px; }
-.novedades h2 { font-size: 22px; padding-bottom: 0; border-bottom: 0; margin-bottom: 4px; }
-.novedades .version { margin-top: 0; font-size: 14px; color: var(--suave); }
-.novedades .version a { font-weight: 600; }
-.novedades ul { margin-top: 12px; gap: 9px; }
-.novedades li b { color: var(--texto); }
-.foto-version { display: block; width: 100%; margin-top: 14px; border-radius: 10px; border: 1px solid var(--borde); }
+/* ---------- las páginas de leer: la guía, las novedades y la privacidad ----------
+   El índice a la izquierda y quieto mientras bajas, como el de cualquier guía; el texto a
+   un ancho que se lee, y lo que no es texto (la foto de la app, una tabla) a lo ancho que
+   quede. Arriba, la misma luz azul de la portada, para que no sea un fondo liso. */
+.leer { position: relative; padding: clamp(36px, 6vh, 72px) 0 clamp(56px, 8vh, 96px); }
+.leer::before {
+  content: ""; position: absolute; inset: -180px 0 auto; height: 760px; z-index: -1; pointer-events: none;
+  background: radial-gradient(46% 50% at 22% 30%, var(--halo), transparent 72%);
+}
+.leer-cabeza { max-width: 900px; }
+.leer-cabeza h1 { font-size: clamp(40px, 4.4vw, 72px); }
+.leer-cabeza .entradilla { margin-top: 18px; }
+.leer-rejilla {
+  display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: clamp(36px, 4.5vw, 84px);
+  align-items: start; margin-top: clamp(36px, 6vh, 60px);
+}
+/* El índice: texto con su raya, la de donde estás en azul. Si no cabe (las novedades son
+   muchas versiones), baja él solo, sin barra a la vista. */
+.leer-indice {
+  position: sticky; top: calc(var(--nav-alto) + 12px); display: grid; align-content: start;
+  max-height: calc(100vh - var(--nav-alto) - 32px); overflow-y: auto; scrollbar-width: none;
+}
+.leer-indice::-webkit-scrollbar { display: none; }
+.leer-indice a {
+  display: block; padding: 7px 0 7px 16px; border-left: 2px solid var(--linea);
+  color: var(--suave); font-size: 16px; font-weight: 600; line-height: 1.35;
+  transition: color .18s, border-color .18s;
+}
+.leer-indice a:hover { color: var(--texto); text-decoration: none; }
+.leer-indice a[aria-current="true"] { color: var(--texto); border-left: 3px solid var(--azul); padding-left: 15px; }
+
+/* El texto: tinta entera (la jerarquía la dan el tamaño y el peso, no el gris) y a 68
+   caracteres como mucho; las tablas y las fotos, a todo lo que dé la columna. */
+.texto { min-width: 0; font-size: 17.5px; overflow-wrap: break-word; }
+.texto li { min-width: 0; }
+.texto > section { scroll-margin-top: calc(var(--nav-alto) + 18px); }
+.texto > section + section { margin-top: clamp(64px, 9vh, 104px); }
+.texto h2 { font-size: clamp(30px, 2.3vw, 40px); }
+.texto h3 { margin-top: 34px; font-size: clamp(19px, 1.35vw, 22px); line-height: 1.3; letter-spacing: -0.015em; font-weight: 700; }
+.texto p, .texto .lista { max-width: 68ch; }
+.texto p { margin-top: 16px; }
+.texto h2 + p, .texto h2 + .lista { margin-top: 20px; }
+.texto h3 + p { margin-top: 8px; }
+.texto b, .texto strong { font-weight: 700; }
+.texto code {
+  padding: 2px 6px; border-radius: 6px; background: var(--realce-medio);
+  font-family: var(--letra-mono); font-size: .86em; overflow-wrap: anywhere;
+}
+.texto kbd, .faq kbd {
+  display: inline-block; min-width: 1.6em; padding: 1px 7px; border-radius: 6px; text-align: center;
+  border: 1px solid var(--linea-viva); border-bottom-width: 2px; background: var(--realce-medio);
+  font: 600 .84em/1.5 var(--letra); color: var(--texto); white-space: nowrap;
+}
+/* Las listas: una marca azul dibujada delante de cada línea, como en la portada. */
+.texto .lista { list-style: none; margin-top: 18px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.texto .lista li { position: relative; padding-left: 32px; }
+.texto .lista li::before {
+  content: ""; position: absolute; left: 2px; top: .3em; width: 19px; height: 19px; background: var(--azul);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m20 6-11 11-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m20 6-11 11-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* Lo que hay que saber aparte: su icono suelto delante, sin caja ni franja. */
+.texto .aparte { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; margin-top: 20px; max-width: calc(68ch + 34px); }
+.texto .aparte > svg { width: 22px; height: 22px; margin-top: .2em; color: var(--azul); }
+.texto .botones { margin-top: 24px; }
+.texto .letra-chica { color: var(--suave); }
+
+/* Las tablas de la guía: las de la comparativa, sin la columna de color. */
+.texto .tabla { margin-top: 24px; overflow-x: auto; }
+.texto table { width: 100%; border-collapse: collapse; font-size: 16.5px; }
+.texto th, .texto td { padding: 13px 14px; border-bottom: 1px solid var(--linea); text-align: left; vertical-align: top; }
+.texto thead th { font-weight: 700; border-bottom: 2px solid var(--linea-viva); }
+.texto tbody th { font-weight: 650; white-space: nowrap; }
+.texto tbody tr:hover > * { background: var(--realce); }
+
+/* Una sección con la foto de la app al lado: lo que se cuenta y cómo se ve, juntos. En
+   pantallas estrechas la foto baja debajo del texto, nunca se quita. */
+.con-foto { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 42%, 600px); gap: 20px clamp(32px, 3.4vw, 56px); align-items: start; }
+.con-foto > figure { position: sticky; top: calc(var(--nav-alto) + 18px); margin-top: 8px; }
+.con-foto > figure img { width: 100%; border-radius: 12px; box-shadow: var(--sombra-foto); }
+.con-foto > figure figcaption { margin-top: 12px; font-size: 15px; color: var(--suave); }
+@media (max-width: 1279px) {
+  .con-foto { grid-template-columns: minmax(0, 1fr); }
+  .con-foto > figure { position: static; max-width: 640px; margin-top: 8px; }
+}
+
+/* Las preguntas de la guía son las mismas de la portada, a lo ancho de la columna. */
+.texto .faq { margin-top: 24px; }
+.texto .faq summary { font-size: clamp(18px, 1.25vw, 20px); }
+
+@media (max-width: 900px) {
+  .leer-rejilla { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  /* En el móvil el índice no se queda pegado: va arriba, en una fila que se desliza con el dedo. */
+  .leer-indice {
+    position: relative; top: auto; min-width: 0; max-height: none; display: flex; gap: 4px 22px; overflow-x: auto;
+    margin: 0 -20px 36px; padding: 0 20px 8px; border-bottom: 1px solid var(--linea);
+  }
+  .leer-indice a { flex: none; border-left: 0; padding: 8px 0; }
+  .leer-indice a[aria-current="true"] { border-left: 0; padding-left: 0; text-decoration: underline 3px var(--azul); text-underline-offset: 10px; }
+  .texto { font-size: 17px; }
+}
+
+/* ---------- novedades (las escribe generar-novedades.mjs) ----------
+   Cada versión con su titular, «Versión · fecha» y lo que trae en puntos cortos con la
+   palabra clave en negrita. */
+.novedades .version { margin-top: 8px; color: var(--suave); font-size: 16px; }
+.novedades .version a { font-weight: 650; }
+.novedades .texto > section + section { margin-top: clamp(48px, 7vh, 72px); }
+.novedades .texto h2 { font-size: clamp(24px, 1.8vw, 30px); }
+.foto-version { display: block; width: 100%; max-width: 900px; margin-top: 18px; border-radius: 12px; box-shadow: var(--sombra-foto); }
+
+/* ---------- la 404 ---------- */
+.perdida { padding: clamp(64px, 14vh, 160px) 0 clamp(64px, 12vh, 140px); text-align: center; }
+.perdida .marca-svg { display: block; width: 72px; height: 72px; margin: 0 auto 28px; }
+.perdida h1 { font-size: clamp(40px, 5vw, 76px); }
+.perdida .entradilla { margin-inline: auto; }
+.perdida .botones { justify-content: center; margin-top: 32px; }

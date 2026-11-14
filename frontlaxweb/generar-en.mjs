@@ -14,6 +14,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sincronizarCromo } from "./cromo.mjs";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const BASE = "https://winshotx.com/";
@@ -22,6 +23,11 @@ const BASE = "https://winshotx.com/";
 // que corre este script y para si algo cambia, también se entera de un JSON tocado sin
 // volver a generar su página.
 await import("./generar-novedades.mjs");
+
+// Y la barra de arriba, el pie y los dibujos de la guía, la privacidad y la 404, que se
+// copian de la portada: si alguien toca el menú de la portada, aquí se reparte, y el
+// despliegue para hasta que el cambio esté commiteado en todas.
+for (const archivo of await sincronizarCromo(aqui)) console.log(`${archivo}: barra y pie de la portada`);
 
 /** Los data-en llevan las marcas escapadas: aqui se devuelven a su forma. */
 const desescapar = (t) =>
@@ -54,9 +60,17 @@ function traducir(html) {
     (_t, ingles, medio) => `${medio} aria-label="${ingles}"`);
   html = html.replace(/\sdata-aria-en="[^"]*"/g, "");
 
+  // Las imágenes con texto dentro tienen una foto por idioma: la inglesa va al lado en
+  // data-src-en (o data-href-en, en un preload) y su texto alternativo en data-alt-en. La
+  // ruta se escribe como se ve desde la página española; la de cada página la pone PAGINAS.
+  for (const atributo of ["src", "href", "alt"]) {
+    const conIngles = new RegExp(`\\s${atributo}="[^"]*"((?:[^>"]|"[^"]*")*?)\\sdata-${atributo}-en="([^"]*)"`, "g");
+    html = html.replace(conIngles, (_t, medio, ingles) => ` ${atributo}="${ingles}"${medio}`);
+  }
+
   // La página de novedades se llama distinto en cada idioma (/novedades/ y /en/changelog/):
   // los enlaces relativos que van a ella cambian de nombre. Los absolutos los pone cada página.
-  html = html.replace(/href="((?:\.\.\/)*)novedades\/"/g, 'href="$1changelog/"');
+  html = html.replace(/href="((?:\.\.\/)*)novedades\/(#[^"]*)?"/g, 'href="$1changelog/$2"');
 
   html = html.replace('<html lang="es">', '<html lang="en">');
   html = html.replace('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">');
@@ -79,14 +93,14 @@ function traducir(html) {
  */
 function versionar(html, huellas) {
   return html.replace(
-    /((?:\.\.\/)*)(estilos\.css|demo\.js|cruceta\.js)(\?v=[a-f0-9]+)?/g,
+    /((?:\.\.\/)*)(estilos\.css|demo\.js|cruceta\.js|leer\.js)(\?v=[a-f0-9]+)?/g,
     (_todo, subir, archivo) => `${subir}${archivo}?v=${huellas[archivo]}`,
   );
 }
 
 const huellas = Object.fromEntries(
   await Promise.all(
-    ["estilos.css", "demo.js", "cruceta.js"].map(async (archivo) => [
+    ["estilos.css", "demo.js", "cruceta.js", "leer.js"].map(async (archivo) => [
       archivo,
       // El texto se normaliza a saltos de linea de Unix antes de la huella: en Windows el
       // archivo esta en disco con CRLF y en el servidor con LF, y sin esto cada uno
@@ -109,7 +123,7 @@ const huellas = Object.fromEntries(
 function construirFaq(html, idioma) {
   if (!html.includes("data-faq")) return html;
 
-  const seccion = html.match(/<section id="preguntas">([\s\S]*?)<\/section>/);
+  const seccion = html.match(/<section id="preguntas"[^>]*>([\s\S]*?)<\/section>/);
   if (!seccion) throw new Error("no aparece la seccion de preguntas");
 
   const soloTexto = (s) =>
@@ -198,6 +212,10 @@ const PAGINAS = [
       'href="estilos.css?v=': 'href="../estilos.css?v=',
       'src="demo.js?v=': 'src="../demo.js?v=',
       'src="cruceta.js?v=': 'src="../cruceta.js?v=',
+      'src="leer.js?v=': 'src="../leer.js?v=',
+      'src="img/': 'src="../img/',
+      'href="img/': 'href="../img/',
+      [`"screenshot": "${BASE}img/editor-es.webp"`]: `"screenshot": "${BASE}img/editor-en.webp"`,
       '<a href="privacidad/">Privacy</a>': '<a href="privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
@@ -211,10 +229,12 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}docs/">`]: `<meta property="og:url" content="${BASE}en/docs/">`,
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"item": "${BASE}docs/" }`]: `"item": "${BASE}en/docs/" }`,
+      'src="../img/': 'src="../../img/',
       'href="../logo.svg': 'href="../../logo.svg',
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../leer.js?v=': 'src="../../leer.js?v=',
       '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>',
@@ -228,10 +248,12 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}privacidad/">`]: `<meta property="og:url" content="${BASE}en/privacy/">`,
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"name": "Privacidad", "item": "${BASE}privacidad/" }`]: `"name": "Privacy", "item": "${BASE}en/privacy/" }`,
+      '<a href="../privacidad/">Privacy</a>': '<a href="./">Privacy</a>',
       'href="../logo.svg': 'href="../../logo.svg',
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../leer.js?v=': 'src="../../leer.js?v=',
       '<a class="idioma" id="idioma" href="../en/privacy/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../privacidad/" hreflang="es" lang="es">Español</a>',
     },
@@ -248,6 +270,7 @@ const PAGINAS = [
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../leer.js?v=': 'src="../../leer.js?v=',
       '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="../en/changelog/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../novedades/" hreflang="es" lang="es">Español</a>',
@@ -289,6 +312,18 @@ for (const pagina of PAGINAS) {
   console.log(
     `${pagina.destino.join("/")} generado${pendientes ? ` (quedan ${pendientes} sin traducir)` : ""}`,
   );
+}
+
+// La 404 no tiene versión inglesa (se traduce sola si la dirección empieza por /en/), pero
+// carga el CSS como las demás, con su huella.
+{
+  const ruta404 = join(aqui, "404.html");
+  const antes = await readFile(ruta404, "utf8");
+  const despues = versionar(antes, huellas);
+  if (despues !== antes) {
+    await writeFile(ruta404, despues, "utf8");
+    console.log("404.html: actualizado");
+  }
 }
 
 // Una clave que no aparece en ninguna pagina es una frase que se ha quedado en espannol al

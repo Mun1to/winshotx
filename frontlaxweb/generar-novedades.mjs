@@ -20,6 +20,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { leerPortada, cromoPara, spritePara } from "./cromo.mjs";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const BASE = "https://winshotx.com/";
@@ -72,29 +73,32 @@ const entrada = (v) => {
   return `<section id="${id}">
   ${bilingue("h2", escapar(v.es.titulo), escapar(v.en.titulo))}
   ${bilingue("p", lineaEs, lineaEn, ' class="version"')}${foto}
-  <ul>
+  <ul class="lista">
 ${puntos}
   </ul>
 </section>`;
 };
 
 // ---------------------------------------------------------------- la página
-// El menú, el pie y los dibujos son los de la página de privacidad, para que no se separen.
+// La barra, el pie y los dibujos salen de la portada (cromo.mjs), como en las demás páginas.
+const portada = await leerPortada(aqui);
+const { barra: menu, pie } = cromoPara(portada, "novedades");
 const privacidad = await readFile(join(aqui, "privacidad", "index.html"), "utf8");
-const dibujos = privacidad.match(/<svg style="display:none"[\s\S]*?<\/svg>/)[0];
-const menu = privacidad
-  .match(/<nav>[\s\S]*?<\/nav>/)[0]
-  .replace('href="../en/privacy/"', 'href="../en/changelog/"')
-  .replace('<a href="../novedades/" data-en', '<a class="aqui" href="../novedades/" data-en');
-const pie = privacidad
-  .match(/<footer>[\s\S]*?<\/footer>/)[0]
-  .replace('<a href="./" data-en="Privacy">Privacidad</a>', '<a href="../privacidad/" data-en="Privacy">Privacidad</a>');
 const css = privacidad.match(/href="\.\.\/estilos\.css\?v=[a-f0-9]+"/)[0];
+const leer = privacidad.match(/src="\.\.\/leer\.js\?v=[a-f0-9]+"/)[0];
 
 const ultima = versiones[0];
 const descripcion = "Lo que trae cada versión de winshotx, de la más nueva a la primera, con el enlace a su publicación en GitHub.";
+const idDe = (v) => `v${v.version.replaceAll(".", "-")}`;
+const indice = versiones
+  .map((v) => {
+    const nombre = v.desde ? `${v.desde} a ${v.version}` : v.version;
+    const nombreEn = v.desde ? `${v.desde} to ${v.version}` : v.version;
+    return `        <a href="#${idDe(v)}"${nombre === nombreEn ? "" : ` data-en="${nombreEn}"`}>${nombre}</a>`;
+  })
+  .join("\n");
 
-const html = `<!doctype html>
+let html = `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -142,30 +146,66 @@ const html = `<!doctype html>
 
 <!-- Esta página la escribe generar-novedades.mjs a partir de novedades/versiones.json: no se
      edita a mano, que se pisa la próxima vez. -->
-${dibujos}
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg"></svg>
 
 ${menu}
 
-<main class="env guia novedades">
+<main class="leer novedades">
+  <div class="env">
+    <header class="leer-cabeza">
+      ${bilingue("h1", "Novedades", "What's new")}
+      ${bilingue(
+        "p",
+        `Lo que trae cada versión, de la más nueva a la primera. La app se actualiza sola desde <b>Ajustes</b>, y la última es la <b>${ultima.version}</b>.`,
+        `What each version brings, newest first. The app updates itself from <b>Settings</b>, and the latest is <b>${ultima.version}</b>.`,
+        ' class="entradilla"',
+      )}
+    </header>
 
-${bilingue("h1", "Novedades", "What's new")}
+    <div class="leer-rejilla">
+      <nav class="leer-indice" aria-label="Versiones" data-aria-en="Versions">
+${indice}
+      </nav>
 
-${bilingue(
-  "p",
-  `Lo que trae cada versión, de la más nueva a la primera. La app se actualiza sola desde <b>Ajustes</b>, y la última es la <b>${ultima.version}</b>.`,
-  `What each version brings, newest first. The app updates itself from <b>Settings</b>, and the latest is <b>${ultima.version}</b>.`,
-  ' class="entradilla"',
-)}
-
+      <div class="texto">
 ${versiones.map(entrada).join("\n\n")}
-
+      </div>
+    </div>
+  </div>
 </main>
 
 ${pie}
 
+<script ${leer}></script>
 </body>
 </html>
 `;
-
+html = html.replace(/<svg style="display:none"[^>]*><\/svg>/, () => spritePara(html, portada.simbolos, "novedades"));
 await writeFile(join(aqui, "novedades", "index.html"), html, "utf8");
 console.log(`novedades/index.html: ${versiones.length} entradas, la última la ${ultima.version}`);
+
+// ---------------------------------------------------------------- las tres últimas, en la portada
+// La portada cuenta las tres últimas versiones entre dos marcas; cada una lleva a su sitio
+// en la página de novedades.
+const tarjeta = (v) => {
+  const nombreEs = v.desde ? `Versiones ${v.desde} a ${v.version}` : `Versión ${v.version}`;
+  const nombreEn = v.desde ? `Versions ${v.desde} to ${v.version}` : `Version ${v.version}`;
+  return `      <article class="novedad">
+        ${bilingue("p", `${nombreEs} · ${fechaEs(v.fecha)}`, `${nombreEn} · ${fechaEn(v.fecha)}`, ' class="cuando"')}
+        <h3><a href="novedades/#${idDe(v)}"${` data-en="${escapar(v.en.titulo)}"`}>${escapar(v.es.titulo)}</a></h3>
+        ${bilingue("p", conNegrita(v.es.puntos[0]), conNegrita(v.en.puntos[0]))}
+      </article>`;
+};
+const rutaPortada = join(aqui, "index.html");
+const portadaHtml = await readFile(rutaPortada, "utf8");
+const bloque = `<!-- novedades:desde (lo escribe generar-novedades.mjs a partir de versiones.json) -->
+    <div class="novedades-portada">
+${versiones.slice(0, 3).map(tarjeta).join("\n")}
+    </div>
+    <!-- novedades:hasta -->`;
+const nuevaPortada = portadaHtml.replace(/<!-- novedades:desde[\s\S]*?<!-- novedades:hasta -->/, () => bloque);
+if (nuevaPortada === portadaHtml && !portadaHtml.includes(bloque)) throw new Error("la portada no tiene las marcas novedades:desde y novedades:hasta");
+if (nuevaPortada !== portadaHtml) {
+  await writeFile(rutaPortada, nuevaPortada, "utf8");
+  console.log("index.html: las tres últimas versiones");
+}
