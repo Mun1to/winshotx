@@ -620,3 +620,53 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
     expect(pantalla).toContain("Record the camera too");
   });
 });
+
+/**
+ * S21 (Linux): lo que solo existe en Windows no sale, y en Wayland las teclas no se escriben
+ * aquí: son las que ha puesto el escritorio, y «Cambiar» le pide su ventana.
+ */
+describe("en Linux", () => {
+  it("no salen la pestaña de las teclas de Windows ni lo que solo hace Windows", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    // Sin la captura moderna, en Windows saldría el aviso de la captura antigua.
+    await abrirAjustes(undefined, undefined, undefined, false);
+    const menu = screen.getByLabelText("Secciones de ajustes");
+    const nombres = within(menu)
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(nombres).toEqual(["Capturar", "Grabar", "Historial", "La app"]);
+    expect(screen.queryByText("Ocultar iconos del escritorio")).not.toBeInTheDocument();
+    expect(screen.queryByText("Este Windows usa la captura antigua")).not.toBeInTheDocument();
+  });
+
+  it("arranca con la sesión, no con Windows", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("button", { name: "La app" }));
+    expect(screen.getByText("Arrancar al iniciar sesión")).toBeInTheDocument();
+    expect(screen.queryByText("Arrancar con Windows")).not.toBeInTheDocument();
+  });
+
+  it("en Wayland enseña la tecla que puso el escritorio, y Cambiar le pide su ventana", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", {
+      capture: { texto: "Press <Shift><Control>2", atajo: "CmdOrCtrl+Shift+Digit2" },
+      edit: null,
+    });
+    await abrirAjustes();
+    await waitFor(() =>
+      expect(screen.getByText("la tecla la elige el escritorio")).toBeInTheDocument(),
+    );
+    // La del editor no la ha puesto el escritorio: se dice, y en rojo.
+    expect(screen.getByText("todavía sin tecla: pulsa «Cambiar»")).toBeInTheDocument();
+    expect(screen.getByText("Sin tecla")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Cambiar" })[0]);
+    expect(llamadas.some((l) => l.comando === "cambiar_teclas_en_el_escritorio")).toBe(true);
+  });
+
+  it("en Windows sigue todo como estaba", async () => {
+    await abrirAjustes();
+    expect(screen.getByText("Ocultar iconos del escritorio")).toBeInTheDocument();
+    expect(screen.queryByText("la tecla la elige el escritorio")).not.toBeInTheDocument();
+  });
+});

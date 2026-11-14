@@ -26,6 +26,8 @@ interface Props {
   version: string;
   guardado: boolean;
   onSalir: () => void;
+  /** S21 (Linux): sin la pestaña de las teclas de Windows, que ahí no existen. */
+  sinTeclasDeWindows?: boolean;
 }
 
 /**
@@ -49,9 +51,18 @@ interface Props {
  * tiempo. Antes eran pestannas subrayadas y eran un estilo que no existia en ningun otro
  * sitio de la aplicacion.
  */
-export function SettingsHeader({ activa, onCambiar, version, guardado, onSalir }: Props) {
+export function SettingsHeader({
+  activa,
+  onCambiar,
+  version,
+  guardado,
+  onSalir,
+  sinTeclasDeWindows = false,
+}: Props) {
   const t = useT();
-  const secciones = SECCIONES.map((s) => ({ value: s.value, label: t(s.label) }));
+  const secciones = SECCIONES.filter((s) => !(sinTeclasDeWindows && s.value === "teclas")).map(
+    (s) => ({ value: s.value, label: t(s.label) }),
+  );
   // Tres columnas y las de los lados iguales: es lo unico que deja las secciones en el
   // centro DE LA VENTANA. Con una fila normal quedaban centradas en el hueco que dejaban
   // los lados, que no miden lo mismo, asi que salian corridas hacia un lado.

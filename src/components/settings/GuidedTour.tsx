@@ -32,7 +32,7 @@ interface Paso {
  * el ratón, y que Windows puede ceder sus teclas. Lo que se entiende solo (un interruptor
  * de sonido) no tiene paso: un tour que lee la pantalla en voz alta se cierra a la mitad.
  */
-const PASOS: Paso[] = [
+const TODOS_LOS_PASOS: Paso[] = [
   {
     id: "secciones",
     seccion: "capturar",
@@ -92,6 +92,9 @@ const PASOS: Paso[] = [
   },
 ];
 
+/** Los mismos en Linux, sin la parada de las teclas de Windows. */
+const PASOS_SIN_TECLAS = TODOS_LOS_PASOS.filter((p) => p.seccion !== "teclas");
+
 interface Marco {
   top: number;
   left: number;
@@ -110,9 +113,12 @@ const entre = (valor: number, minimo: number, maximo: number) =>
 interface Props {
   onNavegar: (seccion: SeccionId) => void;
   onCerrar: () => void;
+  /** S21 (Linux): sin la parada de las teclas de Windows, que ahí no existen. */
+  sinTeclasDeWindows?: boolean;
 }
 
-export function GuidedTour({ onNavegar, onCerrar }: Props) {
+export function GuidedTour({ onNavegar, onCerrar, sinTeclasDeWindows = false }: Props) {
+  const PASOS = sinTeclasDeWindows ? PASOS_SIN_TECLAS : TODOS_LOS_PASOS;
   const t = useT();
   const [indice, setIndice] = useState(0);
   const [marco, setMarco] = useState<Marco | null>(null);
@@ -202,7 +208,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
     };
     window.addEventListener("keydown", alPulsar);
     return () => window.removeEventListener("keydown", alPulsar);
-  }, [onCerrar]);
+  }, [onCerrar, PASOS]);
 
   // La tarjeta nunca puede tapar aquello de lo que esta hablando: ese es el unico trabajo
   // que tiene el foco. Se prueban tres sitios en orden: debajo, encima y al lado. El

@@ -8,6 +8,7 @@ import type {
   FrameMeta,
   MuestraCamara,
   OverlayPayload,
+  Plataforma,
   Rect,
   RecordOptions,
   ReplayStatus,
@@ -21,6 +22,7 @@ import type {
   StillAction,
   StillResult,
   StudioData,
+  TeclasDelEscritorio,
 } from "./types";
 import type { Anotacion } from "./anotaciones";
 import type { Recorte } from "./recorte";
@@ -191,6 +193,15 @@ export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
 
 /** En Linux con Wayland, que el escritorio pregunte ya por el permiso de capturas (ver el comando). */
 export const pedirPermisoDeCapturas = () => invoke<boolean>("pedir_permiso_de_capturas");
+
+/** Dónde corre winshotx. Ver `usePlataforma`. */
+export const plataforma = () => invoke<Plataforma | null>("plataforma");
+
+/** Las teclas que ha puesto el escritorio en Wayland, o null si las ponen los ajustes. */
+export const teclasDelEscritorio = () => invoke<TeclasDelEscritorio | null>("teclas_del_escritorio");
+
+/** Que el escritorio enseñe su ventana para cambiar las teclas de winshotx (Wayland). */
+export const cambiarTeclasEnElEscritorio = () => invoke<void>("cambiar_teclas_en_el_escritorio");
 
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
 

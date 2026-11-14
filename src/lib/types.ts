@@ -412,6 +412,27 @@ export interface ShortcutStatus {
   winShiftS: boolean;
 }
 
+/** Dónde corre winshotx (el comando `plataforma`). */
+export interface Plataforma {
+  sistema: "windows" | "linux" | "macos";
+  /** En Wayland las teclas no las pone winshotx: las elige la persona en el escritorio. */
+  wayland: boolean;
+}
+
+/** Una tecla que ha puesto el escritorio en Wayland. */
+export interface TeclaDelEscritorio {
+  /** Tal cual la escribe el escritorio («Press <Shift><Control>2» en GNOME). */
+  texto: string;
+  /** La misma con el formato de los ajustes, o null si no se ha sabido leer. */
+  atajo: string | null;
+}
+
+/** Lo que el escritorio ha puesto en los dos atajos que se le piden en Wayland. */
+export interface TeclasDelEscritorio {
+  capture: TeclaDelEscritorio | null;
+  edit: TeclaDelEscritorio | null;
+}
+
 /** Una pantalla del sistema, para poder elegir cuál se vigila. */
 export interface Screen {
   id: number;

@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import {
   cacheStats,
+  cambiarTeclasEnElEscritorio,
   capturaModerna,
   clearCache,
   getSettings,
@@ -87,6 +88,9 @@ import { GuidedTour } from "./GuidedTour";
 import { BarraRapida } from "./BarraRapida";
 import { MarcaDeAgua } from "../ui/MarcaDeAgua";
 import { ShortcutField } from "./ShortcutField";
+// S21 (Linux): lo que solo es de Windows se esconde, y en Wayland las teclas las pone el escritorio.
+import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
+import { TeclaPuesta } from "./TeclaDelEscritorio";
 
 /** La inyecta Vite desde package.json: escribirla a mano acababa en cuatro copias. */
 const VERSION = __VERSION__;
@@ -269,6 +273,14 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const [modernaOk, setModernaOk] = useState(true);
   // S2 (grabación): las cámaras conectadas, para la fila de la cámara.
   const [camaras, setCamaras] = useState<CamaraConectada[]>([]);
+  // S21 (Linux): dónde corre, y en Wayland las teclas que ha puesto el escritorio.
+  const donde = usePlataforma();
+  const enLinux = donde?.sistema === "linux";
+  const enWayland = donde?.wayland ?? false;
+  const teclasDelEscritorio = useTeclasDelEscritorio(enWayland);
+  const cambiarTeclas = useCallback(() => {
+    void cambiarTeclasEnElEscritorio().catch((e) => setError(String(e)));
+  }, []);
 
   const refrescar = useCallback(() => {
     void getSettings().then(setLocal);
@@ -443,7 +455,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     }
   }, []);
 
-  if (!settings) {
+  // Hasta saber dónde corre no se pinta nada: en Linux se verían un instante las teclas de Windows.
+  if (!settings || !donde) {
     return (
       <div className="flex h-full items-center justify-center bg-lienzo text-sm text-tenue">
         Cargando…
@@ -460,6 +473,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
         version={VERSION}
         guardado={saved}
         onSalir={() => void quitApp()}
+        sinTeclasDeWindows={enLinux}
       />
 
       <div className="relative min-h-0 flex-1">
@@ -479,15 +493,36 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Camera className="size-4" />}
                     label={t("Capturar región")}
-                    explicacion={t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.")}
-                    hint={shortcuts.capture ? undefined : t("esa combinación está ocupada")}
-                    tone="warn"
+                    explicacion={
+                      enWayland
+                        ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. En Wayland la tecla la elige el escritorio: winshotx le propone una, y la aceptas o la cambias en su ventana con «Cambiar».")
+                        : enLinux
+                          ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. El escritorio se reserva algunas combinaciones y esas no llegan hasta aquí.")
+                          : t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.")
+                    }
+                    hint={
+                      enWayland
+                        ? teclasDelEscritorio?.capture
+                          ? t("la tecla la elige el escritorio")
+                          : t("todavía sin tecla: pulsa «Cambiar»")
+                        : shortcuts.capture
+                          ? undefined
+                          : t("esa combinación está ocupada")
+                    }
+                    tone={enWayland && teclasDelEscritorio?.capture ? "normal" : "warn"}
                     control={
-                      <ShortcutField
-                        value={settings.captureShortcut}
-                        active={shortcuts.capture}
-                        onChange={(v) => patch({ captureShortcut: v })}
-                      />
+                      enWayland ? (
+                        <span className="flex items-center gap-1.5">
+                          <TeclaPuesta tecla={teclasDelEscritorio?.capture ?? null} />
+                          <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
+                        </span>
+                      ) : (
+                        <ShortcutField
+                          value={settings.captureShortcut}
+                          active={shortcuts.capture}
+                          onChange={(v) => patch({ captureShortcut: v })}
+                        />
+                      )
                     }
                   />
                   <Row
@@ -496,14 +531,29 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     explicacion={t(
                       "La misma captura, pero al soltar el ratón se abre el editor en vez de la barra de siempre. Para la captura que hay que trabajar: señalar algo con una flecha, tapar un dato o recortar antes de mandarla.",
                     )}
-                    hint={shortcuts.edit ? undefined : t("esa combinación está ocupada")}
-                    tone="warn"
+                    hint={
+                      enWayland
+                        ? teclasDelEscritorio?.edit
+                          ? t("la tecla la elige el escritorio")
+                          : t("todavía sin tecla: pulsa «Cambiar»")
+                        : shortcuts.edit
+                          ? undefined
+                          : t("esa combinación está ocupada")
+                    }
+                    tone={enWayland && teclasDelEscritorio?.edit ? "normal" : "warn"}
                     control={
-                      <ShortcutField
-                        value={settings.editShortcut}
-                        active={shortcuts.edit}
-                        onChange={(v) => patch({ editShortcut: v })}
-                      />
+                      enWayland ? (
+                        <span className="flex items-center gap-1.5">
+                          <TeclaPuesta tecla={teclasDelEscritorio?.edit ?? null} />
+                          <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
+                        </span>
+                      ) : (
+                        <ShortcutField
+                          value={settings.editShortcut}
+                          active={shortcuts.edit}
+                          onChange={(v) => patch({ editShortcut: v })}
+                        />
+                      )
                     }
                   />
                   <Row
@@ -524,19 +574,22 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       />
                     }
                   />
-                  <Row
-                    icon={<EyeOff className="size-4" />}
-                    label={t("Ocultar iconos del escritorio")}
-                    explicacion={t("Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.")}
-                    hint={t("solo mientras dura el disparo")}
-                    control={
-                      <Switch
-                        checked={settings.hideDesktopIcons}
-                        onChange={(v) => patch({ hideDesktopIcons: v })}
-                        label={t("Ocultar iconos del escritorio")}
-                      />
-                    }
-                  />
+                  {/* Los iconos los esconde el Explorador de Windows; en Linux no hace nada. */}
+                  {!enLinux && (
+                    <Row
+                      icon={<EyeOff className="size-4" />}
+                      label={t("Ocultar iconos del escritorio")}
+                      explicacion={t("Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.")}
+                      hint={t("solo mientras dura el disparo")}
+                      control={
+                        <Switch
+                          checked={settings.hideDesktopIcons}
+                          onChange={(v) => patch({ hideDesktopIcons: v })}
+                          label={t("Ocultar iconos del escritorio")}
+                        />
+                      }
+                    />
+                  )}
 
                 </Section>
                 <DespuesDeCapturar settings={settings} patch={patch} />
@@ -546,7 +599,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   {/* Solo cuando pasa, que es casi nunca: en un Windows al dia no sale.
                       No es un ajuste y no se puede tocar nada, pero sin esto las fotos
                       salen con trozos en negro y parece culpa de la app. */}
-                  {!modernaOk && (
+                  {!modernaOk && !enLinux && (
                     <Row
                       icon={<TriangleAlert className="size-4" />}
                       label={t("Este Windows usa la captura antigua")}
@@ -1093,18 +1146,22 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     icon={<Compass className="size-4" />}
                     label={t("Tour de los ajustes")}
                     explicacion={t("Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.")}
-                    hint={t("siete paradas, una por sección")}
+                    hint={enLinux ? t("seis paradas, una por sección") : t("siete paradas, una por sección")}
                     control={<RowButton onClick={() => setTour(true)}>{t("Empezar")}</RowButton>}
                   />
                   <Row
                     icon={<Power className="size-4" />}
-                    label={t("Arrancar con Windows")}
-                    explicacion={t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")}
+                    label={enLinux ? t("Arrancar al iniciar sesión") : t("Arrancar con Windows")}
+                    explicacion={
+                      enLinux
+                        ? t("winshotx se abre solo al entrar en tu sesión y se queda esperando, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")
+                        : t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")
+                    }
                     control={
                       <Switch
                         checked={settings.startWithWindows}
                         onChange={(v) => patch({ startWithWindows: v })}
-                        label={t("Arrancar con Windows")}
+                        label={enLinux ? t("Arrancar al iniciar sesión") : t("Arrancar con Windows")}
                       />
                     }
                   />
@@ -1115,8 +1172,18 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                   <Row
                     icon={<Palette className="size-4" />}
                     label={t("Tema")}
-                    explicacion={t("Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")}
-                    hint={settings.theme === "sistema" ? t("sigue a Windows") : undefined}
+                    explicacion={
+                      enLinux
+                        ? t("Claro, oscuro, o lo que diga el sistema y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")
+                        : t("Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")
+                    }
+                    hint={
+                      settings.theme === "sistema"
+                        ? enLinux
+                          ? t("sigue al sistema")
+                          : t("sigue a Windows")
+                        : undefined
+                    }
                     control={
                       <Segmented
                         ajustado
@@ -1135,8 +1202,18 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     stacked
                     icon={<Languages className="size-4" />}
                     label={t("Idioma")}
-                    explicacion={t("Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")}
-                    hint={settings.language === "sistema" ? t("el de Windows") : undefined}
+                    explicacion={
+                      enLinux
+                        ? t("Español, inglés, o el del sistema si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")
+                        : t("Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")
+                    }
+                    hint={
+                      settings.language === "sistema"
+                        ? enLinux
+                          ? t("el del sistema")
+                          : t("el de Windows")
+                        : undefined
+                    }
                     control={
                       <Segmented
                         value={settings.language}
@@ -1207,7 +1284,13 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
         onTour={() => setTour(true)}
       />
 
-      {tour && <GuidedTour onNavegar={setSeccion} onCerrar={() => setTour(false)} />}
+      {tour && (
+        <GuidedTour
+          onNavegar={setSeccion}
+          onCerrar={() => setTour(false)}
+          sinTeclasDeWindows={enLinux}
+        />
+      )}
 
       {/* Fuera de la rejilla: un fallo escondido al final de una columna no se ve. */}
       {error && (
