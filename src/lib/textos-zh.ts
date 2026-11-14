@@ -652,6 +652,15 @@ export const ZH: Record<string, string> = {
   "Las fotos que guardes y los vídeos que exportes salen aquí, de lo más nuevo a lo más viejo.":
     "你保存的截图和导出的视频会显示在这里，最新的在前。",
   "ese archivo no es del historial": "该文件不在历史记录中",
+  // S26: buscar en el historial por el texto de las fotos
+  "Buscar en el texto de las fotos": "搜索截图中的文字",
+  "Borrar la búsqueda": "清除搜索",
+  "El texto se lee aquí, en tu PC, y no sale de él.": "文字在你的电脑上本地识别，不会离开电脑。",
+  "Ninguna foto lleva escrito «{texto}»": "没有截图包含“{texto}”",
+  "Busca en el texto de las fotos, que se lee aquí, en tu PC, y no sale de él.":
+    "搜索截图中的文字。文字在你的电脑上本地识别，不会离开电脑。",
+  "Queda 1 foto por leer: si lo lleva, saldrá aquí.": "还有 1 张截图未识别：如果包含，会显示在这里。",
+  "Quedan {n} fotos por leer: las que lo lleven irán saliendo.": "还有 {n} 张截图未识别：包含的截图会陆续显示。",
   // S5 (scroll)
   "Captura con scroll": "滚动截图",
   "Captura con scroll: baja la página y la junta en una imagen · S": "滚动截图：滚动页面并拼成一张图 · S",

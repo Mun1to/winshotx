@@ -358,10 +358,19 @@ export interface PaginaHistorial {
   entradas: EntradaHistorial[];
   /** Cuántas hay con ese filtro, para saber si quedan más por cargar. */
   total: number;
+  /** S26: si se puede buscar por el texto de las fotos (no en Linux ni sin lector de Windows). */
+  buscable?: boolean;
+  /** S26: cuántas fotos de la carpeta faltan por leer. */
+  porLeer?: number;
 }
 
-export const historialLista = (filtro: "foto" | "video" | null, desde: number, cuantas: number) =>
-  invoke<PaginaHistorial>("historial_lista", { filtro, desde, cuantas });
+/** Con `buscar`, solo las fotos que llevan eso escrito (sin tildes ni mayúsculas). */
+export const historialLista = (
+  filtro: "foto" | "video" | null,
+  desde: number,
+  cuantas: number,
+  buscar: string | null = null,
+) => invoke<PaginaHistorial>("historial_lista", { filtro, desde, cuantas, buscar });
 /** La miniatura del archivo, en el temporal: la da Windows, la misma del Explorador. */
 export const historialMiniatura = (ruta: string) => invoke<string>("historial_miniatura", { ruta });
 export const historialAbrir = (ruta: string) => invoke<void>("historial_abrir", { ruta });
