@@ -360,6 +360,7 @@ pub async fn miniatura_guardar(app: AppHandle, id: u64) -> Result<String> {
     let carpeta = PathBuf::from(app.state::<AppState>().settings.read().save_directory.clone());
     let destino = crate::archivos::destino(&carpeta, "png")?;
     std::fs::copy(&archivo, &destino)?;
+    crate::historial_texto::avisar(&app);
     if let Some(m) = PILA.lock().iter_mut().find(|m| m.id == id) {
         m.archivo = destino.clone();
         m.guardada = true;

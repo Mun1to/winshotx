@@ -44,6 +44,12 @@ pub struct Entrada {
 pub struct Pagina {
     pub entradas: Vec<Entrada>,
     pub total: usize,
+    /// S26: si se puede buscar por el texto de las fotos (en Linux, o sin lector de Windows,
+    /// no: la caja no sale).
+    pub buscable: bool,
+    /// S26: cuántas fotos de las que entran en el filtro faltan por leer, para decirlo al
+    /// buscar sin encontrar nada.
+    pub por_leer: usize,
 }
 
 /// De qué tipo es un archivo por su extensión, o nada si no es de los que guarda winshotx.
@@ -239,19 +245,34 @@ fn encajada(ancho: u32, alto: u32) -> (u32, u32) {
     )
 }
 
-/// Lo que pide la ventana: una página del historial.
+/// Lo que pide la ventana: una página del historial. Con `buscar`, solo las fotos que
+/// llevan escrito eso (S26, `historial_texto`); sin él, o vacío, el historial entero.
 #[tauri::command]
 pub async fn historial_lista(
     app: AppHandle,
     filtro: Option<String>,
     desde: usize,
     cuantas: usize,
+    buscar: Option<String>,
 ) -> Pagina {
-    let todas = leer(&carpeta(&app), filtro.as_deref());
+    let mut todas = leer(&carpeta(&app), filtro.as_deref());
+    let (mut buscable, mut por_leer) = (false, 0);
+    if let Some(buscador) = app.try_state::<crate::historial_texto::Buscador>() {
+        buscable = buscador.disponible();
+        por_leer = buscador.cuantas_por_leer(&todas);
+        if let Some(busqueda) = buscar.as_deref().filter(|_| buscable) {
+            buscador.filtrar(&mut todas, busqueda);
+        }
+    }
+    // Quien mira el historial puede tener fotos que llegaron por fuera de winshotx: que el
+    // lector mire la carpeta cuando le toque.
+    crate::historial_texto::mirar(&app);
     let total = todas.len();
     Pagina {
         entradas: todas.into_iter().skip(desde).take(cuantas.clamp(1, 200)).collect(),
         total,
+        buscable,
+        por_leer,
     }
 }
 
@@ -337,7 +358,10 @@ pub async fn historial_copiar(app: AppHandle, ruta: String) -> Result<()> {
 #[tauri::command]
 pub async fn historial_borrar(app: AppHandle, ruta: String) -> Result<()> {
     let ruta = comprobada(&app, &ruta)?;
-    a_la_papelera(&ruta)
+    a_la_papelera(&ruta)?;
+    // Que su texto salga también del índice y de su archivo (S26) en cuanto el lector mire.
+    crate::historial_texto::mirar(&app);
+    Ok(())
 }
 
 /// Manda un archivo a la papelera, sin preguntar ni enseñar nada (la ventana ya pidió la

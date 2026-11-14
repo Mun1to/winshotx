@@ -121,6 +121,7 @@ impl Hace for EnLaApp {
         let (ancho, alto) = imagen.dimensions();
         crate::encode::png::save(&imagen, &ruta, ancho, alto)
             .map_err(|e| format!("Could not save {} ({e}).", ruta.display()))?;
+        crate::historial_texto::avisar(&self.app);
         Ok(Captura { archivo: ruta, ancho, alto })
     }
 
