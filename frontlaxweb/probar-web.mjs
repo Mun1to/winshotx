@@ -9,8 +9,11 @@
 // cada orden de la terminal se copia con el ratón y con Intro, mirando el portapapeles y que
 // salga el aviso de copiado.
 //
-// Cada página sale en oscuro y en claro, a 1920 (la pantalla de Munir), a 1440 y en un
-// iPhone 13, y en las tres se apuntan los errores de consola y si algo se sale por un lado.
+// Cada página sale en oscuro y en claro, a 1920 (la pantalla de Munir), a 1440, en un
+// iPhone 13 y a 360, y en todas se apuntan los errores de consola y si algo se sale por un
+// lado. En los dos móviles, pieza a pieza: nada se sale y lo que se pulsa mide 44 px o más.
+// Y la demo en el móvil: se abre a pantalla completa, se recorta con el dedo, y Escape y
+// Atrás la cierran sin salir de la página.
 // Las fotos van a `.fotos-web\` en la raíz del repo, que git no ve.
 //
 // La cruceta se mide con la CPU cuatro veces más lenta (lo que pide la casa para dar algo por
@@ -42,7 +45,49 @@ const TAMANOS = [
   { nombre: "1920", contexto: { viewport: { width: 1920, height: 1080 } } },
   { nombre: "1440", contexto: { viewport: { width: 1440, height: 900 } } },
   { nombre: "movil", contexto: devices["iPhone 13"] },
+  // El móvil más estrecho que se ve a menudo (muchos Android): si algo se sale, es aquí.
+  { nombre: "360", contexto: { viewport: { width: 360, height: 780 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } },
 ];
+
+/* En el móvil, pieza a pieza (el `overflow-x: hidden` del cuerpo esconde lo que se sale, así que
+   el ancho de la página no basta): qué se sale por un lado, y qué se pulsa con menos de 44 px
+   de alto. No cuentan lo que va dentro de una frase (un enlace o una orden en mitad del texto),
+   lo que está dentro de algo que recorta o se desliza, lo cerrado y la demo encogida, que a ese
+   tamaño no se pulsa (se abre a pantalla completa). */
+function repasoMovil() {
+  const vw = document.documentElement.clientWidth;
+  const seVe = (el) => {
+    const r = el.getBoundingClientRect();
+    const s = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && Number(s.opacity) > 0 &&
+      !el.closest("details:not([open]) > :not(summary), [inert], [hidden]");
+  };
+  const nombre = (el) => {
+    const t = (el.getAttribute("aria-label") || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 28);
+    return `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).join(".") : ""} «${t}»`;
+  };
+  const salen = [];
+  for (const el of document.body.querySelectorAll("*")) {
+    if (!seVe(el)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.right <= vw + 1 && r.left >= -1) continue;
+    let recorta = false;
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      if (getComputedStyle(p).overflowX !== "visible") { recorta = true; break; }
+    }
+    if (!recorta) salen.push(`${nombre(el)} (${Math.round(r.left)} a ${Math.round(r.right)})`);
+  }
+  const chicos = [];
+  for (const el of document.querySelectorAll("a[href], button, summary, [role=button], [role=tab], .copiable")) {
+    if (!seVe(el)) continue;
+    const enFrase = getComputedStyle(el).display === "inline" &&
+      [...el.parentElement.childNodes].some((n) => n !== el && n.nodeType === 3 && n.data.trim());
+    if (enFrase) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height < 43.5) chicos.push(`${nombre(el)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+  }
+  return { salen, chicos };
+}
 
 const navegador = await chromium.launch();
 let fallos = 0;
@@ -78,9 +123,11 @@ for (const ruta of paginas) {
       });
       // Los errores de red de file:// (el contador de GitHub, las fuentes) no son de la web.
       const propios = errores.filter((e) => !/net::ERR|Failed to load resource|api\.github\.com/i.test(e));
-      if (desborda || propios.length || rotas.length) fallos++;
+      const { salen, chicos } = tam.contexto.isMobile ? await page.evaluate(repasoMovil) : { salen: [], chicos: [] };
+      if (desborda || propios.length || rotas.length || salen.length || chicos.length) fallos++;
       console.log(
         `${nombre.padEnd(34)} ${desborda ? `SE SALE (${ancho} > ${visible})` : "ancho bien"}` +
+          `${tam.contexto.isMobile ? `${salen.length ? `  SE SALEN: ${salen.join(" | ")}` : ", nada se sale"}${chicos.length ? `  MENOS DE 44 PX: ${chicos.join(" | ")}` : ", todo lo que se pulsa con 44 px o más"}` : ""}` +
           `${rotas.length ? `  FOTOS ROTAS: ${rotas.join(", ")}` : ""}` +
           `${propios.length ? `  ERRORES: ${propios.join(" | ")}` : ""}`,
       );
@@ -323,6 +370,83 @@ for (const ruta of ["", "en/"]) {
     );
     if (!bien) fallos++;
   }
+}
+
+// La demo en el móvil: tocarla la abre a pantalla completa (fija encima, la página de debajo
+// quieta y sin poder tocarse), dentro se recorta con el dedo, y Escape y Atrás la cierran sin
+// salir de la página ni moverla. El dedo se para antes de soltar: si suelta en marcha,
+// Chromium lo toma por un lanzamiento y se come el toque siguiente (pasa en una página vacía).
+for (const ruta of ["", "en/"]) {
+  const ctx = await navegador.newContext(devices["iPhone 13"]);
+  const page = await ctx.newPage();
+  const errores = [];
+  page.on("pageerror", (e) => errores.push(String(e)));
+  await page.goto(url(ruta), { waitUntil: "load" });
+  await page.evaluate(() => {
+    document.documentElement.style.scrollBehavior = "auto";
+    scrollTo(0, document.querySelector("#demo").getBoundingClientRect().top + scrollY - 96);
+  });
+  await page.waitForTimeout(400);
+  const y0 = await page.evaluate(() => scrollY);
+  const estado = () => page.evaluate(() => ({
+    abierta: document.querySelector("#demo").classList.contains("en-grande"),
+    dialogo: document.querySelector("#demo .env").getAttribute("role") === "dialog",
+    dormidas: [...document.body.children].filter((e) => e.inert).length,
+    quieta: getComputedStyle(document.documentElement).overflow === "hidden",
+    nuestra: Boolean(history.state && history.state.capaDemo),
+    y: scrollY,
+  }));
+  const caja = await page.locator("#pantalla-demo").boundingBox();
+  await page.touchscreen.tap(caja.x + caja.width / 2, caja.y + caja.height / 2);
+  await page.waitForTimeout(400);
+  const abierta = await estado();
+  // Recortar con el dedo dentro de la capa.
+  await page.evaluate(() => { tocado = true; pararFantasma(); limpiar(); });
+  const cdp = await ctx.newCDPSession(page);
+  const dedo = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+  const zona = await page.locator("#caja").boundingBox();
+  const desde = [zona.x + zona.width * 0.25, zona.y + zona.height * 0.3];
+  const hasta = [zona.x + zona.width * 0.6, zona.y + zona.height * 0.7];
+  await dedo("touchStart", ...desde);
+  for (let i = 1; i <= 8; i++) {
+    await dedo("touchMove", desde[0] + ((hasta[0] - desde[0]) * i) / 8, desde[1] + ((hasta[1] - desde[1]) * i) / 8);
+    await page.waitForTimeout(25);
+  }
+  await page.waitForTimeout(250);
+  await dedo("touchEnd");
+  await page.waitForTimeout(250);
+  const sel = await page.locator("#sel").boundingBox();
+  const desvio = Math.max(Math.abs(sel.x - desde[0]), Math.abs(sel.y - desde[1]), Math.abs(sel.x + sel.width - hasta[0]), Math.abs(sel.y + sel.height - hasta[1]));
+  const barra = await page.locator("#herramientas").isVisible();
+  // Escape: la primera vez quita la selección (como en la app); la segunda cierra.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+  const trasEscape = await estado();
+  // Con el botón de debajo, y Atrás.
+  await page.locator('[data-capa="abrir"]').tap();
+  await page.waitForTimeout(400);
+  const otraVez = await estado();
+  const tamanos = await page.evaluate(() => [...document.querySelectorAll(".capa-boton")].map((b) => b.getBoundingClientRect().height));
+  const direccion = page.url();
+  await page.goBack();
+  await page.waitForTimeout(400);
+  const trasAtras = await estado();
+  tamanos.push(await page.evaluate(() => document.querySelector(".demo-movil .btn").getBoundingClientRect().height));
+  await ctx.close();
+  const bien = abierta.abierta && abierta.dialogo && abierta.dormidas > 5 && abierta.quieta && abierta.nuestra && abierta.y === y0 &&
+    desvio <= 3 && barra && !trasEscape.abierta && !trasEscape.nuestra && !trasEscape.dormidas && trasEscape.y === y0 &&
+    otraVez.abierta && !trasAtras.abierta && !trasAtras.dormidas && page.url() === direccion && trasAtras.y === y0 &&
+    tamanos.every((h) => h >= 44) && !errores.length;
+  console.log(
+    `${(ruta || "portada").padEnd(12)} la demo en el móvil: tocarla ${abierta.abierta && abierta.dialogo ? "la abre a pantalla completa" : "NO LA ABRE"}` +
+      `${abierta.dormidas > 5 && abierta.quieta ? " con la página quieta debajo" : " CON LA PÁGINA SUELTA"}; recortar con el dedo se desvía ${desvio.toFixed(1)} px` +
+      `${barra ? "" : " (SIN LA BARRA)"}; Escape ${!trasEscape.abierta && !trasEscape.nuestra ? "la cierra" : "NO LA CIERRA BIEN"}; Atrás ` +
+      `${!trasAtras.abierta && page.url() === direccion ? "la cierra sin salir de la página" : "NO LA CIERRA BIEN"}; la página ${trasAtras.y === y0 ? "no se ha movido" : `SE MOVIÓ (${y0} → ${trasAtras.y})`}` +
+      `; sus botones ${tamanos.every((h) => h >= 44) ? "de 44 px o más" : `DE MENOS DE 44 PX (${tamanos.map(Math.round).join(", ")})`}` +
+      `${errores.length ? `  ERRORES: ${errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
+  );
+  if (!bien) fallos++;
 }
 
 // Las órdenes de la terminal (winget, PowerShell) se copian con un clic: cada una se pulsa
