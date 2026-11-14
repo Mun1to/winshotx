@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Coffee, X } from "lucide-react";
-import type { SeccionId } from "./SettingsHeader";
+import { SECCIONES, type SeccionId } from "./SettingsHeader";
 import { CAFE } from "../../lib/enlaces";
 import { openUrl } from "../../lib/ipc";
 import { useT } from "../../lib/i18n";
@@ -37,7 +37,7 @@ const PASOS: Paso[] = [
     id: "secciones",
     seccion: "capturar",
     objetivo: "secciones",
-    titulo: "Todo está en estas cuatro",
+    titulo: "Todo está en estas cinco",
     texto:
       "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.",
   },
@@ -112,10 +112,49 @@ interface Props {
   onCerrar: () => void;
 }
 
+/**
+ * Un agujero del velo: lo que va en negro dentro de la máscara se ve sin oscurecer.
+ *
+ * La geometría va en `style` y no en atributos porque así es CSS, y el CSS se puede animar:
+ * con atributos el agujero saltaba de golpe mientras el aro de color se deslizaba.
+ */
+function Agujero({
+  marco,
+  radio,
+  holgura = 0,
+  nombre,
+}: {
+  marco: Marco;
+  radio: number;
+  holgura?: number;
+  nombre: string;
+}) {
+  return (
+    <rect
+      data-agujero={nombre}
+      rx={radio}
+      fill="black"
+      className="motion-safe:transition-[x,y,width,height] motion-safe:duration-200"
+      style={
+        {
+          x: marco.left - holgura,
+          y: marco.top - holgura,
+          width: marco.width + holgura * 2,
+          height: marco.height + holgura * 2,
+        } as CSSProperties
+      }
+    />
+  );
+}
+
 export function GuidedTour({ onNavegar, onCerrar }: Props) {
   const t = useT();
   const [indice, setIndice] = useState(0);
   const [marco, setMarco] = useState<Marco | null>(null);
+  // S24: la pestaña de la sección de la parada, en la cabecera, también se ve encendida.
+  // En la primera parada estaba encendida porque lo iluminado era la cabecera entera, y en
+  // las demás se quedaba debajo del velo: no se sabía en qué pestaña estaba uno.
+  const [pestana, setPestana] = useState<Marco | null>(null);
   // El alto de la tarjeta se MIDE, no se estima: los textos no miden todos lo mismo y de
   // ese numero depende si la tarjeta cabe debajo de lo iluminado o hay que sacarla al
   // lado. Con un valor fijo, un paso de texto largo se salia por abajo de la ventana.
@@ -131,6 +170,20 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
   }, [paso, onNavegar]);
 
   const medir = useCallback(() => {
+    // Por posición en la cabecera y no por la que está elegida: esto puede medirse un
+    // instante antes de que la pestaña cambie, y las pestañas no se mueven de sitio.
+    const boton =
+      paso.seccion && paso.objetivo !== "secciones"
+        ? document.querySelectorAll<HTMLElement>('[data-tour="secciones"] button')[
+            SECCIONES.findIndex((s) => s.value === paso.seccion)
+          ]
+        : undefined;
+    if (boton) {
+      const r = boton.getBoundingClientRect();
+      setPestana({ top: r.top, left: r.left, width: r.width, height: r.height });
+    } else {
+      setPestana(null);
+    }
     if (!paso.objetivo) {
       setMarco(null);
       return;
@@ -247,25 +300,26 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
   // repartiendo z-index por los tres trozos y confiar en que ganen.
   return (
     <div className="fixed inset-0 z-[9999]">
-      {marco ? (
-        // La sombra de 9999px es la que oscurece la ventana entera, y el hueco es este
-        // rectángulo. Sale más barato y más exacto que recortar cuatro tiras alrededor.
-        // Se anima solo la geometría: metiendo la sombra en la transición, el oscurecido
-        // entraba desde cero y en una foto salía la ventana sin oscurecer.
+      {/* El velo es un SVG con agujeros y no una sombra de 9999 px alrededor de lo
+          iluminado: con la sombra solo cabía UN agujero, y desde S24 hay dos (lo que se
+          explica y la pestaña de su sección). Cada agujero se desliza de un sitio a otro,
+          salvo para quien pide menos movimiento en Windows: ahí salta y ya está. */}
+      <svg aria-hidden="true" className="pointer-events-none fixed inset-0 size-full" data-tour-velo>
+        <defs>
+          <mask id="tour-agujeros">
+            <rect width="100%" height="100%" fill="white" />
+            {marco && <Agujero marco={marco} radio={12} nombre="objetivo" />}
+            {pestana && <Agujero marco={pestana} radio={8} holgura={3} nombre="pestana" />}
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.72)" mask="url(#tour-agujeros)" />
+      </svg>
+      {marco && (
         <div
           aria-hidden="true"
-          // El foco se desliza de un sitio a otro, salvo para quien pide menos
-          // movimiento en Windows: ahi salta y ya esta. Solo se anima la geometria;
-          // metiendo la sombra dentro, el oscurecido entraba desde cero.
           className="pointer-events-none rounded-xl ring-2 ring-marca motion-safe:transition-[top,left,width,height] motion-safe:duration-200"
-          style={{
-            position: "fixed",
-            ...marco,
-            boxShadow: "0 0 0 9999px rgba(0,0,0,0.72)",
-          }}
+          style={{ position: "fixed", ...marco }}
         />
-      ) : (
-        <div aria-hidden="true" className="pointer-events-none fixed inset-0 bg-black/70" />
       )}
 
       <div

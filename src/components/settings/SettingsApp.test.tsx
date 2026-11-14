@@ -678,3 +678,19 @@ describe("la ventana a la medida de su pestaña", () => {
   });
 });
 
+/** S24: en cada parada del tour, la pestaña de su sección se ve encendida en la cabecera. */
+describe("el tour enciende la pestaña de cada parada", () => {
+  it("la primera ilumina la cabecera entera; las demás, lo suyo y su pestaña", async () => {
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("button", { name: /Tour/ }));
+    const agujeros = () =>
+      [...document.querySelectorAll("[data-tour-velo] [data-agujero]")].map((a) => a.getAttribute("data-agujero"));
+    await waitFor(() => expect(agujeros()).toEqual(["objetivo"]));
+    for (let i = 0; i < 20; i += 1) {
+      const siguiente = screen.queryByRole("button", { name: "Siguiente" });
+      if (!siguiente) break;
+      fireEvent.click(siguiente);
+      await waitFor(() => expect(agujeros()).toEqual(["objetivo", "pestana"]));
+    }
+  });
+});
