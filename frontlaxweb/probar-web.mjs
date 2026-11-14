@@ -5,6 +5,9 @@
 //   node frontlaxweb/probar-web.mjs --entera             la página completa, no solo lo de arriba
 //   node frontlaxweb/probar-web.mjs --cruceta            además, mide la cruceta de la portada
 //
+// En cada página, además, cada orden de la terminal se copia con el ratón y con Intro, y se
+// mira el portapapeles y que salga el aviso de copiado.
+//
 // Cada página sale en oscuro y en claro, a 1920 (la pantalla de Munir), a 1440 y en un
 // iPhone 13, y en las tres se apuntan los errores de consola y si algo se sale por un lado.
 // Las fotos van a `.fotos-web\` en la raíz del repo, que git no ve.
@@ -79,6 +82,48 @@ for (const ruta of paginas) {
       await ctx.close();
     }
   }
+}
+
+// Las órdenes de la terminal (winget, PowerShell) se copian con un clic: cada una se pulsa
+// con el ratón y con Intro, y se mira lo que llega al portapapeles y que salga su aviso.
+for (const ruta of paginas) {
+  const ctx = await navegador.newContext({ viewport: { width: 1440, height: 900 } });
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const page = await ctx.newPage();
+  await page.goto(url(ruta), { waitUntil: "load" });
+  const piezas = page.locator(".copiable");
+  const total = await piezas.count();
+  if (!total) { await ctx.close(); continue; }
+  const malas = [];
+  const rotas = new Set();
+  for (let i = 0; i < total; i++) {
+    const pieza = piezas.nth(i);
+    // Las de las preguntas van plegadas: se abre la suya.
+    if (await pieza.evaluate((e) => { const d = e.closest("details"); if (d && !d.open) { d.querySelector("summary").click(); return true; } return false; })) {
+      await page.waitForTimeout(500);
+    }
+    const orden = await pieza.evaluate((e) => e.getAttribute("aria-label").replace(/^[^:]+: /, ""));
+    for (const como of ["ratón", "teclado"]) {
+      await page.evaluate(() => navigator.clipboard.writeText("-"));
+      await pieza.scrollIntoViewIfNeeded();
+      if (como === "ratón") await pieza.click();
+      else { await pieza.focus(); await page.keyboard.press("Enter"); }
+      await page.waitForTimeout(300);
+      const llego = await page.evaluate(() => navigator.clipboard.readText());
+      const aviso = await pieza.evaluate((e) => {
+        const a = e.querySelector(".copiado") || document.querySelector(".copiado-globo");
+        const r = a.getBoundingClientRect();
+        return { se_ve: getComputedStyle(a).opacity === "1", dentro: r.left >= 0 && r.right <= innerWidth && r.top >= 0 };
+      });
+      if (llego !== orden) malas.push(`${orden} (${como}: llegó «${llego}»)`);
+      else if (!aviso.se_ve || !aviso.dentro) malas.push(`${orden} (${como}: el aviso ${aviso.se_ve ? "se sale" : "no sale"})`);
+      else continue;
+      rotas.add(i);
+    }
+  }
+  console.log(`${(ruta || "portada").padEnd(12)} órdenes que se copian con un clic: ${total - rotas.size} de ${total}${malas.length ? `  MAL: ${malas.join(" | ")}` : ""}`);
+  if (malas.length) fallos++;
+  await ctx.close();
 }
 
 if (medirCruceta) {

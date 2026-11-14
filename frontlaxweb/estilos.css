@@ -1056,6 +1056,74 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 .terminal .com { color: #8e8e9c; }
 .terminal .ok { color: #7ee2b0; }
 @media (max-width: 860px) { .agentes .env { grid-template-columns: 1fr; } .terminal { font-size: 13px; } }
+/* Cada línea es su propia pieza (se copia sola), así que la terminal va por filas: los
+   saltos de línea de entre medias no se pintan y el hueco del segundo grupo lo pone su
+   comentario. */
+.terminal pre { display: grid; }
+.terminal .com.aparte { margin-top: 1.7em; }
+
+/* ---------- las órdenes para la terminal se copian con un clic (leer.js) ----------
+   La orden entera es lo que se pulsa: lleva su dibujo de copiar detrás y, al pasar el
+   ratón, el fondo suave de lo que se puede pulsar (quieta no lleva caja; en una pantalla
+   táctil sí, porque sin ratón no se sabe qué se pulsa). Al copiar, el dibujo pasa a un ✓
+   y sale «Copiado», que se va solo: encima, en las de dentro de una frase, y a la derecha,
+   en las que van en fila (la terminal y el bloque de la guía). */
+.copiable {
+  position: relative; cursor: copy; border-radius: 7px;
+  transition: background .18s, color .18s; -webkit-tap-highlight-color: transparent;
+}
+/* Una orden corta no se parte entre dos renglones: baja entera. */
+.copiable.en-frase { padding: 2px 6px; margin-inline: -2px; white-space: nowrap; }
+.copiable:hover { background: var(--realce-fuerte); }
+.copiable:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+.copiable svg {
+  display: inline-block; width: 1em; height: 1em; margin-left: .45em; vertical-align: -.14em;
+  color: var(--suave); transition: color .18s;
+}
+.copiable:hover .ico-copiar, .copiable:focus-visible .ico-copiar { color: var(--texto); }
+.copiable .ico-hecho, .copiable[data-copiado="si"] .ico-copiar { display: none; }
+.copiable[data-copiado="si"] .ico-hecho { display: inline-block; color: var(--azul); }
+.copiado {
+  position: absolute; z-index: 60; padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+  pointer-events: none; font: 600 13.5px/1 var(--letra); color: var(--texto);
+  background: var(--panel); box-shadow: 0 0 0 1px var(--linea), 0 10px 24px #00000040;
+  opacity: 0; transition: opacity .18s, transform .22s cubic-bezier(.2, .7, .2, 1);
+}
+/* El de las órdenes de dentro de una frase va suelto en la página, encima del renglón. */
+.copiado-globo {
+  top: 0; left: 0; translate: -50% calc(-100% - 8px);
+  transform: translateY(calc(5px * var(--motion-gain, 1)));
+}
+.copiado-globo[data-visible], .copiable[data-copiado] .copiado { opacity: 1; transform: none; }
+@media (hover: none) { .copiable.en-frase { background: var(--realce-medio); } }
+.nota .copiable.en-frase { padding: 3px 7px; }
+
+/* En fila: la fila entera se pulsa, el dibujo a la derecha y «Copiado» a su izquierda. */
+.copiable.en-fila { display: block; }
+.copiable.en-fila svg { position: absolute; right: 14px; top: .42em; margin: 0; }
+.copiable.en-fila .copiado {
+  right: 40px; top: 50%; translate: 0 -50%; transform: translateX(calc(5px * var(--motion-gain, 1)));
+}
+.copiable.en-fila[data-copiado] .copiado { transform: none; }
+.terminal .copiable { margin: 0 -12px; padding: 1px 46px 1px 12px; }
+.terminal .copiable:hover { background: #ffffff10; }
+.terminal .copiable svg { color: #8e8e9c; }
+.terminal .copiable:hover .ico-copiar, .terminal .copiable:focus-visible .ico-copiar { color: #e6e6ee; }
+.terminal .copiable[data-copiado="si"] .ico-hecho { color: #6fb7ff; }
+.terminal .copiado { background: #1d1d25; color: #e6e6ee; box-shadow: 0 0 0 1px #ffffff1f; }
+/* A la altura de su dibujo, que en una orden de dos renglones va en el primero. */
+.terminal .copiable .copiado { top: .92em; }
+/* La orden larga de la guía, en su propio bloque: como una línea de la terminal. */
+.texto .orden-bloque { max-width: 68ch; margin-top: 12px; }
+.texto .orden-bloque code.copiable {
+  padding: 12px 48px 12px 16px; border-radius: 10px; line-height: 1.55; font-size: .9em;
+  background: var(--realce-medio); overflow-wrap: anywhere;
+}
+.texto .orden-bloque code.copiable:hover { background: var(--realce-fuerte); }
+.texto .orden-bloque code.copiable svg { top: 50%; translate: 0 -50%; }
+.solo-lector {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 
 /* ---------- novedades: las tres últimas, las escribe generar-novedades.mjs ---------- */
 .novedades-portada { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 3vw, 56px); margin-top: 44px; }

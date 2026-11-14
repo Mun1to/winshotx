@@ -45,7 +45,7 @@
   h.classList.toggle("quieto", gain === 0);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=a64d7b76">
+<link rel="stylesheet" href="../estilos.css?v=82afc1c2">
 <link rel="preload" as="image" href="../img/escritorio-en.webp">
 <script type="application/ld+json">
 {
@@ -132,7 +132,7 @@
       "name": "Can it be installed with winget?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. It is published in the official winget-pkgs catalogue, so winget install Mun1to.winshotx installs it and winget upgrade updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings."
+        "text": "Yes. It is published in the official winget-pkgs catalogue, so winget install Mun1to.winshotx installs it and winget upgrade Mun1to.winshotx updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings."
       }
     },
     {
@@ -382,7 +382,7 @@
       <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download</span></a>
       <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
            y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
-           Un <details> se abre y se cierra sin JavaScript; leer.js?v=3ae62134 solo lo cierra al elegir. -->
+           Un <details> se abre y se cierra sin JavaScript; leer.js?v=d25f8649 solo lo cierra al elegir. -->
       <details class="menu">
         <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span>Menu</span></summary>
         <div class="menu-panel">
@@ -1018,16 +1018,17 @@
       <div class="fan suelta" style="--giro:-3deg"><p>Your agent records the demo. <b>You go grab a coffee.</b></p></div>
       <div class="botones"><a class="btn dos" href="docs/#agentes">How to connect it</a></div>
     </div>
-    <div class="terminal" role="img" aria-label="A terminal with the winshotx commands for agents">
+    <!-- Cada orden de la terminal se copia con un clic (leer.js?v=d25f8649): por eso es un grupo y no
+         una imagen, y cada línea `.orden` va suelta, sin su «PS>», que no se escribe. -->
+    <div class="terminal" role="group" aria-label="A terminal with the winshotx commands for agents">
       <div class="terminal-barra"><i></i><i></i><i></i><span>PowerShell</span></div>
 <pre><span class="com"># once: add it to Claude Code</span>
-<span class="ps">PS&gt;</span> claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp
-
-<span class="com"># or from any terminal</span>
-<span class="ps">PS&gt;</span> winshotx agent record --screen 0 --max-seconds 20
-<span class="ps">PS&gt;</span> winshotx agent stop
+<span class="orden"><span class="ps">PS&gt;</span> claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</span>
+<span class="com aparte"># or from any terminal</span>
+<span class="orden"><span class="ps">PS&gt;</span> winshotx agent record --screen 0 --max-seconds 20</span>
+<span class="orden"><span class="ps">PS&gt;</span> winshotx agent stop</span>
 <span class="ok">{"ok":true,"session":"3f9c0a1b2d", ...}</span>
-<span class="ps">PS&gt;</span> winshotx agent export 3f9c0a1b2d --out demo.mp4 --zoom-on-clicks 0.5</pre>
+<span class="orden"><span class="ps">PS&gt;</span> winshotx agent export 3f9c0a1b2d --out demo.mp4 --zoom-on-clicks 0.5</span></pre>
     </div>
   </div>
 </section>
@@ -1093,7 +1094,7 @@
       </details>
       <details>
         <summary><h3>Can it be installed with winget?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>Yes. It is published in the official winget-pkgs catalogue, so <code>winget install Mun1to.winshotx</code> installs it and <code>winget upgrade</code> updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings.</p></div>
+        <div class="faq-cajon"><p>Yes. It is published in the official winget-pkgs catalogue, so <code>winget install Mun1to.winshotx</code> installs it and <code>winget upgrade Mun1to.winshotx</code> updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings.</p></div>
       </details>
       <details>
         <summary><h3>Is it on the Microsoft Store?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
@@ -1267,7 +1268,7 @@
 </footer>
 
 <script src="../cruceta.js?v=a40756ff"></script>
-<script src="../leer.js?v=3ae62134"></script>
+<script src="../leer.js?v=d25f8649"></script>
 <script src="../demo.js?v=0b69e18f"></script>
 </body>
 </html>

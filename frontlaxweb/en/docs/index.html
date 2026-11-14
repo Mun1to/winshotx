@@ -30,7 +30,7 @@
 <link rel="icon" href="../../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../../estilos.css?v=a64d7b76">
+<link rel="stylesheet" href="../../estilos.css?v=82afc1c2">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -164,7 +164,7 @@
       <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download</span></a>
       <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
            y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
-           Un <details> se abre y se cierra sin JavaScript; leer.js?v=3ae62134 solo lo cierra al elegir. -->
+           Un <details> se abre y se cierra sin JavaScript; leer.js?v=d25f8649 solo lo cierra al elegir. -->
       <details class="menu">
         <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span>Menu</span></summary>
         <div class="menu-panel">
@@ -387,7 +387,11 @@
   <section id="agentes">
     <h2>For AI agents</h2>
     <p>An AI agent (Claude Code, Codex, Cursor or any other that speaks MCP) can use winshotx on its own: <b>record the screen, stop, export a finished MP4 or GIF and take screenshots</b>, and it is told where each file ended up. Nobody has to touch the mouse.</p>
-    <p>To add it to Claude Code, run this in PowerShell: <code>claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</code>. That is where the installer and winget put it, unless you picked another folder; with the portable build, use the folder you unzipped it into.</p>
+    <!-- La orden va en su propio bloque, que se copia con un clic (leer.js?v=d25f8649): dentro de la
+         frase se partía en cuatro renglones en el móvil. -->
+    <p>To add it to Claude Code, run this in PowerShell:</p>
+    <p class="orden-bloque"><code>claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</code></p>
+    <p>That is where the installer and winget put it, unless you picked another folder; with the portable build, use the folder you unzipped it into.</p>
     <p>Without MCP, any script can do the same from a terminal with <code>winshotx.exe agent</code>: it answers with one line of JSON that says what happened and where the file is.</p>
     <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span><b>A recording started by an agent looks exactly like one of yours</b>, with the red frame and the bar, so you always know when the screen is being recorded. And it makes no sound unless the agent asks for it.</span></p>
     <p><a href="https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.md">How to add it to each agent, and every command</a>.</p>
@@ -488,6 +492,6 @@
   </div>
 </footer>
 
-<script src="../../leer.js?v=3ae62134"></script>
+<script src="../../leer.js?v=d25f8649"></script>
 </body>
 </html>
