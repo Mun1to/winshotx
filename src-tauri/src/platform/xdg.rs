@@ -247,9 +247,105 @@ fn sin_el_entorno_del_appimage(orden: &mut std::process::Command) {
     }
 }
 
+/// Arrancar al entrar en la sesion: una entrada en `~/.config/autostart`, la especificacion de
+/// arranque de freedesktop que leen GNOME, KDE y XFCE (Sway y los gestores sueltos no la leen;
+/// ahi se pone en su configuracion). Apagarlo la borra.
+#[cfg(target_os = "linux")]
+pub fn arrancar_al_entrar(encender: bool) -> crate::error::Result<()> {
+    let casa = std::env::var_os("HOME").map(PathBuf::from);
+    let config = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from);
+    let carpeta = carpeta_de_arranque(config, casa).ok_or(crate::error::AppError::Unsupported)?;
+    let ruta = carpeta.join(format!("{}.desktop", crate::platform::portal::ID_DE_LA_APP));
+    if !encender {
+        return match std::fs::remove_file(&ruta) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.into()),
+            _ => Ok(()),
+        };
+    }
+    // El AppImage se ejecuta desde una carpeta temporal que cambia cada vez: lo que se apunta
+    // es el archivo .AppImage, que es lo que la persona tiene en el disco.
+    let ejecutable = std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .filter(|ruta| ruta.is_absolute())
+        .map_or_else(std::env::current_exe, Ok)?;
+    std::fs::create_dir_all(&carpeta)?;
+    std::fs::write(&ruta, entrada_de_arranque(&ejecutable.to_string_lossy()))?;
+    Ok(())
+}
+
+/// `$XDG_CONFIG_HOME/autostart`, o `~/.config/autostart` si no esta puesta o no es absoluta
+/// (lo que dice la especificacion de carpetas de XDG).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn carpeta_de_arranque(config: Option<PathBuf>, casa: Option<PathBuf>) -> Option<PathBuf> {
+    config
+        .filter(|ruta| ruta.is_absolute())
+        .or_else(|| casa.map(|casa| casa.join(".config")))
+        .map(|config| config.join("autostart"))
+}
+
+/// La entrada de arranque. Lleva `--autostart` (la bandera de `arranque::AL_ENCENDER` en la
+/// 0.4.7): arrancada asi, winshotx se queda en la bandeja sin abrir ninguna ventana. La ruta
+/// va entre comillas y con lo que la especificacion de las entradas de escritorio pide escapar
+/// dentro de ellas (`"`, `` ` ``, `$` y `\`), y el `\` otra vez por ser un valor de texto.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn entrada_de_arranque(ejecutable: &str) -> String {
+    let mut ruta = String::new();
+    for c in ejecutable.chars() {
+        match c {
+            '\\' => ruta.push_str("\\\\\\\\"),
+            '"' | '`' | '$' => {
+                ruta.push_str("\\\\");
+                ruta.push(c);
+            }
+            _ => ruta.push(c),
+        }
+    }
+    format!(
+        "[Desktop Entry]\nType=Application\nName=winshotx\nExec=\"{ruta}\" --autostart\nIcon=winshotx\nNoDisplay=true\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// La entrada que arranca winshotx al entrar en la sesion apunta al ejecutable, entre
+    /// comillas, y con la bandera que la deja en la bandeja sin ventana.
+    #[test]
+    fn la_entrada_de_arranque_lleva_la_ruta_y_la_bandera() {
+        let texto = entrada_de_arranque("/home/ana/Mis cosas/winshotx.AppImage");
+        assert!(texto.starts_with("[Desktop Entry]\n"));
+        assert!(texto.contains("\nExec=\"/home/ana/Mis cosas/winshotx.AppImage\" --autostart\n"));
+        assert!(texto.contains("\nNoDisplay=true\n"));
+    }
+
+    /// Lo que la especificacion manda escapar dentro de las comillas, escapado.
+    #[test]
+    fn la_ruta_de_arranque_escapa_lo_que_pide_la_especificacion() {
+        let texto = entrada_de_arranque("/tmp/a\"b$c`d\\e");
+        assert!(texto.contains(r#"Exec="/tmp/a\\"b\\$c\\`d\\\\e" --autostart"#), "{texto}");
+    }
+
+    /// Solo en Unix: en Windows `/srv/conf` no es una ruta absoluta (le falta la unidad).
+    #[cfg(unix)]
+    #[test]
+    fn la_carpeta_de_arranque_sale_de_xdg_o_de_la_casa() {
+        let casa = Some(PathBuf::from("/home/ana"));
+        assert_eq!(
+            carpeta_de_arranque(None, casa.clone()),
+            Some(PathBuf::from("/home/ana/.config/autostart"))
+        );
+        assert_eq!(
+            carpeta_de_arranque(Some(PathBuf::from("/srv/conf")), casa.clone()),
+            Some(PathBuf::from("/srv/conf/autostart"))
+        );
+        // Una relativa no vale, dice la especificacion: se usa la de la casa.
+        assert_eq!(
+            carpeta_de_arranque(Some(PathBuf::from("conf")), casa),
+            Some(PathBuf::from("/home/ana/.config/autostart"))
+        );
+        assert_eq!(carpeta_de_arranque(None, None), None);
+    }
 
     fn casa() -> PathBuf {
         PathBuf::from("/home/munito")

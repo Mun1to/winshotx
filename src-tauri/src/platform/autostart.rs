@@ -322,7 +322,13 @@ fn leer_valor(subclave: &str, nombre: &str) -> Option<String> {
     }
 }
 
-#[cfg(not(windows))]
+/// S21 (Linux): la entrada de `~/.config/autostart`, ver `xdg::arrancar_al_entrar`.
+#[cfg(target_os = "linux")]
+pub fn set(enabled: bool) -> Result<()> {
+    crate::platform::xdg::arrancar_al_entrar(enabled)
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn set(_enabled: bool) -> Result<()> {
     Err(crate::error::AppError::Unsupported)
 }
