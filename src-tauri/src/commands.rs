@@ -318,22 +318,28 @@ mod pruebas_de_ancladas {
     use super::dentro_de_las_ancladas;
     use std::path::Path;
 
+    // Las rutas de cada sistema, hechas con `join`: fuera de Windows una contrabarra es
+    // parte del nombre, y las pruebas pasarían sin mirar nada.
+    #[cfg(windows)]
     const PINS: &str = r"C:\Users\a\AppData\Local\Temp\winshotx\pins";
+    #[cfg(windows)]
+    const PRIVADO: &str = r"C:\Users\a\Documents\privado.png";
+    #[cfg(not(windows))]
+    const PINS: &str = "/tmp/winshotx/pins";
+    #[cfg(not(windows))]
+    const PRIVADO: &str = "/home/a/Documents/privado.png";
 
     #[test]
     fn una_anclada_de_verdad_pasa() {
         assert!(dentro_de_las_ancladas(
-            Path::new(&format!(r"{PINS}\pin-20260827-101500123.png")),
+            &Path::new(PINS).join("pin-20260827-101500123.png"),
             Path::new(PINS)
         ));
     }
 
     #[test]
     fn un_archivo_de_otra_carpeta_no() {
-        assert!(!dentro_de_las_ancladas(
-            Path::new(r"C:\Users\a\Documents\privado.png"),
-            Path::new(PINS)
-        ));
+        assert!(!dentro_de_las_ancladas(Path::new(PRIVADO), Path::new(PINS)));
     }
 
     #[test]
@@ -341,7 +347,7 @@ mod pruebas_de_ancladas {
         // Empieza por la carpeta buena y acaba fuera: es el caso que `starts_with` a
         // secas no ve, y por el que se mira componente a componente.
         assert!(!dentro_de_las_ancladas(
-            Path::new(&format!(r"{PINS}\..\..\..\.ssh\id_rsa")),
+            &Path::new(PINS).join("..").join("..").join("..").join(".ssh").join("id_rsa"),
             Path::new(PINS)
         ));
     }
@@ -351,7 +357,7 @@ mod pruebas_de_ancladas {
         // `pins-viejos` empieza por `pins` como texto, pero es otra carpeta. Se compara
         // por componentes y no por letras, asi que este caso sale bien solo.
         assert!(!dentro_de_las_ancladas(
-            Path::new(&format!(r"{PINS}-viejos\pin-1.png")),
+            &Path::new(&format!("{PINS}-viejos")).join("pin-1.png"),
             Path::new(PINS)
         ));
     }

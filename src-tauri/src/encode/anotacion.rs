@@ -783,6 +783,7 @@ mod tests {
     /// píxel: se mira el color del CENTRO (tiene que ser el disco), el de un punto del
     /// borde (tiene que ser el aro blanco) y el de fuera (tiene que seguir limpio).
     #[test]
+    #[cfg_attr(not(windows), ignore = "fuera de Windows todavía no hay con qué escribir el número")]
     fn un_paso_es_un_disco_con_su_numero_dentro() {
         // Sobre un fondo oscuro, porque parte de lo que hay que ver es blanca: el aro que
         // lo separa del fondo y la cifra. Sobre lienzo blanco no se distinguirían.

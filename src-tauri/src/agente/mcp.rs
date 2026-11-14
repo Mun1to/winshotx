@@ -985,6 +985,7 @@ mod pruebas {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "el canal de agentes y sus rutas de salida son de Windows de momento")]
     fn cada_herramienta_se_traduce_al_contrato() {
         let casos = [
             ("status", json!({}), json!({ "command": "status" })),

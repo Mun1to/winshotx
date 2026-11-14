@@ -807,6 +807,7 @@ pub(crate) mod pruebas {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "el canal de agentes y sus rutas de salida son de Windows de momento")]
     fn capture_de_una_ventana_por_trozo_de_titulo_coge_la_de_delante() {
         let d = Doble::default();
         let r = pide(&d, r#"{"command":"capture","window":"microsoft EDGE","output":"C:\\x\\v.png"}"#);
@@ -836,6 +837,7 @@ pub(crate) mod pruebas {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "el canal de agentes y sus rutas de salida son de Windows de momento")]
     fn la_salida_de_una_captura_es_absoluta_y_png() {
         let d = Doble::default();
         assert!(error_de(&d, r#"{"command":"capture","screen":0,"output":"foto.png"}"#).contains("absolute path"));
@@ -916,6 +918,7 @@ pub(crate) mod pruebas {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "el canal de agentes y sus rutas de salida son de Windows de momento")]
     fn export_entero() {
         let d = Doble::default();
         let r = pide(
@@ -937,6 +940,7 @@ pub(crate) mod pruebas {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "el canal de agentes y sus rutas de salida son de Windows de momento")]
     fn export_lo_minimo_y_lo_que_no_vale() {
         let d = Doble::default();
         pide(&d, r#"{"command":"export","session":"abc123"}"#);

@@ -451,6 +451,7 @@ mod pruebas {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "el canal de agentes y sus rutas de salida son de Windows de momento")]
     fn las_rutas_relativas_se_hacen_absolutas_con_la_carpeta_de_quien_pide() {
         let aqui = std::env::current_dir().unwrap();
         let r = con_rutas_absolutas(&json!({"command":"export","session":"a","output":"videos\\demo.mp4"}));

@@ -431,14 +431,20 @@ mod pruebas {
     /// se sale con `..`, ni uno de una subcarpeta, ni otro tipo de archivo de la misma.
     #[test]
     fn las_ordenes_solo_aceptan_archivos_del_historial() {
-        let carpeta = Path::new(r"C:\Users\a\Pictures\winshotx");
+        // Las rutas de cada sistema, hechas con `join`: fuera de Windows una contrabarra es
+        // parte del nombre, y la prueba no miraría nada.
+        #[cfg(windows)]
+        let casa = Path::new(r"C:\Users\a");
+        #[cfg(not(windows))]
+        let casa = Path::new("/home/a");
+        let carpeta = &casa.join("Pictures").join("winshotx");
         assert!(de_la_carpeta(&carpeta.join("winshotx-1.png"), carpeta));
         assert!(de_la_carpeta(&carpeta.join("winshotx-1.mp4"), carpeta));
-        assert!(!de_la_carpeta(Path::new(r"C:\Users\a\Documents\privado.png"), carpeta));
-        assert!(!de_la_carpeta(&carpeta.join(r"..\..\Documents\privado.png"), carpeta));
-        assert!(!de_la_carpeta(&carpeta.join(r"dentro\winshotx-1.png"), carpeta));
+        assert!(!de_la_carpeta(&casa.join("Documents").join("privado.png"), carpeta));
+        assert!(!de_la_carpeta(&carpeta.join("..").join("..").join("Documents").join("privado.png"), carpeta));
+        assert!(!de_la_carpeta(&carpeta.join("dentro").join("winshotx-1.png"), carpeta));
         assert!(!de_la_carpeta(&carpeta.join("desktop.ini"), carpeta));
-        assert!(!de_la_carpeta(Path::new(r"C:\Users\a\Pictures\winshotx-viejos\a.png"), carpeta));
+        assert!(!de_la_carpeta(&casa.join("Pictures").join("winshotx-viejos").join("a.png"), carpeta));
     }
 
     /// Borrar manda a la papelera: el archivo se va de la carpeta y la orden no falla.
