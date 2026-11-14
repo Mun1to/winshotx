@@ -376,6 +376,9 @@ export const EN: Record<string, string> = {
   "Elegir qué hacer": "Choose what to do",
   "Al soltar, elegir qué hacer con el recorte · B":
     "On release, choose what to do with the crop · B",
+  "Proporción del recorte": "Crop aspect ratio",
+  "Proporción del recorte: {cual} · X": "Crop aspect ratio: {cual} · X",
+  libre: "free",
   "Ajustes de winshotx": "winshotx settings",
 
   // La tira de miniaturas del editor
