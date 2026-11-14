@@ -192,7 +192,8 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   await pagina.waitForTimeout(300);
   const marco = await pagina.evaluate(() => {
     const el = document.querySelector('[data-marco="noche"]');
-    const imagen = el?.firstElementChild;
+    // Desde S25 hay una caja de la carcasa entre el fondo y la imagen: se busca la imagen por su marca.
+    const imagen = el?.querySelector("[data-imagen]");
     return el && imagen
       ? {
           fondo: getComputedStyle(el).backgroundImage,
