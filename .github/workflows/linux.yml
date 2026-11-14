@@ -1,0 +1,70 @@
+name: Linux
+
+# winshotx is not released for Linux yet. This only checks that the backend still builds and
+# passes its tests there, so the Linux side cannot rot unnoticed again: in November 2026 it
+# had 27 build errors that nobody saw, because on Windows everything behind
+# `cfg(not(windows))` is never compiled.
+#
+# It builds on Debian 12 on purpose: Tauri recommends the oldest base you want to support,
+# because of glibc, and the release packages will be built on that same base.
+on:
+  push:
+    branches: [main, "plan/**"]
+    paths:
+      - "src-tauri/**"
+      - "src/lib/**"
+      - ".github/workflows/linux.yml"
+  pull_request:
+    paths:
+      - "src-tauri/**"
+      - "src/lib/**"
+      - ".github/workflows/linux.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container: rust:1-bookworm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System libraries
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            pkg-config clang libclang-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
+            libdbus-1-dev libpipewire-0.3-dev libgbm-dev libdrm-dev libwayland-dev \
+            libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev
+
+      # The Rust tests do not use the interface, but Tauri needs the `dist` folder to exist.
+      - name: Placeholder interface
+        run: mkdir -p dist && printf '<!doctype html><title>winshotx</title>\n' > dist/index.html
+
+      # Temporary: one line of tray_menu.rs asks for the Windows window handle without a
+      # cfg gate. That file is being changed in another branch, so the gate goes in there; until
+      # then it is patched here, only inside this job.
+      - name: Gate the tray menu window handle (temporary)
+        run: |
+          perl -0pi -e 's/^    let menu = window\.hwnd\(\)/    #[cfg(not(windows))]\n    let menu: isize = 0;\n    #[cfg(windows)]\n    let menu = window.hwnd()/m' src-tauri/src/tray_menu.rs
+          grep -q 'let menu: isize = 0' src-tauri/src/tray_menu.rs || echo "::notice::tray_menu.rs no longer needs the patch"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build
+        working-directory: src-tauri
+        run: cargo check --all-targets --locked
+
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test --lib --locked
