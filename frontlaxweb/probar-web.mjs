@@ -5,8 +5,9 @@
 //   node frontlaxweb/probar-web.mjs --entera             la página completa, no solo lo de arriba
 //   node frontlaxweb/probar-web.mjs --cruceta            además, mide la cruceta de la portada
 //
-// En cada página, además, cada orden de la terminal se copia con el ratón y con Intro, y se
-// mira el portapapeles y que salga el aviso de copiado.
+// En cada página, además, se mira que la barra se compacte al bajar sin mover la página, y
+// cada orden de la terminal se copia con el ratón y con Intro, mirando el portapapeles y que
+// salga el aviso de copiado.
 //
 // Cada página sale en oscuro y en claro, a 1920 (la pantalla de Munir), a 1440 y en un
 // iPhone 13, y en las tres se apuntan los errores de consola y si algo se sale por un lado.
@@ -82,6 +83,38 @@ for (const ruta of paginas) {
       await ctx.close();
     }
   }
+}
+
+// La barra de arriba se compacta al bajar (como la de cattory.co/es): más estrecha y más
+// baja pasados 40 px, sin mover la página, y con «?motion=off» se queda como está.
+for (const ruta of paginas) {
+  const mirar = async (extra) => {
+    const ctx = await navegador.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await ctx.newPage();
+    await page.goto(url(ruta, extra), { waitUntil: "load" });
+    await page.waitForTimeout(300);
+    const medir = () => page.evaluate(() => {
+      const p = document.querySelector(".barra-dentro").getBoundingClientRect();
+      const nav = document.querySelector("nav.barra");
+      return { ancho: p.width, alto: p.height, nav: nav.offsetHeight, debajo: nav.nextElementSibling.offsetTop };
+    });
+    const arriba = await medir();
+    await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; scrollTo(0, 300); });
+    await page.waitForTimeout(800);
+    const abajo = await medir();
+    await ctx.close();
+    return { arriba, abajo };
+  };
+  const { arriba, abajo } = await mirar("");
+  const quieta = await mirar("?motion=off");
+  const bien = abajo.ancho < arriba.ancho - 100 && abajo.alto < arriba.alto && abajo.nav === arriba.nav && abajo.debajo === arriba.debajo &&
+    Math.abs(quieta.abajo.ancho - quieta.arriba.ancho) < 1;
+  console.log(
+    `${(ruta || "portada").padEnd(12)} la barra al bajar: de ${Math.round(arriba.ancho)}x${Math.round(arriba.alto)} a ${Math.round(abajo.ancho)}x${Math.round(abajo.alto)}` +
+      `${abajo.debajo === arriba.debajo ? ", la página quieta" : `, LA PÁGINA SE MUEVE (${arriba.debajo} → ${abajo.debajo})`}` +
+      `; con motion=off ${Math.abs(quieta.abajo.ancho - quieta.arriba.ancho) < 1 ? "se queda igual" : "SE MUEVE"}${bien ? "" : "  MAL"}`,
+  );
+  if (!bien) fallos++;
 }
 
 // Las órdenes de la terminal (winget, PowerShell) se copian con un clic: cada una se pulsa

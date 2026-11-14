@@ -129,6 +129,42 @@ document.querySelectorAll("details.menu").forEach((menu) => {
   document.addEventListener("click", (e) => { if (menu.open && !menu.contains(e.target)) cerrar(); });
 });
 
+/* --------------------------------------------- la barra se compacta al bajar */
+// Como la de cattory.co/es: pasados 40 px de scroll, la píldora de arriba se estrecha hasta
+// lo justo de lo que lleva dentro (el CSS hace el movimiento, aquí solo se mide y se cambia
+// de estado). El scroll solo toca la página cuando el estado cambia, y lo justo se vuelve a
+// medir cuando cambia lo que mide algo: el ancho de la ventana o la letra al cargar.
+(function () {
+  const nav = document.querySelector("nav.barra");
+  const pildora = nav && nav.querySelector(".barra-dentro");
+  if (!pildora) return;
+  const medir = () => {
+    const estilo = getComputedStyle(pildora);
+    const piezas = [...pildora.children].filter((h) => h.offsetWidth > 0);
+    const huecos = parseFloat(estilo.columnGap) * (piezas.length - 1);
+    const relleno = parseFloat(estilo.paddingLeft) + parseFloat(estilo.paddingRight);
+    // + 8 px de holgura para que el botón de descargar no se parta en dos renglones.
+    const justo = piezas.reduce((total, h) => total + h.getBoundingClientRect().width, 0) + huecos + relleno + 8;
+    pildora.style.setProperty("--justo", `${Math.ceil(justo)}px`);
+  };
+  let compacta = null;
+  const mirar = () => {
+    const toca = scrollY > 40;
+    if (toca === compacta) return;
+    compacta = toca;
+    nav.classList.toggle("compacta", toca);
+  };
+  medir();
+  mirar();
+  // Colocada ya como toca, se enciende la transición (en el siguiente fotograma, o el
+  // primer estado también se animaría).
+  requestAnimationFrame(() => requestAnimationFrame(() => nav.classList.add("anima")));
+  addEventListener("scroll", mirar, { passive: true });
+  addEventListener("resize", medir);
+  addEventListener("load", medir);
+  if (document.fonts) document.fonts.ready.then(medir);
+})();
+
 /* ------------------------------------------- las órdenes se copian con un clic */
 // Una orden para pegar en la terminal (winget, la de añadirlo a Claude Code, las del
 // agente) se pincha entera y va al portapapeles, con su aviso de copiado ahí mismo. Lo

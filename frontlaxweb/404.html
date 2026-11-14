@@ -24,7 +24,7 @@
 </script>
 <!-- Esta página se sirve en cualquier dirección que no exista, a cualquier profundidad: por
      eso todo va desde la raíz del dominio. La barra y el pie los pone cromo.mjs. -->
-<link rel="stylesheet" href="/estilos.css?v=82afc1c2">
+<link rel="stylesheet" href="/estilos.css?v=6ec2c46c">
 </head>
 <body>
 
@@ -63,7 +63,7 @@
       <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download">Descargar</span></a>
       <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
            y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
-           Un <details> se abre y se cierra sin JavaScript; leer.js?v=d25f8649 solo lo cierra al elegir. -->
+           Un <details> se abre y se cierra sin JavaScript; leer.js?v=a3468ef2 solo lo cierra al elegir. -->
       <details class="menu">
         <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span data-en="Menu">Menú</span></summary>
         <div class="menu-panel">
@@ -161,5 +161,7 @@
   if (idioma) { idioma.setAttribute("href", "/"); idioma.textContent = "Español"; idioma.lang = "es"; idioma.hreflang = "es"; }
 })();
 </script>
+<!-- La barra que se compacta al bajar (y el menú del móvil), como en las demás páginas. -->
+<script src="/leer.js?v=a3468ef2"></script>
 </body>
 </html>
