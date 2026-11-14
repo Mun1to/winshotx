@@ -483,7 +483,12 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   }
   .en-grande .capa-botones { grid-area: botones; display: flex; gap: 8px; }
   .en-grande .pestanas { grid-area: tabs; justify-self: center; }
-  .en-grande .pista-demo { grid-area: pista; margin-top: 12px; text-align: center; font-size: 15.5px; line-height: 1.45; min-height: 2.9em; }
+  /* La pista cambia con lo que haces, y de pie la demo va justo debajo: con su alto fijo (cuatro
+     renglones, el texto pegado abajo), la demo no se mueve bajo el dedo cuando cambia. */
+  .en-grande .pista-demo {
+    grid-area: pista; display: grid; align-content: end; min-height: 5.8em; margin-top: 8px;
+    text-align: center; font-size: 15.5px; line-height: 1.45;
+  }
   .en-grande .hueco-demo { grid-area: demo; display: grid; place-items: center; min-height: 0; margin-top: 16px; }
   .en-grande .pantalla-demo { aspect-ratio: auto; width: var(--caja-w, 100%); height: var(--caja-h, auto); cursor: auto; }
   .en-grande .escala-demo { pointer-events: auto; }
@@ -518,7 +523,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
     .en-grande .pestanas { justify-self: start; margin-top: 0; align-self: center; }
     .en-grande .capa-botones { justify-self: end; }
     .en-grande .hueco-demo { margin-top: 12px; }
-    .en-grande .pista-demo { margin-top: 12px; text-align: left; align-self: start; min-height: 0; }
+    .en-grande .pista-demo { display: block; margin-top: 12px; text-align: left; align-self: start; min-height: 0; }
     .en-grande .aviso { align-self: start; justify-content: flex-start; text-align: left; }
   }
 }
