@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorApp } from "./EditorApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { emite, llamadas, responde } from "../../test/preparar";
+import { NIVEL_DE_FABRICA } from "../../lib/volumenDeLaVista";
 
 const destruir = vi.fn();
 /** Los títulos que el editor le ha puesto a su ventana, en orden. */
@@ -543,7 +544,7 @@ describe("el sonido del PC y la voz en la vista previa", () => {
   it("una grabación de antes, con todo junto, suena por el vídeo como siempre", async () => {
     const { container } = await abrirConPistas({});
     expect(container.querySelectorAll("audio")).toHaveLength(0);
-    expect(container.querySelector("video")!.volume).toBe(1);
+    expect(container.querySelector("video")!.volume).toBe(NIVEL_DE_FABRICA);
   });
 
   it("si una pista no se puede abrir, vuelve a sonar el vídeo en vez de quedarse mudo", async () => {
@@ -556,7 +557,7 @@ describe("el sonido del PC y la voz en la vista previa", () => {
     });
     fireEvent.error(pista);
     await waitFor(() => expect(container.querySelectorAll("audio")).toHaveLength(0));
-    expect(container.querySelector("video")!.volume).toBe(1);
+    expect(container.querySelector("video")!.volume).toBe(NIVEL_DE_FABRICA);
     expect(aviso).toHaveBeenCalled();
     aviso.mockRestore();
   });
@@ -586,7 +587,8 @@ describe("silenciar la vista previa", () => {
   it("el botón de al lado del play la calla y la vuelve a oír, cambiando de nombre", async () => {
     const { container } = await abrirVideo();
     const video = container.querySelector("video")!;
-    expect(video.volume).toBe(1);
+    // S31: la vista previa nace a la mitad, nunca a tope.
+    expect(video.volume).toBe(NIVEL_DE_FABRICA);
 
     fireEvent.click(screen.getByRole("button", { name: "Silenciar la vista previa (M)" }));
     expect(video.volume).toBe(0);
@@ -594,7 +596,7 @@ describe("silenciar la vista previa", () => {
     expect(oir).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(oir);
-    expect(video.volume).toBe(1);
+    expect(video.volume).toBe(NIVEL_DE_FABRICA);
   });
 
   it("la M hace lo mismo, como en cualquier reproductor", async () => {
@@ -602,7 +604,7 @@ describe("silenciar la vista previa", () => {
     fireEvent.keyDown(window, { key: "m" });
     expect(container.querySelector("video")!.volume).toBe(0);
     fireEvent.keyDown(window, { key: "M" });
-    expect(container.querySelector("video")!.volume).toBe(1);
+    expect(container.querySelector("video")!.volume).toBe(NIVEL_DE_FABRICA);
   });
 
   it("solo calla lo que se oye aquí: lo que se guarda sigue con su volumen", async () => {
@@ -633,6 +635,116 @@ describe("silenciar la vista previa", () => {
     const { container } = await abrirVideo();
     expect(screen.getByRole("button", { name: "Oír la vista previa (M)" })).toBeInTheDocument();
     expect(container.querySelector("video")!.volume).toBe(0);
+  });
+});
+
+// S31: además de callarla, su volumen, de 0 a 100. Solo lo que se oye al mirar.
+describe("el volumen de la vista previa", () => {
+  async function abrirVideo(pistas: Record<string, unknown> = {}) {
+    preparar(VERTICAL, "C:\\t\\preview.mp4", "mp4");
+    responde("session_info", {
+      id: "s1",
+      region: VERTICAL,
+      fps: 30,
+      frameCount: 3,
+      durationMs: 100,
+      hasAudio: true,
+      format: "mp4",
+      mp4Path: "C:\\t\\preview.mp4",
+      ...pistas,
+    });
+    const vista = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    return vista;
+  }
+  const deslizador = () => screen.getByRole("slider", { name: "Volumen de la vista previa" });
+  const altavoz = () => screen.getByRole("button", { name: /la vista previa \(M\)$/ });
+  const volumenDelVideo = (container: HTMLElement) => container.querySelector("video")!.volume;
+
+  it("va al lado del altavoz, de 0 a 100, y nace a la mitad", async () => {
+    const { container } = await abrirVideo();
+    expect(deslizador()).toHaveAttribute("min", "0");
+    expect(deslizador()).toHaveAttribute("max", "100");
+    expect(deslizador()).toHaveValue("50");
+    expect(volumenDelVideo(container)).toBe(0.5);
+    // Justo detrás del altavoz, en la misma fila que el play.
+    expect(altavoz().nextElementSibling?.contains(deslizador())).toBe(true);
+  });
+
+  it("moverlo cambia lo que se oye, y el altavoz enseña si suena bajo, alto o nada", async () => {
+    const { container } = await abrirVideo();
+    expect(altavoz().querySelector(".lucide-volume-1")).not.toBeNull();
+
+    fireEvent.change(deslizador(), { target: { value: "80" } });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.8);
+    expect(altavoz().querySelector(".lucide-volume-2")).not.toBeNull();
+
+    fireEvent.change(deslizador(), { target: { value: "0" } });
+    expect(volumenDelVideo(container)).toBe(0);
+    expect(altavoz().querySelector(".lucide-volume-x")).not.toBeNull();
+    expect(altavoz()).toHaveAccessibleName("Oír la vista previa (M)");
+  });
+
+  it("la M lo calla y al volver recupera el volumen que había", async () => {
+    const { container } = await abrirVideo();
+    fireEvent.change(deslizador(), { target: { value: "30" } });
+    fireEvent.keyDown(window, { key: "m" });
+    expect(volumenDelVideo(container)).toBe(0);
+    expect(deslizador()).toHaveValue("0");
+    fireEvent.keyDown(window, { key: "m" });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.3);
+    expect(deslizador()).toHaveValue("30");
+  });
+
+  it("las flechas de arriba y abajo lo suben y lo bajan", async () => {
+    const { container } = await abrirVideo();
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.6);
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.4);
+    expect(deslizador()).toHaveValue("40");
+  });
+
+  it("con el deslizador cogido, las flechas son solo suyas: no suben dos veces", async () => {
+    const { container } = await abrirVideo();
+    fireEvent.keyDown(deslizador(), { key: "ArrowUp" });
+    expect(volumenDelVideo(container)).toBe(0.5);
+  });
+
+  it("se recuerda para el vídeo siguiente", async () => {
+    const primero = await abrirVideo();
+    fireEvent.change(deslizador(), { target: { value: "25" } });
+    primero.unmount();
+
+    const { container } = await abrirVideo();
+    expect(deslizador()).toHaveValue("25");
+    expect(volumenDelVideo(container)).toBeCloseTo(0.25);
+  });
+
+  it("con el PC y la voz por separado, cada pista suena a su mando por el de la vista", async () => {
+    const { container } = await abrirVideo({
+      sonidoPc: "C:\\t\\sonido-pc.wav",
+      microfono: "C:\\t\\microfono.wav",
+    });
+    await waitFor(() => expect(container.querySelectorAll("audio")).toHaveLength(2));
+    fireEvent.change(deslizador(), { target: { value: "40" } });
+    // Sus mandos van al 100 % de serie: aquí suenan al 40 % de la vista.
+    await waitFor(() => {
+      for (const pista of container.querySelectorAll("audio")) expect(pista.volume).toBeCloseTo(0.4);
+    });
+    expect(volumenDelVideo(container)).toBe(0);
+  });
+
+  it("lo que se guarda no cambia: sale con el volumen de sus mandos", async () => {
+    await abrirVideo();
+    fireEvent.change(deslizador(), { target: { value: "20" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar MP4" }));
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "export_media")).toBe(true));
+    const peticion = (llamadas.find((l) => l.comando === "export_media")?.args as {
+      request: Record<string, unknown>;
+    }).request;
+    expect(peticion.volume).toBe(1);
   });
 });
 
