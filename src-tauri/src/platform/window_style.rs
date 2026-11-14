@@ -114,6 +114,21 @@ pub fn esconder_hwnd(ventana: isize) {
 #[cfg(not(windows))]
 pub fn esconder_hwnd(_ventana: isize) {}
 
+/// Si alguien la ha minimizado. Un `show()` no la devuelve: la enseña minimizada, en
+/// ningún sitio que se vea.
+#[cfg(windows)]
+pub fn minimizada(ventana: isize) -> bool {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::IsIconic;
+
+    ventana != 0 && unsafe { IsIconic(HWND(ventana as *mut core::ffi::c_void)) }.as_bool()
+}
+
+#[cfg(not(windows))]
+pub fn minimizada(_ventana: isize) -> bool {
+    false
+}
+
 /// La ventana que esta delante ahora mismo (la que recibe el teclado), o 0 si no hay.
 #[cfg(windows)]
 pub fn primer_plano() -> isize {

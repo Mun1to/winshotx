@@ -249,9 +249,12 @@ export const trayMenuState = () => invoke<TrayMenuState>("tray_menu_state");
 export const trayMenuAction = (action: TrayMenuAction) =>
   invoke<void>("tray_menu_action", { action });
 
-/** El alto que ha medido el menú, para que su ventana se ajuste al contenido. */
-export const resizeTrayMenu = (height: number) =>
-  invoke<void>("resize_tray_menu", { height });
+/**
+ * El alto que ha medido el menú, para que su ventana se ajuste al contenido, y a qué
+ * apertura contesta: Rust no lo saca a la pantalla hasta que la página contesta a la suya.
+ */
+export const resizeTrayMenu = (height: number, apertura: number) =>
+  invoke<void>("resize_tray_menu", { height, apertura });
 
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S1 (línea de tiempo)
