@@ -274,7 +274,9 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   .fan.f-a { right: 3%; } .fan.f-b { left: 3%; } .fan.f-c { left: 6%; } .fan.f-d { right: 5%; }
 }
 /* Las notas sueltas de otras secciones: al lado de su titular, giradas, y en el móvil debajo. */
-.fan.suelta { display: inline-block; margin-top: 18px; }
+/* Van en su sitio del texto también en pantalla ancha: la regla de arriba las sacaba del
+   flujo (absolute) y pisaban el botón de debajo («Cómo se conecta») y las fuentes. */
+.fan.suelta { display: inline-block; margin-top: 18px; position: relative; width: auto; max-width: 18em; }
 
 
 /* ---------- el escaparate: la demo, debajo del titular y del tamaño de una foto grande ---------- */
@@ -363,7 +365,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   border: 1.5px solid var(--app-azul); background: #fff;
   translate: -50% -50%; box-shadow: 0 1px 4px rgba(0, 0, 0, .5);
 }
-.medida {
+.tamano {
   position: absolute; display: none; padding: 3px 8px; border-radius: 6px;
   background: #0f0f14ee; border: 1px solid var(--borde);
   font: 600 12.5px/1 ui-monospace, monospace; color: #fff;
@@ -960,7 +962,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   background: #16161c; color: #9a9aa8; font: 13px/1 var(--letra);
 }
 .terminal-barra i { width: 11px; height: 11px; border-radius: 50%; background: #ffffff24; }
-.terminal pre { margin: 0; padding: 22px 24px 26px; overflow-x: auto; white-space: pre; font: inherit; }
+.terminal pre { margin: 0; padding: 22px 24px 26px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
 .terminal .ps { color: #6fb7ff; }
 .terminal .com { color: #8e8e9c; }
 .terminal .ok { color: #7ee2b0; }
@@ -969,7 +971,7 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 /* ---------- novedades: las tres últimas, las escribe generar-novedades.mjs ---------- */
 .novedades-portada { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 3vw, 56px); margin-top: 44px; }
 .novedad { border-top: 2px solid var(--linea); padding-top: 22px; }
-.novedad:first-child { border-top-color: var(--azul); }
+
 .novedad .cuando { color: var(--suave); font-size: 15px; }
 .novedad h3 { margin-top: 8px; font-size: clamp(21px, 1.5vw, 25px); line-height: 1.2; letter-spacing: -0.02em; font-weight: 700; }
 .novedad h3 a { color: var(--texto); }
