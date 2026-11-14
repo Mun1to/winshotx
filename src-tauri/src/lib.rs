@@ -119,6 +119,44 @@ fn purge_old_sessions(root: &std::path::Path) {
     }
 }
 
+/// Donde van los archivos de paso: las sesiones grabadas, lo anclado, las miniaturas.
+///
+/// En Windows, `%TEMP%\winshotx`, que es de cada usuario. En Linux `std::env::temp_dir()` es
+/// `/tmp`, que es de TODOS los usuarios del equipo: ahi cualquiera podia leer las capturas de
+/// otro (las carpetas nacen con permisos 755), y dos personas en la misma maquina se pisaban
+/// la carpeta. Alli va a la cache del usuario (`~/.cache/winshotx`, o `XDG_CACHE_HOME`), con
+/// permisos solo para el. No a `XDG_RUNTIME_DIR`, que es memoria: una grabacion no cabe.
+fn carpeta_de_paso() -> std::path::PathBuf {
+    #[cfg(target_os = "linux")]
+    {
+        let cache = std::env::var_os("XDG_CACHE_HOME")
+            .map(std::path::PathBuf::from)
+            .filter(|p| p.is_absolute())
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .map(std::path::PathBuf::from)
+                    .filter(|p| p.is_absolute())
+                    .map(|casa| casa.join(".cache"))
+            });
+        if let Some(cache) = cache {
+            return cache.join("winshotx");
+        }
+    }
+    std::env::temp_dir().join("winshotx")
+}
+
+/// Que la carpeta de paso sea solo de quien la usa. Fuera de Linux no hace nada: en Windows
+/// `%TEMP%` ya es del usuario.
+fn solo_para_el_usuario(carpeta: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(carpeta, std::fs::Permissions::from_mode(0o700));
+    }
+    #[cfg(not(unix))]
+    let _ = carpeta;
+}
+
 pub fn run() {
     // S15 (agente): `winshotx.exe agent ...` y `winshotx.exe mcp` son clientes del canal de
     // agentes, no la app: van antes que nada (tampoco necesitan WebView2), y sobre todo antes
@@ -185,8 +223,13 @@ pub fn run() {
                 let _ = settings::save(&handle, &config);
             }
 
-            let temp_root = std::env::temp_dir().join("winshotx");
+            let temp_root = carpeta_de_paso();
             std::fs::create_dir_all(temp_root.join("sessions"))?;
+            solo_para_el_usuario(&temp_root);
+            // El protocolo `asset:` solo deja leer lo de `tauri.conf.json` (`$TEMP/winshotx`),
+            // y en Linux la carpeta de paso no esta ahi: se le abre esta, y solo esta.
+            #[cfg(target_os = "linux")]
+            app.asset_protocol_scope().allow_directory(&temp_root, true)?;
             purge_old_sessions(&temp_root);
             purge_pins(&temp_root);
             purge_replay(&temp_root);

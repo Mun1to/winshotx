@@ -122,17 +122,118 @@ pub fn copy_text(texto: &str) -> Result<()> {
     Ok(())
 }
 
-#[cfg(not(windows))]
+/// En Linux, el PNG tal cual, con su alfa: es el formato que piden las apps de Linux al pegar
+/// una imagen (GIMP, LibreOffice, los chats, el navegador). No hace falta un segundo formato
+/// como el DIB de Windows.
+#[cfg(target_os = "linux")]
+pub fn copy_image(_image: &RgbaImage, png_bytes: &[u8]) -> Result<()> {
+    linux::poner(vec![("image/png", png_bytes.to_vec())])
+}
+
+#[cfg(target_os = "linux")]
+pub fn copy_text(texto: &str) -> Result<()> {
+    linux::poner(linux::como_texto(texto))
+}
+
+/// Lo mismo que en Windows: el archivo y su ruta escrita a la vez. El archivo va de las dos
+/// maneras que se piden en Linux, la de GNOME (`x-special/gnome-copied-files`, la que usan
+/// Archivos, Nemo y Caja) y la de todos (`text/uri-list`: Dolphin, Thunar, los navegadores), y
+/// la ruta como texto para cualquier caja de texto.
+#[cfg(target_os = "linux")]
+pub fn copy_files(paths: &[&Path]) -> Result<()> {
+    let uris: Vec<String> = paths
+        .iter()
+        .filter_map(|p| std::fs::canonicalize(p).ok())
+        .filter_map(|p| ashpd::url::Url::from_file_path(p).ok())
+        .map(|u| u.to_string())
+        .collect();
+    if uris.is_empty() {
+        return Err(crate::error::AppError::Msg("no hay ningún archivo que copiar".into()));
+    }
+    let rutas: Vec<String> = paths.iter().map(|p| p.to_string_lossy().to_string()).collect();
+    let mut formatos = vec![
+        ("x-special/gnome-copied-files", format!("copy\n{}", uris.join("\n")).into_bytes()),
+        ("text/uri-list", format!("{}\r\n", uris.join("\r\n")).into_bytes()),
+    ];
+    formatos.extend(linux::como_texto(&rutas.join("\n")));
+    linux::poner(formatos)
+}
+
+/// El portapapeles de Linux, por GTK.
+///
+/// GTK ya esta dentro (es lo que pinta las ventanas de Tauri) y habla las dos cosas que hay:
+/// X11 y Wayland, sin ventanas propias ni conexiones aparte. Y deja ofrecer varios formatos
+/// a la vez, que es lo que hace falta para pegar un video como archivo en un sitio y como
+/// ruta en otro.
+///
+/// Dos cosas de Linux que aqui no se ven:
+/// - **Lo copiado lo sirve winshotx mientras vive.** En Linux el portapapeles no guarda nada:
+///   cuando alguien pega, se le pide a quien copio. Por eso se le dice a GTK que lo puede
+///   guardar un gestor del portapapeles si lo hay, y si no, sigue sirviendose desde la
+///   bandeja, que no se cierra.
+/// - **GTK solo se toca desde su hilo**, el principal. Las ordenes llegan desde otros, asi
+///   que se le manda el trabajo y se espera la respuesta con un plazo.
+#[cfg(target_os = "linux")]
+mod linux {
+    use crate::error::{AppError, Result};
+
+    /// Un texto en los nombres de formato que piden las apps de Linux, de los nuevos a los
+    /// de X11 de toda la vida.
+    pub fn como_texto(texto: &str) -> Vec<(&'static str, Vec<u8>)> {
+        ["text/plain;charset=utf-8", "UTF8_STRING", "text/plain", "STRING", "TEXT"]
+            .into_iter()
+            .map(|formato| (formato, texto.as_bytes().to_vec()))
+            .collect()
+    }
+
+    pub fn poner(formatos: Vec<(&'static str, Vec<u8>)>) -> Result<()> {
+        let (listo, hecho) = std::sync::mpsc::channel();
+        gtk::glib::MainContext::default().invoke(move || {
+            let _ = listo.send(poner_en_gtk(formatos));
+        });
+        hecho
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|_| AppError::Msg("el portapapeles no contesta".into()))?
+    }
+
+    fn poner_en_gtk(formatos: Vec<(&'static str, Vec<u8>)>) -> Result<()> {
+        let portapapeles = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+        let entradas: Vec<gtk::TargetEntry> = formatos
+            .iter()
+            .enumerate()
+            .map(|(numero, (nombre, _))| {
+                gtk::TargetEntry::new(nombre, gtk::TargetFlags::empty(), numero as u32)
+            })
+            .collect();
+        let puesto = portapapeles.set_with_data(&entradas, move |_, seleccion, numero| {
+            if let Some((_, datos)) = formatos.get(numero as usize) {
+                seleccion.set(&seleccion.target(), 8, datos);
+            }
+        });
+        if !puesto {
+            return Err(AppError::Msg("el sistema no ha dejado usar el portapapeles".into()));
+        }
+        // Sin lista, todos los formatos: si hay un gestor del portapapeles, que se los quede.
+        // gtk-rs no envuelve esta funcion, asi que va directa a la de C.
+        unsafe {
+            use gtk::glib::translate::ToGlibPtr;
+            gtk::ffi::gtk_clipboard_set_can_store(portapapeles.to_glib_none().0, std::ptr::null(), 0);
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn copy_image(_image: &RgbaImage, _png_bytes: &[u8]) -> Result<()> {
     Err(crate::error::AppError::Unsupported)
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn copy_text(_texto: &str) -> Result<()> {
     Err(crate::error::AppError::Unsupported)
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn copy_files(_paths: &[&Path]) -> Result<()> {
     Err(crate::error::AppError::Unsupported)
 }

@@ -18,6 +18,8 @@ pub mod snipping;
 pub mod sonido;
 pub mod webview;
 pub mod window_style;
+// S21 (Linux): la carpeta de imagenes de XDG, xdg-open y el gestor de archivos.
+pub mod xdg;
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S2 (grabación)
 // S3 (fondos)
@@ -40,7 +42,12 @@ pub fn reveal(path: &Path) -> crate::error::Result<()> {
             .spawn()?;
         return Ok(());
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        xdg::ensennar(path)?;
+        return Ok(());
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = path;
         Err(crate::error::AppError::Unsupported)
@@ -78,7 +85,12 @@ pub fn open_folder(path: &Path) -> crate::error::Result<()> {
             .spawn()?;
         return Ok(());
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        xdg::abrir(path.as_os_str())?;
+        return Ok(());
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     Err(crate::error::AppError::Unsupported)
 }
 
@@ -97,7 +109,12 @@ pub fn abrir_url(url: &str) -> crate::error::Result<()> {
             .spawn()?;
         return Ok(());
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        xdg::abrir(std::ffi::OsStr::new(url))?;
+        return Ok(());
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = url;
         Err(crate::error::AppError::Unsupported)
