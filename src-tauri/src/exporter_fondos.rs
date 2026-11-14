@@ -331,29 +331,34 @@ fn medir_un_tutorial_con_fondo_de_video() {
 /// Una sesión de UN fotograma con un dibujo que se reconoce: gris con un cuadro rojo en la
 /// esquina de arriba a la izquierda y uno azul en la de abajo a la derecha.
 fn sesion_con_esquinas(nombre: &str) -> SessionData {
+    sesion_dibujada(nombre, ANCHO, ALTO, 8, 300)
+}
+
+/// La de arriba a cualquier tamaño, con los cuadros de `lado` píxeles, durando `total_ms`.
+fn sesion_dibujada(nombre: &str, ancho: u32, alto: u32, lado: u32, total_ms: u64) -> SessionData {
     let dir = std::env::temp_dir().join(format!("winshotx-s25-{nombre}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let mut cache = FrameCache::new(&dir).expect("cache");
-    let pixeles: Vec<u8> = (0..ALTO)
-        .flat_map(|y| (0..ANCHO).map(move |x| (x, y)))
+    let pixeles: Vec<u8> = (0..alto)
+        .flat_map(|y| (0..ancho).map(move |x| (x, y)))
         .flat_map(|(x, y)| {
-            if x < 8 && y < 8 {
+            if x < lado && y < lado {
                 [255, 0, 0, 255]
-            } else if x >= ANCHO - 8 && y >= ALTO - 8 {
+            } else if x >= ancho - lado && y >= alto - lado {
                 [0, 0, 255, 255]
             } else {
                 [GRIS[0], GRIS[1], GRIS[2], 255]
             }
         })
         .collect();
-    cache.push_rgba(&pixeles, ANCHO, ALTO, 0).unwrap();
+    cache.push_rgba(&pixeles, ancho, alto, 0).unwrap();
     let mut session = super::tests::session_with(&[]);
-    session.frames = cache.finish(300, 30).expect("cerrar la cache");
+    session.frames = cache.finish(total_ms, 30).expect("cerrar la cache");
     session.dir = dir;
-    session.width = ANCHO;
-    session.height = ALTO;
-    session.region = crate::capture::Rect { x: 0, y: 0, width: ANCHO, height: ALTO };
+    session.width = ancho;
+    session.height = alto;
+    session.region = crate::capture::Rect { x: 0, y: 0, width: ancho, height: alto };
     session.fps = 30;
     session
 }
@@ -439,4 +444,144 @@ fn sin_aire_la_carcasa_no_se_pinta() {
     let _ = std::fs::remove_dir_all(&session.dir);
     assert_eq!(imagen.dimensions(), (ANCHO, ALTO));
     assert_eq!(rgb(imagen.get_pixel(0, 0)), [255, 0, 0]);
+}
+
+// S25b (marco): lo mismo en un MP4 de verdad, con el codificador de Windows y leído con ffmpeg.
+
+/// Lo que dice ffprobe de la pista de imagen del MP4: `(ancho, alto, segundos)`.
+#[cfg(windows)]
+fn medidas_del_mp4(ruta: &Path) -> (u32, u32, f64) {
+    let salida = std::process::Command::new("ffprobe")
+        .args(["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,duration", "-of", "csv=p=0"])
+        .arg(ruta)
+        .output()
+        .expect("ffprobe");
+    let texto = String::from_utf8_lossy(&salida.stdout).to_string();
+    let partes: Vec<&str> = texto.trim().split(',').map(str::trim).collect();
+    assert!(partes.len() >= 3, "ffprobe no ha leído el MP4: {texto:?}");
+    (partes[0].parse().expect("el ancho"), partes[1].parse().expect("el alto"), partes[2].parse().expect("lo que dura"))
+}
+
+/// El primer fotograma del MP4 tal cual lo enseña un reproductor, sacado con ffmpeg en RGB.
+#[cfg(windows)]
+fn primer_fotograma_del_mp4(ruta: &Path, ancho: u32, alto: u32) -> image::RgbImage {
+    let salida = std::process::Command::new("ffmpeg")
+        .args(["-v", "error", "-i"])
+        .arg(ruta)
+        .args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+        .output()
+        .expect("ffmpeg");
+    image::RgbImage::from_raw(ancho, alto, salida.stdout).expect("el fotograma no mide lo que dice ffprobe")
+}
+
+/// La ventana clara, la oscura y el portátil en un MP4 guardado por `escribir` (el camino de
+/// «Guardar») con el codificador de Windows: ffprobe dice que el archivo mide la carcasa más el
+/// aire, y en un fotograma sacado con ffmpeg están la barra con sus tres botones (o el bisel y
+/// la base) y la captura entera, a su tamaño y en su sitio. El H.264 no deja colores exactos
+/// ni bordes de un píxel: los bordes de los cuadros de colores se buscan con 2 px de holgura,
+/// y una captura escalada un 1 % ya se sale.
+///
+///     cargo test --lib la_ventana_y_el_portatil_salen_en_el_mp4 -- --ignored --nocapture
+///
+/// Con `WINSHOTX_FOTOS=<carpeta>` deja el fotograma de cada MP4 (`mp4-<carcasa>.png`) para mirarlo.
+#[test]
+#[cfg(windows)]
+#[ignore = "necesita el codificador de Windows y ffmpeg: se corre a mano"]
+fn la_ventana_y_el_portatil_salen_en_el_mp4() {
+    use crate::encode::carcasa::{botones, colores_de_la_ventana, geometria, Carcasa, BISEL_COLOR};
+    if std::process::Command::new("ffprobe").arg("-version").output().is_err() {
+        eprintln!("sin ffprobe en el PATH no se puede abrir el MP4: no compruebo nada");
+        return;
+    }
+    // Un trozo de pantalla de los de verdad, con cuadros de 40 px que aguantan la compresión.
+    let (ancho, alto, lado) = (480u32, 320u32, 40u32);
+    let aire = [20, 160, 90];
+    let fotos = std::env::var_os("WINSHOTX_FOTOS").map(std::path::PathBuf::from);
+    for (nombre, carcasa) in [
+        ("ventana-clara", Carcasa::Ventana { oscura: false }),
+        ("ventana-oscura", Carcasa::Ventana { oscura: true }),
+        ("portatil", Carcasa::Portatil),
+    ] {
+        let session = sesion_dibujada(&format!("mp4-{nombre}"), ancho, alto, lado, 1_000);
+        let destino = session.dir.join(format!("{nombre}.mp4"));
+        let mut pedida = con_carcasa(&session, "mp4", carcasa);
+        pedida.fps = 30;
+        escribir(&session, &pedida, &destino, &|_, _, _| {}).expect("exportar a MP4");
+        let (w, h, segundos) = medidas_del_mp4(&destino);
+        let imagen = primer_fotograma_del_mp4(&destino, w, h);
+        if let Some(carpeta) = &fotos {
+            imagen.save(carpeta.join(format!("mp4-{nombre}.png"))).expect("guardar el fotograma");
+        }
+        let _ = std::fs::remove_dir_all(&session.dir);
+
+        // El archivo, del tamaño de la carcasa más el aire: la captura no se encoge.
+        let g = geometria(carcasa, ancho, alto);
+        let par = |n: u32| n + n % 2;
+        println!("{nombre}: el MP4 mide {w} x {h} y dura {segundos:.3} s; la pieza, {} x {}", g.ancho, g.alto);
+        assert_eq!((w, h), (par(g.ancho + 24), par(g.alto + 24)), "{nombre}: el MP4 no mide la carcasa más el aire");
+        assert!((segundos - 1.0).abs() < 0.1, "{nombre}: el MP4 dura {segundos} s y la grabación 1");
+
+        let color = |x: u32, y: u32| imagen.get_pixel(x, y).0;
+        let rojo = |c: [u8; 3]| c[0] > 150 && c[1] < 90 && c[2] < 90;
+        let azul = |c: [u8; 3]| c[2] > 150 && c[0] < 90 && c[1] < 90;
+        let cerca = |a: u32, b: u32| a.abs_diff(b) <= 2;
+        let (x0, y0) = (12 + g.x, 12 + g.y);
+
+        // La captura, a su sitio y a su tamaño: el cuadro rojo empieza donde la captura (justo
+        // debajo de la barra, o dentro del bisel) y mide 40; el azul acaba en su esquina.
+        let bordes = |v: Vec<u32>| (v.first().copied().unwrap_or(0), v.last().copied().unwrap_or(0));
+        let (rx0, rx1) = bordes((0..w).filter(|&x| rojo(color(x, y0 + lado / 2))).collect());
+        let (ry0, ry1) = bordes((0..h).filter(|&y| rojo(color(x0 + lado / 2, y))).collect());
+        let (ax0, ax1) = bordes((0..w).filter(|&x| azul(color(x, y0 + alto - lado / 2))).collect());
+        let (ay0, ay1) = bordes((0..h).filter(|&y| azul(color(x0 + ancho - lado / 2, y))).collect());
+        println!(
+            "{nombre}: la captura empieza en ({x0}, {y0}); rojo de x {rx0} a {rx1} y de y {ry0} a {ry1}; \
+             azul de x {ax0} a {ax1} y de y {ay0} a {ay1}"
+        );
+        assert!(cerca(rx0, x0) && cerca(ry0, y0), "{nombre}: la captura no empieza en su sitio");
+        assert!(cerca(rx1, x0 + lado - 1) && cerca(ry1, y0 + lado - 1), "{nombre}: el rojo no mide 40: se escaló");
+        assert!(cerca(ax0, x0 + ancho - lado) && cerca(ay0, y0 + alto - lado), "{nombre}: el azul no empieza a 40 de la esquina");
+        assert!(cerca(ax1, x0 + ancho - 1) && cerca(ay1, y0 + alto - 1), "{nombre}: la captura no acaba en su sitio");
+        let medio = color(x0 + ancho / 2, y0 + alto / 2);
+        assert!(parecido(medio, GRIS, 12), "{nombre}: el medio de la captura es {medio:?}");
+        // Y el aire sigue siendo el fondo.
+        assert!(parecido(color(2, 2), aire, 16), "{nombre}: el aire es {:?}", color(2, 2));
+
+        match carcasa {
+            Carcasa::Ventana { oscura } => {
+                let (barra, glifo, _) = colores_de_la_ventana(oscura);
+                // La barra, de su color, a la izquierda (donde no hay botones) y a media altura.
+                let en_la_barra = color(x0 + 30, 12 + g.x + (g.y - g.x) / 2);
+                assert!(parecido(en_la_barra, barra, 12), "{nombre}: la barra es {en_la_barra:?} y tenía que ser {barra:?}");
+                // Los tres botones llevan su dibujo: píxeles más cerca del color del dibujo que
+                // del de la barra dentro de la caja de cada uno; y en una caja igual de la barra,
+                // a la izquierda y lejos de ellos, ninguno.
+                let luz = |c: [u8; 3]| (u32::from(c[0]) + u32::from(c[1]) + u32::from(c[2])) / 3;
+                let corte = (luz(barra) + luz(glifo)) / 2;
+                let de_tinta = |c: [u8; 3]| if oscura { luz(c) > corte } else { luz(c) < corte };
+                let tinta_en = |bx: u32, by: u32, l: u32| {
+                    (by..=by + l).flat_map(|y| (bx..=bx + l).map(move |x| (x, y))).filter(|&(x, y)| de_tinta(color(x, y))).count()
+                };
+                let cajas = botones(&g, ancho, alto);
+                let tinta: Vec<usize> =
+                    cajas.iter().map(|&(bx, by, l)| tinta_en(12 + bx as u32, 12 + by as u32, l as u32)).collect();
+                let vacia = tinta_en(x0 + 20, 12 + cajas[0].1 as u32, cajas[0].2 as u32);
+                println!(
+                    "{nombre}: la barra es {en_la_barra:?}; tinta en minimizar, maximizar y cerrar {tinta:?}, y fuera de ellos {vacia}"
+                );
+                assert!(tinta.iter().all(|&n| n >= 6), "{nombre}: un botón sin dibujo en el MP4: {tinta:?}");
+                assert_eq!(vacia, 0, "{nombre}: hay dibujo en la barra fuera de los botones");
+            }
+            Carcasa::Portatil => {
+                let bisel = color(x0 - 6, y0 + alto / 2);
+                // La base, plateada, asoma por la izquierda por debajo de la tapa.
+                let base = color(12 + 3, 12 + g.sombra[1].y as u32 + 2);
+                println!("{nombre}: el bisel es {bisel:?} y la base {base:?}");
+                assert!(parecido(bisel, BISEL_COLOR, 16), "{nombre}: el bisel es {bisel:?}");
+                assert!(base.iter().all(|&c| c > 150), "{nombre}: la base es {base:?}");
+                // Y junto a la tapa, encima de la base, el fondo.
+                assert!(parecido(color(12 + 2, 14), aire, 16), "{nombre}: junto a la tapa se ve {:?}", color(12 + 2, 14));
+            }
+        }
+    }
 }
