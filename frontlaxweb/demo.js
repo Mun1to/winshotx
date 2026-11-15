@@ -122,7 +122,7 @@ function decir(clave) {
 }
 
 /* ---------------------------------------------------------------- pestañas */
-const pestanas = [...document.querySelectorAll(".pestana")];
+const pestanas = [...document.querySelectorAll(".pestana[data-panel]")];
 let panelVisto = "p-sel";
 function irA(panel) {
   pestanas.forEach((otro) => {

@@ -24,6 +24,9 @@ const BASE = "https://winshotx.com/";
 // volver a generar su página.
 await import("./generar-novedades.mjs");
 
+// Y la comparativa de la portada, que sale de comparativa.mjs.
+await import("./generar-comparativa.mjs");
+
 // Y la barra de arriba, el pie y los dibujos de la guía, la privacidad y la 404, que se
 // copian de la portada: si alguien toca el menú de la portada, aquí se reparte, y el
 // despliegue para hasta que el cambio esté commiteado en todas.

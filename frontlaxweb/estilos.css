@@ -35,9 +35,6 @@
   --gana: #34d99914;           /* la casilla que gana en la comparativa */
   --gana-fuerte: #34d9991f;
   --si: #6ee7b7;
-  --no: #7c7c88;
-  --nuestra: #0a9bff1a;        /* la columna de winshotx */
-  --nuestra-suave: #0a9bff08;
   --nota-borde: #f0b42933;
   --nota-fondo: #f0b4290f;
   --nota-texto: #e8cf9a;
@@ -48,7 +45,6 @@
   --sombra-foto: 0 40px 90px -30px #000000cc, 0 0 0 1px #ffffff14;
   --brillo-demo: .34;          /* la luz morada de detras de la demo */
   --no-barra: #5a5a66;         /* la barra de la otra herramienta en las cifras */
-  --medio: #f0b429;            /* un «a medias» en la comparativa */
   color-scheme: dark;
 }
 
@@ -84,9 +80,6 @@
     --gana: #10b9811a;
     --gana-fuerte: #10b98124;
     --si: #047857;
-    --no: #6b6b76;
-    --nuestra: #0a76c914;
-    --nuestra-suave: #0a76c908;
     --nota-borde: #b4530940;
     --nota-fondo: #f59e0b14;
     --nota-texto: #7c4a03;
@@ -97,7 +90,6 @@
     --sombra-foto: 0 40px 80px -36px #1b2a4a73, 0 0 0 1px #00000017;
     --brillo-demo: .2;
     --no-barra: #a3a3ad;
-    --medio: #b45309;
   }
 }
 
@@ -1411,7 +1403,41 @@ html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 }
 
 /* ---------- la comparativa, abajo del todo ---------- */
-.medidas { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 3vw, 56px); margin-top: 48px; }
+/* «¿Cuál usas ahora?»: una pestaña por herramienta y, debajo, winshotx frente a esa. La
+   escribe generar-comparativa.mjs. Las pestañas son botones de radio dentro de su etiqueta:
+   cambian de panel sin JavaScript (con :has()), con el dedo y con las flechas del teclado. */
+.rival-pregunta { margin-top: 44px; font: 700 clamp(20px, 1.4vw, 24px)/1.3 var(--letra-titulo); }
+/* La raya de abajo va dentro de la fila (una sombra), no como borde: la fila se desliza de
+   lado en el móvil, y un borde con la raya azul encima le daba un píxel de scroll vertical. */
+.rivales {
+  margin-top: 14px; gap: 26px; border-bottom: 0; box-shadow: inset 0 -1px var(--borde);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.rivales::-webkit-scrollbar { display: none; }
+.rivales .pestana { position: relative; margin-bottom: 0; font-size: 17px; }
+.rivales input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; appearance: none; }
+.rivales .pestana:has(:checked) { color: var(--texto); border-bottom-color: var(--azul); }
+.rivales .pestana:has(:focus-visible) { outline: 2px solid var(--azul); outline-offset: -2px; border-radius: 6px; }
+
+/* Sin :has() (un navegador de hace años) se ven los diez paneles, uno debajo de otro. */
+@supports selector(:has(*)) {
+  .frente { display: none; }
+  .comparativa:has([value="recortes"]:checked) #frente-recortes,
+  .comparativa:has([value="gamebar"]:checked) #frente-gamebar,
+  .comparativa:has([value="sharex"]:checked) #frente-sharex,
+  .comparativa:has([value="greenshot"]:checked) #frente-greenshot,
+  .comparativa:has([value="flameshot"]:checked) #frente-flameshot,
+  .comparativa:has([value="screentogif"]:checked) #frente-screentogif,
+  .comparativa:has([value="obs"]:checked) #frente-obs,
+  .comparativa:has([value="lightshot"]:checked) #frente-lightshot,
+  .comparativa:has([value="picpick"]:checked) #frente-picpick,
+  .comparativa:has([value="snagit"]:checked) #frente-snagit { display: block; }
+}
+/* El panel que entra, con un fundido y un poco de recorrido (que el dial escala). */
+html.motion .frente { animation: frente-entra .32s cubic-bezier(.4, 0, .2, 1); }
+@keyframes frente-entra { from { opacity: 0; translate: 0 calc(8px * var(--motion-gain, 1)); } }
+
+.medidas { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 3vw, 56px); margin-top: 40px; }
 .medida-num { font: 760 clamp(56px, 5.6vw, 100px)/1 var(--letra-titulo); letter-spacing: -0.045em; color: var(--azul); font-variant-numeric: tabular-nums; }
 .medida-que { margin-top: 12px; font-size: 19px; font-weight: 650; }
 /* Las dos barras de cada cifra: largas lo que mide cada una. La del tiempo se llena a su
@@ -1430,53 +1456,45 @@ html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 html.motion .medidas:not(.vistas) .llena { --lleno: 0; }
 .medidas.vistas .llena { transition: transform var(--dura, 600ms) linear; }
 
-.tabla-comparar { margin-top: 64px; overflow-x: auto; }
-.tabla-comparar table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 16px; table-layout: fixed; margin: 0; }
-.tabla-comparar th, .tabla-comparar td { padding: 15px 16px; border-bottom: 1px solid var(--linea); text-align: left; vertical-align: top; }
-.tabla-comparar thead th {
-  position: sticky; top: 0; font: 700 16px/1.3 var(--letra); color: var(--texto);
-  border-bottom: 2px solid var(--linea-viva); background: var(--fondo); vertical-align: bottom;
-}
-.tabla-comparar thead th:first-child { width: 27%; }
-.tabla-comparar thead a { color: inherit; }
-.tabla-comparar thead .nuestra { color: var(--azul); }
-.tabla-comparar tbody th { font-weight: 650; color: var(--texto); }
-.tabla-comparar td { color: var(--suave); }
-.tabla-comparar td.nuestra { color: var(--texto); background: var(--nuestra-suave); }
-.tabla-comparar thead th.nuestra { background: color-mix(in srgb, var(--fondo), var(--azul) 8%); }
-.tabla-comparar .si, .tabla-comparar .no, .tabla-comparar .medio { display: inline-flex; align-items: flex-start; gap: 8px; }
-.tabla-comparar .si svg, .tabla-comparar .no svg, .tabla-comparar .medio svg { width: 17px; height: 17px; flex: none; margin-top: 4px; }
-.tabla-comparar .si svg { color: var(--si); }
-.tabla-comparar .no svg { color: var(--no); }
-.tabla-comparar .medio svg { color: var(--medio); }
-.tabla-comparar tbody tr:hover td, .tabla-comparar tbody tr:hover th { background: var(--realce); }
-.tabla-comparar tbody tr:hover td.nuestra { background: var(--nuestra); }
+/* Lo que pesa cada instalador a la izquierda, y las dos listas: lo que gana cada una. */
+.frente-dos { display: grid; grid-template-columns: minmax(200px, .62fr) minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 4vw, 72px); margin-top: 8px; }
+.frente-cifras { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; margin-top: 64px; }
+.frente-cifra .medida-num { font-size: clamp(48px, 4.2vw, 76px); color: var(--suave); }
+.frente-cifra.nuestra .medida-num { color: var(--azul); }
+.frente-cifra .medida-num.palabras { font-size: clamp(26px, 2.2vw, 36px); letter-spacing: -0.02em; padding-bottom: 8px; }
+.frente-cifra .medida-que { margin-top: 6px; }
+.frente-cifras-que { margin-top: -6px; color: var(--suave); font-size: 15.5px; }
+.frente-sub { margin: 64px 0 22px; font: 700 clamp(22px, 1.6vw, 28px)/1.2 var(--letra-titulo); letter-spacing: -0.02em; }
+.frente-lista { list-style: none; display: grid; gap: 18px; }
+.frente-lista li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 14px; align-items: start; }
+.frente-ic { width: 22px; height: 22px; margin-top: 2px; color: var(--azul); }
+.frente-lista.pierde .frente-ic { color: var(--suave); }
+.frente-lista b { display: block; font: 700 18px/1.3 var(--letra-titulo); }
+.frente-lista span { display: block; margin-top: 3px; color: var(--suave); font-size: 16px; }
+.frente-nada { color: var(--suave); }
+.frente-mas { margin-top: 14px; padding-left: 38px; color: var(--suave); font-size: 15.5px; }
+.frente-empatan { margin-top: 40px; max-width: 90ch; color: var(--suave); font-size: 16.5px; }
+:is(.frente-mas, .frente-empatan) b { color: var(--texto); }
+
 .fuentes { margin-top: 26px; color: var(--suave); font-size: 15px; max-width: 90ch; }
 .fuentes a { color: var(--suave); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .fuentes a:hover { color: var(--texto); }
-@media (max-width: 860px) { .medidas { grid-template-columns: 1fr; } }
 
-/* En lo estrecho, cada fila de una tabla es una ficha (lo pone leer.js, ver allí por qué):
-   el título de la fila arriba y cada dato en su renglón, con el nombre de su columna
-   delante. La cabecera se esconde a la vista, no al lector de pantalla, y por eso la
-   etiqueta de delante lleva el texto alternativo vacío: no se lee dos veces. */
-@media (max-width: 860px) {
-  .tabla-comparar.apilable { overflow: visible; margin-top: 44px; border-top: 2px solid var(--linea-viva); }
-  .tabla-comparar.apilable table { min-width: 0; }
-  .tabla-comparar.apilable :is(table, tbody, tr, th, td) { display: block; }
-  .tabla-comparar.apilable tbody tr { padding: 16px 0 12px; border-bottom: 1px solid var(--linea); }
-  .tabla-comparar.apilable tbody th { padding: 0 0 8px; border: 0; font-size: 17.5px; line-height: 1.35; }
-  .tabla-comparar.apilable td {
-    display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 12px;
-    padding: 6px 10px; border: 0; border-radius: 8px; font-size: 15.5px;
-  }
-  .tabla-comparar.apilable td::before { content: attr(data-col); content: attr(data-col) / ""; color: var(--texto); font-weight: 600; }
-  .tabla-comparar.apilable td.nuestra { background: var(--nuestra); }
-  .tabla-comparar.apilable td.nuestra::before { color: var(--azul); }
-  .tabla-comparar.apilable tbody tr:hover :is(td, th) { background: none; }
-  .tabla-comparar.apilable tbody tr:hover td.nuestra { background: var(--nuestra); }
-  .tabla-comparar.apilable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 1100px) {
+  .frente-dos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .frente-cifras { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 8px 48px; margin-top: 40px; }
+  .frente-cifras-que { flex-basis: 100%; margin-top: 0; }
 }
+@media (max-width: 860px) {
+  .medidas { grid-template-columns: 1fr; }
+  .frente-dos { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .frente-sub { margin: 48px 0 18px; }
+  /* La fila llega hasta los bordes de la pantalla y se desliza con el dedo, sin barra. */
+  .rivales { margin-inline: -20px; padding-inline: 20px; }
+  .frente-cifras { gap: 6px 36px; }
+  .frente-cifra .medida-num { font-size: 44px; }
+}
+@media (max-width: 520px) { .rivales { gap: 22px; } .rivales .pestana { font-size: 16px; } }
 
 /* ---------- el cierre ---------- */
 .cierre .botones { justify-content: center; margin-top: 30px; }

@@ -139,7 +139,7 @@ document.querySelectorAll(".faq").forEach((lista) => {
 // queda como estaba, deslizando, pero nunca sin saber de qué columna es cada dato.
 // Y como apilarla con CSS le quita a algunos lectores de pantalla la idea de tabla, se
 // le dicen los papeles a mano.
-document.querySelectorAll(".tabla-comparar, .texto .tabla").forEach((caja) => {
+document.querySelectorAll(".texto .tabla").forEach((caja) => {
   const tabla = caja.querySelector("table");
   const cabeza = tabla && tabla.tHead && tabla.tHead.rows[0];
   if (!cabeza) return;
@@ -158,6 +158,24 @@ document.querySelectorAll(".tabla-comparar, .texto .tabla").forEach((caja) => {
   caja.classList.add("apilable");
   if (nombres.length > 2) caja.classList.add("con-etiquetas");
 });
+
+/* --------------------------------------- las pestañas de la comparativa, en el móvil */
+// La fila de «¿Cuál usas ahora?» se desliza de lado. Cambiar de panel ya va sin esto (son
+// botones de radio y el CSS enseña el suyo); esto solo termina de traer a la vista la pestaña
+// que se ha tocado si estaba cortada en el borde. Con las flechas ya lo hace el navegador.
+(function () {
+  const fila = document.querySelector(".rivales");
+  if (!fila) return;
+  fila.addEventListener("change", (e) => {
+    const pestana = e.target.closest(".pestana");
+    if (!pestana) return;
+    const f = fila.getBoundingClientRect();
+    const p = pestana.getBoundingClientRect();
+    const margen = 20;
+    const falta = p.left < f.left + margen ? p.left - f.left - margen : p.right > f.right - margen ? p.right - f.right + margen : 0;
+    if (falta) fila.scrollBy({ left: falta, behavior: "smooth" });
+  });
+})();
 
 /* ----------------------------------------------------------- el menú del móvil */
 // Sin JavaScript es un <details>, que se abre y se cierra solo. Con él, al tocar «Menú» la

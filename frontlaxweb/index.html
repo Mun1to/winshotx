@@ -48,7 +48,7 @@
   h.classList.toggle("suave", gain > 0 && gain < 1);
 })();
 </script>
-<link rel="stylesheet" href="estilos.css?v=a6e4c4ee">
+<link rel="stylesheet" href="estilos.css?v=f377f4c1">
 <link rel="preload" as="image" href="img/escritorio-es.webp" data-href-en="img/escritorio-en.webp">
 <script type="application/ld+json">
 {
@@ -365,6 +365,8 @@
       <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
     <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
   </g>
 </svg>
 
@@ -384,7 +386,7 @@
       <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download">Descargar</span></a>
       <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
            y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
-           Un <details> se abre y se cierra sin JavaScript; con leer.js?v=fce460d8 la píldora de la barra
+           Un <details> se abre y se cierra sin JavaScript; con leer.js?v=c1f0d0f0 la píldora de la barra
            crece hacia abajo con las páginas dentro, y se recoge al elegir, con Escape o tocando fuera. -->
       <details class="menu">
         <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span data-en="Menu">Menú</span></summary>
@@ -440,7 +442,7 @@
 <section id="demo" class="escaparate" aria-label="Demo" data-aria-en="Demo">
   <!-- En el móvil, la demo es la app de escritorio entera, encogida para caber (como las de
        Orquio y Adeorq), y tocarla la abre a pantalla completa: entonces esta caja se queda fija
-       encima de la página, con su cabecera, y ahí sí se maneja con el dedo (demo.js?v=37b95cc1, «la demo
+       encima de la página, con su cabecera, y ahí sí se maneja con el dedo (demo.js?v=6fc0f071, «la demo
        en el móvil»). En el ordenador la cabecera, el botón y la frase no salen. -->
   <div class="env" aria-label="La demo de winshotx" data-aria-en="The winshotx demo">
     <div class="capa-cabeza">
@@ -467,7 +469,7 @@
 
     <!-- La pantalla de la demo. En el ordenador, estas dos cajas no hacen nada; en el móvil, la
          de fuera es el hueco con su marco y la de dentro, la app a su tamaño de escritorio,
-         encogida con `transform` (demo.js?v=37b95cc1 pone la escala). -->
+         encogida con `transform` (demo.js?v=6fc0f071 pone la escala). -->
     <div class="hueco-demo">
     <div class="pantalla-demo" id="pantalla-demo">
     <div class="escala-demo">
@@ -1057,7 +1059,7 @@
       <div class="fan suelta" style="--giro:-3deg"><p data-html data-en="Your agent records the demo. &lt;b&gt;You go grab a coffee.&lt;/b&gt;">Tu agente graba la demo. <b>Tú te vas a por un café.</b></p></div>
       <div class="botones"><a class="btn dos" href="docs/#agentes" data-en="How to connect it">Cómo se conecta</a></div>
     </div>
-    <!-- Cada orden de la terminal se copia con un clic (leer.js?v=fce460d8): por eso es un grupo y no
+    <!-- Cada orden de la terminal se copia con un clic (leer.js?v=c1f0d0f0): por eso es un grupo y no
          una imagen, y cada línea `.orden` va suelta, sin su «PS>», que no se escribe. -->
     <div class="terminal" role="group" aria-label="Una terminal con las órdenes de winshotx para agentes" data-aria-en="A terminal with the winshotx commands for agents">
       <div class="terminal-barra"><i></i><i></i><i></i><span>PowerShell</span></div>
@@ -1156,93 +1158,352 @@
 </section>
 
 <!-- ======================= la comparativa, abajo del todo ======================= -->
-<!-- Las cifras son las medidas: el mismo equipo con Windows 11, tres veces seguidas y las dos
-     arrancando desde cero. Lo demás sale de la web oficial de cada herramienta, con el enlace
-     debajo. De las de pago no se habla. -->
+<!-- La escribe generar-comparativa.mjs desde comparativa.mjs: no se toca a mano. Las cifras de
+     la pestaña de Recortes son las medidas, en el mismo equipo con Windows 11, tres veces seguidas
+     y las dos arrancando desde cero; lo demás sale de la web oficial de cada una, con el enlace
+     debajo. -->
 <section id="comparativa" class="seccion comparativa">
   <div class="env">
     <div class="cabeza-seccion">
       <h2 data-en="Head to head">Frente a frente</h2>
-      <p class="entradilla" data-en="The time and the memory, measured on the same machine. Everything else, with its source, including where winshotx loses.">El tiempo y la memoria, medidos en el mismo equipo. Todo lo demás, con su fuente, también donde pierde winshotx.</p>
-      <div class="fan suelta" style="--giro:3deg"><p data-html data-en="&lt;b&gt;8 times faster&lt;/b&gt; than the one Windows ships. Just saying.">
-        <b>8 veces más rápida</b> que la que trae Windows. Ahí lo dejo.</p></div>
+      <p class="entradilla" data-en="What winshotx does and the other ten do not, and where one of them wins. Time and memory, measured; the rest, from each one's own website.">Lo que hace winshotx y no hacen las otras diez, y donde gana alguna de ellas. El tiempo y la memoria, medidos; lo demás, de la web de cada una.</p>
+      <div class="fan suelta" style="--giro:3deg"><p data-html data-en="&lt;b&gt;8 times faster&lt;/b&gt; than the one Windows ships. Just saying."><b>8 veces más rápida</b> que la que trae Windows. Ahí lo dejo.</p></div>
     </div>
 
-    <div class="medidas" id="medidas">
-      <div class="medida">
-        <div class="medida-num">114 ms</div>
-        <div class="medida-que" data-en="from the shortcut to the selection, already painted, with three screens">del atajo a la selección ya pintada, con tres pantallas</div>
-        <div class="barras">
-          <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:12.4%;--dura:114ms"></span></span><span class="cuanto">114 ms</span></div>
-          <div class="barra-medida"><span class="nombre" data-en="Snipping Tool">Herramienta de Recortes</span><span class="pista"><span class="llena" style="--largo:100%;--dura:920ms"></span></span><span class="cuanto">920 ms</span></div>
+    <p class="rival-pregunta" id="rival-pregunta" data-en="Which one do you use now?">¿Cuál usas ahora?</p>
+    <div class="pestanas rivales" role="radiogroup" aria-labelledby="rival-pregunta">
+      <label class="pestana"><input type="radio" name="rival" value="recortes" checked><span data-en="Snipping Tool">Recortes</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="gamebar"><span>Game Bar</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="sharex"><span>ShareX</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="greenshot"><span>Greenshot</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="flameshot"><span>Flameshot</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="screentogif"><span>ScreenToGif</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="obs"><span>OBS</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="lightshot"><span>Lightshot</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="picpick"><span>PicPick</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="snagit"><span>Snagit</span></label>
+    </div>
+    <div class="frentes">
+      <div class="frente" id="frente-recortes">
+        <div class="medidas" id="medidas">
+          <div class="medida">
+            <div class="medida-num">114 ms</div>
+            <div class="medida-que" data-en="from the shortcut to the selection, already painted, with three screens">del atajo a la selección ya pintada, con tres pantallas</div>
+            <div class="barras">
+              <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:12.4%;--dura:114ms"></span></span><span class="cuanto">114 ms</span></div>
+              <div class="barra-medida"><span class="nombre" data-en="Snipping Tool">Herramienta de Recortes</span><span class="pista"><span class="llena" style="--largo:100%;--dura:920ms"></span></span><span class="cuanto">920 ms</span></div>
+            </div>
+          </div>
+          <div class="medida">
+            <div class="medida-num">33 MB</div>
+            <div class="medida-que" data-en="of memory while you capture">de memoria mientras capturas</div>
+            <div class="barras">
+              <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:13%"></span></span><span class="cuanto">33 MB</span></div>
+              <div class="barra-medida"><span class="nombre" data-en="Snipping Tool">Herramienta de Recortes</span><span class="pista"><span class="llena" style="--largo:100%"></span></span><span class="cuanto">253 MB</span></div>
+            </div>
+          </div>
+          <div class="medida">
+            <div class="medida-num">31 MB</div>
+            <div class="medida-que" data-en="waiting in the tray">esperando en la bandeja</div>
+            <div class="barras">
+              <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:31.6%"></span></span><span class="cuanto">31 MB</span></div>
+              <div class="barra-medida"><span class="nombre" data-en="Snipping Tool">Herramienta de Recortes</span><span class="pista"><span class="llena" style="--largo:100%"></span></span><span class="cuanto">98 MB</span></div>
+            </div>
+          </div>
         </div>
+        <p class="fuentes" data-en="Measured on the same Windows 11 machine, three runs each, both starting from cold. The clock stops when the selection is already on screen.">Medido en un mismo equipo con Windows 11, tres veces seguidas y las dos arrancando desde cero. El cronómetro para cuando la selección ya se ve en pantalla.</p>
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num palabras" data-en="Comes with Windows">Viene con Windows</div><div class="medida-que" data-en="Snipping Tool">Herramienta de Recortes</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span data-en="Snipping Tool: no">Herramienta de Recortes: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span data-en="Snipping Tool: no">Herramienta de Recortes: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span data-en="Snipping Tool: no">Herramienta de Recortes: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span data-en="Snipping Tool: emails and phone numbers">Herramienta de Recortes: correos y teléfonos</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span data-en="Snipping Tool: no">Herramienta de Recortes: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b data-en="Pins a shot on top of everything">Ancla una captura encima de todo</b><span data-en="Snipping Tool: no">Herramienta de Recortes: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; and draws arrows, text and numbered steps."><b>Y además:</b> captura una página larga, bajando sola; graba en GIF; pone tu cámara encima del vídeo; y dibuja flechas, texto y pasos numerados.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where the Snipping Tool wins">Lo que gana la Herramienta de Recortes</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-download"/></svg><div><b data-en="Comes with Windows">Viene puesta con Windows</b><span data-en="Snipping Tool: yes">Herramienta de Recortes: sí</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="Snipping Tool: 64 languages; winshotx, 3">Herramienta de Recortes: 64 idiomas; winshotx, 3</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; read the text in the image; record MP4 video; PC sound and microphone; and capture an area."><b>Las dos:</b> leer el texto de la imagen; grabar vídeo MP4; sonido del PC y micrófono; y capturar una zona.</p>
       </div>
-      <div class="medida">
-        <div class="medida-num">33 MB</div>
-        <div class="medida-que" data-en="of memory while you capture">de memoria mientras capturas</div>
-        <div class="barras">
-          <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:13%"></span></span><span class="cuanto">33 MB</span></div>
-          <div class="barra-medida"><span class="nombre" data-en="Snipping Tool">Herramienta de Recortes</span><span class="pista"><span class="llena" style="--largo:100%"></span></span><span class="cuanto">253 MB</span></div>
+      <div class="frente" id="frente-gamebar">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num palabras" data-en="Comes with Windows">Viene con Windows</div><div class="medida-que">Xbox Game Bar</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b data-en="Pins a shot on top of everything">Ancla una captura encima de todo</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-scroll"/></svg><div><b data-en="Captures a long page, scrolling by itself">Captura una página larga, bajando sola</b><span>Xbox Game Bar: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; draws arrows, text and numbered steps; needs no account; and captures an area of the screen."><b>Y además:</b> lee el texto de una imagen, y de un vídeo; graba en GIF; pone tu cámara encima del vídeo; dibuja flechas, texto y pasos numerados; no pide cuenta; y captura una zona de la pantalla.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where Xbox Game Bar wins">Lo que gana la Xbox Game Bar</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-download"/></svg><div><b data-en="Comes with Windows">Viene puesta con Windows</b><span data-en="Xbox Game Bar: yes">Xbox Game Bar: sí</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="Xbox Game Bar: 63 languages; winshotx, 3">Xbox Game Bar: 63 idiomas; winshotx, 3</span></div></li>
+            </ul>
+          </div>
         </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; the last seconds, without pressing record; record MP4 video; and PC sound and microphone."><b>Las dos:</b> los últimos segundos, sin haber dado a grabar; grabar vídeo MP4; y sonido del PC y micrófono.</p>
       </div>
-      <div class="medida">
-        <div class="medida-num">31 MB</div>
-        <div class="medida-que" data-en="waiting in the tray">esperando en la bandeja</div>
-        <div class="barras">
-          <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:31.6%"></span></span><span class="cuanto">31 MB</span></div>
-          <div class="barra-medida"><span class="nombre" data-en="Snipping Tool">Herramienta de Recortes</span><span class="pista"><span class="llena" style="--largo:100%"></span></span><span class="cuanto">98 MB</span></div>
+      <div class="frente" id="frente-sharex">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">145 MB</div><div class="medida-que">ShareX</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span>ShareX: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span>ShareX: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span data-en="ShareX: no; it has a command line">ShareX: no; tiene línea de órdenes</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span data-en="ShareX: no, by hand">ShareX: no, a mano</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span>ShareX: no</span></div></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where ShareX wins">Lo que gana ShareX</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="ShareX: 29 languages; winshotx, 3">ShareX: 29 idiomas; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b data-en="Uploads the shot and gives you a link">Sube la captura y te da un enlace</b><span data-en="ShareX: yes">ShareX: sí</span></div></li>
+            </ul>
+          </div>
         </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; pin a shot on top of everything; a long page, scrolling by itself; read the text in the image; record GIF; your webcam on top; record MP4 video; PC sound and microphone; arrows, text and numbered steps; and capture an area."><b>Las dos:</b> anclar una captura encima de todo; una página larga, bajando sola; leer el texto de la imagen; grabar GIF; tu cámara encima; grabar vídeo MP4; sonido del PC y micrófono; flechas, texto y pasos numerados; y capturar una zona.</p>
+      </div>
+      <div class="frente" id="frente-greenshot">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">4 MB</div><div class="medida-que">Greenshot</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span data-en="Greenshot: does not record">Greenshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span data-en="Greenshot: does not record">Greenshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span data-en="Greenshot: only in its test builds">Greenshot: solo en sus versiones de prueba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span data-en="Greenshot: no, by hand">Greenshot: no, a mano</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span data-en="Greenshot: does not record">Greenshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b data-en="Pins a shot on top of everything">Ancla una captura encima de todo</b><span>Greenshot: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone."><b>Y además:</b> captura una página larga, bajando sola; graba en GIF; pone tu cámara encima del vídeo; graba vídeo MP4; y graba el sonido del PC y el micrófono.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where Greenshot wins">Lo que gana Greenshot</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="Greenshot: 39 languages; winshotx, 3">Greenshot: 39 idiomas; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b data-en="Uploads the shot and gives you a link">Sube la captura y te da un enlace</b><span data-en="Greenshot: with its plug-in">Greenshot: con su complemento</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; read the text in the image; arrows, text and numbered steps; and capture an area."><b>Las dos:</b> leer el texto de la imagen; flechas, texto y pasos numerados; y capturar una zona.</p>
+      </div>
+      <div class="frente" id="frente-flameshot">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">19 MB</div><div class="medida-que">Flameshot</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span data-en="Flameshot: does not record">Flameshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span data-en="Flameshot: does not record">Flameshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span data-en="Flameshot: no; it has a command line">Flameshot: no; tiene línea de órdenes</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span data-en="Flameshot: no, by hand">Flameshot: no, a mano</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span data-en="Flameshot: does not record">Flameshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-scroll"/></svg><div><b data-en="Captures a long page, scrolling by itself">Captura una página larga, bajando sola</b><span>Flameshot: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone."><b>Y además:</b> lee el texto de una imagen, y de un vídeo; graba en GIF; pone tu cámara encima del vídeo; graba vídeo MP4; y graba el sonido del PC y el micrófono.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where Flameshot wins">Lo que gana Flameshot</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="Flameshot: 43 languages; winshotx, 3">Flameshot: 43 idiomas; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b data-en="Also runs on Mac or Linux">Funciona también en Mac o en Linux</b><span data-en="Flameshot: Mac and Linux">Flameshot: Mac y Linux</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; pin a shot on top of everything; arrows, text and numbered steps; and capture an area."><b>Las dos:</b> anclar una captura encima de todo; flechas, texto y pasos numerados; y capturar una zona.</p>
+      </div>
+      <div class="frente" id="frente-screentogif">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">75 MB</div><div class="medida-que">ScreenToGif</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span data-en="ScreenToGif: no, by hand">ScreenToGif: no, a mano</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b data-en="Pins a shot on top of everything">Ancla una captura encima de todo</b><span>ScreenToGif: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; captures a long page, scrolling by itself; reads the text in an image, and in a video; puts your webcam on top of the video; draws arrows, text and numbered steps; records MP4 video; records PC sound and the microphone; and captures an area of the screen."><b>Y además:</b> captura una página larga, bajando sola; lee el texto de una imagen, y de un vídeo; pone tu cámara encima del vídeo; dibuja flechas, texto y pasos numerados; graba vídeo MP4; graba el sonido del PC y el micrófono; y captura una zona de la pantalla.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where ScreenToGif wins">Lo que gana ScreenToGif</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="ScreenToGif: 29 languages; winshotx, 3">ScreenToGif: 29 idiomas; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b data-en="Uploads the shot and gives you a link">Sube la captura y te da un enlace</b><span data-en="ScreenToGif: yes">ScreenToGif: sí</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-film"/></svg><div><b data-en="Edits a GIF frame by frame">Edita un GIF fotograma a fotograma</b><span data-en="ScreenToGif: yes">ScreenToGif: sí</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; record GIF."><b>Las dos:</b> grabar GIF.</p>
+      </div>
+      <div class="frente" id="frente-obs">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">187 MB</div><div class="medida-que">OBS Studio</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span data-en="OBS Studio: no; it has a WebSocket API">OBS Studio: no; se maneja por WebSocket</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b data-en="Pins a shot on top of everything">Ancla una captura encima de todo</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-scroll"/></svg><div><b data-en="Captures a long page, scrolling by itself">Captura una página larga, bajando sola</b><span>OBS Studio: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; reads the text in an image, and in a video; records GIF; draws arrows, text and numbered steps; and captures an area of the screen."><b>Y además:</b> lee el texto de una imagen, y de un vídeo; graba en GIF; dibuja flechas, texto y pasos numerados; y captura una zona de la pantalla.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where OBS Studio wins">Lo que gana OBS Studio</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="OBS Studio: 57 languages; winshotx, 3">OBS Studio: 57 idiomas; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b data-en="Also runs on Mac or Linux">Funciona también en Mac o en Linux</b><span data-en="OBS Studio: Mac and Linux">OBS Studio: Mac y Linux</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-video"/></svg><div><b data-en="Streams live">Retransmite en directo</b><span data-en="OBS Studio: yes">OBS Studio: sí</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; the last seconds, without pressing record; your webcam on top; record MP4 video; and PC sound and microphone."><b>Las dos:</b> los últimos segundos, sin haber dado a grabar; tu cámara encima; grabar vídeo MP4; y sonido del PC y micrófono.</p>
+      </div>
+      <div class="frente" id="frente-lightshot">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num" data-en="2.4 MB">2,4 MB</div><div class="medida-que">Lightshot</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span data-en="Lightshot: does not record">Lightshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span data-en="Lightshot: does not record">Lightshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span>Lightshot: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span>Lightshot: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span data-en="Lightshot: does not record">Lightshot: no graba</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b data-en="Pins a shot on top of everything">Ancla una captura encima de todo</b><span>Lightshot: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; captures a long page, scrolling by itself; reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone."><b>Y además:</b> captura una página larga, bajando sola; lee el texto de una imagen, y de un vídeo; graba en GIF; pone tu cámara encima del vídeo; graba vídeo MP4; y graba el sonido del PC y el micrófono.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where Lightshot wins">Lo que gana Lightshot</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b data-en="Also runs on Mac or Linux">Funciona también en Mac o en Linux</b><span>Lightshot: Mac</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b data-en="Uploads the shot and gives you a link">Sube la captura y te da un enlace</b><span data-en="Lightshot: public on prnt.sc">Lightshot: público en prnt.sc</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; capture an area."><b>Las dos:</b> capturar una zona.</p>
+      </div>
+      <div class="frente" id="frente-picpick">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">69 MB</div><div class="medida-que">PicPick</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-wallet"/></svg><div><b data-en="Free, for work too">Es gratis, también para trabajar</b><span data-en="PicPick: personal use only">PicPick: solo para uso personal</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span>PicPick: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span>PicPick: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span>PicPick: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b data-en="Covers the personal data in an image by itself">Tapa sola los datos personales de una imagen</b><span data-en="PicPick: no, by hand">PicPick: no, a mano</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span>PicPick: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; pins a shot on top of everything and reads the text in an image, and in a video."><b>Y además:</b> ancla una captura encima de todo y lee el texto de una imagen, y de un vídeo.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where PicPick wins">Lo que gana PicPick</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="PicPick: more than 3 languages; winshotx, 3">PicPick: más de 3 idiomas; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b data-en="Uploads the shot and gives you a link">Sube la captura y te da un enlace</b><span data-en="PicPick: yes">PicPick: sí</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; a long page, scrolling by itself; record GIF; your webcam on top; record MP4 video; PC sound and microphone; arrows, text and numbered steps; and capture an area."><b>Las dos:</b> una página larga, bajando sola; grabar GIF; tu cámara encima; grabar vídeo MP4; sonido del PC y micrófono; flechas, texto y pasos numerados; y capturar una zona.</p>
+      </div>
+      <div class="frente" id="frente-snagit">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num" data-en="2.97 MB">2,97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">441 MB</div><div class="medida-que">Snagit</div></div>
+            <p class="frente-cifras-que" data-en="What the installer weighs.">Lo que pesa el instalador.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where winshotx wins">Lo que gana winshotx</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-wallet"/></svg><div><b data-en="Free, for work too">Es gratis, también para trabajar</b><span data-en="Snagit: yearly subscription">Snagit: suscripción anual</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a tus clics, y con fondo</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b data-en="Covers the personal data in a video by itself">Tapa sola los datos personales de un vídeo</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b data-en="An AI agent can drive it">La maneja un agente de IA</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b data-en="Keeps the last seconds without pressing record">Guarda los últimos segundos sin haber dado a grabar</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b data-en="Pins a shot on top of everything">Ancla una captura encima de todo</b><span>Snagit: no</span></div></li>
+            </ul>
+          <p class="frente-mas" data-html data-en="&lt;b&gt;And also:&lt;/b&gt; needs no account."><b>Y además:</b> no pide cuenta.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub" data-en="Where Snagit wins">Lo que gana Snagit</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b data-en="Speaks more languages">Habla más idiomas</b><span data-en="Snagit: 6 languages; winshotx, 3">Snagit: 6 idiomas; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b data-en="Also runs on Mac or Linux">Funciona también en Mac o en Linux</b><span>Snagit: Mac</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b data-en="Uploads the shot and gives you a link">Sube la captura y te da un enlace</b><span data-en="Snagit: yes">Snagit: sí</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan" data-html data-en="&lt;b&gt;Both:&lt;/b&gt; cover personal data in an image, by itself; a long page, scrolling by itself; read the text in the image; record GIF; your webcam on top; record MP4 video; PC sound and microphone; arrows, text and numbered steps; and capture an area."><b>Las dos:</b> tapar datos personales en una imagen, solo; una página larga, bajando sola; leer el texto de la imagen; grabar GIF; tu cámara encima; grabar vídeo MP4; sonido del PC y micrófono; flechas, texto y pasos numerados; y capturar una zona.</p>
       </div>
     </div>
-    <p class="fuentes" data-en="Measured on the same Windows 11 machine, three runs each, both starting from cold. The clock stops when the selection is already on screen.">Medido en un mismo equipo con Windows 11, tres veces seguidas y las dos arrancando desde cero. El cronómetro para cuando la selección ya se ve en pantalla.</p>
-
-    <div class="tabla-comparar">
-      <!-- Comprobado el 14 de noviembre de 2026 en las fuentes de abajo. De la Herramienta de
-           Recortes solo cuenta lo que Microsoft da por publicado para todos; lo que está en
-           pruebas con los Insider se dice así. -->
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th class="nuestra">winshotx</th>
-            <th data-en="Snipping Tool">Herramienta de Recortes</th>
-            <th>ShareX</th>
-            <th>Greenshot</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><th scope="row" data-en="Installer">Instalador</th>
-            <td class="nuestra" data-en="2.97 MB">2,97 MB</td><td data-en="comes with Windows">viene con Windows</td><td>145 MB</td><td>4 MB</td></tr>
-          <tr><th scope="row" data-en="Capture an area">Capturar una zona</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, snapping to windows">Sí, ajustada a las ventanas</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td></tr>
-          <tr><th scope="row" data-en="A long page, scrolling by itself">Una página larga, bajando sola</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="medio"><svg><use href="#i-minus"/></svg><span data-en="Only in Internet Explorer">Solo en Internet Explorer</span></span></td></tr>
-          <tr><th scope="row" data-en="Record MP4 video">Grabar vídeo MP4</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, at 15, 30 or 60 fps">Sí, a 15, 30 o 60 fps</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span data-en="It does not record">No graba</span></span></td></tr>
-          <tr><th scope="row" data-en="Record GIF">Grabar GIF</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="medio"><svg><use href="#i-minus"/></svg><span data-en="Only for Insiders, 30 s at most">Solo para Insiders, 30 s como mucho</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td></tr>
-          <tr><th scope="row" data-en="PC sound and microphone">Sonido del PC y micrófono</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, each on its own track">Sí, cada uno en su pista</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td></tr>
-          <tr><th scope="row" data-en="Your webcam on top">Tu cámara encima</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, round or with corners">Sí, redonda o con esquinas</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td></tr>
-          <tr><th scope="row" data-en="The last seconds, without pressing record">Los últimos segundos, sin haber dado a grabar</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, 15, 30 or 60 s">Sí, 15, 30 o 60 s</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td></tr>
-          <tr><th scope="row" data-en="Editor with a timeline and zooms">Editor con línea de tiempo y zooms</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, with cuts and speed-ups">Sí, con cortes y acelerados</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span data-en="No; trimming only for Insiders">No; recortar, solo para Insiders</span></span></td><td><span class="medio"><svg><use href="#i-minus"/></svg><span data-en="It trims, with no timeline">Recorta, sin línea de tiempo</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td></tr>
-          <tr><th scope="row" data-en="Arrows, text and numbered steps">Flechas, texto y pasos numerados</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, ten marks">Sí, diez marcas</span></span></td><td><span class="medio"><svg><use href="#i-minus"/></svg><span data-en="Pen and shapes, no text or steps">Bolígrafo y formas, sin texto ni pasos</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td></tr>
-          <tr><th scope="row" data-en="Read the text in the image">Leer el texto de la imagen</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, the T key">Sí, con la T</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes">Sí</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, with its plug-in">Sí, con su complemento</span></span></td></tr>
-          <tr><th scope="row" data-en="Cover personal data by itself">Tapar datos personales solo</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span data-en="Yes, in video too">Sí, también en vídeo</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span data-en="Emails and phone numbers">Correos y teléfonos</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td></tr>
-          <tr><th scope="row" data-en="Languages">Idiomas</th>
-            <td class="nuestra">3</td><td>64</td><td>29</td><td>39</td></tr>
-          <tr><th scope="row" data-en="Open source">Código abierto</th>
-            <td class="nuestra"><span class="si"><svg><use href="#i-check"/></svg><span>MIT</span></span></td><td><span class="no"><svg><use href="#i-x"/></svg><span>No</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span>GPL-3.0</span></span></td><td><span class="si"><svg><use href="#i-check"/></svg><span>GPL-3.0</span></span></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="fuentes" data-html data-en="Checked on 14 November 2026. Snipping Tool: &lt;a href=&quot;https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b&quot; rel=&quot;noopener&quot;&gt;Microsoft support&lt;/a&gt;, &lt;a href=&quot;https://blogs.windows.com/windows-insider/2025/06/19/gif-export-in-snipping-tool-begins-rolling-out-to-windows-insiders/&quot; rel=&quot;noopener&quot;&gt;GIF for Insiders&lt;/a&gt; and &lt;a href=&quot;https://blogs.windows.com/windows-insider/2025/02/28/announcing-windows-11-insider-preview-build-26120-3360-dev-and-beta-channels/&quot; rel=&quot;noopener&quot;&gt;trimming for Insiders&lt;/a&gt;. ShareX 22.4: &lt;a href=&quot;https://getsharex.com/&quot; rel=&quot;noopener&quot;&gt;its website&lt;/a&gt;, &lt;a href=&quot;https://getsharex.com/changelog&quot; rel=&quot;noopener&quot;&gt;its changelog&lt;/a&gt; and &lt;a href=&quot;https://github.com/ShareX/ShareX/releases/tag/v22.4.0&quot; rel=&quot;noopener&quot;&gt;its installer&lt;/a&gt;. Greenshot 1.3.328: &lt;a href=&quot;https://getgreenshot.org/help/&quot; rel=&quot;noopener&quot;&gt;its help&lt;/a&gt;, &lt;a href=&quot;https://getgreenshot.org/faq/&quot; rel=&quot;noopener&quot;&gt;its FAQ&lt;/a&gt; and &lt;a href=&quot;https://github.com/greenshot/greenshot/releases/tag/v1.3.328&quot; rel=&quot;noopener&quot;&gt;its installer&lt;/a&gt;. If something has changed, &lt;a href=&quot;https://github.com/Mun1to/winshotx/issues&quot; rel=&quot;noopener&quot;&gt;tell me&lt;/a&gt; and it gets fixed.">Comprobado el 14 de noviembre de 2026. Herramienta de Recortes: <a href="https://support.microsoft.com/es-es/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b" rel="noopener">ayuda de Microsoft</a>, <a href="https://blogs.windows.com/windows-insider/2025/06/19/gif-export-in-snipping-tool-begins-rolling-out-to-windows-insiders/" rel="noopener">GIF para Insiders</a> y <a href="https://blogs.windows.com/windows-insider/2025/02/28/announcing-windows-11-insider-preview-build-26120-3360-dev-and-beta-channels/" rel="noopener">recortar para Insiders</a>. ShareX 22.4: <a href="https://getsharex.com/" rel="noopener">su web</a>, <a href="https://getsharex.com/changelog" rel="noopener">sus novedades</a> y <a href="https://github.com/ShareX/ShareX/releases/tag/v22.4.0" rel="noopener">su instalador</a>. Greenshot 1.3.328: <a href="https://getgreenshot.org/help/" rel="noopener">su ayuda</a>, <a href="https://getgreenshot.org/faq/" rel="noopener">sus preguntas</a> y <a href="https://github.com/greenshot/greenshot/releases/tag/v1.3.328" rel="noopener">su instalador</a>. Si algo ha cambiado, <a href="https://github.com/Mun1to/winshotx/issues" rel="noopener">avísame</a> y se corrige.</p>
+    <p class="fuentes" data-html data-en="Checked on 15 November 2026 on each one's website, help pages and release notes: &lt;a href=&quot;https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b&quot; rel=&quot;noopener&quot;&gt;Snipping Tool&lt;/a&gt;, &lt;a href=&quot;https://support.microsoft.com/en-us/accessibility/windows/use-a-screen-reader-to-record-your-screen-with-xbox-game-bar&quot; rel=&quot;noopener&quot;&gt;Xbox Game Bar&lt;/a&gt;, &lt;a href=&quot;https://getsharex.com/changelog&quot; rel=&quot;noopener&quot;&gt;ShareX 22.4&lt;/a&gt;, &lt;a href=&quot;https://getgreenshot.org/help/&quot; rel=&quot;noopener&quot;&gt;Greenshot 1.3&lt;/a&gt;, &lt;a href=&quot;https://flameshot.org/&quot; rel=&quot;noopener&quot;&gt;Flameshot 15&lt;/a&gt;, &lt;a href=&quot;https://github.com/NickeManarin/ScreenToGif/releases/tag/2.43.2&quot; rel=&quot;noopener&quot;&gt;ScreenToGif 2.43&lt;/a&gt;, &lt;a href=&quot;https://obsproject.com/kb/&quot; rel=&quot;noopener&quot;&gt;OBS Studio 33&lt;/a&gt;, &lt;a href=&quot;https://app.prntscr.com/en/learnmore.html&quot; rel=&quot;noopener&quot;&gt;Lightshot&lt;/a&gt;, &lt;a href=&quot;https://picpick.app/en/features/&quot; rel=&quot;noopener&quot;&gt;PicPick 7.6&lt;/a&gt;, &lt;a href=&quot;https://www.techsmith.com/snagit/features/&quot; rel=&quot;noopener&quot;&gt;Snagit 2027&lt;/a&gt;. &quot;No&quot; means it is not in any of its official sources; ScreenToGif is the version its author now calls the old one. If something has changed, &lt;a href=&quot;https://github.com/Mun1to/winshotx/issues&quot; rel=&quot;noopener&quot;&gt;tell me&lt;/a&gt; and it gets fixed.">Comprobado el 15 de noviembre de 2026 en la web, la ayuda y las notas de versión de cada una: <a href="https://support.microsoft.com/es-es/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b" rel="noopener">Herramienta de Recortes</a>, <a href="https://support.microsoft.com/en-us/accessibility/windows/use-a-screen-reader-to-record-your-screen-with-xbox-game-bar" rel="noopener">Xbox Game Bar</a>, <a href="https://getsharex.com/changelog" rel="noopener">ShareX 22.4</a>, <a href="https://getgreenshot.org/help/" rel="noopener">Greenshot 1.3</a>, <a href="https://flameshot.org/" rel="noopener">Flameshot 15</a>, <a href="https://github.com/NickeManarin/ScreenToGif/releases/tag/2.43.2" rel="noopener">ScreenToGif 2.43</a>, <a href="https://obsproject.com/kb/" rel="noopener">OBS Studio 33</a>, <a href="https://app.prntscr.com/en/learnmore.html" rel="noopener">Lightshot</a>, <a href="https://picpick.app/en/features/" rel="noopener">PicPick 7.6</a>, <a href="https://www.techsmith.com/snagit/features/" rel="noopener">Snagit 2027</a>. «No» quiere decir que no sale en ninguna de sus fuentes oficiales; ScreenToGif es la versión que su autor ya llama antigua. Si algo ha cambiado, <a href="https://github.com/Mun1to/winshotx/issues" rel="noopener">avísame</a> y se corrige.</p>
   </div>
 </section>
 
@@ -1308,7 +1569,7 @@
 </footer>
 
 <script src="cruceta.js?v=a40756ff"></script>
-<script src="leer.js?v=fce460d8"></script>
-<script src="demo.js?v=37b95cc1"></script>
+<script src="leer.js?v=c1f0d0f0"></script>
+<script src="demo.js?v=6fc0f071"></script>
 </body>
 </html>
