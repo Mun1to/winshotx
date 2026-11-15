@@ -5,7 +5,8 @@
 //   node frontlaxweb/probar-web.mjs --entera             la página completa, no solo lo de arriba
 //   node frontlaxweb/probar-web.mjs --cruceta            además, mide la cruceta de la portada
 //
-// En cada página, además, se mira que la barra se compacte al bajar sin mover la página, y
+// En cada página, además, se mira que la barra se compacte al bajar sin mover la página, que
+// el menú del móvil crezca desde la barra y se recoja con Escape y tocando fuera, y
 // cada orden de la terminal se copia con el ratón y con Intro, mirando el portapapeles y que
 // salga el aviso de copiado.
 //
@@ -169,6 +170,80 @@ for (const ruta of paginas) {
       `; con motion=off ${Math.abs(quieta.abajo.ancho - quieta.arriba.ancho) < 1 ? "se queda igual" : "SE MUEVE"}${bien ? "" : "  MAL"}`,
   );
   if (!bien) fallos++;
+}
+
+// El menú del móvil: al tocar «Menú», la misma píldora de la barra crece hacia abajo con las
+// páginas dentro (no una tarjeta suelta debajo: Munito, 15-nov), el foco va a la primera, y
+// Escape (devolviendo el foco a «Menú») y tocar fuera la recogen, sin mover la página. Arriba
+// del todo y con la barra ya compacta, a 390 y a 360. Se toca con el dedo en sus coordenadas:
+// `locator.tap()` «trae a la vista» la barra pegada arriba y eso sube la página (408 px).
+for (const ruta of paginas) {
+  for (const [ancho, bajada] of [[390, 0], [390, 900], [360, 900]]) {
+    const ctx = await navegador.newContext({ viewport: { width: ancho, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    const page = await ctx.newPage();
+    const errores = [];
+    page.on("pageerror", (e) => errores.push(String(e)));
+    await page.goto(url(ruta), { waitUntil: "load" });
+    await page.evaluate((y) => { document.documentElement.style.scrollBehavior = "auto"; scrollTo(0, y); }, bajada);
+    await page.waitForTimeout(700);
+    const medir = () => page.evaluate(() => {
+      const p = document.querySelector(".barra-dentro").getBoundingClientRect();
+      const panel = document.querySelector(".menu-panel");
+      const r = [...panel.querySelectorAll("a")].filter((a) => getComputedStyle(a).display !== "none").map((a) => a.getBoundingClientRect());
+      return {
+        alto: p.height, fondo: p.bottom, visible: getComputedStyle(panel).visibility === "visible",
+        dentro: r.every((b) => b.top >= p.top - 0.5 && b.bottom <= p.bottom + 0.5 && b.left >= p.left - 0.5 && b.right <= p.right + 0.5),
+        chico: Math.min(...r.map((b) => b.height)),
+        foco: document.activeElement === panel.querySelector("a") ? "primera" : document.activeElement === document.querySelector(".menu summary") ? "menú" : "otro",
+        y: scrollY, debajo: document.querySelector("nav.barra").nextElementSibling.getBoundingClientRect().top,
+      };
+    });
+    const tocar = async () => {
+      const b = await page.locator(".menu summary").boundingBox();
+      await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+      await page.waitForTimeout(900);
+    };
+    const cerrado = await medir();
+    await tocar();
+    const abierto = await medir();
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(900);
+    const trasEscape = await medir();
+    await tocar();
+    // Fuera: un punto debajo de la píldora abierta sin nada que se pulse en 24 px a la redonda, lo
+    // que abarca un dedo. Al dedo, Chromium lo lleva al enlace que tenga a mano (en Novedades,
+    // tocar junto a uno abría la versión 0.4.6 en GitHub), como pasa con un dedo de verdad.
+    const punto = await page.evaluate(() => {
+      const fondo = document.querySelector(".barra-dentro").getBoundingClientRect().bottom;
+      const pulsable = "a, button, summary, label, [role=button], [role=tab], [tabindex], input, textarea, .copiable, #demo, .demo-movil, .escaparate, nav, figure, img";
+      const libre = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        return el && !el.closest(pulsable) && getComputedStyle(el).cursor !== "pointer";
+      };
+      for (let y = fondo + 40; y < innerHeight - 30; y += 12) {
+        for (let x = 30; x < innerWidth - 30; x += 15) {
+          let todo = true;
+          for (const dx of [-24, 0, 24]) for (const dy of [-24, 0, 24]) if (todo && !libre(x + dx, y + dy)) todo = false;
+          if (todo) return [x, y];
+        }
+      }
+      return null;
+    });
+    if (punto) await page.touchscreen.tap(...punto);
+    await page.waitForTimeout(900);
+    const trasFuera = await medir();
+    await ctx.close();
+    const bien = abierto.alto > cerrado.alto + 200 && abierto.visible && abierto.dentro && abierto.chico >= 44 && abierto.foco === "primera" &&
+      trasEscape.alto === cerrado.alto && !trasEscape.visible && trasEscape.foco === "menú" && punto && trasFuera.alto === cerrado.alto &&
+      abierto.y === cerrado.y && trasFuera.y === cerrado.y && abierto.debajo === cerrado.debajo && !errores.length;
+    console.log(
+      `${(ruta || "portada").padEnd(12)} el menú a ${ancho}${bajada ? ", con la barra compacta" : ""}: la píldora ${abierto.alto > cerrado.alto + 200 ? `crece de ${Math.round(cerrado.alto)} a ${Math.round(abierto.alto)} px` : "NO CRECE"}` +
+        `${abierto.dentro ? " con las páginas dentro" : " CON LAS PÁGINAS FUERA"} (${abierto.chico >= 44 ? "de 44 px o más" : `UNA DE ${Math.round(abierto.chico)} PX`}), el foco ${abierto.foco === "primera" ? "en la primera" : "NO VA A LA PRIMERA"}` +
+        `; Escape ${trasEscape.alto === cerrado.alto && trasEscape.foco === "menú" ? "la recoge y vuelve a Menú" : "NO VA BIEN"}; tocar fuera ${!punto ? "SIN SITIO LIBRE PARA TOCAR" : trasFuera.alto === cerrado.alto ? "la recoge" : "NO LA RECOGE"}` +
+        `; la página ${abierto.y === cerrado.y && abierto.debajo === cerrado.debajo && trasFuera.y === cerrado.y ? "quieta" : "SE MUEVE"}${errores.length ? `  ERRORES: ${errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
+    );
+    if (!bien) fallos++;
+  }
 }
 
 // Las flechas de las notas de la portada (las dibuja leer.js): la punta llega a su texto sin
