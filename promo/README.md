@@ -12,7 +12,8 @@ on purpose, because Remotion pulls a headless Chrome that nobody building winsho
    page clock stepped exactly one frame between shots (`page.clock`), so animations play at their
    real speed however long each screenshot takes. It also photographs the editor and the
    settings. Nothing opens on anyone's desktop. Output: `public/app/` (not in git).
-2. **The video.** `src/` composes those frames with a camera, text that comes in word by word and
+2. **The video.** `src/Promo.tsx` is the chosen cut: the maker's story over the app, then five
+   questions the app answers, with no sound effects. `src/` composes those frames with a camera, text that comes in word by word and
    sound effects. `src/direcciones/` holds the three directions that were drafted to choose from.
 3. **Rendering.** `render.mjs` bundles once and renders at below-normal priority.
 
@@ -22,7 +23,8 @@ cd promo
 pnpm install --ignore-workspace
 node capturas.mjs                   # about 40 s
 node render.mjs muestras            # the opening of each direction plus a few stills
-node render.mjs Direccion2-Tirada   # one direction, whole
+node render.mjs Promo               # the chosen cut (69 s), muted, in out/Promo.mp4
+node musica.mjs <track.mp3>         # lays a track under it, levelled to -16 LUFS: out/Promo-<track>.mp4
 pnpm ver                            # Remotion Studio, to look around
 ```
 
