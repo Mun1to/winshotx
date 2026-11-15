@@ -20,9 +20,9 @@ const aqui = dirname(fileURLToPath(import.meta.url));
 setPriority(constants.priority.PRIORITY_BELOW_NORMAL);
 
 const DIRECCIONES = {
-  "Direccion1-Carrera": { trozo: [0, 287], fotos: [70, 230, 420, 570, 760, 1000] },
+  "Direccion1-Carrera": { trozo: [0, 287], fotos: [70, 230, 420, 570, 760, 1060] },
   "Direccion2-Tirada": { trozo: [0, 314], fotos: [30, 120, 200, 262, 400, 640] },
-  "Direccion3-LoHiceYo": { trozo: [0, 407], fotos: [40, 200, 360, 470, 640, 780] },
+  "Direccion3-LoHiceYo": { trozo: [0, 407], fotos: [40, 235, 360, 495, 640, 780] },
 };
 
 const [que = "muestras"] = process.argv.slice(2);
