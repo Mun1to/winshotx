@@ -84,6 +84,7 @@ is downloaded at runtime.
 - [Home page in English](https://winshotx.com/en/): same page, English.
 - [Guide](https://winshotx.com/docs/): Spanish, the full documentation on one page.
 - [Guide in English](https://winshotx.com/en/docs/): same guide, English.
+- [Support](https://winshotx.com/en/support/): how to get help or report a bug, where the app keeps its data and how to uninstall it ([Spanish](https://winshotx.com/soporte/)).
 - [Source code](https://github.com/Mun1to/winshotx): GitHub repository, MIT licence.
 - [Download](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe): the installer, always the latest release.
 - [Releases](https://github.com/Mun1to/winshotx/releases): version history.

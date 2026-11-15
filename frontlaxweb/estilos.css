@@ -180,6 +180,8 @@ nav.barra.compacta .barra-dentro {
   transition: background .18s, color .18s;
 }
 .barra .enlaces a:hover { color: var(--texto); background: var(--realce-medio); text-decoration: none; }
+/* Seis páginas justo por encima de 1020 px: con el relleno de siempre, «Descargar» se salía de la píldora. */
+@media (max-width: 1100px) { .barra .enlaces a { padding-inline: 10px; } }
 /* La página en la que estás: en texto y con su raya, no en una píldora quieta. */
 .barra .enlaces a.aqui {
   color: var(--texto); text-decoration: underline 2px var(--azul); text-underline-offset: 9px;
@@ -275,15 +277,16 @@ nav.barra.compacta .barra-dentro {
   .menu-panel a:nth-child(4) { --n: 3; }
   .menu-panel a:nth-child(5) { --n: 4; }
   .menu-panel a:nth-child(6) { --n: 5; }
+  .menu-panel a:nth-child(7) { --n: 6; }
   .menu-panel a:hover { background: var(--realce-medio); text-decoration: none; }
   .menu-panel a.aqui { text-decoration: none; box-shadow: inset 3px 0 0 var(--azul); }
   .menu-panel svg { width: 20px; height: 20px; flex: none; color: var(--suave); }
   /* GitHub ya está en la barra en la tableta: en el panel solo sale en el móvil. */
   .menu-panel .menu-gh { display: none; margin-top: 6px; border-top: 1px solid var(--linea); border-radius: 0 0 10px 10px; color: var(--suave); font-size: 16px; }
 }
-/* En la tableta las cinco páginas caben en una fila: en columnas de a tres quedaba una fila coja. */
+/* En la tableta, las seis páginas en dos filas de tres: en una sola fila no caben a 641 px. */
 @media (min-width: 641px) and (max-width: 1020px) {
-  .menu-panel { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .menu-panel { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .menu-panel a { padding: 0 10px; font-size: 16px; white-space: nowrap; }
 }
 @media (max-width: 520px) {

@@ -1,8 +1,8 @@
 /**
  * La barra de arriba, el pie y los dibujos de todas las páginas salen de la portada.
  *
- * Se escriben UNA vez, en index.html, y de ahí se copian a la guía, la privacidad, las
- * novedades y la 404 con este módulo. Escritos a mano en cada página se separaban: la guía
+ * Se escriben UNA vez, en index.html, y de ahí se copian a la guía, la privacidad, el
+ * soporte, las novedades y la 404 con este módulo. Escritos a mano en cada página se separaban: la guía
  * llevaba un menú con secciones de la portada que ya no existían. Lo usa generar-en.mjs
  * (que lo aplica antes de traducir, y el despliegue para si al correrlo cambia algo) y
  * generar-novedades.mjs (que escribe su página entera).
@@ -17,6 +17,7 @@ import { join } from "node:path";
 export const PAGINAS_CROMO = {
   docs: { archivo: join("docs", "index.html"), raiz: "../", ingles: "../en/docs/", aqui: "docs/" },
   privacidad: { archivo: join("privacidad", "index.html"), raiz: "../", ingles: "../en/privacy/", aqui: null },
+  soporte: { archivo: join("soporte", "index.html"), raiz: "../", ingles: "../en/support/", aqui: "soporte/" },
   novedades: { archivo: join("novedades", "index.html"), raiz: "../", ingles: "../en/changelog/", aqui: "novedades/" },
   // La 404 se sirve en cualquier dirección, así que todo va desde la raíz del dominio.
   "404": { archivo: "404.html", raiz: "/", ingles: "/en/", aqui: null },
@@ -90,11 +91,11 @@ export function aplicarCromo(html, portada, nombre) {
   return conCromo.replace(SPRITE, () => spritePara(conCromo.replace(SPRITE, ""), portada.simbolos, nombre));
 }
 
-/** Pone el cromo de la portada en la guía, la privacidad y la 404. Devuelve las que cambian. */
+/** Pone el cromo de la portada en la guía, la privacidad, el soporte y la 404. Devuelve las que cambian. */
 export async function sincronizarCromo(aqui) {
   const portada = await leerPortada(aqui);
   const cambiadas = [];
-  for (const nombre of ["docs", "privacidad", "404"]) {
+  for (const nombre of ["docs", "privacidad", "soporte", "404"]) {
     const ruta = join(aqui, PAGINAS_CROMO[nombre].archivo);
     const antes = await readFile(ruta, "utf8");
     const despues = aplicarCromo(antes, portada, nombre);
