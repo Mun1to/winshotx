@@ -111,7 +111,8 @@ export function BarraAnotar({
     // En UNA fila (S39): iba en dos, con la segunda casi vacía. Los botones a 32 px y, en una
     // ventana normal, «Copiar texto» y «Tapar datos» con solo su icono (su nombre, al pasar el
     // ratón); con la ventana ancha sale el nombre. El `flex-wrap` se queda solo para una ventana
-    // estrechísima, donde partirse es mejor que salirse.
+    // estrechísima, donde partirse es mejor que salirse. Con la barra por debajo de 50rem (la
+    // ventana de 1.080 de un portátil de 1.366), los botones bajan a 30 px y los colores a 20.
     <div
       data-barra-anotar
       className="@container flex shrink-0 flex-wrap items-center gap-0.5 border-b border-linea px-3 py-1.5"
@@ -150,7 +151,7 @@ export function BarraAnotar({
                 aria-label={c}
                 aria-pressed={color === c}
                 style={{ background: c }}
-                className={`size-[22px] rounded-full border-2 transition-colors ${
+                className={`size-[22px] rounded-full border-2 transition-colors @max-[50rem]:size-5 ${
                   color === c ? "border-titulo" : "border-linea-fuerte hover:border-linea-viva"
                 }`}
               />
@@ -242,7 +243,7 @@ export function BarraAnotar({
 }
 
 function Raya() {
-  return <span className="mx-1.5 h-5 w-px bg-linea-fuerte" />;
+  return <span className="mx-1.5 h-5 w-px bg-linea-fuerte @max-[50rem]:mx-1" />;
 }
 
 function Boton({
@@ -267,7 +268,7 @@ function Boton({
       title={etiqueta}
       aria-label={etiqueta}
       aria-pressed={activa}
-      className={`flex size-8 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
+      className={`flex size-8 items-center justify-center rounded-md transition-colors disabled:opacity-30 @max-[50rem]:size-[30px] ${
         activa ? "bg-[#0a76c9] text-white" : "text-suave hover:bg-realce hover:text-titulo"
       }`}
     >
