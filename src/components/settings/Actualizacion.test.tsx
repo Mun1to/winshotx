@@ -10,7 +10,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { llamadas, responde } from "../../test/preparar";
-import { EstadoActualizacion, useActualizacion } from "./Actualizacion";
+import { AvisoActualizacion, BotonActualizar, useActualizacion } from "./Actualizacion";
+import { aplicarIdioma } from "../../lib/i18n";
 
 const mirado = vi.fn();
 vi.mock("@tauri-apps/plugin-updater", () => ({
@@ -20,22 +21,20 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
   },
 }));
 
-/** La barra de abajo, tal y como la monta la ventana de ajustes. */
+/** El aviso de la cabecera y el botón de la fila de la versión, como los monta la ventana de ajustes. */
 function Barra() {
-  const { fase, texto, alDia, instalar, mirar } = useActualizacion("0.2.11");
+  const { fase, texto, instalar, mirar } = useActualizacion("0.2.11");
   return (
-    <EstadoActualizacion
-      fase={fase}
-      texto={texto}
-      alDia={alDia}
-      instalar={instalar}
-      mirar={() => void mirar(true)}
-    />
+    <>
+      <AvisoActualizacion fase={fase} texto={texto} instalar={instalar} mirar={() => void mirar(true)} />
+      <BotonActualizar fase={fase} instalar={instalar} mirar={() => void mirar(true)} />
+    </>
   );
 }
 
 beforeEach(() => {
   mirado.mockClear();
+  aplicarIdioma("es");
 });
 
 describe("viniendo de la Microsoft Store", () => {
@@ -65,12 +64,15 @@ describe("viniendo de la Microsoft Store", () => {
 });
 
 describe("instalada desde el instalador de siempre", () => {
-  it("si pregunta a GitHub, y estando al dia deja el tick", async () => {
+  it("si pregunta a GitHub, y estando al dia la cabecera no dice nada", async () => {
     responde("is_store_build", false);
-    render(<Barra />);
+    const { container } = render(<Barra />);
 
     await waitFor(() => expect(mirado).toHaveBeenCalled());
-    // Estando al dia la barra se queda en un solo boton, que es el tick de volver a mirar.
-    await waitFor(() => expect(screen.getByRole("button")).toBeInTheDocument());
+    // «Al día» con su tick era un «todo va bien» que no pedía nada: en la cabecera no sale
+    // nada, y lo único que queda es el botón de buscar a mano, el de la fila de la versión.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Buscar actualizaciones" })).toBeInTheDocument());
+    expect(container.querySelector("[data-aviso-actualizacion]")).toBeNull();
+    expect(screen.queryByText(/al día/i)).toBeNull();
   });
 });

@@ -1,11 +1,11 @@
 /**
- * Las filas de «Después de capturar» (S4): la miniatura de la esquina y el fondo para
- * todas las capturas. Lo que importa es lo que se manda a guardar, que es lo que lee Rust,
+ * Las filas de «Después de capturar» (S4; desde la 0.5, su propio apartado): la miniatura de
+ * la esquina y el fondo para todas las capturas. Lo que importa es lo que se manda a guardar, que es lo que lee Rust,
  * y que unos ajustes viejos (sin estos campos) se lean con lo de fábrica.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DespuesDeCapturar, FondoEnLasCapturas, ajustesDeDuracion, duracionDe } from "./DespuesDeCapturar";
+import { FilaMiniatura, FondoEnLasCapturas, ajustesDeDuracion, duracionDe } from "./DespuesDeCapturar";
 import { aplicarIdioma } from "../../lib/i18n";
 import type { Settings } from "../../lib/types";
 
@@ -17,7 +17,7 @@ function pintar(ajustes: Partial<Settings> = {}) {
   const settings = { ...VIEJOS, ...ajustes };
   render(
     <>
-      <DespuesDeCapturar settings={settings} patch={patch} />
+      <FilaMiniatura settings={settings} patch={patch} />
       <FondoEnLasCapturas settings={settings} patch={patch} />
     </>,
   );
@@ -77,7 +77,7 @@ describe("en inglés", () => {
         el.getAttribute("title") ?? "",
       ]),
     ].join(" ");
-    for (const espanol of ["Después de capturar", "Miniatura", "Fondo en", "Hasta cerrarla", "Mucho", "Color del fondo", "Atardecer"]) {
+    for (const espanol of ["Miniatura", "Fondo en", "Hasta cerrarla", "Mucho", "Color del fondo", "Atardecer"]) {
       expect(textos).not.toContain(espanol);
     }
   });

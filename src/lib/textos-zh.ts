@@ -8,28 +8,37 @@
  */
 export const ZH: Record<string, string> = {
   // 标题栏和四个设置分区
-  Versión: "版本",
   Capturar: "截图",
   Grabar: "录屏",
   "Teclas de Windows": "Windows 快捷键",
   "La app": "应用",
-  "Secciones de ajustes": "设置分区",
   Guardado: "已保存",
   Salir: "退出",
+  "Buscar un ajuste": "搜索设置",
+  "Apartados de los ajustes": "设置分区",
+  "Ayuda y winshotx": "帮助与 winshotx",
+  "Los atajos y lo que pasa al pulsarlos.": "快捷键，以及按下后会发生什么。",
+  "Qué se hace con la foto en cuanto la tienes.": "截图完成后如何处理。",
+  "El atajo, la fluidez, el sonido y la cámara.": "快捷键、流畅度、声音和摄像头。",
+  "Graba siempre en memoria y te quedas con lo último cuando pasa algo.": "始终在内存中录制，出事时留下刚才的画面。",
+  "Qué teclas del sistema abren winshotx en vez de Windows.": "哪些系统按键打开 winshotx，而不是 Windows 自带的功能。",
+  "Dónde guarda, cómo se ve y cuándo arranca.": "保存位置、外观和启动方式。",
+  "La bienvenida, el tour y de dónde sale winshotx.": "欢迎页、设置导览，以及 winshotx 的来历。",
+  "Los atajos": "快捷键",
+  "Al capturar": "截图时",
+  "Sonido y cámara": "声音和摄像头",
+  "Lo que guarda": "保存内容",
+  "Qué hace este ajuste": "这个设置的作用",
+  "Así va a salir": "效果预览",
 
   // 截图
   "Al pulsar el atajo": "按下快捷键时",
   "Capturar región": "区域截图",
   "esa combinación está ocupada": "该组合键已被占用",
   "Esperar antes de capturar": "截图前等待",
-  "la pantalla se congela al pulsar el atajo": "按下快捷键时屏幕会立即冻结",
-  "da tiempo a abrir el menú que quieres fotografiar":
-    "有足够时间打开你想截取的菜单",
-  "Sin espera": "不等待",
   "3 segundos": "3 秒",
   "5 segundos": "5 秒",
   "Ocultar iconos del escritorio": "隐藏桌面图标",
-  "solo mientras dura el disparo": "仅在截图瞬间隐藏",
 
   "La captura": "截图",
   "Incluir el cursor": "包含鼠标指针",
@@ -39,8 +48,6 @@ export const ZH: Record<string, string> = {
     "winshotx 使用 Windows 的现代截屏方式拍照，它能看到显卡绘制的内容。此版本 Windows 不支持这种方式，因此会改用旧方式，使用硬件加速的窗口可能出现黑块。你无需做任何设置，录制不受影响。",
   "Lupa de píxel": "像素放大镜",
   "Al soltar el ratón": "松开鼠标时",
-  "va directa al portapapeles": "直接复制到剪贴板",
-  "sale la barra para copiar, guardar o editar": "弹出工具栏，可复制、保存或编辑",
   "Sale la barra": "显示工具栏",
   "Se copia sola": "自动复制",
   "Copiar al guardar": "保存时同时复制",
@@ -50,10 +57,8 @@ export const ZH: Record<string, string> = {
   // 录屏
   "Cómo se graba": "录制方式",
   "Grabar región": "区域录屏",
-  "el mismo atajo la termina": "同一个快捷键结束录制",
   "Fotogramas por segundo": "帧率",
   "Audio del sistema": "系统声音",
-  "lo que suene por los altavoces, dentro del vídeo": "扬声器播放的声音也会录入视频",
   Velocidad: "速度",
   "dura {n} veces menos, y sale sin sonido": "时长缩短 {n} 倍，且没有声音",
   "dura el doble, y sale sin sonido": "时长变为两倍，且没有声音",
@@ -68,8 +73,6 @@ export const ZH: Record<string, string> = {
   // 最近几秒
   "Los últimos segundos": "最近几秒",
   "Grabar siempre lo último": "始终录制最近片段",
-  "graba sin parar y tira lo viejo, para poder rescatar lo último":
-    "不停录制并丢弃旧内容，以便随时找回刚刚发生的画面",
   "Cuánto se guarda": "保留时长",
   "Quedarme con lo último": "保留最近片段",
   "primero hay que encenderlo aquí arriba": "需要先在上方开启此功能",
@@ -81,15 +84,10 @@ export const ZH: Record<string, string> = {
   Fluidez: "流畅度",
   "fotogramas por segundo": "帧每秒",
   Nativa: "原生",
-  "abre el editor con lo último, sin dejar de grabar":
-    "用最近片段打开编辑器，同时继续录制",
 
   // Windows 快捷键
-  "Las teclas de captura de Windows": "Windows 自带截图快捷键",
   "Impr Pant": "Print Screen",
   "Usar también Impr Pant": "同时使用 Print Screen",
-  "hoy abre la Herramienta de Recortes": "目前会打开截图工具",
-  "ya es de winshotx": "现在属于 winshotx",
   "cierra sesión para que Windows la suelte": "注销一次让 Windows 释放该键",
   "Win + Mayús + S": "Win + Shift + S",
   "Quedarme con Win+Mayús+S": "接管 Win+Shift+S",
@@ -105,7 +103,6 @@ export const ZH: Record<string, string> = {
 
   "La Herramienta de Recortes": "截图工具",
   "Herramienta de Recortes": "截图工具",
-  "quitarla es lo único que la calla del todo": "卸载它是唯一彻底禁用的方法",
   "vuelve desde la Microsoft Store": "可从 Microsoft Store 重新安装",
   "quitándola…": "正在卸载…",
   "quitada, ya no abre nada": "已卸载，不会再打开",
@@ -127,9 +124,7 @@ export const ZH: Record<string, string> = {
   sesiones: "会话",
   Vaciar: "清空",
 
-  Aspecto: "外观",
   Tema: "主题",
-  "sigue a Windows": "跟随 Windows",
   Automático: "自动",
   Claro: "浅色",
   Oscuro: "深色",
@@ -153,7 +148,6 @@ export const ZH: Record<string, string> = {
   Bienvenida: "欢迎",
   "Ver otra vez": "再次查看",
   "Tour de los ajustes": "设置导览",
-  "siete paradas, una por sección": "七站，每站一个分区",
   Empezar: "开始",
   "Arrancar con Windows": "开机启动",
 
@@ -188,10 +182,61 @@ export const ZH: Record<string, string> = {
   "Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.": "逐个模块讲解本页面的用途。这是快速了解这里有什么的捷径，不用一个个打开试探。",
   "winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "winshotx 开机自动启动并驻留托盘，无窗口。不开启的话每次都要手动打开，而且未运行时截图快捷键无效。",
 
-  // 底部工具栏
-  "Al soltar": "松开时",
-  Barra: "工具栏",
-  Copia: "复制",
+  // 效果预览：设置各分区的示意图（底部工具栏在 0.5 中移除）
+  "**{atajo}** y eliges la zona con el ratón": "按 **{atajo}**，然后用鼠标选择区域",
+  "Cuenta **{n} s** antes de hacer la foto": "倒数 **{n} 秒**后再截图",
+  "La foto sale en cuanto sueltas": "松开鼠标即截图",
+  "Los iconos del escritorio **no salen** en la foto": "桌面图标**不会出现**在截图中",
+  "Los iconos del escritorio salen en la foto": "桌面图标会出现在截图中",
+  "El cursor **sale** en la foto": "鼠标指针**会出现**在截图中",
+  "El cursor **no sale** en la foto": "鼠标指针**不会出现**在截图中",
+  "Una lupa al lado del ratón para afinar al píxel": "鼠标旁有放大镜，可以精确到像素",
+  "Al soltar, la foto **se copia sola**": "松开后，截图**自动复制**",
+  "Al soltar, sale **la barra** para elegir qué hacer": "松开后弹出**工具栏**，由你选择操作",
+  "Al guardarla, también se copia": "保存时也会复制",
+  "Sin miniatura en la esquina": "角落不显示缩略图",
+  "Se queda una miniatura en la esquina **{n} s**": "角落显示缩略图 **{n} 秒**",
+  "Se queda una miniatura en la esquina hasta que la cierres": "角落的缩略图会一直显示，直到你关闭它",
+  "Sale sobre un fondo **{fondo}**, con sombra y esquinas redondas": "放在**{fondo}**背景上，带阴影和圆角",
+  "Sale tal cual, sin fondo": "原样输出，不加背景",
+  "Suena el obturador": "播放快门声",
+  "Sin sonido de obturador": "不播放快门声",
+  "Con el sonido del PC y tu micrófono": "录制电脑声音和麦克风",
+  "Con el sonido del PC, sin micrófono": "录制电脑声音，不录麦克风",
+  "Con tu micrófono, sin el sonido del PC": "录制麦克风，不录电脑声音",
+  "Sin sonido": "不录声音",
+  "**{atajo}** y eliges qué grabar": "按 **{atajo}**，然后选择录制范围",
+  "A **{fps} fps**": "帧率 **{fps} fps**",
+  "Con tu cámara en una esquina": "摄像头画面放在角落",
+  "Sin cámara": "不录摄像头",
+  "Al terminar, se abre el editor": "结束后打开编辑器",
+  "Al terminar, se guarda sin abrir nada": "结束后直接保存，不打开任何窗口",
+  "ahora": "现在",
+  "hace {n} s": "{n} 秒前",
+  "**Grabando siempre**, en memoria, sin guardar nada": "**一直在录**，只放在内存里，不保存文件",
+  "**Apagado**: no graba nada hasta que lo enciendas": "**已关闭**：开启之前不会录制任何内容",
+  "**{atajo}** y te quedas con los últimos **{n} s**": "按 **{atajo}** 留下最近 **{n} 秒**",
+  "A tamaño real, a {fps} fps": "原始尺寸，{fps} fps",
+  "A {alto}p, a {fps} fps": "{alto}p，{fps} fps",
+  "Lo que no guardas se borra solo": "没保存的内容会自动删除",
+  "Bloq Despl": "Scroll Lock",
+  "abre winshotx": "打开 winshotx",
+  "abre la captura de Windows": "打开 Windows 截图",
+  "Mayús": "Shift",
+  "abre la Herramienta de Recortes": "打开截图工具",
+  "**Impr Pant** abre winshotx": "**Print Screen** 打开 winshotx",
+  "**Impr Pant** sigue siendo de Windows": "**Print Screen** 仍归 Windows 使用",
+  "**Win + Mayús + S** abre winshotx": "**Win + Shift + S** 打开 winshotx",
+  "**Win + Mayús + S** sigue siendo de Windows": "**Win + Shift + S** 仍归 Windows 使用",
+  "Tus atajos de winshotx funcionan siempre, cojas estas o no": "无论是否接管这些按键，winshotx 自己的快捷键都始终有效",
+  "Guarda en **{carpeta}**": "保存到 **{carpeta}**",
+  "Claro u oscuro, como Windows": "浅色或深色，跟随 Windows",
+  "Siempre en claro": "始终浅色",
+  "Siempre en oscuro": "始终深色",
+  "Arranca con Windows, en la bandeja": "随 Windows 启动，驻留在托盘",
+  "No arranca sola con Windows": "不随 Windows 自动启动",
+  "En el idioma de Windows": "使用 Windows 的语言",
+  "En español": "中文界面",
 
   // 托盘菜单
   "Abrir la carpeta": "打开截图文件夹",
@@ -209,27 +254,21 @@ export const ZH: Record<string, string> = {
   Atrás: "上一步",
   Siguiente: "下一步",
   Listo: "完成",
-  "Todo está en estas cinco": "全部就在这五个页面",
-  "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.":
-    "没有其他隐藏页面或菜单：所有可更改项都分布在这里，每页无需滚动即可看完。",
   "La tecla que lo empieza todo": "一切从按下这个键开始",
   "Congela la pantalla para que recortes con calma. Y puedes pedirle que espere 3 o 5 segundos: es la única forma de fotografiar un menú abierto, porque al pulsar el atajo se cierra.":
     "冻结屏幕，让你从容框选。还可以设置等待 3 或 5 秒：这是拍摄已打开菜单的唯一方法，因为按下快捷键菜单会关闭。",
   "Qué pasa al soltar el ratón": "松开鼠标时发生什么",
   "Con «Se copia sola» la imagen va al portapapeles y se acabó, cero clics. Con «Sale la barra» eliges cada vez entre copiar, guardar, editar o grabar.":
     "选择「自动复制」时，图片直接进剪贴板，零点击。选择「显示工具栏」时，每次都可以选择复制、保存、编辑或录屏。",
-  "Lo mismo, pero en movimiento": "同样操作，但是录制视频",
-  "El recorte se graba en GIF o en vídeo. Tiene su propio atajo, y el mismo que empieza la grabación es el que la termina.":
-    "框选区域可录成 GIF 或视频。有独立快捷键，开始录制的快捷键同时也是结束录制的快捷键。",
   "Quitarle las teclas a Windows": "从 Windows 手中接管快捷键",
   "Impr Pant es gratis. Win+Mayús+S cuesta perder Win+S, la búsqueda, y la fila te lo dice antes de que pulses nada.":
     "Print Screen 没有代价。Win+Shift+S 会失去 Win+S 搜索，这一行会在你操作前说明。",
-  "Dónde acaba lo que capturas": "截图保存到哪里",
-  "La carpeta a la que van las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y nunca pisa uno que ya exista.":
-    "保存截图和视频的文件夹。winshotx 用日期和时间命名，不会覆盖已有文件。",
   "Ya está: así puedes ayudar": "就到这里：你可以这样支持",
   "winshotx es gratis, sin cuentas y sin anuncios, y lo hago yo solo. Si te ahorra tiempo, un café es lo que lo mantiene en pie. Y si no, una estrella en GitHub o contar un fallo ayudan igual.":
     "winshotx 免费、无账号、无广告，由我一个人开发。如果它帮你节省了时间，请我喝杯咖啡就是它活下去的动力。如果不方便，在 GitHub 点个星或反馈问题同样有帮助。",
+  "Todo está en estos ocho": "全部都在这八个分区里",
+  "Cada icono es un apartado: deja el ratón encima y te dice su nombre. No hay más pantallas ni menús escondidos, y cada apartado cabe entero sin bajar.": "每个图标是一个分区：把鼠标停在上面就会显示名称。没有其他页面或隐藏菜单，每个分区都无需滚动就能看全。",
+  "Este dibujo cambia en cuanto tocas un ajuste, y debajo te lo dice en frases: si apagas la lupa, desaparece de aquí.": "只要改动设置，这幅示意图就会跟着变化，下面还会用文字说明：关掉放大镜，它就会从这里消失。",
 
   // 欢迎页
   "winshotx ya está en marcha": "winshotx 已经启动",
@@ -426,8 +465,6 @@ export const ZH: Record<string, string> = {
 
   // 麦克风
   Micrófono: "麦克风",
-  "tu voz, aparte del sonido del sistema": "你的声音，与系统声音分开",
-  "tu voz, para narrar lo que se está grabando": "你的声音，为录制内容解说",
 
   // 标记点击
   "Marcar los clics": "标记点击",
@@ -477,7 +514,6 @@ export const ZH: Record<string, string> = {
   "Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.":
     "这是支持 winshotx 的唯一方式：没有付费版、没有广告、没有数据可卖。一次付款，金额由你决定，无需账号。",
   Invitar: "请一杯",
-  Apoyar: "支持",
   "No sonó nada en el PC mientras grababas.":
     "录制时电脑没有播放任何声音。",
   "Se grabó casi sin sonido: la app que sonaba estaba muy baja en el mezclador de Windows.":
@@ -582,7 +618,6 @@ export const ZH: Record<string, string> = {
   // S2 (grabación)
   "Tecla de zoom": "缩放键",
   "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "录制时按下它，画面会在那一刻放大到鼠标所在的位置。它会作为一个缩放出现在编辑器的时间线上，之后可以移动或删除。按键也会传给正在录制的程序，所以默认选了一个几乎没有程序使用的组合。",
-  "acerca el vídeo al ratón": "把视频放大到鼠标处",
   "es la de grabar: al pulsarla pararías la grabación": "这是录制键：按下会停止录制",
   "es la de capturar: al pulsarla abrirías una captura": "这是截图键：按下会开始截图",
   "es la de los últimos segundos": "这是最近几秒的快捷键",
@@ -591,7 +626,6 @@ export const ZH: Record<string, string> = {
   "Grabar también la cámara": "同时录制摄像头",
   "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "同时录制你的摄像头，单独保存为一个文件放在视频旁边，之后可以在编辑器里把它放到角落。摄像头指示灯只在录制时亮起。如果其他程序正在使用它，或 Windows 不允许（隐私，摄像头），则在没有摄像头的情况下继续录制。",
   "no hay ninguna cámara conectada": "没有连接摄像头",
-  "tu cara en su propio archivo": "你的画面单独保存为一个文件",
   "Qué cámara": "使用哪个摄像头",
   "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "录制你选择的那个。如果某天它没有连接，就使用第一个可用的。",
   // S3 (fondos)
@@ -638,8 +672,6 @@ export const ZH: Record<string, string> = {
   "Fondo en las capturas": "截图背景",
   "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Con marco, va dentro de una ventana de Windows 11 (clara u oscura, como las de winshotx) o de un portátil. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
     "你复制或保存的每张截图都会放在背景上，带留白、阴影和圆角，可以直接发布。加上外框后，截图会放进一个 Windows 11 窗口（浅色或深色，与 winshotx 的窗口一致）或一台笔记本电脑里。这些背景与编辑器“工作室”中的相同。编辑、置顶或读取文字时不会添加。",
-  "las capturas salen tal cual": "截图保持原样",
-  "se pone al copiar y al guardar": "复制和保存时添加",
   Poco: "少",
   Mucho: "多",
   "Color del fondo": "背景颜色",
@@ -753,7 +785,6 @@ export const ZH: Record<string, string> = {
   "Preparando el sonido…": "正在准备声音…",
   "Sonido al empezar": "开始时的声音",
   "Una marimba corta justo antes de que empiece la grabación, para saber sin mirar que ya estás grabando. Suena y acaba antes de abrir el sonido, así que no queda dentro del vídeo.": "录制开始前响起一小段马林巴琴声，不用看屏幕也知道已经在录制。它在开始录音之前就已播放完毕，所以不会出现在视频里。",
-  "antes de grabar, nunca dentro del vídeo": "录制之前响起，绝不会进入视频",
   // S11 (pistas)
   "Sonido del PC": "电脑声音",
   "Redondeado": "圆角",

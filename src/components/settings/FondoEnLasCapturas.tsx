@@ -60,12 +60,12 @@ export function FondoEnLasCapturas({ settings, patch }: Props) {
 
   return (
     <Row
+      id="desFondo"
       icon={<Frame className="size-4" />}
       label={t("Fondo en las capturas")}
       explicacion={t(
         "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Con marco, va dentro de una ventana de Windows 11 (clara u oscura, como las de winshotx) o de un portátil. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.",
       )}
-      hint={marco.aire === 0 ? t("las capturas salen tal cual") : t("se pone al copiar y al guardar")}
       stacked
       control={
         <div className="flex flex-col gap-2.5" data-tour="fondo-en-las-capturas">

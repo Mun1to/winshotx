@@ -50,8 +50,10 @@ const bandera = (nombre, pordefecto) => {
 };
 
 const salida = resolve(args.find((a) => !a.startsWith("--")) ?? "ventana.png");
-const ancho = bandera("ancho", "840");
 const bienvenida = args.includes("--bienvenida");
+// Los ajustes miden 900 de ancho desde la 0.5 (S36: el riel, las filas y el dibujo); la
+// bienvenida sigue en 840, que es lo que se pide ella al abrirse.
+const ancho = bandera("ancho", bienvenida ? "840" : "900");
 // El alto de la foto. Desde S24 (14-nov-2026) los ajustes miden lo que mide su pestaña, así
 // que sin --alto el banco hace lo que la app: una primera pasada sin foto en la que la
 // página pide su alto (`setSize`, que aquí se apunta), y la foto a ese alto. Con --alto=N se
@@ -89,12 +91,13 @@ const tecla = bandera("tecla", null);
 // dentro: son los que hay que recomprobar cada vez que se le añade algo a uno.
 const paso = bandera("paso", null);
 // En qué parada del tour guiado se hace la foto (0 = la primera). Arranca el tour desde
-// su botón de "La app" y avanza con la flecha derecha, igual que una persona.
+// su botón de «Ayuda y winshotx» y avanza con la flecha derecha, igual que una persona.
 const tour = bandera("tour", null);
-// Qué sección de los ajustes se abre: capturar, grabar, teclas o app.
+// Qué apartado de los ajustes se abre: capturar, despues, grabar, ultimos, historial, teclas,
+// app o ayuda (los de `src/components/settings/mapaDeAjustes.ts`).
 const seccion = bandera("seccion", null);
-// Como si la ventana se hubiera abierto sola despues de actualizar: abre en "La app" y
-// la fila de Actualizaciones dice a que version se ha actualizado.
+// Como si la ventana se hubiera abierto sola despues de actualizar: abre en «Ayuda y
+// winshotx» y la cabecera dice a que version se ha actualizado.
 const actualizado = args.includes("--actualizado");
 // NVIDIA y la Barra de juego grabando a la vez que el anillo: la única forma de ver su aviso
 // debajo de «Grabar siempre lo último», porque en una máquina sin ellos no sale.
@@ -492,27 +495,14 @@ addEventListener("load", () => {
 </script>`
   : "";
 
-// La sección se elige haciendo clic en su botón, como haría una persona: así se
-// fotografía la pantalla de verdad y no un estado montado a mano que quizá no exista.
-// Se busca por el texto porque las secciones son un `Segmented`, el mismo control que los
-// selectores de dentro, y ese componente no lleva atributos propios de cada opción.
-const ROTULOS = {
-  capturar: "Capturar",
-  grabar: "Grabar",
-  // S4 (capturas): la pestaña del historial va aquí, y el orden es el de la cabecera.
-  historial: "Historial",
-  teclas: "Teclas de Windows",
-  app: "La app",
-};
+// El apartado se elige haciendo clic en su icono del riel, como haría una persona: así se
+// fotografía la pantalla de verdad y no un estado montado a mano que quizá no exista. Se
+// busca por su `data-vista`, que no cambia con el idioma.
 const SECCION = seccion
   ? `<script>
 addEventListener("load", () => {
   setTimeout(() => {
-    // Por POSICIÓN y no por el texto del botón: los rótulos cambian con el idioma, y
-    // buscándolos por su nombre en español el guion dejaba de encontrarlos en inglés.
-    const orden = ${JSON.stringify(Object.keys(ROTULOS))};
-    const botones = document.querySelectorAll("header nav button");
-    botones[orden.indexOf(${JSON.stringify(seccion)})]?.click();
+    document.querySelector('[data-riel] [data-vista=${JSON.stringify(seccion)}]')?.click();
   }, 500);
 });
 </script>`
@@ -539,18 +529,11 @@ const TOUR = tour !== null
   ? `<script>
 addEventListener("load", () => {
   setTimeout(() => {
-    // Por posición, no por texto: los rótulos cambian con el idioma. "La app" es la
-    // cuarta sección, y dentro el botón del tour es el tercero de su bloque.
-    document.querySelectorAll("header nav button")[3]?.click();
+    // Por su data-vista y su data-fila, no por el texto: los rótulos cambian con el
+    // idioma. El tour se empieza desde su fila de «Ayuda y winshotx».
+    document.querySelector('[data-riel] [data-vista="ayuda"]')?.click();
     setTimeout(() => {
-      // El botón "Tour" de la barra de abajo, buscado por su texto: se llama igual en los
-      // dos idiomas y no se mueve de sitio al añadir o quitar filas de un bloque. Antes se
-      // cogía el tercer botón del bloque "winshotx", y en cuanto ese bloque cambió de
-      // filas el clic empezó a caer en el interruptor de arrancar con Windows: el tour no
-      // se abría y la foto salía de la ventana normal, sin que nada avisara.
-      [...document.querySelectorAll("footer button")]
-        .find((b) => b.textContent.trim() === "Tour")
-        ?.click();
+      document.querySelector('[data-fila="appTour"] button')?.click();
       let n = ${JSON.stringify(Number(tour))};
       const avanzar = () => {
         if (n-- <= 0) return;

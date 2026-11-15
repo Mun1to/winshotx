@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Coffee, X } from "lucide-react";
-import { SECCIONES, type SeccionId } from "./SettingsHeader";
+import type { ApartadoId } from "./mapaDeAjustes";
 import { CAFE } from "../../lib/enlaces";
 import { openUrl } from "../../lib/ipc";
 import { useT } from "../../lib/i18n";
@@ -9,14 +9,15 @@ import { useT } from "../../lib/i18n";
 /**
  * Un paso del tour.
  *
- * - `seccion`: a qué pestaña hay que ir antes de enseñarlo, para que lo iluminado esté
- *   en pantalla. Sin esto el foco apuntaría a un hueco vacío.
+ * - `apartado`: a qué apartado hay que ir antes de enseñarlo, para que lo iluminado esté
+ *   en pantalla. Sin esto el foco apuntaría a un hueco vacío. Su icono del riel se enciende
+ *   también, para que se sepa dónde se está.
  * - `objetivo`: el valor de un `data-tour="..."` puesto en la interfaz. Si falta, la
  *   tarjeta sale centrada y sin foco.
  */
 interface Paso {
   id: string;
-  seccion?: SeccionId;
+  apartado?: ApartadoId;
   objetivo?: string;
   titulo: string;
   texto: string;
@@ -25,25 +26,35 @@ interface Paso {
 }
 
 /**
- * El recorrido: una parada por sección, y dos en Capturar, que es la que se usa a diario.
+ * El recorrido de los ajustes de la 0.5 (S36): el riel, el dibujo, y las cuatro cosas que
+ * no se adivinan mirando.
  *
- * Se cuenta lo que NO se adivina mirando: que hay cuatro pestañas y ninguna pantalla
- * escondida, que se puede capturar con retardo, que hay dos formas de trabajar al soltar
- * el ratón, y que Windows puede ceder sus teclas. Lo que se entiende solo (un interruptor
- * de sonido) no tiene paso: un tour que lee la pantalla en voz alta se cierra a la mitad.
+ * Se cuenta lo que NO se adivina: que los iconos de la izquierda son todos los apartados, que
+ * el dibujo de la derecha cambia con lo que tocas, que se puede capturar con retardo, que hay
+ * dos formas de trabajar al soltar el ratón, y que Windows puede ceder sus teclas. Lo que se
+ * entiende solo (un interruptor de sonido) no tiene paso: un tour que lee la pantalla en voz
+ * alta se cierra a la mitad. Y empieza donde se abre, en Capturar: no te manda adonde ya estás.
  */
 const PASOS: Paso[] = [
   {
-    id: "secciones",
-    seccion: "capturar",
-    objetivo: "secciones",
-    titulo: "Todo está en estas cinco",
+    id: "riel",
+    apartado: "capturar",
+    objetivo: "riel",
+    titulo: "Todo está en estos ocho",
     texto:
-      "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.",
+      "Cada icono es un apartado: deja el ratón encima y te dice su nombre. No hay más pantallas ni menús escondidos, y cada apartado cabe entero sin bajar.",
+  },
+  {
+    id: "dibujo",
+    apartado: "capturar",
+    objetivo: "dibujo",
+    titulo: "Así va a salir",
+    texto:
+      "Este dibujo cambia en cuanto tocas un ajuste, y debajo te lo dice en frases: si apagas la lupa, desaparece de aquí.",
   },
   {
     id: "atajo",
-    seccion: "capturar",
+    apartado: "capturar",
     objetivo: "al-pulsar",
     titulo: "La tecla que lo empieza todo",
     texto:
@@ -51,39 +62,23 @@ const PASOS: Paso[] = [
   },
   {
     id: "recorte",
-    seccion: "capturar",
-    objetivo: "la-captura",
+    apartado: "despues",
+    objetivo: "despues-de-capturar",
     titulo: "Qué pasa al soltar el ratón",
     texto:
       "Con «Se copia sola» la imagen va al portapapeles y se acabó, cero clics. Con «Sale la barra» eliges cada vez entre copiar, guardar, editar o grabar.",
   },
   {
-    id: "grabar",
-    seccion: "grabar",
-    objetivo: "como-se-graba",
-    titulo: "Lo mismo, pero en movimiento",
-    texto:
-      "El recorte se graba en GIF o en vídeo. Tiene su propio atajo, y el mismo que empieza la grabación es el que la termina.",
-  },
-  {
     id: "teclas",
-    seccion: "teclas",
+    apartado: "teclas",
     objetivo: "las-teclas",
     titulo: "Quitarle las teclas a Windows",
     texto:
       "Impr Pant es gratis. Win+Mayús+S cuesta perder Win+S, la búsqueda, y la fila te lo dice antes de que pulses nada.",
   },
   {
-    id: "archivos",
-    seccion: "app",
-    objetivo: "archivos",
-    titulo: "Dónde acaba lo que capturas",
-    texto:
-      "La carpeta a la que van las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y nunca pisa uno que ya exista.",
-  },
-  {
     id: "ayudar",
-    seccion: "app",
+    apartado: "ayuda",
     objetivo: "acerca",
     titulo: "Ya está: así puedes ayudar",
     texto:
@@ -108,7 +103,7 @@ const entre = (valor: number, minimo: number, maximo: number) =>
   Math.min(Math.max(valor, minimo), Math.max(minimo, maximo));
 
 interface Props {
-  onNavegar: (seccion: SeccionId) => void;
+  onNavegar: (apartado: ApartadoId) => void;
   onCerrar: () => void;
 }
 
@@ -151,9 +146,8 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
   const t = useT();
   const [indice, setIndice] = useState(0);
   const [marco, setMarco] = useState<Marco | null>(null);
-  // S24: la pestaña de la sección de la parada, en la cabecera, también se ve encendida.
-  // En la primera parada estaba encendida porque lo iluminado era la cabecera entera, y en
-  // las demás se quedaba debajo del velo: no se sabía en qué pestaña estaba uno.
+  // S24: el apartado de la parada también se ve encendido (desde la 0.5, su icono del riel).
+  // Sin esto se quedaba debajo del velo y no se sabía en qué apartado estaba uno.
   const [pestana, setPestana] = useState<Marco | null>(null);
   // El alto de la tarjeta se MIDE, no se estima: los textos no miden todos lo mismo y de
   // ese numero depende si la tarjeta cabe debajo de lo iluminado o hay que sacarla al
@@ -166,18 +160,17 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
   // Cambiar de pestaña ANTES de medir: al revés se mide lo de la pestaña anterior y el
   // foco aparece un instante sobre lo que no toca.
   useEffect(() => {
-    if (paso.seccion) onNavegar(paso.seccion);
+    if (paso.apartado) onNavegar(paso.apartado);
   }, [paso, onNavegar]);
 
   const medir = useCallback(() => {
-    // Por posición en la cabecera y no por la que está elegida: esto puede medirse un
-    // instante antes de que la pestaña cambie, y las pestañas no se mueven de sitio.
+    // Por su nombre en el riel y no por el que está elegido: esto puede medirse un instante
+    // antes de que el apartado cambie, y los iconos no se mueven de sitio. En la parada del
+    // riel no hace falta: ya está iluminado entero.
     const boton =
-      paso.seccion && paso.objetivo !== "secciones"
-        ? document.querySelectorAll<HTMLElement>('[data-tour="secciones"] button')[
-            SECCIONES.findIndex((s) => s.value === paso.seccion)
-          ]
-        : undefined;
+      paso.apartado && paso.objetivo !== "riel"
+        ? document.querySelector<HTMLElement>(`[data-riel] [data-vista="${paso.apartado}"]`)
+        : null;
     if (boton) {
       const r = boton.getBoundingClientRect();
       setPestana({ top: r.top, left: r.left, width: r.width, height: r.height });
@@ -333,19 +326,19 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
           type="button"
           onClick={onCerrar}
           aria-label={t("Cerrar el tour")}
-          className="absolute end-2.5 top-2.5 rounded-md p-1 text-tenue transition-colors hover:bg-realce hover:text-texto"
+          className="absolute end-2.5 top-2.5 rounded-md p-1 text-apagado transition-colors hover:bg-realce hover:text-texto"
         >
-          <X className="size-3.5" />
+          <X className="size-4" />
         </button>
 
-        <h2 className="pe-6 text-[14.5px] font-semibold text-titulo">{t(paso.titulo)}</h2>
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-apagado">{t(paso.texto)}</p>
+        <h2 className="pe-6 text-[15px] font-semibold text-titulo">{t(paso.titulo)}</h2>
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-texto">{t(paso.texto)}</p>
 
         {paso.cafe && (
           <button
             type="button"
             onClick={() => void openUrl(CAFE)}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-linea-fuerte py-2 text-[12.5px] font-medium text-suave transition-colors hover:bg-realce hover:text-titulo"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-linea bg-realce py-2 text-[13px] font-semibold text-titulo transition-colors hover:bg-activo"
           >
             <Coffee className="size-4" />
             {t("Invítame a un café")}
@@ -369,7 +362,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
               <button
                 type="button"
                 onClick={() => setIndice((i) => i - 1)}
-                className="rounded-lg px-2.5 py-1.5 text-[12px] text-apagado transition-colors hover:bg-realce hover:text-titulo"
+                className="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-apagado transition-colors hover:bg-realce hover:text-titulo"
               >
                 {t("Atrás")}
               </button>
@@ -378,7 +371,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
               type="button"
               autoFocus
               onClick={() => (ultimo ? onCerrar() : setIndice((i) => i + 1))}
-              className="rounded-lg bg-blue-600 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-blue-500"
+              className="rounded-lg bg-marca px-3 py-1.5 text-[13px] font-semibold text-white transition-colors hover:brightness-110"
             >
               {ultimo ? t("Listo") : t("Siguiente")}
             </button>
