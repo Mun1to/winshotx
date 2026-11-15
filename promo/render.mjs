@@ -2,6 +2,8 @@
  * Saca los vídeos y las fotos de `promo/`, con la prioridad baja (el PC de Munito va cargado).
  *
  *   node render.mjs muestras            el arranque de cada dirección y sus fotos, para elegir
+ *   node render.mjs Promo               el vídeo elegido, MUDO, en out/Promo.mp4 (la música la pone musica.mjs)
+ *   node render.mjs Promo 0-599         solo esos fotogramas (el arranque, para probar músicas)
  *   node render.mjs Direccion2-Tirada   una dirección entera, en out/<id>.mp4
  *
  * Empaqueta el proyecto UNA vez (`remotion bundle`) y renderiza desde ese paquete: cada
@@ -25,8 +27,8 @@ const DIRECCIONES = {
   "Direccion3-LoHiceYo": { trozo: [0, 407], fotos: [40, 235, 360, 495, 640, 780] },
 };
 
-const [que = "muestras"] = process.argv.slice(2);
-if (que !== "muestras" && !(que in DIRECCIONES)) {
+const [que = "muestras", trozo] = process.argv.slice(2);
+if (que !== "muestras" && que !== "Promo" && !(que in DIRECCIONES)) {
   console.error(`Uso: node render.mjs muestras | ${Object.keys(DIRECCIONES).join(" | ")}`);
   process.exit(1);
 }
@@ -54,6 +56,12 @@ if (que === "muestras") {
       lanza(`pnpm exec remotion still ${paquete} ${id} out/muestras/${id}-${String(f).padStart(4, "0")}.jpg --frame=${f} --jpeg-quality=88`);
     }
   }
+} else if (que === "Promo") {
+  // Mudo: sin efectos (Munito, 15-nov: «los efectos de sonido no me gustan»), y la música se
+  // le pone después con `musica.mjs`, que la iguala y le hace el fundido.
+  if (trozo && !/^\d+-\d+$/.test(trozo)) process.exit(1);
+  const salida = trozo ? `out/Promo-${trozo}.mp4` : "out/Promo.mp4";
+  lanza(`pnpm exec remotion render ${paquete} Promo ${salida} --crf=18 --muted${trozo ? ` --frames=${trozo}` : ""}`);
 } else {
   lanza(`pnpm exec remotion render ${paquete} ${que} out/${que}.mp4 --crf=18`);
 }
