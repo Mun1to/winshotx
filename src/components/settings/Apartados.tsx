@@ -37,6 +37,7 @@ import {
   Power,
   Scissors,
   SquarePen,
+  Star,
   Timer,
   TriangleAlert,
   Video,
@@ -547,10 +548,22 @@ export function ApartadoUltimos({
                 value={settings.replayScreen ?? -1}
                 options={[
                   { value: -1, label: t("Ratón") },
-                  ...pantallas.map((p) => ({
-                    value: p.id,
-                    label: `${p.id + 1}${p.isPrimary ? " ★" : ""}`,
-                  })),
+                  // La principal lleva una estrella dibujada, no la «★» de texto: un glifo
+                  // cambia con la fuente y no casa con los iconos de trazo del resto.
+                  ...pantallas.map((p) =>
+                    p.isPrimary
+                      ? {
+                          value: p.id,
+                          label: t("{n}, la principal", { n: p.id + 1 }),
+                          icono: (
+                            <span className="inline-flex items-center gap-1">
+                              {p.id + 1}
+                              <Star aria-hidden className="size-3" fill="currentColor" strokeWidth={0} />
+                            </span>
+                          ),
+                        }
+                      : { value: p.id, label: `${p.id + 1}` },
+                  ),
                 ]}
                 onChange={(v) => {
                   patch({ replayScreen: v === -1 ? null : v });

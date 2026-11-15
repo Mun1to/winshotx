@@ -82,6 +82,7 @@ export const EN: Record<string, string> = {
   "ahora mismo hay {n} s guardados": "{n} s kept right now",
   "Qué pantalla": "Which screen",
   "Ratón": "Mouse",
+  "{n}, la principal": "{n}, the main one",
   "pantalla {n} · {ancho} × {alto} · {ritmo}/s": "screen {n} · {ancho} × {alto} · {ritmo}/s",
   "{ancho} × {alto} · hasta {tamaño} en disco": "{ancho} × {alto} · up to {tamaño} on disk",
   Fluidez: "Smoothness",

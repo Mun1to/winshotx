@@ -631,6 +631,13 @@ describe("elegir pantalla y calidad", () => {
     expect(elegida).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("la principal lleva su estrella dibujada y lo dice en su nombre, sin «★» de texto", async () => {
+    await irAUltimos();
+    const principal = screen.getByRole("button", { name: "1, la principal" });
+    expect(principal.querySelector("svg")).not.toBeNull();
+    expect(screen.getByRole("group", { name: "Qué pantalla" }).textContent).not.toContain("★");
+  });
+
   it("al elegir la segunda, viaja a Rust por su número interno", async () => {
     await irAUltimos();
     fireEvent.click(screen.getByRole("button", { name: "2" }));

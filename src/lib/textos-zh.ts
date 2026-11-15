@@ -81,6 +81,7 @@ export const ZH: Record<string, string> = {
   "ahora mismo hay {n} s guardados": "当前已缓存 {n} 秒",
   "Qué pantalla": "监视哪个屏幕",
   "Ratón": "鼠标所在屏幕",
+  "{n}, la principal": "{n}，主屏幕",
   "pantalla {n} · {ancho} × {alto} · {ritmo}/s": "屏幕 {n} · {ancho} × {alto} · {ritmo}/秒",
   "{ancho} × {alto} · hasta {tamaño} en disco": "{ancho} × {alto} · 最大占用 {tamaño} 磁盘",
   Fluidez: "流畅度",
