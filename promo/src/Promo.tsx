@@ -161,7 +161,6 @@ export function Promo() {
           respuesta="*GIF* or MP4, trimmed to the frame"
           app={
             <EnElEditor
-              gif={PREGUNTA + s(3.6)}
               tomas={[
                 { f: 0, x: 960, y: 560, z: 0.92 },
                 { f: PREGUNTA + s(2.6), x: 960, y: 600, z: 1.02 },
