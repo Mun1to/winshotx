@@ -106,9 +106,83 @@ const ANCHO_TARJETA = 330;
 /** Alto de partida, hasta que se mide el de verdad en el primer pintado. */
 const ALTO_INICIAL = 180;
 const HUECO = 14;
+/** Lo que el aro se abre hacia fuera de lo que ilumina. */
+const HOLGURA_X = 8;
+const HOLGURA_Y = 4;
+/** Al lado, la tarjeta se estrecha hasta esto antes de pisar lo que explica. */
+const ANCHO_MINIMO_TARJETA = 280;
+/** Contra el borde de la ventana basta con menos aire que entre la tarjeta y el aro. */
+const BORDE = 8;
 
 const entre = (valor: number, minimo: number, maximo: number) =>
   Math.min(Math.max(valor, minimo), Math.max(minimo, maximo));
+
+export interface SitioTarjeta {
+  top: number;
+  left: number;
+  width: number;
+}
+
+/** Cuánto de `b` tapa la tarjeta puesta en `s`, en px². */
+function tapa(s: SitioTarjeta, alto: number, b: Marco | null) {
+  if (!b) return 0;
+  const x = Math.min(s.left + s.width, b.left + b.width) - Math.max(s.left, b.left);
+  const y = Math.min(s.top + alto, b.top + b.height) - Math.max(s.top, b.top);
+  return x > 0 && y > 0 ? x * y : 0;
+}
+
+/**
+ * Dónde va la tarjeta del tour. Nunca puede tapar aquello de lo que está hablando: ese es el
+ * único trabajo que tiene el foco. Se prueban tres sitios en orden: debajo, encima y al lado.
+ * El tercero hace falta de verdad: desde la 0.5 la ventana mide lo que su apartado, y un
+ * grupo alto no deja hueco ni debajo ni encima.
+ *
+ * Al lado va donde haya más sitio, y si no cabe entera, se estrecha (hasta 280) y se arrima
+ * al borde: antes caía a la izquierda, encima de lo que explicaba; a la derecha queda sobre
+ * el dibujo, que está apagado bajo el velo. Y si tampoco así (en inglés, la del café es alta
+ * y su grupo ocupa todo el ancho), gana el sitio que menos tapa del aro y del icono del riel:
+ * al lado, o pegada arriba o abajo del todo.
+ */
+export function colocarTarjeta(
+  marco: Marco | null,
+  pestana: Marco | null,
+  altoTarjeta: number,
+  ancho: number,
+  alto: number,
+): SitioTarjeta {
+  if (!marco) {
+    return { top: alto / 2 - altoTarjeta / 2, left: ancho / 2 - ANCHO_TARJETA / 2, width: ANCHO_TARJETA };
+  }
+  const centrada = entre(
+    marco.left + marco.width / 2 - ANCHO_TARJETA / 2,
+    HUECO,
+    ancho - ANCHO_TARJETA - HUECO,
+  );
+  const debajo = marco.top + marco.height + HUECO;
+  const encima = marco.top - altoTarjeta - HUECO;
+  if (debajo + altoTarjeta + HUECO <= alto) return { top: debajo, left: centrada, width: ANCHO_TARJETA };
+  if (encima >= HUECO) return { top: encima, left: centrada, width: ANCHO_TARJETA };
+
+  const derecha = marco.left + marco.width + HUECO;
+  const sitioDerecha = ancho - BORDE - derecha;
+  const sitioIzquierda = marco.left - HUECO - BORDE;
+  const porLaDerecha = sitioDerecha >= sitioIzquierda;
+  const width = entre(porLaDerecha ? sitioDerecha : sitioIzquierda, ANCHO_MINIMO_TARJETA, ANCHO_TARJETA);
+  const alLado: SitioTarjeta = {
+    top: entre(marco.top + marco.height / 2 - altoTarjeta / 2, HUECO, alto - altoTarjeta - HUECO),
+    left: porLaDerecha
+      ? Math.min(derecha, ancho - width - BORDE)
+      : Math.max(BORDE, marco.left - HUECO - width),
+    width,
+  };
+  const candidatos: SitioTarjeta[] = [
+    alLado,
+    { top: BORDE, left: centrada, width: ANCHO_TARJETA },
+    { top: alto - altoTarjeta - BORDE, left: centrada, width: ANCHO_TARJETA },
+  ];
+  const cuanto = (s: SitioTarjeta) => tapa(s, altoTarjeta, marco) + tapa(s, altoTarjeta, pestana);
+  return candidatos.reduce((mejor, s) => (cuanto(s) < cuanto(mejor) ? s : mejor));
+}
 
 interface Props {
   onNavegar: (apartado: ApartadoId) => void;
@@ -194,8 +268,15 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
       setMarco(null);
       return;
     }
+    // Desde la 0.5 los grupos van sueltos, sin tarjeta ni relleno: medido al justo, el aro
+    // pisaba la primera letra de «Los atajos» y el «Ctrl+F» del buscador. Se abre un poco
+    // hacia fuera, sin salirse de la ventana.
     const r = el.getBoundingClientRect();
-    setMarco({ top: r.top, left: r.left, width: r.width, height: r.height });
+    const left = Math.max(2, r.left - HOLGURA_X);
+    const top = Math.max(2, r.top - HOLGURA_Y);
+    const right = Math.min(window.innerWidth - 2, r.right + HOLGURA_X);
+    const bottom = Math.min(window.innerHeight - 2, r.bottom + HOLGURA_Y);
+    setMarco({ top, left, width: right - left, height: bottom - top });
   }, [paso]);
 
   // Se mide EN EL ACTO, dentro del mismo paso de layout: cuando esto corre, el DOM del
@@ -258,43 +339,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
     return () => window.removeEventListener("keydown", alPulsar);
   }, [onCerrar]);
 
-  // La tarjeta nunca puede tapar aquello de lo que esta hablando: ese es el unico trabajo
-  // que tiene el foco. Se prueban tres sitios en orden: debajo, encima y al lado. El
-  // tercero hace falta de verdad: un bloque como "Al pulsar el atajo" mide 270 px de alto
-  // en una ventana de 470, asi que ni debajo ni encima queda hueco, y sin esta salida la
-  // tarjeta acababa encima de lo que venia a ensennar.
-  const alto = window.innerHeight;
-  const ancho = window.innerWidth;
-  let sitio: CSSProperties;
-  if (!marco) {
-    sitio = { top: alto / 2 - altoTarjeta / 2, left: ancho / 2 - ANCHO_TARJETA / 2 };
-  } else {
-    const centrada = entre(
-      marco.left + marco.width / 2 - ANCHO_TARJETA / 2,
-      HUECO,
-      ancho - ANCHO_TARJETA - HUECO,
-    );
-    const debajo = marco.top + marco.height + HUECO;
-    const encima = marco.top - altoTarjeta - HUECO;
-    if (debajo + altoTarjeta + HUECO <= alto) {
-      sitio = { top: debajo, left: centrada };
-    } else if (encima >= HUECO) {
-      sitio = { top: encima, left: centrada };
-    } else {
-      const derecha = marco.left + marco.width + HUECO;
-      sitio = {
-        top: entre(
-          marco.top + marco.height / 2 - altoTarjeta / 2,
-          HUECO,
-          alto - altoTarjeta - HUECO,
-        ),
-        left:
-          derecha + ANCHO_TARJETA + HUECO <= ancho
-            ? derecha
-            : Math.max(HUECO, marco.left - ANCHO_TARJETA - HUECO),
-      };
-    }
-  }
+  const sitio = colocarTarjeta(marco, pestana, altoTarjeta, window.innerWidth, window.innerHeight);
 
   // Todo dentro de UN contenedor fijo, y no tres sueltos: asi el tour entero forma su
   // propia capa por encima de la ventana, se traga los clics de paso, y no hay que ir
@@ -328,7 +373,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
         role="dialog"
         aria-label={t(paso.titulo)}
         className="fixed rounded-xl border border-linea-fuerte bg-flotante p-4 shadow-2xl"
-        style={{ ...sitio, width: ANCHO_TARJETA }}
+        style={sitio}
       >
         <button
           type="button"
