@@ -119,14 +119,14 @@ let html = `<!doctype html>
 <meta property="og:url" content="${BASE}novedades/">
 <meta property="og:title" content="Novedades de winshotx">
 <meta property="og:description" content="${descripcion}">
-<meta property="og:image" content="${BASE}social.png?v=3">
+<meta property="og:image" content="${BASE}social.png?v=4">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="winshotx, «Crop the screen before you blink»: 114 ms, instalador de 3,00 MB, gratis y de código abierto, junto a su ventana de ajustes">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Novedades de winshotx">
 <meta name="twitter:description" content="${descripcion}">
-<meta name="twitter:image" content="${BASE}social.png?v=3">
+<meta name="twitter:image" content="${BASE}social.png?v=4">
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
@@ -185,11 +185,11 @@ ${versiones.map(entrada).join("\n\n")}
       </div>
 
       <figure class="leer-lado">
-        <img src="../img/editor-es.webp" data-src-en="../img/editor-en.webp" width="1280" height="800" loading="lazy" alt="El editor de winshotx con una captura sobre el fondo Atardecer del Estudio" data-alt-en="The winshotx editor with a screenshot on the Studio's Sunset background">
+        <img src="../img/editor-es.webp" data-src-en="../img/editor-en.webp" width="1280" height="800" loading="lazy" alt="El editor de winshotx con una captura sobre el fondo Océano del Estudio" data-alt-en="The winshotx editor with a screenshot on the Studio's Ocean background">
         ${bilingue(
           "figcaption",
-          "El editor, con una captura sobre el fondo «Atardecer» del Estudio. Cada versión llega sola: cuando sale una nueva, <b>Ajustes</b> dice «Actualizar ahora».",
-          "The editor, with a screenshot on the Studio's «Sunset» background. Each version arrives by itself: when a new one is out, <b>Settings</b> says «Update now».",
+          "El editor, con una captura sobre el fondo «Océano» del Estudio. Cada versión llega sola: cuando sale una nueva, <b>Ajustes</b> dice «Actualizar ahora».",
+          "The editor, with a screenshot on the Studio's «Ocean» background. Each version arrives by itself: when a new one is out, <b>Settings</b> says «Update now».",
         )}
       </figure>
     </div>

@@ -8,7 +8,7 @@
 //   escritorio-XX.webp  la pantalla congelada de la demo: nuestra guía a 1600 × 1000
 //   capturar-XX.webp    la selección de winshotx encima de esa pantalla, con su barra
 //   grabar-XX.webp      lo mismo con el atajo de grabar: el botón rojo de grabar
-//   editor-XX.webp      el editor con ese recorte, el fondo «Atardecer», esquinas y sombra
+//   editor-XX.webp      el editor con ese recorte, el fondo «Océano», esquinas y sombra
 //   bienvenida-XX.webp  la bienvenida, para la guía
 //   ajustes-XX.webp     los ajustes en la pestaña Capturar, para la guía
 //   app-XX.webp         los ajustes en la pestaña La app (carpeta, caché, código), para privacidad
@@ -149,12 +149,12 @@ const pesos = [];
 
 for (const idioma of ["es", "en"]) {
   /* ---------------- 0. la bienvenida y los ajustes: van en la guía, así que antes que su foto */
-  // Cada una a la altura de lo que lleva, como la ventana de verdad desde que se ajusta a su
-  // contenido: a 760 fijos, media foto era ventana vacía y en la guía se veía como un hueco.
+  // A la medida de la ventana de verdad: desde la 0.5 (S40) mide siempre 900 x 723 y ningún
+  // apartado deja hueco, así que la foto es la ventana entera, sin recortarla a mano.
   const ventanas = [
-    ["bienvenida", ["--bienvenida", "--alto=470"]],
-    ["ajustes", ["--alto=600"]],
-    ["app", ["--seccion=app", "--alto=560"]],
+    ["bienvenida", ["--bienvenida"]],
+    ["ajustes", []],
+    ["app", ["--seccion=app"]],
   ];
   for (const [nombre, extra] of ventanas) {
     const png = join(temporal, `${nombre}-${idioma}.png`);
@@ -226,7 +226,8 @@ for (const idioma of ["es", "en"]) {
   await fotografiar([pngGrabar, ...comunes, "--grabar"]);
   pesos.push([`grabar-${idioma}.webp`, await aWebp(pngGrabar, join(aqui, "img", `grabar-${idioma}.webp`))]);
 
-  /* ---------------- 3. el editor con ese recorte y el fondo «Atardecer» del Estudio */
+  /* ---------------- 3. el editor con ese recorte y el fondo «Océano» del Estudio */
+  // Azul y no «Atardecer»: el morado no es de la marca (Munito, 15-nov, sobre el brillo de la web).
   const pngRecorte = join(temporal, `recorte-${idioma}.png`);
   await writeFile(pngRecorte, await convertir(pngEscritorio, recorte, "image/png"));
   // Sin MP4, el editor se queda diciendo «Preparando el vídeo…» abajo a la izquierda, que es
@@ -244,9 +245,9 @@ for (const idioma of ["es", "en"]) {
     });
     const editor = await ctxEditor.newPage();
     await editor.goto(url, { waitUntil: "load" });
-    const atardecer = editor.getByRole("button", { name: idioma === "en" ? "Sunset" : "Atardecer", exact: true }).first();
-    await atardecer.waitFor({ timeout: 15000 });
-    await atardecer.click();
+    const fondo = editor.getByRole("button", { name: idioma === "en" ? "Ocean" : "Océano", exact: true }).first();
+    await fondo.waitFor({ timeout: 15000 });
+    await fondo.click();
     // Que el ratón no se quede encima de nada: el hover no es lo que se quiere enseñar.
     await editor.mouse.move(2, EDITOR.alto - 2);
     await editor.waitForTimeout(1200);
