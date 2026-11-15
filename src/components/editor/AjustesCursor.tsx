@@ -3,6 +3,7 @@ import { Toggle } from "../ui/Toggle";
 import { useT } from "../../lib/i18n";
 import type { Edicion, Suavizado } from "../../lib/contrato";
 import { Opcion } from "../ui/Opcion";
+import { Segmented } from "../ui/Segmented";
 // S10 (sonidos)
 import { useState } from "react";
 import type { ClicElegido } from "../../lib/contrato";
@@ -30,6 +31,12 @@ interface Props {
   conEscritura?: boolean;
   /** Hay zoom: la estela también vale para la cámara aunque no haya puntero. */
   conZoom?: boolean;
+  /**
+   * Qué trozo enseñar (S39): en el panel nuevo cada apartado del riel lleva lo suyo. El
+   * puntero (suavizado, esconderlo al escribir y la estela), los clics (la onda y el sonido)
+   * o el zoom (acercarse al escribir). Sin nada, todo junto.
+   */
+  parte?: "puntero" | "clics" | "zoom";
 }
 
 /** El volumen con el que nace el sonido de clic: bajo, nunca a tope. */
@@ -61,7 +68,9 @@ export function AjustesCursor({
   conClics,
   conEscritura = true,
   conZoom = false,
+  parte,
 }: Props) {
+  const ve = (cual: NonNullable<Props["parte"]>) => !parte || parte === cual;
   const t = useT();
   const suavizado: Suavizado = edicion.suavizado ?? "poco";
   const estela = Math.round((edicion.estela ?? 0) * 100);
@@ -91,27 +100,25 @@ export function AjustesCursor({
   };
 
   return (
-    <div className="space-y-3" data-ajustes-cursor>
-      {conPuntero && (
+    // Una fila por mando, con su línea fina entre medias, como las filas de los ajustes.
+    <div className="divide-y divide-linea-tenue [&>*]:py-2.5" data-ajustes-cursor>
+      {ve("puntero") && conPuntero && (
         <div>
-          <span className="block text-[13px] font-medium text-texto">{t("Movimiento suave")}</span>
-          <div className="flex items-center gap-4">
-            {(
-              [
-                ["nada", t("Nada")],
-                ["poco", t("Poco")],
-                ["mucho", t("Mucho")],
-              ] as const
-            ).map(([valor, nombre]) => (
-              <Opcion key={valor} puesta={suavizado === valor} onClick={() => onEdicion({ suavizado: valor })}>
-                {nombre}
-              </Opcion>
-            ))}
-          </div>
+          <span className="mb-1 block text-[15px] font-medium text-titulo">{t("Movimiento suave")}</span>
+          <Segmented
+            value={suavizado}
+            etiqueta={t("Movimiento suave")}
+            options={[
+              { value: "nada", label: t("Nada") },
+              { value: "poco", label: t("Poco") },
+              { value: "mucho", label: t("Mucho") },
+            ]}
+            onChange={(valor) => onEdicion({ suavizado: valor })}
+          />
         </div>
       )}
 
-      {conPuntero && conEscritura && (
+      {ve("puntero") && conPuntero && conEscritura && (
         <Toggle
           checked={edicion.esconderAlEscribir ?? false}
           onChange={(v) => onEdicion({ esconderAlEscribir: v })}
@@ -120,7 +127,7 @@ export function AjustesCursor({
         />
       )}
 
-      {(conPuntero || conZoom) && (
+      {ve("puntero") && (conPuntero || conZoom) && (
         <Slider
           label={t("Estela al moverse")}
           hint={estela === 0 ? t("sin estela") : `${estela} %`}
@@ -132,7 +139,7 @@ export function AjustesCursor({
         />
       )}
 
-      {conClics && (
+      {ve("clics") && conClics && (
         <Toggle
           checked={edicion.ondaClic ?? false}
           onChange={(v) => onEdicion({ ondaClic: v })}
@@ -140,8 +147,8 @@ export function AjustesCursor({
         />
       )}
 
-      {conClics && (
-        <div className="space-y-2">
+      {ve("clics") && conClics && (
+        <div className="space-y-3">
           <Toggle
             checked={sonido > 0}
             onChange={(v) => onEdicion({ sonidoClic: v ? volumenRecordado() : 0 })}
@@ -167,14 +174,14 @@ export function AjustesCursor({
                   {t("Propio…")}
                 </Opcion>
               </div>
-              {trayendo && <p className="pt-1 text-[12px] text-suave">{t("Preparando el sonido…")}</p>}
+              {trayendo && <p className="pt-1 text-[13px] text-suave">{t("Preparando el sonido…")}</p>}
               {!trayendo && elegido.tipo === "propio" && (
-                <p className="truncate pt-1 text-[12px] text-suave" title={nombreDelClic(elegido.ruta)}>
+                <p className="truncate pt-1 text-[13px] text-suave" title={nombreDelClic(elegido.ruta)}>
                   {nombreDelClic(elegido.ruta)}
                 </p>
               )}
               {fallo && (
-                <p className="pt-1 text-[13px] text-red-400" role="alert">
+                <p className="pt-1 text-[13px] text-red-700 [[data-tema=oscuro]_&]:text-red-300" role="alert">
                   {fallo}
                 </p>
               )}
@@ -197,7 +204,7 @@ export function AjustesCursor({
         </div>
       )}
 
-      {conEscritura && (
+      {ve("zoom") && conEscritura && (
         <Toggle
           checked={edicion.zoomAlEscribir ?? false}
           onChange={(v) => onEdicion({ zoomAlEscribir: v })}

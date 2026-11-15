@@ -175,3 +175,25 @@ describe("el sonido de cada clic", () => {
     expect(EN["Propio…"]).toBe("Your own…");
   });
 });
+
+// S39: en el panel nuevo cada apartado del riel lleva su trozo de estos mandos.
+describe("por apartados (parte)", () => {
+  it("el puntero lleva el suavizado y la estela, pero no los clics ni el zoom", () => {
+    pintar({ parte: "puntero", conEscritura: true });
+    expect(screen.getByRole("button", { name: "Poco" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Estela al moverse" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Una onda en cada clic/ })).toBeNull();
+    expect(screen.queryByRole("switch", { name: /Acercarse mientras escribes/ })).toBeNull();
+  });
+
+  it("los clics llevan la onda y el sonido; el zoom, acercarse al escribir", () => {
+    const { unmount } = pintar({ parte: "clics", conEscritura: true });
+    expect(screen.getByRole("switch", { name: /Una onda en cada clic/ })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /Sonido de clic/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Poco" })).toBeNull();
+    unmount();
+    pintar({ parte: "zoom", conEscritura: true });
+    expect(screen.getByRole("switch", { name: /Acercarse mientras escribes/ })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Una onda en cada clic/ })).toBeNull();
+  });
+});

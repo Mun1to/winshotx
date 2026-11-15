@@ -67,6 +67,13 @@ if (!video || !fotograma) {
   }
 }
 
+/**
+ * S39: el panel de la derecha va por apartados, con un riel de iconos (fondo, puntero, clics,
+ * zoom, cámara, sonido, calidad y estilos), y cada mando vive en el suyo: antes de tocarlo, se
+ * pulsa su apartado, como haría una persona.
+ */
+const apartado = (pagina, id) => pagina.locator(`[data-seccion="${id}"]`).click();
+
 /** Levanta la pantalla del editor y devuelve su dirección y cómo apagarla. */
 function servir(segundos, mas = []) {
   return new Promise((listo, falla) => {
@@ -181,10 +188,10 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   await pagina.getByText(/Guardado/).waitFor();
   if (fotos) await pagina.screenshot({ path: join(fotos, "3-guardado.png") });
 
-  await pagina.getByRole("button", { name: "Más ajustes" }).click();
+  await apartado(pagina, "archivo");
   await pagina.waitForTimeout(400);
-  if (fotos) await pagina.screenshot({ path: join(fotos, "4-mas-ajustes.png") });
-  await pagina.getByRole("button", { name: "Más ajustes" }).click();
+  if (fotos) await pagina.screenshot({ path: join(fotos, "4-calidad-y-tamano.png") });
+  await apartado(pagina, "fondo");
 
   // El estudio: elegir un fondo lo pinta en la vista previa, con aire y esquinas, y es lo
   // que viaja a Rust al guardar.
@@ -207,6 +214,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   comprueba((marco?.aire ?? 0) > 8, `con aire alrededor: ${marco?.aire} px`);
   comprueba((marco?.esquinas ?? 0) > 2, `y las esquinas redondeadas: ${marco?.esquinas} px`);
   comprueba(Boolean(marco?.sombra) && marco.sombra !== "none", "y la sombra");
+  await apartado(pagina, "puntero");
   await pagina.getByRole("switch", { name: /Esconderlo cuando no se mueve/ }).click();
   if (fotos) await pagina.screenshot({ path: join(fotos, "6-estudio.png") });
   await pagina.getByRole("button", { name: "Guardar MP4" }).click();
@@ -686,6 +694,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   await pagina.locator("[data-pista]").waitFor();
   await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
   console.log("\nEl cursor y los clics (S7), en Edge");
+  await apartado(pagina, "puntero");
   const mandos = pagina.locator("[data-ajustes-cursor]");
   if ((await mandos.count()) === 0) {
     console.log("  (los mandos del cursor aún no están en el panel: se engancha AjustesCursor y esto se prueba solo)");
@@ -706,6 +715,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
       });
     const sinOnda = await azulEnElLienzo();
     await pagina.getByRole("button", { name: "Mucho" }).click();
+    await apartado(pagina, "clics");
     await pagina.getByRole("switch", { name: /Una onda en cada clic/ }).click();
     await pagina.waitForTimeout(300);
     const conOnda = await azulEnElLienzo();
@@ -713,9 +723,11 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     await pagina.getByRole("switch", { name: /Sonido de clic/ }).click();
     // S10 (sonidos): el «Ratón grave», que suena una vez al elegirlo con las muestras de Rust.
     await pagina.getByRole("button", { name: "Grave", exact: true }).click();
+    await apartado(pagina, "puntero");
     await pagina.getByRole("switch", { name: /Esconderlo mientras escribes/ }).click();
-    await pagina.getByRole("switch", { name: /Acercarse mientras escribes/ }).click();
     await pagina.getByRole("slider", { name: "Estela al moverse" }).fill("60");
+    await apartado(pagina, "zoom");
+    await pagina.getByRole("switch", { name: /Acercarse mientras escribes/ }).click();
     if (fotos) await pagina.screenshot({ path: join(fotos, "s7-mandos.png") });
 
     await pagina.getByRole("button", { name: "Guardar MP4" }).click();
@@ -840,6 +852,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     await pagina.waitForFunction((n) => window.__llamadas.filter((l) => l.cmd === "export_media").length > n, antes);
     return pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request);
   };
+  await apartado(pagina, "camara");
   const panel = pagina.locator("[data-ajustes-camara]");
   await panel.scrollIntoViewIfNeeded();
   const grupo = panel.getByRole("group", { name: "Forma de la cámara" });
@@ -1009,6 +1022,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     () => [...document.querySelectorAll("audio")].filter((a) => a.readyState >= 2).length === 2,
   );
   console.log("\nEl sonido del PC y el micrófono por separado (S11), en Edge");
+  await apartado(pagina, "sonido");
   comprueba(
     (await pagina.getByRole("switch", { name: "Sonido del PC" }).count()) === 1 &&
       (await pagina.getByRole("switch", { name: "Tu micrófono" }).count()) === 1 &&
@@ -1099,7 +1113,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     "al soltar el deslizador, el foco vuelve al editor",
   );
   comprueba(
-    (await pagina.locator(".lucide-volume-2").count()) === 1,
+    (await pagina.locator("section .lucide-volume-2").count()) === 1,
     "por encima de la mitad, el altavoz enseña las dos ondas",
   );
   for (let vez = 0; vez < 4; vez++) await pagina.keyboard.press("ArrowDown");
@@ -1110,14 +1124,14 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     `cuatro veces abajo, al ${await volumenDeLaVista.inputValue()} %: la voz suena a ${e.voz.volumen}`,
   );
   comprueba(
-    (await pagina.locator(".lucide-volume-1").count()) === 1,
+    (await pagina.locator("section .lucide-volume-1").count()) === 1,
     "por debajo de la mitad, una onda",
   );
   await pagina.keyboard.press("m");
   await pagina.waitForTimeout(300);
   e = await estado();
   comprueba(
-    e.voz.volumen === 0 && (await volumenDeLaVista.inputValue()) === "0" && (await pagina.locator(".lucide-volume-x").count()) === 1,
+    e.voz.volumen === 0 && (await volumenDeLaVista.inputValue()) === "0" && (await pagina.locator("section .lucide-volume-x").count()) === 1,
     `la M después del ratón: callada, el deslizador a 0 y el altavoz tachado`,
   );
   await pagina.keyboard.press("m");

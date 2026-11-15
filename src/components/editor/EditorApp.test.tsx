@@ -235,6 +235,8 @@ describe("la vista previa del estudio", () => {
     render(<EditorApp sessionId="s1" />);
     await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
     expect(llamadas.some((l) => l.comando === "session_camera")).toBe(false);
+    // El zoom de los clics vive en su apartado del riel del panel (S39).
+    fireEvent.click(screen.getByRole("tab", { name: "Zoom" }));
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     await waitFor(() => expect(llamadas.some((l) => l.comando === "session_camera")).toBe(true));
     const peticion = llamadas.find((l) => l.comando === "session_camera")?.args as { zoom: number };

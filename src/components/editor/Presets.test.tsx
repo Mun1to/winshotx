@@ -151,3 +151,29 @@ it("en inglés no queda nada en español", async () => {
     expect(textos).not.toContain(espanol);
   }
 });
+
+// S39: en el editor nuevo los estilos tienen su apartado en el riel, con sitio para la lista.
+describe("en su apartado (enLista)", () => {
+  it("la lista está a la vista sin abrir nada, y «Guardar estilo como…» va debajo", async () => {
+    responde("get_settings", { presets: [{ nombre: "Tutorial", estilo: TUTORIAL }, { nombre: "Redes", estilo: REDES }] });
+    const onAplicar = vi.fn();
+    render(<Presets enLista estilo={TUTORIAL} onAplicar={onAplicar} />);
+    const lista = await screen.findByRole("list", { name: "Estilos guardados" });
+    // Sin botón de desplegar: el puesto se marca en la propia lista.
+    expect(screen.queryByRole("button", { name: "Tutorial", expanded: false })).toBeNull();
+    expect(screen.getByRole("button", { name: "Tutorial" })).toHaveAttribute("aria-current", "true");
+    const guardar = screen.getByRole("button", { name: "Guardar estilo como…" });
+    expect(lista.compareDocumentPosition(guardar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Elegir uno lo pone y la lista se queda: está en su sitio, no encima de nada.
+    fireEvent.click(screen.getByRole("button", { name: "Redes" }));
+    expect(onAplicar).toHaveBeenCalledWith(REDES);
+    expect(screen.getByRole("list", { name: "Estilos guardados" })).toBeInTheDocument();
+  });
+
+  it("sin ninguno guardado, solo «Guardar estilo como…»", async () => {
+    responde("get_settings", { presets: [] });
+    render(<Presets enLista estilo={ESTILO_DE_FABRICA} onAplicar={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "Guardar estilo como…" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Estilos guardados" })).toBeNull();
+  });
+});
