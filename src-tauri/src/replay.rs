@@ -809,7 +809,7 @@ pub(crate) fn preparar_por_detras(app: &AppHandle, id: String) {
                 Ok(()) => {
                     let _ = session.persist();
                     state.sessions.write().insert(id.clone(), session);
-                    let _ = app.emit(crate::recorder::EVENT_SESSION_THUMBS, id.clone());
+                    crate::recorder::avisar_de_la_tira(&app, &id);
                 }
                 // Sin miniaturas la tira ensenna huecos, pero el video y la exportacion
                 // van igual: no es motivo para tirar nada.

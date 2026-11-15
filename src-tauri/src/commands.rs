@@ -525,7 +525,13 @@ pub async fn session_info(app: AppHandle, session_id: String) -> Result<SessionI
 #[tauri::command]
 pub async fn session_frames(app: AppHandle, session_id: String) -> Result<Vec<FrameDto>> {
     crate::crono::marca("session_frames");
-    Ok(session_of(&app, &session_id)?
+    let session = session_of(&app, &session_id)?;
+    // Sin tira todavia: el aviso de cuando este se repetira mas tarde (ver
+    // `recorder::avisar_de_la_tira`).
+    if session.frames.iter().any(|f| f.thumb_path.is_empty()) {
+        crate::recorder::lista_sin_miniaturas(&session_id);
+    }
+    Ok(session
         .frames
         .into_iter()
         .map(|frame| FrameDto {
@@ -564,6 +570,7 @@ pub struct StudioDto {
 #[tauri::command]
 pub async fn session_studio(app: AppHandle, session_id: String) -> Result<StudioDto> {
     let session = session_of(&app, &session_id)?;
+    crate::recorder::la_pagina_tiene_su_lista(&app, &session);
     Ok(StudioDto {
         clics: session.clics,
         teclas: session.teclas,
