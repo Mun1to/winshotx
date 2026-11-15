@@ -29,6 +29,8 @@ export const EN: Record<string, string> = {
   "Lo que guarda": "What it keeps",
   "Qué hace este ajuste": "What this setting does",
   "Así va a salir": "How it will look",
+  "Escribe lo que buscas: cursor, sonido, carpeta…": "Type what you are looking for: cursor, sound, folder…",
+  "Nada con «{consulta}». Prueba con otra palabra.": "Nothing for «{consulta}». Try another word.",
 
   // Capturar
   "Al pulsar el atajo": "When you press the shortcut",
@@ -277,6 +279,8 @@ export const EN: Record<string, string> = {
   "Todo está en estos ocho": "It is all in these eight",
   "Cada icono es un apartado: deja el ratón encima y te dice su nombre. No hay más pantallas ni menús escondidos, y cada apartado cabe entero sin bajar.": "Each icon is a section: rest the mouse on it and it tells you its name. There are no other screens or hidden menus, and each section fits without scrolling.",
   "Este dibujo cambia en cuanto tocas un ajuste, y debajo te lo dice en frases: si apagas la lupa, desaparece de aquí.": "This drawing changes as soon as you touch a setting, and underneath it says so in words: turn the magnifier off and it disappears from here.",
+  "Si no sabes dónde está algo": "If you cannot find something",
+  "Pulsa aquí o Ctrl + F y escribe lo que buscas, como «cursor» o «sonido»: te lleva a su apartado y te ilumina la fila.": "Click here or press Ctrl + F and type what you are after, like «cursor» or «sound»: it takes you to its section and lights up the row.",
 
   // La bienvenida
   "winshotx ya está en marcha": "winshotx is up and running",

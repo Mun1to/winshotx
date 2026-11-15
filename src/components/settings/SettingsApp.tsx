@@ -46,6 +46,8 @@ import {
 import { apartado as datosDe, type ApartadoId } from "./mapaDeAjustes";
 import { Cabecera } from "./Cabecera";
 import { GuidedTour } from "./GuidedTour";
+import { Paleta } from "./Paleta";
+import { FilaEncendida } from "./Section";
 import { ALTO_RIEL, Riel } from "./Riel";
 import { VistaPrevia } from "./VistaPrevia";
 
@@ -139,6 +141,40 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // S2 (grabación): las cámaras conectadas, para la fila de la cámara.
   const [camaras, setCamaras] = useState<CamaraConectada[]>([]);
   const actualizacion = useActualizacion(VERSION, recienActualizado);
+  // El buscador: si la paleta está abierta, y la fila a la que se ha saltado, que se ilumina.
+  const [paleta, setPaleta] = useState(false);
+  const [encendida, setEncendida] = useState<string | null>(null);
+  const enTour = useRef(tour);
+  enTour.current = tour;
+
+  // Ctrl + F abre el buscador desde cualquier sitio de la ventana, como en un navegador.
+  // Con el tour delante no: el tour tapa la ventana y el buscador saldría debajo.
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "f" && !enTour.current) {
+        e.preventDefault();
+        setPaleta(true);
+      }
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, []);
+
+  // La luz de la fila se apaga en cuanto se toca otra cosa: ya ha dicho dónde está. Se
+  // engancha un instante después para no cazar el mismo Enter o clic que la encendió.
+  useEffect(() => {
+    if (!encendida) return;
+    const apagar = () => setEncendida(null);
+    const espera = window.setTimeout(() => {
+      window.addEventListener("pointerdown", apagar);
+      window.addEventListener("keydown", apagar);
+    }, 0);
+    return () => {
+      window.clearTimeout(espera);
+      window.removeEventListener("pointerdown", apagar);
+      window.removeEventListener("keydown", apagar);
+    };
+  }, [encendida]);
 
   const refrescar = useCallback(() => {
     void getSettings().then(setLocal);
@@ -335,8 +371,12 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // y sin esto el historial abría a media galería si se había bajado en otro apartado.
   const ir = useCallback((id: ApartadoId) => {
     setSeccion(id);
+    setEncendida(null);
     hueco.current?.scrollTo?.({ top: 0 });
   }, []);
+
+  // Elegir pantalla solo sale con más de una: el buscador no ofrece una fila que no está.
+  const hay = useCallback((id: string) => id !== "ultPantalla" || pantallas.length > 1, [pantallas]);
 
   if (!settings) {
     return (
@@ -382,6 +422,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     <div className="relative flex h-full flex-col overflow-hidden bg-lienzo">
       <Cabecera
         version={VERSION}
+        onBuscar={() => setPaleta(true)}
         onSalir={() => void quitApp()}
         aviso={
           <AvisoActualizacion
@@ -412,7 +453,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       <h1 className="text-[22px] font-bold leading-tight text-titulo">{t(actual.nombre)}</h1>
                       <p className="mt-1 text-[14px] text-apagado">{t(actual.frase)}</p>
                     </div>
-                    <Filas {...datos} />
+                    <FilaEncendida.Provider value={encendida}>
+                      <Filas {...datos} />
+                    </FilaEncendida.Provider>
                   </main>
                   {actual.dibujo && (
                     // A toda la altura de la columna: el panel se estira con ella y el dibujo
@@ -437,6 +480,20 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
           )}
         </div>
       </div>
+
+      {paleta && (
+        <Paleta
+          version={VERSION}
+          hay={hay}
+          onCerrar={() => setPaleta(false)}
+          onElegir={(b) => {
+            setPaleta(false);
+            ir(b.apartado);
+            // El historial es un apartado entero, sin una fila que iluminar.
+            if (b.apartado !== "historial") setEncendida(b.id);
+          }}
+        />
+      )}
 
       {tour && <GuidedTour onNavegar={ir} onCerrar={() => setTour(false)} />}
 

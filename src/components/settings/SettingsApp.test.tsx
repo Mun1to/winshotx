@@ -346,6 +346,106 @@ describe("lo que ensenna de la maquina", () => {
 });
 
 /**
+ * El buscador es una paleta que salta al ajuste y lo ilumina (la de la variación 8, que eligió
+ * Munito para la 9). Se prueba como lo usa una persona: con el teclado.
+ */
+describe("el buscador", () => {
+  const paleta = () => screen.queryByRole("dialog", { name: "Buscar un ajuste" });
+  const campo = () => within(paleta()!).getByRole("combobox");
+  const opciones = () => within(paleta()!).queryAllByRole("option");
+
+  it("se abre con Ctrl + F y con el campo de la cabecera, y se cierra con Esc", async () => {
+    await abrirAjustes();
+    expect(paleta()).toBeNull();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    expect(paleta()).not.toBeNull();
+    await waitFor(() => expect(campo()).toHaveFocus());
+    fireEvent.keyDown(campo(), { key: "Escape" });
+    expect(paleta()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Buscar un ajuste/ }));
+    expect(paleta()).not.toBeNull();
+  });
+
+  it("dice qué escribir y, si no encuentra nada, lo dice", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    expect(within(paleta()!).getByText(/Escribe lo que buscas/)).toBeInTheDocument();
+    fireEvent.change(campo(), { target: { value: "zzzz" } });
+    expect(within(paleta()!).getByText("Nada con «zzzz». Prueba con otra palabra.")).toBeInTheDocument();
+  });
+
+  it("cada resultado dice su nombre y su apartado, con las flechas se elige y Enter salta e ilumina la fila", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(campo(), { target: { value: "sonido" } });
+    const nombres = opciones().map((o) => o.textContent);
+    // Lo que se llama así va primero, cada uno con su apartado a la derecha.
+    expect(nombres[0]).toBe("Sonido de obturadorDespués de capturar");
+    expect(nombres[1]).toBe("Sonido al empezarGrabar");
+    expect(opciones()[0]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(campo(), { key: "ArrowDown" });
+    expect(opciones()[1]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(campo(), { key: "ArrowUp" });
+    fireEvent.keyDown(campo(), { key: "ArrowUp" });
+    expect(opciones()[0]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(campo(), { key: "ArrowDown" });
+    fireEvent.keyDown(campo(), { key: "Enter" });
+    // Se cierra, lleva a Grabar y la fila del sonido al empezar va encendida.
+    expect(paleta()).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Grabar" })).toBeInTheDocument();
+    const fila = document.querySelector('[data-fila="graSonido"]')!;
+    expect(fila.className).toContain("ring-marca/50");
+    expect(document.querySelectorAll('[data-fila][class*="ring-marca"]')).toHaveLength(1);
+  });
+
+  it("la luz se apaga en cuanto se toca otra cosa", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(campo(), { target: { value: "carpeta" } });
+    fireEvent.keyDown(campo(), { key: "Enter" });
+    const fila = () => document.querySelector('[data-fila="appCarpeta"]')!;
+    expect(fila().className).toContain("ring-marca/50");
+    // Se engancha un instante después de encenderse, para no cazar el mismo Enter.
+    await new Promise((r) => setTimeout(r, 10));
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(fila().className).not.toContain("ring-marca"));
+  });
+
+  it("busca en inglés aunque la app esté en español, y al revés", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(campo(), { target: { value: "folder" } });
+    expect(opciones()[0].textContent).toContain("Carpeta de destino");
+  });
+
+  it("en inglés, los resultados salen en inglés", async () => {
+    aplicarIdioma("en");
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(within(screen.getByRole("dialog", { name: "Search a setting" })).getByRole("combobox"), {
+      target: { value: "cámara" },
+    });
+    const texto = screen.getByRole("dialog", { name: "Search a setting" }).textContent ?? "";
+    expect(texto).toContain("Record the camera too");
+    expect(texto).not.toContain("Grabar también");
+  });
+
+  it("cada ajuste que ofrece tiene su fila en su apartado, para poder iluminarla", async () => {
+    // Con tres pantallas, para que salga también la de elegir pantalla.
+    responde("list_cameras", []);
+    await abrirAjustes(undefined, TRES_PANTALLAS);
+    const { BUSCABLES } = await import("./mapaDeAjustes");
+    const sinFila: string[] = [];
+    for (const b of BUSCABLES.filter((x) => x.apartado !== "historial")) {
+      fireEvent.click(within(riel()).getByRole("button", { name: { capturar: "Capturar", despues: "Después de capturar", grabar: "Grabar", ultimos: "Los últimos segundos", historial: "Historial", teclas: "Teclas de Windows", app: "La app", ayuda: "Ayuda y winshotx" }[b.apartado] }));
+      await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument());
+      if (!document.querySelector(`[data-fila="${b.id}"]`)) sinFila.push(b.id);
+    }
+    expect(sinFila).toEqual([]);
+  });
+});
+
+/**
  * «Así va a salir» se dibuja con los ajustes de verdad: lo que se comprueba es que cambie al
  * tocar su fila, que es lo único que le da sentido. Si se quedara quieto, mentiría.
  */

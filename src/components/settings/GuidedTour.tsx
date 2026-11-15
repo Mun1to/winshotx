@@ -30,7 +30,7 @@ interface Paso {
  * no se adivinan mirando.
  *
  * Se cuenta lo que NO se adivina: que los iconos de la izquierda son todos los apartados, que
- * el dibujo de la derecha cambia con lo que tocas, que se puede capturar con retardo, que hay
+ * hay un buscador que lleva a cada ajuste, que el dibujo de la derecha cambia con lo que tocas, que se puede capturar con retardo, que hay
  * dos formas de trabajar al soltar el ratón, y que Windows puede ceder sus teclas. Lo que se
  * entiende solo (un interruptor de sonido) no tiene paso: un tour que lee la pantalla en voz
  * alta se cierra a la mitad. Y empieza donde se abre, en Capturar: no te manda adonde ya estás.
@@ -43,6 +43,14 @@ const PASOS: Paso[] = [
     titulo: "Todo está en estos ocho",
     texto:
       "Cada icono es un apartado: deja el ratón encima y te dice su nombre. No hay más pantallas ni menús escondidos, y cada apartado cabe entero sin bajar.",
+  },
+  {
+    id: "buscar",
+    apartado: "capturar",
+    objetivo: "buscar",
+    titulo: "Si no sabes dónde está algo",
+    texto:
+      "Pulsa aquí o Ctrl + F y escribe lo que buscas, como «cursor» o «sonido»: te lleva a su apartado y te ilumina la fila.",
   },
   {
     id: "dibujo",

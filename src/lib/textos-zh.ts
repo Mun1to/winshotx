@@ -30,6 +30,8 @@ export const ZH: Record<string, string> = {
   "Lo que guarda": "保存内容",
   "Qué hace este ajuste": "这个设置的作用",
   "Así va a salir": "效果预览",
+  "Escribe lo que buscas: cursor, sonido, carpeta…": "输入要找的内容：鼠标、声音、文件夹…",
+  "Nada con «{consulta}». Prueba con otra palabra.": "没有找到「{consulta}」。换个词试试。",
 
   // 截图
   "Al pulsar el atajo": "按下快捷键时",
@@ -269,6 +271,8 @@ export const ZH: Record<string, string> = {
   "Todo está en estos ocho": "全部都在这八个分区里",
   "Cada icono es un apartado: deja el ratón encima y te dice su nombre. No hay más pantallas ni menús escondidos, y cada apartado cabe entero sin bajar.": "每个图标是一个分区：把鼠标停在上面就会显示名称。没有其他页面或隐藏菜单，每个分区都无需滚动就能看全。",
   "Este dibujo cambia en cuanto tocas un ajuste, y debajo te lo dice en frases: si apagas la lupa, desaparece de aquí.": "只要改动设置，这幅示意图就会跟着变化，下面还会用文字说明：关掉放大镜，它就会从这里消失。",
+  "Si no sabes dónde está algo": "找不到某个设置时",
+  "Pulsa aquí o Ctrl + F y escribe lo que buscas, como «cursor» o «sonido»: te lleva a su apartado y te ilumina la fila.": "点这里或按 Ctrl + F，输入要找的内容，比如「鼠标」或「声音」：会跳到对应分区并高亮那一行。",
 
   // 欢迎页
   "winshotx ya está en marcha": "winshotx 已经启动",
