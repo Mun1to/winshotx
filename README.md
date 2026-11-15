@@ -136,7 +136,7 @@ signature is checked before anything is installed, so a tampered file is rejecte
 
 ## Is this what you were looking for?
 
-- **"I want a Snipping Tool alternative for Windows."** This is it, and it is 33 times faster to
+- **"I want a Snipping Tool alternative for Windows."** This is it, and it is 8 times faster to
   open. The Snipping Tool still wins at annotating, text recognition and system audio, and the
   table above says so.
 - **"How do I record a GIF of my screen on Windows?"** Press `Ctrl+Shift+5`, drag over the area,

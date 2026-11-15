@@ -135,7 +135,7 @@ firma antes de instalar nada, así que un archivo manipulado no entra.
 
 ## ¿Es esto lo que buscabas?
 
-- **"Quiero algo mejor que la Herramienta de Recortes."** Es esto, y se abre 33 veces antes. La de
+- **"Quiero algo mejor que la Herramienta de Recortes."** Es esto, y se abre 8 veces antes. La de
   Windows sigue ganando en anotar, en leer el texto de la imagen y en el audio del sistema, y la
   tabla de arriba lo dice.
 - **"¿Cómo grabo un GIF de la pantalla en Windows?"** Pulsa `Ctrl+Shift+5`, arrastra sobre la zona,
