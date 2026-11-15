@@ -50,8 +50,11 @@ pnpm ver                            # Remotion Studio, to look around
 - Only the real app, and only measured, published figures: 114 ms against 920 ms, 33 MB against
   253 MB, a 3.00 MB installer, free and MIT.
 - Text is centered, loose (never inside a box), two to five words, one word in colour.
-- Sound effects, but discreet: each on its frame, under the music (a median of about 9 dB below
-  it), never the same one twice in a row. They come from Mixkit under its Sound Effects Free
+- Sound effects, but discreet: each on its frame, never the same one twice in a row. Keys, clicks,
+  the shutter and the switch sit at the music's normal level (0.7 to 2.3 dB above it), the ticks
+  and whooshes a little below, as in six launch videos measured on 15 November (whose clicks go
+  from 1 dB below to 3 dB above). Those videos put almost no sound on their cuts (2 of 41), so
+  every render also comes out with only the clicks (`node musica.mjs <track> --variante=clics`). They come from Mixkit under its Sound Effects Free
   License, which allows them in the video but not handing them out on their own, so they are not
   in git: `sonidos.mjs` fetches them. The five CC0 clicks from Kenney's "Interface Sounds"
   (`public/sonido/kenney/`, licence alongside) are only used by the drafted directions. The music

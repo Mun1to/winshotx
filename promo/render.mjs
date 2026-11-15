@@ -5,6 +5,8 @@
  *   node render.mjs Promo               el vídeo elegido, MUDO, en out/Promo.mp4, y sus efectos de sonido
  *                                       aparte en out/Promo-efectos.wav (la música y la mezcla, musica.mjs)
  *   node render.mjs Promo-127           el mismo con los cortes a 127,5 golpes por minuto (Karma)
+ *   node render.mjs Promo sonido        solo las pistas de efectos (unos 25 s cada una): la normal y la
+ *                                       de solo clics, sin whoosh (out/Promo-efectos-clics.wav)
  *   node render.mjs Promo 0-599         solo esos fotogramas (el arranque, para probar músicas)
  *   node render.mjs Direccion2-Tirada   una dirección entera, en out/<id>.mp4
  *
@@ -15,7 +17,7 @@
  * lanza un proceso así hereda esa prioridad: Remotion y su Chrome incluidos.
  */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync, writeFileSync } from "node:fs";
 import { setPriority, constants } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,11 +65,16 @@ if (que === "muestras") {
   // La imagen, muda; los efectos de sonido, aparte y sin comprimir; y la música se le pone
   // después con `musica.mjs`, que la iguala, mete los efectos debajo y hace el fundido. Así
   // cambiar de pista no pide volver a renderizar.
-  if (trozo && !/^\d+-\d+$/.test(trozo)) process.exit(1);
-  const base = trozo ? `out/${que}-${trozo}` : `out/${que}`;
-  const frames = trozo ? ` --frames=${trozo}` : "";
-  lanza(`pnpm exec remotion render ${paquete} ${que} ${base}.mp4 --crf=18 --muted${frames}`);
+  const soloSonido = trozo === "sonido";
+  if (trozo && !soloSonido && !/^\d+-\d+$/.test(trozo)) process.exit(1);
+  const base = trozo && !soloSonido ? `out/${que}-${trozo}` : `out/${que}`;
+  const frames = trozo && !soloSonido ? ` --frames=${trozo}` : "";
+  if (!soloSonido) lanza(`pnpm exec remotion render ${paquete} ${que} ${base}.mp4 --crf=18 --muted${frames}`);
   lanza(`pnpm exec remotion render ${paquete} ${que} ${base}-efectos.wav --codec=wav${frames}`);
+  // La otra forma de sonar: solo lo que se pulsa, sin whoosh (`whoosh` en `Promo.tsx`).
+  const props = join("out", "props-clics.json");
+  writeFileSync(join(aqui, props), JSON.stringify({ whoosh: false }));
+  lanza(`pnpm exec remotion render ${paquete} ${que} ${base}-efectos-clics.wav --codec=wav --props=${props}${frames}`);
 } else {
   lanza(`pnpm exec remotion render ${paquete} ${que} out/${que}.mp4 --crf=18`);
 }

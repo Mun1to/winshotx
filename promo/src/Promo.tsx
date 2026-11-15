@@ -63,7 +63,13 @@ export type Tiempos = Record<keyof typeof GOLPES, number>;
 /** Los cortes en fotogramas para una música de `bpm` golpes por minuto. */
 export const tiempos = (bpm: number): Tiempos =>
   Object.fromEntries(Object.entries(GOLPES).map(([k, g]) => [k, Math.round((g * 60 * FPS) / bpm)])) as Tiempos;
-export type PropsPromo = { bpm: number };
+/**
+ * `whoosh: false` deja solo los efectos de lo que se pulsa (teclas, clics, obturador, interruptor,
+ * tics): es como suenan los seis vídeos de lanzamiento de fuera medidos el 15-nov (en 41 cortes,
+ * solo 2 llevan un golpe; los clics, sí, en su fotograma). Con `true`, además un whoosh en cada
+ * corte, en el zoom y con el logo, que es lo que pide su gusto de «cada transición con su sonido».
+ */
+export type PropsPromo = { bpm: number; whoosh?: boolean };
 
 /** Lo que dura sola cada pregunta, grande y en el centro, antes de que la conteste la app. */
 const PREGUNTA = s(0.9);
@@ -149,34 +155,43 @@ const INTERRUPTOR = (() => {
   return { x: AJUSTES.x + r.x + r.w / 2, y: AJUSTES.y + r.y + r.h / 2 };
 })();
 
-export function Promo({ bpm }: PropsPromo) {
+export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
   const frame = useCurrentFrame();
   const T = tiempos(bpm);
   // Cada corte, un whoosh con su pico justo en el corte, y nunca el mismo dos veces seguidas.
   const cortes = [T.rapido, T.atajo, T.graba, T.estudio, T.ultimos, T.peso, T.libre];
   const whoosh = ["whoosh-1", "whoosh-2", "whoosh-3", "whoosh-4"] as const;
+  // Los niveles, medidos con el mismo script que los vídeos de fuera (`musica.mjs` sube la pista
+  // entera 4 dB): las teclas, los clics, el obturador y el interruptor quedan a la altura del
+  // nivel normal de la música, como los clics de Raycast y Linear; los tics y los whoosh, un poco
+  // por debajo.
+  const aire: Efecto[] = conWhoosh
+    ? [
+        efecto("sube", T.nombre + 6, 0.22, true),
+        ...cortes.map((f, i) => efecto(whoosh[i % whoosh.length], f, 0.25, true)),
+        efecto("zoom", T.cierre, 0.25, true),
+        efecto("zoom", T.rapido + PREGUNTA + s(2.0), 0.2, true),
+      ]
+    : [];
   const sonidos: Efecto[] = [
+    ...aire,
     // La historia va con la música a −8 dB: sus efectos, también bajos. «920» es la quinta
     // palabra de su frase (entra en el 3, una cada 3).
-    ...ticsDeCuenta(T.lento + 3 + 4 * 3, 15, 0.18),
-    efecto("sube", T.nombre + 6, 0.3, true),
-    ...cortes.map((f, i) => efecto(whoosh[i % whoosh.length], f, 0.38, true)),
-    efecto("zoom", T.cierre, 0.38, true),
+    ...ticsDeCuenta(T.lento + 3 + 4 * 3, 15, 0.11),
     // 1. Win, Shift y S, cada una en el fotograma en que se hunde (`Teclas`: entra 2, cada 4);
     // el aire del zoom al recorte, con el pico donde la cámara va más deprisa; el clic al
     // apretar el ratón y el obturador al soltarlo, que es cuando la captura está hecha.
-    ...(["tecla-1", "tecla-2", "tecla-3"] as const).map((n, i) => efecto(n, T.rapido + PREGUNTA + 2 + i * 4, 0.7)),
-    efecto("zoom", T.rapido + PREGUNTA + s(2.0), 0.28, true),
-    efecto("clic", T.rapido + Q1.aparece + OVERLAY.arrastra - Q1.desde, 0.6),
+    ...(["tecla-1", "tecla-2", "tecla-3"] as const).map((n, i) => efecto(n, T.rapido + PREGUNTA + 2 + i * 4, 0.43)),
+    efecto("clic", T.rapido + Q1.aparece + OVERLAY.arrastra - Q1.desde, 0.86),
     efecto("obturador", T.rapido + Q1.aparece + OVERLAY.suelta - Q1.desde, 0.6),
-    ...ticsDeCuenta(T.rapido + PREGUNTA + s(3.1), 15, 0.25),
+    ...ticsDeCuenta(T.rapido + PREGUNTA + s(3.1), 15, 0.2),
     // 6. El clic en el interruptor.
-    efecto("interruptor", T.atajo + ATAJO.clic, 0.5),
+    efecto("interruptor", T.atajo + ATAJO.clic, 0.32),
     // 3. Un clic y entra el fondo del Estudio.
-    efecto("clic", T.estudio + PREGUNTA + s(1.0), 0.7),
+    efecto("clic", T.estudio + PREGUNTA + s(1.0), 0.86),
     // 5. Las dos cifras; la de la memoria, más baja, que es la segunda línea.
-    ...ticsDeCuenta(T.peso + PREGUNTA, 15, 0.25),
-    ...ticsDeCuenta(T.peso + PREGUNTA + s(0.7), 15, 0.16),
+    ...ticsDeCuenta(T.peso + PREGUNTA, 15, 0.2),
+    ...ticsDeCuenta(T.peso + PREGUNTA + s(0.7), 15, 0.13),
   ];
   const camaraHistoria: Toma[] = [
     { f: 0, x: 960, y: 540, z: 1 },

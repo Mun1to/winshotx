@@ -6,7 +6,8 @@
  *   node musica.mjs <pista> --desde=12          la pista empezando en su segundo 12
  *   node musica.mjs <pista> --sube=5.6          baja (−8 dB) hasta el segundo 5,6 y entera desde ahí
  *   node musica.mjs <pista> --video=Promo-127   sobre out/Promo-127.mp4 (el corte a 127,5 golpes)
- *   node musica.mjs <pista> --efectos=-3        los efectos 3 dB más bajos (0 = como salen del render)
+ *   node musica.mjs <pista> --efectos=1         los efectos 3 dB más bajos que de costumbre (4)
+ *   node musica.mjs <pista> --variante=clics    con la pista de efectos sin whoosh, en out/<video>-<pista>-clics.mp4
  *   node musica.mjs <pista> --sin-efectos       solo la música
  *
  * Los efectos de sonido son la pista `out/<video>-efectos.wav` que saca `render.mjs` a la vez que
@@ -37,9 +38,18 @@ const sube = opcion("sube") ? Number(opcion("sube")) : null;
 const base = opcion("video") ?? "Promo";
 if (!/^[\w-]+$/.test(base)) process.exit(1);
 const video = join(aqui, "out", `${base}.mp4`);
-const pistaEfectos = join(aqui, "out", `${base}-efectos.wav`);
+const variante = opcion("variante");
+if (variante && !/^[\w-]+$/.test(variante)) process.exit(1);
+const pistaEfectos = join(aqui, "out", `${base}-efectos${variante ? `-${variante}` : ""}.wav`);
 const conEfectos = !args.includes("--sin-efectos") && existsSync(pistaEfectos);
-const efectosDb = Number(opcion("efectos") ?? 0);
+if (variante && !conEfectos) {
+  console.error(`falta ${pistaEfectos}: corre antes \`node render.mjs ${base} sonido\``);
+  process.exit(1);
+}
+// Remotion no deja pasar de volumen 1, así que los efectos salen del render 4 dB por debajo de
+// donde van y se suben aquí: con eso los clics quedan a la altura del nivel normal de la música,
+// como en los vídeos de lanzamiento de fuera (medido el 15-nov).
+const efectosDb = Number(opcion("efectos") ?? 4);
 
 if (!pista || !existsSync(pista)) {
   console.error("Uso: node musica.mjs <pista> [--arranque=s] [--desde=s] [--sube=s] [--video=id] [--efectos=dB] [--sin-efectos]");
@@ -54,7 +64,7 @@ const dura = (f) =>
   Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f], { encoding: "utf8" }).stdout.trim());
 const largo = arranque ?? dura(video);
 const nombre = basename(pista, extname(pista));
-const salida = join(aqui, "out", arranque ? `arranque-${nombre}.mp4` : `${base}-${nombre}.mp4`);
+const salida = join(aqui, "out", arranque ? `arranque-${nombre}.mp4` : `${base}-${nombre}${variante ? `-${variante}` : ""}.mp4`);
 
 const musica = [
   `atrim=start=${desde}:duration=${largo}`,
