@@ -119,14 +119,14 @@ let html = `<!doctype html>
 <meta property="og:url" content="${BASE}novedades/">
 <meta property="og:title" content="Novedades de winshotx">
 <meta property="og:description" content="${descripcion}">
-<meta property="og:image" content="${BASE}social.png?v=2">
+<meta property="og:image" content="${BASE}social.png?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="winshotx: 114 ms contra 920 ms de la Herramienta de Recortes">
+<meta property="og:image:alt" content="winshotx, «Crop the screen before you blink»: 114 ms, instalador de 3,00 MB, gratis y de código abierto, junto a su ventana de ajustes">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Novedades de winshotx">
 <meta name="twitter:description" content="${descripcion}">
-<meta name="twitter:image" content="${BASE}social.png?v=2">
+<meta name="twitter:image" content="${BASE}social.png?v=3">
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">

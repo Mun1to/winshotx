@@ -1,5 +1,6 @@
 """
-Dibuja las dos imágenes de 1200x630 que salen al pegar el enlace en X, Discord o Slack.
+Dibuja la imagen de 1200x630 que sale al pegar el enlace en X, Discord o Slack (social.png y
+social-en.png, las dos en inglés), con la ventana de Ajustes de la app de verdad dentro.
 
     python frontlaxweb/generar-social.py
 
@@ -8,7 +9,9 @@ de ningún archivo suelto.
 """
 import math
 import pathlib
-from PIL import Image, ImageDraw, ImageFont
+import subprocess
+import tempfile
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 AQUI = pathlib.Path(__file__).parent
 AZUL = (10, 155, 255)
@@ -58,54 +61,85 @@ def fuente(nombre, tam):
     return ImageFont.truetype(rf"C:\Windows\Fonts\{nombre}", tam)
 
 
-def tarjeta(destino, titulo1, titulo2, bajada, datos):
+def captura_de_la_app():
+    """Los Ajustes de la app de verdad, en inglés y en oscuro, a 2x: la saca el banco de fotos
+    (`scripts/ver-ventana.mjs`, sobre `dist/`, así que antes hace falta `pnpm build`). Así la
+    tarjeta enseña siempre la versión de hoy y nunca una foto vieja guardada a mano."""
+    destino = pathlib.Path(tempfile.gettempdir()) / "winshotx-tarjeta-ajustes.png"
+    subprocess.run(["node", str(AQUI.parent / "scripts" / "ver-ventana.mjs"), str(destino),
+                    "--seccion=grabar", "--idioma=en", "--tema=oscuro", "--escala=2"],
+                   check=True, cwd=AQUI.parent, stdout=subprocess.DEVNULL)
+    return Image.open(destino).convert("RGB")
+
+
+def esquinas(img, radio):
+    mascara = Image.new("L", img.size, 0)
+    ImageDraw.Draw(mascara).rounded_rectangle([0, 0, img.size[0] - 1, img.size[1] - 1], radio, fill=255)
+    return mascara
+
+
+def tarjeta(destinos, titulo1, titulo2, bajada, datos, app):
+    """La de 1200x630 que sale al pegar el enlace. En inglés en las dos portadas: Munito, 15-nov,
+    con la de antes delante («hay que arreglar y mejorar la foto, y que esté en inglés»)."""
     W, H = 1200, 630
     img = Image.new("RGBA", (W, H), FONDO + (255,))
     halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     hd = ImageDraw.Draw(halo)
-    for r in range(520, 0, -8):
-        hd.ellipse([200 - r, 150 - r, 200 + r, 150 + r],
-                   fill=AZUL + (int(26 * (1 - r / 520) ** 1.6),))
-    img = Image.alpha_composite(img, halo).convert("RGB")
+    for cx, cy, R, a in ((930, 330, 560, 34), (120, 90, 420, 18)):
+        for r in range(R, 0, -8):
+            hd.ellipse([cx - r, cy - r, cx + r, cy + r], fill=AZUL + (int(a * (1 - r / R) ** 1.7),))
+    img = Image.alpha_composite(img, halo)
+
+    # La ventana de la app, grande y saliéndose por la derecha y por abajo, con su sombra.
+    ancho = 660
+    foto = app.resize((ancho, round(app.size[1] * ancho / app.size[0])), Image.LANCZOS)
+    x0, y0 = 612, 84
+    sombra = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(sombra).rounded_rectangle([x0 + 6, y0 + 22, x0 + foto.size[0] + 6, y0 + foto.size[1] + 22], 18,
+                                             fill=(0, 0, 0, 170))
+    img = Image.alpha_composite(img, sombra.filter(ImageFilter.GaussianBlur(26)))
+    img.paste(foto, (x0, y0), esquinas(foto, 18))
     d = ImageDraw.Draw(img)
+    d.rounded_rectangle([x0, y0, x0 + foto.size[0] - 1, y0 + foto.size[1] - 1], 18, outline=(58, 58, 66), width=2)
 
-    marca = logo(96)
-    img.paste(marca, (72, 62), marca)
-    d.text((188, 78), "winshotx", font=fuente("segoeuib.ttf", 52), fill=(255, 255, 255))
+    # Lo de la izquierda, con un velo por si la foto llega debajo.
+    marca = logo(80)
+    img.paste(marca, (64, 60), marca)
+    d.text((160, 70), "winshotx", font=fuente("segoeuib.ttf", 46), fill=(255, 255, 255))
 
-    d.text((72, 208), titulo1, font=fuente("segoeuib.ttf", 76), fill=(255, 255, 255))
-    d.text((72, 292), titulo2, font=fuente("segoeuib.ttf", 76), fill=AZUL)
-    d.text((72, 404), bajada, font=fuente("segoeui.ttf", 28), fill=(142, 142, 154))
+    # El titular, al tamaño mayor que quepa antes de la ventana (medido, no a ojo).
+    hueco = x0 - 64 - 40
+    tam = 66
+    while tam > 40 and max(d.textlength(t, font=fuente("segoeuib.ttf", tam)) for t in (titulo1, titulo2)) > hueco:
+        tam -= 2
+    grande = fuente("segoeuib.ttf", tam)
+    d.text((62, 190), titulo1, font=grande, fill=(255, 255, 255))
+    d.text((62, 190 + tam * 1.12), titulo2, font=grande, fill=AZUL)
+    d.text((64, 190 + tam * 2.45), bajada, font=fuente("segoeui.ttf", 26), fill=(170, 170, 182))
 
-    x = 72
-    for i, (valor, que, contra) in enumerate(datos):
+    # Las cifras, cada una a su ancho y con su raya en medio.
+    fv, fq = fuente("segoeuib.ttf", 40), fuente("segoeui.ttf", 23)
+    x = 64
+    for i, (valor, que) in enumerate(datos):
         if i:
-            d.line([(x - 30, 486), (x - 30, 566)], fill=(40, 40, 46), width=1)
-        d.text((x, 480), valor, font=fuente("segoeuib.ttf", 46), fill=AZUL)
-        d.text((x, 534), que, font=fuente("segoeui.ttf", 24), fill=(233, 233, 238))
-        d.text((x, 562), contra, font=fuente("segoeui.ttf", 20), fill=(110, 110, 120))
-        x += 270
+            d.line([(x - 22, 464), (x - 22, 546)], fill=(52, 52, 60), width=2)
+        d.text((x, 456), valor, font=fv, fill=AZUL)
+        d.text((x, 512), que, font=fq, fill=(225, 225, 232))
+        x += max(d.textlength(valor, font=fv), d.textlength(que, font=fq)) + 44
+    assert x - 44 <= x0 - 30, f"las cifras no caben: llegan a {x - 44}"
 
-    img.save(AQUI / destino)
-    print("hecha:", destino)
+    final = img.convert("RGB")
+    for destino in destinos:
+        final.save(AQUI / destino, optimize=True)
+        print("hecha:", destino)
 
-
-tarjeta(
-    "social.png",
-    "Recorta la pantalla", "antes de que parpadees",
-    "Captura y grabación de pantalla para Windows · 2,52 MB · código abierto",
-    [("114 ms", "en enseñar", "Recortes: 920 ms"),
-     ("33 MB", "capturando", "Recortes: 253 MB"),
-     ("31 MB", "en reposo", "Recortes: 98 MB"),
-     ("2,52 MB", "instalador", "sin dependencias")],
-)
 
 tarjeta(
-    "social-en.png",
+    ["social.png", "social-en.png"],
     "Crop the screen", "before you blink",
-    "Screenshots and screen recording for Windows · 2.52 MB · open source",
-    [("114 ms", "to show", "Snipping Tool: 920 ms"),
-     ("33 MB", "capturing", "Snipping Tool: 253 MB"),
-     ("31 MB", "idle", "Snipping Tool: 98 MB"),
-     ("2.52 MB", "installer", "nothing bundled")],
+    "Screenshots, videos and GIFs for Windows",
+    [("114 ms", "to show it"),
+     ("3.00 MB", "installer"),
+     ("Free", "open source")],
+    captura_de_la_app(),
 )
