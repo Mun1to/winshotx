@@ -63,6 +63,8 @@ const CASOS = [
   { nombre: "estrechada a 780, en inglés", escala: 1, zona: 1032, idioma: "en", guardada: { ancho: 780, alto: 723 } },
   { nombre: "estrechada a 780, en chino", escala: 1, zona: 1032, idioma: "zh", guardada: { ancho: 780, alto: 723 } },
   { nombre: "estirada a mano a 1100 x 800", escala: 1, zona: 1032, idioma: "es", guardada: { ancho: 1100, alto: 800 } },
+  // Desde 1000 la barra de abajo vuelve a llevar los nombres «Tema» e «Idioma»: el inglés es el más largo.
+  { nombre: "estirada a 1000, en inglés", escala: 1, zona: 1032, idioma: "en", guardada: { ancho: 1000, alto: 723 } },
   { nombre: "portátil 1366 x 768 al 125 %", escala: 1.25, zona: 566, idioma: "es" },
   { nombre: "historial con 60 capturas", escala: 1, zona: 1032, idioma: "es", historial: 60 },
   { nombre: "bienvenida", escala: 1, zona: 1032, idioma: "es", bienvenida: true },
@@ -154,6 +156,8 @@ for (const caso of CASOS) {
           b.scrollWidth <= b.clientWidth + 1 &&
           piezas.every((el) => el.getBoundingClientRect().right <= innerWidth + 0.5 && el.scrollWidth <= el.clientWidth + 1),
         letraMinima: Math.min(...piezas.map((el) => parseFloat(getComputedStyle(el).fontSize))),
+        // Cuánto le falta para caber, para saber qué esconder sin ir a ciegas.
+        falta: Math.ceil(Math.max(0, b.scrollWidth - b.clientWidth, ...piezas.map((el) => el.scrollWidth - el.clientWidth))),
         abajo: Math.round(innerHeight - caja.bottom),
         texto: b.textContent.trim().replace(/\s+/g, " ").slice(-40),
       };
@@ -165,14 +169,14 @@ for (const caso of CASOS) {
         caso.bienvenida
           ? `sin la barra de abajo${barra ? ": SALE" : ""}`
           : barra
-            ? `la barra de abajo ${cuando}: ${barra.alto} px, ${barra.cabe ? "cabe entera" : "NO CABE"}, letra de ${barra.letraMinima} px como poco («…${barra.texto}»)`
+            ? `la barra de abajo ${cuando}: ${barra.alto} px, ${barra.cabe ? "cabe entera" : `NO CABE (faltan ${barra.falta} px)`}, letra de ${barra.letraMinima} px como poco («…${barra.texto}»)`
             : "NO HAY BARRA DE ABAJO"
       }`,
     );
   };
   await mirarBarra("al abrir");
   if (!caso.bienvenida) {
-    await pagina.locator("[data-barra-abajo] button").last().click();
+    await pagina.locator("[data-barra-abajo] [data-buscar]").click();
     await pagina.waitForTimeout(400);
     await mirarBarra("tras buscar versión nueva");
   }

@@ -221,10 +221,20 @@ describe("la cabecera", () => {
     expect(screen.queryByText("Guardado")).toBeNull();
   });
 
-  it("la barra de abajo vuelve (S40), pero sin el café, que vive en «Ayuda y winshotx»", async () => {
+  it("la barra de abajo vuelve (S40) con el café, que abre buymeacoffee y nada más", async () => {
     await abrirAjustes();
-    expect(screen.getByRole("contentinfo")).toHaveAttribute("data-barra-abajo");
-    expect(screen.queryByRole("button", { name: "Apoyar" })).toBeNull();
+    const barra = screen.getByRole("contentinfo");
+    expect(barra).toHaveAttribute("data-barra-abajo");
+    // Uno solo en toda la ventana: el de Ayuda se llama «Invitar» y vive en su fila.
+    const apoyar = screen.getByRole("button", { name: "Apoyar" });
+    expect(barra).toContainElement(apoyar);
+    expect(apoyar).toHaveAttribute("title", "buymeacoffee.com/munito");
+    const antes = llamadas.filter((l) => l.comando === "open_url").length;
+    fireEvent.click(apoyar);
+    await waitFor(() => expect(llamadas.filter((l) => l.comando === "open_url").length).toBe(antes + 1));
+    expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
+      url: "https://buymeacoffee.com/munito",
+    });
   });
 });
 
@@ -801,7 +811,7 @@ describe("la barra de abajo", () => {
   const guardado = () =>
     (llamadas.filter((l) => l.comando === "set_settings").at(-1)?.args as { settings: Settings } | undefined)?.settings;
 
-  it("sale en todos los apartados, con el tema, el idioma, al soltar, el tour y buscar versión nueva", async () => {
+  it("sale en todos los apartados, con el tema, el idioma, al soltar, el tour, buscar versión nueva y el café", async () => {
     await abrirAjustes();
     for (const nombre of ["Capturar", "Historial", "Ayuda y winshotx"]) {
       ir(nombre);
@@ -811,6 +821,7 @@ describe("la barra de abajo", () => {
       expect(b.getByRole("group", { name: "Al soltar el ratón" })).toBeInTheDocument();
       expect(b.getByRole("button", { name: /Tour/ })).toBeInTheDocument();
       expect(b.getByRole("button", { name: /Buscar actualizaciones/ })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: "Apoyar" })).toBeInTheDocument();
     }
   });
 

@@ -830,4 +830,5 @@ export const EN: Record<string, string> = {
   "Tour": "Tour",
   "Buscando…": "Checking…",
   "Ya tienes la última": "You have the latest",
+  "Apoyar": "Support",
 };

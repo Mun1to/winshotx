@@ -830,4 +830,5 @@ export const ZH: Record<string, string> = {
   "Tour": "导览",
   "Buscando…": "正在检查…",
   "Ya tienes la última": "已是最新版本",
+  "Apoyar": "支持",
 };

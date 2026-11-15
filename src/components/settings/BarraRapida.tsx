@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Compass, RefreshCw } from "lucide-react";
+import { Coffee, Compass, RefreshCw } from "lucide-react";
 import { Segmented } from "../ui/Segmented";
 import { aplicarIdioma, idiomaActivo, useT } from "../../lib/i18n";
+import { CAFE, comoSeLee } from "../../lib/enlaces";
+import { openUrl } from "../../lib/ipc";
 import { aplicarTema } from "../../lib/tema";
 import type { CaptureFlow, Language, Settings, Theme } from "../../lib/types";
 import type { Fase } from "./Actualizacion";
@@ -21,9 +23,9 @@ interface Props {
  * estilo nuevo: opciones en texto con su raya (nada de pastillas), nada por debajo de 13 px,
  * sin verde y sin cajas.
  *
- * Se gana el sitio porque HACE cosas: el tema, el idioma, qué pasa al soltar el ratón, el tour
- * y buscar versión nueva. Los mismos ajustes siguen en su apartado con su explicación entera;
- * esto es el atajo, no el sitio donde viven.
+ * Se gana el sitio porque HACE cosas: el tema, el idioma, qué pasa al soltar el ratón, el tour,
+ * buscar versión nueva y el café («Apoyar», que Munito también quería aquí). Los mismos ajustes
+ * siguen en su apartado con su explicación entera; esto es el atajo, no el sitio donde viven.
  *
  * Lo de actualizar, repartido sin repetir nada: cuando HAY algo que decir (versión nueva,
  * bajando, falta reiniciar, un fallo) lo dice la cabecera, que es lo primero que se ve y lo que
@@ -56,7 +58,7 @@ export function BarraRapida({ settings, patch, onTour, actualizacion }: Props) {
   return (
     <footer
       data-barra-abajo
-      className="flex h-11 shrink-0 items-center gap-6 border-t border-linea px-5 max-[880px]:gap-4 max-[880px]:px-4"
+      className="flex h-11 shrink-0 items-center gap-6 border-t border-linea px-5 max-[880px]:gap-4 max-[880px]:px-3"
     >
       <Grupo nombre={t("Tema")}>
         <Segmented
@@ -100,24 +102,39 @@ export function BarraRapida({ settings, patch, onTour, actualizacion }: Props) {
         className="flex shrink-0 items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap text-apagado transition-colors hover:text-titulo"
       >
         <Compass className="size-4" strokeWidth={1.9} />
-        {t("Tour")}
+        {/* Estrecha, la palabra se va antes que la del café: la brújula y su `title` bastan
+            para algo que se mira una vez. */}
+        <span className="max-[880px]:hidden">{t("Tour")}</span>
       </button>
-      <span className="ms-auto flex min-w-0 items-center">
+      <span className="ms-auto flex min-w-0 items-center gap-6 max-[880px]:gap-3">
         <Buscar {...actualizacion} />
+        {/* El café, como en la barra de la 0.4.7, a mano desde cualquier apartado y no solo en
+            «Ayuda y winshotx». Al final y sin color: se ve, pero no pide nada. Adónde lleva va
+            en el `title`, que aquí no cabe escrito. */}
+        <button
+          type="button"
+          onClick={() => void openUrl(CAFE)}
+          title={comoSeLee(CAFE)}
+          className="flex shrink-0 items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap text-apagado transition-colors hover:text-titulo"
+        >
+          <Coffee className="size-4" strokeWidth={1.9} />
+          {t("Apoyar")}
+        </button>
       </span>
     </footer>
   );
 }
 
 /**
- * Un grupo de la barra: su nombre en gris y sus opciones. En una ventana estrecha (la que
- * alguien ha encogido a mano hasta 780) el nombre de «Tema» y de «Idioma» se va, que sus
- * opciones se explican solas; el de «Al soltar» no, que «Barra / Copia» solas no dicen de qué.
+ * Un grupo de la barra: su nombre en gris y sus opciones. El nombre de «Tema» y de «Idioma»
+ * solo sale con la ventana estirada a 1000 o más: sus opciones se explican solas, y con el café
+ * no cabían a 900 (medido: faltaban 55 px en español y 69 en inglés). El de «Al soltar» sale
+ * siempre, que «Barra / Copia» solas no dicen de qué.
  */
 function Grupo({ nombre, siempre = false, children }: { nombre: string; siempre?: boolean; children: React.ReactNode }) {
   return (
     <span className="flex shrink-0 items-center gap-2.5">
-      <span className={`text-[13px] whitespace-nowrap text-apagado ${siempre ? "" : "max-[880px]:hidden"}`}>{nombre}</span>
+      <span className={`text-[13px] whitespace-nowrap text-apagado ${siempre ? "" : "max-[999px]:hidden"}`}>{nombre}</span>
       {children}
     </span>
   );
@@ -146,6 +163,7 @@ function Buscar({ fase, mirar }: { fase: Fase; mirar: () => void }) {
   return (
     <button
       type="button"
+      data-buscar
       onClick={() => {
         setPedido(true);
         mirar();

@@ -71,9 +71,11 @@ export function Segmented<T extends string | number>({
   }
   // La forma de la barra de abajo (S40): también en texto con su raya, más apretada y a 13 px.
   // Hasta S36 era una pastilla a 11 px, que es una caja y una letra por debajo de la casa.
+  // Estrecha (bajo 880), 10 entre opciones para que el hueco ENTRE grupos de la barra (16) siga
+  // siendo más ancho: con los dos a 12, «Oscuro Español» se leía como una sola lista.
   return (
     <div
-      className="flex items-center gap-3"
+      className="flex items-center gap-3 max-[880px]:gap-2.5"
       role={etiqueta ? "group" : undefined}
       aria-label={etiqueta}
     >
