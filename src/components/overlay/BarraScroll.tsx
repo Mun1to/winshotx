@@ -91,13 +91,17 @@ export function BarraScroll() {
       <span
         data-tauri-drag-region
         role="status"
-        className={`truncate text-[14px] leading-5 font-semibold ${
-          aviso ? "text-amber-300" : "text-white"
+        // Entera aunque no quepa en una línea: «It won't scroll by itself: scroll it yourself»
+        // se cortaba por la mitad, y es justo lo que hay que leer para seguir. Dos líneas
+        // caben de sobra en los 52 px de la barra.
+        className={`line-clamp-2 min-w-0 text-[14px] leading-[17px] font-semibold whitespace-normal ${
+          aviso ? "text-aviso" : "text-white"
         }`}
       >
         {t(QUE_PASA[estado])}
       </span>
-      {progreso.alto > 0 && (
+      {/* Mientras pide algo, la cifra se quita: lo que hay que leer es lo que pide. */}
+      {progreso.alto > 0 && !aviso && (
         <span
           data-tauri-drag-region
           title={t("Lo que mide ya la imagen")}
@@ -118,7 +122,7 @@ export function BarraScroll() {
         >
           <Check className="size-[18px] shrink-0" strokeWidth={2} />
           {t("Parar")}
-          <kbd className="rounded bg-white/20 px-1 py-px font-sans text-[11px] leading-none font-semibold">
+          <kbd className="rounded bg-white/20 px-1 py-px font-sans text-[12px] leading-none font-semibold">
             Esc
           </kbd>
         </button>
