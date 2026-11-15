@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Frame } from "lucide-react";
 import { FONDOS } from "../../lib/fondos";
 // S25 (marco)
-import { MARCOS } from "../../lib/carcasa";
+import { MARCOS, type CarcasaElegida } from "../../lib/carcasa";
 import { useT } from "../../lib/i18n";
 import { AVISO_PRESETS, type PresetGuardado } from "../../lib/ipc";
 import { estiloDeLasCapturas, leerPresets, marcoCapturasDe, type MarcoCapturas } from "../../lib/presets";
@@ -15,6 +15,9 @@ interface Props {
   settings: Settings;
   patch: (partial: Partial<Settings>) => void;
 }
+
+/** «Ninguno» del marco, que en los ajustes es `null`: el selector necesita un valor que se pueda comparar. */
+const SIN_MARCO = "ninguno";
 
 /** El aire del fondo, en tanto por ciento del lado corto: los mismos de `marco_captura::AIRES`. */
 const AIRES: { value: number; label: string }[] = [
@@ -94,47 +97,31 @@ export function FondoEnLasCapturas({ settings, patch }: Props) {
               ))}
             </div>
           )}
-          {/* S25 (marco): la ventana o el portátil, solo con fondo, como en el Estudio. */}
+          {/* S25 (marco): la ventana o el portátil, solo con fondo, como en el Estudio. Con la
+              pieza común de elegir entre pocas cosas (S36): era una copia suya, con su raya de 2 px
+              y su letra de 13, y se quedaba distinta de las de al lado. */}
           {marco.aire > 0 && (
-            <div role="radiogroup" aria-label={t("Marco")} className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="text-[13px] text-texto">{t("Marco:")}</span>
-              {MARCOS.map((m) => (
-                <button
-                  key={m.id ?? "ninguno"}
-                  type="button"
-                  role="radio"
-                  aria-checked={(marco.carcasa ?? null) === m.id}
-                  onClick={() => patch({ marcoCapturas: { ...marco, carcasa: m.id } })}
-                  className={`border-b-2 py-0.5 text-[13px] font-semibold transition-colors ${
-                    (marco.carcasa ?? null) === m.id ? "border-marca text-texto" : "border-transparent text-suave hover:text-texto"
-                  }`}
-                >
-                  {t(m.nombre)}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="text-[14px] text-texto">{t("Marco:")}</span>
+              <Segmented
+                etiqueta={t("Marco")}
+                value={marco.carcasa ?? SIN_MARCO}
+                options={MARCOS.map((m) => ({ value: m.id ?? SIN_MARCO, label: t(m.nombre) }))}
+                onChange={(v) => patch({ marcoCapturas: { ...marco, carcasa: v === SIN_MARCO ? null : (v as CarcasaElegida) } })}
+              />
             </div>
           )}
-          {/* S9 (presets y tapar): un estilo guardado, para todas las capturas. */}
+          {/* S9 (presets y tapar): un estilo guardado, para todas las capturas. Ninguno va
+              elegido mientras lo puesto no coincida con uno. */}
           {lista.length > 0 && (
-            <div
-              role="group"
-              aria-label={t("Estilo guardado para todas las capturas")}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1"
-            >
-              <span className="text-[13px] text-texto">{t("O un estilo guardado:")}</span>
-              {lista.map((p, i) => (
-                <button
-                  key={p.nombre}
-                  type="button"
-                  aria-pressed={conEstilo === i}
-                  onClick={() => patch({ marcoCapturas: marcoCapturasDe(p.estilo) })}
-                  className={`border-b-2 py-0.5 text-[13px] font-semibold transition-colors ${
-                    conEstilo === i ? "border-marca text-texto" : "border-transparent text-suave hover:text-texto"
-                  }`}
-                >
-                  {p.nombre}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="text-[14px] text-texto">{t("O un estilo guardado:")}</span>
+              <Segmented
+                etiqueta={t("Estilo guardado para todas las capturas")}
+                value={conEstilo}
+                options={lista.map((p, i) => ({ value: i, label: p.nombre }))}
+                onChange={(i) => patch({ marcoCapturas: marcoCapturasDe(lista[i].estilo) })}
+              />
             </div>
           )}
         </div>
