@@ -34,11 +34,13 @@ import { guardarVentanaAjustes } from "./ipc";
 export const ANCHO_VENTANA = 900;
 /**
  * El alto de serie por dentro, en px lógicos: el de Grabar a 900 de ancho (cabecera, título,
- * sus dos grupos y el dibujo), medido en Edge con `scripts/probar-medida-ajustes.mjs`, que
- * falla si algún apartado fijo deja de caber. Es también el de `tauri.conf.json`, para que la
- * ventana nazca así y no cambie al cargar (lo vigila `ventanaFija.test.ts`).
+ * sus dos grupos de filas, el dibujo y la barra de abajo), medido en Edge con
+ * `scripts/probar-medida-ajustes.mjs`, que falla si algún apartado fijo deja de caber. Era 681
+ * hasta que volvió la barra de abajo (S40), que se lleva 44. Es también el de
+ * `tauri.conf.json`, para que la ventana nazca así y no cambie al cargar (lo vigila
+ * `ventanaFija.test.ts`).
  */
-export const ALTO_VENTANA = 681;
+export const ALTO_VENTANA = 723;
 
 /** Un tamaño, en px lógicos. */
 export interface Tamanno {
@@ -72,7 +74,7 @@ export interface Colocacion {
  * las escalas sin tener esas pantallas.
  *
  * Se conserva el centro (nace centrada en su pantalla) y, si no cabe, se encoge a la zona útil
- * y se mete dentro. Se redondea hacia arriba en físicos: a 125 %, 681 lógicos son 851,25, y
+ * y se mete dentro. Se redondea hacia arriba en físicos: a 125 %, 723 lógicos son 903,75, y
  * redondeando hacia abajo el hueco se queda medio píxel corto y sale la rueda por nada.
  */
 export function colocar(s: Sitio): Colocacion {

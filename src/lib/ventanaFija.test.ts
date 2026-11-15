@@ -22,7 +22,7 @@ const base: Sitio = {
   quiere: { ancho: ANCHO_VENTANA, alto: ALTO_VENTANA },
   escala: 1,
   marco: { ancho: 16, alto: 40 },
-  fuera: { x: 502, y: 179, ancho: 916, alto: 721 },
+  fuera: { x: 502, y: 179, ancho: 916, alto: 763 },
   zona: { x: 0, y: 0, ancho: 1920, alto: 1032 },
 };
 
@@ -37,18 +37,18 @@ describe("el tamaño de serie", () => {
 
 describe("dónde y a qué tamaño se pone al abrir", () => {
   it("si ya nace a su tamaño, ni se mueve", () => {
-    expect(colocar(base)).toEqual({ ancho: 900, alto: 681, x: 502, y: 179 });
+    expect(colocar(base)).toEqual({ ancho: 900, alto: 723, x: 502, y: 179 });
   });
 
   it("con un tamaño guardado más grande, crece por igual hacia los cuatro lados", () => {
     const r = colocar({ ...base, quiere: { ancho: 1000, alto: 781 } });
-    expect(r).toEqual({ ancho: 1000, alto: 781, x: 452, y: 129 });
+    expect(r).toEqual({ ancho: 1000, alto: 781, x: 452, y: 150 });
   });
 
   it("a 125 % redondea hacia arriba, para que no salga la rueda por medio píxel", () => {
     const r = colocar({ ...base, escala: 1.25 });
     expect(r.ancho).toBe(1125);
-    expect(r.alto).toBe(Math.ceil(681 * 1.25));
+    expect(r.alto).toBe(Math.ceil(723 * 1.25));
   });
 
   it("en un portátil de 1366 x 768 al 125 % se encoge a la zona útil y no se sale", () => {
@@ -66,14 +66,14 @@ describe("dónde y a qué tamaño se pone al abrir", () => {
   });
 
   it("si se saldría por abajo, sube; y si no cabe ni así, se ve la barra de título", () => {
-    expect(colocar({ ...base, fuera: { ...base.fuera, y: 600 } }).y).toBe(1032 - 721);
+    expect(colocar({ ...base, fuera: { ...base.fuera, y: 600 } }).y).toBe(1032 - 763);
     expect(colocar({ ...base, zona: { x: 0, y: 30, ancho: 1920, alto: 500 } }).y).toBe(30);
   });
 
   it("en una pantalla a la izquierda de la principal, se queda en ella", () => {
     const r = colocar({
       ...base,
-      fuera: { x: -1500, y: 179, ancho: 916, alto: 721 },
+      fuera: { x: -1500, y: 179, ancho: 916, alto: 763 },
       zona: { x: -1920, y: 0, ancho: 1920, alto: 1032 },
     });
     expect(r.x).toBe(-1500);
@@ -104,7 +104,7 @@ describe("la ventana de verdad (con el Tauri de mentira)", () => {
   it("abre a su tamaño de serie aunque naciera con otro", async () => {
     ventana.dentro = { width: 840, height: 640 };
     render(createElement(Prueba, { guardada: null }));
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: 681 }));
+    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: 723 }));
   });
 
   it("abre al tamaño guardado si alguien la estiró", async () => {
@@ -122,7 +122,7 @@ describe("la ventana de verdad (con el Tauri de mentira)", () => {
 
   it("si la estiran a mano, guarda su tamaño en lógicos, una vez al soltar", async () => {
     ventana.escala = 1.25;
-    ventana.dentro = { width: 1125, height: 852 };
+    ventana.dentro = { width: 1125, height: 904 };
     render(createElement(Prueba, { guardada: null }));
     await waitFor(() => expect(ventana.oyentesTamanno.length).toBeGreaterThan(0));
     // Estirar son decenas de avisos seguidos: solo cuenta el último.
@@ -135,8 +135,8 @@ describe("la ventana de verdad (con el Tauri de mentira)", () => {
   it("su propio cambio de tamaño, minimizarla o maximizarla no se guardan", async () => {
     ventana.dentro = { width: 840, height: 640 };
     render(createElement(Prueba, { guardada: null }));
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: 681 }));
-    estirar(900, 681);
+    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: 723 }));
+    estirar(900, 723);
     await new Promise((r) => setTimeout(r, 700));
     estirar(0, 0);
     await new Promise((r) => setTimeout(r, 700));

@@ -11,7 +11,7 @@
  * De S24 a la 0.5.0 este guion comprobaba lo contrario (que la ventana medía lo que cada
  * apartado); ahora comprueba esto:
  *
- *  1. al abrir, la ventana se pone a 900 x 681 por dentro (`src/lib/ventanaFija.ts`), o al
+ *  1. al abrir, la ventana se pone a 900 x 723 por dentro (`src/lib/ventanaFija.ts`), o al
  *     tamaño guardado si alguien la estiró, y nunca más allá de la zona útil de la pantalla;
  *  2. pasar por los ocho apartados (ida y vuelta) o por los cuatro pasos de la bienvenida no le
  *     pide a la ventana ni otro tamaño ni otro sitio;
@@ -20,7 +20,9 @@
  *     ventana encogida a mano), dentro de su columna, con el desvanecido de abajo, y la
  *     cabecera y el riel se quedan quietos;
  *  4. lo que sobra no deja una franja vacía: el dibujo de la derecha llega de arriba abajo;
- *  5. nada se sale por la derecha ni se queda cortado.
+ *  5. nada se sale por la derecha ni se queda cortado;
+ *  6. la barra de abajo (tema, idioma, al soltar, el tour y buscar versión nueva) sale en los
+ *     ajustes, entera y sin letra de menos de 12 px, y no sale en la bienvenida.
  *
  * Casos: 100, 125 y 150 % (a 150 %, en una pantalla de 1080, Grabar no cabe entero); español,
  * inglés y chino; el anillo encendido; estrechada a mano a 780 (lo mínimo de `tauri.conf.json`);
@@ -46,7 +48,7 @@ const MARCO = 32;
 /** Los apartados del riel, en su orden (`src/components/settings/mapaDeAjustes.ts`). */
 const NOMBRES = ["capturar", "despues", "grabar", "ultimos", "historial", "teclas", "app", "ayuda"];
 /** El tamaño de serie (`ANCHO_VENTANA` y `ALTO_VENTANA` de `src/lib/ventanaFija.ts`). */
-const SERIE = { ancho: 900, alto: 681 };
+const SERIE = { ancho: 900, alto: 723 };
 /** El aire de abajo de la columna de las filas (`pb-7`): el dibujo llega hasta ahí. */
 const AIRE_ABAJO = 28;
 
@@ -57,7 +59,9 @@ const CASOS = [
   { nombre: "inglés", escala: 1, zona: 1032, idioma: "en" },
   { nombre: "chino", escala: 1, zona: 1032, idioma: "zh" },
   { nombre: "anillo encendido", escala: 1, zona: 1032, idioma: "es", anillo: true },
-  { nombre: "estrechada a mano a 780", escala: 1, zona: 1032, idioma: "es", guardada: { ancho: 780, alto: 681 } },
+  { nombre: "estrechada a mano a 780", escala: 1, zona: 1032, idioma: "es", guardada: { ancho: 780, alto: 723 } },
+  { nombre: "estrechada a 780, en inglés", escala: 1, zona: 1032, idioma: "en", guardada: { ancho: 780, alto: 723 } },
+  { nombre: "estrechada a 780, en chino", escala: 1, zona: 1032, idioma: "zh", guardada: { ancho: 780, alto: 723 } },
   { nombre: "estirada a mano a 1100 x 800", escala: 1, zona: 1032, idioma: "es", guardada: { ancho: 1100, alto: 800 } },
   { nombre: "portátil 1366 x 768 al 125 %", escala: 1.25, zona: 566, idioma: "es" },
   { nombre: "historial con 60 capturas", escala: 1, zona: 1032, idioma: "es", historial: 60 },
@@ -89,7 +93,7 @@ for (const caso of CASOS) {
     { cwd: RAIZ },
   );
   const url = await new Promise((listo) => servidor.stdout.on("data", (d) => listo(String(d).trim())));
-  // La ventana nace como dice `tauri.conf.json`: 900 x 681.
+  // La ventana nace como dice `tauri.conf.json`: 900 x 723.
   const contexto = await navegador.newContext({
     viewport: { width: SERIE.ancho, height: SERIE.alto },
     deviceScaleFactor: caso.escala,
@@ -134,6 +138,44 @@ for (const caso of CASOS) {
   await pagina.setViewportSize({ width: ancho, height: alto });
   await pagina.waitForTimeout(300);
   const pedidosAlAbrir = (await pedidos()).length;
+
+  // La barra de abajo (vuelve en S40): en los ajustes sí, entera (nada cortado ni fuera) y sin
+  // letra de menos de 12; en la bienvenida, no. Se mira al abrir y después de pulsar «Buscar
+  // actualizaciones», que cambia el botón por la respuesta, más larga.
+  const mirarBarra = async (cuando) => {
+    const barra = await pagina.evaluate(() => {
+      const b = document.querySelector("[data-barra-abajo]");
+      if (!b) return null;
+      const caja = b.getBoundingClientRect();
+      const piezas = [...b.querySelectorAll("button, span")].filter((el) => el.getBoundingClientRect().width > 0);
+      return {
+        alto: Math.round(caja.height),
+        cabe:
+          b.scrollWidth <= b.clientWidth + 1 &&
+          piezas.every((el) => el.getBoundingClientRect().right <= innerWidth + 0.5 && el.scrollWidth <= el.clientWidth + 1),
+        letraMinima: Math.min(...piezas.map((el) => parseFloat(getComputedStyle(el).fontSize))),
+        abajo: Math.round(innerHeight - caja.bottom),
+        texto: b.textContent.trim().replace(/\s+/g, " ").slice(-40),
+      };
+    });
+    const bien = caso.bienvenida ? barra === null : !!barra && barra.cabe && barra.letraMinima >= 12 && barra.abajo === 0;
+    if (!bien) mal += 1;
+    console.log(
+      `  ${bien ? "BIEN" : "MAL "} ${
+        caso.bienvenida
+          ? `sin la barra de abajo${barra ? ": SALE" : ""}`
+          : barra
+            ? `la barra de abajo ${cuando}: ${barra.alto} px, ${barra.cabe ? "cabe entera" : "NO CABE"}, letra de ${barra.letraMinima} px como poco («…${barra.texto}»)`
+            : "NO HAY BARRA DE ABAJO"
+      }`,
+    );
+  };
+  await mirarBarra("al abrir");
+  if (!caso.bienvenida) {
+    await pagina.locator("[data-barra-abajo] button").last().click();
+    await pagina.waitForTimeout(400);
+    await mirarBarra("tras buscar versión nueva");
+  }
 
   const medir = (selHueco, selDibujo) =>
     pagina.evaluate(

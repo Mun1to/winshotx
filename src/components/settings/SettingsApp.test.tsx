@@ -221,9 +221,9 @@ describe("la cabecera", () => {
     expect(screen.queryByText("Guardado")).toBeNull();
   });
 
-  it("ya no hay barra de abajo ni logo de fondo", async () => {
+  it("la barra de abajo vuelve (S40), pero sin el café, que vive en «Ayuda y winshotx»", async () => {
     await abrirAjustes();
-    expect(screen.queryByRole("contentinfo")).toBeNull();
+    expect(screen.getByRole("contentinfo")).toHaveAttribute("data-barra-abajo");
     expect(screen.queryByRole("button", { name: "Apoyar" })).toBeNull();
   });
 });
@@ -339,8 +339,10 @@ describe("lo que ensenna de la maquina", () => {
     // «todo va bien» que no pide nada.
     await waitFor(() => expect(llamadas.some((l) => l.comando === "is_store_build")).toBe(true));
     expect(screen.queryByText("estás en la última versión")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Buscar actualizaciones" }));
-    await waitFor(() => expect(screen.getByText("estás en la última versión")).toBeInTheDocument());
+    // El de la fila (la barra de abajo lleva otro, que tiene su propia prueba).
+    const fila = document.querySelector<HTMLElement>('[data-fila="appVersion"]')!;
+    fireEvent.click(within(fila).getByRole("button", { name: "Buscar actualizaciones" }));
+    await waitFor(() => expect(within(fila).getByText("estás en la última versión")).toBeInTheDocument());
   });
 });
 
@@ -787,6 +789,58 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
     }
     expect(pantalla).toContain("Zoom key");
     expect(pantalla).toContain("Record the camera too");
+  });
+});
+
+/**
+ * S40: vuelve la barra de abajo, la de lo que se toca a menudo, a mano desde cualquier
+ * apartado. Que quepa y que se lea se mide en Edge (`scripts/probar-medida-ajustes.mjs`).
+ */
+describe("la barra de abajo", () => {
+  const barra = () => document.querySelector<HTMLElement>("[data-barra-abajo]")!;
+  const guardado = () =>
+    (llamadas.filter((l) => l.comando === "set_settings").at(-1)?.args as { settings: Settings } | undefined)?.settings;
+
+  it("sale en todos los apartados, con el tema, el idioma, al soltar, el tour y buscar versión nueva", async () => {
+    await abrirAjustes();
+    for (const nombre of ["Capturar", "Historial", "Ayuda y winshotx"]) {
+      ir(nombre);
+      const b = within(barra());
+      expect(b.getByRole("group", { name: "Tema" })).toBeInTheDocument();
+      expect(b.getByRole("group", { name: "Idioma" })).toBeInTheDocument();
+      expect(b.getByRole("group", { name: "Al soltar el ratón" })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: /Tour/ })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: /Buscar actualizaciones/ })).toBeInTheDocument();
+    }
+  });
+
+  it("cambia el tema, el idioma y lo que pasa al soltar, y lo guarda", async () => {
+    await abrirAjustes();
+    const b = within(barra());
+    fireEvent.click(b.getByRole("button", { name: "Oscuro" }));
+    await waitFor(() => expect(guardado()?.theme).toBe("oscuro"));
+    fireEvent.click(b.getByRole("button", { name: "Copia" }));
+    await waitFor(() => expect(guardado()?.captureFlow).toBe("instant"));
+    // Cada idioma con su nombre en ese idioma; el que se está viendo, marcado.
+    expect(b.getByRole("button", { name: "Español" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(b.getByRole("button", { name: "English" }));
+    await waitFor(() => expect(guardado()?.language).toBe("en"));
+    expect(within(barra()).getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("el tour se abre desde ella", async () => {
+    await abrirAjustes();
+    fireEvent.click(within(barra()).getByRole("button", { name: /Tour/ }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+  });
+
+  it("al buscar versión nueva, contesta; sin preguntar, no dice nada", async () => {
+    await abrirAjustes();
+    // La ventana mira sola al abrirse: estando al día, la barra no lo cuenta.
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "is_store_build")).toBe(true));
+    expect(within(barra()).queryByText("Ya tienes la última")).not.toBeInTheDocument();
+    fireEvent.click(within(barra()).getByRole("button", { name: /Buscar actualizaciones/ }));
+    await waitFor(() => expect(within(barra()).getByText("Ya tienes la última")).toBeInTheDocument());
   });
 });
 

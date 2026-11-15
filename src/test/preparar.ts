@@ -97,7 +97,7 @@ vi.mock("@tauri-apps/api/event", () => ({
  * `estirar` hace lo que haría quien la estira a mano (el aviso de tamaño nuevo de Windows).
  */
 export const ventana = {
-  dentro: { width: 900, height: 681 },
+  dentro: { width: 900, height: 723 },
   marco: 40,
   y: 100,
   escala: 1,
@@ -183,7 +183,7 @@ afterEach(() => {
   llamadas.length = 0;
   localStorage.clear();
   Object.assign(ventana, {
-    dentro: { width: 900, height: 681 },
+    dentro: { width: 900, height: 723 },
     marco: 40,
     y: 100,
     escala: 1,

@@ -4,7 +4,7 @@
  * Lo que se comprueba es lo que no se ve en una foto: que la elegida lleve la raya y las
  * demás no (antes era una pastilla, y quedaban tres formas de elegir en la app), que lo
  * diga en voz alta para un lector de pantalla, que el grupo se llame como lo que elige, y
- * que la forma compacta de la barra de abajo siga en pastilla con su globo.
+ * que la forma compacta de la barra de abajo vaya también en texto con su raya (S40).
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -85,23 +85,16 @@ describe("las opciones en texto", () => {
 });
 
 describe("la forma compacta, la de la barra de abajo", () => {
-  it("se queda en pastilla, con la elegida rellena", () => {
+  it("también en texto con su raya, sin pastilla y a 13 px (S40)", () => {
     pintar({ compacto: true });
     const grupo = screen.getByRole("group", { name: "Fotogramas por segundo" });
-    expect(grupo.className).toMatch(/\bbg-hueco\b/);
+    expect(grupo.className).not.toMatch(/\bbg-hueco\b/);
     const elegida = screen.getByRole("button", { name: "30 fps" });
-    expect(elegida.className).toMatch(/\bbg-pastilla\b/);
-    expect(elegida.className).not.toMatch(/border-b-\[3px\]/);
+    expect(elegida.className).toMatch(/border-b-2/);
+    expect(elegida.className).toMatch(/\bborder-marca\b/);
+    expect(elegida.className).toMatch(/text-\[13px\]/);
+    expect(elegida.className).not.toMatch(/\bbg-pastilla\b/);
     expect(elegida).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("ajustada, cada opción tan ancha como su texto", () => {
-    pintar({ compacto: true, ajustado: true });
-    expect(screen.getByRole("button", { name: "15 fps" }).className).not.toMatch(/\bflex-1\b/);
-  });
-
-  it("sin ajustar, se reparten el ancho", () => {
-    pintar({ compacto: true });
-    expect(screen.getByRole("button", { name: "15 fps" }).className).toMatch(/\bflex-1\b/);
+    expect(screen.getByRole("button", { name: "15 fps" }).className).toMatch(/\bborder-transparent\b/);
   });
 });

@@ -139,7 +139,8 @@ export function useActualizacion(version: string, recienActualizado = false) {
  *
  * **Estando al día no sale nada** (S36, 0.5): «Al día» con su tick era un «todo va bien» que
  * no pide nada, y los gustos de Munito lo quitan de todas partes. Buscar a mano se hace desde
- * la fila de la versión, en «Ayuda y winshotx», y desde el menú de la bandeja.
+ * la barra de abajo (desde S40), la fila de la versión en «Ayuda y winshotx» y el menú de la
+ * bandeja.
  *
  * Cuando SÍ hay algo que decir (hay versión nueva, se está bajando, falta reiniciar, ha
  * fallado o se acaba de actualizar), sale la frase con su botón: eso es justo lo que no puede

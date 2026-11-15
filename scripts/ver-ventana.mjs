@@ -51,7 +51,7 @@ const bandera = (nombre, pordefecto) => {
 
 const salida = resolve(args.find((a) => !a.startsWith("--")) ?? "ventana.png");
 const bienvenida = args.includes("--bienvenida");
-// La ventana principal (ajustes y bienvenida) mide 900 x 681 por dentro desde S40
+// La ventana principal (ajustes y bienvenida) mide 900 x 723 por dentro desde S40
 // (15-nov-2026), siempre, salvo que alguien la estire: son `ANCHO_VENTANA` y `ALTO_VENTANA` de
 // `src/lib/ventanaFija.ts`, y los de `tauri.conf.json`.
 const ancho = bandera("ancho", "900");
@@ -135,7 +135,7 @@ const menu = args.includes("--menu");
 // Un marco de recorte ya colocado dentro del editor: "x,y,ancho,alto" en píxeles de la foto.
 const recorte = bandera("recorte", null);
 // S40: el tamaño que alguien le dio a mano a la ventana la última vez, "ancho,alto" en px
-// lógicos (`ventanaAjustes` en los ajustes): la ventana abre así en vez de a 900 x 681.
+// lógicos (`ventanaAjustes` en los ajustes): la ventana abre así en vez de a 900 x 723.
 const guardada = bandera("guardada", null);
 // S40: el historial con N capturas, para ver que baja con la rueda dentro sin agrandar nada.
 // Salen sin miniatura (el icono de foto), que para medir la rejilla basta.
@@ -276,7 +276,7 @@ const FOTOGRAMAS = Array.from({ length: CUANTOS }, (_, i) => ({
 
 const AHORA = Date.now();
 const HISTORIAL = Array.from({ length: historialLleno }, (_, i) => ({
-  ruta: `C:\Users\yo\Pictures\winshotx\winshotx-${i}.png`,
+  ruta: `C:\\Users\\yo\\Pictures\\winshotx\\winshotx-${i}.png`,
   nombre: `winshotx-${i}.png`,
   tipo: i % 5 === 2 ? "video" : "foto",
   bytes: 120_000 + i * 7_000,
@@ -720,8 +720,8 @@ server.listen(0, async () => {
   // por la esquina, en negro, porque lo centrado se queda fuera. Así que se fotografía a
   // 500 y sale con más aire del que tiene de verdad. Para verla a su tamaño real hace
   // falta un navegador de verdad con el viewport a 132.
-  // La principal nace a 681 de alto, como en `tauri.conf.json`.
-  let [w, h] = [ancho, altoForzado ?? (pagina === "index.html" ? "681" : alto)];
+  // La principal nace a 723 de alto, como en `tauri.conf.json`.
+  let [w, h] = [ancho, altoForzado ?? (pagina === "index.html" ? "723" : alto)];
   if (cuenta !== null) {
     pagina = `cuenta.html?segundos=${cuenta}`;
     [w, h] = ["500", "500"];

@@ -48,6 +48,7 @@ import { Cabecera } from "./Cabecera";
 import { GuidedTour } from "./GuidedTour";
 import { Paleta } from "./Paleta";
 import { FilaEncendida } from "./Section";
+import { BarraRapida } from "./BarraRapida";
 import { Riel } from "./Riel";
 import { VistaPrevia } from "./VistaPrevia";
 
@@ -483,6 +484,14 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
           {error}
         </p>
       )}
+
+      {/* Lo que se toca a menudo, a mano desde cualquier apartado (vuelve en S40). */}
+      <BarraRapida
+        settings={settings}
+        patch={patch}
+        onTour={() => setTour(true)}
+        actualizacion={{ fase: actualizacion.fase, mirar: () => void actualizacion.mirar(true) }}
+      />
     </div>
   );
 }
