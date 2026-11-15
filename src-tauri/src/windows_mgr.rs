@@ -957,6 +957,7 @@ pub fn close_recorder(app: &AppHandle) {
 /// de grabacion, la cuenta atras y las capturas ancladas van sin marco porque son
 /// herramientas flotantes, no ventanas.
 pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
+    crate::crono::marca("editor-pedido");
     for (label, window) in app.webview_windows() {
         if label.starts_with(EDITOR_LABEL) {
             let _ = window.close();
@@ -982,6 +983,7 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     // trae las esquinas que Windows quiere, y forzarlas encima deja un borde raro.
     let _ = window.set_min_size(Some(LogicalSize::new(760.0, 520.0)));
     window.set_focus()?;
+    crate::crono::marca("editor-creado");
     Ok(())
 }
 
@@ -1097,6 +1099,7 @@ fn sitio_del_ancla(region: Rect, monitor: Option<MonitorSitio>) -> (i32, i32) {
 /// interfaz sigue montada con los datos del arranque. Al volver a mostrarla hay que
 /// decirselo para que refresque el tamanno de la cache y mire si hay version nueva.
 pub fn show_settings(app: &AppHandle) -> Result<()> {
+    crate::crono::marca("ajustes-pedidos");
     if let Some(window) = app.get_webview_window("main") {
         window.show()?;
         let _ = window.unminimize();
@@ -1108,6 +1111,7 @@ pub fn show_settings(app: &AppHandle) -> Result<()> {
         #[cfg(windows)]
         force_foreground(&window);
         let _ = window.emit(crate::EVENT_SETTINGS_SHOWN, ());
+        crate::crono::marca("ajustes-mostrados");
     }
     Ok(())
 }

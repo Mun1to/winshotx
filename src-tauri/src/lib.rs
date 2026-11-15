@@ -124,6 +124,12 @@ fn purge_old_sessions(root: &std::path::Path) {
 }
 
 pub fn run() {
+    // El cronometro, si se pide, lo primero de todo: cuenta desde que nacio el proceso y asi
+    // se ve tambien lo que cuesta llegar hasta aqui. Ver `crono`.
+    if std::env::args().any(|arg| arg == "--crono") {
+        crono::activar();
+        crono::marca("run");
+    }
     // S15 (agente): `winshotx.exe agent ...` y `winshotx.exe mcp` son clientes del canal de
     // agentes, no la app: van antes que nada (tampoco necesitan WebView2), y sobre todo antes
     // del plugin de una sola instancia, que si no se traga sus argumentos. Ver `agente`.
@@ -137,10 +143,7 @@ pub fn run() {
     if !platform::webview::hay_con_que_pintar() {
         return;
     }
-    // El cronometro del camino del atajo, solo si se pide: ver `crono`.
-    if std::env::args().any(|arg| arg == "--crono") {
-        crono::activar();
-    }
+    crono::marca("webview");
     // Quien ha arrancado este proceso, para saber si se abren los ajustes (ver `arranque`).
     // El aviso del agente se mira aqui, antes de abrir su tuberia: hasta que la tuberia
     // exista, el agente no puede haber conectado ni haberlo quitado.
@@ -151,6 +154,7 @@ pub fn run() {
         // Tiene que ir la primera: si ya hay un winshotx vivo, esta instancia se
         // cierra y le pasa el testigo, en vez de robarle los atajos globales.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            crono::marca("segunda-instancia");
             // Una segunda instancia con `--capture` es la forma de disparar una captura
             // desde fuera (un guion, otra herramienta, el cronometro), y `--cancel` la
             // cierra. Abierta a mano otra vez, lo de siempre: ensennar los ajustes.
@@ -179,6 +183,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(move |app| {
+            crono::marca("setup");
             let handle = app.handle().clone();
             let mut config = settings::load(&handle);
 
@@ -235,7 +240,9 @@ pub fn run() {
             }
 
             hotkeys::register(&handle, &config);
+            crono::marca("atajos");
             tray::build(&handle)?;
+            crono::marca("bandeja");
 
             // Si arranca sola con Windows, que arranque ESTA y no otra copia. Munir tenia
             // el registro apuntando a una instalacion de hace una semana en otra carpeta:
@@ -258,9 +265,13 @@ pub fn run() {
             // en la bandeja), asi que crear las ventanas overlay ahora, ocultas, no lo
             // nota nadie: la primera captura del dia encuentra el pool ya listo.
             windows_mgr::precrear_overlays(&handle);
+            crono::marca("overlays-creados");
             // Y lo mismo con la tarjeta grafica de las fotos: crear su dispositivo cuesta
             // unos 100 ms, y sin esto los pagaria el primer atajo del dia.
-            std::thread::spawn(capture::preparar);
+            std::thread::spawn(|| {
+                capture::preparar();
+                crono::marca("gpu-lista");
+            });
 
             // La primera vez se abre sola con la bienvenida: recien instalada, la app
             // vive en la bandeja y sin esto no habria nada que mirar. Al actualizar igual,
@@ -276,7 +287,19 @@ pub fn run() {
             }) {
                 windows_mgr::show_settings(&handle)?;
             }
+            crono::marca("setup-fin");
             Ok(())
+        })
+        // Cuando empieza y acaba de cargar la pagina de cada ventana, para el cronometro: asi se
+        // ve lo que tarda cada una sin tocar la interfaz.
+        .on_page_load(|webview, carga| {
+            if crono::activo() {
+                let fase = match carga.event() {
+                    tauri::webview::PageLoadEvent::Started => "empieza",
+                    tauri::webview::PageLoadEvent::Finished => "cargada",
+                };
+                crono::marca(&format!("pagina-{}-{fase}", webview.label()));
+            }
         })
         .on_window_event(|window, event| {
             // Cerrar los ajustes no cierra la app: sigue viva en la bandeja.
@@ -390,6 +413,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")
         .run(|_app, event| {
+            if let RunEvent::Ready = event {
+                crono::marca("bucle");
+            }
             if let RunEvent::ExitRequested { api, code, .. } = event {
                 // Sin ventanas abiertas la app sigue en la bandeja, salvo que se pida salir.
                 if code.is_none() {

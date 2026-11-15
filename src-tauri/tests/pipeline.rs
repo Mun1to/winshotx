@@ -229,6 +229,7 @@ fn la_grabacion_en_vivo_entrega_fotogramas_recortados() {
             min_interval_ms: 0,
             start: std::time::Instant::now(),
             reciclados: Default::default(),
+            solo_cambios: false,
         },
     )
     .expect("no se ha podido iniciar la captura");
@@ -289,6 +290,7 @@ fn de_la_pantalla_al_gif_y_al_mp4() {
             min_interval_ms: 0,
             start: std::time::Instant::now(),
             reciclados: Default::default(),
+            solo_cambios: false,
         },
     )
     .expect("no se ha podido iniciar la captura");

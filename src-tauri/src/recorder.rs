@@ -145,6 +145,21 @@ pub(crate) fn bgra_a_rgba_en_sitio(pixeles: &mut [u8]) {
     }
 }
 
+/// Lo mismo, copiando de `origen` a `destino` (del mismo largo) en la misma pasada. Lo usa
+/// el anillo para pegar las zonas que cambian (S29).
+pub(crate) fn bgra_a_rgba_copiando(origen: &[u8], destino: &mut [u8]) {
+    for (o, d) in origen.chunks_exact(4).zip(destino.chunks_exact_mut(4)) {
+        let v = u32::from_le_bytes([o[0], o[1], o[2], o[3]]);
+        d.copy_from_slice(&dar_la_vuelta(v).to_le_bytes());
+    }
+}
+
+/// B y R cambian de sitio; G y A se quedan.
+#[inline(always)]
+fn dar_la_vuelta(v: u32) -> u32 {
+    (v & 0xFF00_FF00) | ((v & 0x0000_00FF) << 16) | ((v >> 16) & 0x0000_00FF)
+}
+
 /// Media Foundation quiere las filas al reves; la captura las entrega derechas.
 ///
 /// Escribe en un buffer que se le presta y se reutiliza fotograma tras fotograma: reservar
@@ -697,6 +712,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         min_interval_ms: 0,
         start: reloj_inicio,
         reciclados,
+        solo_cambios: false,
     };
     let control = match ventana {
         Some(hwnd) => win::start_window(hwnd, false, fps, flags_base)?,
@@ -988,6 +1004,73 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
     let _ = app.emit(EVENT_SESSION_READY, session.id);
 }
 
+/// Las sesiones cuya lista de fotogramas salió hacia el editor SIN miniaturas, y cuándo.
+///
+/// Es para una carrera del editor (S29b): al abrirse pide la lista junto con los ajustes y si
+/// hay ffmpeg, y la guarda cuando han llegado las cuatro cosas. Si la tira termina justo en
+/// ese rato, el aviso le hace pedir la lista otra vez, esa respuesta (con miniaturas) llega
+/// ANTES que la primera, y la primera (sin ellas) la pisa: la tira se queda latiendo para
+/// siempre. En la 0.4.8 pasaba cuando la tira acababa en esos ~200 ms; desde que la tira no
+/// hace una miniatura por fotograma, acaba casi siempre ahí. El arreglo de verdad es de la
+/// página (apuntado para S28); mientras, el aviso se repite en cuanto la página ha guardado
+/// la lista vieja, que es cuando pide `session_studio` (lo pide justo después, con la sesión
+/// ya puesta), y como red, `REPETIR_AVISO_TRAS` después de la respuesta vieja.
+static SIN_MINIATURAS: parking_lot::Mutex<Vec<(String, Instant)>> = parking_lot::Mutex::new(Vec::new());
+
+/// La red: lo que se espera desde una lista sin miniaturas hasta repetir el aviso aunque la
+/// página no haya pedido `session_studio`.
+const REPETIR_AVISO_TRAS: Duration = Duration::from_millis(1500);
+
+/// Lo llama `session_frames` cuando contesta con fotogramas que aún no tienen miniatura.
+pub(crate) fn lista_sin_miniaturas(id: &str) {
+    let mut lista = SIN_MINIATURAS.lock();
+    lista.retain(|(otro, cuando)| otro != id && cuando.elapsed() < Duration::from_secs(60));
+    lista.push((id.to_string(), Instant::now()));
+}
+
+/// Saca la marca de esa sesión, si la había, con la hora de la lista vieja.
+fn quitar_lista_vieja(id: &str) -> Option<Instant> {
+    let mut lista = SIN_MINIATURAS.lock();
+    let cuando = lista.iter().find(|(otro, _)| otro == id).map(|(_, c)| *c);
+    lista.retain(|(otro, _)| otro != id);
+    cuando
+}
+
+/// Cuánto falta para la red: nada si la última lista que salió ya las llevaba.
+fn repetir_aviso_en(salio_sin: Option<Instant>, ahora: Instant) -> Option<Duration> {
+    let salio_sin = salio_sin?;
+    Some((salio_sin + REPETIR_AVISO_TRAS).saturating_duration_since(ahora))
+}
+
+/// Avisa al editor de que la tira está en disco y, si a ese editor ya le salió la lista sin
+/// miniaturas, deja puesta la red (ver `SIN_MINIATURAS`).
+pub(crate) fn avisar_de_la_tira(app: &AppHandle, id: &str) {
+    let _ = app.emit(EVENT_SESSION_THUMBS, id.to_string());
+    let salio_sin = SIN_MINIATURAS.lock().iter().find(|(otro, _)| otro == id).map(|(_, c)| *c);
+    if let Some(espera) = repetir_aviso_en(salio_sin, Instant::now()) {
+        let app = app.clone();
+        let id = id.to_string();
+        std::thread::spawn(move || {
+            std::thread::sleep(espera);
+            if quitar_lista_vieja(&id).is_some() {
+                crate::crono::marca("tira-aviso-de-red");
+                let _ = app.emit(EVENT_SESSION_THUMBS, id);
+            }
+        });
+    }
+}
+
+/// Lo llama `session_studio`: la página ya ha guardado la lista que pidió al abrirse. Si esa
+/// lista salió sin miniaturas y la tira ya está, se le repite el aviso ahora, que ya no la
+/// pisa nada.
+pub(crate) fn la_pagina_tiene_su_lista(app: &AppHandle, session: &SessionData) {
+    let tira_hecha = !session.frames.is_empty() && session.frames.iter().all(|f| !f.thumb_path.is_empty());
+    if tira_hecha && quitar_lista_vieja(&session.id).is_some() {
+        crate::crono::marca("tira-aviso-repetido");
+        let _ = app.emit(EVENT_SESSION_THUMBS, session.id.clone());
+    }
+}
+
 /// Abre una sesión ya guardada (y ya en `state.sessions`) en el editor, y le prepara lo que
 /// espera a tenerlo delante: las miniaturas de la tira y la vista previa si falta. Lo usan
 /// `entregar` y la orden `open` del canal de agentes (S15).
@@ -1002,12 +1085,13 @@ pub(crate) fn al_editor(app: &AppHandle, session: &SessionData) -> Result<()> {
     let mut con_miniaturas = session.clone();
     match record::generate_thumbnails(&mut con_miniaturas) {
         Ok(()) => {
+            crate::crono::marca("miniaturas-hechas");
             let _ = con_miniaturas.persist();
             state
                 .sessions
                 .write()
                 .insert(con_miniaturas.id.clone(), con_miniaturas);
-            let _ = app.emit(EVENT_SESSION_THUMBS, session.id.clone());
+            avisar_de_la_tira(app, &session.id);
         }
         Err(error) => eprintln!("[winshotx] sin miniaturas para la tira: {error}"),
     }
@@ -1459,5 +1543,54 @@ mod pruebas_del_arranque {
         assert!(Arrancando::tomar().is_none(), "una segunda ha arrancado encima de la primera");
         drop(primera);
         assert!(Arrancando::tomar().is_some(), "acabada la primera, ya se puede");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_del_aviso_de_la_tira {
+    use super::*;
+
+    /// Si la lista salió con miniaturas (o no salió), el aviso va una vez y ya.
+    #[test]
+    fn sin_lista_vieja_no_se_repite() {
+        assert_eq!(repetir_aviso_en(None, Instant::now()), None);
+    }
+
+    /// Si salió sin ellas hace nada, se repite cuando la respuesta vieja ya ha llegado seguro.
+    #[test]
+    fn con_una_lista_vieja_reciente_se_repite_despues() {
+        let ahora = Instant::now();
+        let espera = repetir_aviso_en(Some(ahora), ahora).expect("se repite");
+        assert_eq!(espera, REPETIR_AVISO_TRAS);
+        let espera = repetir_aviso_en(Some(ahora), ahora + Duration::from_millis(400)).unwrap();
+        assert_eq!(espera, REPETIR_AVISO_TRAS - Duration::from_millis(400));
+    }
+
+    /// Y si salió hace mucho, se repite ya, sin esperar.
+    #[test]
+    fn con_una_lista_vieja_antigua_se_repite_ya() {
+        let antes = Instant::now();
+        let espera = repetir_aviso_en(Some(antes), antes + Duration::from_secs(5)).unwrap();
+        assert_eq!(espera, Duration::ZERO);
+    }
+
+    /// La marca se saca una sola vez: el aviso repetido y la red no avisan los dos.
+    #[test]
+    fn la_lista_vieja_se_recoge_una_vez() {
+        lista_sin_miniaturas("s29b-c");
+        assert!(quitar_lista_vieja("s29b-c").is_some());
+        assert!(quitar_lista_vieja("s29b-c").is_none());
+    }
+
+    /// Lo que apunta `session_frames` lo recoge el aviso de ESA sesión, y solo una vez.
+    #[test]
+    fn la_lista_sin_miniaturas_se_apunta_por_sesion() {
+        lista_sin_miniaturas("s29b-a");
+        lista_sin_miniaturas("s29b-b");
+        let de = |id: &str| SIN_MINIATURAS.lock().iter().filter(|(o, _)| o == id).count();
+        assert_eq!(de("s29b-a"), 1);
+        lista_sin_miniaturas("s29b-a");
+        assert_eq!(de("s29b-a"), 1, "la misma sesión se apunta una vez, con la hora de la última");
+        SIN_MINIATURAS.lock().retain(|(o, _)| o != "s29b-a" && o != "s29b-b");
     }
 }

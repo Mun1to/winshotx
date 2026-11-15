@@ -236,6 +236,127 @@ pub fn aplicar(destino: &mut [u8], width: u32, parche: Parche, pixeles: &[u8]) {
     }
 }
 
+/// Como `zonas_cambiadas`, pero mirando SOLO dentro de `pistas`: quien llama sabe que fuera
+/// de ellas no ha cambiado nada (se lo ha dicho Windows, ver `win::CapturedFrame::zonas`).
+///
+/// **Por que existe (S29).** Comparar dos fotogramas de 1920x1080 enteros son 16 MB leidos
+/// por fotograma, y el anillo lo hacia sesenta veces por segundo para encontrar el cursor.
+/// Con las pistas se lee lo que mide el cursor. Cada pista se ajusta a lo que de verdad
+/// cambio (Windows da rectangulos generosos: una ventana repintada con lo mismo, por
+/// ejemplo) y las que no cambiaron nada se tiran; el resultado se junta hasta `ZONAS_MAX`.
+///
+/// Lo que se promete es lo mismo que `zonas_cambiadas`: todo pixel distinto queda dentro de
+/// alguna zona, y si no hay ninguno distinto, la lista sale vacia.
+pub fn zonas_cambiadas_en(anterior: &[u8], actual: &[u8], width: u32, height: u32, pistas: &[Parche]) -> Vec<Parche> {
+    let ancho = width as usize;
+    let alto = height as usize;
+    let fila = ancho * CANALES;
+    if anterior.len() != actual.len() || anterior.len() < fila * alto || ancho == 0 {
+        return vec![Parche { x: 0, y: 0, width, height }];
+    }
+    let mut zonas = Vec::with_capacity(pistas.len());
+    for pista in pistas {
+        let x1 = (pista.x as usize).min(ancho);
+        let x2 = (pista.x as usize + pista.width as usize).min(ancho);
+        let y1 = (pista.y as usize).min(alto);
+        let y2 = (pista.y as usize + pista.height as usize).min(alto);
+        if x1 >= x2 || y1 >= y2 {
+            continue;
+        }
+        let tramo = |y: usize| (y * fila + x1 * CANALES)..(y * fila + x2 * CANALES);
+        let distinta = |y: usize| anterior[tramo(y)] != actual[tramo(y)];
+        let Some(primera) = (y1..y2).find(|&y| distinta(y)) else {
+            continue;
+        };
+        let ultima = (primera..y2).rev().find(|&y| distinta(y)).unwrap_or(primera);
+        let (mut izquierda, mut derecha) = (x2, x1);
+        for y in primera..=ultima {
+            let a = &anterior[tramo(y)];
+            let b = &actual[tramo(y)];
+            if a == b {
+                continue;
+            }
+            // Comparando pixeles enteros como u32: es una comparacion por pixel y no cuatro.
+            let pixel = |s: &[u8], i: usize| u32::from_ne_bytes([s[i * 4], s[i * 4 + 1], s[i * 4 + 2], s[i * 4 + 3]]);
+            let n = x2 - x1;
+            if let Some(i) = (0..n).find(|&i| pixel(a, i) != pixel(b, i)) {
+                izquierda = izquierda.min(x1 + i);
+            }
+            if let Some(i) = (0..n).rev().find(|&i| pixel(a, i) != pixel(b, i)) {
+                derecha = derecha.max(x1 + i);
+            }
+        }
+        zonas.push(Parche {
+            x: izquierda as u32,
+            y: primera as u32,
+            width: (derecha + 1 - izquierda) as u32,
+            height: (ultima + 1 - primera) as u32,
+        });
+    }
+    juntar_zonas(&mut zonas, ZONAS_MAX);
+    zonas
+}
+
+/// Donde empiezan los pixeles de cada zona cuando van varias una detras de otra, fila a
+/// fila (es lo que manda la captura con `win::CaptureFlags::solo_cambios`).
+pub fn trozos_de_zonas(zonas: &[Parche]) -> impl Iterator<Item = (Parche, std::ops::Range<usize>)> + '_ {
+    let mut desde = 0usize;
+    zonas.iter().map(move |z| {
+        let largo = z.pixeles() as usize * CANALES;
+        let tramo = desde..desde + largo;
+        desde += largo;
+        (*z, tramo)
+    })
+}
+
+/// Junta rectangulos hasta que no se solapen ni se toquen y no pasen de `max`, uniendo
+/// cada vez el par que menos area de mas anade. El resultado cubre todo lo que cubrian.
+pub fn juntar_zonas(zonas: &mut Vec<Parche>, max: usize) {
+    fn union(a: &Parche, b: &Parche) -> Parche {
+        let (x1, y1) = (a.x.min(b.x), a.y.min(b.y));
+        let (x2, y2) = ((a.x + a.width).max(b.x + b.width), (a.y + a.height).max(b.y + b.height));
+        Parche { x: x1, y: y1, width: x2 - x1, height: y2 - y1 }
+    }
+    fn se_tocan(a: &Parche, b: &Parche) -> bool {
+        a.x <= b.x + b.width && b.x <= a.x + a.width && a.y <= b.y + b.height && b.y <= a.y + a.height
+    }
+    zonas.retain(|z| z.width > 0 && z.height > 0);
+    loop {
+        // Primero las que se solapan o se tocan: copiar dos veces el mismo pixel no sirve.
+        let mut juntadas = true;
+        while juntadas {
+            juntadas = false;
+            'fuera: for i in 0..zonas.len() {
+                for j in i + 1..zonas.len() {
+                    if se_tocan(&zonas[i], &zonas[j]) {
+                        zonas[i] = union(&zonas[i], &zonas[j]);
+                        zonas.swap_remove(j);
+                        juntadas = true;
+                        break 'fuera;
+                    }
+                }
+            }
+        }
+        if zonas.len() <= max.max(1) {
+            break;
+        }
+        let mut mejor = (0, 1, u64::MAX);
+        for i in 0..zonas.len() {
+            for j in i + 1..zonas.len() {
+                let de_mas = union(&zonas[i], &zonas[j])
+                    .pixeles()
+                    .saturating_sub(zonas[i].pixeles() + zonas[j].pixeles());
+                if de_mas < mejor.2 {
+                    mejor = (i, j, de_mas);
+                }
+            }
+        }
+        let (i, j, _) = mejor;
+        zonas[i] = union(&zonas[i], &zonas[j]);
+        zonas.swap_remove(j);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -404,6 +525,79 @@ mod tests {
         let mut reconstruido = a.clone();
         aplicar(&mut reconstruido, 9, parche, &recortar(&b, 9, parche));
         assert_eq!(reconstruido, b);
+    }
+
+    /// Un generador de numeros de mentira, el mismo en cada vuelta.
+    fn azar(s: &mut u32) -> u32 {
+        *s = s.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        *s >> 8
+    }
+
+    /// S29, lo que no se puede negociar de las pistas: TODO pixel distinto queda dentro de
+    /// alguna zona, con pistas holgadas (como las da Windows) y con pistas que no cambiaron
+    /// nada; y nunca mas de `ZONAS_MAX`.
+    #[test]
+    fn con_pistas_no_se_escapa_ningun_pixel() {
+        let (w, h) = (97u32, 61u32);
+        let mut s = 7u32;
+        for vuelta in 0..300 {
+            let a: Vec<u8> = (0..w * h * 4).map(|_| azar(&mut s) as u8).collect();
+            let mut b = a.clone();
+            let mut pistas = Vec::new();
+            for _ in 0..(1 + azar(&mut s) % 7) {
+                let (x, y) = (azar(&mut s) % w, azar(&mut s) % h);
+                let (pw, ph) = (1 + azar(&mut s) % 20, 1 + azar(&mut s) % 20);
+                let (pw, ph) = (pw.min(w - x), ph.min(h - y));
+                // Algunos pixeles de dentro cambian (a veces ninguno: una ventana repintada
+                // con lo mismo).
+                if vuelta % 5 != 0 {
+                    for _ in 0..(1 + azar(&mut s) % 4) {
+                        let (cx, cy) = (x + azar(&mut s) % pw, y + azar(&mut s) % ph);
+                        pintar(&mut b, w, cx, cy, [azar(&mut s) as u8, 1, 2, 255]);
+                    }
+                }
+                // La pista es mas grande de la cuenta, como las de Windows.
+                let (px, py) = (x.saturating_sub(3), y.saturating_sub(2));
+                pistas.push(Parche { x: px, y: py, width: (pw + 6).min(w - px), height: (ph + 4).min(h - py) });
+            }
+            let zonas = zonas_cambiadas_en(&a, &b, w, h, &pistas);
+            assert!(zonas.len() <= ZONAS_MAX, "{} zonas", zonas.len());
+            let mut reconstruido = a.clone();
+            for z in &zonas {
+                aplicar(&mut reconstruido, w, *z, &recortar(&b, w, *z));
+            }
+            assert_eq!(reconstruido, b, "vuelta {vuelta}: un pixel cambiado se ha quedado fuera: {zonas:?}");
+            if a == b {
+                assert!(zonas.is_empty(), "sin cambios no puede haber zonas: {zonas:?}");
+            }
+        }
+    }
+
+    /// Y juntar zonas cubre todo lo que cubrian, sin solapes y sin pasar del maximo.
+    #[test]
+    fn juntar_zonas_cubre_todo_sin_solaparse() {
+        let mut s = 3u32;
+        for _ in 0..200 {
+            let originales: Vec<Parche> = (0..(1 + azar(&mut s) % 30))
+                .map(|_| Parche { x: azar(&mut s) % 500, y: azar(&mut s) % 300, width: 1 + azar(&mut s) % 60, height: 1 + azar(&mut s) % 40 })
+                .collect();
+            let mut zonas = originales.clone();
+            let max = 1 + (azar(&mut s) % 8) as usize;
+            juntar_zonas(&mut zonas, max);
+            assert!(zonas.len() <= max);
+            for o in &originales {
+                assert!(
+                    zonas.iter().any(|z| z.x <= o.x && z.y <= o.y && o.x + o.width <= z.x + z.width && o.y + o.height <= z.y + z.height),
+                    "{o:?} no queda dentro de ninguna de {zonas:?}"
+                );
+            }
+            for (i, a) in zonas.iter().enumerate() {
+                for b in &zonas[i + 1..] {
+                    let solapan = a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+                    assert!(!solapan, "{a:?} y {b:?} se solapan");
+                }
+            }
+        }
     }
 
     /// Una fila entera cambiada, que es lo que pasa al desplazar una lista.

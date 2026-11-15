@@ -94,6 +94,397 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Version {
+        /// La 0.4.8: textura nueva y lectura entera en cada fotograma, colores dados la
+        /// vuelta enteros y comparacion entera (`viejo_s29`).
+        Vieja,
+        /// S29: textura guardada, comparar en la GPU, solo las zonas que cambian,
+        /// `ImagenDelAnillo`.
+        Nueva,
+    }
+
+    /// Que se graba: la pantalla de mentira (sin tocar la de nadie) o una pantalla de verdad.
+    #[derive(Clone, Copy, Debug)]
+    enum Fuente {
+        Mentira(crate::record::banco_ventana::Escena),
+        /// La pantalla con ese id (`capture::monitors`).
+        Pantalla(u32),
+    }
+
+    struct Medida {
+        cpu: f64,
+        recibidos: u64,
+        con_zonas: u64,
+        guardados: u64,
+        bytes: u64,
+    }
+
+    /// El anillo a 60 fps y alto nativo, como lo tiene Munito, grabando la fuente durante
+    /// `segundos`. Devuelve la CPU del proceso en nucleos, ya restado lo que gasta el pintor
+    /// de la pantalla de mentira.
+    #[allow(non_snake_case)]
+    fn correr_el_anillo(fuente: Fuente, version: Version, segundos: u64) -> Medida {
+        use crate::record::banco_ventana::Pantalla;
+        use crate::record::buffer::ImagenDelAnillo;
+        use crate::record::win::{self, CaptureFlags, CapturedFrame};
+
+        let (pantalla, monitor) = match fuente {
+            Fuente::Mentira(escena) => (Some(Pantalla::abrir(escena)), None),
+            Fuente::Pantalla(id) => (
+                None,
+                Some(
+                    crate::capture::monitors()
+                        .unwrap()
+                        .into_iter()
+                        .find(|m| m.id == id)
+                        .expect("no hay pantalla con ese id"),
+                ),
+            ),
+        };
+        let region = match &monitor {
+            Some(m) => Rect { x: m.x, y: m.y, width: m.width, height: m.height }.to_even(),
+            None => Rect {
+                x: 0,
+                y: 0,
+                width: crate::record::banco_ventana::ANCHO,
+                height: crate::record::banco_ventana::ALTO,
+            },
+        };
+        let (ANCHO, ALTO) = (region.width, region.height);
+        let fps = 60u32;
+        let dir = std::env::temp_dir().join(format!("winshotx-s29-anillo-{version:?}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut anillo = Anillo::nuevo(&dir, 60_000, fps, crate::record::buffer::bytes_max(60, fps, ANCHO, ALTO)).unwrap();
+        let reciclados = win::Reciclados::default();
+        let (sender, receiver) = std::sync::mpsc::channel::<CapturedFrame>();
+        let stop = Arc::new(AtomicBool::new(false));
+        let flags = CaptureFlags {
+            sender,
+            crop: (0, 0, 0, 0),
+            stop: stop.clone(),
+            pause: Arc::new(AtomicBool::new(false)),
+            paused_ms: Arc::new(AtomicU64::new(0)),
+            min_interval_ms: 0,
+            start: Instant::now(),
+            reciclados: reciclados.clone(),
+            solo_cambios: version == Version::Nueva,
+        };
+        enum Control {
+            Vieja(crate::record::viejo_s29::Control),
+            Nueva(win::Control),
+        }
+        let control = match (version, &pantalla, &monitor) {
+            (Version::Vieja, Some(p), _) => {
+                Control::Vieja(crate::record::viejo_s29::start_window(p.hwnd, ANCHO, ALTO, true, fps, flags))
+            }
+            (Version::Nueva, Some(p), _) => Control::Nueva(win::start_window(p.hwnd, true, fps, flags).expect("no arranca")),
+            (Version::Vieja, None, Some(m)) => {
+                Control::Vieja(crate::record::viejo_s29::start(region, (m.x, m.y), true, fps, flags))
+            }
+            (Version::Nueva, None, Some(m)) => {
+                Control::Nueva(win::start(region, (m.x, m.y), true, fps, flags).expect("no arranca"))
+            }
+            _ => unreachable!(),
+        };
+        let mut imagen = ImagenDelAnillo::nueva(ANCHO, ALTO, None);
+        let mut m = Medida { cpu: 0.0, recibidos: 0, con_zonas: 0, guardados: 0, bytes: 0 };
+
+        // Lo mismo que hace `replay::Cocina::trabajar` con cada tanda, en las dos versiones.
+        let mut tragar = |primero: CapturedFrame, anillo: &mut Anillo, m: &mut Medida| {
+            let mut lote = vec![primero];
+            while let Ok(siguiente) = receiver.try_recv() {
+                lote.push(siguiente);
+            }
+            m.recibidos += lote.len() as u64;
+            m.con_zonas += lote.iter().filter(|f| f.zonas.is_some()).count() as u64;
+            let ts = lote.last().map(|f| f.ts_ms).unwrap_or(0);
+            let _ = crate::record::raton::cursor();
+            match version {
+                Version::Vieja => {
+                    // La 0.4.8: se queda con el ultimo y tira los demas.
+                    let ultimo = lote.pop().unwrap();
+                    for f in lote {
+                        reciclados.devolver(f.bgra);
+                    }
+                    let mut rgba = ultimo.bgra;
+                    crate::record::viejo_s29::bgra_a_rgba_en_sitio(&mut rgba);
+                    if anillo.empujar(&rgba, ANCHO, ALTO, ts).unwrap_or(false) {
+                        m.guardados += 1;
+                    }
+                    reciclados.devolver(rgba);
+                }
+                Version::Nueva => {
+                    let desde = lote.iter().rposition(|f| f.zonas.is_none()).unwrap_or(0);
+                    for (i, f) in lote.into_iter().enumerate() {
+                        let bufer = if i < desde { f.bgra } else { imagen.recibir(f.bgra, f.zonas) };
+                        reciclados.devolver(bufer);
+                    }
+                    if imagen.guardar(anillo, ts).unwrap_or(false) {
+                        m.guardados += 1;
+                    }
+                }
+            }
+        };
+
+        let calentando = Instant::now();
+        while calentando.elapsed() < Duration::from_secs(1) {
+            if let Ok(f) = receiver.recv_timeout(Duration::from_millis(50)) {
+                let mut basura = Medida { cpu: 0.0, recibidos: 0, con_zonas: 0, guardados: 0, bytes: 0 };
+                tragar(f, &mut anillo, &mut basura);
+            }
+        }
+        let bytes0 = anillo.escritos();
+        let cpu0 = cpu_del_proceso();
+        let pintor = || pantalla.as_ref().map_or(Duration::ZERO, Pantalla::cpu_pintor);
+        let pintor0 = pintor();
+        let t0 = Instant::now();
+        while t0.elapsed() < Duration::from_secs(segundos) {
+            if let Ok(f) = receiver.recv_timeout(Duration::from_millis(50)) {
+                tragar(f, &mut anillo, &mut m);
+            }
+        }
+        let real = t0.elapsed().as_secs_f64();
+        let cpu = (cpu_del_proceso() - cpu0).as_secs_f64() - (pintor() - pintor0).as_secs_f64();
+        m.cpu = cpu / real;
+        m.bytes = anillo.escritos() - bytes0;
+        stop.store(true, Ordering::Relaxed);
+        match control {
+            Control::Vieja(c) => {
+                let _ = c.stop();
+            }
+            Control::Nueva(c) => {
+                let _ = c.stop();
+            }
+        }
+        while receiver.try_recv().is_ok() {}
+        anillo.limpiar();
+        m
+    }
+
+    /// **S29: lo que gasta el anillo antes y despues, sin grabar la pantalla de nadie.**
+    ///
+    /// Las dos versiones graban la misma pantalla de mentira (`banco_ventana`, fuera de las
+    /// pantallas) a 60 fps y alto nativo, por turnos y tres tandas, por el ruido del PC.
+    ///
+    ///     cargo test --release --lib medir_antes_y_despues -- --ignored --nocapture --test-threads=1
+    #[test]
+    #[ignore = "abre una ventana FUERA de las pantallas y la graba; es una medida"]
+    fn medir_antes_y_despues_sin_pantalla() {
+        use crate::record::banco_ventana::Escena;
+        let segundos = std::env::var("WINSHOTX_SEGUNDOS").ok().and_then(|s| s.parse().ok()).unwrap_or(5);
+        println!(
+            "{:<10} {:<6} {:>6} {:>9} {:>9} {:>9} {:>10}",
+            "escena", "vers.", "tanda", "nucleos", "recib/s", "guard/s", "KB/s disco"
+        );
+        for escena in [Escena::Quieta, Escena::Parpadeo, Escena::Raton, Escena::Video, Escena::Todo] {
+            for tanda in 1..=3 {
+                for version in [Version::Vieja, Version::Nueva] {
+                    let m = correr_el_anillo(Fuente::Mentira(escena), version, segundos);
+                    let s = segundos as f64;
+                    println!(
+                        "{:<10} {:<6} {:>6} {:>9.3} {:>9.1} {:>9.1} {:>10.0}   (con zonas: {})",
+                        format!("{escena:?}"),
+                        format!("{version:?}"),
+                        tanda,
+                        m.cpu,
+                        m.recibidos as f64 / s,
+                        m.guardados as f64 / s,
+                        m.bytes as f64 / 1024.0 / s,
+                        m.con_zonas
+                    );
+                }
+            }
+        }
+    }
+
+    /// **S29: que leer solo las zonas no pierde ni un pixel.** Cada fotograma leido por
+    /// zonas se lee tambien entero y se compara (ver `win::verificacion`), en todas las
+    /// escenas de la pantalla de mentira.
+    ///
+    ///     cargo test --release --lib verificar_las_zonas_sin_pantalla -- --ignored --nocapture
+    #[test]
+    #[ignore = "abre una ventana FUERA de las pantallas y la graba"]
+    fn verificar_las_zonas_sin_pantalla() {
+        use crate::record::banco_ventana::Escena;
+        use crate::record::win::verificacion;
+        verificacion::ACTIVA.store(true, Ordering::Relaxed);
+        let mut todo_bien = true;
+        for escena in [Escena::Parpadeo, Escena::Raton, Escena::Video, Escena::Todo] {
+            verificacion::reiniciar();
+            let m = correr_el_anillo(Fuente::Mentira(escena), Version::Nueva, 4);
+            let (mirados, malos, pixeles) = (
+                verificacion::MIRADOS.load(Ordering::Relaxed),
+                verificacion::MALOS.load(Ordering::Relaxed),
+                verificacion::PIXELES_MALOS.load(Ordering::Relaxed),
+            );
+            println!(
+                "{escena:?}: {mirados} fotogramas por zonas comparados con el entero, {malos} distintos ({pixeles} pixeles); {} recibidos",
+                m.recibidos
+            );
+            todo_bien &= malos == 0 && mirados > 0;
+        }
+        verificacion::ACTIVA.store(false, Ordering::Relaxed);
+        assert!(todo_bien, "leer por zonas ha perdido pixeles, o no se ha leido ninguno por zonas");
+    }
+
+    /// La pantalla de verdad que se mide: `WINSHOTX_PANTALLA=<id>` o la principal.
+    fn pantalla_de_verdad() -> u32 {
+        let monitores = crate::capture::monitors().unwrap();
+        for m in &monitores {
+            println!(
+                "pantalla {}: «{}» {}x{} en ({}, {}){}",
+                m.id,
+                m.label,
+                m.width,
+                m.height,
+                m.x,
+                m.y,
+                if m.is_primary { " principal" } else { "" }
+            );
+        }
+        std::env::var("WINSHOTX_PANTALLA")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or_else(|| monitores.iter().find(|m| m.is_primary).map_or(0, |m| m.id))
+    }
+
+    /// **S29, con su pantalla y su permiso:** lo mismo que `verificar_las_zonas_sin_pantalla`
+    /// pero sobre una pantalla de verdad, con su raton y lo que tenga delante. Graba en
+    /// memoria; no guarda nada fuera de la carpeta temporal y la borra.
+    ///
+    ///     WINSHOTX_PANTALLA=<id> WINSHOTX_SEGUNDOS=30 cargo test --release --lib verificar_las_zonas_en_pantalla -- --ignored --nocapture
+    #[test]
+    #[ignore = "graba una pantalla de verdad: solo con permiso de quien esta delante"]
+    fn verificar_las_zonas_en_pantalla() {
+        use crate::record::win::verificacion;
+        let id = pantalla_de_verdad();
+        let segundos = std::env::var("WINSHOTX_SEGUNDOS").ok().and_then(|s| s.parse().ok()).unwrap_or(30);
+        verificacion::reiniciar();
+        verificacion::ACTIVA.store(true, Ordering::Relaxed);
+        let m = correr_el_anillo(Fuente::Pantalla(id), Version::Nueva, segundos);
+        verificacion::ACTIVA.store(false, Ordering::Relaxed);
+        let (mirados, malos, pixeles) = (
+            verificacion::MIRADOS.load(Ordering::Relaxed),
+            verificacion::MALOS.load(Ordering::Relaxed),
+            verificacion::PIXELES_MALOS.load(Ordering::Relaxed),
+        );
+        println!(
+            "pantalla {id}, {segundos} s: {} recibidos ({} por zonas); {mirados} comparados con el entero, {malos} distintos ({pixeles} pixeles)",
+            m.recibidos, m.con_zonas
+        );
+        assert_eq!(malos, 0, "leer por zonas ha perdido pixeles en la pantalla de verdad");
+    }
+
+    /// **S29, con su pantalla y su permiso:** antes y despues con lo que tenga delante, por
+    /// turnos de `WINSHOTX_SEGUNDOS` (10) y `WINSHOTX_TANDAS` (4) tandas, para que los dos
+    /// vean lo mismo de media.
+    ///
+    ///     WINSHOTX_PANTALLA=<id> cargo test --release --lib medir_antes_y_despues_en_pantalla -- --ignored --nocapture
+    #[test]
+    #[ignore = "graba una pantalla de verdad: solo con permiso de quien esta delante"]
+    fn medir_antes_y_despues_en_pantalla() {
+        let id = pantalla_de_verdad();
+        let segundos = std::env::var("WINSHOTX_SEGUNDOS").ok().and_then(|s| s.parse().ok()).unwrap_or(10);
+        let tandas = std::env::var("WINSHOTX_TANDAS").ok().and_then(|s| s.parse().ok()).unwrap_or(4);
+        let mut suma = [0f64; 2];
+        for tanda in 1..=tandas {
+            for (i, version) in [Version::Vieja, Version::Nueva].into_iter().enumerate() {
+                let m = correr_el_anillo(Fuente::Pantalla(id), version, segundos);
+                suma[i] += m.cpu;
+                println!(
+                    "tanda {tanda} {version:?}: {:.3} nucleos, {:.1} recibidos/s, {:.1} guardados/s, {:.0} KB/s, con zonas {}",
+                    m.cpu,
+                    m.recibidos as f64 / segundos as f64,
+                    m.guardados as f64 / segundos as f64,
+                    m.bytes as f64 / 1024.0 / segundos as f64,
+                    m.con_zonas
+                );
+            }
+        }
+        println!("media: vieja {:.3} nucleos, nueva {:.3}", suma[0] / tandas as f64, suma[1] / tandas as f64);
+    }
+
+    /// S29: que entrega Windows grabando la pantalla de mentira de `banco_ventana`, fuera de
+    /// las pantallas: cuantos fotogramas, y que zonas dice que cambiaron en cada uno.
+    ///
+    ///     cargo test --release --lib sondear_las_zonas -- --ignored --nocapture
+    #[test]
+    #[ignore = "abre una ventana FUERA de las pantallas y la graba unos segundos"]
+    fn sondear_las_zonas_sucias() {
+        use crate::record::banco_ventana::{Escena, Pantalla};
+        use windows_capture::capture::{Context, GraphicsCaptureApiHandler};
+        use windows_capture::frame::Frame;
+        use windows_capture::graphics_capture_api::{GraphicsCaptureApi, InternalCaptureControl};
+        use windows_capture::settings::{
+            ColorFormat, CursorCaptureSettings, DirtyRegionSettings, DrawBorderSettings,
+            MinimumUpdateIntervalSettings, SecondaryWindowSettings, Settings,
+        };
+
+        println!(
+            "zonas sucias: {:?}; intervalo minimo: {:?}",
+            GraphicsCaptureApi::is_dirty_region_supported(),
+            GraphicsCaptureApi::is_minimum_update_interval_supported()
+        );
+
+        struct Sonda {
+            vistos: Arc<parking_lot::Mutex<Vec<(u32, u32, Vec<(i32, i32, i32, i32)>)>>>,
+        }
+        impl GraphicsCaptureApiHandler for Sonda {
+            type Flags = Arc<parking_lot::Mutex<Vec<(u32, u32, Vec<(i32, i32, i32, i32)>)>>>;
+            type Error = Box<dyn std::error::Error + Send + Sync>;
+            fn new(ctx: Context<Self::Flags>) -> std::result::Result<Self, Self::Error> {
+                Ok(Self { vistos: ctx.flags })
+            }
+            fn on_frame_arrived(
+                &mut self,
+                frame: &mut Frame,
+                _control: InternalCaptureControl,
+            ) -> std::result::Result<(), Self::Error> {
+                let zonas = frame
+                    .dirty_regions()
+                    .map(|v| v.into_iter().map(|r| (r.x, r.y, r.width, r.height)).collect())
+                    .unwrap_or_default();
+                if self.vistos.lock().is_empty() {
+                    let b = frame.buffer()?;
+                    let mut apoyo = Vec::new();
+                    let px = b.as_nopadding_buffer(&mut apoyo);
+                    // (100, 200) es fondo de degradado; (100, 70) es una ventana blanca.
+                    let ver = |x: usize, y: usize| {
+                        let p = (y * 1920 + x) * 4;
+                        px[p..p + 4].to_vec()
+                    };
+                    println!("   pixel (10,1000) = {:?}; (100,70) = {:?}", ver(10, 1000), ver(100, 70));
+                }
+                self.vistos.lock().push((frame.width(), frame.height(), zonas));
+                Ok(())
+            }
+        }
+
+        for escena in [Escena::Quieta, Escena::Parpadeo, Escena::Raton, Escena::Todo] {
+            let pantalla = Pantalla::abrir(escena);
+            let vistos = Arc::new(parking_lot::Mutex::new(Vec::new()));
+            let settings = Settings::new(
+                windows_capture::window::Window::from_raw_hwnd(pantalla.hwnd as *mut core::ffi::c_void),
+                CursorCaptureSettings::WithCursor,
+                DrawBorderSettings::WithoutBorder,
+                SecondaryWindowSettings::Default,
+                MinimumUpdateIntervalSettings::Default,
+                DirtyRegionSettings::ReportOnly,
+                ColorFormat::Bgra8,
+                vistos.clone(),
+            );
+            let control = Sonda::start_free_threaded(settings).expect("no arranca la captura");
+            std::thread::sleep(Duration::from_secs(2));
+            let _ = control.stop();
+            let v = vistos.lock();
+            println!("== {escena:?}: {} fotogramas en 2 s, {} vueltas pintadas", v.len(), pantalla.vueltas.load(Ordering::Relaxed));
+            for (w, h, zonas) in v.iter().take(6) {
+                println!("   {w}x{h} zonas {zonas:?}");
+            }
+        }
+    }
+
     /// Cada etapa del camino de un fotograma, cronometrada aparte, en dos escenarios: el
     /// raton moviendose sobre un escritorio quieto (lo normal toda la tarde) y una pantalla
     /// que cambia entera en cada fotograma (una partida, el peor caso).
@@ -370,6 +761,7 @@ mod tests {
                     min_interval_ms: 0,
                     start: Instant::now(),
                     reciclados: reciclados.clone(),
+                    solo_cambios: false,
                 },
             )
             .expect("no ha arrancado la captura");
