@@ -185,11 +185,29 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const hueco = useRef<HTMLDivElement>(null);
   const [medidaDelHueco, setMedidaDelHueco] = useState({ width: 0, height: 0 });
 
+  /**
+   * Las listas de fotogramas, por turno: la que se PIDIÓ después manda, llegue cuando llegue.
+   *
+   * Se piden dos veces: al abrir (junto con los ajustes y ffmpeg, que tardan unos 200 ms) y
+   * cuando Rust avisa de que la tira ya está (`sessionThumbs`). Si la tira acaba en esos
+   * 200 ms, la lista nueva, con sus miniaturas, llega ANTES que la del arranque, y la del
+   * arranque, sin miniaturas, la pisaba: la tira se quedaba latiendo para siempre (S29b). El
+   * aviso repetido de Rust (`recorder::avisar_de_la_tira`) se queda como red.
+   */
+  const turnoPedido = useRef(0);
+  const turnoPuesto = useRef(0);
+  const ponerFotogramas = useCallback((turno: number, lista: FrameMeta[]) => {
+    if (turno < turnoPuesto.current) return;
+    turnoPuesto.current = turno;
+    setFrames(lista);
+  }, []);
+
   useEffect(() => {
     if (!sessionId) {
       setError(t("Falta el identificador de sesión"));
       return;
     }
+    const turno = ++turnoPedido.current;
     Promise.all([
       sessionInfo(sessionId),
       sessionFrames(sessionId),
@@ -198,7 +216,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     ])
       .then(([info, frameList, config, ffmpeg]) => {
         setSession(info);
-        setFrames(frameList);
+        ponerFotogramas(turno, frameList);
         setSettings(config);
         setHasFfmpeg(ffmpeg);
         setHastaMs(duracionDe(frameList));
@@ -687,12 +705,15 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     const unlisten = listen<string>(EVENTS.sessionThumbs, (e) => {
       if (e.payload !== sessionId) return;
-      void sessionFrames(sessionId).then(setFrames).catch(() => undefined);
+      const turno = ++turnoPedido.current;
+      void sessionFrames(sessionId)
+        .then((lista) => ponerFotogramas(turno, lista))
+        .catch(() => undefined);
     });
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [sessionId]);
+  }, [sessionId, ponerFotogramas]);
   // Sin MP4 la vista previa es una imagen: la miniatura de 80 px se veria borrosa,
   // asi que se pide el fotograma entero y se sustituye en cuanto llega.
   const [stillPath, setStillPath] = useState<string | null>(null);
