@@ -102,6 +102,7 @@ incluidas las cinco que gana la de Windows.
 | <kbd>T</kbd> | Copiar el texto de la selección, leído por el lector de Windows |
 | <kbd>G</kbd> / <kbd>V</kbd> | Grabar la selección como GIF / vídeo |
 | <kbd>W</kbd> | Grabar **solo la ventana de debajo del cursor**, aunque algo la tape |
+| <kbd>X</kbd> | Fijar la proporción del recorte: libre, 16:9, 1:1, 9:16 o 4:3, una por pulsación |
 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | Seleccionar el monitor entero |
 | <kbd>←↑>↓</kbd> | Mover la selección · con `Shift` de 10 en 10 · con `Alt` redimensiona |
 | <kbd>Esc</kbd> | Cancelar |

@@ -103,6 +103,7 @@ has the nineteen rows, including the five the Snipping Tool wins.
 | <kbd>C</kbd> | Copy the colour under the cursor, the one the loupe is showing |
 | <kbd>G</kbd> / <kbd>V</kbd> | Record the selection as GIF / video |
 | <kbd>W</kbd> | Record **only the window under the cursor**, even when something covers it |
+| <kbd>X</kbd> | Lock the crop to an aspect ratio: free, 16:9, 1:1, 9:16 or 4:3, one per press |
 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | Select the whole monitor |
 | <kbd>←↑>↓</kbd> | Move the selection · `Shift` for steps of 10 · `Alt` resizes |
 | <kbd>Esc</kbd> | Cancel |
