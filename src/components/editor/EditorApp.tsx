@@ -31,6 +31,7 @@ import {
   type StudioData,
 } from "../../lib/types";
 import { BarraAnotar } from "./BarraAnotar";
+import { TECLA_COPIAR_TEXTO, TECLA_TAPAR_DATOS, herramientaDeTecla } from "./teclas";
 import { CapaAnotaciones } from "./CapaAnotaciones";
 import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
@@ -603,16 +604,23 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         // caiga en ninguna otra rama.
         e.preventDefault();
         cambiarMarcas({ tipo: "deshacer" });
+      } else if (e.key === "Delete" && e.shiftKey) {
+        // Mayús+Supr quita todas, como el botón de la X; se deshace con Ctrl+Z.
+        e.preventDefault();
+        cambiarMarcas({ tipo: "borrarTodo" });
       } else if ((e.key === "Delete" || e.key === "Backspace") && marcas.elegida !== null) {
         // Supr borra lo elegido, y la tecla de borrar también, como en cualquier editor.
         e.preventDefault();
         cambiarMarcas({ tipo: "borrar", indice: marcas.elegida });
-      } else if (key >= "1" && key <= "6" && !e.ctrlKey) {
-        // Las seis herramientas de anotar, en el orden en que están en la barra.
-        const cual = (["arrow", "box", "text", "highlight", "step", "blur"] as Herramienta[])[
-          Number(key) - 1
-        ];
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && herramientaDeTecla(key)) {
+        // Cada herramienta de la barra con su tecla, la que dice al pasar el ratón (`teclas.ts`).
+        const cual = herramientaDeTecla(key);
         setHerramienta((puesta) => (puesta === cual ? null : cual));
+        if (cual) setRecortando(false);
+      } else if (key === TECLA_COPIAR_TEXTO.toLowerCase() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        void copiarTexto();
+      } else if (key === TECLA_TAPAR_DATOS.toLowerCase() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        void taparDatos();
       } else if (key === "c" && !e.ctrlKey && !e.metaKey) {
         // La otra mitad de recortar: A y B recortan el tiempo, esto recorta el espacio.
         setRecortando((puesto) => !puesto);
@@ -646,7 +654,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     // `recortando`, `herramienta` y lo elegido entran aqui porque Escape los mira: sin ellos el
   // manejador se queda con la foto vieja del estado y cierra el editor, tirando los
   // fotogramas, en vez de soltar lo que se estuviera haciendo.
-  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca, hayVideo, cambiarVista]);
+  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca, hayVideo, cambiarVista, copiarTexto, taparDatos]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),

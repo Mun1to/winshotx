@@ -235,8 +235,8 @@ describe("la vista previa del estudio", () => {
     render(<EditorApp sessionId="s1" />);
     await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
     expect(llamadas.some((l) => l.comando === "session_camera")).toBe(false);
-    // El zoom de los clics vive en su apartado del riel del panel (S39).
-    fireEvent.click(screen.getByRole("tab", { name: "Zoom" }));
+    // El zoom de los clics vive en su grupo plegable del panel (S39).
+    fireEvent.click(document.querySelector('[data-grupo="zoom"]')!);
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     await waitFor(() => expect(llamadas.some((l) => l.comando === "session_camera")).toBe(true));
     const peticion = llamadas.find((l) => l.comando === "session_camera")?.args as { zoom: number };
@@ -791,6 +791,9 @@ describe("el marco de ventana o de portátil en la vista previa", () => {
     prepararLarga();
     const { container } = render(<EditorApp sessionId="s1" />);
     await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    // El marco va en su propio grupo plegable del panel (S39).
+    const marco = document.querySelector('[data-grupo="marco"]')!;
+    if (marco.getAttribute("aria-expanded") !== "true") fireEvent.click(marco);
     fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
     const pieza = await waitFor(() => {
       const el = container.querySelector("[data-pieza]") as HTMLElement | null;

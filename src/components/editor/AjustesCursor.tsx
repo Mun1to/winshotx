@@ -32,9 +32,9 @@ interface Props {
   /** Hay zoom: la estela también vale para la cámara aunque no haya puntero. */
   conZoom?: boolean;
   /**
-   * Qué trozo enseñar (S39): en el panel nuevo cada apartado del riel lleva lo suyo. El
-   * puntero (suavizado, esconderlo al escribir y la estela), los clics (la onda y el sonido)
-   * o el zoom (acercarse al escribir). Sin nada, todo junto.
+   * Qué trozo enseñar (S39): en el panel cada grupo plegable lleva lo suyo. El puntero
+   * (suavizado, esconderlo al escribir y la estela), los clics (la onda y el sonido) o el
+   * zoom (acercarse al escribir). Sin nada, todo junto.
    */
   parte?: "puntero" | "clics" | "zoom";
 }
@@ -100,8 +100,8 @@ export function AjustesCursor({
   };
 
   return (
-    // Una fila por mando, con su línea fina entre medias, como las filas de los ajustes.
-    <div className="divide-y divide-linea-tenue [&>*]:py-2.5" data-ajustes-cursor>
+    // Un mando debajo de otro, con el mismo aire que el resto de su grupo del panel.
+    <div className="space-y-4" data-ajustes-cursor>
       {ve("puntero") && conPuntero && (
         <div>
           <span className="mb-1 block text-[15px] font-medium text-titulo">{t("Movimiento suave")}</span>

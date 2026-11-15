@@ -68,11 +68,17 @@ if (!video || !fotograma) {
 }
 
 /**
- * S39: el panel de la derecha va por apartados, con un riel de iconos (fondo, puntero, clics,
- * zoom, cámara, sonido, calidad y estilos), y cada mando vive en el suyo: antes de tocarlo, se
- * pulsa su apartado, como haría una persona.
+ * S39: el panel de la derecha es una columna de grupos plegables (sonido, fondo, marco, puntero,
+ * clics, zoom, cámara, calidad y estilos), y cada mando vive en el suyo: antes de tocarlo, se
+ * abre su grupo si estaba cerrado, como haría una persona.
  */
-const apartado = (pagina, id) => pagina.locator(`[data-seccion="${id}"]`).click();
+async function apartado(pagina, id) {
+  const titulo = pagina.locator(`[data-grupo="${id}"]`);
+  if ((await titulo.getAttribute("aria-expanded")) === "true") return;
+  await titulo.click();
+  // Lo de dentro crece en 240 ms: se espera a que acabe para pulsar donde va a quedar.
+  await pagina.waitForTimeout(350);
+}
 
 /** Levanta la pantalla del editor y devuelve su dirección y cómo apagarla. */
 function servir(segundos, mas = []) {
@@ -400,7 +406,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   comprueba(pintadas.length === 5, `la vista previa enseña las cinco: ${pintadas.join(", ")}`);
 
   // El texto se escribe encima de la imagen: pulsar, escribir, e Intro o pulsar fuera.
-  await pagina.getByRole("button", { name: "Texto · 3", exact: true }).click();
+  await pagina.getByRole("button", { name: "Texto", exact: true }).click();
   const capa = await pagina.locator("svg.cursor-crosshair").boundingBox();
   const en = (x, y) => [capa.x + capa.width * x, capa.y + capa.height * y];
   await pagina.mouse.click(...en(0.1, 0.1));
@@ -571,7 +577,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   comprueba(sinElipse === 0 && conElipse === 1, `Supr borra la elegida y Ctrl+Z la devuelve (${sinElipse} y ${conElipse})`);
 
   // Con una herramienta puesta, pulsar encima de algo lo coge en vez de dibujar otra cosa.
-  await pagina.getByRole("button", { name: "Flecha · 1", exact: true }).click();
+  await pagina.getByRole("button", { name: "Flecha", exact: true }).click();
   c = await medirCapa();
   const cuantasAntes = await pagina.locator("[data-agarre]").count();
   const lapizAntes = await verticesDelLapiz();
@@ -699,7 +705,8 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   if ((await mandos.count()) === 0) {
     console.log("  (los mandos del cursor aún no están en el panel: se engancha AjustesCursor y esto se prueba solo)");
   } else {
-    await mandos.scrollIntoViewIfNeeded();
+    // Van en tres grupos (puntero, clics y zoom): el del puntero es el primero.
+    await mandos.first().scrollIntoViewIfNeeded();
     // La onda en la vista previa: parado a los 3,3 s, 300 ms después del clic del centro.
     // Se cuenta el azul del lienzo del estudio sin la onda y con ella.
     const tira = await pagina.locator("[data-pista]").boundingBox();
@@ -830,7 +837,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   );
 
   // Con una herramienta de dibujar puesta, la cámara no se agarra: lo que se arrastra es la marca.
-  await pagina.getByRole("button", { name: /^Flecha · / }).click();
+  await pagina.getByRole("button", { name: "Flecha", exact: true }).click();
   const quieta = await burbuja.evaluate((b) => getComputedStyle(b).pointerEvents);
   comprueba(quieta === "none", `con la flecha puesta, la cámara deja pasar el ratón (pointer-events: ${quieta})`);
   await pagina.close();
@@ -1026,7 +1033,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   comprueba(
     (await pagina.getByRole("switch", { name: "Sonido del PC" }).count()) === 1 &&
       (await pagina.getByRole("switch", { name: "Tu micrófono" }).count()) === 1 &&
-      (await pagina.getByRole("switch", { name: "Sonido", exact: true }).count()) === 0,
+      (await pagina.getByRole("switch", { name: "Con sonido", exact: true }).count()) === 0,
     "donde iba «Sonido» hay dos mandos, «Sonido del PC» y «Tu micrófono»",
   );
   const estado = () =>

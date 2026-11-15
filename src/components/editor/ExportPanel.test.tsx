@@ -69,16 +69,24 @@ async function guardarYEsperar() {
   return loExportado();
 }
 
+/** El título de uno de los grupos plegables del panel («Fondo», «Calidad y tamaño»...). */
+const grupo = (nombre: string) =>
+  screen.getAllByRole("button", { name: nombre }).find((boton) => boton.hasAttribute("data-grupo"))!;
+
 /**
- * Lleva el panel a uno de los apartados de su riel (S39): cada apartado enseña solo lo suyo,
- * así que antes de buscar un mando hay que estar en el suyo, como haría una persona.
+ * Abre uno de los grupos plegables del panel, si estaba cerrado (S39): lo de un grupo cerrado
+ * no se puede pulsar, así que antes de buscar un mando hay que abrir el suyo, como haría una
+ * persona.
  */
-const ir = (apartado: string) => fireEvent.click(screen.getByRole("tab", { name: apartado }));
+const ir = (nombre: string) => {
+  const boton = grupo(nombre);
+  if (boton.getAttribute("aria-expanded") !== "true") fireEvent.click(boton);
+};
 
 beforeEach(() => {
   aplicarIdioma("es");
   alRecorte.mockClear();
-  localStorage.removeItem("winshotx.editor.seccion");
+  localStorage.removeItem("winshotx.editor.grupos");
 });
 
 describe("elegir el formato", () => {
@@ -113,50 +121,66 @@ describe("elegir el formato", () => {
   });
 });
 
-describe("el riel: un apartado cada vez, y guardar siempre a la vista", () => {
-  it("abre por el fondo, y la calidad y los fotogramas viven en «Calidad y tamaño»", () => {
+describe("una columna con sus grupos plegables, y guardar siempre a la vista", () => {
+  it("el formato va arriba, y debajo cada grupo con su título a la vista", () => {
     pintar();
-    expect(screen.getByRole("tab", { name: "Fondo" })).toHaveAttribute("aria-selected", "true");
+    const titulos = [...document.querySelectorAll("[data-grupo]")].map((boton) => boton.textContent);
+    expect(titulos).toEqual([
+      "Sonido",
+      "Fondo",
+      "Marco",
+      "Puntero",
+      "Clics y teclas",
+      "Zoom",
+      "Calidad y tamaño",
+      "Estilos",
+    ]);
+    // El formato, antes que el primer grupo.
+    const mp4 = screen.getByRole("button", { name: "MP4" });
+    expect(mp4.compareDocumentPosition(grupo("Sonido")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("abre con el fondo, y la calidad y los fotogramas plegados en «Calidad y tamaño»", () => {
+    pintar();
+    expect(grupo("Fondo")).toHaveAttribute("aria-expanded", "true");
+    expect(grupo("Sonido")).toHaveAttribute("aria-expanded", "false");
+    expect(grupo("Calidad y tamaño")).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("slider", { name: "Calidad" })).toBeNull();
     ir("Calidad y tamaño");
     expect(screen.getByRole("slider", { name: "Calidad" })).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "Fotogramas por segundo" })).toBeInTheDocument();
   });
 
-  it("el zoom, el puntero y el sonido, cada uno en su apartado", () => {
+  it("el zoom, el puntero y el sonido, cada uno en su grupo", () => {
     pintar();
+    ir("Sonido");
+    expect(screen.getByRole("switch", { name: "Con sonido" })).toBeInTheDocument();
     ir("Zoom");
     expect(screen.getByRole("slider", { name: "Acercarse a los clics" })).toBeInTheDocument();
     ir("Puntero");
     expect(screen.getByRole("slider", { name: "Tamaño" })).toBeInTheDocument();
-    ir("Sonido");
-    expect(screen.getByRole("switch", { name: "Sonido" })).toBeInTheDocument();
   });
 
-  it("una foto no lleva puntero, clics, zoom ni sonido en el riel", () => {
+  it("una foto no lleva sonido, puntero, clics ni zoom", () => {
     pintar({ format: "still", frameCount: 1 });
-    const apartados = screen.getAllByRole("tab").map((tab) => tab.getAttribute("aria-label"));
-    expect(apartados).toEqual(["Fondo", "Calidad y tamaño", "Estilos"]);
+    const titulos = [...document.querySelectorAll("[data-grupo]")].map((boton) => boton.textContent);
+    expect(titulos).toEqual(["Fondo", "Marco", "Calidad y tamaño", "Estilos"]);
   });
 
-  it("el apartado se queda como lo dejaste la próxima vez", () => {
+  it("cada grupo se queda abierto o cerrado como lo dejaste la próxima vez", () => {
     const { unmount } = pintar();
     ir("Calidad y tamaño");
+    fireEvent.click(grupo("Fondo"));
     unmount();
     pintar();
-    expect(screen.getByRole("tab", { name: "Calidad y tamaño" })).toHaveAttribute("aria-selected", "true");
+    expect(grupo("Calidad y tamaño")).toHaveAttribute("aria-expanded", "true");
+    expect(grupo("Fondo")).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("«Lo que va a salir» cuenta lo de todos los apartados, y cada frase lleva al suyo", () => {
+  it("ya no hay riel ni resumen de «Lo que va a salir»", () => {
     pintar();
-    const resumen = document.querySelector("[data-lo-que-sale]") as HTMLElement;
-    expect(resumen).toHaveTextContent("Sin fondo");
-    expect(resumen).toHaveTextContent("Puntero de 24 px");
-    expect(resumen).toHaveTextContent("Sin zoom");
-    expect(resumen).toHaveTextContent("Con sonido");
-    expect(resumen).toHaveTextContent("800 × 600 a 30 fps");
-    fireEvent.click(screen.getByRole("button", { name: "Puntero de 24 px (Puntero)" }));
-    expect(screen.getByRole("tab", { name: "Puntero" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(document.querySelector("[data-lo-que-sale]")).toBeNull();
   });
 
   it("los botones de guardar están siempre, con su nombre escrito", () => {
@@ -358,7 +382,7 @@ describe("lo que no debe colarse en una foto", () => {
   it("y si se apaga el sonido, el MP4 sale mudo", async () => {
     pintar();
     ir("Sonido");
-    fireEvent.click(screen.getByRole("switch", { name: "Sonido" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Con sonido" }));
     expect((await guardarYEsperar()).audio).toBe(false);
   });
 });
@@ -583,10 +607,9 @@ describe("en inglés", () => {
   it("el panel no se deja ni una palabra en español", () => {
     aplicarIdioma("en");
     pintar();
-    expect(screen.getByRole("tab", { name: "Quality and size" })).toBeInTheDocument();
-    expect(screen.getByText("What will come out")).toBeInTheDocument();
+    expect(grupo("Quality and size")).toBeInTheDocument();
     ir("Sound");
-    expect(screen.getByRole("switch", { name: "Sound" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "With sound" })).toBeInTheDocument();
     expect(screen.getByText("Video with sound. Opens anywhere.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save to…" })).toBeInTheDocument();
@@ -596,7 +619,7 @@ describe("en inglés", () => {
 describe("el estudio", () => {
   it("abre por el fondo, apagado, y el movimiento suave viene en «Poco»", () => {
     pintar();
-    expect(screen.getByRole("tab", { name: "Fondo" })).toHaveAttribute("aria-selected", "true");
+    expect(grupo("Fondo")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Sin fondo" })).toHaveAttribute("aria-pressed", "true");
     ir("Puntero");
     // El suavizado de tres opciones sustituye al interruptor de antes: «Poco» es lo de siempre.
@@ -714,7 +737,7 @@ describe("el estudio", () => {
   it("en inglés tampoco queda nada en español", () => {
     aplicarIdioma("en");
     pintar();
-    expect(screen.getByRole("tab", { name: "Background" })).toBeInTheDocument();
+    expect(grupo("Background")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "No background" })).toBeInTheDocument();
     ir("Pointer");
     expect(screen.getByText("Smooth movement")).toBeInTheDocument();
@@ -750,14 +773,16 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
       );
     }
     const pintado = render(<ConEdicion />);
-    // Los mandos de las pistas viven en el apartado «Sonido» del riel.
-    fireEvent.click(document.querySelector('[data-seccion="sonido"]')!);
+    // Los mandos de las pistas viven en el grupo «Sonido», plegado de fábrica (y abierto si se
+    // dejó abierto en otra prueba de este mismo bloque).
+    const sonido = document.querySelector('[data-grupo="sonido"]')!;
+    if (sonido.getAttribute("aria-expanded") !== "true") fireEvent.click(sonido);
     return pintado;
   }
 
   it("donde iba «Sonido» hay dos mandos, encendidos y a su volumen de grabación", () => {
     pintarConPistas();
-    expect(screen.queryByRole("switch", { name: "Sonido" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Con sonido" })).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Sonido del PC" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("switch", { name: "Tu micrófono" })).toHaveAttribute("aria-checked", "true");
     const volumenes = screen.getAllByRole("slider", { name: "Volumen" });
@@ -828,7 +853,7 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
 
   it("una grabación de antes, con todo junto, sigue con «Sonido» y su volumen de siempre", async () => {
     pintarConPistas({ sonidoPc: undefined, microfono: undefined });
-    expect(screen.getByRole("switch", { name: "Sonido" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Con sonido" })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Tu micrófono" })).not.toBeInTheDocument();
     const req = await guardarYEsperar();
     expect(req.audio).toBe(true);
@@ -860,7 +885,11 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
 
 // S25 (marco): la captura dentro de una ventana de Windows 11 o de un portátil.
 describe("el marco de ventana o de portátil", () => {
-  beforeEach(() => localStorage.setItem("winshotx.tema", "claro"));
+  beforeEach(() => {
+    localStorage.setItem("winshotx.tema", "claro");
+    // El marco va en su propio grupo plegable (S39): aquí se mira abierto.
+    localStorage.setItem("winshotx.editor.grupos", JSON.stringify({ marco: true }));
+  });
 
   it("sale con sus tres opciones, en «Ninguno», y sin marco no viaja nada", async () => {
     pintar();

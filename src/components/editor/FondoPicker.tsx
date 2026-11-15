@@ -155,9 +155,10 @@ export function FondoPicker({ fondo, conMarco, elegido, onFondo, onElegido }: Pr
         ))}
       </div>
 
-      {/* Dos por fila y SUELTOS (S39): eran cuatro botones en su caja debajo de otra fila de
-          cajitas, y los ajustes de la 0.5 no llevan cárceles. El cristal sale al pasar el ratón. */}
-      <div className="grid grid-cols-2 gap-x-1 pt-1.5">
+      {/* Dos por fila y en su caja: son botones que abren algo, y así se ven pulsables. A
+          cuatro, «Vídeo o GIF» y «Más colores» no cabían. La primera vuelta de la 0.5 los dejó
+          sueltos y se perdían debajo de las muestras: vuelven como estaban (S39). */}
+      <div className="grid grid-cols-2 gap-1.5">
         <Propio
           puesto={propio?.tipo === "imagen"}
           vista={propio?.tipo === "imagen" ? cssDelFondo(fondo, propio) : null}
@@ -290,8 +291,10 @@ function Propio({
       title={titulo}
       aria-pressed={puesto}
       aria-expanded={abierto}
-      className={`-mx-1 flex items-center gap-2 rounded-md px-1 py-1.5 text-left text-[14px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
-        puesto ? "text-marca" : "text-texto hover:bg-realce hover:text-titulo"
+      className={`flex items-center gap-2 rounded-md border-2 px-2.5 py-2 text-left text-[13px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
+        puesto
+          ? "border-marca text-titulo"
+          : "border-linea-fuerte text-texto hover:border-linea-viva hover:text-titulo"
       }`}
     >
       {vista ? (
