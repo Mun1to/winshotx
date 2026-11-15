@@ -261,7 +261,7 @@ document.querySelectorAll("details.menu").forEach((menu) => {
 
 /* ------------------------------------- las flechas de las notas de la portada */
 // Cada nota con `data-flecha` señala un texto: la de «114 ms» el final de «parpadees», la
-// de los disquetes el principio de «Instalador de 2,97 MB». Antes eran dibujos fijos y la
+// de los disquetes el principio de «Instalador de 3 MB». Antes eran dibujos fijos y la
 // punta iba girada respecto al trazo, separada de él y, la de los disquetes, 150 px antes
 // de lo que señalaba («esto sigue roto, esta flecha bro omg», Munito, 14-nov). Ahora se
 // miden la nota y el texto en la página y se traza una curva de rotulador entre los dos;
