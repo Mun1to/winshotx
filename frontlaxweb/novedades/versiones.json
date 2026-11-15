@@ -1,6 +1,41 @@
 {
   "versiones": [
     {
+      "version": "0.5.0",
+      "desde": "0.4.8",
+      "fecha": "2026-11-15",
+      "es": {
+        "titulo": "Todo rediseñado: ajustes, editor y bienvenida",
+        "puntos": [
+          "**Ajustes nuevos**: un riel de iconos a la izquierda, un apartado cada vez y, a la derecha, un dibujo en vivo de cómo va a salir lo que cambias.",
+          "**Busca cualquier ajuste con Ctrl+F**: escribe lo que buscas y salta a su fila y la ilumina.",
+          "**La ventana de ajustes tiene siempre el mismo tamaño**: ya no crece al cambiar de apartado, y si la estiras tú, se acuerda de tu tamaño.",
+          "**El editor, renovado**: sigue el tema claro u oscuro, la barra de dibujo cabe en una fila y cada botón dice su tecla, y el panel de exportar va en una columna con grupos que se pliegan.",
+          "**El editor abre antes las grabaciones largas**: la tira de un minuto está lista en 0,7 s en vez de 2,8.",
+          "**Marco de ventana o de portátil**: mete la captura dentro de una ventana de Windows 11 o de un portátil, en la foto y en el vídeo, sin encogerla.",
+          "**Busca en el historial por el texto de tus capturas**: winshotx lo lee en segundo plano con el lector de Windows, sin subir nada.",
+          "**Proporción fija al recortar**: pulsa **X** mientras arrastras para pasar por 16:9, 1:1, 9:16 y 4:3.",
+          "**Los últimos segundos gastan mucho menos**: con el anillo encendido y solo el ratón moviéndose, un 86 % menos de CPU, porque la tarjeta gráfica compara cada fotograma y solo se lee lo que cambió.",
+          "**La bienvenida, el menú de la bandeja, la barra de grabación y el recorte**, con el aspecto nuevo: letra más grande, el logo de verdad y sin cajas. Y un **volumen** para la vista previa del editor."
+        ]
+      },
+      "en": {
+        "titulo": "Everything redesigned: settings, editor and welcome",
+        "puntos": [
+          "**New settings**: a rail of icons on the left, one section at a time and, on the right, a live drawing of how what you change will turn out.",
+          "**Find any setting with Ctrl+F**: type what you are after and it jumps to its row and lights it up.",
+          "**The settings window keeps one size**: it no longer grows when you switch sections, and if you resize it yourself, it remembers your size.",
+          "**A renewed editor**: it follows the light or dark theme, the drawing toolbar fits in one row and every button tells its key, and the export panel is one column with groups that fold.",
+          "**The editor opens long recordings sooner**: the strip of a one-minute clip is ready in 0.7 s instead of 2.8.",
+          "**Window or laptop frame**: put the capture inside a Windows 11 window or a laptop, in the picture and in the video, without shrinking it.",
+          "**Search the history by the text in your shots**: winshotx reads it in the background with Windows' own OCR, and uploads nothing.",
+          "**Fixed aspect ratio while cropping**: press **X** while you drag to go through 16:9, 1:1, 9:16 and 4:3.",
+          "**The last few seconds cost far less**: with the ring on and only the mouse moving, 86% less CPU, because the graphics card compares every frame and only what changed is read.",
+          "**The welcome, the tray menu, the recording bar and the crop** get the new look: bigger text, the real logo and no boxes. And a **volume** control for the editor preview."
+        ]
+      }
+    },
+    {
       "version": "0.4.7",
       "desde": null,
       "fecha": "2026-11-14",
