@@ -143,6 +143,7 @@ export const EN: Record<string, string> = {
 
   Actualizaciones: "Updates",
   "mirando si hay versión nueva…": "checking for a new version…",
+  "No se pudo mirar si hay versión nueva": "Could not check for a new version",
   "estás en la última versión": "you are on the latest version",
   "la Microsoft Store se encarga de actualizarla": "the Microsoft Store keeps this one updated",
   "actualizado a la {v}": "updated to {v}",

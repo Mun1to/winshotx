@@ -27,8 +27,10 @@ interface Props {
 export function Cabecera({ version, onBuscar, aviso, onSalir }: Props) {
   const t = useT();
   return (
-    <header className="grid shrink-0 grid-cols-[1fr_minmax(0,400px)_1fr] items-center gap-6 border-b border-linea px-5 py-3">
-      <div className="flex min-w-0 items-center gap-2.5 justify-self-start">
+    // En fila y no en tres columnas iguales: con una versión nueva, el aviso de la derecha
+    // necesita su sitio entero, y es el buscador el que se estrecha (nunca por debajo de 180).
+    <header className="flex shrink-0 items-center gap-6 border-b border-linea px-5 py-3">
+      <div className="flex shrink-0 items-center gap-2.5">
         <Marca className="size-6 shrink-0" x="currentColor" />
         <span className="text-[16px] font-semibold text-titulo">winshotx</span>
         <span className="text-[13px] text-apagado">{version}</span>
@@ -39,7 +41,7 @@ export function Cabecera({ version, onBuscar, aviso, onSalir }: Props) {
         data-abrir-buscar
         data-tour="buscar"
         onClick={onBuscar}
-        className="group flex w-full min-w-0 items-center gap-2.5 border-b-2 border-linea pb-1.5 pt-1.5 text-left transition-colors hover:border-linea-viva"
+        className="group mx-auto flex w-full min-w-[180px] max-w-[400px] items-center gap-2.5 border-b-2 border-linea pb-1.5 pt-1.5 text-left transition-colors hover:border-linea-viva"
       >
         <Search className="size-4 shrink-0 text-apagado" strokeWidth={1.9} />
         <span className="min-w-0 flex-1 truncate text-[14.5px] text-apagado group-hover:text-suave">
@@ -48,7 +50,7 @@ export function Cabecera({ version, onBuscar, aviso, onSalir }: Props) {
         <span className="shrink-0 text-[12px] text-tenue">Ctrl+F</span>
       </button>
 
-      <div className="flex min-w-0 items-center gap-3 justify-self-end">
+      <div className="flex shrink-0 items-center gap-3">
         {aviso}
         <button
           type="button"

@@ -14,10 +14,12 @@ import { AvisoActualizacion, BotonActualizar, useActualizacion } from "./Actuali
 import { aplicarIdioma } from "../../lib/i18n";
 
 const mirado = vi.fn();
+/** Lo que contesta GitHub en cada prueba: nada (al día), una versión nueva o un fallo. */
+let contesta: () => Promise<unknown> = () => Promise.resolve(null);
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: () => {
     mirado();
-    return Promise.resolve(null);
+    return contesta();
   },
 }));
 
@@ -34,6 +36,7 @@ function Barra() {
 
 beforeEach(() => {
   mirado.mockClear();
+  contesta = () => Promise.resolve(null);
   aplicarIdioma("es");
 });
 
@@ -74,5 +77,34 @@ describe("instalada desde el instalador de siempre", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Buscar actualizaciones" })).toBeInTheDocument());
     expect(container.querySelector("[data-aviso-actualizacion]")).toBeNull();
     expect(screen.queryByText(/al día/i)).toBeNull();
+  });
+});
+
+describe("cuando hay algo que decir, la cabecera lo dice entero", () => {
+  it("con versión nueva, la frase y el botón de actualizar", async () => {
+    responde("is_store_build", false);
+    contesta = () => Promise.resolve({ version: "0.5.0", downloadAndInstall: vi.fn() });
+    const { container } = render(<Barra />);
+    await waitFor(() => expect(container.querySelector("[data-aviso-actualizacion]")).not.toBeNull());
+    const aviso = container.querySelector<HTMLElement>("[data-aviso-actualizacion]")!;
+    expect(aviso.textContent).toContain("la 0.5.0 ya está disponible");
+    expect(screen.getAllByRole("button", { name: /Actualizar ahora/ }).length).toBeGreaterThan(0);
+    // Sin recortar: la frase no lleva puntos suspensivos ni se esconde.
+    expect(aviso.querySelector(".truncate")).toBeNull();
+  });
+
+  it("si falla al mirar a mano, lo dice en corto y deja el detalle en el globo", async () => {
+    responde("is_store_build", false);
+    contesta = () => Promise.reject("error sending request for url (https://github.com/...)");
+    const { container } = render(<Barra />);
+    await waitFor(() => expect(mirado).toHaveBeenCalled());
+    // Mirando solo, un fallo no se dice (sin conexión, o una compilación sin actualizador).
+    expect(container.querySelector("[data-aviso-actualizacion]")).toBeNull();
+    screen.getByRole("button", { name: "Buscar actualizaciones" }).click();
+    await waitFor(() => expect(screen.getByText("No se pudo mirar si hay versión nueva")).toBeInTheDocument());
+    expect(screen.getByText("No se pudo mirar si hay versión nueva")).toHaveAttribute(
+      "title",
+      "error sending request for url (https://github.com/...)",
+    );
   });
 });

@@ -139,6 +139,7 @@ export const ZH: Record<string, string> = {
 
   Actualizaciones: "更新",
   "mirando si hay versión nueva…": "正在检查新版本…",
+  "No se pudo mirar si hay versión nueva": "无法检查新版本",
   "estás en la última versión": "当前已是最新版本",
   "la Microsoft Store se encarga de actualizarla": "Microsoft Store 版本会自动更新",
   "actualizado a la {v}": "已更新至 {v}",

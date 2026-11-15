@@ -156,13 +156,18 @@ export function AvisoActualizacion({
   instalar: (update: Update) => void;
   mirar: () => void;
 }) {
+  const t = useT();
   if (fase.tipo === "tienda" || fase.tipo === "quieto" || fase.tipo === "mirando" || fase.tipo === "aldia") {
     return null;
   }
+  // El fallo, en corto y con el detalle en el globo: el mensaje de error entero va en la fila
+  // de la versión, donde cabe, y aquí empujaría al buscador fuera de la cabecera.
+  const corto = fase.tipo === "error" ? t("No se pudo mirar si hay versión nueva") : texto;
   return (
-    <span data-aviso-actualizacion className="flex min-w-0 items-center gap-3">
+    <span data-aviso-actualizacion className="flex items-center gap-3">
       <span
-        className={`truncate text-[13px] ${
+        title={fase.tipo === "error" ? texto : undefined}
+        className={`whitespace-nowrap text-[13px] ${
           fase.tipo === "error"
             ? "text-[color:light-dark(#b91c1c,#f87171)]"
             : fase.tipo === "hay" || fase.tipo === "listo"
@@ -170,7 +175,7 @@ export function AvisoActualizacion({
               : "text-apagado"
         }`}
       >
-        {texto}
+        {corto}
       </span>
       {/* Recién actualizada no hay nada que pulsar: la frase dice por qué se ha abierto sola. */}
       {fase.tipo !== "acabadeactualizarse" && <BotonActualizar fase={fase} instalar={instalar} mirar={mirar} />}
