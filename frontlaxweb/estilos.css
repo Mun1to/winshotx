@@ -43,7 +43,7 @@
   --brillo-icono-vivo: #0a9bffb3;
   --sombra-boton-fuerte: #0a9bffaa;
   --sombra-foto: 0 40px 90px -30px #000000cc, 0 0 0 1px #ffffff14;
-  --brillo-demo: .34;          /* la luz morada de detras de la demo */
+  --brillo-demo: .34;          /* la luz azul de detras de la demo */
   --no-barra: #5a5a66;         /* la barra de la otra herramienta en las cifras */
   color-scheme: dark;
 }
@@ -439,10 +439,12 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 
 /* ---------- el escaparate: la demo, debajo del titular y del tamaño de una foto grande ---------- */
 .escaparate { position: relative; padding: 4px 0 clamp(48px, 7vh, 96px); scroll-margin-top: 4px; }
-/* La luz de detrás de la ventana: un solo brillo, el de la pieza principal de la página. */
+/* La luz de detrás de la ventana: un solo brillo, el de la pieza principal de la página, y del azul
+   de la marca. Era de azul lavanda a morado, y el morado no es de winshotx: «no me gusta el glow de
+   detrás porque es morado, no está dentro de los colores de winshotx» (Munito, 15-nov). */
 .escaparate::before {
   content: ""; position: absolute; inset: 14% 10% 10%; z-index: -1; pointer-events: none;
-  background: linear-gradient(120deg, #5874f5, #a855d9); filter: blur(80px);
+  background: linear-gradient(120deg, #0a9bff, #0a5fd6); filter: blur(80px);
   opacity: var(--brillo-demo); border-radius: 60px;
 }
 .demo-cabeza { display: grid; justify-items: center; gap: 8px; margin-bottom: 18px; text-align: center; }
@@ -1763,16 +1765,16 @@ html[data-ligero] *,
 html[data-ligero] *::before,
 html[data-ligero] *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 html[data-ligero] .barra-dentro { background: var(--fondo); background: rgb(from var(--vidrio) r g b / 1); }
-/* La luz morada de detrás de la demo era un rectángulo con `filter: blur(80px)`: pasa a dos
-   degradados redondos que ya nacen difuminados (azul a la izquierda, morado a la derecha),
+/* La luz azul de detrás de la demo era un rectángulo con `filter: blur(80px)`: pasa a dos
+   degradados redondos que ya nacen difuminados (azul claro a la izquierda, más hondo a la derecha),
    un poco más grandes que la caja para llegar hasta donde llegaba el desenfoque. Comparada
    en foto con la de siempre a 1920 y a 390, en claro y en oscuro. */
 html[data-ligero] .escaparate::before {
   filter: none; border-radius: 0;
   inset: calc(14% - min(110px, 6vw)) calc(10% - min(120px, 6vw)) calc(10% - min(80px, 4vw));
   background:
-    radial-gradient(closest-side, #5874f5 0 58%, #5874f580 73%, #5874f51a 88%, transparent) 0 50% / 60% 100% no-repeat,
-    radial-gradient(closest-side, #a855d9 0 58%, #a855d980 73%, #a855d91a 88%, transparent) 100% 50% / 60% 100% no-repeat;
+    radial-gradient(closest-side, #0a9bff 0 58%, #0a9bff80 73%, #0a9bff1a 88%, transparent) 0 50% / 60% 100% no-repeat,
+    radial-gradient(closest-side, #0a5fd6 0 58%, #0a5fd680 73%, #0a5fd61a 88%, transparent) 100% 50% / 60% 100% no-repeat;
 }
 @media (max-width: 860px) {
   html[data-ligero] .escaparate::before { opacity: calc(var(--brillo-demo) * .45); }
