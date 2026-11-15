@@ -6,7 +6,7 @@ import { Marca } from "../ui/Marca";
 interface Props {
   version: string;
   /** Abre la paleta del buscador. */
-  onBuscar?: () => void;
+  onBuscar: () => void;
   /** El aviso de actualización: solo cuando hay algo que decir. */
   aviso: ReactNode;
   onSalir: () => void;
@@ -34,7 +34,6 @@ export function Cabecera({ version, onBuscar, aviso, onSalir }: Props) {
         <span className="text-[13px] text-apagado">{version}</span>
       </div>
 
-      {onBuscar ? (
       <button
         type="button"
         data-abrir-buscar
@@ -48,9 +47,6 @@ export function Cabecera({ version, onBuscar, aviso, onSalir }: Props) {
         </span>
         <span className="shrink-0 text-[12px] text-tenue">Ctrl+F</span>
       </button>
-      ) : (
-        <span />
-      )}
 
       <div className="flex min-w-0 items-center gap-3 justify-self-end">
         {aviso}
