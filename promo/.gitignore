@@ -10,3 +10,6 @@ reddit.md
 fuentes-reddit.md
 # Las pistas candidatas y sus licencias: descargas de fuera, se eligen y se mezclan con ffmpeg.
 musica-candidatas/
+# Los efectos de Mixkit: su licencia deja usarlos en el vídeo pero no redistribuirlos sueltos.
+# Los baja y los prepara `node sonidos.mjs`.
+public/sonido/mixkit/
