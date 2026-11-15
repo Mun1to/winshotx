@@ -51,6 +51,39 @@ describe("lo que enseña", () => {
     expect(screen.getByText("Ctrl+Shift+5")).toBeInTheDocument();
   });
 
+  /**
+   * La 0.5 (S37): el menú habla como los ajustes nuevos. El logo de verdad en vez de una
+   * cámara azul, y nada que se lea por debajo de 12 px ni en mayúsculas espaciadas (la
+   * versión y los atajos iban a 10,5 px y «ÚLTIMAS CAPTURAS» en versalitas).
+   */
+  it("lleva el logo de verdad en la cabecera, no una cámara", async () => {
+    await abrirMenu();
+    const cabecera = document.querySelector("header")!;
+    expect(cabecera.querySelector("svg[role='img']")).toHaveAttribute("aria-label", "winshotx");
+    // La X del logo sigue al color del texto, para que se vea en claro y en oscuro.
+    expect(cabecera.querySelector("svg g[stroke='currentColor']")).not.toBeNull();
+  });
+
+  it("nada por debajo de 12 px y sin mayúsculas espaciadas", async () => {
+    responde("ultimas_capturas", [{ path: "C:/c/a.png", nombre: "a.png", haceSegundos: 30 }]);
+    await abrirMenu();
+    await screen.findByText("Últimas capturas");
+    const clases = [...document.querySelectorAll("[class]")].map((el) => el.getAttribute("class") ?? "");
+    const tamannos = clases.flatMap((c) => [...c.matchAll(/text-\[(\d+(?:\.\d+)?)px\]/g)].map((m) => Number(m[1])));
+    expect(tamannos.length).toBeGreaterThan(0);
+    expect(Math.min(...tamannos)).toBeGreaterThanOrEqual(12);
+    expect(clases.some((c) => /\buppercase\b|\btracking-wide\b/.test(c))).toBe(false);
+  });
+
+  it("una sola raya antes de las últimas capturas, nunca dos seguidas", async () => {
+    responde("ultimas_capturas", [{ path: "C:/c/a.png", nombre: "a.png", haceSegundos: 30 }]);
+    await abrirMenu();
+    await screen.findByText("Últimas capturas");
+    const rayas = [...document.querySelectorAll(".h-px")];
+    expect(rayas.length).toBeGreaterThan(0);
+    for (const raya of rayas) expect(raya.nextElementSibling?.classList.contains("h-px")).not.toBe(true);
+  });
+
   it("con el anillo apagado no ofrece rescatar nada", async () => {
     // Rescatar sin nada grabado no puede hacer nada: la entrada no existe.
     await abrirMenu({ replay: false });
