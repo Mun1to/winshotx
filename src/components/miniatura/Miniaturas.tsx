@@ -214,7 +214,8 @@ function Carta({ miniatura, segundos }: { miniatura: MiniaturaVista; segundos: n
         <span
           role="status"
           className={`absolute bottom-2 left-1/2 max-w-[92%] -translate-x-1/2 truncate rounded-md px-2 py-1 text-[12px] font-medium text-white shadow-lg ${
-            aviso.malo ? "bg-red-500/90" : "bg-emerald-600/90"
+            // Sin verde: lo que va bien no lleva color, y el rojo es solo para lo que falló.
+            aviso.malo ? "bg-red-500/90" : "bg-neutral-900/90"
           }`}
         >
           {t(aviso.texto)}

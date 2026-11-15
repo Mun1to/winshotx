@@ -56,3 +56,34 @@ describe("leer el código QR", () => {
     expect(boton.getAttribute("title")).toBe("Read the QR code");
   });
 });
+
+/**
+ * La 0.5 (S37): «Procesando…» iba a 11 px con un ✓ verde delante, cuando todavía no ha
+ * terminado nada. Ahora a 12 px, con una rueda gris, y sin verde.
+ */
+describe("mientras trabaja", () => {
+  it("dice «Procesando…» a 12 px con una rueda, sin verde", () => {
+    const nada = () => {};
+    render(
+      <FloatingToolbar
+        left={0}
+        top={0}
+        flipped={false}
+        busy
+        modo="still"
+        onCopy={nada}
+        onSave={nada}
+        onSaveAs={nada}
+        onEdit={nada}
+        onPin={nada}
+        onText={nada}
+        onRecord={nada}
+        onCancel={nada}
+      />,
+    );
+    const aviso = screen.getByText("Procesando…");
+    expect(aviso.className).toContain("text-[12px]");
+    expect(aviso.querySelector("svg")?.getAttribute("class")).toContain("animate-spin");
+    expect(aviso.innerHTML).not.toMatch(/emerald|green/);
+  });
+});

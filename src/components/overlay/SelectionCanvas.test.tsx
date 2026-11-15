@@ -270,7 +270,7 @@ describe("la lupa no se pone encima de lo que estas mirando", () => {
 
   /** El hueco que ocupa la lupa: el recuadro de 132 px, su barra de abajo y el margen. */
   const LUPA_ANCHO = 148;
-  const LUPA_ALTO = 168;
+  const LUPA_ALTO = 192;
 
   /** Dónde ha quedado la lupa, leyendo su estilo. */
   function lupa() {

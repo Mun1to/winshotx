@@ -115,7 +115,7 @@ export function RecorderBar() {
         ) : (
           <span
             className={`size-2.5 shrink-0 rounded-full ${
-              pausa ? "bg-amber-400" : "animate-pulse bg-red-500"
+              pausa ? "bg-aviso" : "animate-pulse bg-red-500"
             }`}
             aria-hidden="true"
           />
@@ -133,14 +133,15 @@ export function RecorderBar() {
 
       {/* Que se esta grabando: el formato, y el sonido solo si entra de verdad. */}
       {guardando ? (
-        <span className="text-[11px] leading-none text-neutral-400">{t("Guardando…")}</span>
+        <span className="text-[12px] leading-none text-neutral-400">{t("Guardando…")}</span>
       ) : pausa ? (
-        <span className="text-[11px] leading-none text-amber-400">{t("en pausa")}</span>
+        <span className="text-[12px] leading-none text-aviso">{t("en pausa")}</span>
       ) : (
         <span data-tauri-drag-region className="flex items-center gap-1.5">
+          {/* El formato suelto, sin cajita: es una palabra corta que se lee sola. */}
           <span
             title={tick.format === "gif" ? t("GIF animado") : t("Vídeo MP4")}
-            className="rounded-[5px] border border-white/10 px-1.5 py-0.5 text-[10px] leading-none font-semibold tracking-wide text-neutral-300"
+            className="text-[12px] leading-none font-semibold text-neutral-300"
           >
             {tick.format === "gif" ? "GIF" : "MP4"}
           </span>
@@ -158,7 +159,7 @@ export function RecorderBar() {
           {cacheGrande && (
             <span
               title={t("La caché sin pérdida está ocupando mucho disco: para y exporta")}
-              className="text-[11px] leading-none tabular-nums text-amber-400"
+              className="text-[12px] leading-none tabular-nums text-aviso"
             >
               {formatBytes(tick.bytes)}
             </span>
