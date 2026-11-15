@@ -57,10 +57,11 @@ const bienvenida = args.includes("--bienvenida");
 // página pide su alto (`setSize`, que aquí se apunta), y la foto a ese alto. Con --alto=N se
 // fuerza, por ejemplo para ver una ventana que alguien ha encogido a mano.
 //
-// La bienvenida sigue pidiendo 840 x 640 fijos, y las demás ventanas no piden nada: van a
-// 760 si no se dice otra cosa. Estuvo en 640 mientras la ventana medía 510, así que las
-// fotos enseñaban 130 px de más y una sección que se salía por abajo parecía caber: el alto
-// de la foto tiene que ser el de la ventana de verdad.
+// La bienvenida también, desde S38 (15-nov-2026): cada paso pide su alto, y su foto sale a
+// ese alto. Las demás ventanas no piden nada: van a 760 si no se dice otra cosa. Estuvo en
+// 640 mientras la ventana medía 510, así que las fotos enseñaban 130 px de más y una sección
+// que se salía por abajo parecía caber: el alto de la foto tiene que ser el de la ventana
+// de verdad. (Para la bienvenida, 640 es solo el alto con el que arranca la primera pasada.)
 const altoForzado = bandera("alto", null);
 const alto = altoForzado ?? (bienvenida ? "640" : "760");
 // El alto útil de la pantalla de mentira, en px lógicos (sin la barra de tareas): para ver
@@ -762,8 +763,9 @@ server.listen(0, async () => {
       process.exit(code ?? 1);
     });
   };
-  // Los ajustes, sin --alto: primero se deja que la página pida su alto, como en la app.
-  const ajustes = pagina === "index.html" && !bienvenida && altoForzado === null;
+  // Los ajustes y la bienvenida, sin --alto: primero se deja que la página pida su alto,
+  // como en la app.
+  const ajustes = pagina === "index.html" && altoForzado === null;
   if (!ajustes) {
     fotografiar(h);
     return;
@@ -783,7 +785,11 @@ server.listen(0, async () => {
   await p.goto(url);
   // Lo que tarda en hacer su recorrido el guion de la sección o del tour, y después se
   // espera a que el alto pedido deje de cambiar.
-  await p.waitForTimeout(1200 + (tour !== null ? 900 + 300 * Number(tour) : 0));
+  await p.waitForTimeout(
+    1200 +
+      (tour !== null ? 900 + 300 * Number(tour) : 0) +
+      (paso !== null ? 400 + 320 * Number(paso) : 0),
+  );
   const leer = () =>
     p.evaluate(() => document.querySelector('meta[name="winshotx-medida"]')?.content ?? null);
   let pedida = await leer();
@@ -792,6 +798,21 @@ server.listen(0, async () => {
     const otra = await leer();
     if (otra === pedida) break;
     pedida = otra;
+  }
+  // La bienvenida se fotografía aquí mismo, con este reloj de verdad. Con el reloj virtual de
+  // la pasada de abajo, `--paso=N` sacaba siempre el paso 1: el cambio de paso espera a que
+  // acabe la salida del anterior (`AnimatePresence mode="wait"`), y esa salida no acababa.
+  if (bienvenida && pedida && !dom) {
+    const [, altoPaso, tipoPaso, dprPaso] = pedida.split(",");
+    const cssPaso = tipoPaso === "Physical" ? Number(altoPaso) / Number(dprPaso) : Number(altoPaso);
+    const altoFoto = Math.ceil(cssPaso - 0.01);
+    await p.setViewportSize({ width: Number(w), height: altoFoto });
+    await p.waitForTimeout(400);
+    await p.screenshot({ path: salida });
+    await edge.close();
+    server.close();
+    console.log(`hecha: ${salida} (${w} x ${altoFoto})`);
+    process.exit(0);
   }
   await edge.close();
   if (!pedida) {
