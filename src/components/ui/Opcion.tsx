@@ -6,9 +6,13 @@ export function Opciones({ children }: { children: ReactNode }) {
 }
 
 /**
- * Una opción en texto, con la elegida subrayada y en blanco. Es la misma en todo el editor
- * (la velocidad, el suavizado del puntero, la forma de la lupa, el tipo de fondo propio): si
- * cada pieza lleva su copia, acaban pareciéndose pero no siendo iguales.
+ * Una opción en texto, con la elegida subrayada: la MISMA forma que `Segmented` (14 px
+ * seminegrita, la elegida con su raya de 3 px en el azul de la marca y en tinta entera, las
+ * demás en `apagado`). Desde la 0.5 sigue al tema, como el resto del editor.
+ *
+ * Se queda como pieza aparte solo para lo que `Segmented` no hace: una opción con su dibujo
+ * dentro (la forma de la cámara o de la lupa) o que hace algo más al pulsarla (traer un
+ * sonido propio). Para elegir entre unos nombres, `Segmented`.
  */
 export function Opcion({
   puesta,
@@ -28,8 +32,8 @@ export function Opcion({
       onClick={onClick}
       aria-pressed={puesta}
       aria-label={etiqueta}
-      className={`border-b-2 py-1 text-[14px] font-semibold whitespace-nowrap tabular-nums transition-colors ${
-        puesta ? "border-blue-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-100"
+      className={`border-b-[3px] py-1 text-[14px] font-semibold whitespace-nowrap tabular-nums transition-colors ${
+        puesta ? "border-marca text-titulo" : "border-transparent text-apagado hover:text-titulo"
       }`}
     >
       {children}

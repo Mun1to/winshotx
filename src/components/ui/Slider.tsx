@@ -26,9 +26,9 @@ export function Slider({
   return (
     <label className={`block ${disabled ? "opacity-40" : ""}`}>
       {label && (
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <span className="text-[13px] font-medium text-texto">{label}</span>
-          {hint && <span className="text-[13px] tabular-nums text-suave">{hint}</span>}
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <span className="text-[15px] leading-snug font-medium text-titulo">{label}</span>
+          {hint && <span className="shrink-0 text-[13px] tabular-nums text-suave">{hint}</span>}
         </div>
       )}
       <input
@@ -43,9 +43,10 @@ export function Slider({
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
         style={{
-          background: `linear-gradient(to right, rgb(59 130 246) ${percent}%, rgb(255 255 255 / 0.12) ${percent}%)`,
+          // Con los tokens del tema: la pista de antes era blanca transparente y en claro no se veía.
+          background: `linear-gradient(to right, var(--color-marca) ${percent}%, var(--color-linea-fuerte) ${percent}%)`,
         }}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_0_1px_rgb(0_0_0/0.16),0_1px_3px_rgb(0_0_0/0.35)]"
       />
     </label>
   );

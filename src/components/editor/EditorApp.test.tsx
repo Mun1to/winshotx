@@ -807,3 +807,17 @@ describe("el marco de ventana o de portátil en la vista previa", () => {
     localStorage.removeItem("winshotx.tema");
   });
 });
+
+// S39: el editor era oscuro siempre; desde la 0.5 sigue el tema de la app, como las demás ventanas.
+describe("el tema", () => {
+  it("se pinta con el tema de los ajustes", async () => {
+    // Empieza en oscuro, que es lo que recordaba la ventana: tiene que cambiarlo el ajuste.
+    localStorage.setItem("winshotx.tema", "oscuro");
+    document.documentElement.dataset.tema = "oscuro";
+    preparar();
+    responde("get_settings", { saveDirectory: "C:\capturas", theme: "claro", language: "es" });
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(document.documentElement.dataset.tema).toBe("claro"));
+    responde("get_settings", { saveDirectory: "C:\capturas", theme: "oscuro", language: "es" });
+  });
+});

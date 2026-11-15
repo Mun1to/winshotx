@@ -113,7 +113,7 @@ export function PaletaDeColor({ rgb, onCambiar }: Props) {
         aria-valuetext={hexDe(rgbDeHsv(h, s, v))}
         onKeyDown={teclasDelCuadro}
         {...arrastre(enElCuadro)}
-        className="relative h-[120px] w-full cursor-crosshair touch-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="relative h-[120px] w-full cursor-crosshair touch-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-marca"
         style={{
           background: `linear-gradient(to top, rgb(0 0 0), transparent), linear-gradient(to right, rgb(255 255 255), hsl(${h} 100% 50%))`,
         }}
@@ -133,7 +133,7 @@ export function PaletaDeColor({ rgb, onCambiar }: Props) {
         aria-valuenow={Math.round(h)}
         onKeyDown={teclasDeLaBarra}
         {...arrastre(enLaBarra)}
-        className="relative h-3.5 w-full cursor-pointer touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="relative h-3.5 w-full cursor-pointer touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-marca"
         style={{
           background:
             "linear-gradient(to right, hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%), hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%))",
@@ -156,7 +156,7 @@ export function PaletaDeColor({ rgb, onCambiar }: Props) {
           onKeyDown={(e) => {
             if (e.key === "Enter") leerTexto();
           }}
-          className="ml-auto w-[96px] rounded-lg border border-linea-fuerte bg-hueco px-2.5 py-1 text-[13px] tabular-nums text-titulo outline-none focus:border-blue-500/60"
+          className="ml-auto w-[96px] rounded-lg border border-linea-fuerte bg-hueco px-2.5 py-1 text-[13px] tabular-nums text-titulo outline-none focus:border-marca"
         />
       </label>
     </div>
