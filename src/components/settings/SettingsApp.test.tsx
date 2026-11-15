@@ -568,26 +568,25 @@ describe("los ultimos segundos", () => {
    * Munir tuvo el anillo semanas a 60 fotogramas y resolución nativa, que entonces era el
    * 86% de un núcleo todo el día, y lo que notó fue que el ordenador iba con lag y que el
    * atajo tardaba en abrir la captura. Nadie elige eso sabiendo lo que cuesta: se elige
-   * porque suena a mejor. Ahora lo dice la propia fila, en ámbar.
+   * porque suena a mejor. Lo dice la propia fila, en ámbar; desde la 0.5, sin la cifra de
+   * septiembre, que ya no es la de ahora (S29 lo bajó), hasta medirlo otra vez.
    */
-  it("la combinación más cara dice lo que cuesta, y avisa en ámbar", async () => {
+  it("la combinación más cara dice lo que cuesta, y avisa en ámbar, sin una cifra vieja", async () => {
     await irAUltimos(undefined, undefined, { replayFps: 60, replayHeight: 0 });
-    const coste = screen.getByText(/22% de un núcleo.*60%/);
+    const coste = screen.getByText("la más fluida; gasta más cuanto más se mueve la pantalla");
     expect(coste.className).toContain("text-aviso");
+    expect(document.body.textContent).not.toMatch(/\d+ ?% de un núcleo/);
   });
 
   it("y la combinación de en medio dice la suya", async () => {
     await irAUltimos(undefined, undefined, { replayFps: 30, replayHeight: 1080 });
-    expect(screen.getByText(/17% de un núcleo/)).toBeInTheDocument();
+    expect(screen.getByText("gasta poco con la pantalla quieta")).toBeInTheDocument();
   });
 
-  /**
-   * Solo se midieron esas dos. Las otras siete saldrían de extrapolar dos puntos, o sea
-   * de inventarse un número y ponérselo delante a quien decide.
-   */
-  it("y de las que no se midieron no se inventa ninguna cifra", async () => {
+  /** Solo se midieron esas dos: de las otras siete se diría algo que nadie ha comprobado. */
+  it("y de las que no se midieron no se dice nada", async () => {
     await irAUltimos(undefined, undefined, { replayFps: 15, replayHeight: 720 });
-    expect(screen.queryByText(/% de un núcleo/)).toBeNull();
+    expect(screen.queryByText(/fluida|gasta/)).toBeNull();
   });
 
   it("en ingles no se cuela ni una palabra en castellano", async () => {

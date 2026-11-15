@@ -168,29 +168,25 @@ export const loQuePuedeOcupar = (segundos: number, fps: number, ancho: number, a
   Math.min(ancho * alto * PEOR_POR_PIXEL * fps * segundos, TECHO);
 
 /**
- * Lo que cuesta el anillo, de las dos combinaciones que se midieron de verdad.
+ * Lo que cuesta el anillo, dicho de las dos combinaciones que se midieron de verdad.
  *
- * Medido el 31 de agosto de 2026 en un equipo con tres pantallas, con la máquina en
- * reposo doce segundos: a 60 fotogramas y resolución nativa se llevaba el **86% de un
- * núcleo**, y a 30 con 1080 el **57%**. winshotx entera, con el anillo apagado, gasta
- * el 2,9%: o sea que esto era treinta veces el resto de la aplicación junta.
+ * Medido el 31 de agosto de 2026 en un equipo con tres pantallas: a 60 fotogramas y
+ * resolución nativa se llevaba el 86% de un núcleo, y a 30 con 1080 el 57%. El 17 de
+ * septiembre, después de reciclar los búferes y de guardar solo las zonas que cambian, el 22%
+ * y el 17%. Y en noviembre S29 lo rehizo comparando en la tarjeta gráfica (el −86 % de la 0.5).
  *
- * Vuelto a medir el 17 de septiembre de 2026, con el anillo grabando de verdad
- * (`medir_el_anillo_con_pantalla`), después de reciclar los búferes y de guardar solo
- * las zonas que cambian: **22%** a 60 y nativa con el escritorio quieto (hasta el 60% con
- * la pantalla en movimiento), y **17%** a 30. Los textos de abajo llevan estos.
+ * **Desde la 0.5 va sin cifra** (S36): los números de septiembre ya no son los de ahora, y
+ * los nuevos se miden en el PC de Munito con lo de S29 antes de ponerlos aquí. Mientras, la
+ * fila dice lo que sí es seguro: cuál es la más fluida y que gasta más con la pantalla en
+ * movimiento, y en ámbar, porque nadie elige «60, nativa» sabiendo lo que cuesta: se elige
+ * porque suena a mejor. Munir lo tuvo así semanas y notó el ordenador con lag.
  *
- * Se dice porque nadie elige «60, nativa» sabiendo lo que cuesta; se elige porque suena
- * a mejor. Munir lo tuvo así semanas y lo que notó fue que el ordenador iba con lag y
- * que el atajo tardaba en abrir la captura.
- *
- * **Y solo se dicen esas dos**, que son las que se midieron. Las otras siete
- * combinaciones saldrían de extrapolar dos puntos, que es inventarse un número y
- * ponerlo en la cara de quien decide.
+ * **Y solo se dicen esas dos**, que son las que se midieron: de las otras siete se diría algo
+ * que nadie ha comprobado.
  */
 export const LO_QUE_COSTO: Record<string, string> = {
-  "60|0": "esta combinación midió el 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento",
-  "30|1080": "esta combinación midió el 17% de un núcleo con el escritorio quieto",
+  "60|0": "la más fluida; gasta más cuanto más se mueve la pantalla",
+  "30|1080": "gasta poco con la pantalla quieta",
 };
 
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
@@ -516,7 +512,7 @@ export function ApartadoUltimos({
           id="ultSiempre"
           icon={<History className="size-4" />}
           label={t("Grabar siempre lo último")}
-          explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva un 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento. Apagado, winshotx entera gasta el 2,9%.")}
+          explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla.")}
           // Encendido, lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño y cuánto
           // le escribe al disco cada segundo. Es un dato, en gris: no un «todo va bien» en verde.
           hint={

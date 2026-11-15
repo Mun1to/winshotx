@@ -84,6 +84,8 @@ export const ZH: Record<string, string> = {
   "pantalla {n} · {ancho} × {alto} · {ritmo}/s": "屏幕 {n} · {ancho} × {alto} · {ritmo}/秒",
   "{ancho} × {alto} · hasta {tamaño} en disco": "{ancho} × {alto} · 最大占用 {tamaño} 磁盘",
   Fluidez: "流畅度",
+  "la más fluida; gasta más cuanto más se mueve la pantalla": "最流畅；屏幕变化越多，消耗越大",
+  "gasta poco con la pantalla quieta": "屏幕静止时消耗很少",
   "fotogramas por segundo": "帧每秒",
   Nativa: "原生",
 
@@ -154,6 +156,7 @@ export const ZH: Record<string, string> = {
   "Arrancar con Windows": "开机启动",
 
   // 鼠标悬停的长说明
+  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla.": "winshotx 会一直录制屏幕并丢弃旧内容，所以即使你没按录制，刚刚发生的事也还在。但这需要资源：帧率和分辨率越高、屏幕变化越多，消耗就越大。",
   "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.": "按下时屏幕冻结，你可以在静止画面上从容框选：下方的内容再动也不会干扰。Windows 保留了一些组合键，那些组合键不会传到这里。",
   "La pantalla se congela justo al pulsar el atajo, así que un menú abierto se cierra antes de que dé tiempo a fotografiarlo. Con 3 o 5 segundos, pulsas primero, abres el menú y la foto se toma sola cuando ya está delante.": "按下快捷键的瞬间屏幕就会冻结，打开的菜单会在截图之前关闭。使用 3 或 5 秒延迟，你可以先按下快捷键，再打开菜单，画面到位后自动截图。",
   "Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.": "图标只在截图瞬间隐藏，选框时不隐藏，即使截图失败也会恢复。适合拍摄壁纸，或拍摄带桌面的窗口而不露出你的文件。",
@@ -165,8 +168,6 @@ export const ZH: Record<string, string> = {
   "Cuántas veces por segundo se mira la pantalla. 30 vale para casi todo; 60 es para movimiento rápido y cuesta el doble de disco y de máquina. El editor puede bajarlo después, pero lo que no se grabó no se inventa.": "每秒采集屏幕的次数。30 帧几乎够用；60 帧适合快速运动，但磁盘和性能开销翻倍。编辑器可以之后降帧，但没录到的内容无法凭空生成。",
   "Graba lo que suena por los altavoces, dentro del mismo vídeo: la voz de una llamada, el audio de un vídeo, la alerta de un programa. No graba tu micrófono, eso es la fila de abajo.": "把扬声器发出的声音录进同一个视频：通话语音、视频声音、程序提示音。不会录制麦克风，那是下面一行的选项。",
   "Tu voz, en su propia pista: en el editor se sube, se baja o se quita sin tocar el sonido del sistema. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.": "你的声音，单独一条音轨：在编辑器里可以调大、调小或关掉，不影响系统声音。适合一边演示一边讲解，只能在录制前决定。",
-  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva un 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento. Apagado, winshotx entera gasta el 2,9%.":
-    "winshotx 持续录制屏幕并丢弃旧内容，所以即使你没按录制，刚刚发生的画面仍在。代价是：在三屏、60 帧、原生分辨率下实测，桌面静止时占用单核 22%，屏幕运动时最高占用 60%。关闭后，整个 winshotx 只占用 2.9%。",
   "Cuánto tiempo hacia atrás se puede rescatar. Más segundos es más memoria y más disco dando vueltas, y hasta que no pase ese tiempo desde que lo encendiste, lo que guardes durará menos de lo que pone aquí.": "可以回溯多久。秒数越多，内存和磁盘占用越高；开启后未满该时长时，保存的内容会比这里显示的短。",
   "El anillo vigila UNA pantalla y no puede cambiar a mitad, porque mudarse se llevaría por delante lo grabado. Al elegir una, su número aparece un par de segundos en esa misma pantalla para que sepas cuál es.": "回放环只监视一个屏幕，中途不能切换，因为换屏会丢失已录内容。选择某个屏幕后，其编号会在该屏幕显示几秒，方便确认。",
   "A qué tamaño se guarda lo que va entrando. Bajarlo de la resolución nativa ocupa mucho menos y se nota poco en pantalla, y aquí abajo tienes lo que puede llegar a ocupar en disco con lo que hayas elegido.": "录制内容的保存尺寸。低于原生分辨率可大幅节省空间，屏幕上几乎看不出差别；下方会显示当前选项可能占用的磁盘空间。",
@@ -539,8 +540,6 @@ export const ZH: Record<string, string> = {
   "Elegir dónde guardar (Ctrl+Mayús+S)": "选择保存位置（Ctrl+Shift+S）",
   "Guardar en…": "保存到…",
   "La misma captura, pero al soltar el ratón se abre el editor en vez de la barra de siempre. Para la captura que hay que trabajar: señalar algo con una flecha, tapar un dato o recortar antes de mandarla.": "同样的截图，但松开鼠标后直接打开编辑器，而不是平时那条工具栏。适合需要动手处理的截图：用箭头指出重点、遮住敏感信息，或者发出去之前先裁一下。",
-  "esta combinación midió el 17% de un núcleo con el escritorio quieto": "此组合在桌面静止时测得约占一个核心的 17%",
-  "esta combinación midió el 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento": "此组合在桌面静止时测得约占一个核心的 22%，画面移动时最高到 60%",
   // El editor: la línea de tiempo, encuadrar y el panel de guardar (8-nov-2026)
   "Principio: arrástralo para recortar (tecla I)": "起点：拖动即可剪辑（I 键）",
   "Final: arrástralo para recortar (tecla O)": "终点：拖动即可剪辑（O 键）",
