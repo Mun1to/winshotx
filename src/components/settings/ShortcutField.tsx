@@ -88,21 +88,21 @@ export function ShortcutField({ value, onChange, active }: Props) {
           ? t("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí")
           : t("Clic para cambiar el atajo")
       }
-      className={`flex h-8 min-w-[132px] items-center justify-end gap-1 rounded-lg border px-2 transition-colors ${
+      className={`flex h-9 min-w-[140px] items-center justify-end gap-1 rounded-lg border px-2 transition-colors ${
         recording
-          ? "animate-pulse border-blue-500 bg-blue-500/10"
+          ? "animate-pulse border-marca bg-marca/10"
           : active
             ? "border-linea-fuerte bg-hueco hover:border-linea-viva"
             : "border-red-500/40 bg-red-500/10 hover:border-red-400"
       }`}
     >
       {recording ? (
-        <span className="w-full text-center text-[11px] text-blue-300">{t("Pulsa las teclas…")}</span>
+        <span className="w-full text-center text-[13px] font-medium text-marca">{t("Pulsa las teclas…")}</span>
       ) : (
         parts.map((part, index) => (
           <kbd
             key={`${part}-${index}`}
-            className="rounded-[5px] border border-linea-fuerte bg-realce px-1.5 py-0.5 text-[11px] leading-none font-medium text-texto"
+            className="rounded-[5px] border border-linea-fuerte bg-realce px-1.5 py-1 text-[12px] leading-none font-medium text-texto"
           >
             {part}
           </kbd>
