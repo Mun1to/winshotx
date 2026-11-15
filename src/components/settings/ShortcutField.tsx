@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { partesDeAtajo } from "../../lib/teclas";
 import { useT } from "../../lib/i18n";
 
@@ -78,6 +78,11 @@ export function ShortcutField({ value, onChange, active }: Props) {
 
   const parts = partesDeAtajo(value);
 
+  // Sin caja y sin teclas en cajitas desde S40: «Ctrl + Shift + S» como texto, que es como se
+  // dice un atajo. Lo que dice «esto se cambia aquí» es la raya azul de debajo, al pasar el
+  // ratón, con el foco del teclado y mientras escucha las teclas. Munito, con la 0.5.0
+  // delante: «no me gusta el diseño de esto» (un recuadro con «Win» «Shift» «S» en cajitas).
+  const tinta = active ? "text-titulo" : "text-[color:light-dark(#b91c1c,#f87171)]";
   return (
     <button
       ref={boxRef}
@@ -88,26 +93,31 @@ export function ShortcutField({ value, onChange, active }: Props) {
           ? t("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí")
           : t("Clic para cambiar el atajo")
       }
-      className={`flex h-9 min-w-[140px] items-center justify-end gap-1 rounded-lg border px-2 transition-colors ${
-        recording
-          ? "animate-pulse border-marca bg-marca/10"
-          : active
-            ? "border-linea-fuerte bg-hueco hover:border-linea-viva"
-            : "border-red-500/40 bg-red-500/10 hover:border-red-400"
-      }`}
+      data-atajo
+      className="group flex h-9 items-center justify-end px-1 outline-none"
     >
-      {recording ? (
-        <span className="w-full text-center text-[13px] font-medium text-marca">{t("Pulsa las teclas…")}</span>
-      ) : (
-        parts.map((part, index) => (
-          <kbd
-            key={`${part}-${index}`}
-            className="rounded-[5px] border border-linea-fuerte bg-realce px-1.5 py-1 text-[12px] leading-none font-medium text-texto"
-          >
-            {part}
-          </kbd>
-        ))
-      )}
+      <span
+        className={`flex items-center gap-1.5 border-b-2 pb-0.5 text-[14px] leading-tight whitespace-nowrap transition-colors duration-150 ${
+          recording
+            ? "border-marca"
+            : "border-transparent group-hover:border-marca group-focus-visible:border-marca"
+        }`}
+      >
+        {recording ? (
+          <span className="animate-pulse font-medium text-marca">{t("Pulsa las teclas…")}</span>
+        ) : (
+          parts.map((part, index) => (
+            <Fragment key={`${part}-${index}`}>
+              {index > 0 && (
+                <span aria-hidden="true" className="text-apagado">
+                  +
+                </span>
+              )}
+              <span className={`font-semibold ${tinta}`}>{part}</span>
+            </Fragment>
+          ))
+        )}
+      </span>
     </button>
   );
 }

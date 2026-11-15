@@ -461,19 +461,6 @@ function PistaDeAtajo({
   );
 }
 
-/**
- * El campo de los ajustes, con su letra a 12 px. El campo pinta sus teclas a 11, por debajo
- * del minimo de la casa; la pieza es de los ajustes (`settings/ShortcutField.tsx`) y se
- * arregla alli, pero la bienvenida no la enseña asi mientras tanto.
- */
-function CampoDeAtajo(props: { value: string; active: boolean; onChange: (v: string) => void }) {
-  return (
-    <span className="block [&_kbd]:text-[12px] [&_span]:text-[12px]">
-      <ShortcutField {...props} />
-    </span>
-  );
-}
-
 /* ------------------------------------------------------------------ los cuatro pasos */
 
 function Atajos({
@@ -524,7 +511,7 @@ function Atajos({
             />
           }
           control={
-            <CampoDeAtajo
+            <ShortcutField
               value={ajustes.captureShortcut}
               active={atajos.capture}
               onChange={onCaptura}
@@ -543,7 +530,7 @@ function Atajos({
             />
           }
           control={
-            <CampoDeAtajo
+            <ShortcutField
               value={ajustes.recordShortcut}
               active={atajos.record}
               onChange={onGrabacion}
