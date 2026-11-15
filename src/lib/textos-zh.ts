@@ -277,13 +277,19 @@ export const ZH: Record<string, string> = {
   "Pulsa aquí o Ctrl + F y escribe lo que buscas, como «cursor» o «sonido»: te lleva a su apartado y te ilumina la fila.": "点这里或按 Ctrl + F，输入要找的内容，比如「鼠标」或「声音」：会跳到对应分区并高亮那一行。",
 
   // 欢迎页
+  "Tus teclas": "你的快捷键",
+  "Al soltar": "松开时",
+  "Pasos de la bienvenida": "欢迎步骤",
+  "Lo que vas a ver": "效果预览",
   "winshotx ya está en marcha": "winshotx 已经启动",
   "Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.":
     "它驻留在系统托盘，时钟旁边。无需保留窗口：按一个键调用，干完活就消失。",
-  "Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que quieras si prefieres otras.":
-    "这是两个调用快捷键。点击输入框，按下你喜欢的组合键即可更改。",
+  "Las dos teclas que lo llaman": "调用它的两个快捷键",
   "Capturar una región": "区域截图",
   "Grabar en GIF o vídeo": "录制成 GIF 或视频",
+  "Haz clic en una y teclea la combinación que prefieras.": "点击其中一个，按下你喜欢的组合键。",
+  "Pulsas {atajo} y arrastras la zona": "按 {atajo}，拖出区域",
+  "Pulsas {atajo} y eliges qué grabar": "按 {atajo}，选择要录制的内容",
   "Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.":
     "一切都在你的电脑上：无账号、无云端、无需上传任何内容。",
   "Esta la tiene otra aplicación. Prueba con otra.": "该快捷键已被其他应用占用。换一个试试。",
@@ -293,12 +299,12 @@ export const ZH: Record<string, string> = {
     "两种方式使用相同的快捷键和框选。区别在于松开鼠标后的行为，可随时在设置中更改。",
   "Con barra": "带工具栏",
   "Seleccionas y eliges qué hacer.": "框选后选择要执行的操作。",
-  "La opción completa: de esa barra salen el editor, el GIF y el vídeo.":
-    "完整选项：编辑器、GIF 和视频都从该工具栏开始。",
   "Al vuelo": "即时复制",
   "Seleccionas y se copia sola.": "框选后自动复制。",
-  "Para pegar en un chat sin pensar. Grabar va igual en las dos: empieza al soltar.":
-    "适合直接粘贴到聊天窗口。两种方式录屏都一样：松开鼠标就开始。",
+  "De esa barra salen el editor, el GIF y el vídeo": "编辑器、GIF 和视频都从这个工具栏开始",
+  "Para pegar en un chat sin pensar": "适合直接粘贴到聊天窗口",
+  "Grabar empieza al soltar, en las dos formas": "两种方式录屏都是松开鼠标就开始",
+  "Cómo va": "流程",
   "Pulsas el atajo": "按下快捷键",
   "Arrastras la región": "拖动框选区域",
   "Copiar, guardar, editar o grabar": "复制、保存、编辑或录屏",
@@ -307,33 +313,30 @@ export const ZH: Record<string, string> = {
   "¿Le quitamos la tecla a la Herramienta de Recortes?": "要从截图工具手中接管该键吗？",
   "En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo.":
     "在 Windows 中，Print Screen 键会打开截图工具。如果你愿意，winshotx 可以接管它，用同一个键响应，无需学习新快捷键。",
-  "Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la pasa a winshotx. No te quita nada más.":
-    "关闭 Windows 中把该键分配给截图工具的设置，并转交给 winshotx。不会动其他设置。",
+  "Impr Pant abre": "Print Screen 打开",
   "La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.":
     "截图工具保留 Print Screen，winshotx 使用自己的快捷键。",
-  "Impr Pant abre winshotx.": "Print Screen 将打开 winshotx。",
   "Impr Pant no ha caído: hay otro programa que la tiene cogida.":
     "未能接管 Print Screen：其他程序占用了它。",
   "Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y vuelve a entrar.":
     "如果 Windows 仍用 Print Screen 打开截图工具，请注销并重新登录。",
-  "Sin cambios. Puedes activarlo más adelante en Ajustes, en “Teclas de Windows”.":
-    "未做更改。可以稍后在设置中的「Windows 快捷键」里开启。",
-  "Win + Mayús + S es otra historia.": "Win + Shift + S 是另一回事。",
-  "Esa la atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus atajos, lo que apaga también Win + S, la búsqueda. Por eso va aparte, en Ajustes → Teclas de Windows, y no entra aquí de propina.":
-    "Windows 会在任何程序之前处理它，只能通过关闭其快捷键中的 S 来解除，而这也会关闭 Win+S 搜索。所以它单独放在设置 → Windows 快捷键中，不在这里附带处理。",
+  "Se queda en Windows: quitársela apaga también Win + S, la búsqueda. Si la quieres, está en Ajustes, en Teclas de Windows.":
+    "它留给 Windows：接管它也会关闭 Win+S 搜索。如果需要，可在设置的「Windows 快捷键」中开启。",
+  "Tus atajos de winshotx funcionan siempre, cojas esta tecla o no":
+    "无论是否接管这个键，winshotx 的快捷键都始终有效",
 
   "Listo, ya puedes capturar": "完成，可以开始截图了",
   "Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja.":
     "这是当前配置。之后都可以从托盘图标更改。",
+  "También con Impr Pant": "也可以用 Print Screen",
   "se copia al portapapeles": "会复制到剪贴板",
   "sale la barra para elegir": "弹出工具栏供选择",
   "se abre en la bandeja, sin ventana": "在托盘中打开，无窗口",
-  "Pulsa el atajo cuando quieras. Con el botón derecho en el icono de la bandeja se abren los ajustes.":
-    "随时按下快捷键。右键点击托盘图标可打开设置。",
-  "Paso {n} de {total}": "第 {n} 步，共 {total} 步",
+  "Dónde se queda": "它在哪里",
+  "Pulsa el atajo cuando quieras": "随时按下快捷键",
+  "Con el botón derecho en el icono de la bandeja se abren los ajustes": "右键点击托盘图标可打开设置",
   "Todo listo": "全部就绪",
   Estilo: "样式",
-  Hola: "你好",
 
   // 截图工具栏、录制栏和编辑器
   "Salir sin capturar": "退出而不截图",
@@ -426,7 +429,6 @@ export const ZH: Record<string, string> = {
 
   // 欢迎页零星文本
   "o prueba": "或者试试",
-  "Dejarla como está": "保持原样",
 
   // 贴图截图
   Anclar: "贴图",

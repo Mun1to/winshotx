@@ -39,6 +39,26 @@ describe("el alto que pide la ventana", () => {
     expect(encajar({ ...base, pedido: 742 }).y).toBeNull();
   });
 
+  it("con el borde de abajo quieto (la bienvenida), el pie no se mueve al cambiar de paso", () => {
+    // Por fuera 800 con el borde de arriba en 140: el de abajo está en 940 y ahí se queda.
+    const encoge = encajar({ ...base, abajo: true, pedido: 420 });
+    expect(encoge.alto).toBe(420);
+    expect(encoge.y! + encoge.alto + base.marco).toBe(940);
+    const crece = encajar({ ...base, abajo: true, pedido: 742, y: 400, altoFuera: 460 });
+    expect(crece.y! + crece.alto + base.marco).toBe(400 + 460);
+  });
+
+  it("con el borde de abajo quieto, si al crecer se saldría por arriba, se queda en la zona útil", () => {
+    const r = encajar({ ...base, abajo: true, pedido: 742, y: 10, altoFuera: 400 });
+    expect(r.alto).toBe(742);
+    expect(r.y).toBe(0);
+  });
+
+  it("la primera vez manda el centro aunque se pida el borde de abajo quieto", () => {
+    const r = encajar({ ...base, abajo: true, conservarCentro: true });
+    expect(r.y).toBe(Math.round(140 + (800 - 653) / 2));
+  });
+
   it("a 125 % y 150 % pide en físicos, redondeando hacia arriba para no sacar la rueda por medio píxel", () => {
     expect(encajar({ ...base, escala: 1.25 }).alto).toBe(767); // 613 x 1,25 = 766,25
     expect(encajar({ ...base, escala: 1.5, pedido: 742, zona: { y: 0, alto: 1400 } }).alto).toBe(1113);

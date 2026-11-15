@@ -60,6 +60,12 @@ export interface Sitio {
    * debajo del ratón al pulsarlas.
    */
   conservarCentro: boolean;
+  /**
+   * Después de la primera vez, quieto el borde de ABAJO en vez del de arriba. Es la
+   * bienvenida: lo que se pulsa una y otra vez es «Siguiente», que va en el pie, y si la
+   * ventana encogía por abajo al pasar de paso, el botón se iba de debajo del ratón.
+   */
+  abajo?: boolean;
 }
 
 export interface Encaje {
@@ -80,7 +86,11 @@ export function encajar(s: Sitio): Encaje {
   let alto = Math.ceil(Math.min(s.pedido, s.maximo ?? Infinity) * s.escala);
   if (s.zona) alto = Math.min(alto, s.zona.alto - s.marco);
   const fuera = alto + s.marco;
-  let y = s.conservarCentro ? Math.round(s.y + (s.altoFuera - fuera) / 2) : s.y;
+  let y = s.conservarCentro
+    ? Math.round(s.y + (s.altoFuera - fuera) / 2)
+    : s.abajo
+      ? s.y + s.altoFuera - fuera
+      : s.y;
   if (s.zona) {
     // Primero que no se salga por abajo, y después por arriba: si hubiera que elegir, que
     // se vea la barra de título, que es por donde se mueve.
@@ -112,9 +122,11 @@ export function useVentanaALaMedida(
      * 900 porque la bienvenida, que vive en la misma ventana, la deja en 840.
      */
     anchoMinimo?: number;
+    /** Después de la primera vez, deja quieto el borde de abajo (la bienvenida lleva «Siguiente» en el pie). */
+    anclarAbajo?: boolean;
   },
 ) {
-  const { listo, maximo, otraVez, anchoMinimo } = opciones;
+  const { listo, maximo, otraVez, anchoMinimo, anclarAbajo = false } = opciones;
   const primera = useRef(true);
   // Una sola a la vez: dos ajustes cruzados (el del cambio de pestaña y el del contenido que
   // termina de pintarse) podían acabar con el alto del primero puesto encima del segundo.
@@ -162,6 +174,7 @@ export function useVentanaALaMedida(
             ? { y: pantalla.workArea.position.y, alto: pantalla.workArea.size.height }
             : null,
           conservarCentro: primera.current,
+          abajo: anclarAbajo,
         });
         // El ancho, solo al abrir y solo si se queda corta: se ensancha por igual a los dos
         // lados, para que siga donde estaba.
@@ -182,7 +195,7 @@ export function useVentanaALaMedida(
     } finally {
       enCurso.current = false;
     }
-  }, [hueco, contenido]);
+  }, [hueco, contenido, anchoMinimo, anclarAbajo]);
 
   useEffect(() => {
     if (!listo) return;
