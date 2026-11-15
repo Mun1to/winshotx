@@ -309,15 +309,22 @@ function ConNegrita({ frase, datos }: { frase: string; datos: Record<string, str
   );
 }
 
-/** Las filas sueltas de los ajustes nuevos: titulo suelto encima y una linea fina entre ellas. */
+/**
+ * Las filas sueltas de los ajustes: titulo suelto encima y las filas debajo, sin raya entre
+ * ellas desde S40 (Munito, con la 0.5.0: «no me gusta el diseño de los separadores»). Las
+ * separa el aire, como en los ajustes (`settings/Section.tsx`).
+ */
 function Bloque({ titulo, children }: { titulo?: string; children: ReactNode }) {
   return (
     <section className="mt-5">
-      {titulo && <h2 className="mb-1 px-1 text-[15px] font-bold text-titulo">{titulo}</h2>}
-      <div className="border-y border-linea [&>*+*]:border-t [&>*+*]:border-linea">{children}</div>
+      {titulo && <h2 className="mb-1.5 px-1 text-[15px] font-bold text-titulo">{titulo}</h2>}
+      <div>{children}</div>
     </section>
   );
 }
+
+/** Lo que llevan todas las filas: el aire de los lados y el fondo suave bajo el raton. */
+const FILA = "-mx-2 rounded-lg px-3 transition-colors duration-200 hover:bg-realce/60";
 
 /**
  * Una fila: el icono suelto, el nombre a 15 px y debajo lo que explica a 13, sin cortar, y el
@@ -352,14 +359,15 @@ function Fila({
   );
   if (debajo) {
     return (
-      <div className="px-1 py-3">
+      <div className={`${FILA} py-3`}>
         {texto}
         <div className="mt-2 pl-7">{control}</div>
       </div>
     );
   }
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 py-3">
+    // Al mismo alto que las de los ajustes (52), tengan lo que tengan a la derecha.
+    <div className={`${FILA} flex min-h-[52px] flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2`}>
       {texto}
       {control && <span className="shrink-0">{control}</span>}
     </div>
