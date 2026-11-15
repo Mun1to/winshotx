@@ -1018,6 +1018,7 @@ pub(crate) fn al_editor(app: &AppHandle, session: &SessionData) -> Result<()> {
     let mut con_miniaturas = session.clone();
     match record::generate_thumbnails(&mut con_miniaturas) {
         Ok(()) => {
+            crate::crono::marca("miniaturas-hechas");
             let _ = con_miniaturas.persist();
             state
                 .sessions

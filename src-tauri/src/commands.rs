@@ -111,6 +111,7 @@ pub async fn freeze_png(
 /// ve nunca la pantalla de «preparando la captura»: lo que aparece, aparece ya pintado.
 #[tauri::command]
 pub async fn overlay_listo(app: AppHandle, monitor_id: u32, generation: u64) {
+    crate::crono::marca(&format!("overlay-listo-{monitor_id}"));
     windows_mgr::overlay_listo(&app, monitor_id, generation);
 }
 
@@ -523,6 +524,7 @@ pub async fn session_info(app: AppHandle, session_id: String) -> Result<SessionI
 
 #[tauri::command]
 pub async fn session_frames(app: AppHandle, session_id: String) -> Result<Vec<FrameDto>> {
+    crate::crono::marca("session_frames");
     Ok(session_of(&app, &session_id)?
         .frames
         .into_iter()
@@ -632,6 +634,7 @@ pub async fn frame_image(app: AppHandle, session_id: String, index: usize) -> Re
     let directory = session.dir.join("full");
     std::fs::create_dir_all(&directory)?;
     let path = directory.join(format!("{index:06}.png"));
+    crate::crono::marca(&format!("frame_image-{index}"));
     if !path.exists() {
         let image = record::read_frame(&session, index)?;
         // Comprimido lo minimo: es una vista previa temporal que se pide en cada
@@ -639,6 +642,7 @@ pub async fn frame_image(app: AppHandle, session_id: String, index: usize) -> Re
         // `image` cada salto costaba 180 ms a 1080p. Ver `png::save_fast`.
         png::save_fast(&image, &path)?;
     }
+    crate::crono::marca(&format!("frame_image-{index}-hecho"));
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -1069,7 +1073,10 @@ pub async fn restart_shell(app: AppHandle) -> Result<crate::hotkeys::ShortcutSta
 }
 
 #[tauri::command]
-pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings> {
+pub async fn get_settings(window: tauri::WebviewWindow, state: State<'_, AppState>) -> Result<Settings> {
+    // La primera orden que manda casi cualquier pagina al montarse: su marca dice cuando ha
+    // cargado cada ventana (los ajustes, el editor, el menu de la bandeja...).
+    crate::crono::marca(&format!("get_settings-{}", window.label()));
     Ok(state.settings.read().clone())
 }
 
