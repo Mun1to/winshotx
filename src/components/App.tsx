@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings } from "../lib/ipc";
 import { aplicarTema } from "../lib/tema";
 import { aplicarIdioma } from "../lib/i18n";
@@ -39,16 +39,17 @@ export function App() {
     void ventana.setTitle(
       vista === "bienvenida" ? "winshotx · bienvenida" : "winshotx · ajustes",
     );
-    // La bienvenida pide aqui su tamanno. Los ajustes no: desde S24 (14-nov-2026) miden
-    // lo que mide la pestanna que ensennan (`useVentanaALaMedida` en SettingsApp), porque
-    // con un alto fijo para todas, el de la mas larga, Capturar abria con 160 px vacios
-    // debajo. Lo que dice `tauri.conf.json` es solo el tamanno con el que nace la ventana.
+    // Ninguna de las dos pide aqui su tamanno: miden lo que mide lo que ensennan
+    // (`useVentanaALaMedida`). Los ajustes desde S24 (14-nov-2026), porque con un alto fijo
+    // para todas, el de la mas larga, Capturar abria con 160 px vacios debajo; la bienvenida
+    // desde S38 (15-nov-2026), que con 840 x 640 fijos dejaba entre 179 y 260 px vacios bajo
+    // cada paso. Lo que dice `tauri.conf.json` es solo el tamanno con el que nace la ventana,
+    // y el ancho es el suyo: la bienvenida no lo toca.
     //
     // Historia del alto fijo, que explica la regla que sigue en pie: subio de 470 a 510 el
     // 27 de agosto de 2026 al entrar el microfono, a 620 el 17 de octubre (el anillo) y a 760
     // el 11 de noviembre (la tecla de zoom y la camara). Ninguna pantalla de ajustes lleva
     // rueda: si el contenido no cabe, se agranda la ventana.
-    if (vista === "bienvenida") void ventana.setSize(new LogicalSize(840, 640));
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-lienzo" />;

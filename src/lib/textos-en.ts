@@ -240,13 +240,18 @@ export const EN: Record<string, string> = {
     "winshotx is free, with no accounts and no ads, and I build it on my own. If it saves you time, a coffee is what keeps it going. If not, a star on GitHub or a bug report helps just as much.",
 
   // La bienvenida
+  "Tus teclas": "Your keys",
+  "Pasos de la bienvenida": "Welcome steps",
+  "Lo que vas a ver": "What you will see",
   "winshotx ya está en marcha": "winshotx is up and running",
   "Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.":
     "It lives in the system tray, next to the clock. There is no window to leave open: you call it with a key, it does its job and it is gone.",
-  "Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que quieras si prefieres otras.":
-    "These are the two keys that call it. Click the field and type any combination you prefer.",
+  "Las dos teclas que lo llaman": "The two keys that call it",
   "Capturar una región": "Capture a region",
   "Grabar en GIF o vídeo": "Record to GIF or video",
+  "Haz clic en una y teclea la combinación que prefieras.": "Click one and type the combination you prefer.",
+  "Pulsas {atajo} y arrastras la zona": "Press {atajo} and drag over the area",
+  "Pulsas {atajo} y eliges qué grabar": "Press {atajo} and pick what to record",
   "Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.":
     "Everything stays on your computer: no account, no cloud, nothing uploaded.",
   "Esta la tiene otra aplicación. Prueba con otra.": "Another app has this one. Try a different one.",
@@ -256,12 +261,12 @@ export const EN: Record<string, string> = {
     "Both ways use the same shortcut and the same selection. What changes is what happens when you let go, and you can switch whenever you like in the settings.",
   "Con barra": "With a bar",
   "Seleccionas y eliges qué hacer.": "Select, then choose what to do.",
-  "La opción completa: de esa barra salen el editor, el GIF y el vídeo.":
-    "The full option: the editor, the GIF and the video all come out of that bar.",
   "Al vuelo": "On the fly",
   "Seleccionas y se copia sola.": "Select and it copies itself.",
-  "Para pegar en un chat sin pensar. Grabar va igual en las dos: empieza al soltar.":
-    "To paste into a chat without thinking. Recording works the same in both: it starts when you let go.",
+  "De esa barra salen el editor, el GIF y el vídeo": "The editor, the GIF and the video all come out of that bar",
+  "Para pegar en un chat sin pensar": "To paste into a chat without thinking",
+  "Grabar empieza al soltar, en las dos formas": "Recording starts when you let go, either way",
+  "Cómo va": "How it goes",
   "Pulsas el atajo": "You press the shortcut",
   "Arrastras la región": "You drag the region",
   "Copiar, guardar, editar o grabar": "Copy, save, edit or record",
@@ -270,33 +275,30 @@ export const EN: Record<string, string> = {
   "¿Le quitamos la tecla a la Herramienta de Recortes?": "Shall we take the key off the Snipping Tool?",
   "En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo.":
     "On Windows, the Print Screen key opens the Snipping Tool. If you want, winshotx takes it and answers to that same finger, with no new shortcut to learn.",
-  "Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la pasa a winshotx. No te quita nada más.":
-    "It turns off the Windows setting that gives that key to the Snipping Tool and hands it to winshotx. It takes nothing else from you.",
+  "Impr Pant abre": "Print Screen opens",
   "La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.":
     "The Snipping Tool keeps Print Screen and winshotx answers to its own shortcut.",
-  "Impr Pant abre winshotx.": "Print Screen opens winshotx.",
   "Impr Pant no ha caído: hay otro programa que la tiene cogida.":
     "Print Screen did not come across: another program is holding it.",
   "Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y vuelve a entrar.":
     "If Windows keeps opening the Snipping Tool with Print Screen, sign out and back in.",
-  "Sin cambios. Puedes activarlo más adelante en Ajustes, en “Teclas de Windows”.":
-    "Nothing changed. You can turn it on later in Settings, under “Windows keys”.",
-  "Win + Mayús + S es otra historia.": "Win + Shift + S is another story.",
-  "Esa la atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus atajos, lo que apaga también Win + S, la búsqueda. Por eso va aparte, en Ajustes → Teclas de Windows, y no entra aquí de propina.":
-    "Windows answers that one before any program, and the only way to take it is to switch off the S in its own shortcuts, which also switches off Win + S, the search. That is why it sits apart, in Settings → Windows keys, and does not come along for the ride here.",
+  "Se queda en Windows: quitársela apaga también Win + S, la búsqueda. Si la quieres, está en Ajustes, en Teclas de Windows.":
+    "It stays with Windows: taking it also switches off Win + S, the search. If you want it, it is in Settings, under Windows keys.",
+  "Tus atajos de winshotx funcionan siempre, cojas esta tecla o no":
+    "Your winshotx shortcuts always work, whether you take this key or not",
 
   "Listo, ya puedes capturar": "That is it, you can start capturing",
   "Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja.":
     "This is how it is set up. You can change all of it later from the tray icon.",
+  "También con Impr Pant": "Also with Print Screen",
   "se copia al portapapeles": "it copies to the clipboard",
   "sale la barra para elegir": "a bar appears so you can choose",
   "se abre en la bandeja, sin ventana": "it opens in the tray, with no window",
-  "Pulsa el atajo cuando quieras. Con el botón derecho en el icono de la bandeja se abren los ajustes.":
-    "Press the shortcut whenever you like. Right-click the tray icon to open the settings.",
-  "Paso {n} de {total}": "Step {n} of {total}",
+  "Dónde se queda": "Where it lives",
+  "Pulsa el atajo cuando quieras": "Press the shortcut whenever you like",
+  "Con el botón derecho en el icono de la bandeja se abren los ajustes": "Right-click the tray icon to open the settings",
   "Todo listo": "All set",
   Estilo: "Style",
-  Hola: "Hello",
 
   // La barra de captura, la de grabacion y el editor
   "Salir sin capturar": "Leave without capturing",
@@ -389,7 +391,6 @@ export const EN: Record<string, string> = {
 
   // Sueltos de la bienvenida
   "o prueba": "or try",
-  "Dejarla como está": "Leave it alone",
 
   // La captura anclada
   Anclar: "Pin",
