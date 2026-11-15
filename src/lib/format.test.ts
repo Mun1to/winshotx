@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { clamp, formatBytes, formatDuration, formatTimecode } from "./format";
+import { aplicarIdioma, idiomaActivo } from "./i18n";
 
 describe("la duracion, en minutos y segundos", () => {
   it("empieza en 0:00", () => {
@@ -50,24 +51,62 @@ describe("el codigo de tiempo del editor, con centesimas", () => {
 });
 
 describe("el tamanno de un archivo", () => {
+  // Entre la cifra y la unidad va un espacio que no se parte. Se escribe aqui con su codigo
+  // para que se vea: a simple vista es igual que un espacio normal.
+  const nb = "\u00a0";
+
   it("por debajo de un kilo va en bytes tal cual", () => {
-    expect(formatBytes(0)).toBe("0 B");
-    expect(formatBytes(1_023)).toBe("1023 B");
+    expect(formatBytes(0, "en")).toBe(`0${nb}B`);
+    expect(formatBytes(1_023, "en")).toBe(`1023${nb}B`);
   });
 
   it("de un kilo a un mega, en KB redondos", () => {
-    expect(formatBytes(1_024)).toBe("1 KB");
-    expect(formatBytes(512_000)).toBe("500 KB");
+    expect(formatBytes(1_024, "en")).toBe(`1${nb}KB`);
+    expect(formatBytes(512_000, "en")).toBe(`500${nb}KB`);
   });
 
   it("a partir de un mega, con un decimal", () => {
-    expect(formatBytes(1_048_576)).toBe("1.0 MB");
-    expect(formatBytes(3_500_000)).toBe("3.3 MB");
+    expect(formatBytes(1_048_576, "en")).toBe(`1.0${nb}MB`);
+    expect(formatBytes(3_500_000, "en")).toBe(`3.3${nb}MB`);
   });
 
   it("un instalador entero se lee de un vistazo", () => {
     // Los 2.325.944 bytes que mide hoy el instalador de winshotx.
-    expect(formatBytes(2_325_944)).toBe("2.2 MB");
+    expect(formatBytes(2_325_944, "en")).toBe(`2.2${nb}MB`);
+  });
+
+  it("en espannol el decimal va con coma, como lo escribe una persona", () => {
+    expect(formatBytes(3_500_000, "es")).toBe(`3,3${nb}MB`);
+    expect(formatBytes(4.2e9, "es")).toBe(`3,9${nb}GB`);
+    // Sin decimales no hay coma que poner.
+    expect(formatBytes(512_000, "es")).toBe(`500${nb}KB`);
+  });
+
+  it("en ingles y en chino, con punto", () => {
+    expect(formatBytes(4.2e9, "en")).toBe(`3.9${nb}GB`);
+    expect(formatBytes(4.2e9, "zh")).toBe(`3.9${nb}GB`);
+  });
+
+  it("la cifra y la unidad nunca se separan en dos renglones", () => {
+    for (const bytes of [0, 2_000, 3_500_000, 4.2e9]) {
+      for (const idioma of ["es", "en", "zh"] as const) {
+        const texto = formatBytes(bytes, idioma);
+        expect(texto).not.toContain(" ");
+        expect(texto).toContain(nb);
+      }
+    }
+  });
+
+  it("sin decir idioma, usa el de la ventana", () => {
+    const antes = idiomaActivo();
+    try {
+      aplicarIdioma("es");
+      expect(formatBytes(3_500_000)).toBe(`3,3${nb}MB`);
+      aplicarIdioma("en");
+      expect(formatBytes(3_500_000)).toBe(`3.3${nb}MB`);
+    } finally {
+      aplicarIdioma(antes);
+    }
   });
 });
 
