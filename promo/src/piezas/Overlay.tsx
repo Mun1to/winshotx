@@ -28,7 +28,8 @@ export function Overlay({ aparece = 0, desde = 0, ritmo = 1, hasta }: { aparece?
   const [x, y] = ratones[Math.min(i, ratones.length - 1)];
   // La pantalla se congela de golpe, pero la cámara de la foto no: un destello muy corto
   // para que se note el momento en que winshotx coge la pantalla.
-  const destello = interpolate(frame - aparece, [0, 2, 7], [0, 0.18, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // Más bajo y más largo que al principio (0,18 en 7 fotogramas), que daba un golpe de luz.
+  const destello = interpolate(frame - aparece, [0, 2, 12], [0, 0.08, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <AbsoluteFill>
       <Img src={fotoDelOverlay(i)} style={{ width: ANCHO, height: ALTO }} />
