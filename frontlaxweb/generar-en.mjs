@@ -7,13 +7,15 @@
  * Google y a los rastreadores de las IA viendo solo la version espanola. Los textos ingleses
  * ya viven en los atributos data-en de cada pagina, asi que aqui solo hay que aplicarlos.
  *
- * Paginas: index.html -> en/index.html, docs/ -> en/docs/, privacidad/ -> en/privacy/ y
- * novedades/ -> en/changelog/ (esta la escribe antes generar-novedades.mjs).
+ * Paginas: index.html -> en/index.html, docs/ -> en/docs/, privacidad/ -> en/privacy/,
+ * soporte/ -> en/support/ y novedades/ -> en/changelog/ (esta la escribe antes
+ * generar-novedades.mjs).
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sincronizarCromo } from "./cromo.mjs";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const BASE = "https://winshotx.com/";
@@ -22,6 +24,14 @@ const BASE = "https://winshotx.com/";
 // que corre este script y para si algo cambia, también se entera de un JSON tocado sin
 // volver a generar su página.
 await import("./generar-novedades.mjs");
+
+// Y la comparativa de la portada, que sale de comparativa.mjs.
+await import("./generar-comparativa.mjs");
+
+// Y la barra de arriba, el pie y los dibujos de la guía, la privacidad y la 404, que se
+// copian de la portada: si alguien toca el menú de la portada, aquí se reparte, y el
+// despliegue para hasta que el cambio esté commiteado en todas.
+for (const archivo of await sincronizarCromo(aqui)) console.log(`${archivo}: barra y pie de la portada`);
 
 /** Los data-en llevan las marcas escapadas: aqui se devuelven a su forma. */
 const desescapar = (t) =>
@@ -54,9 +64,19 @@ function traducir(html) {
     (_t, ingles, medio) => `${medio} aria-label="${ingles}"`);
   html = html.replace(/\sdata-aria-en="[^"]*"/g, "");
 
-  // La página de novedades se llama distinto en cada idioma (/novedades/ y /en/changelog/):
-  // los enlaces relativos que van a ella cambian de nombre. Los absolutos los pone cada página.
-  html = html.replace(/href="((?:\.\.\/)*)novedades\/"/g, 'href="$1changelog/"');
+  // Las imágenes con texto dentro tienen una foto por idioma: la inglesa va al lado en
+  // data-src-en (o data-href-en, en un preload) y su texto alternativo en data-alt-en. La
+  // ruta se escribe como se ve desde la página española; la de cada página la pone PAGINAS.
+  for (const atributo of ["src", "href", "alt"]) {
+    const conIngles = new RegExp(`\\s${atributo}="[^"]*"((?:[^>"]|"[^"]*")*?)\\sdata-${atributo}-en="([^"]*)"`, "g");
+    html = html.replace(conIngles, (_t, medio, ingles) => ` ${atributo}="${ingles}"${medio}`);
+  }
+
+  // La página de novedades se llama distinto en cada idioma (/novedades/ y /en/changelog/), y
+  // la de soporte igual (/soporte/ y /en/support/): los enlaces relativos que van a ellas
+  // cambian de nombre. Los absolutos los pone cada página.
+  html = html.replace(/href="((?:\.\.\/)*)novedades\/(#[^"]*)?"/g, 'href="$1changelog/$2"');
+  html = html.replace(/href="((?:\.\.\/)*)soporte\/(#[^"]*)?"/g, 'href="$1support/$2"');
 
   html = html.replace('<html lang="es">', '<html lang="en">');
   html = html.replace('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">');
@@ -79,14 +99,14 @@ function traducir(html) {
  */
 function versionar(html, huellas) {
   return html.replace(
-    /((?:\.\.\/)*)(estilos\.css|demo\.js|cruceta\.js)(\?v=[a-f0-9]+)?/g,
+    /((?:\.\.\/)*)(estilos\.css|demo\.js|cruceta\.js|leer\.js)(\?v=[a-f0-9]+)?/g,
     (_todo, subir, archivo) => `${subir}${archivo}?v=${huellas[archivo]}`,
   );
 }
 
 const huellas = Object.fromEntries(
   await Promise.all(
-    ["estilos.css", "demo.js", "cruceta.js"].map(async (archivo) => [
+    ["estilos.css", "demo.js", "cruceta.js", "leer.js"].map(async (archivo) => [
       archivo,
       // El texto se normaliza a saltos de linea de Unix antes de la huella: en Windows el
       // archivo esta en disco con CRLF y en el servidor con LF, y sin esto cada uno
@@ -109,7 +129,7 @@ const huellas = Object.fromEntries(
 function construirFaq(html, idioma) {
   if (!html.includes("data-faq")) return html;
 
-  const seccion = html.match(/<section id="preguntas">([\s\S]*?)<\/section>/);
+  const seccion = html.match(/<section id="preguntas"[^>]*>([\s\S]*?)<\/section>/);
   if (!seccion) throw new Error("no aparece la seccion de preguntas");
 
   const soloTexto = (s) =>
@@ -153,14 +173,14 @@ ${JSON.stringify(bloque, null, 2)}
  * las claves se hayan usado en alguna pagina.
  */
 const ATRIBUTOS = {
-  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y un editor con línea de tiempo y estudio. Enseña la selección ya pintada 114 ms después del atajo, con tres pantallas, y gasta 33 MB. Instalador de 2,95 MB, sin cuenta y sin nube."':
-    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and an editor with a timeline and a studio. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 2.95 MB installer, no account and no cloud."',
+  'content="Alternativa libre a la Herramienta de Recortes de Windows: captura de región, grabación en GIF y MP4 y un editor con línea de tiempo y estudio. Enseña la selección ya pintada 114 ms después del atajo, con tres pantallas, y gasta 33 MB. Instalador de 2,97 MB, sin cuenta y sin nube."':
+    'content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and an editor with a timeline and a studio. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 2.97 MB installer, no account and no cloud."',
   'content="winshotx · captura y grabación de pantalla para Windows"':
     'content="winshotx · screenshots and screen recording for Windows"',
-  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta la enseña ya pintada en 114 ms con tres pantallas y gasta 33 MB, graba GIF y trae editor. 2,95 MB, código abierto."':
-    'content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB, records GIF and ships an editor. 2.95 MB, open source."',
-  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta la enseña ya pintada en 114 ms con tres pantallas y gasta 33 MB. 2,95 MB, código abierto."':
-    'content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB. 2.95 MB, open source."',
+  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta la enseña ya pintada en 114 ms con tres pantallas y gasta 33 MB, graba GIF y trae editor. 2,97 MB, código abierto."':
+    'content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB, records GIF and ships an editor. 2.97 MB, open source."',
+  'content="La Herramienta de Recortes tarda 920 ms y gasta 253 MB. Esta la enseña ya pintada en 114 ms con tres pantallas y gasta 33 MB. 2,97 MB, código abierto."':
+    'content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB. 2.97 MB, open source."',
   'content="winshotx: 114 ms contra 920 ms de la Herramienta de Recortes"':
     'content="winshotx: 114 ms against the Snipping Tool\'s 920 ms"',
   'content="winshotx no recoge nada: ni cuentas, ni telemetría, ni analítica. Aquí están, una por una, las únicas conexiones que hace la aplicación y para qué usa cada permiso de Windows."':
@@ -168,6 +188,11 @@ const ATRIBUTOS = {
   'content="No recoge nada. Las únicas conexiones que hace la aplicación, una por una."':
     'content="It collects nothing. The only connections the app makes, one by one."',
   'content="Privacidad de winshotx"': 'content="winshotx privacy"',
+  'content="Cómo pedir ayuda o avisar de un fallo de winshotx, las preguntas de siempre, dónde guarda tus capturas y tus ajustes, y cómo se desinstala del todo."':
+    'content="How to get help or report a bug in winshotx, the questions that always come up, where it keeps your screenshots and settings, and how to uninstall it completely."',
+  'content="Pedir ayuda, avisar de un fallo, dónde están tus datos y cómo se desinstala."':
+    'content="Getting help, reporting a bug, where your data is and how to uninstall it."',
+  'content="Soporte de winshotx"': 'content="winshotx support"',
   'content="Cómo se usa winshotx: instalación, atajos de teclado, captura de región con lupa, grabación en GIF y MP4, el editor con su línea de tiempo y su estudio, exportación y ajustes."':
     'content="How winshotx works: install, keyboard shortcuts, region capture with a magnifier, GIF and MP4 recording, the editor with its timeline and studio, export and settings."',
   'content="Guía de winshotx"': 'content="winshotx documentation"',
@@ -198,6 +223,10 @@ const PAGINAS = [
       'href="estilos.css?v=': 'href="../estilos.css?v=',
       'src="demo.js?v=': 'src="../demo.js?v=',
       'src="cruceta.js?v=': 'src="../cruceta.js?v=',
+      'src="leer.js?v=': 'src="../leer.js?v=',
+      'src="img/': 'src="../img/',
+      'href="img/': 'href="../img/',
+      [`"screenshot": "${BASE}img/editor-es.webp"`]: `"screenshot": "${BASE}img/editor-en.webp"`,
       '<a href="privacidad/">Privacy</a>': '<a href="privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="en/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>',
@@ -211,10 +240,12 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}docs/">`]: `<meta property="og:url" content="${BASE}en/docs/">`,
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"item": "${BASE}docs/" }`]: `"item": "${BASE}en/docs/" }`,
+      'src="../img/': 'src="../../img/',
       'href="../logo.svg': 'href="../../logo.svg',
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../leer.js?v=': 'src="../../leer.js?v=',
       '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="../en/docs/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>',
@@ -228,12 +259,33 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}privacidad/">`]: `<meta property="og:url" content="${BASE}en/privacy/">`,
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"name": "Privacidad", "item": "${BASE}privacidad/" }`]: `"name": "Privacy", "item": "${BASE}en/privacy/" }`,
+      '<a href="../privacidad/">Privacy</a>': '<a href="./">Privacy</a>',
       'href="../logo.svg': 'href="../../logo.svg',
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../leer.js?v=': 'src="../../leer.js?v=',
+      'src="../img/': 'src="../../img/',
       '<a class="idioma" id="idioma" href="../en/privacy/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../privacidad/" hreflang="es" lang="es">Español</a>',
+    },
+  },
+  {
+    origen: join("soporte", "index.html"),
+    destino: ["en", "support", "index.html"],
+    propios: {
+      [`<link rel="canonical" href="${BASE}soporte/">`]: `<link rel="canonical" href="${BASE}en/support/">`,
+      [`<meta property="og:url" content="${BASE}soporte/">`]: `<meta property="og:url" content="${BASE}en/support/">`,
+      [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
+      [`"name": "Soporte", "item": "${BASE}soporte/" }`]: `"name": "Support", "item": "${BASE}en/support/" }`,
+      'href="../logo.svg': 'href="../../logo.svg',
+      'href="../favicon.ico': 'href="../../favicon.ico',
+      'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
+      'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../leer.js?v=': 'src="../../leer.js?v=',
+      '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
+      '<a class="idioma" id="idioma" href="../en/support/" hreflang="en" lang="en">English</a>':
+        '<a class="idioma" id="idioma" href="../../soporte/" hreflang="es" lang="es">Español</a>',
     },
   },
   {
@@ -244,10 +296,12 @@ const PAGINAS = [
       [`<meta property="og:url" content="${BASE}novedades/">`]: `<meta property="og:url" content="${BASE}en/changelog/">`,
       [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
       [`"name": "Novedades", "item": "${BASE}novedades/" }`]: `"name": "What's new", "item": "${BASE}en/changelog/" }`,
+      'src="../img/': 'src="../../img/',
       'href="../logo.svg': 'href="../../logo.svg',
       'href="../favicon.ico': 'href="../../favicon.ico',
       'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
       'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+      'src="../leer.js?v=': 'src="../../leer.js?v=',
       '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
       '<a class="idioma" id="idioma" href="../en/changelog/" hreflang="en" lang="en">English</a>':
         '<a class="idioma" id="idioma" href="../../novedades/" hreflang="es" lang="es">Español</a>',
@@ -289,6 +343,18 @@ for (const pagina of PAGINAS) {
   console.log(
     `${pagina.destino.join("/")} generado${pendientes ? ` (quedan ${pendientes} sin traducir)` : ""}`,
   );
+}
+
+// La 404 no tiene versión inglesa (se traduce sola si la dirección empieza por /en/), pero
+// carga el CSS como las demás, con su huella.
+{
+  const ruta404 = join(aqui, "404.html");
+  const antes = await readFile(ruta404, "utf8");
+  const despues = versionar(antes, huellas);
+  if (despues !== antes) {
+    await writeFile(ruta404, despues, "utf8");
+    console.log("404.html: actualizado");
+  }
 }
 
 // Una clave que no aparece en ninguna pagina es una frase que se ha quedado en espannol al

@@ -73,12 +73,14 @@ try {
 
 // Y la demo de la web, que enseña la ventana de ajustes con su número dentro. Estaba
 // escrito a mano y se quedó cinco versiones atrás sin que nadie lo notara.
+// Solo ese número, el de su <span class="ver-set">: la portada también lleva «Versión 0.4.6 ·
+// 14 de noviembre» en las tres últimas novedades, y cambiarlas todas a la nueva las falsea.
 const rutaWeb = join(raiz, "frontlaxweb", "index.html");
 try {
   const web = readFileSync(rutaWeb, "utf8");
-  const puesta = web
-    .replace(/Versión \d+\.\d+\.\d+/g, `Versión ${NUEVA}`)
-    .replace(/Version \d+\.\d+\.\d+/g, `Version ${NUEVA}`);
+  const numero = /\d+\.\d+\.\d+/g;
+  const puesta = web.replace(/<span class="ver-set"[^>]*>[^<]*<\/span>/, (span) => span.replace(numero, NUEVA));
+  if (!/<span class="ver-set"/.test(web)) console.error("Ojo: la demo de la web ya no tiene su <span class=\"ver-set\">: pon la versión a mano.");
   if (puesta !== web) {
     writeFileSync(rutaWeb, puesta);
     // La versión inglesa se genera de esta, así que hay que rehacerla o se queda atrás.

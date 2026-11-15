@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>winshotx · screenshots and screen recording for Windows</title>
-<meta name="description" content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and an editor with a timeline and a studio. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 2.95 MB installer, no account and no cloud.">
+<meta name="description" content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and an editor with a timeline and a studio. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 2.97 MB installer, no account and no cloud.">
 <link rel="canonical" href="https://winshotx.com/en/">
 <link rel="alternate" hreflang="es" href="https://winshotx.com/">
 <link rel="alternate" hreflang="en" href="https://winshotx.com/en/">
@@ -18,14 +18,14 @@
 <meta property="og:locale:alternate" content="es_ES">
 <meta property="og:url" content="https://winshotx.com/en/">
 <meta property="og:title" content="winshotx · screenshots and screen recording for Windows">
-<meta property="og:description" content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB, records GIF and ships an editor. 2.95 MB, open source.">
+<meta property="og:description" content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB, records GIF and ships an editor. 2.97 MB, open source.">
 <meta property="og:image" content="https://winshotx.com/social-en.png?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="winshotx: 114 ms against the Snipping Tool's 920 ms">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="winshotx · screenshots and screen recording for Windows">
-<meta name="twitter:description" content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB. 2.95 MB, open source.">
+<meta name="twitter:description" content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB. 2.97 MB, open source.">
 <meta name="twitter:image" content="https://winshotx.com/social-en.png?v=2">
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
@@ -43,37 +43,43 @@
   h.style.setProperty("--motion-gain", String(gain));
   h.classList.toggle("motion", gain > 0);
   h.classList.toggle("quieto", gain === 0);
+  // Lo que hace el CSS por su cuenta al bajar (la demo que se encoge) no puede multiplicar
+  // por el dial dentro de una animación sin dejar de ir fluido: con esto elige la suave.
+  h.classList.toggle("suave", gain > 0 && gain < 1);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=f43f3f9d">
+<link rel="stylesheet" href="../estilos.css?v=9245c08a">
+<link rel="preload" as="image" href="../img/escritorio-en.webp">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "winshotx",
   "alternateName": "Snipping Tool alternative for Windows",
-  "description": "Free and open source screenshot and screen recording tool for Windows. Region capture with a pixel magnifier, GIF and MP4 recording, and a frame by frame editor. Shows the selection already painted 114 ms after the shortcut with three screens and uses 33 MB of memory.",
+  "description": "Free and open source screenshot and screen recording tool for Windows. Region, window and scrolling capture with a pixel magnifier, GIF and MP4 recording with system audio, microphone and webcam, and an editor with zooms, backgrounds and automatic redaction. Shows the selection already painted 114 ms after the shortcut with three screens and uses 33 MB of memory.",
   "url": "https://winshotx.com/en/",
   "applicationCategory": "MultimediaApplication",
   "applicationSubCategory": "Screen capture",
   "operatingSystem": "Windows 10, Windows 11",
-  "softwareVersion": "0.1.9",
-  "fileSize": "2.95 MB",
+  "softwareVersion": "0.4.8",
+  "fileSize": "2.97 MB",
   "downloadUrl": "https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe",
   "installUrl": "https://github.com/Mun1to/winshotx/releases/latest",
-  "softwareHelp": "https://github.com/Mun1to/winshotx",
+  "softwareHelp": "https://winshotx.com/docs/",
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
-  "screenshot": "https://winshotx.com/social-en.png?v=2",
+  "screenshot": "https://winshotx.com/img/editor-en.webp",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
   "author": { "@type": "Person", "name": "Munir Torres", "url": "https://munito.dev" },
   "featureList": [
-    "Region screenshot with pixel magnifier and hex colour",
-    "Window snapping",
-    "Screen recording to GIF and MP4",
-    "Editor that trims on a timeline, with a studio: backgrounds, rounded corners and a smooth pointer",
-    "Configurable global shortcuts",
-    "Copies GIF and MP4 as files, ready to paste",
+    "Region, window, whole screen and scrolling screenshots with a pixel magnifier and hex colour",
+    "Screen recording to GIF and MP4 at 15, 30 or 60 fps",
+    "System audio and microphone on separate tracks, and a webcam overlay",
+    "Keeps the last 15, 30 or 60 seconds without having pressed record",
+    "Editor with manual zooms or zoom on every click, your own backgrounds, rounded corners and shadow",
+    "Trims, cuts and speeds up on the timeline",
+    "Automatic redaction of emails, phone numbers, cards and IDs, also in video",
+    "Command line and MCP server for AI agents",
     "Fully offline, no account and no telemetry"
   ]
 }
@@ -105,15 +111,15 @@
       "name": "Which versions of Windows does it run on?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Windows 10 and Windows 11."
+        "text": "Windows 10 (version 1903 or later) and Windows 11."
       }
     },
     {
       "@type": "Question",
-      "name": "Is the app available in English?",
+      "name": "Which languages is the app in?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. It follows your Windows language on its own, and in Settings you can force Spanish or English whenever you like. Every label, every explanation and the welcome screen are translated."
+        "text": "Spanish, English and Chinese. It follows your Windows language on its own, and in Settings you can pick another one whenever you like. Every label, every explanation and the welcome screen are translated."
       }
     },
     {
@@ -121,7 +127,7 @@
       "name": "How do you install and update it?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The installer is 2.95 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed."
+        "text": "The installer is 2.97 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed."
       }
     },
     {
@@ -129,7 +135,7 @@
       "name": "Can it be installed with winget?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. It is published in the official winget-pkgs catalogue, so winget install Mun1to.winshotx installs it, and winget upgrade updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings. winget upgrade updates it."
+        "text": "Yes. It is published in the official winget-pkgs catalogue, so winget install Mun1to.winshotx installs it and winget upgrade Mun1to.winshotx updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings."
       }
     },
     {
@@ -145,7 +151,15 @@
       "name": "What can it capture and record?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Region capture with automatic window snapping and a whole screen with one key; video and GIF at 15, 30 or 60 fps with system audio and microphone; the last 15, 30 or 60 seconds without pressing record beforehand; and an editor that trims on a timeline, a studio with backgrounds, rounded corners and a smooth pointer, six marks to annotate, a mosaic, numbered steps, camera zoom on every click and export at 0.5×, 2× or 4×."
+        "text": "An area, a window or the whole screen, and a long page scrolling by itself; video and GIF at 15, 30 or 60 fps with the PC sound and your microphone on separate tracks, and your webcam if you want; the last 15, 30 or 60 seconds without having pressed record; and an editor with zooms you place or on every click, your own backgrounds, corners and shadow, trimming on the timeline, ten marks to annotate, a mosaic, and personal data covered up in one click."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can AI agents use it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Claude Code, Codex, Cursor or any agent that uses the terminal records, stops, exports and captures with the winshotx agent command, and the ones that speak MCP get it as a server with winshotx mcp . While they record you see the red frame, as always."
       }
     },
     {
@@ -153,7 +167,7 @@
       "name": "What does it still lack compared to the Windows Snipping Tool?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Three things. It does not come preinstalled: you have to install it. It does not black out personal data on its own, you cover it by hand with the mosaic. And it speaks two languages, Spanish and English, while the Windows one speaks all of them. The point by point comparison is above, including where winshotx loses."
+        "text": "Two things. It does not come preinstalled: you have to install it. And it speaks three languages, Spanish, English and Chinese, while the Windows one speaks all of them. The point by point comparison is just below, including where winshotx loses."
       }
     }
   ]
@@ -177,7 +191,14 @@
     </g>
     <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
   </symbol>
-
+  <!-- La misma marca en un solo color, para la marca de agua de los ajustes. -->
+  <symbol id="marca-gris" viewBox="0 0 64 64">
+    <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8">
+      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+      <path d="M24 24 40 40"/><path d="M40 24 24 40"/>
+    </g>
+  </symbol>
   <g id="lucide">
     <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
@@ -185,15 +206,17 @@
       <path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
     <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
-    <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></symbol>
     <symbol id="i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></symbol>
-    <symbol id="i-mic-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 19v3"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M16.95 16.95A7 7 0 0 1 5 12v-2"/><path d="M18.89 13.23A7 7 0 0 0 19 12v-2"/><path d="m2 2 20 20"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
-    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></symbol>
+    <symbol id="i-rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+    <symbol id="i-play"viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></symbol>
@@ -205,8 +228,6 @@
       <path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></symbol>
     <symbol id="i-folder-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
-    <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
     <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -215,12 +236,6 @@
       <path d="m20 6-11 11-5-5"/></symbol>
     <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m6 9 6 6 6-6"/></symbol>
-    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
-    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></symbol>
     <symbol id="i-video" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -229,6 +244,8 @@
       <path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"/></symbol>
     <symbol id="i-volume-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></symbol>
+    <symbol id="i-volume-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></symbol>
     <symbol id="i-hard-drive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></symbol>
     <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -236,8 +253,6 @@
     </symbol>
     <symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></symbol>
-    <symbol id="i-refresh-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
     <symbol id="i-gif" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="1.6" y="4.4" width="20.8" height="15.2" rx="3.4"/>
       <g stroke-width="1.7">
@@ -284,189 +299,201 @@
     </symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
     <symbol id="i-arrow-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M7 17 17 7"/><path d="M9 7h8v8"/></symbol>
+    <symbol id="i-curva" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 19C5 10 10 6 18 6"/><path d="M14 3l4 3-3 4"/></symbol>
+    <symbol id="i-slash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 2 2 22"/></symbol>
     <symbol id="i-square-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="4" y="5" width="16" height="14" rx="2"/></symbol>
+    <symbol id="i-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/></symbol>
     <symbol id="i-type" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/></symbol>
     <symbol id="i-highlighter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></symbol>
-    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/>
-      <rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="i-paso" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M10.5 9.5 12.5 8v8" fill="none" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></symbol>
+    <symbol id="i-mosaico" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="2.4" y="2.4" width="3.2" height="3.2" rx=".6" opacity=".6"/><rect x="7.4" y="2.4" width="3.2" height="3.2" rx=".6" opacity=".35"/><rect x="12.4" y="2.4" width="3.2" height="3.2" rx=".6" opacity=".6"/><rect x="17.4" y="2.4" width="3.2" height="3.2" rx=".6" opacity=".9"/>
+      <rect x="2.4" y="7.4" width="3.2" height="3.2" rx=".6" opacity=".35"/><rect x="7.4" y="7.4" width="3.2" height="3.2" rx=".6" opacity=".6"/><rect x="12.4" y="7.4" width="3.2" height="3.2" rx=".6" opacity=".9"/><rect x="17.4" y="7.4" width="3.2" height="3.2" rx=".6" opacity=".6"/>
+      <rect x="2.4" y="12.4" width="3.2" height="3.2" rx=".6" opacity=".6"/><rect x="7.4" y="12.4" width="3.2" height="3.2" rx=".6" opacity=".9"/><rect x="12.4" y="12.4" width="3.2" height="3.2" rx=".6" opacity=".6"/><rect x="17.4" y="12.4" width="3.2" height="3.2" rx=".6" opacity=".35"/>
+      <rect x="2.4" y="17.4" width="3.2" height="3.2" rx=".6" opacity=".9"/><rect x="7.4" y="17.4" width="3.2" height="3.2" rx=".6" opacity=".6"/><rect x="12.4" y="17.4" width="3.2" height="3.2" rx=".6" opacity=".35"/><rect x="17.4" y="17.4" width="3.2" height="3.2" rx=".6" opacity=".6"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-image-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></symbol>
+    <symbol id="i-panel-bottom" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 15h18"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></symbol>
+    <symbol id="i-webcam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="10" r="8"/><circle cx="12" cy="10" r="3"/><path d="M7 22h10"/><path d="M12 22v-4"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></symbol>
+    <symbol id="i-languages" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/>
+      <path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></symbol>
+    <symbol id="i-rewind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 19 2 12l9-7v14Z"/><path d="M22 19l-9-7 9-7v14Z"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
     <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
-    <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/>
-      <path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></symbol>
-    <symbol id="i-rewind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11 19 2 12l9-7v14Z"/><path d="M22 19l-9-7 9-7v14Z"/></symbol>
-    <symbol id="i-fast-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M13 19l9-7-9-7v14Z"/><path d="M2 19l9-7-9-7v14Z"/></symbol>
-    <symbol id="i-circle-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="9"/><path d="M10.5 9.5 12.5 8v8"/></symbol>
-    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
   </g>
 </svg>
 
-<nav>
-  <div class="env">
-    <a class="marca solo-logo" href="#" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
+<nav class="barra">
+  <div class="env barra-dentro">
+    <a class="logo-nombre" href="./" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
     <span class="enlaces">
-      <a href="#numeros">Numbers</a>
+      <a href="#funciones">Features</a>
       <a href="#demo">Try it</a>
-      <a href="#frente-a-frente">Head to head</a>
-      <a href="#que-hace">Features</a>
-      <a href="#preguntas">FAQ</a>
+      <a href="#comparativa">Compare</a>
       <a href="docs/">Docs</a>
       <a href="changelog/">What's new</a>
+      <a href="support/">Support</a>
     </span>
     <span class="acciones">
-      <!-- El contador arranca con el ultimo numero conocido y demo.js?v=4eab6340 lo actualiza
-           con el de verdad; si GitHub no contesta, se queda el que hay. -->
-      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
-        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
-      </a>
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
       <a class="idioma" id="idioma" href="../" hreflang="es" lang="es">Español</a>
+      <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download</span></a>
+      <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
+           y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
+           Un <details> se abre y se cierra sin JavaScript; con leer.js?v=c1f0d0f0 la píldora de la barra
+           crece hacia abajo con las páginas dentro, y se recoge al elegir, con Escape o tocando fuera. -->
+      <details class="menu">
+        <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span>Menu</span></summary>
+        <div class="menu-panel">
+          <a href="#funciones">Features</a>
+          <a href="#demo">Try it</a>
+          <a href="#comparativa">Compare</a>
+          <a href="docs/">Docs</a>
+          <a href="changelog/">What's new</a>
+          <a href="support/">Support</a>
+          <a class="menu-gh" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg><span>The code, on GitHub</span></a>
+        </div>
+      </details>
     </span>
   </div>
 </nav>
 
 <header class="portada" data-cruceta>
   <div class="env">
-    <div class="firma">
-      <svg class="logo"><use href="#marca"/></svg>
-      <span class="palabra">winshotx</span>
-    </div>
     <h1>Crop the screen <em>before you blink</em></h1>
-    <p class="bajada">Screenshots and screen recording for Windows. It weighs 2.5 MB, shows the selection already painted 114 milliseconds after the shortcut with three screens, and asks for no account, no cloud and no administrator rights. What you capture never leaves your machine.</p>
+    <p class="bajada">Screenshots, videos and GIFs for Windows, with an editor that gets them ready to show. <b>Free, no account and no cloud.</b></p>
     <div class="botones">
-      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
-        <svg width="17" height="17"><use href="#i-download"/></svg>
-        <span>Download for Windows</span>
-      </a>
-      <a class="btn fantasma" href="#demo">Try it right here</a>
+      <a class="btn uno" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download for Windows</span></a>
+      <a class="btn dos" href="#demo">Try it right here</a>
     </div>
-    <p class="letra-chica">2.95 MB installer · Windows 10 and 11 · MIT licence · Installs for your user only</p>
-    <!-- Esta en el catalogo oficial de winget desde el 29 de agosto de 2026 y en la
-         Microsoft Store desde el 7 de septiembre. Quien vive en la terminal instala por
-         winget; quien prefiere la Store se lleva el paquete firmado por Microsoft. -->
-    <p class="por-terminal"><span>or from the terminal</span> <code>winget install Mun1to.winshotx</code> <span>&#183; also on the</span> <a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></p>
-    <!-- Y el portable, que es lo que pide Scoop y lo que busca quien no quiere instalar
-         nada: un ejecutable suelto, con los ajustes igualmente en %APPDATA%. -->
-    <p class="por-terminal"><span>or without installing anything: the</span> <a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener"><span>portable version</span></a> <span>&#183; one executable, settings still kept</span></p>
+    <p class="nota">2.97 MB installer · Windows 10 and 11 · or from the terminal: <code>winget install Mun1to.winshotx</code></p>
+    <!-- La Microsoft Store desde el 7 de septiembre de 2026 y el portable, que es lo que busca
+         quien no quiere instalar nada: un ejecutable suelto, con los ajustes igual. -->
+    <p class="nota">Also on the <a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a>, or with nothing to install: the <a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">portable version</a></p>
 
-    <div class="numeros" id="numeros">
-      <div class="dato">
-        <span class="valor">114 ms</span>
-        <span class="que">to show the selection, already painted, with three screens</span>
-        <span class="contra">Snipping Tool: 920 ms</span>
-      </div>
-      <div class="dato">
-        <span class="valor">33 MB</span>
-        <span class="que">of memory while capturing</span>
-        <span class="contra">Snipping Tool: 253 MB</span>
-      </div>
-      <div class="dato">
-        <span class="valor">31 MB</span>
-        <span class="que">waiting in the tray</span>
-        <span class="contra">Snipping Tool: 98 MB</span>
-      </div>
-      <div class="dato">
-        <span class="valor">2.95 MB</span>
-        <span class="que">the whole installer</span>
-        <span class="contra">no FFmpeg, nothing bundled</span>
-      </div>
-    </div>
-    <p class="letra-chica">Measured on the same Windows 11 machine, three runs each and both starting from cold. The clock stops when the selection is already on screen.</p>
-
-    <!-- Las tres cosas que hace winshotx, debajo de los numeros: primero se ve que es
-         rapida y ligera, y despues para que sirve. Al reves seria pedirle a alguien que
-         lea tres parrafos antes de saber si le interesa. -->
-    <div class="pilares">
-      <div class="pilar">
-        <div class="cabeza-pilar">
-          <div class="ico-pilar"><svg><use href="#i-camera"/></svg></div>
-          <h2>Professional capture</h2>
-        </div>
-        <ul>
-          <li>6× magnifier with the exact colour</li>
-          <li>One click takes the whole window</li>
-          <li>Six marks, mosaic and text out of the image</li>
-        </ul>
-      </div>
-      <div class="pilar">
-        <div class="cabeza-pilar">
-          <div class="ico-pilar"><svg><use href="#i-video"/></svg></div>
-          <h2>Professional recording</h2>
-        </div>
-        <ul>
-          <li>GIF and MP4 up to 60 fps, no FFmpeg</li>
-          <li>System audio and your microphone</li>
-          <li>Zoom on every click, a studio with backgrounds, and trimming on the timeline</li>
-        </ul>
-      </div>
-      <div class="pilar">
-        <div class="cabeza-pilar">
-          <div class="ico-pilar"><svg><use href="#i-rewind"/></svg></div>
-          <h2>The last few seconds</h2>
-        </div>
-        <ul>
-          <li>One key keeps what already happened</li>
-          <li>You pick the screen, the quality and the length</li>
-          <li>Saving does not stop the recording</li>
-        </ul>
-      </div>
+    <!-- Las notas giradas de los lados (las pidió Munito el 14-nov): lo que tiene winshotx que
+         no tienen las otras, en tono de fan y escrito a mano. Todo lo que dicen es verdad: el
+         instalador de la 0.4.8 mide 2.971.868 bytes y tres disquetes de 1,44 MB guardan 4.423.680.
+         Decía «dos» hasta la 0.4.7 (2.948.934 bytes, cabía por 186) y la 0.4.8 se pasó por
+         22.748. Antes de subir el peso del instalador, mira que siga cabiendo; si no, se cambia. -->
+    <div class="fans">
+      <!-- Las flechas de las notas se dibujan aquí con JavaScript (el script común, «las
+           flechas de las notas»), de la nota a lo que señala (data-flecha), medidas en la
+           página: así la punta llega siempre a su sitio, a cualquier ancho y en los dos idiomas. -->
+      <svg class="garabatos" aria-hidden="true"></svg>
+      <div class="fan f-a" data-flecha=".portada h1 em" data-punta="final" data-sale="arriba" data-curva="0.2"><p><b>114 ms.</b> You didn't even get to blink.</p></div>
+      <div class="fan f-b"><p>Free for real: <b>no 7-day trial</b> and no subscription.</p></div>
+      <div class="fan f-c" data-flecha=".portada .nota" data-punta="inicio" data-sale="derecha" data-curva="0.1"><p>It fits on <b>three floppy disks</b>. Real ones.</p></div>
+      <div class="fan f-d"><p><b>No account.</b> It doesn't even ask for your email.</p></div>
     </div>
   </div>
 </header>
 
-<section id="demo">
-  <div class="env">
-    <div class="cabecera-demo">
-      <div>
-        <h2>Try it without installing anything</h2>
-        <p class="entradilla">The three screens are rebuilt from the app's own code, with its icons and its measurements. Drag on the desktop below just like you would on yours.</p>
-      </div>
+<!-- ======================= el escaparate: la demo, en vez de una foto ======================= -->
+<section id="demo" class="escaparate" aria-label="Demo">
+  <!-- En el móvil, la demo es la app de escritorio entera, encogida para caber (como las de
+       Orquio y Adeorq), y tocarla la abre a pantalla completa: entonces esta caja se queda fija
+       encima de la página, con su cabecera, y ahí sí se maneja con el dedo (demo.js?v=6fc0f071, «la demo
+       en el móvil»). En el ordenador la cabecera, el botón y la frase no salen. -->
+  <div class="env" aria-label="The winshotx demo">
+    <div class="capa-cabeza">
+      <p class="capa-titulo">The demo</p>
+      <span class="capa-botones">
+        <button type="button" class="capa-boton" data-capa="reiniciar"><svg aria-hidden="true"><use href="#i-rotate-ccw"/></svg><span>Reset</span></button>
+        <button type="button" class="capa-boton cierra" data-capa="cerrar"><svg aria-hidden="true"><use href="#i-x"/></svg><span>Close</span></button>
+      </span>
+    </div>
+    <div class="demo-cabeza">
       <div class="pestanas" role="tablist">
         <button class="pestana" role="tab" aria-selected="true" data-panel="p-sel">
-          <svg><use href="#i-camera"/></svg> <span>Select</span>
+          <svg aria-hidden="true"><use href="#i-camera"/></svg> <span>Select</span>
         </button>
         <button class="pestana" role="tab" aria-selected="false" data-panel="p-edi">
-          <svg><use href="#i-pencil"/></svg> <span>Editor</span>
+          <svg aria-hidden="true"><use href="#i-pencil"/></svg> <span>Editor</span>
         </button>
         <button class="pestana" role="tab" aria-selected="false" data-panel="p-set">
-          <svg><use href="#i-sliders"/></svg> <span>Settings</span>
+          <svg aria-hidden="true"><use href="#i-sliders"/></svg> <span>Settings</span>
         </button>
       </div>
+      <p class="pista-demo" id="pista-demo" aria-live="polite">This isn't a video: <b>drag over the screen below</b>, just like you would on yours.</p>
     </div>
 
+    <!-- La pantalla de la demo. En el ordenador, estas dos cajas no hacen nada; en el móvil, la
+         de fuera es el hueco con su marco y la de dentro, la app a su tamaño de escritorio,
+         encogida con `transform` (demo.js?v=6fc0f071 pone la escala). -->
+    <div class="hueco-demo">
+    <div class="pantalla-demo" id="pantalla-demo">
+    <div class="escala-demo">
+
     <!-- ======================= 1. seleccionar ======================= -->
-    <div class="marco" id="p-sel">
-      <div class="barra-falsa"><span class="semaforo"><i></i><i></i><i></i></span>
-        <span>your desktop, frozen the moment you press your shortcut</span></div>
+    <!-- Lo de dentro es la ventana de selección de la 0.4.6: la barra de modos de arriba y,
+         al soltar, la barra de la captura con sus mismos botones y sus mismos atajos. El
+         escritorio congelado es una foto de verdad, la de nuestra guía. -->
+    <div class="marco" id="p-sel" role="tabpanel">
       <div class="lienzo-caja" id="caja">
         <canvas id="escritorio"></canvas>
         <div class="velo" id="velo"></div>
         <div class="seleccion" id="sel"></div>
         <div class="tiradores" id="tiradores"></div>
-        <div class="medida" id="medida">0 × 0</div>
+        <div class="tamano" id="medida">0 × 0</div>
         <div class="lupa" id="lupa"><canvas id="zoom" width="116" height="116"></canvas><div class="hex" id="hex">#000000</div></div>
         <div class="modos" id="modos">
-          <button class="viva" data-modo="foto" title="Photo of the crop · F"><svg><use href="#i-camera"/></svg></button>
-          <button data-modo="video" title="Record the crop to MP4 · V"><svg><use href="#i-video"/></svg></button>
-          <button data-modo="gif" title="Record the crop to GIF · G"><svg><use href="#i-gif"/></svg></button>
+          <button class="viva" data-modo="foto" title="Photo · F"><svg><use href="#i-camera"/></svg></button>
+          <button data-modo="video" title="Video · V"><svg><use href="#i-video"/></svg></button>
+          <button data-modo="gif" title="GIF · G"><svg><use href="#i-gif"/></svg></button>
           <span class="raya"></span>
-          <button data-modo="pantalla" title="Whole screen, one click · P"><svg><use href="#i-monitor"/></svg></button>
+          <button data-modo="pantalla" title="Whole screen · P"><svg><use href="#i-monitor"/></svg></button>
+          <button data-accion="scroll" title="Scrolling capture"><svg><use href="#i-scroll"/></svg></button>
+          <button data-accion="soltar" title="Choose what happens on release"><svg><use href="#i-panel-bottom"/></svg></button>
           <span class="raya"></span>
+          <button data-accion="ajustes" title="winshotx settings"><svg><use href="#i-settings"/></svg></button>
           <button class="mata" data-accion="cancelar" title="Leave without capturing · Esc"><svg><use href="#i-x"/></svg></button>
         </div>
         <div class="elige-pantalla" id="elige-pantalla">
@@ -474,21 +501,30 @@
           <span class="cartel-pantalla"><kbd>1</kbd> <em id="cartel-pantalla">or click to capture it whole</em></span>
         </div>
         <div class="herramientas" id="herramientas">
-          <button title="Copy · Enter" data-accion="copiar"><svg><use href="#i-copy"/></svg></button>
+          <button class="acento" title="Copy · Enter" data-accion="copiar"><svg><use href="#i-copy"/></svg><span>Copy</span></button>
           <button title="Save · Ctrl+S" data-accion="guardar"><svg><use href="#i-download"/></svg></button>
+          <button title="Save to… · Ctrl+Shift+S" data-accion="guardar-en"><svg><use href="#i-folder-open"/></svg></button>
           <button title="Edit · E" data-accion="editar"><svg><use href="#i-pencil"/></svg></button>
-          <button class="grabar" data-accion="grabar" hidden><svg><use href="#i-video"/></svg> <span>Record</span></button>
+          <button title="Pin · A" data-accion="anclar"><svg><use href="#i-pin"/></svg></button>
+          <button title="Copy the text · T" data-accion="texto"><svg><use href="#i-type"/></svg></button>
+          <button class="grabar" data-accion="grabar" hidden><i class="punto"></i><span id="texto-grabar">Record video</span></button>
           <span class="raya"></span>
           <button class="mata" title="Cancel · Esc" data-accion="cancelar"><svg><use href="#i-x"/></svg></button>
         </div>
+        <div class="marco-rojo" id="marco-rojo" hidden></div>
+        <div class="barra-grabando" id="barra-grabando" hidden>
+          <i class="punto"></i><span id="reloj-grabando">0:00</span>
+          <button id="parar-grabando">Stop</button>
+        </div>
+        <div class="fantasma" id="fantasma" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/></svg></div>
       </div>
     </div>
-    <p class="aviso" id="aviso"><svg width="16" height="16"><use href="#i-check"/></svg><span></span></p>
 
     <!-- ========================= 2. editor ========================= -->
-    <!-- Calcado del editor de la 0.3.8: arriba lo que se dibuja, en medio la imagen, abajo
-         la línea de tiempo con sus dos asas, y a la derecha el formato, el Estudio y guardar. -->
-    <div class="marco" id="p-edi" hidden>
+    <!-- Calcado del editor de la 0.4.6: arriba las diez marcas, el mosaico y los colores;
+         en medio la imagen con su fondo; abajo la línea de tiempo con su carril de zooms; y a
+         la derecha el formato, el Estudio y guardar. -->
+    <div class="marco" id="p-edi" role="tabpanel" hidden>
       <header class="edi-titulo">
         <span class="edi-nombre">Editor <span class="edi-sub" id="edi-sub"></span></span>
         <span class="edi-controles">
@@ -498,40 +534,54 @@
       </header>
       <div class="edi-cuerpo">
         <main class="edi-main">
-          <!-- Las seis marcas van sobre el video tambien, no solo sobre una foto. -->
-          <div class="edi-marcas">
-            <button class="viva" title="Arrow · 1"><svg><use href="#i-arrow-mark"/></svg></button>
-            <button title="Rectangle · 2"><svg><use href="#i-square-mark"/></svg></button>
-            <button title="Text · 3"><svg><use href="#i-type"/></svg></button>
-            <button title="Highlight · 4"><svg><use href="#i-highlighter"/></svg></button>
-            <button title="Numbered step · 5"><svg><use href="#i-circle-1"/></svg></button>
+          <div class="edi-marcas" id="edi-marcas">
+            <button data-marca="flecha" title="Arrow · 1"><svg><use href="#i-arrow-mark"/></svg></button>
+            <button data-marca="curva" title="Curved arrow"><svg><use href="#i-curva"/></svg></button>
+            <button data-marca="linea" title="Line"><svg><use href="#i-slash"/></svg></button>
+            <button data-marca="caja" title="Rectangle · 2"><svg><use href="#i-square-mark"/></svg></button>
+            <button data-marca="elipse" title="Ellipse"><svg><use href="#i-circle"/></svg></button>
+            <button data-marca="lapiz" title="Pen"><svg><use href="#i-pencil"/></svg></button>
+            <button data-marca="texto" title="Text · 3"><svg><use href="#i-type"/></svg></button>
+            <button data-marca="resaltar" title="Highlight · 4"><svg><use href="#i-highlighter"/></svg></button>
+            <button data-marca="paso" title="Numbered step · 5"><svg><use href="#i-paso"/></svg></button>
+            <button data-marca="foco" title="Spotlight"><svg><use href="#i-focus"/></svg></button>
             <span class="raya"></span>
-            <button title="Pixelate · 6"><svg><use href="#i-grid"/></svg></button>
+            <button data-marca="mosaico" title="Pixelate · 6"><svg><use href="#i-mosaico"/></svg></button>
             <span class="raya"></span>
-            <span class="colores">
+            <span class="colores" id="colores">
               <button class="color viva" style="--c:#f43f5e" aria-label="Red"></button>
               <button class="color" style="--c:#0a9bff" aria-label="Blue"></button>
               <button class="color" style="--c:#22c55e" aria-label="Green"></button>
               <button class="color" style="--c:#eab308" aria-label="Yellow"></button>
-              <button class="color" style="--c:#e5e5e5" aria-label="White"></button>
+              <button class="color" style="--c:#171717" aria-label="Black"></button>
             </span>
             <span class="raya"></span>
-            <button class="con-nombre" title="Keep just a piece of the image (C)"><svg><use href="#i-crop"/></svg> <span>Crop</span></button>
+            <button class="con-nombre" data-accion="encuadrar" title="Keep just a piece of the image (C)"><svg><use href="#i-crop"/></svg><span>Crop</span></button>
             <span class="edi-derecha">
-              <button class="con-nombre" title="Copy the text out of the image"><svg><use href="#i-text-select"/></svg> <span>Copy text</span></button>
-              <button class="con-nombre" title="Cover up personal data"><svg><use href="#i-shield-check"/></svg> <span>Hide data</span></button>
+              <button class="con-nombre" data-accion="copiar-texto" title="Copy the text out of the image"><svg><use href="#i-text-select"/></svg><span>Copy text</span></button>
+              <button class="con-nombre" data-accion="tapar" title="Cover up personal data"><svg><use href="#i-shield-check"/></svg><span>Hide data</span></button>
+              <button data-accion="deshacer" title="Undo the last one (Ctrl+Z)"><svg><use href="#i-undo"/></svg></button>
+              <button data-accion="quitar-todas" title="Remove them all"><svg><use href="#i-x"/></svg></button>
             </span>
           </div>
-          <div class="edi-vista">
-            <div class="edi-fondo" id="edi-fondo"><canvas id="lienzo-editor"></canvas></div>
+          <div class="edi-vista" id="edi-vista">
+            <div class="edi-fondo con-fondo" id="edi-fondo"><canvas id="lienzo-editor"></canvas></div>
           </div>
-          <section class="edi-tiempo">
-            <button class="edi-play" id="reproducir" aria-label="Play"><svg><use href="#i-play"/></svg></button>
-            <span class="edi-reloj" id="edi-reloj">0:00.0</span>
+          <section class="edi-tiempo" id="edi-tiempo">
+            <div class="edi-mandos">
+              <button class="edi-play" id="reproducir" aria-label="Play"><svg><use href="#i-play"/></svg></button>
+              <button class="edi-vol" id="silenciar" aria-label="Mute the preview · M"><svg><use href="#i-volume-2"/></svg></button>
+              <span class="edi-reloj" id="edi-reloj">0:00.0</span>
+            </div>
             <div class="edi-linea">
               <div class="tira-pista" id="tira-pista"></div>
+              <div class="tira-zooms" id="tira-zooms"><span class="tira-zooms-pista">Click here to add a zoom</span></div>
               <div class="tira-pie">
                 <span id="tira-dice"></span>
+                <span class="tira-botones">
+                  <button class="tira-boton" id="tira-cortar" disabled><svg><use href="#i-scissors"/></svg><span>Cut here</span></button>
+                  <button class="tira-boton" id="tira-acelerar"><svg><use href="#i-gauge"/></svg><span>Speed up the typing</span></button>
+                </span>
                 <button class="tira-entero" id="tira-entero" hidden>Use the whole video</button>
                 <span id="tira-total"></span>
               </div>
@@ -546,66 +596,82 @@
             <button data-formato="png">PNG</button>
             <button data-formato="jpg">JPG</button>
           </div>
-          <p class="edi-para" id="edi-para"></p>
+          <div class="edi-scroll">
+            <p class="edi-para" id="edi-para"></p>
+            <div class="fila-toggle edi-solo-video"><span class="txt">Sound</span><button class="palanca" data-on="1"></button></div>
 
-          <div class="edi-plegable abierto" id="edi-estudio">
-            <button class="edi-plegar" aria-expanded="true"><span>Studio</span><svg><use href="#i-chevron-down"/></svg></button>
-            <div class="edi-cajon"><div class="edi-dentro">
-              <span class="edi-grupo">Background</span>
-              <div class="edi-fondos" id="edi-fondos">
-                <button class="viva" data-fondo="" aria-label="No background"><svg viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg></button>
-                <button data-fondo="rgb(255 255 255)" aria-label="White"></button>
-                <button data-fondo="rgb(232 232 234)" aria-label="Grey"></button>
-                <button data-fondo="rgb(18 18 20)" aria-label="Black"></button>
-                <button data-fondo="linear-gradient(135deg, rgb(30 41 59), rgb(15 23 42))" aria-label="Night"></button>
-                <button data-fondo="linear-gradient(135deg, rgb(88 116 245), rgb(168 85 217))" aria-label="Sunset"></button>
-                <button data-fondo="linear-gradient(135deg, rgb(34 197 152), rgb(56 132 232))" aria-label="Mint"></button>
-                <button data-fondo="linear-gradient(135deg, rgb(14 165 233), rgb(30 64 175))" aria-label="Ocean"></button>
-                <button data-fondo="linear-gradient(135deg, rgb(251 113 133), rgb(245 158 11))" aria-label="Coral"></button>
-              </div>
-              <div class="campo" id="fila-esquinas" hidden>
-                <div class="campo-cab"><span>Rounded corners</span><span id="v-esquinas">12 px</span></div>
-                <input type="range" id="esquinas" min="0" max="40" value="12">
-              </div>
-              <div class="edi-solo-video">
-                <span class="edi-grupo">Pointer</span>
-                <div class="campo">
-                  <div class="campo-cab"><span>Size</span><span>32 px</span></div>
-                  <input type="range" min="0" max="80" value="32">
+            <div class="edi-plegable abierto" id="edi-estudio">
+              <button class="edi-plegar" aria-expanded="true"><span>Studio</span><svg><use href="#i-chevron-down"/></svg></button>
+              <div class="edi-cajon"><div class="edi-dentro">
+                <span class="edi-grupo">Style</span>
+                <button class="edi-ancho" data-accion="estilo">Save style as…</button>
+                <span class="edi-grupo">Background</span>
+                <div class="edi-fondos" id="edi-fondos">
+                  <button data-fondo="" aria-label="No background"><svg viewBox="0 0 20 20"><line x1="4" y1="16" x2="16" y2="4"/></svg></button>
+                  <button data-fondo="rgb(255 255 255)" aria-label="White"></button>
+                  <button data-fondo="rgb(232 232 234)" aria-label="Grey"></button>
+                  <button data-fondo="rgb(18 18 20)" aria-label="Black"></button>
+                  <button data-fondo="linear-gradient(135deg, rgb(30 41 59), rgb(15 23 42))" aria-label="Night"></button>
+                  <button class="viva" data-fondo="linear-gradient(135deg, rgb(88 116 245), rgb(168 85 217))" aria-label="Sunset"></button>
+                  <button data-fondo="linear-gradient(135deg, rgb(34 197 152), rgb(56 132 232))" aria-label="Mint"></button>
+                  <button data-fondo="linear-gradient(135deg, rgb(14 165 233), rgb(30 64 175))" aria-label="Ocean"></button>
+                  <button data-fondo="linear-gradient(135deg, rgb(251 113 133), rgb(245 158 11))" aria-label="Coral"></button>
                 </div>
-                <div class="fila-toggle"><span class="txt"><span>Smooth movement</span><small>takes the hand shake out of the pointer</small></span><button class="palanca" data-on="1"></button></div>
-                <div class="fila-toggle"><span class="txt">Mark the clicks</span><button class="palanca" data-on="0"></button></div>
-                <span class="edi-grupo">Zoom</span>
-                <div class="campo">
-                  <div class="campo-cab"><span>Zoom in on clicks</span><span class="apagado">no zoom</span></div>
-                  <input type="range" min="0" max="100" value="0">
+                <div class="edi-dos">
+                  <button data-accion="fondo-imagen"><svg><use href="#i-image-plus"/></svg><span>Image</span></button>
+                  <button data-accion="fondo-escritorio"><svg><use href="#i-monitor"/></svg><span>Desktop</span></button>
+                  <button data-accion="fondo-video"><svg><use href="#i-film"/></svg><span>Video or GIF</span></button>
+                  <button data-accion="fondo-colores"><svg><use href="#i-palette"/></svg><span>More colours</span></button>
                 </div>
-              </div>
-            </div></div>
-          </div>
+                <div class="campo" id="fila-aire">
+                  <div class="campo-cab"><span>Space around</span><span id="v-aire">48 px</span></div>
+                  <input type="range" id="aire" min="0" max="120" value="48" aria-label="Space around">
+                </div>
+                <div class="campo" id="fila-esquinas">
+                  <div class="campo-cab"><span>Rounded corners</span><span id="v-esquinas">14 px</span></div>
+                  <input type="range" id="esquinas" min="0" max="40" value="14" aria-label="Rounded corners">
+                </div>
+                <div class="fila-toggle" id="fila-sombra"><span class="txt">Shadow</span><button class="palanca" id="sombra" data-on="1"></button></div>
+                <div class="edi-solo-video">
+                  <span class="edi-grupo">Pointer</span>
+                  <div class="campo">
+                    <div class="campo-cab"><span>Size</span><span id="v-puntero">32 px</span></div>
+                    <input type="range" id="puntero" min="16" max="64" value="32" aria-label="Pointer size">
+                  </div>
+                  <div class="fila-toggle"><span class="txt"><span>Smooth movement</span><small>takes the hand shake out of the pointer</small></span><button class="palanca" data-on="1"></button></div>
+                  <div class="fila-toggle"><span class="txt">Mark the clicks</span><button class="palanca" id="marcar-clics" data-on="1"></button></div>
+                  <span class="edi-grupo">Zoom</span>
+                  <div class="campo">
+                    <div class="campo-cab"><span>Zoom in on clicks</span><span id="v-zoom-clics" class="apagado">no zoom</span></div>
+                    <input type="range" id="zoom-clics" min="0" max="100" value="0" aria-label="Zoom in on clicks">
+                  </div>
+                </div>
+              </div></div>
+            </div>
 
-          <div class="edi-plegable" id="edi-mas">
-            <button class="edi-plegar" aria-expanded="false"><span>More settings</span><svg><use href="#i-chevron-down"/></svg></button>
-            <div class="edi-cajon"><div class="edi-dentro">
-              <div class="campo">
-                <div class="campo-cab"><span>Quality</span><span id="v-calidad">80%</span></div>
-                <input type="range" id="calidad" min="10" max="100" value="80">
-              </div>
-              <div class="campo edi-solo-video">
-                <div class="campo-cab"><span>Frames per second</span><span id="v-fps">30 fps</span></div>
-                <input type="range" id="fps" min="5" max="30" value="30">
-              </div>
-              <span class="edi-grupo">Size</span>
-              <div class="dimensiones">
-                <label class="numero"><span>Width</span><span><input id="ancho" value="800" inputmode="numeric"><i>px</i></span></label>
-                <button class="candado" id="candado" title="Aspect ratio locked"><svg><use href="#i-link-2"/></svg></button>
-                <label class="numero"><span>Height</span><span><input id="alto" value="500" inputmode="numeric"><i>px</i></span></label>
-              </div>
-              <div class="porcientos" id="porcientos">
-                <button data-pct="100">100%</button><button data-pct="75">75%</button><button data-pct="50">50%</button>
-              </div>
-              <div class="fila-toggle" id="fila-bucle" hidden><span class="txt">Loop forever</span><button class="palanca" data-on="1"></button></div>
-            </div></div>
+            <div class="edi-plegable" id="edi-mas">
+              <button class="edi-plegar" aria-expanded="false"><span>More settings</span><svg><use href="#i-chevron-down"/></svg></button>
+              <div class="edi-cajon"><div class="edi-dentro">
+                <div class="campo">
+                  <div class="campo-cab"><span>Quality</span><span id="v-calidad">80%</span></div>
+                  <input type="range" id="calidad" min="10" max="100" value="80" aria-label="Quality">
+                </div>
+                <div class="campo edi-solo-video">
+                  <div class="campo-cab"><span>Frames per second</span><span id="v-fps">30 fps</span></div>
+                  <input type="range" id="fps" min="5" max="60" value="30" aria-label="Frames per second">
+                </div>
+                <span class="edi-grupo">Size</span>
+                <div class="dimensiones">
+                  <label class="numero"><span>Width</span><span><input id="ancho" value="800" inputmode="numeric"><i>px</i></span></label>
+                  <button class="candado" id="candado" title="Aspect ratio locked"><svg><use href="#i-link-2"/></svg></button>
+                  <label class="numero"><span>Height</span><span><input id="alto" value="500" inputmode="numeric"><i>px</i></span></label>
+                </div>
+                <div class="porcientos" id="porcientos">
+                  <button data-pct="100">100%</button><button data-pct="75">75%</button><button data-pct="50">50%</button>
+                </div>
+                <div class="fila-toggle" id="fila-bucle" hidden><span class="txt">Loop forever</span><button class="palanca" data-on="1"></button></div>
+              </div></div>
+            </div>
           </div>
 
           <div class="edi-abajo">
@@ -615,7 +681,7 @@
               <button id="btn-guardar-en" title="Choose where to save it (Ctrl+Shift+S)"><svg><use href="#i-download"/></svg> <span>Save to…</span></button>
             </div>
             <div class="edi-estimado">
-              <span class="edi-carpeta"><svg><use href="#i-folder-open"/></svg> <span>C:\Users\tu-usuario\Pictures\winshotx</span></span>
+              <span class="edi-carpeta"><svg><use href="#i-folder-open"/></svg> <span>C:\Users\yo\Pictures\winshotx</span></span>
               <span id="v-peso">≈ 1,4 MB</span>
             </div>
             <!-- El aria-live va en un envoltorio que existe siempre: puesto en el propio
@@ -631,12 +697,14 @@
     </div>
 
     <!-- ========================= 3. ajustes ========================= -->
-    <div class="marco" id="p-set" hidden>
+    <!-- Las cinco pestañas de la 0.4.6, con sus mismas filas y sus mismos atajos de serie. -->
+    <div class="marco" id="p-set" role="tabpanel" hidden>
       <header class="cab-set">
         <span class="ver-set">Version 0.5.0</span>
         <nav class="pes-set" role="tablist">
           <button class="viva" data-set="s-cap">Capture</button>
           <button data-set="s-gra">Record</button>
+          <button data-set="s-his">History</button>
           <button data-set="s-tec">Windows keys</button>
           <button data-set="s-app">The app</button>
         </nav>
@@ -649,54 +717,60 @@
           <section class="tarjeta">
             <h3>When you press the shortcut</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-camera"/></svg>
-                <span><span>Capture a region</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-camera"/></svg><span><span>Capture a region</span></span></span>
               <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>2</kbd></span>
             </div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-pencil"/></svg>
-                <span><span>Capture and open the editor</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-square-pen"/></svg><span><span>Capture and open the editor</span></span></span>
               <span class="campo-atajo"><kbd>Win</kbd><kbd>Shift</kbd><kbd>L</kbd></span>
             </div>
             <div class="fila apilada">
-              <span class="txt"><svg class="ico-fila"><use href="#i-clock"/></svg>
-                <span><span>Wait before capturing</span><small>the screen freezes when you press the shortcut</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-timer"/></svg><span><span>Wait before capturing</span><small>the screen freezes when you press the shortcut</small></span></span>
               <div class="segmentado">
                 <button class="viva">No wait</button><button>3 seconds</button><button>5 seconds</button>
               </div>
             </div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-eye-off"/></svg>
-                <span><span>Hide desktop icons</span><small>only while the shot lasts</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-eye-off"/></svg><span><span>Hide desktop icons</span><small>only while the shot lasts</small></span></span>
               <button class="palanca" data-on="0"></button></div>
+          </section>
+          <section class="tarjeta">
+            <h3>After capturing</h3>
+            <div class="fila apilada">
+              <span class="txt"><svg class="ico-fila"><use href="#i-panel-bottom"/></svg><span><span>Thumbnail in the corner</span></span></span>
+              <div class="segmentado cinco">
+                <button>No</button><button>5 s</button><button class="viva">10 s</button><button>30 s</button><button>Until closed</button>
+              </div>
+            </div>
           </section>
         </div>
         <div class="columna">
           <section class="tarjeta">
             <h3>The capture</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-mouse-pointer-2"/></svg>
-                <span><span>Include the cursor</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-mouse-pointer-2"/></svg><span><span>Include the cursor</span></span></span>
               <button class="palanca" data-on="1"></button></div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-zoom-in"/></svg>
-                <span><span>Pixel magnifier</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-zoom-in"/></svg><span><span>Pixel magnifier</span></span></span>
               <button class="palanca" data-on="1"></button></div>
             <div class="fila apilada">
-              <span class="txt"><svg class="ico-fila"><use href="#i-crop"/></svg>
-                <span><span>When you release the mouse</span><small>the bar appears, to copy, save or edit</small></span></span>
-              <div class="segmentado dos">
+              <span class="txt"><svg class="ico-fila"><use href="#i-crop"/></svg><span><span>When you release the mouse</span><small>the bar appears, to copy, save or edit</small></span></span>
+              <div class="segmentado dos" id="seg-soltar">
                 <button class="viva">The bar appears</button><button>It copies itself</button>
               </div>
             </div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-clipboard"/></svg>
-                <span><span>Copy when saving</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-clipboard"/></svg><span><span>Copy when saving</span></span></span>
               <button class="palanca" data-on="1"></button></div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-volume-2"/></svg>
-                <span><span>Shutter sound</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-volume-2"/></svg><span><span>Shutter sound</span></span></span>
               <button class="palanca" data-on="0"></button></div>
+            <div class="fila apilada">
+              <span class="txt"><svg class="ico-fila"><use href="#i-hash"/></svg><span><span>Background on captures</span><small>captures come out as they are</small></span></span>
+              <div class="segmentado cuatro">
+                <button class="viva">No background</button><button>A little</button><button>Normal</button><button>A lot</button>
+              </div>
+            </div>
           </section>
         </div>
       </div>
@@ -707,79 +781,90 @@
           <section class="tarjeta">
             <h3>How it records</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg>
-                <span><span>Record a region</span><small>the same shortcut ends it</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg><span><span>Record a region</span><small>the same shortcut ends it</small></span></span>
               <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>5</kbd></span>
             </div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-zoom-in"/></svg><span><span>Zoom key</span><small>zooms the video in on the mouse</small></span></span>
+              <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>9</kbd></span>
+            </div>
             <div class="fila apilada">
-              <span class="txt"><svg class="ico-fila"><use href="#i-gauge"/></svg>
-                <span><span>Frames per second</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-gauge"/></svg><span><span>Frames per second</span></span></span>
               <div class="segmentado">
                 <button>15 fps</button><button class="viva">30 fps</button><button>60 fps</button>
               </div>
             </div>
           </section>
           <section class="tarjeta">
-            <h3>The last few seconds</h3>
-            <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-rewind"/></svg>
-                <span><span>Always be recording</span><small class="bien">screen 2 · 1280 × 720 · 3.2 MB/s</small></span></span>
-              <button class="palanca" data-on="1"></button></div>
-            <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-clock"/></svg>
-                <span><span>How much it keeps</span></span></span>
-              <div class="segmentado ajustado">
-                <button>15 s</button><button class="viva">30 s</button><button>60 s</button>
-              </div>
-            </div>
-            <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-monitor"/></svg>
-                <span><span>Which screen</span></span></span>
-              <div class="segmentado ajustado">
-                <button class="viva">Mouse</button><button>1 ★</button><button>2</button><button>3</button>
-              </div>
-            </div>
-            <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-zoom-in"/></svg>
-                <span><span>Quality</span><small>1280 × 720 · up to 438.7 MB on disk</small></span></span>
-              <div class="segmentado ajustado">
-                <button class="viva">720p</button><button>1080p</button><button>Native</button>
-              </div>
-            </div>
-            <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-gauge"/></svg>
-                <span><span>Smoothness</span><small>frames per second</small></span></span>
-              <div class="segmentado ajustado">
-                <button class="viva">15</button><button>30</button><button>60</button>
-              </div>
-            </div>
-            <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg>
-                <span><span>Keep what just happened</span><small>opens the editor with the last bit, and keeps recording</small></span></span>
-              <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>6</kbd></span>
-            </div>
-          </section>
-        </div>
-        <div class="columna">
-          <section class="tarjeta">
             <h3>The sound</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-volume-2"/></svg>
-                <span><span>System audio</span><small>whatever the speakers play, in the video</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-volume-2"/></svg><span><span>System audio</span><small>whatever the speakers play, in the video</small></span></span>
               <button class="palanca" data-on="0"></button></div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-mic"/></svg>
-                <span><span>Microphone</span><small>your voice, to narrate what is being recorded</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-mic"/></svg><span><span>Microphone</span><small>your voice, to narrate what is being recorded</small></span></span>
               <button class="palanca" data-on="0"></button></div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-bell"/></svg><span><span>Sound when it starts</span><small>before recording, never inside the video</small></span></span>
+              <button class="palanca" data-on="1"></button></div>
           </section>
           <section class="tarjeta">
             <h3>When it ends</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-square-pen"/></svg>
-                <span><span>Open the editor when it ends</span></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-square-pen"/></svg><span><span>Open the editor when it ends</span></span></span>
               <button class="palanca" data-on="1"></button></div>
           </section>
         </div>
+        <div class="columna">
+          <section class="tarjeta">
+            <h3>The last few seconds</h3>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-history"/></svg><span><span>Always be recording</span><small class="bien">screen 2 · 1280 × 720 · 3.2 MB/s</small></span></span>
+              <button class="palanca" data-on="1"></button></div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-timer"/></svg><span><span>How much it keeps</span></span></span>
+              <div class="segmentado ajustado"><button>15 s</button><button class="viva">30 s</button><button>60 s</button></div>
+            </div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-monitor"/></svg><span><span>Which screen</span></span></span>
+              <div class="segmentado ajustado"><button class="viva">Mouse</button><button>1 ★</button><button>2</button><button>3</button></div>
+            </div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-zoom-in"/></svg><span><span>Quality</span><small>1280 × 720 · up to 438.7 MB on disk</small></span></span>
+              <div class="segmentado ajustado"><button class="viva">720p</button><button>1080p</button><button>Native</button></div>
+            </div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-gauge"/></svg><span><span>Smoothness</span><small>frames per second</small></span></span>
+              <div class="segmentado ajustado"><button class="viva">15</button><button>30</button><button>60</button></div>
+            </div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-video"/></svg><span><span>Keep what just happened</span><small>opens the editor with the last bit, and keeps recording</small></span></span>
+              <span class="campo-atajo"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>6</kbd></span>
+            </div>
+          </section>
+          <section class="tarjeta">
+            <h3>The webcam</h3>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-webcam"/></svg><span><span>Record the webcam too</span><small>your face in its own file</small></span></span>
+              <button class="palanca" data-on="0"></button></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ===== Historial ===== -->
+      <!-- Lo que guardes en esta demo aparece aquí, como en la app: copiar, guardar o
+           exportar desde el editor deja su miniatura. -->
+      <div class="ajustes historial" id="s-his" hidden>
+        <div class="his-cab">
+          <div class="his-filtros" id="his-filtros">
+            <button class="viva" data-filtro="todo">All</button><button data-filtro="foto">Photos</button><button data-filtro="video">Videos</button>
+          </div>
+          <button class="his-carpeta"><svg><use href="#i-folder-open"/></svg><span>Open the folder</span></button>
+        </div>
+        <div class="his-vacio" id="his-vacio">
+          <b>You haven't saved anything yet</b>
+          <span>The photos you save and the videos you export show up here, newest first.</span>
+        </div>
+        <div class="his-rejilla" id="his-rejilla"></div>
       </div>
 
       <!-- ===== Teclas de Windows ===== -->
@@ -788,12 +873,10 @@
           <section class="tarjeta">
             <h3>The Windows capture keys</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-keyboard"/></svg>
-                <span><span>Print Screen</span><small>today it opens the Snipping Tool</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-keyboard"/></svg><span><span>Print Screen</span><small>today it opens the Snipping Tool</small></span></span>
               <button class="palanca" data-on="0"></button></div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-app-window"/></svg>
-                <span><span>Win + Shift + S</span><small class="aviso-fila">it costs Win+S, the search</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-app-window"/></svg><span><span>Win + Shift + S</span><small>it costs Win+S, the search</small></span></span>
               <button class="palanca" data-on="0"></button></div>
           </section>
         </div>
@@ -801,8 +884,7 @@
           <section class="tarjeta">
             <h3>The Snipping Tool</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-scissors"/></svg>
-                <span><span>Snipping Tool</span><small>removing it is the only thing that silences it for good</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-scissors"/></svg><span><span>Snipping Tool</span><small>removing it is the only thing that silences it for good</small></span></span>
               <span class="botoncitos"><button>See how</button><button>Remove</button></span></div>
           </section>
         </div>
@@ -814,53 +896,55 @@
           <section class="tarjeta">
             <h3>Files</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-folder-open"/></svg>
-                <span><span>Destination folder</span><small>C:\Users\yo\Pictures\winshotx</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-folder-open"/></svg><span><span>Destination folder</span><small>C:\Users\yo\Pictures\winshotx</small></span></span>
               <span class="botoncitos"><button>Open</button><button>Change</button></span></div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-hard-drive"/></svg>
-                <span><span>Recording cache</span><small>empty</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-hard-drive"/></svg><span><span>Recording cache</span><small>empty</small></span></span>
               <span class="botoncitos"><button disabled>Empty</button></span></div>
           </section>
           <section class="tarjeta">
-            <h3>Looks</h3>
+            <h3>winshotx</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-sun"/></svg>
-                <span><span>Theme</span></span></span>
-              <div class="segmentado ajustado">
-                <button>Automatic</button><button>Light</button><button class="viva">Dark</button>
-              </div>
-            </div>
+              <span class="txt"><svg class="ico-fila"><use href="#i-book-open"/></svg><span><span>Welcome</span></span></span>
+              <span class="botoncitos"><button>See it again</button></span></div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-globe"/></svg>
-                <span><span>Language</span></span></span>
-              <div class="segmentado ajustado">
-                <button>Automatic</button><button class="viva">Spanish</button><button>English</button>
-              </div>
-            </div>
+              <span class="txt"><svg class="ico-fila"><use href="#i-compass"/></svg><span><span>Tour of the settings</span><small>seven stops, one per section</small></span></span>
+              <span class="botoncitos"><button>Start</button></span></div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila"><use href="#i-power"/></svg><span><span>Start with Windows</span></span></span>
+              <button class="palanca" data-on="0"></button></div>
           </section>
         </div>
         <div class="columna">
           <section class="tarjeta">
-            <h3>winshotx</h3>
+            <h3>Looks</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-book-open"/></svg>
-                <span><span>Welcome</span></span></span>
-              <span class="botoncitos"><button>See it again</button></span></div>
+              <span class="txt"><svg class="ico-fila"><use href="#i-palette"/></svg><span><span>Theme</span></span></span>
+              <div class="segmentado ajustado"><button>Automatic</button><button>Light</button><button class="viva">Dark</button></div>
+            </div>
+            <div class="fila apilada">
+              <span class="txt"><svg class="ico-fila"><use href="#i-languages"/></svg><span><span>Language</span></span></span>
+              <div class="segmentado cuatro"><button>Automatic</button><button class="viva">Spanish</button><button>English</button><button>中文</button></div>
+            </div>
+          </section>
+          <section class="tarjeta">
+            <h3>About</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-compass"/></svg>
-                <span><span>Tour of the settings</span><small>six stops, one per section</small></span></span>
-              <span class="botoncitos"><button>Start</button></span></div>
+              <span class="txt"><svg class="ico-fila"><use href="#i-info"/></svg><span><span>winshotx <b data-version>0.4.8</b></span><small>winshotx.com</small></span></span>
+              <span class="botoncitos"><button>The website</button></span></div>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-power"/></svg>
-                <span><span>Start with Windows</span></span></span>
-              <button class="palanca" data-on="0"></button></div>
+              <span class="txt"><svg class="ico-fila"><use href="#i-coffee"/></svg><span><span>Buy me a coffee</span><small>buymeacoffee.com/munito</small></span></span>
+              <span class="botoncitos"><button>Treat me</button></span></div>
+            <div class="fila">
+              <span class="txt"><svg class="ico-fila" viewBox="0 0 16 16"><use href="#i-github"/></svg><span><span>The code and the bugs</span><small>open, under the MIT licence</small></span></span>
+              <span class="botoncitos"><button>The code</button><button>Report a bug</button></span></div>
           </section>
         </div>
       </div>
 
-      <!-- La barra de abajo: lo que se toca a menudo, en cualquier pestaña. Estando al
-           día, lo de actualizar es un tick y ya. -->
+      <svg class="marca-agua" aria-hidden="true"><use href="#marca-gris"/></svg>
+
+      <!-- La barra de abajo: lo que se toca a menudo, en cualquier pestaña. -->
       <footer class="barra-set">
         <span class="mini-seg tema">
           <button aria-label="Automatic theme"><svg><use href="#i-monitor"/></svg></button>
@@ -868,209 +952,166 @@
           <button class="viva" aria-label="Dark theme"><svg><use href="#i-moon"/></svg></button>
         </span>
         <span class="mini-seg">
-          <button>Automatic</button><button class="viva">ES</button><button>EN</button>
+          <button>Automatic</button><button class="viva">ES</button><button>EN</button><button>中</button>
         </span>
         <span class="mini-etiqueta">On release</span>
-        <span class="mini-seg">
+        <span class="mini-seg" id="mini-soltar">
           <button class="viva">Bar</button><button>Copy</button>
         </span>
         <button class="mini-boton"><svg><use href="#i-compass"/></svg> Tour</button>
-        <span class="al-dia" title="You are on the latest version"><svg><use href="#i-check"/></svg></span>
+        <span class="barra-set-derecha">
+          <button class="mini-boton"><svg><use href="#i-coffee"/></svg> <span>Support</span></button>
+          <span class="al-dia"><svg><use href="#i-check"/></svg> <span>Up to date</span></span>
+        </span>
       </footer>
     </div>
-  </div>
-</section>
-
-<section id="frente-a-frente">
-  <div class="env">
-    <h2>Snipping Tool against winshotx</h2>
-    <p class="entradilla">Point by point, including where winshotx loses. The Windows one comes preinstalled and does things this one cannot do yet.</p>
-
-    <div class="duelo">
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th><span class="equipo"><span class="ventanita"></span> <span>Snipping Tool</span></span></th>
-            <th><span class="equipo nuestro"><svg class="mini-marca"><use href="#marca"/></svg> winshotx</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="cifras">
-            <th scope="row">From shortcut to the selection on screen, already painted (three screens)</th>
-            <td>920 ms</td>
-            <td class="gana">114 ms</td>
-          </tr>
-          <tr class="cifras">
-            <th scope="row">Memory while capturing</th>
-            <td>253 MB</td>
-            <td class="gana">33 MB</td>
-          </tr>
-          <tr class="cifras">
-            <th scope="row">Memory sitting idle</th>
-            <td>98 MB</td>
-            <td class="gana">31 MB</td>
-          </tr>
-          <tr>
-            <th scope="row">Installation</th>
-            <td class="gana">already in Windows</td>
-            <td>2.95 MB installer</td>
-          </tr>
-          <tr>
-            <th scope="row">Capture a region</th>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes, snapping to windows</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Record video</th>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
-            <td class="empate"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes, at 15, 30 or 60 fps</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Record GIF</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Editor with a timeline</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes, trimming start and end</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Pick your own shortcut</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>whatever Windows decides</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>whatever you want</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Pixel magnifier with the colour</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>6× zoom and hex code</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Paste the GIF or the video as a file</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes, and its path as text too</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Draw and annotate on top</th>
-            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>pen, shapes and text</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>six marks, with numbered steps</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Copy the text out of the image</th>
-            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>yes, with the T key</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Blur out personal data</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Automatic</span></td>
-            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>by hand, and with a mosaic</span></td>
-          </tr>
-          <tr>
-            <th scope="row">System audio when recording</th>
-            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>yes, with the microphone on its own track</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Save what just happened</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>the last 15, 30 or 60 s</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Timer before capturing</th>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>3, 5 or 10 seconds</span></td>
-            <td><b class="si"><svg><use href="#i-check"/></svg></b> <span>3 or 5 seconds</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Zoom in on every click</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>Yes, decided after recording</span></td>
-          </tr>
-          <tr>
-            <th scope="row">Languages</th>
-            <td class="gana">all of Windows'</td>
-            <td>Spanish and English</td>
-          </tr>
-          <tr>
-            <th scope="row">Open source</th>
-            <td><b class="no"><svg><use href="#i-x"/></svg></b> <span>No</span></td>
-            <td class="gana"><b class="si"><svg><use href="#i-check"/></svg></b> <span>MIT, all of it</span></td>
-          </tr>
-        </tbody>
-      </table>
     </div>
-    <p class="letra-chica">The milliseconds and the megabytes come from measuring both on the same Windows 11 machine, three runs each, starting from cold. The rest is what each one ships today.</p>
+    </div>
+    </div>
+
+    <!-- Debajo de la demo, solo en el móvil: verla en grande y que se ve mejor en el ordenador. -->
+    <div class="demo-movil">
+      <button type="button" class="btn uno" data-capa="abrir"><svg aria-hidden="true"><use href="#i-maximize"/></svg><span>Full screen</span></button>
+      <p>The demo looks better on a computer.</p>
+    </div>
+
+    <p class="aviso" id="aviso" aria-live="polite"><svg width="16" height="16" aria-hidden="true"><use href="#i-check"/></svg><span></span></p>
+    <p class="capa-gira">Turn your phone sideways to see it bigger.</p>
   </div>
 </section>
 
-<section id="que-hace">
+<!-- ======================= lo que es de verdad ======================= -->
+<section class="pruebas" aria-label="In numbers">
   <div class="env">
-    <h2>What you need and nothing else</h2>
-    <div class="rejilla">
-      <div class="caja"><div class="ico"><svg><use href="#i-zap"/></svg></div>
-        <h3>It opens instantly</h3>
-        <p>Press the shortcut and the selection is already there, painted: 114 milliseconds with three screens, the one under the mouse first and the other two by 233. Nothing appears until it has its image, so there is no loading screen.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-box"/></svg></div>
-        <h3>It takes up what an icon does</h3>
-        <p>33 MB of memory while capturing and a 2.95 MB installer. The app Windows ships spends eight times more to do less.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-search"/></svg></div>
-        <h3>Pixel exact magnifier</h3>
-        <p>6× zoom with the colour in hex under the cursor, and windows highlight themselves with their name on them: one click and you have that whole window, with no fiddling with edges.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-monitor"/></svg></div>
-        <h3>Three screens, one key</h3>
-        <p>Turn on whole screen and every monitor puts up its own number. Press the number and it takes that one entire, wherever the pointer happens to be.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-eye-off"/></svg></div>
-        <h3>It covers up personal data on its own</h3>
-        <p>One click in the editor finds the emails, phone numbers, cards, bank accounts and ID numbers in the image and drops a mosaic over each one, which destroys the pixels instead of smudging them. Nothing is matched by shape: a card has to pass its check digit and an ID the letter it is owed, so an invoice does not come out half covered.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-app-window"/></svg></div>
-        <h3>Record one window, covered or not</h3>
-        <p>Press W with a window highlighted and that window is what gets recorded, even when something covers it: a notification landing on top no longer ends up in the video, which recording a slice of the screen could never avoid. Move the window and the click rings go with it.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-type"/></svg></div>
-        <h3>The text inside an image</h3>
-        <p>T on a selection, or the button in the editor, reads what the picture says with Windows' own reader and copies it. It works on a recording too, on whichever frame you are looking at.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-rewind"/></svg></div>
-        <h3>The last few seconds</h3>
-        <p>It records all the time and drops the old, so one key keeps the last 15, 30 or 60 seconds. The good part of a screen almost always happens before anyone thinks of recording it.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-fast-forward"/></svg></div>
-        <h3>Speed on export</h3>
-        <p>0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens, and those play at 2× without losing a thing.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-circle-1"/></svg></div>
-        <h3>Numbered steps</h3>
-        <p>Click to drop a 1, a 2 and a 3 on the shot. They number themselves, so adding one in the middle does not leave two threes in the same picture.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-film"/></svg></div>
-        <h3>GIF and video, not just stills</h3>
-        <p>Record the region at 15, 30 or 60 frames and export to GIF or MP4. With no bundled FFmpeg: Windows writes the video in hardware.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-pencil"/></svg></div>
-        <h3>Editor with a timeline and a studio</h3>
-        <p>Drag the edges of the timeline to keep a piece, give it a background with rounded corners and a smooth pointer, and export. All in the same window.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-volume-2"/></svg></div>
-        <h3>With sound</h3>
-        <p>The system audio and your microphone, each recorded on its own track, so you can turn either one up or down in the editor. Each has its own switch, and either can go alone: narrate a tutorial, or capture only what the machine is playing.</p></div>
-      <div class="caja"><div class="ico"><svg><use href="#i-zoom-in"/></svg></div>
-        <h3>The camera moves in by itself</h3>
-        <p>It zooms in on every click of the recording, and how much you decide after recording: the clicks were written down while it recorded, so changing your mind never means recording again.</p></div>
-      <div class="caja">
-        <div class="ico"><svg><use href="#i-lock"/></svg></div>
-        <div>
-          <h3>It never leaves your machine</h3>
-          <p>No account, no telemetry and no uploads. The code is open and the installer does not even ask for administrator rights.</p>
+    <div class="prueba"><b>3.000+</b><span>downloads from GitHub alone</span></div>
+    <div class="prueba"><b>winget</b><span>and on the <a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></span></div>
+    <div class="prueba"><b>2.97 MB</b><span>the whole installer, with nothing bundled</span></div>
+    <div class="prueba"><b>MIT</b><span>open source, all of it in plain sight</span></div>
+  </div>
+</section>
+
+<!-- ======================= capturar, grabar y editar ======================= -->
+<!-- Un paso cada 260 px de rueda (GUSTOS, 8: «por cada 2 o 3 scroll ya pasar a la siguiente
+     fase»). En el móvil, los tres seguidos, cada uno con su foto. -->
+<section id="funciones" class="momentos">
+  <div class="momentos-pista" id="momentos-pista">
+    <div class="env momentos-pegado">
+      <div class="momentos-izq">
+        <div class="pasos-momento" id="pasos-momento" role="tablist" aria-label="Features">
+          <button data-i="0" aria-current="step">Capture</button>
+          <button data-i="1">Record</button>
+          <button data-i="2">Edit</button>
+        </div>
+        <div class="momentos-textos">
+          <article class="momento activo" data-i="0">
+            <svg class="ico-suelto" aria-hidden="true"><use href="#i-camera"/></svg>
+            <h2>Capture down to the pixel</h2>
+            <p>The screen freezes when you press your shortcut and you crop over a still picture, so nothing moves while you choose.</p>
+            <ul class="lista">
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>A 6× magnifier with the exact colour</span></li>
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>One click takes the whole window</span></li>
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>A long page, whole, scrolling by itself</span></li>
+            </ul>
+            <img class="foto foto-movil" src="../img/capturar-en.webp" width="1140" height="720" loading="lazy" alt="The winshotx selection over a frozen screen, with its bar to copy, save or edit">
+          </article>
+          <article class="momento" data-i="1">
+            <svg class="ico-suelto" aria-hidden="true"><use href="#i-video"/></svg>
+            <h2>Record what happens</h2>
+            <p>MP4 or GIF of an area, a window or the whole screen, with your voice and your webcam if you want.</p>
+            <ul class="lista">
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>The PC sound and your microphone, each on its own track</span></li>
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>Your webcam, in a circle or with the corners you like</span></li>
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>One key keeps the last 30 seconds</span></li>
+            </ul>
+            <img class="foto foto-movil" src="../img/grabar-en.webp" width="1140" height="720" loading="lazy" alt="An area picked to record as video, with its red record button">
+          </article>
+          <article class="momento" data-i="2">
+            <svg class="ico-suelto" aria-hidden="true"><use href="#i-pencil"/></svg>
+            <h2>Get it ready to show</h2>
+            <p>The editor trims on the timeline and adds a background, corners and a shadow without leaving the window.</p>
+            <ul class="lista">
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>Zooms you place, or on every click</span></li>
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>Cut a piece out of the middle and speed up the slow bits</span></li>
+              <li><svg class="ok" aria-hidden="true"><use href="#i-check"/></svg><span>Hides emails, phone numbers and cards in one click</span></li>
+            </ul>
+            <img class="foto foto-movil" src="../img/editor-en.webp" width="1280" height="800" loading="lazy" alt="The winshotx editor with a Studio background, rounded corners and a shadow">
+          </article>
         </div>
       </div>
+      <div class="momentos-fotos" aria-hidden="true">
+        <img class="foto activa" src="../img/capturar-en.webp" width="1140" height="720" loading="lazy" alt="">
+        <img class="foto" src="../img/grabar-en.webp" width="1140" height="720" loading="lazy" alt="">
+        <img class="foto" src="../img/editor-en.webp" width="1280" height="800" loading="lazy" alt="">
+      </div>
     </div>
   </div>
 </section>
 
-<section id="preguntas">
+<!-- ======================= para agentes de IA ======================= -->
+<section id="agentes" class="seccion agentes">
   <div class="env">
-    <div class="faq-grid">
-      <div class="faq-lateral">
-        <svg class="mini-marca faq-marca"><use href="#marca"/></svg>
-        <h2>Questions people actually ask</h2>
-        <p class="entradilla">If it's not here, open an issue on GitHub and it gets answered and added.</p>
-        <a class="btn fantasma" href="https://github.com/Mun1to/winshotx/issues">Ask on GitHub</a>
-      </div>
-      <div class="faq">
-        <details>
+    <div>
+      <svg class="ico-suelto" aria-hidden="true"><use href="#i-terminal"/></svg>
+      <h2 style="margin-top:18px">Your AI agent can record the screen too</h2>
+      <p>Claude Code, Codex or Cursor record, stop, export the video and take screenshots with winshotx, with one command or through its MCP server. While they record you see the red frame, as always.</p>
+      <div class="fan suelta" style="--giro:-3deg"><p>Your agent records the demo. <b>You go grab a coffee.</b></p></div>
+      <div class="botones"><a class="btn dos" href="docs/#agentes">How to connect it</a></div>
+    </div>
+    <!-- Cada orden de la terminal se copia con un clic (leer.js?v=c1f0d0f0): por eso es un grupo y no
+         una imagen, y cada línea `.orden` va suelta, sin su «PS>», que no se escribe. -->
+    <div class="terminal" role="group" aria-label="A terminal with the winshotx commands for agents">
+      <div class="terminal-barra"><i></i><i></i><i></i><span>PowerShell</span></div>
+<pre><span class="com"># once: add it to Claude Code</span>
+<span class="orden"><span class="ps">PS&gt;</span> claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</span>
+<span class="com aparte"># or from any terminal</span>
+<span class="orden"><span class="ps">PS&gt;</span> winshotx agent record --screen 0 --max-seconds 20</span>
+<span class="orden"><span class="ps">PS&gt;</span> winshotx agent stop</span>
+<span class="ok">{"ok":true,"session":"3f9c0a1b2d", ...}</span>
+<span class="orden"><span class="ps">PS&gt;</span> winshotx agent export 3f9c0a1b2d --out demo.mp4 --zoom-on-clicks 0.5</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= novedades ======================= -->
+<section id="novedades" class="seccion novedades-inicio">
+  <div class="env">
+    <div class="cabeza-seccion">
+      <h2>What's new</h2>
+      <p class="entradilla">It updates itself from inside the app. These are the last three versions.</p>
+    </div>
+    <!-- novedades:desde (lo escribe generar-novedades.mjs a partir de versiones.json) -->
+    <div class="novedades-portada">
+      <article class="novedad">
+        <p class="cuando">Version 0.4.7 · 14 November 2026</p>
+        <h3><a href="changelog/#v0-4-7">Move what you draw, and settings sized to fit</a></h3>
+        <p><b>Drawn marks move</b>: grab an arrow, a box or a text you already placed and drag it somewhere else. <b>Double-click</b> a text to rewrite it, <b>Delete</b> removes it and <b>Ctrl+Z</b> undoes it.</p>
+      </article>
+      <article class="novedad">
+        <p class="cuando">Version 0.4.6 · 14 November 2026</p>
+        <h3><a href="changelog/#v0-4-6">Type on the image and mute the preview</a></h3>
+        <p><b>Text is typed right on the image</b>: with the «T» you click wherever you want, type in place, and it is kept with Enter or a click outside. Escape throws it away.</p>
+      </article>
+      <article class="novedad">
+        <p class="cuando">Version 0.4.5 · 12 November 2026</p>
+        <h3><a href="changelog/#v0-4-5">AI agents, your voice on its own track and a rounded webcam</a></h3>
+        <p><b>For AI agents</b>: Claude Code, Codex or Cursor record your screen, stop, export the video and take screenshots with winshotx, through the winshotx agent command or its MCP server. The red frame shows while they record, as always.</p>
+      </article>
+    </div>
+    <!-- novedades:hasta -->
+    <div class="novedades-mas"><a class="btn dos" href="changelog/">Every version</a></div>
+  </div>
+</section>
+
+<!-- ======================= preguntas ======================= -->
+<section id="preguntas" class="seccion preguntas">
+  <div class="env">
+    <div class="lateral">
+      <h2>Questions people actually ask</h2>
+      <p class="entradilla">If yours is not here, open an issue on GitHub and it gets answered and added.</p>
+      <div class="botones"><a class="btn dos" href="https://github.com/Mun1to/winshotx/issues" rel="noopener">Ask on GitHub</a></div>
+    </div>
+    <div class="faq">
+      <details>
         <summary><h3>Is winshotx free?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
         <div class="faq-cajon"><p>Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.</p></div>
       </details>
@@ -1080,19 +1121,19 @@
       </details>
       <details>
         <summary><h3>Which versions of Windows does it run on?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>Windows 10 and Windows 11.</p></div>
+        <div class="faq-cajon"><p>Windows 10 (version 1903 or later) and Windows 11.</p></div>
       </details>
       <details>
-        <summary><h3>Is the app available in English?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>Yes. It follows your Windows language on its own, and in Settings you can force Spanish or English whenever you like. Every label, every explanation and the welcome screen are translated.</p></div>
+        <summary><h3>Which languages is the app in?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Spanish, English and Chinese. It follows your Windows language on its own, and in Settings you can pick another one whenever you like. Every label, every explanation and the welcome screen are translated.</p></div>
       </details>
       <details>
         <summary><h3>How do you install and update it?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>The installer is 2.95 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.</p></div>
+        <div class="faq-cajon"><p>The installer is 2.97 MB and goes to your user, not the system, so Windows never asks for administrator rights. It updates itself from inside the app with one button, and every download is signed and checked before anything is installed.</p></div>
       </details>
       <details>
         <summary><h3>Can it be installed with winget?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p><span>Yes. It is published in the official winget-pkgs catalogue, so</span> <code>winget install Mun1to.winshotx</code> <span>installs it, and winget upgrade updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings.</span> <code>winget upgrade</code> <span>updates it.</span></p></div>
+        <div class="faq-cajon"><p>Yes. It is published in the official winget-pkgs catalogue, so <code>winget install Mun1to.winshotx</code> installs it and <code>winget upgrade Mun1to.winshotx</code> updates it. A new version takes a few hours to show up in the catalogue: while it does, the app updates itself from Settings.</p></div>
       </details>
       <details>
         <summary><h3>Is it on the Microsoft Store?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
@@ -1100,84 +1141,434 @@
       </details>
       <details>
         <summary><h3>What can it capture and record?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>Region capture with automatic window snapping and a whole screen with one key; video and GIF at 15, 30 or 60 fps with system audio and microphone; the last 15, 30 or 60 seconds without pressing record beforehand; and an editor that trims on a timeline, a studio with backgrounds, rounded corners and a smooth pointer, six marks to annotate, a mosaic, numbered steps, camera zoom on every click and export at 0.5×, 2× or 4×.</p></div>
+        <div class="faq-cajon"><p>An area, a window or the whole screen, and a long page scrolling by itself; video and GIF at 15, 30 or 60 fps with the PC sound and your microphone on separate tracks, and your webcam if you want; the last 15, 30 or 60 seconds without having pressed record; and an editor with zooms you place or on every click, your own backgrounds, corners and shadow, trimming on the timeline, ten marks to annotate, a mosaic, and personal data covered up in one click.</p></div>
+      </details>
+      <details>
+        <summary><h3>Can AI agents use it?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Yes. Claude Code, Codex, Cursor or any agent that uses the terminal records, stops, exports and captures with the <code>winshotx agent</code> command, and the ones that speak MCP get it as a server with <code>winshotx mcp</code>. While they record you see the red frame, as always.</p></div>
       </details>
       <details>
         <summary><h3>What does it still lack compared to the Windows Snipping Tool?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>Three things. It does not come preinstalled: you have to install it. It does not black out personal data on its own, you cover it by hand with the mosaic. And it speaks two languages, Spanish and English, while the Windows one speaks all of them. The point by point comparison is above, including where winshotx loses.</p></div>
+        <div class="faq-cajon"><p>Two things. It does not come preinstalled: you have to install it. And it speaks three languages, Spanish, English and Chinese, while the Windows one speaks all of them. The point by point comparison is just below, including where winshotx loses.</p></div>
       </details>
-    </div>
     </div>
   </div>
 </section>
 
-<script>
-  // Una pregunta abierta a la vez, y el cambio de una a otra en un solo movimiento.
-  // <details> no da nada de esto solo: deja abrir todas a la vez, y al quitarle
-  // `open` borra el contenido de golpe, así que la animación de salida no llega
-  // a verse. Por eso `data-abierta` manda en el CSS y `open` se queda un ratito
-  // más mientras dura la transición de cierre.
-  document.querySelectorAll(".faq").forEach((lista) => {
-    const items = Array.from(lista.querySelectorAll("details"));
-    const ms = parseFloat(getComputedStyle(lista).getPropertyValue("--faq-ms")) || 380;
-    const pendientes = new Map();
+<!-- ======================= la comparativa, abajo del todo ======================= -->
+<!-- La escribe generar-comparativa.mjs desde comparativa.mjs: no se toca a mano. Las cifras de
+     la pestaña de Recortes son las medidas, en el mismo equipo con Windows 11, tres veces seguidas
+     y las dos arrancando desde cero; lo demás sale de la web oficial de cada una, con el enlace
+     debajo. -->
+<section id="comparativa" class="seccion comparativa">
+  <div class="env">
+    <div class="cabeza-seccion">
+      <h2>Head to head</h2>
+      <p class="entradilla">What winshotx does and the other ten do not, and where one of them wins. Time and memory, measured; the rest, from each one's own website.</p>
+      <div class="fan suelta" style="--giro:3deg"><p><b>8 times faster</b> than the one Windows ships. Just saying.</p></div>
+    </div>
 
-    const cerrar = (item) => {
-      if (!item.open) return;
-      item.removeAttribute("data-abierta");
-      clearTimeout(pendientes.get(item));
-      pendientes.set(
-        item,
-        setTimeout(() => {
-          if (!item.hasAttribute("data-abierta")) item.open = false;
-          pendientes.delete(item);
-        }, ms),
-      );
-    };
+    <p class="rival-pregunta" id="rival-pregunta">Which one do you use now?</p>
+    <div class="pestanas rivales" role="radiogroup" aria-labelledby="rival-pregunta">
+      <label class="pestana"><input type="radio" name="rival" value="recortes" checked><span>Snipping Tool</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="gamebar"><span>Game Bar</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="sharex"><span>ShareX</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="greenshot"><span>Greenshot</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="flameshot"><span>Flameshot</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="screentogif"><span>ScreenToGif</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="obs"><span>OBS</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="lightshot"><span>Lightshot</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="picpick"><span>PicPick</span></label>
+      <label class="pestana"><input type="radio" name="rival" value="snagit"><span>Snagit</span></label>
+    </div>
+    <div class="frentes">
+      <div class="frente" id="frente-recortes">
+        <div class="medidas" id="medidas">
+          <div class="medida">
+            <div class="medida-num">114 ms</div>
+            <div class="medida-que">from the shortcut to the selection, already painted, with three screens</div>
+            <div class="barras">
+              <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:12.4%;--dura:114ms"></span></span><span class="cuanto">114 ms</span></div>
+              <div class="barra-medida"><span class="nombre">Snipping Tool</span><span class="pista"><span class="llena" style="--largo:100%;--dura:920ms"></span></span><span class="cuanto">920 ms</span></div>
+            </div>
+          </div>
+          <div class="medida">
+            <div class="medida-num">33 MB</div>
+            <div class="medida-que">of memory while you capture</div>
+            <div class="barras">
+              <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:13%"></span></span><span class="cuanto">33 MB</span></div>
+              <div class="barra-medida"><span class="nombre">Snipping Tool</span><span class="pista"><span class="llena" style="--largo:100%"></span></span><span class="cuanto">253 MB</span></div>
+            </div>
+          </div>
+          <div class="medida">
+            <div class="medida-num">31 MB</div>
+            <div class="medida-que">waiting in the tray</div>
+            <div class="barras">
+              <div class="barra-medida nuestra"><span class="nombre">winshotx</span><span class="pista"><span class="llena" style="--largo:31.6%"></span></span><span class="cuanto">31 MB</span></div>
+              <div class="barra-medida"><span class="nombre">Snipping Tool</span><span class="pista"><span class="llena" style="--largo:100%"></span></span><span class="cuanto">98 MB</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="fuentes">Measured on the same Windows 11 machine, three runs each, both starting from cold. The clock stops when the selection is already on screen.</p>
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num palabras">Comes with Windows</div><div class="medida-que">Snipping Tool</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>Snipping Tool: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>Snipping Tool: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>Snipping Tool: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>Snipping Tool: emails and phone numbers</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Snipping Tool: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Snipping Tool: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; and draws arrows, text and numbered steps.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where the Snipping Tool wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-download"/></svg><div><b>Comes with Windows</b><span>Snipping Tool: yes</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>Snipping Tool: 64 languages; winshotx, 3</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> read the text in the image; record MP4 video; PC sound and microphone; and capture an area.</p>
+      </div>
+      <div class="frente" id="frente-gamebar">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num palabras">Comes with Windows</div><div class="medida-que">Xbox Game Bar</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-scroll"/></svg><div><b>Captures a long page, scrolling by itself</b><span>Xbox Game Bar: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; draws arrows, text and numbered steps; needs no account; and captures an area of the screen.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where Xbox Game Bar wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-download"/></svg><div><b>Comes with Windows</b><span>Xbox Game Bar: yes</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>Xbox Game Bar: 63 languages; winshotx, 3</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> the last seconds, without pressing record; record MP4 video; and PC sound and microphone.</p>
+      </div>
+      <div class="frente" id="frente-sharex">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">145 MB</div><div class="medida-que">ShareX</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>ShareX: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>ShareX: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>ShareX: no; it has a command line</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>ShareX: no, by hand</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>ShareX: no</span></div></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where ShareX wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>ShareX: 29 languages; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>ShareX: yes</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> pin a shot on top of everything; a long page, scrolling by itself; read the text in the image; record GIF; your webcam on top; record MP4 video; PC sound and microphone; arrows, text and numbered steps; and capture an area.</p>
+      </div>
+      <div class="frente" id="frente-greenshot">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">4 MB</div><div class="medida-que">Greenshot</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>Greenshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>Greenshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>Greenshot: only in its test builds</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>Greenshot: no, by hand</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Greenshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Greenshot: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where Greenshot wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>Greenshot: 39 languages; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>Greenshot: with its plug-in</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> read the text in the image; arrows, text and numbered steps; and capture an area.</p>
+      </div>
+      <div class="frente" id="frente-flameshot">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">19 MB</div><div class="medida-que">Flameshot</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>Flameshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>Flameshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>Flameshot: no; it has a command line</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>Flameshot: no, by hand</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Flameshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-scroll"/></svg><div><b>Captures a long page, scrolling by itself</b><span>Flameshot: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where Flameshot wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>Flameshot: 43 languages; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>Flameshot: Mac and Linux</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> pin a shot on top of everything; arrows, text and numbered steps; and capture an area.</p>
+      </div>
+      <div class="frente" id="frente-screentogif">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">75 MB</div><div class="medida-que">ScreenToGif</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>ScreenToGif: no, by hand</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>ScreenToGif: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>ScreenToGif: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; reads the text in an image, and in a video; puts your webcam on top of the video; draws arrows, text and numbered steps; records MP4 video; records PC sound and the microphone; and captures an area of the screen.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where ScreenToGif wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>ScreenToGif: 29 languages; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>ScreenToGif: yes</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-film"/></svg><div><b>Edits a GIF frame by frame</b><span>ScreenToGif: yes</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> record GIF.</p>
+      </div>
+      <div class="frente" id="frente-obs">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">187 MB</div><div class="medida-que">OBS Studio</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>OBS Studio: no; it has a WebSocket API</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>OBS Studio: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-scroll"/></svg><div><b>Captures a long page, scrolling by itself</b><span>OBS Studio: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> reads the text in an image, and in a video; records GIF; draws arrows, text and numbered steps; and captures an area of the screen.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where OBS Studio wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>OBS Studio: 57 languages; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>OBS Studio: Mac and Linux</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-video"/></svg><div><b>Streams live</b><span>OBS Studio: yes</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> the last seconds, without pressing record; your webcam on top; record MP4 video; and PC sound and microphone.</p>
+      </div>
+      <div class="frente" id="frente-lightshot">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">2.4 MB</div><div class="medida-que">Lightshot</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>Lightshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>Lightshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>Lightshot: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>Lightshot: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Lightshot: does not record</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Lightshot: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where Lightshot wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>Lightshot: Mac</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>Lightshot: public on prnt.sc</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> capture an area.</p>
+      </div>
+      <div class="frente" id="frente-picpick">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">69 MB</div><div class="medida-que">PicPick</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-wallet"/></svg><div><b>Free, for work too</b><span>PicPick: personal use only</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>PicPick: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>PicPick: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>PicPick: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>PicPick: no, by hand</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>PicPick: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> pins a shot on top of everything and reads the text in an image, and in a video.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where PicPick wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>PicPick: more than 3 languages; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>PicPick: yes</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> a long page, scrolling by itself; record GIF; your webcam on top; record MP4 video; PC sound and microphone; arrows, text and numbered steps; and capture an area.</p>
+      </div>
+      <div class="frente" id="frente-snagit">
+        <div class="frente-dos">
+          <div class="frente-cifras">
+            <div class="frente-cifra nuestra"><div class="medida-num">2.97 MB</div><div class="medida-que">winshotx</div></div>
+            <div class="frente-cifra"><div class="medida-num">441 MB</div><div class="medida-que">Snagit</div></div>
+            <p class="frente-cifras-que">What the installer weighs.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where winshotx wins</h3>
+            <ul class="frente-lista">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-wallet"/></svg><div><b>Free, for work too</b><span>Snagit: yearly subscription</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-zoom-in"/></svg><div><b>A video with zooms that follow your clicks, and a background</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-mosaico"/></svg><div><b>Covers the personal data in a video by itself</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Snagit: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Snagit: no</span></div></li>
+            </ul>
+          <p class="frente-mas"><b>And also:</b> needs no account.</p>
+          </div>
+          <div>
+            <h3 class="frente-sub">Where Snagit wins</h3>
+            <ul class="frente-lista pierde">
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>Snagit: 6 languages; winshotx, 3</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>Snagit: Mac</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>Snagit: yes</span></div></li>
+            </ul>
+          </div>
+        </div>
+        <p class="frente-empatan"><b>Both:</b> cover personal data in an image, by itself; a long page, scrolling by itself; read the text in the image; record GIF; your webcam on top; record MP4 video; PC sound and microphone; arrows, text and numbered steps; and capture an area.</p>
+      </div>
+    </div>
+    <p class="fuentes">Checked on 15 November 2026 on each one's website, help pages and release notes: <a href="https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b" rel="noopener">Snipping Tool</a>, <a href="https://support.microsoft.com/en-us/accessibility/windows/use-a-screen-reader-to-record-your-screen-with-xbox-game-bar" rel="noopener">Xbox Game Bar</a>, <a href="https://getsharex.com/changelog" rel="noopener">ShareX 22.4</a>, <a href="https://getgreenshot.org/help/" rel="noopener">Greenshot 1.3</a>, <a href="https://flameshot.org/" rel="noopener">Flameshot 15</a>, <a href="https://github.com/NickeManarin/ScreenToGif/releases/tag/2.43.2" rel="noopener">ScreenToGif 2.43</a>, <a href="https://obsproject.com/kb/" rel="noopener">OBS Studio 33</a>, <a href="https://app.prntscr.com/en/learnmore.html" rel="noopener">Lightshot</a>, <a href="https://picpick.app/en/features/" rel="noopener">PicPick 7.6</a>, <a href="https://www.techsmith.com/snagit/features/" rel="noopener">Snagit 2027</a>. "No" means it is not in any of its official sources; ScreenToGif is the version its author now calls the old one. If something has changed, <a href="https://github.com/Mun1to/winshotx/issues" rel="noopener">tell me</a> and it gets fixed.</p>
+  </div>
+</section>
 
-    const abrir = (item) => {
-      clearTimeout(pendientes.get(item));
-      pendientes.delete(item);
-      item.open = true;
-      requestAnimationFrame(() => item.setAttribute("data-abierta", ""));
-    };
-
-    items.forEach((item) => {
-      item.querySelector("summary").addEventListener("click", (evento) => {
-        evento.preventDefault();
-        const estaAbierta = item.hasAttribute("data-abierta");
-        items.forEach((otra) => { if (otra !== item) cerrar(otra); });
-        if (estaAbierta) cerrar(item);
-        else abrir(item);
-      });
-    });
-  });
-</script>
-
-<section>
+<!-- ======================= el cierre ======================= -->
+<section class="seccion cierre">
   <div class="env centrado">
     <h2>Two clicks and you are done</h2>
-    <p class="entradilla">The installer goes to your user and not to the system, so Windows never asks for administrator rights. From inside the app it updates itself with one button, and every download is signed and checked before anything is installed.</p>
+    <p class="entradilla">The installer goes to your user and not to the system, so Windows never asks for administrator rights. From inside the app it updates itself with one button.</p>
     <div class="botones">
-      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download winshotx</a>
-      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx">See the code</a>
+      <a class="btn uno" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download winshotx</span></a>
+      <a class="btn dos" href="https://github.com/Mun1to/winshotx" rel="noopener">See the code</a>
     </div>
     <p class="letra-chica">winshotx is free and there is no paid version: this is the only way to support it. If it saves you time, <a href="https://buymeacoffee.com/munito" rel="noopener">buy me a coffee</a>.</p>
   </div>
 </section>
 
-<footer>
+<footer class="pie">
   <div class="env">
-    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
-    <a href="privacy/">Privacy</a>
-    <span>Made by <a href="https://munito.dev">Munir Torres</a> · no accounts, no cloud, no surprises</span>
-    <a class="valvula sin-mov" href="?motion=off">Fewer animations</a>
-    <a class="valvula con-mov" href="./">All animations</a>
-    <a class="cafe" href="https://buymeacoffee.com/munito" rel="noopener"><svg class="chico"><use href="#i-coffee"/></svg> <span>Buy me a coffee</span></a>
+    <div class="pie-rejilla">
+      <div class="quien">
+        <a class="logo-nombre" href="./" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+        <p>Screenshots and screen recording for Windows. Free, open source and with no account.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Product</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download</a></li>
+          <li><a href="changelog/">What's new</a></li>
+          <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Portable version</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Help</h2>
+        <ul>
+          <li><a href="support/">Support</a></li>
+          <li><a href="docs/">Docs</a></li>
+          <li><a href="#preguntas">Questions</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/issues" rel="noopener">Report a bug</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Code</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/blob/main/LICENSE" rel="noopener">MIT licence</a></li>
+          <li><a href="docs/#agentes">For AI agents</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">More</h2>
+        <ul>
+          <li><a href="privacy/">Privacy</a></li>
+          <li><a href="https://buymeacoffee.com/munito" rel="noopener">Buy me a coffee</a></li>
+          <li><a class="valvula sin-mov" href="?motion=off">Fewer animations</a><a class="valvula con-mov" href="./">All animations</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pie-abajo">
+      <span>© 2026 winshotx · Made by <a href="https://munito.dev">Munir Torres</a></span>
+      <span>No accounts, no cloud and no surprises</span>
+    </div>
   </div>
 </footer>
 
 <script src="../cruceta.js?v=a40756ff"></script>
-<script src="../demo.js?v=4eab6340"></script>
+<script src="../leer.js?v=c1f0d0f0"></script>
+<script src="../demo.js?v=6fc0f071"></script>
 </body>
 </html>
