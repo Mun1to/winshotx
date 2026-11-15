@@ -533,7 +533,8 @@ addEventListener("load", () => {
     // idioma. El tour se empieza desde su fila de «Ayuda y winshotx».
     document.querySelector('[data-riel] [data-vista="ayuda"]')?.click();
     setTimeout(() => {
-      document.querySelector('[data-fila="appTour"] button')?.click();
+      // El último botón de la fila: el primero es el icono, que abre la explicación larga.
+      [...document.querySelectorAll('[data-fila="appTour"] button')].pop()?.click();
       let n = ${JSON.stringify(Number(tour))};
       const avanzar = () => {
         if (n-- <= 0) return;
