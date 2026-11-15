@@ -399,6 +399,12 @@ export interface Settings {
   // S10 (sonidos)
   /** La marimba al empezar a grabar. Rust siempre lo manda; sin él, encendido. */
   sonidoAlEmpezar?: boolean;
+  // S40 (tamaño fijo)
+  /**
+   * El tamaño de la ventana de ajustes si se ha estirado a mano, en px lógicos; null es el de
+   * serie. Solo lo cambia `guardarVentanaAjustes`: `setSettings` deja el que haya.
+   */
+  ventanaAjustes?: { ancho: number; alto: number } | null;
 }
 
 export interface ShortcutStatus {

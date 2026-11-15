@@ -1096,6 +1096,9 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     // se hayan guardado desde el editor mientras tanto.
     let mut settings = settings;
     settings.presets = previous.presets.clone();
+    // S40: lo mismo con el tamaño que se le ha dado a mano a la ventana: solo lo cambia
+    // `guardar_ventana_ajustes`, y la bienvenida o los ajustes lo pisarían con su copia vieja.
+    settings.ventana_ajustes = previous.ventana_ajustes;
     *state.settings.write() = settings.clone();
     crate::settings::save(&app, &settings)?;
 
@@ -1131,6 +1134,20 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
         crate::platform::autostart::set(settings.start_with_windows)?;
     }
     Ok(settings)
+}
+
+/// S40: el tamaño que alguien le ha dado a mano a la ventana de ajustes, para abrirla así la
+/// próxima vez (`src/lib/ventanaFija.ts`). Va aparte de `set_settings` por lo mismo que los
+/// estilos guardados: toca solo esto, sobre lo que haya guardado en ese momento.
+#[tauri::command]
+pub async fn guardar_ventana_ajustes(app: AppHandle, ancho: u32, alto: u32) -> Result<()> {
+    let state = app.state::<AppState>();
+    let settings = {
+        let mut guard = state.settings.write();
+        guard.ventana_ajustes = Some(crate::settings::TamanoVentana { ancho, alto });
+        guard.clone()
+    };
+    crate::settings::save(&app, &settings)
 }
 
 /// Lo que el menu de la bandeja necesita saber para pintarse.

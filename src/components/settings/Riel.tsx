@@ -1,13 +1,6 @@
 import { useT } from "../../lib/i18n";
 import { APARTADOS, type ApartadoId } from "./mapaDeAjustes";
 
-/**
- * Lo que mide el riel de alto con sus ocho iconos: 16 de aire arriba y abajo, 44 por icono
- * y 4 entre uno y otro. La página nunca mide menos, o la ventana a la medida (que mide la
- * página) cortaría el último icono en los apartados cortos.
- */
-export const ALTO_RIEL = 16 * 2 + APARTADOS.length * 44 + (APARTADOS.length - 1) * 4;
-
 interface Props {
   activo: ApartadoId;
   onIr: (id: ApartadoId) => void;
@@ -21,6 +14,10 @@ interface Props {
  * izquierda, sin fondo: un recuadro quieto alrededor del icono sería una cárcel.
  *
  * Con flechas arriba y abajo se pasa de uno a otro, como en una lista.
+ *
+ * Mide 412 px con sus ocho iconos. Si alguien encoge la ventana a mano por debajo de eso, el
+ * riel baja con la rueda (sin barra, que en 64 px de ancho sería otro trasto) en vez de
+ * cortar el último icono.
  */
 export function Riel({ activo, onIr }: Props) {
   const t = useT();
@@ -38,7 +35,7 @@ export function Riel({ activo, onIr }: Props) {
       aria-label={t("Apartados de los ajustes")}
       data-riel
       data-tour="riel"
-      className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-linea py-4"
+      className="flex w-16 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-linea py-4 [scrollbar-width:none]"
       onKeyDown={(e) => {
         if (e.key === "ArrowDown") {
           e.preventDefault();

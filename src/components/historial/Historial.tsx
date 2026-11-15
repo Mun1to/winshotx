@@ -64,9 +64,10 @@ export function Historial({ carpeta }: { carpeta: string }) {
   // vale la última que se pidió.
   const pedida = useRef(0);
   const filtroDeAntes = useRef(filtro);
-  // La ventana de ajustes mide lo que mide su pestaña (S24): si la lista encogiera con cada
-  // palabra, la ventana daría saltos mientras se escribe. Buscando, la pestaña guarda el alto
-  // que tenía al empezar, y lo suelta al vaciar la caja (vuelve la lista entera, que medía eso).
+  // Buscando, la pestaña guarda el alto que tenía al empezar, y lo suelta al vaciar la caja
+  // (vuelve la lista entera, que medía eso). Lo puso S24, cuando la ventana medía lo que su
+  // pestaña y daba saltos con cada palabra; desde S40 la ventana no cambia de alto, y se queda
+  // porque así la rueda del hueco no aparece y desaparece con cada letra.
   const seccion = useRef<HTMLElement>(null);
   const [altoAlBuscar, setAltoAlBuscar] = useState<number | null>(null);
   const cambiarBusqueda = (valor: string) => {

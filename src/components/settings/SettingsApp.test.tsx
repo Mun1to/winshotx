@@ -9,7 +9,7 @@
  * espannol igual, porque el componente la escribio a pelo sin pasarla por `t()`. Ha pasado.
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { llamadas, responde, ventana } from "../../test/preparar";
@@ -791,69 +791,32 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
 });
 
 /**
- * S24: la ventana mide lo que mide su apartado. Aquí no hay maquetación (happy-dom no mide
- * nada), así que se le dice cuánto mide cada apartado y se mira qué pide la ventana. Lo de
- * medir de verdad se comprueba en Edge sin ventana (`scripts/probar-medida-ajustes.mjs`).
+ * S40: la ventana mide siempre lo mismo. La pone a su tamaño `App.tsx` al abrir
+ * (`ventanaFija.test.ts`); los ajustes no la tocan nunca, ni al cambiar de apartado ni con el
+ * historial lleno, y lo que no cabe baja con la rueda dentro (`scripts/probar-medida-ajustes.mjs`
+ * lo mide en Edge sin ventana).
  */
-describe("la ventana a la medida de su apartado", () => {
-  /** Lo que mide cada apartado por dentro, sin la cabecera. */
-  const MIDE: Record<string, number> = { capturar: 521, grabar: 650, teclas: 416 };
-  /** La cabecera, lo único que va fuera del hueco con rueda desde que no hay barra de abajo. */
-  const FUERA = 58;
-  afterEach(() => vi.restoreAllMocks());
-
-  function medirComoEdge() {
-    const real = Element.prototype.getBoundingClientRect;
-    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-      if (!this.hasAttribute("data-contenido-ajustes")) return real.call(this);
-      const alto = MIDE[this.getAttribute("data-apartado") ?? ""] ?? MIDE.capturar;
-      return { x: 0, y: FUERA, top: FUERA, left: 0, right: 836, bottom: FUERA + alto, width: 836, height: alto, toJSON: () => ({}) } as DOMRect;
-    });
-    vi.spyOn(document.documentElement, "clientHeight", "get").mockImplementation(() => ventana.dentro.height);
-    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
-      return this.hasAttribute("data-scroll-ajustes") ? ventana.dentro.height - FUERA : 0;
-    });
-  }
-
-  it("abre con el alto de Capturar y con los 900 de ancho del diseño nuevo", async () => {
-    medirComoEdge();
+describe("la ventana con su tamaño fijo", () => {
+  it("pasar por los ocho apartados, ida y vuelta, no le cambia el tamaño ni la mueve", async () => {
     await abrirAjustes();
-    // La bienvenida deja la ventana en 840: los ajustes piden 900 al abrirse.
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: FUERA + MIDE.capturar }));
-    // Y se ensancha por igual a los dos lados: 30 px a la izquierda.
-    expect(ventana.posiciones.at(-1)?.x).toBe(70);
-  });
-
-  it("crece para Grabar y encoge para Teclas, sin mover el borde de arriba ni el ancho", async () => {
-    medirComoEdge();
-    await abrirAjustes();
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(FUERA + MIDE.capturar));
-    const posiciones = ventana.posiciones.length;
-    ir("Grabar");
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: FUERA + MIDE.grabar }));
-    ir("Teclas de Windows");
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: FUERA + MIDE.teclas }));
-    // La primera vez se recentra; después los iconos se quedan debajo del ratón.
-    expect(ventana.posiciones.length).toBe(posiciones);
-  });
-
-  it("si la estiran a mano más estrecha, no se la vuelve a ensanchar", async () => {
-    medirComoEdge();
-    await abrirAjustes();
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.width).toBe(900));
-    ventana.dentro = { ...ventana.dentro, width: 800 };
-    ir("Grabar");
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 800, height: FUERA + MIDE.grabar }));
-  });
-
-  it("en una pantalla baja se queda dentro de la zona útil", async () => {
-    medirComoEdge();
-    ventana.escala = 1.25;
-    await abrirAjustes();
-    ir("Grabar");
-    // La pantalla de prueba tiene 1032 de zona útil y 40 de marco: a 125 %, 708 lógicos son
-    // 885 físicos, que caben. Lo que no cabe lo prueba `ventanaALaMedida.test.ts`.
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(Math.ceil((FUERA + MIDE.grabar) * 1.25)));
+    for (const nombre of [
+      "Capturar",
+      "Después de capturar",
+      "Grabar",
+      "Los últimos segundos",
+      "Historial",
+      "Teclas de Windows",
+      "La app",
+      "Ayuda y winshotx",
+      "Grabar",
+      "Capturar",
+    ]) {
+      ir(nombre);
+      await waitFor(() => expect(within(riel()).getByRole("button", { name: nombre })).toHaveAttribute("aria-current", "page"));
+    }
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ventana.tamannos).toEqual([]);
+    expect(ventana.posiciones).toEqual([]);
   });
 });
 
