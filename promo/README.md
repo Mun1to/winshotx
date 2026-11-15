@@ -12,7 +12,7 @@ on purpose, because Remotion pulls a headless Chrome that nobody building winsho
    page clock stepped exactly one frame between shots (`page.clock`), so animations play at their
    real speed however long each screenshot takes. It also photographs the editor and the
    settings. Nothing opens on anyone's desktop. Output: `public/app/` (not in git).
-2. **The video.** `src/Promo.tsx` is the chosen cut, 40.6 s: the maker's story over the app, then
+2. **The video.** `src/Promo.tsx` is the chosen cut, 40.5 s: the maker's story over the app, then
    five questions the app answers, a new idea every 2.2 s and no sound effects. `src/` composes
    those frames with a camera and text that comes in word by word. `src/direcciones/` holds the
    three directions that were drafted to choose from.
@@ -27,8 +27,8 @@ cd promo
 pnpm install --ignore-workspace
 node capturas.mjs                   # about 40 s
 node render.mjs muestras            # the opening of each direction plus a few stills
-node render.mjs Promo               # the chosen cut (40.6 s), muted, in out/Promo.mp4
-node musica.mjs <track.mp3> --desde=4.6 --sube=5.6   # out/Promo-<track>.mp4, about -14 LUFS
+node render.mjs Promo               # the chosen cut (40.5 s), muted, in out/Promo.mp4
+node musica.mjs <track.mp3> --desde=8.61 --sube=5.5  # out/Promo-<track>.mp4, about -14 LUFS
 pnpm ver                            # Remotion Studio, to look around
 ```
 
@@ -54,4 +54,5 @@ pnpm ver                            # Remotion Studio, to look around
   shade coming down from the top edge (`Arriba`). Never a box.
 - Remotion's packages all at the same version (4.0.507), and TypeScript stays on 5.x.
 - One-pass `loudnorm` does not hold the true peak, and AAC pushes it up again: `musica.mjs` ends
-  with a limiter at -3 dB, which leaves the files between -0.8 and -2.6 dBTP.
+  with a limiter at -3 dB and encodes AAC at 256 kbps (at 192 the native encoder pushed one
+  limited mix up by 5 dB): the files end between -0.8 and -3.4 dBTP.
