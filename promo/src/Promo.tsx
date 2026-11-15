@@ -1,17 +1,20 @@
 import type { ReactNode } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
-import { OVERLAY } from "./app";
-import { COLOR, s } from "./casa";
+import { MEDIDAS, OVERLAY } from "./app";
+import { COLOR, FPS, s } from "./casa";
 import { Camara, type Toma } from "./piezas/Camara";
+import { Cursor } from "./piezas/Cursor";
 import { AJUSTES, Arriba, Centro, Cierre, EDITOR, EnElEditor, EnLosAjustes, centroDelRecorte } from "./piezas/Escenas";
 import { Logo } from "./piezas/Logo";
 import { Overlay } from "./piezas/Overlay";
 import { Palabras } from "./piezas/Palabras";
+import { type Efecto, Efectos, efecto, ticsDeCuenta } from "./piezas/Sonidos";
 import { Teclas } from "./piezas/Teclas";
 
 /**
  * El vídeo de la 0.5: la dirección 3, «Lo hice yo», que eligió Munito (15-nov), con la
- * historia ENCIMA de la app moviéndose y SIN efectos de sonido («no me gustan»).
+ * historia ENCIMA de la app moviéndose. Sin efectos de sonido al principio («no me gustan», de unos
+ * clics genéricos); con efectos buenos y discretos desde las 22:30 (ver la cuarta vuelta).
  *
  * Segunda vuelta (15-nov, 19:05, «hazlo más rápido»): de 69 a 40,6 s (luego 40,5) con las mismas cinco
  * preguntas. Una idea nueva cada 2,2 s (sus tres preferidas de la carpeta de vídeos SaaS van
@@ -20,8 +23,8 @@ import { Teclas } from "./piezas/Teclas";
  * atajo que se enseña es Win + Shift + S, el que él usa y el que winshotx puede quitarle a
  * Windows.
  *
- * Este render va mudo: la música la elige él entre las candidatas y se le pone después con
- * ffmpeg (`musica.mjs`): baja durante la historia y entra entera con el logo (`--sube`).
+ * La música la elige él entre las candidatas y se le pone después con ffmpeg (`musica.mjs`):
+ * baja durante la historia y entra entera con el logo (`--sube`).
  */
 /*
  * Tercera vuelta (15-nov, 21:28, «el zoom y grabar… es muy brusco»): rápido ENTRE ideas, suave
@@ -33,20 +36,34 @@ import { Teclas } from "./piezas/Teclas";
  * Todos los cortes caen en un múltiplo de medio segundo, 15 fotogramas: a 120 golpes por minuto
  * cada corte cae en un golpe, si la pista empieza en su golpe (`node musica.mjs --desde`).
  */
-export const T = {
+/*
+ * Cuarta vuelta (15-nov, 22:30): «efectos de sonido SÍ» y la sexta pregunta. Los cortes se
+ * cuentan en golpes de la música y no en segundos, para sacar el mismo vídeo a compás de una
+ * pista de otro tempo (Karma va a 127,5: `Promo-127`). A 120, un golpe es medio segundo.
+ * Los efectos van en su propia pista, debajo de la música (`render.mjs` la saca aparte y
+ * `musica.mjs` las mezcla), y la sexta pregunta, Win + Shift + S en Ajustes, va justo después
+ * de la del atajo, que es la que la pide.
+ */
+const GOLPES = {
   lento: 0,
-  harto: s(2.5),
-  hice: s(4),
-  nombre: s(5.5),
-  rapido: s(7.5),
-  graba: s(14.5),
-  estudio: s(19.5),
-  ultimos: s(24.5),
-  peso: s(29.5),
-  libre: s(34),
-  cierre: s(36.5),
-  fin: s(40.5),
+  harto: 5,
+  hice: 8,
+  nombre: 11,
+  rapido: 15,
+  atajo: 29,
+  graba: 38,
+  estudio: 48,
+  ultimos: 58,
+  peso: 68,
+  libre: 77,
+  cierre: 82,
+  fin: 90,
 };
+export type Tiempos = Record<keyof typeof GOLPES, number>;
+/** Los cortes en fotogramas para una música de `bpm` golpes por minuto. */
+export const tiempos = (bpm: number): Tiempos =>
+  Object.fromEntries(Object.entries(GOLPES).map(([k, g]) => [k, Math.round((g * 60 * FPS) / bpm)])) as Tiempos;
+export type PropsPromo = { bpm: number };
 
 /** Lo que dura sola cada pregunta, grande y en el centro, antes de que la conteste la app. */
 const PREGUNTA = s(0.9);
@@ -78,15 +95,15 @@ function VeloVivo({ claves }: { claves: [number, number, number][] }) {
  * Una pregunta: primero sola en el centro con la app desenfocada detrás, y después la app
  * nítida contestándola, con la respuesta arriba.
  */
-function Pregunta({ texto, respuesta, dura, app, respuestaEn = PREGUNTA + 4, cuenta }: { texto: string; respuesta: string; dura: number; app: ReactNode; respuestaEn?: number; cuenta?: number }) {
+function Pregunta({ texto, respuesta, dura, app, respuestaEn = PREGUNTA + 4, cuenta, sola = PREGUNTA, tam = 112 }: { texto: string; respuesta: string; dura: number; app: ReactNode; respuestaEn?: number; cuenta?: number; sola?: number; tam?: number }) {
   return (
     <AbsoluteFill>
       {app}
       {/* Llega desenfocada, se enfoca al contestar, y se vuelve a desenfocar antes del corte. */}
-      <VeloVivo claves={[[0, 0.85, 16], [PREGUNTA - 5, 0.85, 16], [PREGUNTA + PASO, 0, 0], [dura - PASO, 0, 0], [dura, 0.85, 16]]} />
-      <Sequence durationInFrames={PREGUNTA}>
+      <VeloVivo claves={[[0, 0.85, 16], [sola - 5, 0.85, 16], [sola + PASO, 0, 0], [dura - PASO, 0, 0], [dura, 0.85, 16]]} />
+      <Sequence durationInFrames={sola}>
         <Centro>
-          <Palabras texto={texto} tam={112} cada={3} sale={PREGUNTA - 6} />
+          <Palabras texto={texto} tam={tam} cada={3} sale={sola - 6} />
         </Centro>
       </Sequence>
       <Sequence from={respuestaEn} durationInFrames={dura - respuestaEn}>
@@ -103,8 +120,64 @@ function SeVa({ dura, children }: { dura: number; children: ReactNode }) {
   return <AbsoluteFill style={{ opacity: v, filter: v < 0.99 ? `blur(${(1 - v) * 14}px)` : undefined }}>{children}</AbsoluteFill>;
 }
 
-export function Promo() {
+/**
+ * El puntero de Windows yendo de `de` a `a` (en el escenario) entre `sale` y `llega`, con
+ * entrada y salida suaves, y hundiéndose un poco al hacer clic en `clic`.
+ */
+function Raton({ de, a, sale, llega, clic }: { de: { x: number; y: number }; a: { x: number; y: number }; sale: number; llega: number; clic: number }) {
   const frame = useCurrentFrame();
+  const o = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+  const t = interpolate(frame, [sale, llega], [0, 1], { ...o, easing: Easing.inOut(Easing.cubic) });
+  const x = de.x + (a.x - de.x) * t;
+  const y = de.y + (a.y - de.y) * t;
+  const pulsa = frame >= clic && frame < clic + 6 ? 1 - 0.12 * Math.sin(((frame - clic) / 6) * Math.PI) : 1;
+  return (
+    <AbsoluteFill style={{ opacity: interpolate(frame, [sale - 6, sale], [0, 1], o), transform: `scale(${pulsa})`, transformOrigin: `${x}px ${y}px` }}>
+      <Cursor x={x} y={y} forma="flecha" />
+    </AbsoluteFill>
+  );
+}
+
+/** El overlay de la primera pregunta: cuándo aparece y por qué fotograma de su recorrido entra. */
+const Q1 = { aparece: PREGUNTA + s(1.1), desde: OVERLAY.vaAlBoton + 10 };
+
+/** La sexta pregunta: lo que dura sola (lleva más letra que las otras) y cuándo se hace clic. */
+const ATAJO = { sola: s(1.4), llega: s(1.4) + 20, clic: s(1.4) + 22 };
+/** El interruptor de «Take Win+Shift+S», apagado, en el escenario (su centro). */
+const INTERRUPTOR = (() => {
+  const r = MEDIDAS.teclas.no.interruptor;
+  return { x: AJUSTES.x + r.x + r.w / 2, y: AJUSTES.y + r.y + r.h / 2 };
+})();
+
+export function Promo({ bpm }: PropsPromo) {
+  const frame = useCurrentFrame();
+  const T = tiempos(bpm);
+  // Cada corte, un whoosh con su pico justo en el corte, y nunca el mismo dos veces seguidas.
+  const cortes = [T.rapido, T.atajo, T.graba, T.estudio, T.ultimos, T.peso, T.libre];
+  const whoosh = ["whoosh-1", "whoosh-2", "whoosh-3", "whoosh-4"] as const;
+  const sonidos: Efecto[] = [
+    // La historia va con la música a −8 dB: sus efectos, también bajos. «920» es la quinta
+    // palabra de su frase (entra en el 3, una cada 3).
+    ...ticsDeCuenta(T.lento + 3 + 4 * 3, 15, 0.18),
+    efecto("sube", T.nombre + 6, 0.3, true),
+    ...cortes.map((f, i) => efecto(whoosh[i % whoosh.length], f, 0.38, true)),
+    efecto("zoom", T.cierre, 0.38, true),
+    // 1. Win, Shift y S, cada una en el fotograma en que se hunde (`Teclas`: entra 2, cada 4);
+    // el aire del zoom al recorte, con el pico donde la cámara va más deprisa; el clic al
+    // apretar el ratón y el obturador al soltarlo, que es cuando la captura está hecha.
+    ...(["tecla-1", "tecla-2", "tecla-3"] as const).map((n, i) => efecto(n, T.rapido + PREGUNTA + 2 + i * 4, 0.7)),
+    efecto("zoom", T.rapido + PREGUNTA + s(2.0), 0.28, true),
+    efecto("clic", T.rapido + Q1.aparece + OVERLAY.arrastra - Q1.desde, 0.6),
+    efecto("obturador", T.rapido + Q1.aparece + OVERLAY.suelta - Q1.desde, 0.6),
+    ...ticsDeCuenta(T.rapido + PREGUNTA + s(3.1), 15, 0.25),
+    // 6. El clic en el interruptor.
+    efecto("interruptor", T.atajo + ATAJO.clic, 0.5),
+    // 3. Un clic y entra el fondo del Estudio.
+    efecto("clic", T.estudio + PREGUNTA + s(1.0), 0.7),
+    // 5. Las dos cifras; la de la memoria, más baja, que es la segunda línea.
+    ...ticsDeCuenta(T.peso + PREGUNTA, 15, 0.25),
+    ...ticsDeCuenta(T.peso + PREGUNTA + s(0.7), 15, 0.16),
+  ];
   const camaraHistoria: Toma[] = [
     { f: 0, x: 960, y: 540, z: 1 },
     { f: T.nombre, x: 900, y: 560, z: 1.12 },
@@ -152,10 +225,10 @@ export function Promo() {
       </Sequence>
 
       {/* 1. ¿Rápido? El atajo y el overlay de verdad, de la flecha a la barra. */}
-      <Sequence from={T.rapido} durationInFrames={T.graba - T.rapido}>
+      <Sequence from={T.rapido} durationInFrames={T.atajo - T.rapido}>
         <Pregunta
           texto="How fast?"
-          dura={T.graba - T.rapido}
+          dura={T.atajo - T.rapido}
           respuestaEn={PREGUNTA + s(3.1)}
           respuesta="*114 ms*, with three screens"
           cuenta={15}
@@ -166,12 +239,12 @@ export function Promo() {
                 { f: PREGUNTA + s(1.2), x: 960, y: 540, z: 1 },
                 { f: PREGUNTA + s(2.8), x: centroDelRecorte.x, y: centroDelRecorte.y, z: 1.52 },
                 { f: PREGUNTA + s(4.4), x: centroDelRecorte.x, y: centroDelRecorte.y + 40, z: 1.65 },
-                { f: T.graba - T.rapido, x: centroDelRecorte.x, y: centroDelRecorte.y + 40, z: 1.72 },
+                { f: T.atajo - T.rapido, x: centroDelRecorte.x, y: centroDelRecorte.y + 40, z: 1.72 },
               ]}
             >
               {/* A su ritmo entero: a 1,25 se saltaba un fotograma de cada cuatro y el ratón daba
                   tirones. Para que quepa, entra 10 fotogramas más adelante en su camino al botón. */}
-              <Overlay aparece={PREGUNTA + s(1.1)} desde={OVERLAY.vaAlBoton + 10} ritmo={1} />
+              <Overlay aparece={Q1.aparece} desde={Q1.desde} ritmo={1} />
             </Camara>
           }
         />
@@ -183,6 +256,33 @@ export function Promo() {
             <Teclas teclas={["Win", "Shift", "S"]} entra={2} cada={4} tam={96} />
           </Centro>
         </Sequence>
+      </Sequence>
+
+      {/* 6. ¿Te va Win + Shift + S? Quédatelo: en Ajustes, Teclas de Windows, el interruptor se
+          enciende y el dibujo de la derecha pasa a decir que abre winshotx. Va aquí, justo
+          después de enseñar el atajo (Munito, 15-nov: «el atajo principal es Win Shift S»). */}
+      <Sequence from={T.atajo} durationInFrames={T.graba - T.atajo}>
+        <Pregunta
+          texto="Used to *Win + Shift + S*?"
+          tam={104}
+          sola={ATAJO.sola}
+          dura={T.graba - T.atajo}
+          respuestaEn={ATAJO.clic + 6}
+          respuesta="Keep it. It opens *winshotx*"
+          app={
+            <EnLosAjustes
+              img="ajustes-teclas.png"
+              luego={{ img: "ajustes-teclas-si.png", en: ATAJO.clic }}
+              tomas={[
+                { f: 0, x: 960, y: 540, z: 1 },
+                { f: ATAJO.llega, x: 1090, y: 450, z: 1.35 },
+                { f: T.graba - T.atajo, x: 1150, y: 485, z: 1.45 },
+              ]}
+            >
+              <Raton de={{ x: INTERRUPTOR.x + 210, y: INTERRUPTOR.y + 260 }} a={{ x: INTERRUPTOR.x + 2, y: INTERRUPTOR.y + 2 }} sale={ATAJO.sola + 2} llega={ATAJO.llega} clic={ATAJO.clic} />
+            </EnLosAjustes>
+          }
+        />
       </Sequence>
 
       {/* 2. ¿Graba? El editor entero, su línea de tiempo y la pestaña GIF. */}
@@ -272,6 +372,7 @@ export function Promo() {
       <Sequence from={T.cierre}>
         <Cierre linea="For Windows 10 and 11" />
       </Sequence>
+      <Efectos lista={sonidos} />
       {/* Un fundido a negro en el último segundo, para que el bucle de Reddit no salte en seco. */}
       <AbsoluteFill style={{ background: "#000", opacity: interpolate(frame, [T.fin - s(0.8), T.fin - 1], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }} />
     </AbsoluteFill>

@@ -15,6 +15,8 @@ export const MEDIDAS = medidas as unknown as {
   };
   editor: { ancho: number; alto: number; escala: number };
   ajustes: { ancho: number; alto: number; escala: number };
+  /** Las teclas de Windows con «Take Win+Shift+S» apagado (`no`) y encendido (`si`), en px de la ventana. */
+  teclas: Record<"no" | "si", Record<"interruptor" | "fila" | "dibujo", { x: number; y: number; w: number; h: number }>>;
 };
 
 export const fotoDelOverlay = (n: number) =>

@@ -76,15 +76,25 @@ export function EnElEditor({ tomas, fondo, gif }: { tomas: Toma[]; fondo?: numbe
   );
 }
 
-/** Los ajustes de la 0.5 en el apartado de los últimos segundos, con la cámara por dentro. */
-export function EnLosAjustes({ tomas, img = "ajustes-ultimos.png" }: { tomas: Toma[]; img?: string }) {
+/**
+ * Los ajustes de la 0.5 (por defecto en el apartado de los últimos segundos), con la cámara por
+ * dentro. Con `luego`, otra foto del mismo apartado entra encima en `en` (lo que cambia al
+ * pulsar algo: las dos son del banco, antes y después); y lo de `children` va en el escenario,
+ * dentro de la cámara (el puntero).
+ */
+export function EnLosAjustes({ tomas, img = "ajustes-ultimos.png", luego, children }: { tomas: Toma[]; img?: string; luego?: { img: string; en: number }; children?: ReactNode }) {
+  const frame = useCurrentFrame();
+  // Lo que tarda un interruptor de verdad en cambiar: unos 130 ms, con entrada y salida suaves.
+  const cambio = luego ? interpolate(frame, [luego.en, luego.en + 4], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) }) : 0;
   return (
     <AbsoluteFill>
       <Fondo luz={0.6} />
       <Camara tomas={tomas}>
         <div style={{ position: "absolute", left: AJUSTES.x, top: AJUSTES.y, width: AJUSTES.w, height: AJUSTES.h, borderRadius: 10, overflow: "hidden", boxShadow: "0 30px 80px -20px #000d, 0 0 0 1px #ffffff14" }}>
           <Img src={foto(img)} style={{ width: AJUSTES.w, height: AJUSTES.h }} />
+          {luego && <Img src={foto(luego.img)} style={{ position: "absolute", left: 0, top: 0, width: AJUSTES.w, height: AJUSTES.h, opacity: cambio }} />}
         </div>
+        {children}
       </Camara>
     </AbsoluteFill>
   );
