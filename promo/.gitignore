@@ -1,0 +1,10 @@
+node_modules/
+# Los renders: megas que se rehacen con `node render.mjs`.
+out/
+# Los fotogramas de la app: los saca `node capturas.mjs` del banco de fotos en un minuto.
+public/app/
+# El borrador del post de Reddit es de Munito y lo sube él desde su cuenta: no viaja al
+# repositorio público antes que el post (regla P).
+reddit.md
+# La investigación de las reglas de Reddit para el post (`fuentes-reddit.md`): interna, como reddit.md.
+fuentes-reddit.md
