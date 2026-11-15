@@ -1326,6 +1326,12 @@ html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 }
 .copiable.en-fila[data-copiado] .copiado { transform: none; }
 .terminal .copiable { margin: 0 -12px; padding: 1px 46px 1px 12px; }
+/* Con el dedo, cada orden de la terminal se pulsa con 44 px: la corta («agent stop») cabía en
+   un renglón de 24. */
+@media (max-width: 860px) {
+  .terminal .copiable { min-height: 44px; padding-block: 10px; box-sizing: border-box; }
+  .terminal .copiable.en-fila svg { top: calc(10px + .42em); }
+}
 .terminal .copiable:hover { background: #ffffff10; }
 .terminal .copiable svg { color: #8e8e9c; }
 .terminal .copiable:hover .ico-copiar, .terminal .copiable:focus-visible .ico-copiar { color: #e6e6ee; }

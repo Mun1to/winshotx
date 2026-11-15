@@ -43,7 +43,7 @@
   h.classList.toggle("quieto", gain === 0);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=9245c08a">
+<link rel="stylesheet" href="../estilos.css?v=46a6ecac">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -77,6 +77,9 @@
       <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
 <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
+    </symbol>
 </svg>
 
 <nav class="barra">
@@ -123,7 +126,7 @@
   <div class="env">
     <header class="leer-cabeza">
       <h1 data-en="Support">Soporte</h1>
-      <p class="entradilla" data-en="Something not working as it should? Here is how to get help and report a bug, the questions that always come up, where winshotx keeps your things and how to remove it completely.">¿Algo no va como debería? Aquí está cómo pedir ayuda y avisar de un fallo, las preguntas que llegan siempre, dónde guarda winshotx tus cosas y cómo quitarla del todo.</p>
+      <p class="entradilla" data-en="Something not working as it should? Here is how to get help and report a bug, the questions that always come up, where winshotx keeps your things, how to remove it completely and, if it saves you time, how to buy me a coffee.">¿Algo no va como debería? Aquí está cómo pedir ayuda y avisar de un fallo, las preguntas que llegan siempre, dónde guarda winshotx tus cosas, cómo quitarla del todo y, si te ahorra tiempo, cómo invitarme a un café.</p>
     </header>
 
     <div class="leer-rejilla">
@@ -132,6 +135,7 @@
         <a href="#dudas" data-en="Questions">Preguntas</a>
         <a href="#datos" data-en="Your data">Tus datos</a>
         <a href="#desinstalar" data-en="Uninstall">Desinstalar</a>
+        <a href="#apoyar" data-en="Buy me a coffee">Invítame a un café</a>
       </nav>
 
       <div class="texto">
@@ -195,6 +199,16 @@
           <p data-en="With winget, from the terminal too:">Con winget, también desde la terminal:</p>
           <p class="orden-bloque"><code>winget uninstall Mun1to.winshotx</code></p>
           <p data-html data-en="&lt;b&gt;No uninstaller touches your screenshots and videos&lt;/b&gt;: they are yours, and they stay in their folder."><b>Tus capturas y vídeos no los toca ningún desinstalador</b>: son tuyos, y se quedan en su carpeta.</p>
+        </section>
+
+        <section id="apoyar">
+          <h2 data-en="Buy me a coffee">Invítame a un café</h2>
+          <p data-en="winshotx is free and there is no paid version, no ads and no data to sell: a coffee is the only way to support it. You pay once, you choose the amount, and you need no account.">winshotx es gratis y no tiene versión de pago, ni anuncios, ni datos que vender: el café es la única forma de apoyarla. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.</p>
+          <p class="botones">
+            <a class="btn uno" href="https://buymeacoffee.com/munito" rel="noopener"><svg aria-hidden="true"><use href="#i-coffee"/></svg><span data-en="Buy me a coffee">Invítame a un café</span></a>
+            <a class="btn dos" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg aria-hidden="true"><use href="#i-github"/></svg><span data-en="Star it on GitHub">Dale una estrella en GitHub</span></a>
+          </p>
+          <p data-html data-en="A star on GitHub helps too: that way more people find it. From the app, the same coffee is in the &lt;b&gt;bottom bar of the settings&lt;/b&gt; and in &lt;b&gt;Help and winshotx&lt;/b&gt;.">Una estrella en GitHub también ayuda: así la encuentra más gente. Desde la app, el mismo café está en la <b>barra de abajo de los Ajustes</b> y en <b>Ayuda y winshotx</b>.</p>
           <p class="letra-chica" data-en="Last updated: 15 November 2026.">Última actualización: 15 de noviembre de 2026.</p>
         </section>
       </div>
