@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, Img, interpolate, useCurrentFrame } from "remotion";
 import { MEDIDAS, foto } from "../app";
 import { ALTO, ANCHO, COLOR } from "../casa";
 import { Camara, type Toma } from "./Camara";
@@ -26,7 +26,7 @@ export function Velo({ fuerza = 0.82, entra = 0, desenfoque = 14 }: { fuerza?: n
  * Una frase arriba, encima de la app que se mueve debajo, con una sombra suave que baja desde
  * el borde y se va con ella. Nada de franja ni de caja: es una luz, no un rectángulo.
  */
-export function Arriba({ texto, entra = 0, dura, tam = 62, cada = 4 }: { texto: string; entra?: number; dura: number; tam?: number; cada?: number }) {
+export function Arriba({ texto, entra = 0, dura, tam = 62, cada = 4, cuenta }: { texto: string; entra?: number; dura: number; tam?: number; cada?: number; cuenta?: number }) {
   const frame = useCurrentFrame() - entra;
   const v = interpolate(frame, [0, 8, dura - 10, dura - 2], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   if (frame < 0 || frame > dura) return null;
@@ -34,7 +34,7 @@ export function Arriba({ texto, entra = 0, dura, tam = 62, cada = 4 }: { texto: 
     <AbsoluteFill>
       <AbsoluteFill style={{ opacity: v, background: "radial-gradient(ellipse 62% 34% at 50% 6%, rgba(11,11,13,0.94), rgba(11,11,13,0.6) 55%, transparent 100%)" }} />
       <Centro y={-410}>
-        <Palabras texto={texto} entra={entra} cada={cada} tam={tam} sale={entra + dura - 10} />
+        <Palabras texto={texto} entra={entra} cada={cada} tam={tam} sale={entra + dura - 10} cuenta={cuenta} />
       </Centro>
     </AbsoluteFill>
   );
@@ -58,7 +58,8 @@ export const AJUSTES = { x: (ANCHO - 900) / 2, y: (ALTO - 723) / 2, w: 900, h: 7
  */
 export function EnElEditor({ tomas, fondo, gif }: { tomas: Toma[]; fondo?: number; gif?: number }) {
   const frame = useCurrentFrame();
-  const conFondo = fondo === undefined ? 0 : interpolate(frame, [fondo, fondo + 6], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // El fondo entra en un tercio de segundo, con entrada y salida suaves (antes, 6 fotogramas en recta).
+  const conFondo = fondo === undefined ? 0 : interpolate(frame, [fondo, fondo + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) });
   const conGif = gif === undefined ? 0 : interpolate(frame, [gif, gif + 4], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const caja = { position: "absolute" as const, left: EDITOR.x, top: EDITOR.y, width: EDITOR.w, height: EDITOR.h };
   return (

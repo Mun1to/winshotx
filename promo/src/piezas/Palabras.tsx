@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { COLOR, LETRA } from "../casa";
 
 /** Un renglón en palabras, y cada palabra en trozos: lo que va entre asteriscos, marcado. */
@@ -34,6 +34,7 @@ export function Palabras({
   tam = 96,
   peso = 700,
   color = COLOR.texto,
+  cuenta,
   style,
 }: {
   texto: string;
@@ -43,6 +44,8 @@ export function Palabras({
   tam?: number;
   peso?: number;
   color?: string;
+  /** Si se dice, las cifras («114», «3.00») cuentan desde cero en estos fotogramas al entrar. */
+  cuenta?: number;
   style?: CSSProperties;
 }) {
   const frame = useCurrentFrame();
@@ -67,7 +70,16 @@ export function Palabras({
       {texto.split("\n").map((renglon, r) => (
         <div key={r}>
           {palabrasDe(renglon).map((trozos, i) => {
-            const v = spring({ frame: frame - entra - k++ * cada, fps, config: { damping: 200, mass: 0.45 } });
+            const desde = frame - entra - k++ * cada;
+            const v = spring({ frame: desde, fps, config: { damping: 200, mass: 0.45 } });
+            // Una cifra que cuenta: sube deprisa y frena al llegar (curva de salida), con los
+            // mismos decimales que la de verdad y cifras de ancho fijo para que no baile.
+            const cifra = (t: string) => {
+              const m = cuenta ? t.match(/^(\d+)(?:\.(\d+))?$/) : null;
+              if (!m || !cuenta) return t;
+              const p = interpolate(desde, [0, cuenta], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });
+              return (Number(t) * p).toFixed(m[2]?.length ?? 0);
+            };
             return (
               <span key={i}>
                 {i > 0 && " "}
@@ -80,8 +92,8 @@ export function Palabras({
                   }}
                 >
                   {trozos.map((t, j) => (
-                    <span key={j} style={t.marca ? { color: COLOR.azul } : undefined}>
-                      {t.texto}
+                    <span key={j} style={{ ...(t.marca ? { color: COLOR.azul } : {}), ...(cuenta && /^\d/.test(t.texto) ? { fontVariantNumeric: "tabular-nums" } : {}) }}>
+                      {cifra(t.texto)}
                     </span>
                   ))}
                 </span>
