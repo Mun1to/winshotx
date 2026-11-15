@@ -159,11 +159,12 @@ describe("el tramo de la línea de tiempo", () => {
   it("lo que va a pesar sale de lo que dura el tramo, en milisegundos", () => {
     // A la calidad de fábrica un MP4 son unos 1,2 MB por segundo. Los fotogramas 10 a 80
     // son 2,4 segundos a 30 fps; el tramo de 1 a 3 segundos son 2, y es lo que se guarda.
+    // En español, con coma y un espacio que no se parte entre la cifra y la unidad.
     const { unmount } = pintar();
-    expect(screen.getByText("≈ 2.8 MB")).toBeInTheDocument();
+    expect(screen.getByText("≈ 2,8\u00a0MB", { normalizer: (x) => x })).toBeInTheDocument();
     unmount();
     pintar({}, null, { desdeMs: 1_000, hastaMs: 3_000 });
-    expect(screen.getByText("≈ 2.3 MB")).toBeInTheDocument();
+    expect(screen.getByText("≈ 2,3\u00a0MB", { normalizer: (x) => x })).toBeInTheDocument();
   });
 });
 
@@ -204,10 +205,10 @@ describe("lo nuevo del plan (zooms a mano, tramos, fondos propios)", () => {
     expect(req).toMatchObject({ zooms: null, tramos: null, fondo: EDICION.fondo });
   });
 
-  /** El peso estimado, en bytes, tal como lo enseña el panel («≈ 2.4 MB»). */
+  /** El peso estimado, en bytes, tal como lo enseña el panel («≈ 2,4 MB» en español, «≈ 2.4 MB» en inglés). */
   function pesoEstimado() {
-    const [, numero, unidad] = /≈ ([\d.]+) (B|KB|MB|GB)/.exec(screen.getByText(/^≈ /).textContent ?? "") ?? [];
-    return Number(numero) * 1024 ** ["B", "KB", "MB", "GB"].indexOf(unidad);
+    const [, numero, unidad] = /≈ ([\d.,]+)\s(B|KB|MB|GB)/.exec(screen.getByText(/^≈ /).textContent ?? "") ?? [];
+    return Number(numero.replace(",", ".")) * 1024 ** ["B", "KB", "MB", "GB"].indexOf(unidad);
   }
 
   it("el peso cuenta solo lo que sale: lo quitado no pesa y un trozo al doble, la mitad", () => {
