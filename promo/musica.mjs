@@ -54,7 +54,8 @@ const filtro = [
   `afade=t=out:st=${Math.max(0, largo - 1.5)}:d=1.5`,
   // loudnorm de una pasada no asegura el pico, y el AAC lo sube: un limitador a −3 dB lo deja
   // entre −1,6 y −2,6 dBTP en el archivo final; la pista más brillante (Electron 01) se queda
-  // en −0,8 (medido con ebur128): por debajo de 0, no satura.
+  // en −0,8 (medido con ebur128): por debajo de 0, no satura. Y a 256 kbps, no a 192: con
+  // Gummies, el AAC de ffmpeg a 192 subía el pico a +2,5 dB sobre una mezcla limitada a −3.
   "alimiter=limit=0.71:attack=5:release=50:level=false",
   "aresample=48000",
 ].join(",");
@@ -62,7 +63,7 @@ const filtro = [
 const r = spawnSync(
   "ffmpeg",
   ["-hide_banner", "-loglevel", "error", "-y", "-i", video, "-stream_loop", "-1", "-i", pista,
-    "-t", String(largo), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", filtro, "-c:a", "aac", "-b:a", "192k", salida],
+    "-t", String(largo), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-af", filtro, "-c:a", "aac", "-b:a", "256k", salida],
   { stdio: "inherit" },
 );
 if (r.status !== 0) process.exit(r.status ?? 1);
