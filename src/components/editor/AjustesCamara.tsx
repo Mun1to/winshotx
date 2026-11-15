@@ -64,8 +64,8 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
   const esquinas = Math.round(redondeo(m) * 100);
 
   return (
-    // Una fila por mando, con su línea fina entre medias, como el resto del panel (S39).
-    <div data-ajustes-camara className="divide-y divide-linea-tenue [&>*]:py-2 [&>*:first-child]:pt-0">
+    // Un mando debajo de otro, con el mismo aire que el resto de su grupo del panel (S39).
+    <div data-ajustes-camara className="space-y-4">
       <Toggle
         checked={puesta}
         onChange={(si) => {

@@ -26,7 +26,7 @@ interface Props {
   /**
    * La lista siempre a la vista, una fila por estilo, y «Guardar estilo como…» debajo (S39).
    *
-   * Es como va en su apartado del editor, «Estilos», que tiene sitio para ella: un estilo es
+   * Es como va en su grupo del editor, «Estilos», que tiene sitio para ella: un estilo es
    * la suma del fondo, el puntero, los clics y el zoom, y guardarlo se lee DESPUÉS de haberlos
    * elegido. Sin esto, el botón con su desplegable de siempre.
    */
@@ -128,7 +128,7 @@ export function Presets({ estilo, onAplicar, enLista = false }: Props) {
 
   return (
     <div ref={caja} data-presets className="relative">
-      {/* En su apartado: la lista primero y guardar lo de ahora debajo, que es su orden. */}
+      {/* En su grupo: la lista primero y guardar lo de ahora debajo, que es su orden. */}
       {enLista ? (
         <>
       {(enLista ? lista.length > 0 : abierta) && (
