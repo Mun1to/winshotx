@@ -65,7 +65,7 @@ const MIN_DRAG = 4; // por debajo de esto, un arrastre cuenta como clic
 
 /** Lo que ocupa la lupa con su barra de abajo, y el aire que se le deja al cursor. */
 const LUPA_ANCHO = 148;
-const LUPA_ALTO = 168;
+const LUPA_ALTO = 192;
 const LUPA_AIRE = 18;
 
 /** Lo que ocupa la barra de acciones de alto, y el aire que se le deja al recorte. */
@@ -1136,20 +1136,20 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             <span
               // Fuera del marco cuando cabe: dentro se pone justo encima de la barra de
               // titulo de la ventana y se leen dos titulos pisados uno sobre otro.
-              className={`absolute left-0 max-w-[min(360px,100%)] truncate rounded-md bg-neutral-900/90 px-2 py-1 text-[11px] text-neutral-200 shadow-lg backdrop-blur-sm ${
-                highlight.rect.y > 28 ? "-top-7" : "top-1.5 left-1.5"
-              }`}
+              className={`absolute left-0 flex items-center gap-2 rounded-md bg-neutral-900/90 px-2 py-1 text-[12px] whitespace-nowrap text-neutral-200 shadow-lg backdrop-blur-sm ${
+                modo !== "still" && highlight.hwnd > 0 ? "max-w-[420px]" : "max-w-[min(360px,100%)]"
+              } ${highlight.rect.y > 28 ? "-top-7" : "top-1.5 left-1.5"}`}
             >
-              {highlight.title}
+              {/* Si no cabe, se corta el título, que es largo y se reconoce por el principio. */}
+              <span className="min-w-0 truncate">{highlight.title}</span>
               {/*
                 La pista de la tecla, solo grabando y solo si Windows nos da esa ventana.
                 Va pegada al titulo porque es ahi donde se esta mirando: una leyenda en una
-                esquina de la pantalla no la lee nadie con el raton al otro lado.
+                esquina de la pantalla no la lee nadie con el raton al otro lado. Suelta, sin
+                cajita dentro de la etiqueta, y entera siempre: es lo que hay que leer.
               */}
               {modo !== "still" && highlight.hwnd > 0 && (
-                <span className="ml-2 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {t("W: grabar solo esta ventana")}
-                </span>
+                <span className="shrink-0 font-semibold text-white">{t("W: grabar solo esta ventana")}</span>
               )}
             </span>
           )}
@@ -1289,11 +1289,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
             height: ultimaRegion.height,
           }}
         >
-          <span className="absolute -top-7 left-0 flex items-center gap-1.5 rounded-full border border-white/10 bg-neutral-900/85 px-2.5 py-1 text-[11px] whitespace-nowrap text-neutral-400 shadow-lg backdrop-blur-md">
-            <kbd className="rounded-[4px] border border-white/15 bg-white/10 px-1.5 py-0.5 text-[10px] leading-none font-medium text-neutral-200">
+          <span className="absolute -top-7 left-0 flex items-center gap-1.5 rounded-full border border-white/10 bg-neutral-900/85 px-2.5 py-1 text-[12px] whitespace-nowrap text-neutral-300 shadow-lg backdrop-blur-md">
+            <kbd className="rounded-[4px] border border-white/15 bg-white/10 px-1.5 py-0.5 text-[12px] leading-none font-medium text-neutral-200">
               R
             </kbd>
-            la de antes
+            {t("la de antes")}
           </span>
         </div>
       )}

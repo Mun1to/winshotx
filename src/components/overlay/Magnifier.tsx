@@ -59,7 +59,11 @@ export function Magnifier({ source, px, py, left, top, hex }: Props) {
       className="pointer-events-none absolute z-40 overflow-hidden rounded-xl border border-white/15 bg-neutral-900/90 shadow-2xl backdrop-blur-md"
     >
       <canvas ref={canvasRef} width={SIZE} height={SIZE} className="block" />
-      <div className="flex items-center justify-between gap-3 border-t border-white/10 px-2 py-1.5 font-mono text-[10px] tabular-nums text-neutral-300">
+      {/*
+        En dos líneas, la posición y debajo el color. A 12 px las dos en una no caben en los
+        132 px de la lupa: la caja crecía de lado y dejaba una franja vacía junto a la imagen.
+      */}
+      <div className="flex w-[132px] flex-col gap-0.5 border-t border-white/10 px-2 py-1.5 font-mono text-[12px] leading-4 tabular-nums text-neutral-300">
         <span>
           {Math.round(px)}, {Math.round(py)}
         </span>
@@ -71,7 +75,7 @@ export function Magnifier({ source, px, py, left, top, hex }: Props) {
           {hex}
           {/* La tecla, al lado del color. Una tecla que no se ve no la usa nadie, y el
               hueco ya estaba aqui: el color sin forma de llevarselo servia de poco. */}
-          <kbd className="rounded border border-white/15 bg-white/10 px-1 text-[9px] text-neutral-400">
+          <kbd className="ms-auto rounded border border-white/15 bg-white/10 px-1 text-[12px] text-neutral-300">
             C
           </kbd>
         </span>
