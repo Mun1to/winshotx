@@ -164,9 +164,11 @@ if (!existsSync(join(DIST, "index.html"))) {
   process.exit(1);
 }
 
+// Los atajos de fábrica (`Settings::default` en src-tauri/src/settings.rs): estas fotos salen en
+// la web y en el README, y hasta el 15-nov enseñaban Ctrl+Shift+S y Ctrl+Shift+A, que no trae nadie.
 const AJUSTES = {
-  captureShortcut: "CmdOrCtrl+Shift+KeyS",
-  recordShortcut: "CmdOrCtrl+Shift+KeyA",
+  captureShortcut: "CmdOrCtrl+Shift+Digit2",
+  recordShortcut: "CmdOrCtrl+Shift+Digit5",
   replayShortcut: "CmdOrCtrl+Shift+Digit6",
   editShortcut: "Super+Shift+KeyL",
   replayEnabled: anillo,
