@@ -1,5 +1,6 @@
 import {
   ArrowUpRight,
+  ChevronDown,
   Circle,
   Crop,
   Focus,
@@ -13,24 +14,29 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { COLORES, type Herramienta } from "../../lib/anotaciones";
 import { useT } from "../../lib/i18n";
+import { TECLA_COPIAR_TEXTO, TECLA_DE, TECLA_TAPAR_DATOS, conTecla } from "./teclas";
 
 /**
- * Lo que se hace sobre la imagen: dibujar, encuadrar, leer su texto y tapar datos.
+ * Lo que se hace sobre la imagen: dibujar, encuadrar, tapar y leer su texto.
  *
  * Va ARRIBA de la vista previa, y el tiempo abajo: así cada cosa vive donde se busca, y el
  * vídeo queda pegado a su línea de tiempo. Antes iba entre los dos, y el encuadre flotaba
  * encima de la imagen en una pastilla con los mandos del tiempo.
  *
- * El difuminado lleva su propio icono y su propio sitio, separado de los demás por una
- * raya: los otros cuatro señalan algo y este **tapa** algo, que es lo contrario. Mezclarlo
- * en la fila hacía que se pulsara por error.
- *
  * Las herramientas de dibujar van solo con su icono, que es como las reconoce cualquiera,
- * y su nombre al pasar el ratón. Lo demás lleva su nombre escrito: «encuadrar», «copiar
- * texto» o «tapar datos» no tienen un icono que se entienda solo.
+ * y su nombre y su tecla al pasar el ratón. Lo demás lleva su nombre escrito: «encuadrar»,
+ * «copiar texto» o «tapar datos» no tienen un icono que se entienda solo.
+ *
+ * En UNA fila (S39, segunda vuelta). En la primera, para que cupiera, «Copiar texto» y «Tapar
+ * datos» se quedaron en un icono suelto que no se adivinaba. Ahora lo que se encoge primero es
+ * lo que se reconoce sin palabras: con la barra por debajo de 64rem (una ventana de menos de
+ * 1.348 px, o sea casi siempre), los botones de dibujar pasan a 28 px de ancho y los cinco
+ * colores se pliegan en uno que los abre. Solo en una ventana de portátil (la barra por debajo
+ * de 50rem) «Encuadrar» y «Copiar texto» se quedan en su icono; «Tapar datos», nunca. Las
+ * medidas son del hueco de dentro de la barra, sin sus 12 px de relleno a cada lado.
  */
 interface Props {
   activa: Herramienta | null;
@@ -61,27 +67,24 @@ interface Props {
 
 /**
  * Las que señalan, en el orden de la barra: cada una al lado de su pariente (la flecha con
- * la curva y la línea, el rectángulo con la elipse) para que se encuentren sin leer.
- *
- * Las teclas del 1 al 6 son las de siempre y las pone el editor (`EditorApp.tsx`); las
- * marcas que entraron el 11 de noviembre no tienen tecla todavía.
+ * la curva y la línea, el rectángulo con la elipse) para que se encuentren sin leer. Sus
+ * teclas, en `teclas.ts`.
  */
 const HERRAMIENTAS: {
   id: Herramienta;
   icono: React.ComponentType<{ className?: string }>;
   etiqueta: string;
-  tecla?: string;
 }[] = [
-  { id: "arrow", icono: ArrowUpRight, etiqueta: "Flecha", tecla: "1" },
+  { id: "arrow", icono: ArrowUpRight, etiqueta: "Flecha" },
   { id: "curve", icono: FlechaCurva, etiqueta: "Flecha curva" },
   { id: "line", icono: Slash, etiqueta: "Línea" },
-  { id: "box", icono: Square, etiqueta: "Rectángulo", tecla: "2" },
+  { id: "box", icono: Square, etiqueta: "Rectángulo" },
   { id: "ellipse", icono: Circle, etiqueta: "Elipse" },
   { id: "pen", icono: Pencil, etiqueta: "Lápiz" },
-  { id: "text", icono: Type, etiqueta: "Texto", tecla: "3" },
-  { id: "highlight", icono: Highlighter, etiqueta: "Resaltar", tecla: "4" },
+  { id: "text", icono: Type, etiqueta: "Texto" },
+  { id: "highlight", icono: Highlighter, etiqueta: "Resaltar" },
   // El paso numerado va con los que señalan: es la marca de «primero esto, luego esto».
-  { id: "step", icono: Paso, etiqueta: "Paso numerado", tecla: "5" },
+  { id: "step", icono: Paso, etiqueta: "Paso numerado" },
   // El foco también señala, aunque lo haga oscureciendo lo demás: «mira aquí».
   { id: "focus", icono: Focus, etiqueta: "Foco" },
 ];
@@ -108,11 +111,8 @@ export function BarraAnotar({
 }: Props) {
   const t = useT();
   return (
-    // En UNA fila (S39): iba en dos, con la segunda casi vacía. Los botones a 32 px y, en una
-    // ventana normal, «Copiar texto» y «Tapar datos» con solo su icono (su nombre, al pasar el
-    // ratón); con la ventana ancha sale el nombre. El `flex-wrap` se queda solo para una ventana
-    // estrechísima, donde partirse es mejor que salirse. Con la barra por debajo de 50rem (la
-    // ventana de 1.080 de un portátil de 1.366), los botones bajan a 30 px y los colores a 20.
+    // El `flex-wrap` se queda solo para una ventana estrechísima, donde partirse es mejor que
+    // salirse.
     <div
       data-barra-anotar
       className="@container flex shrink-0 flex-wrap items-center gap-0.5 border-b border-linea px-3 py-1.5"
@@ -121,41 +121,26 @@ export function BarraAnotar({
         <Boton
           key={h.id}
           icono={h.icono}
-          etiqueta={h.tecla ? `${t(h.etiqueta)} · ${h.tecla}` : t(h.etiqueta)}
+          etiqueta={t(h.etiqueta)}
+          tecla={TECLA_DE[h.id]}
+          dibujo
           activa={activa === h.id}
           onClick={() => onElegir(activa === h.id ? null : h.id)}
         />
       ))}
 
-      <Raya />
-
-      {/* Tapar va aparte: los otros cuatro señalan, este esconde. */}
-      <Boton
-        icono={Difuminar}
-        etiqueta={`${t("Mosaico")} · 6`}
-        activa={activa === "blur"}
-        onClick={() => onElegir(activa === "blur" ? null : "blur")}
-      />
-
       {/* El color no sale con el mosaico ni con el foco: ahí no pinta nada. */}
       {!SIN_COLOR.includes(activa) && (
         <>
           <Raya />
-          <span className="flex gap-1.5 px-0.5">
+          {/* Los cinco a la vista con la barra ancha; si no, plegados en uno. */}
+          <span className="hidden gap-1.5 px-0.5 @[64rem]:flex">
             {COLORES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => onColor(c)}
-                title={c}
-                aria-label={c}
-                aria-pressed={color === c}
-                style={{ background: c }}
-                className={`size-[22px] rounded-full border-2 transition-colors @max-[50rem]:size-5 ${
-                  color === c ? "border-titulo" : "border-linea-fuerte hover:border-linea-viva"
-                }`}
-              />
+              <PuntoDeColor key={c} color={c} puesto={color === c} onClick={() => onColor(c)} />
             ))}
+          </span>
+          <span className="@[64rem]:hidden">
+            <ColoresPlegados color={color} onColor={onColor} />
           </span>
         </>
       )}
@@ -163,10 +148,11 @@ export function BarraAnotar({
       {/*
         El texto se escribe encima de la imagen, donde se pulsa («CapaAnotaciones»). Antes se
         escribía aquí y se pegaba con un clic, y lo escrito se quedaba en la barra para el
-        siguiente: no se veía dónde iba a caer ni cómo iba a quedar hasta soltarlo.
+        siguiente: no se veía dónde iba a caer ni cómo iba a quedar hasta soltarlo. El aviso
+        solo cabe con la barra ancha; si no, partiría la barra en dos filas.
       */}
       {activa === "text" && (
-        <span className="px-1 text-[13px] whitespace-nowrap text-texto">
+        <span className="hidden px-1 text-[13px] whitespace-nowrap text-texto @[64rem]:inline">
           {t("Pulsa en la imagen y escribe")}
         </span>
       )}
@@ -182,8 +168,9 @@ export function BarraAnotar({
         icono={Crop}
         nombre={encuadre ?? t("Encuadrar")}
         titulo={t("Quedarse con un trozo de la imagen (C)")}
+        tecla="C"
         // Con el recorte puesto, su medida se ve siempre: es lo que va a salir.
-        estrecho={encuadre === null ? "medio" : false}
+        estrecho={encuadre === null}
         activa={encuadrando || encuadre !== null}
         onClick={onEncuadrar}
       />
@@ -191,7 +178,35 @@ export function BarraAnotar({
         <Boton icono={X} etiqueta={t("Quitar el recorte")} activa={false} onClick={onQuitarEncuadre} />
       )}
 
-      <span className="ml-auto flex items-center gap-1">
+      <span className="ml-auto flex items-center gap-0.5">
+        {/*
+          Tapar, a mano y solo, juntos: el mosaico (lo que se arrastra encima de un trozo) iba
+          suelto entre dos rayas con un icono de puntitos que parecía una almohadilla, lejos de
+          «Tapar datos», que es lo mismo hecho solo. Sigue lejos de las que señalan, que hacen lo
+          contrario: mezclado con ellas se pulsaba por error.
+        */}
+        <Boton
+          icono={Mosaico}
+          etiqueta={t("Tapar con mosaico")}
+          tecla={TECLA_DE.blur}
+          activa={activa === "blur"}
+          onClick={() => onElegir(activa === "blur" ? null : "blur")}
+        />
+        {/*
+          Tapar datos es el mosaico hecho solo: encuentra los correos, los teléfonos, las
+          tarjetas, las cuentas y los DNI de la imagen y deja un mosaico encima de cada uno. Lo
+          que deja son marcas normales, así que se ven antes de exportar y se quitan con Ctrl+Z.
+        */}
+        <BotonConNombre
+          icono={ShieldCheck}
+          nombre={t("Tapar datos")}
+          titulo={t("Tapar datos personales")}
+          tecla={TECLA_TAPAR_DATOS}
+          estrecho={false}
+          activa={false}
+          onClick={onTaparDatos}
+          apagada={buscandoDatos}
+        />
         {/*
           Leer el texto de la imagen ya existía en la captura, con la tecla T, y se quedaba
           fuera del editor: para copiar una frase de una captura que ya estabas editando
@@ -202,30 +217,17 @@ export function BarraAnotar({
           icono={TextSelect}
           nombre={t("Copiar texto")}
           titulo={t("Copiar el texto de la imagen")}
-          estrecho="ancho"
+          tecla={TECLA_COPIAR_TEXTO}
+          estrecho
           activa={false}
           onClick={onCopiarTexto}
-          apagada={buscandoDatos}
-        />
-        {/*
-          Tapar datos es el difuminado hecho solo: encuentra los correos, los teléfonos,
-          las tarjetas, las cuentas y los DNI de la imagen y deja un mosaico encima de cada
-          uno. Lo que deja son marcas normales, así que se ven antes de exportar y se
-          quitan con Ctrl+Z.
-        */}
-        <BotonConNombre
-          icono={ShieldCheck}
-          nombre={t("Tapar datos")}
-          titulo={t("Tapar datos personales")}
-          estrecho="ancho"
-          activa={false}
-          onClick={onTaparDatos}
           apagada={buscandoDatos}
         />
         <Raya />
         <Boton
           icono={Undo2}
           etiqueta={t("Deshacer (Ctrl+Z)")}
+          atajo="Control+Z"
           activa={false}
           onClick={onDeshacer}
           apagada={!puedeDeshacer}
@@ -233,6 +235,8 @@ export function BarraAnotar({
         <Boton
           icono={X}
           etiqueta={t("Quitar todas")}
+          tecla={t("Mayús+Supr")}
+          atajo="Shift+Delete"
           activa={false}
           onClick={onBorrarTodo}
           apagada={cuantas === 0}
@@ -243,19 +247,29 @@ export function BarraAnotar({
 }
 
 function Raya() {
-  return <span className="mx-1.5 h-5 w-px bg-linea-fuerte @max-[50rem]:mx-1" />;
+  return <span className="mx-1.5 h-5 w-px bg-linea-fuerte @max-[64rem]:mx-1" />;
 }
 
 function Boton({
   icono: Icono,
   etiqueta,
+  tecla,
+  atajo,
+  dibujo = false,
   activa,
   onClick,
   apagada = false,
 }: {
   /** Uno de lucide o el que se dibuja aquí abajo: los dos pintan un SVG y ya está. */
   icono: React.ComponentType<{ className?: string }>;
+  /** El nombre, sin la tecla: es como lo encuentra un lector de pantalla. */
   etiqueta: string;
+  /** La tecla, que se enseña al pasar el ratón junto al nombre: «Flecha (1)». */
+  tecla?: string;
+  /** La tecla como la escribe la web (`aria-keyshortcuts`), si no es la misma que `tecla`. */
+  atajo?: string;
+  /** Las de dibujar, que son las que estrechan primero con la barra justa. */
+  dibujo?: boolean;
   activa: boolean;
   onClick: () => void;
   apagada?: boolean;
@@ -265,12 +279,13 @@ function Boton({
       type="button"
       onClick={onClick}
       disabled={apagada}
-      title={etiqueta}
+      title={conTecla(etiqueta, tecla)}
       aria-label={etiqueta}
+      aria-keyshortcuts={atajo ?? tecla}
       aria-pressed={activa}
-      className={`flex size-8 items-center justify-center rounded-md transition-colors disabled:opacity-30 @max-[50rem]:size-[30px] ${
-        activa ? "bg-[#0a76c9] text-white" : "text-suave hover:bg-realce hover:text-titulo"
-      }`}
+      className={`flex size-8 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
+        dibujo ? "@max-[64rem]:w-7" : ""
+      } ${activa ? "bg-[#0a76c9] text-white" : "text-suave hover:bg-realce hover:text-titulo"}`}
     >
       <Icono className="size-[18px]" />
     </button>
@@ -281,19 +296,22 @@ function BotonConNombre({
   icono: Icono,
   nombre,
   titulo,
+  tecla,
   activa,
   onClick,
   apagada = false,
-  estrecho = false,
+  estrecho,
 }: {
   icono: React.ComponentType<{ className?: string }>;
   nombre: string;
   titulo: string;
+  tecla: string;
   /**
-   * Hasta qué ancho de barra se queda solo con el icono: «medio» por debajo de 56rem (lo que
-   * deja una ventana de 1.216 px con el panel) y «ancho» por debajo de 68rem (1.408 px).
+   * Si se queda en su icono con la barra por debajo de 50rem de hueco (una ventana de menos de
+   * 1.124 px con el panel, como la de 1.080 de un portátil de 1.366). Su nombre sigue saliendo
+   * al pasar el ratón.
    */
-  estrecho?: "medio" | "ancho" | false;
+  estrecho: boolean;
   activa: boolean;
   onClick: () => void;
   apagada?: boolean;
@@ -303,24 +321,97 @@ function BotonConNombre({
       type="button"
       onClick={onClick}
       disabled={apagada}
-      title={titulo}
+      // El título ya lleva su tecla cuando se escribe a mano («(C)»), que es lo que traduce.
+      title={titulo.endsWith(")") ? titulo : conTecla(titulo, tecla)}
       aria-label={nombre}
+      aria-keyshortcuts={tecla}
       aria-pressed={activa}
-      className={`flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium whitespace-nowrap tabular-nums transition-colors disabled:opacity-30 ${
+      className={`flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium whitespace-nowrap tabular-nums transition-colors disabled:opacity-30 @max-[64rem]:px-1.5 ${
         activa ? "bg-[#0a76c9] text-white" : "text-texto hover:bg-realce hover:text-titulo"
       }`}
     >
       <Icono className="size-[18px]" />
-      {/* En una ventana estrecha se queda el icono, con su nombre al pasar el ratón: mejor
-          eso que la barra partida en dos filas comiéndose la imagen. */}
-      <span
-        className={
-          estrecho === "medio" ? "hidden @[56rem]:inline" : estrecho === "ancho" ? "hidden @[68rem]:inline" : undefined
-        }
-      >
-        {nombre}
-      </span>
+      <span className={estrecho ? "@max-[50rem]:hidden" : undefined}>{nombre}</span>
     </button>
+  );
+}
+
+function PuntoDeColor({ color, puesto, onClick }: { color: string; puesto: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={color}
+      aria-label={color}
+      aria-pressed={puesto}
+      style={{ background: color }}
+      className={`size-[22px] shrink-0 rounded-full border-2 transition-colors ${
+        puesto ? "border-titulo" : "border-linea-fuerte hover:border-linea-viva"
+      }`}
+    />
+  );
+}
+
+/**
+ * Los cinco colores plegados en uno, para la barra justa: el puesto, con su flecha, y al
+ * pulsarlo los cinco debajo. Elegir uno lo cierra, y también pulsar fuera o Escape (que no
+ * llega al editor: ahí cerraría la ventana).
+ */
+function ColoresPlegados({ color, onColor }: { color: string; onColor: (color: string) => void }) {
+  const t = useT();
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e: PointerEvent) => {
+      if (!caja.current?.contains(e.target as Node)) setAbierto(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      setAbierto(false);
+    };
+    document.addEventListener("pointerdown", fuera);
+    window.addEventListener("keydown", escape, true);
+    return () => {
+      document.removeEventListener("pointerdown", fuera);
+      window.removeEventListener("keydown", escape, true);
+    };
+  }, [abierto]);
+  return (
+    <span ref={caja} className="relative flex">
+      <button
+        type="button"
+        onClick={() => setAbierto((a) => !a)}
+        title={t("Color")}
+        aria-label={t("Color")}
+        aria-haspopup="true"
+        aria-expanded={abierto}
+        className="flex h-8 items-center gap-0.5 rounded-md px-1 text-suave transition-colors hover:bg-realce hover:text-titulo"
+      >
+        <span style={{ background: color }} className="size-5 rounded-full border-2 border-linea-fuerte" />
+        <ChevronDown className={`size-3.5 transition-transform duration-150 ${abierto ? "rotate-180" : ""}`} />
+      </button>
+      {abierto && (
+        <span
+          role="group"
+          aria-label={t("Color")}
+          className="absolute top-full left-0 z-30 mt-1.5 flex gap-1.5 rounded-lg border border-linea bg-flotante p-2 shadow-xl shadow-black/40"
+        >
+          {COLORES.map((c) => (
+            <PuntoDeColor
+              key={c}
+              color={c}
+              puesto={color === c}
+              onClick={() => {
+                onColor(c);
+                setAbierto(false);
+              }}
+            />
+          ))}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -373,27 +464,20 @@ function Paso({ className = "size-4" }: { className?: string }) {
 }
 
 /**
- * El icono de tapar datos: un cuadrado hecho de cuadraditos.
+ * El icono del mosaico: un cuadro pixelado, a cuadros, como se tapa una cara en la tele.
  *
  * Dibujado a mano porque ninguno de los de lucide dice «mosaico»: el de gota dice
- * «desenfoque», y esto no desenfoca, tira la información.
+ * «desenfoque», y esto no desenfoca, tira la información. El de antes era una rejilla de 4 por
+ * 4 puntitos sueltos que, a 18 px, se leía como una almohadilla («el #»).
  */
-function Difuminar({ className = "size-4" }: { className?: string }) {
+function Mosaico({ className = "size-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      {[4, 9, 14, 19].map((y) =>
-        [4, 9, 14, 19].map((x) => (
-          <rect
-            key={`${x}-${y}`}
-            x={x - 1.6}
-            y={y - 1.6}
-            width={3.2}
-            height={3.2}
-            rx={0.6}
-            opacity={(x + y) % 10 === 3 ? 0.35 : (x * y) % 7 === 0 ? 0.9 : 0.6}
-          />
-        )),
-      )}
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth={2} />
+      <path
+        fill="currentColor"
+        d="M4 4h5.33v5.33H4zM14.67 4H20v5.33h-5.33zM9.33 9.33h5.34v5.34H9.33zM4 14.67h5.33V20H4zM14.67 14.67H20V20h-5.33z"
+      />
     </svg>
   );
 }

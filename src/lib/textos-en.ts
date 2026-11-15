@@ -573,12 +573,15 @@ export const EN: Record<string, string> = {
   "Coral": "Coral",
   "Esquinas redondeadas": "Rounded corners",
   "rectas": "square",
-  // S39 (el editor de la 0.5): los grupos del panel
+  // S39 (el editor de la 0.5): los grupos del panel y la barra de arriba
   "Clics y teclas": "Clicks and keys",
   "Cámara": "Camera",
   "Calidad y tamaño": "Quality and size",
   "Estilos": "Styles",
   "Con sonido": "With sound",
+  "Color": "Colour",
+  "Tapar con mosaico": "Cover with a mosaic",
+  "Mayús+Supr": "Shift+Del",
   // S25 (marco): la captura dentro de una ventana o de un portátil
   "Marco": "Frame",
   "Marco:": "Frame:",

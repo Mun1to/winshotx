@@ -574,12 +574,15 @@ export const ZH: Record<string, string> = {
   "Coral": "珊瑚",
   "Esquinas redondeadas": "圆角",
   "rectas": "直角",
-  // S39 (el editor de la 0.5): los grupos del panel
+  // S39 (el editor de la 0.5): los grupos del panel y la barra de arriba
   "Clics y teclas": "点击与按键",
   "Cámara": "摄像头",
   "Calidad y tamaño": "质量与尺寸",
   "Estilos": "样式",
   "Con sonido": "有声音",
+  "Color": "颜色",
+  "Tapar con mosaico": "用马赛克遮盖",
+  "Mayús+Supr": "Shift+Delete",
   // S25 (marco): la captura dentro de una ventana o de un portátil
   "Marco": "外框",
   "Marco:": "外框：",

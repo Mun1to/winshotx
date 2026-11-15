@@ -406,7 +406,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   comprueba(pintadas.length === 5, `la vista previa enseña las cinco: ${pintadas.join(", ")}`);
 
   // El texto se escribe encima de la imagen: pulsar, escribir, e Intro o pulsar fuera.
-  await pagina.getByRole("button", { name: "Texto · 3", exact: true }).click();
+  await pagina.getByRole("button", { name: "Texto", exact: true }).click();
   const capa = await pagina.locator("svg.cursor-crosshair").boundingBox();
   const en = (x, y) => [capa.x + capa.width * x, capa.y + capa.height * y];
   await pagina.mouse.click(...en(0.1, 0.1));
@@ -577,7 +577,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   comprueba(sinElipse === 0 && conElipse === 1, `Supr borra la elegida y Ctrl+Z la devuelve (${sinElipse} y ${conElipse})`);
 
   // Con una herramienta puesta, pulsar encima de algo lo coge en vez de dibujar otra cosa.
-  await pagina.getByRole("button", { name: "Flecha · 1", exact: true }).click();
+  await pagina.getByRole("button", { name: "Flecha", exact: true }).click();
   c = await medirCapa();
   const cuantasAntes = await pagina.locator("[data-agarre]").count();
   const lapizAntes = await verticesDelLapiz();
@@ -837,7 +837,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   );
 
   // Con una herramienta de dibujar puesta, la cámara no se agarra: lo que se arrastra es la marca.
-  await pagina.getByRole("button", { name: /^Flecha · / }).click();
+  await pagina.getByRole("button", { name: "Flecha", exact: true }).click();
   const quieta = await burbuja.evaluate((b) => getComputedStyle(b).pointerEvents);
   comprueba(quieta === "none", `con la flecha puesta, la cámara deja pasar el ratón (pointer-events: ${quieta})`);
   await pagina.close();
