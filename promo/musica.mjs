@@ -4,10 +4,13 @@
  *   node musica.mjs <pista>                     out/Promo.mp4 + la pista -> out/Promo-<pista>.mp4
  *   node musica.mjs <pista> --arranque=20       solo los primeros 20 s (para elegir pista)
  *   node musica.mjs <pista> --desde=12          la pista empezando en su segundo 12
+ *   node musica.mjs <pista> --sube=5.6          baja (−8 dB) hasta el segundo 5,6 y entera desde ahí
  *
- * La pista se iguala a −16 LUFS con el pico por debajo de −1,5 dBTP (las redes normalizan hacia
- * −14, y así no la suben a golpes), entra en 1,5 s y se va en los últimos 2,5. Va aparte del
- * render porque la elige Munito entre varias: así cambiar de pista son diez segundos.
+ * La pista se iguala a −14 LUFS con el pico por debajo de −1,5 dBTP: es la mediana de los 21
+ * vídeos de su carpeta de referencias (−14,2) y lo que piden las redes, que normalizan hacia ahí.
+ * Como en ellas, la música va baja mientras se cuenta el problema y entra entera con el nombre
+ * (`--sube`, el segundo del logo). Entra en 0,8 s y se va en el último 1,5. Va aparte del render
+ * porque la elige Munito entre varias: así cambiar de pista son diez segundos.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -23,10 +26,11 @@ const pista = args.find((a) => !a.startsWith("--"));
 const opcion = (n) => args.find((a) => a.startsWith(`--${n}=`))?.split("=")[1];
 const arranque = opcion("arranque") ? Number(opcion("arranque")) : null;
 const desde = Number(opcion("desde") ?? 0);
+const sube = opcion("sube") ? Number(opcion("sube")) : null;
 const video = join(aqui, "out", "Promo.mp4");
 
 if (!pista || !existsSync(pista)) {
-  console.error("Uso: node musica.mjs <pista> [--arranque=s] [--desde=s]");
+  console.error("Uso: node musica.mjs <pista> [--arranque=s] [--desde=s] [--sube=s]");
   process.exit(1);
 }
 if (!existsSync(video)) {
@@ -43,9 +47,15 @@ const salida = join(aqui, "out", arranque ? `arranque-${nombre}.mp4` : `Promo-${
 const filtro = [
   `atrim=start=${desde}:duration=${largo}`,
   "asetpts=PTS-STARTPTS",
-  "loudnorm=I=-16:TP=-1.5:LRA=11",
-  "afade=t=in:st=0:d=1.5",
-  `afade=t=out:st=${Math.max(0, largo - 2.5)}:d=2.5`,
+  "loudnorm=I=-14:TP=-1.5:LRA=11",
+  // −8 dB (0,4) durante la historia y una subida de 0,6 s que acaba justo en el logo.
+  ...(sube ? [`volume='if(lt(t,${sube - 0.6}),0.4,if(lt(t,${sube}),0.4+(t-${sube - 0.6})/0.6*0.6,1))':eval=frame`] : []),
+  "afade=t=in:st=0:d=0.8",
+  `afade=t=out:st=${Math.max(0, largo - 1.5)}:d=1.5`,
+  // loudnorm de una pasada no asegura el pico, y el AAC lo sube: un limitador a −3 dB lo deja
+  // entre −1,6 y −2,6 dBTP en el archivo final; la pista más brillante (Electron 01) se queda
+  // en −0,8 (medido con ebur128): por debajo de 0, no satura.
+  "alimiter=limit=0.71:attack=5:release=50:level=false",
   "aresample=48000",
 ].join(",");
 
