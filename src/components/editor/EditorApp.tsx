@@ -48,6 +48,7 @@ import { CarcasaVista } from "./CarcasaVista";
 import { CapaCamara } from "./CapaCamara";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
 import { useT } from "../../lib/i18n";
+import { aplicarTema } from "../../lib/tema";
 import {
   duracionDe,
   fotogramaVecino,
@@ -185,11 +186,29 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const hueco = useRef<HTMLDivElement>(null);
   const [medidaDelHueco, setMedidaDelHueco] = useState({ width: 0, height: 0 });
 
+  /**
+   * Las listas de fotogramas, por turno: la que se PIDIÓ después manda, llegue cuando llegue.
+   *
+   * Se piden dos veces: al abrir (junto con los ajustes y ffmpeg, que tardan unos 200 ms) y
+   * cuando Rust avisa de que la tira ya está (`sessionThumbs`). Si la tira acaba en esos
+   * 200 ms, la lista nueva, con sus miniaturas, llega ANTES que la del arranque, y la del
+   * arranque, sin miniaturas, la pisaba: la tira se quedaba latiendo para siempre (S29b). El
+   * aviso repetido de Rust (`recorder::avisar_de_la_tira`) se queda como red.
+   */
+  const turnoPedido = useRef(0);
+  const turnoPuesto = useRef(0);
+  const ponerFotogramas = useCallback((turno: number, lista: FrameMeta[]) => {
+    if (turno < turnoPuesto.current) return;
+    turnoPuesto.current = turno;
+    setFrames(lista);
+  }, []);
+
   useEffect(() => {
     if (!sessionId) {
       setError(t("Falta el identificador de sesión"));
       return;
     }
+    const turno = ++turnoPedido.current;
     Promise.all([
       sessionInfo(sessionId),
       sessionFrames(sessionId),
@@ -198,8 +217,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     ])
       .then(([info, frameList, config, ffmpeg]) => {
         setSession(info);
-        setFrames(frameList);
+        ponerFotogramas(turno, frameList);
         setSettings(config);
+        // Desde la 0.5 el editor sigue el tema de la app, como las demás ventanas: hasta aquí
+        // pinta el que recordaba (`tema.ts` lo lee al cargar), sin fogonazo.
+        if (config?.theme) aplicarTema(config.theme);
         setHasFfmpeg(ffmpeg);
         setHastaMs(duracionDe(frameList));
         setPiezas(piezasDe(duracionDe(frameList)));
@@ -687,12 +709,15 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     const unlisten = listen<string>(EVENTS.sessionThumbs, (e) => {
       if (e.payload !== sessionId) return;
-      void sessionFrames(sessionId).then(setFrames).catch(() => undefined);
+      const turno = ++turnoPedido.current;
+      void sessionFrames(sessionId)
+        .then((lista) => ponerFotogramas(turno, lista))
+        .catch(() => undefined);
     });
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [sessionId]);
+  }, [sessionId, ponerFotogramas]);
   // Sin MP4 la vista previa es una imagen: la miniatura de 80 px se veria borrosa,
   // asi que se pide el fotograma entero y se sustituye en cuanto llega.
   const [stillPath, setStillPath] = useState<string | null>(null);
@@ -740,7 +765,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-red-300">
+      <div className="flex h-full items-center justify-center bg-lienzo text-sm text-red-700 [[data-tema=oscuro]_&]:text-red-300">
         {error}
       </div>
     );
@@ -748,7 +773,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   if (!session || !settings || frames.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-neutral-500">
+      <div className="flex h-full items-center justify-center bg-lienzo text-sm text-tenue">
         {t("Preparando la sesión…")}
       </div>
     );
@@ -773,7 +798,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         onClick={togglePlay}
         aria-label={playing ? t("Pausar") : t("Reproducir")}
         title={playing ? t("Pausar") : t("Reproducir")}
-        className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+        className="flex size-10 items-center justify-center rounded-lg text-titulo transition-colors hover:bg-realce"
       >
         {playing ? (
           <Pause className="size-[22px]" fill="currentColor" />
@@ -788,7 +813,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         aria-label={suenaLaVista === 0 ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
         aria-pressed={suenaLaVista === 0}
         title={suenaLaVista === 0 ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
-        className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+        className="flex size-10 items-center justify-center rounded-lg text-titulo transition-colors hover:bg-realce"
       >
         {escalon(vista) === "sin" ? (
           <VolumeX className="size-[22px]" />
@@ -819,21 +844,21 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     </>
   ) : previaFallida ? (
     <span
-      className="flex items-center gap-1.5 px-1 text-[13px] whitespace-nowrap text-amber-300"
+      className="flex items-center gap-1.5 px-1 text-[13px] whitespace-nowrap text-aviso"
       title={t("Se puede recortar y exportar igual: lo que no va a funcionar es el play")}
     >
       <VideoOff className="size-5" />
       {t("Sin vista previa")}
     </span>
   ) : (
-    <span className="flex items-center gap-2 px-1 text-[13px] whitespace-nowrap text-neutral-200">
+    <span className="flex items-center gap-2 px-1 text-[13px] whitespace-nowrap text-texto">
       <AnilloDeEspera porCiento={porCiento} />
       {porCiento > 0 ? `${t("Preparando el vídeo…")} ${porCiento}%` : t("Preparando el vídeo…")}
     </span>
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
+    <div className="flex h-full flex-col overflow-hidden bg-lienzo">
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
           {/*
@@ -882,7 +907,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
           <div
             ref={hueco}
-            className="relative grid min-h-0 flex-1 place-items-center bg-[repeating-conic-gradient(#18181a_0%_25%,#1d1d20_0%_50%)] bg-[length:24px_24px] p-4"
+            className="relative grid min-h-0 flex-1 place-items-center bg-[repeating-conic-gradient(var(--color-linea-tenue)_0%_25%,transparent_0%_50%)] bg-[length:24px_24px] p-4"
           >
             {/*
               La caja mide EXACTAMENTE lo que la imagen, no lo que el hueco.
@@ -1090,7 +1115,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo. */}
             {aviso && (
               <div className="pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2">
-                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-neutral-100 shadow-lg backdrop-blur-md">
+                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-titulo shadow-lg backdrop-blur-md">
                   {aviso}
                 </span>
               </div>
@@ -1191,7 +1216,7 @@ function AnilloDeEspera({ porCiento }: { porCiento: number }) {
         r={radio}
         fill="none"
         strokeWidth="2.5"
-        className="stroke-white/15"
+        className="stroke-linea-fuerte"
       />
       <circle
         cx="12"
@@ -1200,7 +1225,7 @@ function AnilloDeEspera({ porCiento }: { porCiento: number }) {
         fill="none"
         strokeWidth="2.5"
         strokeLinecap="round"
-        className="stroke-blue-400 transition-[stroke-dashoffset] duration-300"
+        className="stroke-marca transition-[stroke-dashoffset] duration-300"
         strokeDasharray={vuelta}
         strokeDashoffset={vuelta * (1 - hecho)}
         transform="rotate(-90 12 12)"

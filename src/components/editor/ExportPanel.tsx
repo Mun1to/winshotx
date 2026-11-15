@@ -1,7 +1,23 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { ChevronDown, Clipboard, FolderDown, FolderOpen, Link2, Save, Unlink2 } from "lucide-react";
-import { exportMedia, pickDirectory, pickSaveFile, revealInExplorer } from "../../lib/ipc";
+import {
+  Bookmark,
+  Clipboard,
+  FolderDown,
+  FolderOpen,
+  Image as ImageIcon,
+  Link2,
+  MousePointer2,
+  MousePointerClick,
+  Save,
+  SlidersHorizontal,
+  Unlink2,
+  Volume2,
+  Webcam,
+  ZoomIn,
+  type LucideIcon,
+} from "lucide-react";
+import { camaraDeLaSesion, exportMedia, pickDirectory, pickSaveFile, revealInExplorer } from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
 import {
   EVENTS,
@@ -31,6 +47,8 @@ import { Presets } from "./Presets";
 import { edicionDe, estiloDe, panelDe } from "../../lib/presets";
 import type { Edicion } from "../../lib/contrato";
 import { Opcion, Opciones } from "../ui/Opcion";
+import { Segmented } from "../ui/Segmented";
+import { RELLENO, ROJO } from "./colores";
 // S11 (pistas)
 import { conPistas, pistaDe } from "../../lib/pistas";
 import { MandosDePistas } from "./MandosDePistas";
@@ -73,25 +91,29 @@ const PARA_UNA_CAPTURA: Partial<Record<ExportFormat, string>> = {
 /** Los dos formatos que sacan UN fotograma, no un trozo de grabación. */
 const esUnaFoto = (formato: ExportFormat) => formato === "png" || formato === "jpg";
 
+/** Los apartados del riel del panel (S39). */
+type Seccion = "fondo" | "puntero" | "clics" | "zoom" | "camara" | "sonido" | "archivo" | "estilos";
+
+/** «Ninguno» en el selector del marco, que no admite `null` como valor. */
+const SIN_CARCASA = "ninguno";
+
 /**
- * Si «Más ajustes» y «Estudio» se quedaron abiertos la última vez. Es comodidad de quien lo
- * usa, nada más: sin almacenamiento, cada uno se abre como viene de fábrica.
+ * El apartado que se dejó abierto la última vez. Es comodidad de quien lo usa, nada más: sin
+ * almacenamiento se abre por el fondo, que es lo primero.
  */
-const CLAVE_MAS = "winshotx.editor.masAjustes";
-const CLAVE_ESTUDIO = "winshotx.editor.estudio";
-function leerAbierto(clave: string, deFabrica: boolean): boolean {
+const CLAVE_SECCION = "winshotx.editor.seccion";
+function leerSeccion(): Seccion {
   try {
-    const guardado = localStorage.getItem(clave);
-    return guardado === null ? deFabrica : guardado === "1";
+    return (localStorage.getItem(CLAVE_SECCION) as Seccion | null) ?? "fondo";
   } catch {
-    return deFabrica;
+    return "fondo";
   }
 }
-function guardarAbierto(clave: string, abierto: boolean) {
+function guardarSeccion(seccion: Seccion) {
   try {
-    localStorage.setItem(clave, abierto ? "1" : "0");
+    localStorage.setItem(CLAVE_SECCION, seccion);
   } catch {
-    // Sin almacenamiento se abre como de fábrica la próxima vez, y ya está.
+    // Sin almacenamiento se abre por el fondo la próxima vez, y ya está.
   }
 }
 
@@ -263,16 +285,49 @@ export function ExportPanel({
   const pc = pistaDe(edicion?.sonidoPc);
   const voz = pistaDe(edicion?.microfono);
   const suenaAlguna = (!!session.sonidoPc && pc.encendida) || (!!session.microfono && voz.encendida);
-  const [estudioAbierto, setEstudioAbierto] = useState(() => leerAbierto(CLAVE_ESTUDIO, true));
+  const [seccionElegida, setSeccionElegida] = useState<Seccion>(leerSeccion);
+  useEffect(() => guardarSeccion(seccionElegida), [seccionElegida]);
+  /**
+   * Si «Lo que va a salir» cabe entero debajo del apartado. Se mide la columna, lo que ocupa
+   * el apartado y lo que ocupa el resumen (que se pinta siempre, invisible si no cabe, para
+   * poder medirlo), y se vuelve a medir cuando cualquiera de los tres cambia de tamaño.
+   */
+  const columna = useRef<HTMLDivElement>(null);
+  const contenido = useRef<HTMLDivElement>(null);
+  const resumenRef = useRef<HTMLDivElement>(null);
+  const [cabeResumen, setCabeResumen] = useState(false);
+  useLayoutEffect(() => {
+    const [caja, dentro, resumen] = [columna.current, contenido.current, resumenRef.current];
+    if (!caja || !dentro || !resumen) return;
+    const medir = () => {
+      const estilo = getComputedStyle(caja);
+      const relleno = (parseFloat(estilo.paddingTop) || 0) + (parseFloat(estilo.paddingBottom) || 0);
+      setCabeResumen(dentro.offsetHeight + resumen.offsetHeight + relleno <= caja.clientHeight);
+    };
+    medir();
+    if (typeof ResizeObserver === "undefined") return;
+    const observador = new ResizeObserver(medir);
+    for (const el of [caja, dentro, resumen]) observador.observe(el);
+    return () => observador.disconnect();
+  }, []);
+  /** Si la grabación trae webcam: sin ella, el apartado «Cámara» no sale en el riel. */
+  const [hayCamara, setHayCamara] = useState(false);
+  useEffect(() => {
+    let vigente = true;
+    void camaraDeLaSesion(session.id)
+      .then((c) => {
+        if (vigente) setHayCamara(!!c);
+      })
+      .catch(() => undefined);
+    return () => {
+      vigente = false;
+    };
+  }, [session.id]);
   const [loop, setLoop] = useState(true);
   const [directory, setDirectory] = useState(saveDirectory);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mas, setMas] = useState(() => leerAbierto(CLAVE_MAS, false));
-
-  useEffect(() => guardarAbierto(CLAVE_MAS, mas), [mas]);
-  useEffect(() => guardarAbierto(CLAVE_ESTUDIO, estudioAbierto), [estudioAbierto]);
 
   /**
    * Lo que mide de verdad lo que se va a exportar, con el recorte ya aplicado.
@@ -529,125 +584,167 @@ export function ExportPanel({
   const foto = esUnaFoto(format);
   const ocupado = progress !== null;
 
+  /**
+   * Los apartados del riel, en el orden en que se piensa un vídeo: cómo se ve (fondo,
+   * puntero, clics, zoom, cámara), cómo suena, cómo sale el archivo y, al final, guardar todo
+   * eso como un estilo. Lo que no pinta nada en esta grabación no sale: sin tiempo dentro no
+   * hay puntero ni zoom, y sin webcam no hay cámara.
+   */
+  const secciones: { id: Seccion; nombre: string; icono: LucideIcon }[] = [
+    { id: "fondo", nombre: t("Fondo"), icono: ImageIcon },
+    ...(!foto
+      ? [
+          { id: "puntero" as const, nombre: t("Puntero"), icono: MousePointer2 },
+          { id: "clics" as const, nombre: t("Clics y teclas"), icono: MousePointerClick },
+        ]
+      : []),
+    ...(!foto && (session.hasClicks || conEscritura) ? [{ id: "zoom" as const, nombre: t("Zoom"), icono: ZoomIn }] : []),
+    ...(!foto && hayCamara ? [{ id: "camara" as const, nombre: t("Cámara"), icono: Webcam }] : []),
+    ...(format === "mp4" ? [{ id: "sonido" as const, nombre: t("Sonido"), icono: Volume2 }] : []),
+    { id: "archivo", nombre: t("Calidad y tamaño"), icono: SlidersHorizontal },
+    { id: "estilos", nombre: t("Estilos"), icono: Bookmark },
+  ];
+  // El elegido, si está en esta grabación; si no (una foto no tiene puntero), el primero.
+  const seccion = secciones.find((s) => s.id === seccionElegida) ?? secciones[0];
+
+  /**
+   * «Lo que va a salir»: lo puesto en TODOS los apartados, dicho en frases, como las de debajo
+   * del dibujo de los ajustes de la 0.5. Con un apartado a la vista, lo de los otros no se ve;
+   * esto lo cuenta, y cada frase lleva a su apartado. Va en el hueco que deja un apartado corto.
+   */
+  const marcoPuesto = margen > 0 && carcasaPuesta ? MARCOS.find((m) => m.id === carcasaPuesta) : null;
+  const zoomsAMano = (edicion?.zooms?.length ?? 0) > 0;
+  const resumen: { id: Seccion; frase: string }[] = [
+    { id: "fondo", frase: margen > 0 ? t("Con fondo y {n} px de aire", { n: margen }) : t("Sin fondo") },
+    ...(marcoPuesto
+      ? [{ id: "fondo" as const, frase: marcoPuesto.id === "portatil" ? t("Dentro de un portátil") : t("Dentro de una ventana") }]
+      : []),
+    ...(!foto
+      ? [{ id: "puntero" as const, frase: cursor > 0 ? t("Puntero de {n} px", { n: cursor }) : t("Sin puntero") }]
+      : []),
+    ...(!foto && session.hasClicks && aros ? [{ id: "clics" as const, frase: t("Los clics, marcados") }] : []),
+    ...(!foto && session.hasClicks && (edicion?.sonidoClic ?? 0) > 0
+      ? [{ id: "clics" as const, frase: t("Con sonido en cada clic") }]
+      : []),
+    ...(!foto && teclas ? [{ id: "clics" as const, frase: t("Con los atajos a la vista") }] : []),
+    ...(!foto && (session.hasClicks || conEscritura)
+      ? [
+          {
+            id: "zoom" as const,
+            frase: zoomsAMano
+              ? t("Con tus zooms de la línea de tiempo")
+              : zoom > 1.05
+                ? t("Se acerca a los clics ({n}×)", { n: zoom.toFixed(1) })
+                : edicion?.zoomAlEscribir
+                  ? t("Se acerca al escribir")
+                  : t("Sin zoom"),
+          },
+        ]
+      : []),
+    ...(!foto && hayCamara && edicion?.camara !== null ? [{ id: "camara" as const, frase: t("Con tu cámara") }] : []),
+    ...(format === "mp4"
+      ? [
+          {
+            id: "sonido" as const,
+            frase: (pistasAparte ? suenaAlguna : audio && session.hasAudio) && velocidad === 1 ? t("Con sonido") : t("Sale mudo"),
+          },
+        ]
+      : []),
+    {
+      id: "archivo",
+      frase: foto
+        ? `${Math.round(width)} × ${Math.round(height)}`
+        : velocidad !== 1
+          ? t("{ancho} × {alto} a {fps} fps, a {v}×", { ancho: Math.round(width), alto: Math.round(height), fps, v: velocidad })
+          : t("{ancho} × {alto} a {fps} fps", { ancho: Math.round(width), alto: Math.round(height), fps }),
+    },
+  ];
+
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-l border-white/8 bg-black/20">
+    <aside className="flex w-[320px] shrink-0 flex-col border-l border-linea">
       {/*
-        Guardar va justo debajo de los ajustes, y se queda pegado abajo si los ajustes no
-        caben.
-
-        Clavado siempre al pie dejaba un hueco en medio con «Más ajustes» plegado; y suelto
-        sin más, con todo abierto en una ventana normal, se iba por debajo del borde: la
-        acción principal del editor escondida detrás de una rueda de ratón.
+        Arriba, el riel de iconos y lo de un apartado cada vez; abajo, guardar, siempre a la
+        vista. Antes iba todo seguido en una columna (estudio abierto, más ajustes plegados) y
+        con un vídeo medía 1.533 px en una ventana de 760: el puntero salía cortado y había que
+        bajar con la rueda. Ahora cada apartado cabe entero, como los ajustes de la 0.5, que
+        llevan el mismo riel.
       */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="px-4 pt-3 pb-4">
-        {/* El formato, en texto con su raya debajo: es una pestaña, no un interruptor. */}
-        <div className="flex gap-5 border-b border-white/8">
-          {formatos.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFormat(f.id)}
-              aria-pressed={format === f.id}
-              className={`-mb-px border-b-[3px] pt-1 pb-2 text-[15px] font-semibold transition-colors ${
-                format === f.id
-                  ? "border-blue-500 text-white"
-                  : "border-transparent text-neutral-400 hover:text-neutral-100"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2.5 text-[13px] leading-snug text-neutral-300">
-          {t(
-            (esCaptura && PARA_UNA_CAPTURA[format]) ||
-              (FORMATS.find((f) => f.id === format)?.para ?? ""),
-          )}
-        </p>
-
-        <div className="mt-4 space-y-4">
-          {format === "mp4" && !pistasAparte && (
-            <Toggle
-              checked={audio}
-              onChange={setAudio}
-              label={t("Sonido")}
-              hint={
-                !session.hasAudio
-                  ? t("esta grabación se hizo sin audio")
-                  : velocidad !== 1
-                    ? t("a otra velocidad el vídeo sale mudo")
-                    : trozosAcelerados
-                      ? t("los trozos acelerados salen sin sonido")
-                      : undefined
-              }
-            />
-          )}
-          {/* S11 (pistas): el sonido del PC y tu micrófono, cada uno con lo suyo. */}
-          {format === "mp4" && pistasAparte && (
-            <MandosDePistas
-              pc={session.sonidoPc ? pc : null}
-              voz={session.microfono ? voz : null}
-              conVolumen={velocidad === 1}
-              aviso={
-                velocidad !== 1
-                  ? t("a otra velocidad el vídeo sale mudo")
-                  : trozosAcelerados
-                    ? t("los trozos acelerados salen sin sonido")
-                    : undefined
-              }
-              picoPc={session.picoPc}
-              picoVoz={session.picoMicrofono}
-              onPc={(sonidoPc) => onEdicion?.({ sonidoPc })}
-              onVoz={(microfono) => onEdicion?.({ microfono })}
-            />
-          )}
-
-        </div>
-
-        {/*
-          El estudio: cómo se ve lo grabado, como en Screen Studio y en Cap. Abierto de
-          fábrica, porque es lo que hace bonito un vídeo de pantalla, y todo lo que se toca
-          aquí se ve en la vista previa en el momento: lo que ves es lo que sale.
-        */}
-        <Desplegable
-          titulo={t("Estudio")}
-          abierto={estudioAbierto}
-          onCambiar={() => setEstudioAbierto((abierto) => !abierto)}
+      <div className="flex min-h-0 flex-1">
+        <nav
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label={t("Cómo sale")}
+          className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-linea py-2"
         >
-          <Grupo titulo={t("Estilo")}>
-            <Presets estilo={estiloAhora} onAplicar={aplicarEstilo} />
-          </Grupo>
+          {secciones.map((s) => {
+            const elegida = s.id === seccion.id;
+            const Icono = s.icono;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                data-seccion={s.id}
+                aria-selected={elegida}
+                aria-label={s.nombre}
+                title={s.nombre}
+                onClick={() => setSeccionElegida(s.id)}
+                className={`relative flex size-10 items-center justify-center rounded-md transition-colors ${
+                  elegida ? "text-marca" : "text-apagado hover:bg-realce hover:text-titulo"
+                }`}
+              >
+                {/* La elegida, con su icono en azul y una raya de 2 px a la izquierda, sin fondo. */}
+                {elegida && <span className="absolute top-2 bottom-2 -left-1 w-0.5 rounded-full bg-marca" />}
+                <Icono className="size-5" />
+              </button>
+            );
+          })}
+        </nav>
 
-          <Grupo titulo={t("Fondo")}>
-            <FondoPicker
-              fondo={fondo}
-              conMarco={margen > 0}
-              elegido={edicion?.fondo ?? null}
-              onFondo={(f) => {
-                onEdicion?.({ fondo: null });
-                elegirFondo(f);
-              }}
-              onElegido={(e) => {
-                onEdicion?.({ fondo: e });
-                // Pone el aire si estaba a cero: un fondo propio sin aire no se ve.
-                elegirFondo(fondo);
-              }}
-            />
-            {/* Lo del marco solo con fondo: aire y esquinas de un marco que no existe son
-                controles que no hacen nada. */}
-            {margen > 0 && (
-              <div className="mt-3 space-y-3">
-                <Slider
-                  label={t("Aire alrededor")}
-                  hint={`${margen} px`}
-                  min={4}
-                  max={200}
-                  value={margen}
-                  onChange={setMargen}
+        <div
+          ref={columna}
+          role="tabpanel"
+          aria-label={seccion.nombre}
+          className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-2"
+        >
+          <div ref={contenido}>
+          <h2 className="text-[17px] font-semibold text-titulo">{seccion.nombre}</h2>
+
+          {seccion.id === "fondo" && (
+            <Filas>
+              <div className="py-2.5">
+                <FondoPicker
+                  fondo={fondo}
+                  conMarco={margen > 0}
+                  elegido={edicion?.fondo ?? null}
+                  onFondo={(f) => {
+                    onEdicion?.({ fondo: null });
+                    elegirFondo(f);
+                  }}
+                  onElegido={(e) => {
+                    onEdicion?.({ fondo: e });
+                    // Pone el aire si estaba a cero: un fondo propio sin aire no se ve.
+                    elegirFondo(fondo);
+                  }}
                 />
-                {/* S25 (marco): con ventana o portátil, las esquinas son las suyas. */}
-                {!carcasaPuesta && (
+              </div>
+              {/* Lo del marco solo con fondo: aire y esquinas de un marco que no existe son
+                  controles que no hacen nada. */}
+              {margen > 0 && (
+                <div className="py-2.5">
+                  <Slider
+                    label={t("Aire alrededor")}
+                    hint={`${margen} px`}
+                    min={4}
+                    max={200}
+                    value={margen}
+                    onChange={setMargen}
+                  />
+                </div>
+              )}
+              {/* S25 (marco): con ventana o portátil, las esquinas son las suyas. */}
+              {margen > 0 && !carcasaPuesta && (
+                <div className="py-2.5">
                   <Slider
                     label={t("Esquinas redondeadas")}
                     hint={esquinas === 0 ? t("rectas") : `${esquinas} px`}
@@ -656,214 +753,258 @@ export function ExportPanel({
                     value={esquinas}
                     onChange={setEsquinas}
                   />
-                )}
-                <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />
-              </div>
-            )}
-          </Grupo>
-
-          {/* S25 (marco): la captura dentro de una ventana de Windows 11 o de un portátil. Elegir
-              uno sin fondo pone el fondo, como elegir un fondo pone el aire: sin nada detrás no
-              se vería. */}
-          <Grupo titulo={t("Marco")}>
-            <Opciones>
-              {MARCOS.map((m) => (
-                <Opcion
-                  key={m.id ?? "ninguno"}
-                  puesta={carcasaPuesta === m.id}
-                  onClick={() => {
-                    setCarcasa(m.id);
-                    if (m.id && margen === 0) elegirFondo(fondo);
-                  }}
-                >
-                  {t(m.nombre)}
-                </Opcion>
-              ))}
-            </Opciones>
-          </Grupo>
-
-          {/* El puntero, el zoom y los atajos solo con tiempo dentro: una foto no tiene
-              ratón que se mueva ni clics a los que acercarse. */}
-          {!foto && (
-            <Grupo titulo={t("Puntero")}>
-              <div className="space-y-3">
-                <div>
-                  <Slider
-                    // Dentro del grupo «Puntero» no hace falta repetir la palabra en cada control.
-                    label={t("Tamaño")}
-                    hint={
-                      cursor === 0
-                        ? session.cursorBaked
-                          ? t("el de Windows")
-                          : t("sin puntero")
-                        : `${cursor} px`
-                    }
-                    min={0}
-                    max={80}
-                    step={4}
-                    value={cursor}
-                    onChange={setCursor}
-                  />
-                  {cursor > 0 && session.cursorBaked && (
-                    <p className="mt-1.5 text-[12px] leading-snug text-amber-300">
-                      {t("Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.")}
-                    </p>
-                  )}
                 </div>
-                {cursor > 0 && (
+              )}
+              {margen > 0 && (
+                <div className="py-2.5">
+                  <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />
+                </div>
+              )}
+              {/* S25 (marco): la captura dentro de una ventana de Windows 11 o de un portátil. Elegir
+                  uno sin fondo pone el fondo, como elegir un fondo pone el aire: sin nada detrás no
+                  se vería. */}
+              <div className="py-2.5">
+                <Etiqueta>{t("Marco")}</Etiqueta>
+                <Segmented
+                  value={carcasaPuesta ?? SIN_CARCASA}
+                  etiqueta={t("Marco")}
+                  options={MARCOS.map((m) => ({ value: m.id ?? SIN_CARCASA, label: t(m.nombre) }))}
+                  onChange={(id) => {
+                    const elegida = id === SIN_CARCASA ? null : (id as CarcasaElegida);
+                    setCarcasa(elegida);
+                    if (elegida && margen === 0) elegirFondo(fondo);
+                  }}
+                />
+              </div>
+            </Filas>
+          )}
+
+          {seccion.id === "puntero" && (
+            <Filas>
+              <div className="py-2.5">
+                <Slider
+                  label={t("Tamaño")}
+                  hint={
+                    cursor === 0
+                      ? session.cursorBaked
+                        ? t("el de Windows")
+                        : t("sin puntero")
+                      : `${cursor} px`
+                  }
+                  min={0}
+                  max={80}
+                  step={4}
+                  value={cursor}
+                  onChange={setCursor}
+                />
+                {cursor > 0 && session.cursorBaked && (
+                  <p className="mt-2 text-[13px] leading-snug text-aviso">
+                    {t("Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.")}
+                  </p>
+                )}
+              </div>
+              {cursor > 0 && (
+                <div className="py-2.5">
                   <Toggle
                     checked={esconder}
                     onChange={setEsconder}
                     label={t("Esconderlo cuando no se mueve")}
                     hint={t("se va tras un segundo y medio quieto")}
                   />
-                )}
-                {session.hasClicks && (
-                  <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
-                )}
-                {/* El suavizado de tres opciones (sustituye al interruptor «Movimiento suave»),
-                    esconderlo al escribir, la estela, la onda y el sonido de los clics, y
-                    acercarse al escribir. */}
-                <AjustesCursor
-                  edicion={edicion ?? {}}
-                  onEdicion={(cambio) => onEdicion?.(cambio)}
-                  conPuntero={cursor > 0}
-                  conClics={session.hasClicks}
-                  conZoom={zoom > 1.05 || (edicion?.zooms?.length ?? 0) > 0}
-                  conEscritura={conEscritura}
-                />
-              </div>
-            </Grupo>
-          )}
-
-          {/* El zoom solo con clics: un deslizador que no puede hacer nada es peor que no
-              tenerlo. */}
-          {!foto && session.hasClicks && (
-            <Grupo titulo={t("Zoom")}>
-              <Slider
-                label={t("Acercarse a los clics")}
-                hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
-                min={1}
-                max={3}
-                step={0.1}
-                value={zoom}
-                onChange={setZoom}
-              />
-              {zoom > 1.05 && (
-                <div className="mt-3">
-                  <span className="mb-1 block text-[13px] font-medium text-neutral-200">
-                    {t("Velocidad del zoom")}
-                  </span>
-                  <Opciones>
-                    {VELOCIDADES_DE_ZOOM.map((v) => (
-                      <Opcion
-                        key={v.valor}
-                        puesta={velocidadZoom === v.valor}
-                        onClick={() => setVelocidadZoom(v.valor)}
-                      >
-                        {t(v.nombre)}
-                      </Opcion>
-                    ))}
-                  </Opciones>
                 </div>
               )}
-            </Grupo>
+              {/* El suavizado de tres opciones, esconderlo al escribir y la estela. */}
+              <AjustesCursor
+                parte="puntero"
+                edicion={edicion ?? {}}
+                onEdicion={(cambio) => onEdicion?.(cambio)}
+                conPuntero={cursor > 0}
+                conClics={session.hasClicks}
+                conZoom={zoom > 1.05 || (edicion?.zooms?.length ?? 0) > 0}
+                conEscritura={conEscritura}
+              />
+            </Filas>
           )}
 
-          {/* La webcam: si la grabación no la trae no pinta nada, ni título. Su interruptor
-              «La cámara» hace de título del grupo. */}
-          {!foto && <AjustesCamara sessionId={session.id} edicion={edicion} onEdicion={onEdicion} />}
-
-          {!foto && (
-            <Toggle
-              checked={teclas}
-              onChange={setTeclas}
-              label={t("Enseñar los atajos")}
-              // Este aviso viaja con el interruptor: es la regla que impide que una
-              // contraseña tecleada mientras se grababa acabe dentro del vídeo.
-              hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
-            />
-          )}
-
-          {format === "mp4" && session.hasAudio && !pistasAparte && audio && velocidad === 1 && (
-            <Slider
-              label={t("Volumen")}
-              hint={`${Math.round(volumen * 100)} %`}
-              min={0}
-              max={200}
-              step={5}
-              value={Math.round(volumen * 100)}
-              onChange={(v) => setVolumen(v / 100)}
-            />
-          )}
-        </Desplegable>
-
-        <button
-          type="button"
-          onClick={() => setMas((abierto) => !abierto)}
-          aria-expanded={mas}
-          className="mt-4 flex w-full items-center justify-between rounded-md py-2 text-left text-[14px] font-semibold text-neutral-100 transition-colors hover:text-white"
-        >
-          {t("Más ajustes")}
-          <ChevronDown
-            className={`size-[18px] text-neutral-300 transition-transform duration-200 ${mas ? "rotate-180" : ""}`}
-          />
-        </button>
-
-        {/*
-          Plegado con la fila de la rejilla de 0fr a 1fr: crece poco a poco y lo de debajo
-          baja con él, en vez de aparecer de golpe. Cerrado no se puede pulsar ni llegar con
-          el tabulador a nada de dentro.
-        */}
-        <div
-          className="grid transition-[grid-template-rows] duration-[240ms] ease-in-out"
-          style={{ gridTemplateRows: mas ? "1fr" : "0fr" }}
-        >
-          <div className="min-h-0 overflow-hidden" inert={!mas} aria-hidden={!mas}>
-            <div className="space-y-4 pt-1 pb-1">
-              {format !== "png" && (
-                <Slider
-                  label={t("Calidad")}
-                  hint={`${quality}%`}
-                  min={10}
-                  max={100}
-                  value={quality}
-                  onChange={setQuality}
-                />
+          {seccion.id === "clics" && (
+            <Filas>
+              {session.hasClicks && (
+                <div className="py-2.5">
+                  <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
+                </div>
               )}
+              {/* La onda y el sonido de los clics. */}
+              <AjustesCursor
+                parte="clics"
+                edicion={edicion ?? {}}
+                onEdicion={(cambio) => onEdicion?.(cambio)}
+                conPuntero={cursor > 0}
+                conClics={session.hasClicks}
+                conEscritura={conEscritura}
+              />
+              <div className="py-2.5">
+                <Toggle
+                  checked={teclas}
+                  onChange={setTeclas}
+                  label={t("Enseñar los atajos")}
+                  // Este aviso viaja con el interruptor: es la regla que impide que una
+                  // contraseña tecleada mientras se grababa acabe dentro del vídeo.
+                  hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
+                />
+              </div>
+            </Filas>
+          )}
 
+          {seccion.id === "zoom" && (
+            <Filas>
+              {/* El zoom de los clics solo con clics: un deslizador que no puede hacer nada es
+                  peor que no tenerlo. */}
+              {session.hasClicks && (
+                <div className="py-2.5">
+                  <Slider
+                    label={t("Acercarse a los clics")}
+                    hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    value={zoom}
+                    onChange={setZoom}
+                  />
+                </div>
+              )}
+              {session.hasClicks && zoom > 1.05 && (
+                <div className="py-2.5">
+                  <Etiqueta>{t("Velocidad del zoom")}</Etiqueta>
+                  <Segmented
+                    value={velocidadZoom}
+                    etiqueta={t("Velocidad del zoom")}
+                    options={VELOCIDADES_DE_ZOOM.map((v) => ({ value: v.valor, label: t(v.nombre) }))}
+                    onChange={setVelocidadZoom}
+                  />
+                </div>
+              )}
+              <AjustesCursor
+                parte="zoom"
+                edicion={edicion ?? {}}
+                onEdicion={(cambio) => onEdicion?.(cambio)}
+                conPuntero={cursor > 0}
+                conClics={session.hasClicks}
+                conEscritura={conEscritura}
+              />
+            </Filas>
+          )}
+
+          {/* La webcam: el apartado solo sale si la grabación la trae. */}
+          {seccion.id === "camara" && (
+            <div className="py-2.5">
+              <AjustesCamara sessionId={session.id} edicion={edicion} onEdicion={onEdicion} />
+            </div>
+          )}
+
+          {seccion.id === "sonido" && (
+            <Filas>
+              {!pistasAparte && (
+                <div className="py-2.5">
+                  <Toggle
+                    checked={audio}
+                    onChange={setAudio}
+                    label={t("Sonido")}
+                    hint={
+                      !session.hasAudio
+                        ? t("esta grabación se hizo sin audio")
+                        : velocidad !== 1
+                          ? t("a otra velocidad el vídeo sale mudo")
+                          : trozosAcelerados
+                            ? t("los trozos acelerados salen sin sonido")
+                            : undefined
+                    }
+                  />
+                </div>
+              )}
+              {/* S11 (pistas): el sonido del PC y tu micrófono, cada uno con lo suyo. */}
+              {pistasAparte && (
+                <div className="space-y-5 py-2.5">
+                  <MandosDePistas
+                    pc={session.sonidoPc ? pc : null}
+                    voz={session.microfono ? voz : null}
+                    conVolumen={velocidad === 1}
+                    aviso={
+                      velocidad !== 1
+                        ? t("a otra velocidad el vídeo sale mudo")
+                        : trozosAcelerados
+                          ? t("los trozos acelerados salen sin sonido")
+                          : undefined
+                    }
+                    picoPc={session.picoPc}
+                    picoVoz={session.picoMicrofono}
+                    onPc={(sonidoPc) => onEdicion?.({ sonidoPc })}
+                    onVoz={(microfono) => onEdicion?.({ microfono })}
+                  />
+                </div>
+              )}
+              {session.hasAudio && !pistasAparte && audio && velocidad === 1 && (
+                <div className="py-2.5">
+                  <Slider
+                    label={t("Volumen")}
+                    hint={`${Math.round(volumen * 100)} %`}
+                    min={0}
+                    max={200}
+                    step={5}
+                    value={Math.round(volumen * 100)}
+                    onChange={(v) => setVolumen(v / 100)}
+                  />
+                </div>
+              )}
+            </Filas>
+          )}
+
+          {seccion.id === "archivo" && (
+            <Filas>
+              {format !== "png" && (
+                <div className="py-2.5">
+                  <Slider
+                    label={t("Calidad")}
+                    hint={`${quality}%`}
+                    min={10}
+                    max={100}
+                    value={quality}
+                    onChange={setQuality}
+                  />
+                </div>
+              )}
               {/* Una foto no tiene fotogramas por segundo, ni velocidad. */}
               {!foto && (
-                <Slider
-                  label={t("Fotogramas por segundo")}
-                  hint={`${fps} fps`}
-                  min={5}
-                  max={fpsMax}
-                  value={fps}
-                  onChange={setFps}
-                />
+                <div className="py-2.5">
+                  <Slider
+                    label={t("Fotogramas por segundo")}
+                    hint={`${fps} fps`}
+                    min={5}
+                    max={fpsMax}
+                    value={fps}
+                    onChange={setFps}
+                  />
+                </div>
               )}
-
               {!foto && (
-                <Grupo titulo={t("Velocidad")}>
-                  <Opciones>
-                    {VELOCIDADES.map((v) => (
-                      <Opcion key={v} puesta={velocidad === v} onClick={() => setVelocidad(v)}>
-                        {v}×
-                      </Opcion>
-                    ))}
-                  </Opciones>
+                <div className="py-2.5">
+                  <Etiqueta>{t("Velocidad")}</Etiqueta>
+                  <Segmented
+                    value={velocidad}
+                    etiqueta={t("Velocidad")}
+                    options={VELOCIDADES.map((v) => ({ value: v, label: `${v}×` }))}
+                    onChange={setVelocidad}
+                  />
                   {velocidad !== 1 && (
-                    <p className="mt-1.5 text-[12px] text-neutral-300">
+                    <p className="mt-1.5 text-[13px] text-suave">
                       {velocidad > 1
                         ? t("dura {n} veces menos, y sale sin sonido", { n: velocidad })
                         : t("dura el doble, y sale sin sonido")}
                     </p>
                   )}
-                </Grupo>
+                </div>
               )}
-
-              <Grupo titulo={t("Tamaño")}>
+              <div className="py-2.5">
+                <Etiqueta>{t("Tamaño")}</Etiqueta>
                 {/*
                   La proporción, de un clic.
 
@@ -894,7 +1035,7 @@ export function ExportPanel({
                         onClick={() => onRecorte(null)}
                         title={t("Quitar el recorte")}
                         aria-label={t("Quitar el recorte")}
-                        className="ml-auto rounded-md px-1.5 text-[16px] leading-none text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+                        className="ml-auto rounded-md px-1.5 text-[16px] leading-none text-suave transition-colors hover:bg-realce hover:text-titulo"
                       >
                         ×
                       </button>
@@ -907,8 +1048,8 @@ export function ExportPanel({
                     type="button"
                     onClick={() => setLocked((l) => !l)}
                     title={locked ? t("Proporción bloqueada") : t("Proporción libre")}
-                    className={`mb-1.5 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors ${
-                      locked ? "text-blue-400 hover:bg-white/10" : "text-neutral-400 hover:text-white"
+                    className={`mb-1 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+                      locked ? "text-marca hover:bg-realce" : "text-apagado hover:text-titulo"
                     }`}
                   >
                     {locked ? <Link2 className="size-4" /> : <Unlink2 className="size-4" />}
@@ -931,27 +1072,114 @@ export function ExportPanel({
                     </Opcion>
                   ))}
                 </Opciones>
-              </Grupo>
-
-              {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}
-              {hasFfmpeg && !foto && (
-                <Toggle
-                  checked={useFfmpeg}
-                  onChange={setUseFfmpeg}
-                  label={t("Motor FFmpeg")}
-                  hint={t("calidad máxima, más lento")}
-                />
+              </div>
+              {format === "gif" && (
+                <div className="py-2.5">
+                  <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />
+                </div>
               )}
+              {hasFfmpeg && !foto && (
+                <div className="py-2.5">
+                  <Toggle
+                    checked={useFfmpeg}
+                    onChange={setUseFfmpeg}
+                    label={t("Motor FFmpeg")}
+                    hint={t("calidad máxima, más lento")}
+                  />
+                </div>
+              )}
+            </Filas>
+          )}
+
+          {/* Guardar el estilo va al final, después de lo que lo forma: se lee en su orden. */}
+          {seccion.id === "estilos" && (
+            <>
+              <p className="mt-1 mb-3 text-[13px] leading-snug text-suave">
+                {t("Guarda el fondo, el puntero, los clics y el zoom con un nombre, para ponérselos a otro vídeo")}
+              </p>
+              <Presets enLista estilo={estiloAhora} onAplicar={aplicarEstilo} />
+            </>
+          )}
+          </div>
+
+          {/*
+            Lo que va a salir, abajo del todo de la columna. Solo cuando cabe ENTERO debajo del
+            apartado: medio cortado no vale, y empujar el apartado hasta pedir rueda tampoco.
+            Mientras no cabe se queda medido pero sin ocupar sitio ni verse.
+          */}
+          <div
+            ref={resumenRef}
+            data-lo-que-sale
+            aria-hidden={!cabeResumen}
+            className={cabeResumen ? "mt-auto pt-4" : "invisible absolute inset-x-4 top-0 pt-4"}
+          >
+            <div className="border-t border-linea pt-3">
+              <span className="block text-[14px] font-semibold text-titulo">{t("Lo que va a salir")}</span>
+              <ul className="mt-1.5">
+                {resumen.map((r, i) => {
+                  const suya = secciones.find((s) => s.id === r.id);
+                  const Icono = suya?.icono ?? ImageIcon;
+                  return (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        // Con el apartado en el nombre: «Sin fondo» a secas sería el mismo nombre
+                        // que la muestra de «Sin fondo», que hace otra cosa.
+                        aria-label={`${r.frase} (${suya?.nombre ?? ""})`}
+                        title={suya?.nombre}
+                        tabIndex={cabeResumen ? 0 : -1}
+                        onClick={() => setSeccionElegida(r.id)}
+                        className="-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-2 rounded-md px-1 py-1 text-left text-[13px] leading-snug text-texto transition-colors hover:bg-realce hover:text-titulo"
+                      >
+                        <Icono className="size-4 shrink-0 text-apagado" aria-hidden="true" />
+                        {r.frase}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="sticky bottom-0 space-y-2.5 border-t border-white/8 bg-[#141416] p-4">
+      {/*
+        Guardar, siempre a la vista: el formato (es lo que se guarda), lo que hace cada uno
+        dicho en palabras, y los tres botones. El formato vivía arriba del todo, lejos del
+        botón que lo usa.
+      */}
+      <div className="space-y-2.5 border-t border-linea px-4 pt-2 pb-3">
+        <div>
+          {/* El formato, en texto con su raya debajo: es una pestaña, no un interruptor. */}
+          <div className="flex gap-5 border-b border-linea" role="group" aria-label={t("Formato")}>
+            {formatos.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFormat(f.id)}
+                aria-pressed={format === f.id}
+                className={`-mb-px border-b-[3px] pt-1 pb-1.5 text-[15px] font-semibold transition-colors ${
+                  format === f.id
+                    ? "border-marca text-titulo"
+                    : "border-transparent text-apagado hover:text-titulo"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[13px] leading-snug text-suave">
+            {t(
+              (esCaptura && PARA_UNA_CAPTURA[format]) ||
+                (FORMATS.find((f) => f.id === format)?.para ?? ""),
+            )}
+          </p>
+        </div>
+
         {progress && (
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div className="h-1.5 overflow-hidden rounded-full bg-realce">
             <div
-              className="h-full bg-blue-500 transition-[width] duration-150"
+              className="h-full bg-marca transition-[width] duration-150"
               style={{
                 width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%`,
               }}
@@ -964,7 +1192,7 @@ export function ExportPanel({
           disabled={ocupado}
           onClick={() => void run(false)}
           title={t("Exportar a la carpeta elegida (Ctrl+S)")}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-500 text-[15px] font-semibold whitespace-nowrap text-white transition-colors hover:bg-blue-400 disabled:opacity-50"
+          className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[15px] font-semibold whitespace-nowrap transition-colors disabled:opacity-50 ${RELLENO}`}
         >
           <Save className="size-[18px]" /> {t("Guardar")} {format.toUpperCase()}
         </button>
@@ -990,12 +1218,12 @@ export function ExportPanel({
           </BotonSegundo>
         </div>
 
-        <div className="flex items-center justify-between gap-3 text-[12px] text-neutral-300">
+        <div className="flex items-center justify-between gap-3 text-[13px] text-suave">
           <button
             type="button"
             onClick={() => void pickDirectory().then((dir) => dir && setDirectory(dir))}
             title={t("Elegir dónde se guarda")}
-            className="flex min-w-0 items-center gap-1.5 transition-colors hover:text-white"
+            className="flex min-w-0 items-center gap-1.5 transition-colors hover:text-titulo"
           >
             <FolderOpen className="size-4 shrink-0" />
             <span className="truncate" title={directory}>
@@ -1010,9 +1238,10 @@ export function ExportPanel({
             {/* Copiar es lo que más se usa para mandarle el vídeo a alguien, así que se
                 dice en su propia línea y no escondido entre el tamaño y la carpeta. Un
                 vídeo no se pega como imagen: va como archivo (para el explorador y los
-                chats) y como su ruta escrita (para cualquier caja de texto). */}
+                chats) y como su ruta escrita (para cualquier caja de texto). Sin verde de
+                «todo va bien»: lo dice la frase. */}
             {result.copied && (
-              <p className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-300">
+              <p className="flex items-center gap-1.5 text-[13px] font-medium text-texto">
                 <Clipboard className="size-4 shrink-0" />
                 {format === "png" ? t("Copiado: ya se puede pegar") : t("Copiado: el archivo y su ruta")}
               </p>
@@ -1020,16 +1249,16 @@ export function ExportPanel({
             {/* Y si no se pudo, se dice por qué. Antes el fallo se tragaba y pulsar copiar
                 parecía no hacer absolutamente nada. */}
             {result.copyError && (
-              <p className="text-[12px] text-red-300">
+              <p className={`text-[13px] ${ROJO}`}>
                 {t("No se ha podido copiar")}: {t(result.copyError)}
               </p>
             )}
             <button
               type="button"
               onClick={() => void revealInExplorer(result.path)}
-              className="flex w-full items-center gap-1.5 rounded-md py-1 text-left text-[13px] font-medium text-neutral-100 transition-colors hover:text-white"
+              className="flex w-full items-center gap-1.5 rounded-md py-1 text-left text-[13px] font-medium text-titulo transition-colors hover:text-marca"
             >
-              <FolderOpen className="size-4 shrink-0 text-blue-400" />
+              <FolderOpen className="size-4 shrink-0 text-marca" />
               <span className="truncate">
                 {t("Guardado")} · {formatBytes(result.bytes)} · {t("abrir carpeta")}
               </span>
@@ -1037,61 +1266,20 @@ export function ExportPanel({
           </div>
         )}
 
-        {error && <p className="text-[12px] text-red-300">{error}</p>}
-      </div>
+        {error && <p className={`text-[13px] ${ROJO}`}>{error}</p>}
       </div>
     </aside>
   );
 }
 
-/**
- * Un apartado que se pliega: el título con su flecha, y debajo lo de dentro, que crece poco
- * a poco con la fila de la rejilla de 0fr a 1fr y empuja lo de debajo, en vez de aparecer
- * de golpe. Cerrado no se puede pulsar ni llegar con el tabulador a nada de dentro.
- */
-function Desplegable({
-  titulo,
-  abierto,
-  onCambiar,
-  children,
-}: {
-  titulo: string;
-  abierto: boolean;
-  onCambiar: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="mt-3 border-t border-white/8 pt-1">
-      <button
-        type="button"
-        onClick={onCambiar}
-        aria-expanded={abierto}
-        className="flex w-full items-center justify-between rounded-md py-2 text-left text-[14px] font-semibold text-neutral-100 transition-colors hover:text-white"
-      >
-        {titulo}
-        <ChevronDown
-          className={`size-[18px] text-neutral-300 transition-transform duration-200 ${abierto ? "rotate-180" : ""}`}
-        />
-      </button>
-      <div
-        className="grid transition-[grid-template-rows] duration-[240ms] ease-in-out"
-        style={{ gridTemplateRows: abierto ? "1fr" : "0fr" }}
-      >
-        <div className="min-h-0 overflow-hidden" inert={!abierto} aria-hidden={!abierto}>
-          <div className="space-y-4 pt-1 pb-2">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
+/** Las filas de un apartado, con una línea fina entre una y otra: el idioma de los ajustes de la 0.5. */
+function Filas({ children }: { children: ReactNode }) {
+  return <div className="mt-1 divide-y divide-linea-tenue">{children}</div>;
 }
 
-function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <div>
-      <span className="mb-2 block text-[13px] font-medium text-neutral-200">{titulo}</span>
-      {children}
-    </div>
-  );
+/** El nombre de una fila que lleva sus opciones debajo (el marco, la velocidad, el tamaño). */
+function Etiqueta({ children }: { children: ReactNode }) {
+  return <span className="mb-1 block text-[15px] font-medium text-titulo">{children}</span>;
 }
 
 function BotonSegundo({
@@ -1113,7 +1301,7 @@ function BotonSegundo({
       onClick={onClick}
       disabled={apagado}
       title={titulo}
-      className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white/10 text-[14px] font-medium whitespace-nowrap text-neutral-100 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+      className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-realce text-[14px] font-medium whitespace-nowrap text-titulo transition-colors hover:bg-activo disabled:opacity-50"
     >
       {icono}
       {children}

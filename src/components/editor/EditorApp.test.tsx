@@ -181,6 +181,37 @@ describe("la vista previa del estudio", () => {
     expect(llamadas.filter((l) => l.comando === "session_frames").length).toBe(antes + 1);
   });
 
+  it("la lista con miniaturas no se pierde si el arranque contesta después (S29b)", async () => {
+    // La carrera: al abrir se piden los fotogramas junto con los ajustes y ffmpeg. Si la tira
+    // acaba en ese rato, Rust avisa y la lista nueva (con miniaturas) llega ANTES que la del
+    // arranque (sin ellas), y esa la pisaba: la tira se quedaba vacía para siempre.
+    preparar(VERTICAL, "C:\\s\\preview.mp4", "video");
+    const SIN = [0, 1, 2].map((i) => ({ index: i, timestampMs: i * 33, durationMs: 33, thumbPath: "" }));
+    const CON = SIN.map((f) => ({ ...f, thumbPath: `C:\\t\\${f.index}.png` }));
+    responde("session_frames", SIN);
+    let soltarFfmpeg: (v: boolean) => void = () => {};
+    responde("ffmpeg_available", new Promise<boolean>((listo) => (soltarFfmpeg = listo)));
+    const vista = render(<EditorApp sessionId="s1" />);
+    // El arranque ya pidió su lista (sin miniaturas) y espera a ffmpeg.
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+    responde("session_frames", CON);
+    const antes = llamadas.filter((l) => l.comando === "session_frames").length;
+    emite("winshotx://session-thumbs", "s1");
+    await waitFor(() =>
+      expect(llamadas.filter((l) => l.comando === "session_frames").length).toBe(antes + 1),
+    );
+    // Ahora contesta el arranque, tarde y con la lista vieja.
+    soltarFfmpeg(false);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    await waitFor(() =>
+      expect(
+        [...vista.container.querySelectorAll("img")].some((img) =>
+          img.getAttribute("src")?.startsWith("asset://C:\\t\\"),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it("una captura fija no la lleva: no tiene tiempo dentro", async () => {
     const vista = await abrir();
     expect(vista.container.querySelector("[data-capa-estudio]")).toBeNull();
@@ -204,6 +235,8 @@ describe("la vista previa del estudio", () => {
     render(<EditorApp sessionId="s1" />);
     await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
     expect(llamadas.some((l) => l.comando === "session_camera")).toBe(false);
+    // El zoom de los clics vive en su apartado del riel del panel (S39).
+    fireEvent.click(screen.getByRole("tab", { name: "Zoom" }));
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     await waitFor(() => expect(llamadas.some((l) => l.comando === "session_camera")).toBe(true));
     const peticion = llamadas.find((l) => l.comando === "session_camera")?.args as { zoom: number };
@@ -774,5 +807,19 @@ describe("el marco de ventana o de portátil en la vista previa", () => {
     await waitFor(() => expect(container.querySelector("[data-pieza]")).toBeNull());
     vi.restoreAllMocks();
     localStorage.removeItem("winshotx.tema");
+  });
+});
+
+// S39: el editor era oscuro siempre; desde la 0.5 sigue el tema de la app, como las demás ventanas.
+describe("el tema", () => {
+  it("se pinta con el tema de los ajustes", async () => {
+    // Empieza en oscuro, que es lo que recordaba la ventana: tiene que cambiarlo el ajuste.
+    localStorage.setItem("winshotx.tema", "oscuro");
+    document.documentElement.dataset.tema = "oscuro";
+    preparar();
+    responde("get_settings", { saveDirectory: "C:\capturas", theme: "claro", language: "es" });
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(document.documentElement.dataset.tema).toBe("claro"));
+    responde("get_settings", { saveDirectory: "C:\capturas", theme: "oscuro", language: "es" });
   });
 });

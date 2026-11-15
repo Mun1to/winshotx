@@ -72,7 +72,7 @@ export function MandosDePistas({ pc, voz, conVolumen, aviso, picoPc, picoVoz, on
           />
           {/* Con la pista apagada no hace falta: ya no va a sonar. */}
           {pista.encendida && nivel && (
-            <p className="text-[12px] leading-snug text-amber-300">{t(nivel)}</p>
+            <p className="text-[12px] leading-snug text-aviso">{t(nivel)}</p>
           )}
           {pista.encendida && conVolumen && (
             <Slider

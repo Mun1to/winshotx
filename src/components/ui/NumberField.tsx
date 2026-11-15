@@ -19,8 +19,8 @@ export function NumberField({
 }: Props) {
   return (
     <label className={`block ${disabled ? "opacity-40" : ""}`}>
-      <span className="mb-1.5 block text-xs font-medium text-suave">{label}</span>
-      <span className="flex items-center rounded-lg border border-linea-fuerte bg-hueco focus-within:border-blue-500/60">
+      <span className="mb-1.5 block text-[13px] font-medium text-suave">{label}</span>
+      <span className="flex items-center rounded-lg border border-linea-fuerte bg-hueco focus-within:border-marca">
         <input
           type="number"
           // La etiqueta esta al lado, dentro del mismo `label`, pero el lector de pantalla
@@ -36,7 +36,7 @@ export function NumberField({
           }}
           className="w-full bg-transparent px-2.5 py-1.5 text-sm tabular-nums text-titulo outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
         />
-        {suffix && <span className="pr-2.5 text-xs text-tenue">{suffix}</span>}
+        {suffix && <span className="pr-2.5 text-[12px] text-apagado">{suffix}</span>}
       </span>
     </label>
   );

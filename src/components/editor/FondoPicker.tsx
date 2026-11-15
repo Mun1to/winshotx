@@ -26,7 +26,7 @@ import {
   importarImagenDeFondo,
 } from "../../lib/ipc";
 import { PaletaDeColor } from "./PaletaDeColor";
-import { Opcion } from "../ui/Opcion";
+import { Segmented } from "../ui/Segmented";
 
 interface Props {
   /** El fondo de nombre que hay puesto. */
@@ -131,8 +131,8 @@ export function FondoPicker({ fondo, conMarco, elegido, onFondo, onElegido }: Pr
           title={t("Sin fondo")}
           aria-label={t("Sin fondo")}
           aria-pressed={!conMarco}
-          className={`flex aspect-square w-full items-center justify-center rounded-md border-2 text-neutral-400 transition-colors ${
-            !conMarco ? "border-blue-500" : "border-white/15 hover:border-white/40"
+          className={`flex aspect-square w-full items-center justify-center rounded-md border-2 text-apagado transition-colors ${
+            !conMarco ? "border-marca" : "border-linea-fuerte hover:border-linea-viva"
           }`}
         >
           <svg viewBox="0 0 20 20" className="size-full p-1" aria-hidden="true">
@@ -149,14 +149,15 @@ export function FondoPicker({ fondo, conMarco, elegido, onFondo, onElegido }: Pr
             aria-pressed={pulsado(f.id)}
             style={{ background: f.css }}
             className={`aspect-square w-full rounded-md border-2 transition-colors ${
-              pulsado(f.id) ? "border-blue-500" : "border-white/15 hover:border-white/40"
+              pulsado(f.id) ? "border-marca" : "border-linea-fuerte hover:border-linea-viva"
             }`}
           />
         ))}
       </div>
 
-      {/* Dos por fila: a cuatro, «Vídeo o GIF» y «Más colores» no cabían y la letra tocaba el borde. */}
-      <div className="grid grid-cols-2 gap-1.5">
+      {/* Dos por fila y SUELTOS (S39): eran cuatro botones en su caja debajo de otra fila de
+          cajitas, y los ajustes de la 0.5 no llevan cárceles. El cristal sale al pasar el ratón. */}
+      <div className="grid grid-cols-2 gap-x-1 pt-1.5">
         <Propio
           puesto={propio?.tipo === "imagen"}
           vista={propio?.tipo === "imagen" ? cssDelFondo(fondo, propio) : null}
@@ -208,14 +209,14 @@ export function FondoPicker({ fondo, conMarco, elegido, onFondo, onElegido }: Pr
             <button
               type="button"
               onClick={() => void cancelarFondoAnimado()}
-              className="rounded-lg bg-white/10 px-3 py-1 text-[13px] font-medium text-neutral-100 transition-colors hover:bg-white/15 hover:text-white"
+              className="rounded-lg bg-realce px-3 py-1 text-[13px] font-medium text-titulo transition-colors hover:bg-activo hover:text-titulo"
             >
               {t("Cancelar")}
             </button>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div className="h-1.5 overflow-hidden rounded-full bg-realce">
             <div
-              className="h-full bg-blue-500 transition-[width] duration-150"
+              className="h-full bg-marca transition-[width] duration-150"
               style={{ width: `${Math.round(importando * 100)}%` }}
             />
           </div>
@@ -223,7 +224,7 @@ export function FondoPicker({ fondo, conMarco, elegido, onFondo, onElegido }: Pr
       )}
 
       {error && (
-        <p className="pt-1 text-[13px] text-red-400" role="alert">
+        <p className="pt-1 text-[13px] text-red-700 [[data-tema=oscuro]_&]:text-red-300" role="alert">
           {error}
         </p>
       )}
@@ -237,26 +238,19 @@ export function FondoPicker({ fondo, conMarco, elegido, onFondo, onElegido }: Pr
           {paleta && (
             <div className="space-y-2.5 pt-2.5">
               <PaletaDeColor rgb={color} onCambiar={(rgb) => ponerColor(rgb)} />
-              <div className="flex items-center gap-4">
-                <Opcion
-                  puesta={propio?.tipo === "color"}
-                  onClick={() => {
-                    setModo("color");
-                    ponerColor(color, "color");
-                  }}
-                >
-                  {t("Liso")}
-                </Opcion>
-                <Opcion
-                  puesta={propio?.tipo === "degradado"}
-                  onClick={() => {
-                    setModo("degradado");
-                    ponerColor(color, "degradado");
-                  }}
-                >
-                  {t("Degradado")}
-                </Opcion>
-              </div>
+              <Segmented
+                value={propio?.tipo === "color" ? "color" : propio?.tipo === "degradado" ? "degradado" : ""}
+                etiqueta={t("Más colores")}
+                options={[
+                  { value: "color", label: t("Liso") },
+                  { value: "degradado", label: t("Degradado") },
+                ]}
+                onChange={(como) => {
+                  if (como !== "color" && como !== "degradado") return;
+                  setModo(como);
+                  ponerColor(color, como);
+                }}
+              />
             </div>
           )}
         </div>
@@ -296,8 +290,8 @@ function Propio({
       title={titulo}
       aria-pressed={puesto}
       aria-expanded={abierto}
-      className={`flex items-center gap-2 rounded-md border-2 px-2.5 py-2 text-left text-[13px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
-        puesto ? "border-blue-500 text-white" : "border-white/15 text-neutral-200 hover:border-white/40 hover:text-white"
+      className={`-mx-1 flex items-center gap-2 rounded-md px-1 py-1.5 text-left text-[14px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
+        puesto ? "text-marca" : "text-texto hover:bg-realce hover:text-titulo"
       }`}
     >
       {vista ? (
