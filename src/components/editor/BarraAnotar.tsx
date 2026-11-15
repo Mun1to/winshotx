@@ -13,6 +13,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
+import { useId } from "react";
 import { COLORES, type Herramienta } from "../../lib/anotaciones";
 import { useT } from "../../lib/i18n";
 
@@ -107,7 +108,14 @@ export function BarraAnotar({
 }: Props) {
   const t = useT();
   return (
-    <div className="@container flex shrink-0 flex-wrap items-center gap-1 border-b border-white/8 bg-black/25 px-3 py-2">
+    // En UNA fila (S39): iba en dos, con la segunda casi vacía. Los botones a 32 px y, en una
+    // ventana normal, «Copiar texto» y «Tapar datos» con solo su icono (su nombre, al pasar el
+    // ratón); con la ventana ancha sale el nombre. El `flex-wrap` se queda solo para una ventana
+    // estrechísima, donde partirse es mejor que salirse.
+    <div
+      data-barra-anotar
+      className="@container flex shrink-0 flex-wrap items-center gap-0.5 border-b border-linea px-3 py-1.5"
+    >
       {HERRAMIENTAS.map((h) => (
         <Boton
           key={h.id}
@@ -132,7 +140,7 @@ export function BarraAnotar({
       {!SIN_COLOR.includes(activa) && (
         <>
           <Raya />
-          <span className="flex gap-1.5 px-1">
+          <span className="flex gap-1.5 px-0.5">
             {COLORES.map((c) => (
               <button
                 key={c}
@@ -142,8 +150,8 @@ export function BarraAnotar({
                 aria-label={c}
                 aria-pressed={color === c}
                 style={{ background: c }}
-                className={`size-6 rounded-full border-2 transition-colors ${
-                  color === c ? "border-white" : "border-white/20 hover:border-white/50"
+                className={`size-[22px] rounded-full border-2 transition-colors ${
+                  color === c ? "border-titulo" : "border-linea-fuerte hover:border-linea-viva"
                 }`}
               />
             ))}
@@ -157,7 +165,7 @@ export function BarraAnotar({
         siguiente: no se veía dónde iba a caer ni cómo iba a quedar hasta soltarlo.
       */}
       {activa === "text" && (
-        <span className="px-1 text-[13px] whitespace-nowrap text-neutral-200">
+        <span className="px-1 text-[13px] whitespace-nowrap text-texto">
           {t("Pulsa en la imagen y escribe")}
         </span>
       )}
@@ -173,6 +181,8 @@ export function BarraAnotar({
         icono={Crop}
         nombre={encuadre ?? t("Encuadrar")}
         titulo={t("Quedarse con un trozo de la imagen (C)")}
+        // Con el recorte puesto, su medida se ve siempre: es lo que va a salir.
+        estrecho={encuadre === null ? "medio" : false}
         activa={encuadrando || encuadre !== null}
         onClick={onEncuadrar}
       />
@@ -191,7 +201,7 @@ export function BarraAnotar({
           icono={TextSelect}
           nombre={t("Copiar texto")}
           titulo={t("Copiar el texto de la imagen")}
-          estrecho
+          estrecho="ancho"
           activa={false}
           onClick={onCopiarTexto}
           apagada={buscandoDatos}
@@ -206,7 +216,7 @@ export function BarraAnotar({
           icono={ShieldCheck}
           nombre={t("Tapar datos")}
           titulo={t("Tapar datos personales")}
-          estrecho
+          estrecho="ancho"
           activa={false}
           onClick={onTaparDatos}
           apagada={buscandoDatos}
@@ -232,7 +242,7 @@ export function BarraAnotar({
 }
 
 function Raya() {
-  return <span className="mx-1 h-5 w-px bg-white/10" />;
+  return <span className="mx-1.5 h-5 w-px bg-linea-fuerte" />;
 }
 
 function Boton({
@@ -257,8 +267,8 @@ function Boton({
       title={etiqueta}
       aria-label={etiqueta}
       aria-pressed={activa}
-      className={`flex size-[34px] items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
-        activa ? "bg-blue-500 text-white" : "text-neutral-300 hover:bg-white/10 hover:text-white"
+      className={`flex size-8 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
+        activa ? "bg-[#0a76c9] text-white" : "text-suave hover:bg-realce hover:text-titulo"
       }`}
     >
       <Icono className="size-[18px]" />
@@ -278,8 +288,11 @@ function BotonConNombre({
   icono: React.ComponentType<{ className?: string }>;
   nombre: string;
   titulo: string;
-  /** Si en una ventana estrecha se queda solo con el icono. */
-  estrecho?: boolean;
+  /**
+   * Hasta qué ancho de barra se queda solo con el icono: «medio» por debajo de 56rem (lo que
+   * deja una ventana de 1.216 px con el panel) y «ancho» por debajo de 68rem (1.408 px).
+   */
+  estrecho?: "medio" | "ancho" | false;
   activa: boolean;
   onClick: () => void;
   apagada?: boolean;
@@ -292,14 +305,20 @@ function BotonConNombre({
       title={titulo}
       aria-label={nombre}
       aria-pressed={activa}
-      className={`flex h-[34px] items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium whitespace-nowrap tabular-nums transition-colors disabled:opacity-30 ${
-        activa ? "bg-blue-500 text-white" : "text-neutral-200 hover:bg-white/10 hover:text-white"
+      className={`flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium whitespace-nowrap tabular-nums transition-colors disabled:opacity-30 ${
+        activa ? "bg-[#0a76c9] text-white" : "text-texto hover:bg-realce hover:text-titulo"
       }`}
     >
       <Icono className="size-[18px]" />
       {/* En una ventana estrecha se queda el icono, con su nombre al pasar el ratón: mejor
           eso que la barra partida en dos filas comiéndose la imagen. */}
-      <span className={estrecho ? "hidden @[52rem]:inline" : undefined}>{nombre}</span>
+      <span
+        className={
+          estrecho === "medio" ? "hidden @[56rem]:inline" : estrecho === "ancho" ? "hidden @[68rem]:inline" : undefined
+        }
+      >
+        {nombre}
+      </span>
     </button>
   );
 }
@@ -331,17 +350,23 @@ function FlechaCurva({ className = "size-4" }: { className?: string }) {
  * es ahora el de la elipse, y dos botones con el mismo dibujo no se distinguen.
  */
 function Paso({ className = "size-4" }: { className?: string }) {
+  // El 1 va RECORTADO del disco, no pintado encima: pintado en negro fijo, en el tema claro
+  // (disco oscuro) no se veía, y en blanco no se vería con la herramienta puesta (icono blanco).
+  const id = `paso${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <circle cx="12" cy="12" r="9" fill="currentColor" />
-      <path
-        d="M10.5 9.5L12.5 8v8"
-        fill="none"
-        stroke="var(--color-neutral-900, #171717)"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <mask id={id}>
+        <rect width="24" height="24" fill="white" />
+        <path
+          d="M10.5 9.5L12.5 8v8"
+          fill="none"
+          stroke="black"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </mask>
+      <circle cx="12" cy="12" r="9" fill="currentColor" mask={`url(#${id})`} />
     </svg>
   );
 }
