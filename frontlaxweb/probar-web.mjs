@@ -9,6 +9,8 @@
 // el menú del móvil crezca desde la barra y se recoja con Escape y tocando fuera, y
 // cada orden de la terminal se copia con el ratón y con Intro, mirando el portapapeles y que
 // salga el aviso de copiado.
+// En la portada, las pestañas de la comparativa: una a la vista y la suya, con el ratón, las
+// flechas y el dedo (la fila se desliza de lado), también sin JavaScript.
 //
 // Cada página sale en oscuro y en claro, a 1920 (la pantalla de Munir), a 1440, en un
 // iPhone 13 y a 360, y en todas se apuntan los errores de consola y si algo se sale por un
@@ -241,6 +243,137 @@ for (const ruta of paginas) {
         `${abierto.dentro ? " con las páginas dentro" : " CON LAS PÁGINAS FUERA"} (${abierto.chico >= 44 ? "de 44 px o más" : `UNA DE ${Math.round(abierto.chico)} PX`}), el foco ${abierto.foco === "primera" ? "en la primera" : "NO VA A LA PRIMERA"}` +
         `; Escape ${trasEscape.alto === cerrado.alto && trasEscape.foco === "menú" ? "la recoge y vuelve a Menú" : "NO VA BIEN"}; tocar fuera ${!punto ? "SIN SITIO LIBRE PARA TOCAR" : trasFuera.alto === cerrado.alto ? "la recoge" : "NO LA RECOGE"}` +
         `; la página ${abierto.y === cerrado.y && abierto.debajo === cerrado.debajo && trasFuera.y === cerrado.y ? "quieta" : "SE MUEVE"}${errores.length ? `  ERRORES: ${errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
+    );
+    if (!bien) fallos++;
+  }
+}
+
+// La comparativa, «¿Cuál usas ahora?» (la estructura 2 que eligió Munito, 15-nov): una pestaña
+// por herramienta y un solo panel a la vista, el suyo. A 1440, con el ratón por las diez y con
+// las flechas del teclado, sin crecer más que la tabla de antes (1998 px). A 390 y a 360, con
+// el dedo: la fila se desliza de lado sin mover la página ni sacar nada por el borde, y tocar
+// la última (después de deslizar) enseña la suya. Y a 390 sin JavaScript, que cambia igual.
+const ALTO_DE_ANTES = 1998;
+for (const ruta of ["", "en/"]) {
+  const visibles = (page) => page.evaluate(() =>
+    [...document.querySelectorAll(".frente")].filter((p) => getComputedStyle(p).display !== "none").map((p) => p.id.replace("frente-", "")));
+  const marcada = (page) => page.evaluate(() => document.querySelector(".rivales :checked")?.value);
+
+  // En el escritorio, con el ratón y el teclado.
+  {
+    const ctx = await navegador.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await ctx.newPage();
+    const errores = [];
+    page.on("pageerror", (e) => errores.push(String(e)));
+    await page.goto(url(ruta), { waitUntil: "load" });
+    // Las secciones llevan content-visibility: lejos de la pantalla no se pintan y no se ven.
+    await page.evaluate(() => { document.documentElement.style.scrollBehavior = "auto"; document.getElementById("comparativa").scrollIntoView(); });
+    await page.waitForTimeout(300);
+    const deSalida = { visibles: await visibles(page), medidas: await page.locator("#medidas").isVisible() };
+    const mal = [];
+    let alto = 0;
+    const ids = await page.evaluate(() => [...document.querySelectorAll(".rivales input")].map((i) => i.value));
+    for (const id of ids) {
+      await page.locator(`.rivales input[value="${id}"]`).click();
+      await page.waitForTimeout(80);
+      const v = await visibles(page);
+      const nombreBien = await page.evaluate((id) => {
+        const pestana = document.querySelector(`.rivales input[value="${id}"]`).closest(".pestana").textContent.trim();
+        const titulos = document.querySelectorAll(`#frente-${id} .frente-sub`);
+        return titulos.length === 2 && titulos[1].textContent.includes(pestana);
+      }, id);
+      alto = Math.max(alto, await page.evaluate(() => document.getElementById("comparativa").getBoundingClientRect().height));
+      if (v.length !== 1 || v[0] !== id || !nombreBien) mal.push(`${id} (se ve ${v.join("+") || "nada"}${nombreBien ? "" : ", sin su nombre"})`);
+    }
+    // Con el teclado: desde la primera, la flecha a la derecha pasa a la segunda y vuelve.
+    await page.locator('.rivales input[value="recortes"]').click();
+    await page.keyboard.press("ArrowRight");
+    const trasDerecha = [await marcada(page), (await visibles(page)).join("+")];
+    await page.keyboard.press("ArrowLeft");
+    const trasIzquierda = [await marcada(page), (await visibles(page)).join("+")];
+    await ctx.close();
+    const teclado = trasDerecha[0] === ids[1] && trasDerecha[1] === ids[1] && trasIzquierda[0] === ids[0] && trasIzquierda[1] === ids[0];
+    const bien = deSalida.visibles.join() === "recortes" && deSalida.medidas && !mal.length && teclado && alto <= ALTO_DE_ANTES && !errores.length;
+    console.log(
+      `${(ruta || "portada").padEnd(12)} la comparativa a 1440: ${deSalida.visibles.join() === "recortes" && deSalida.medidas ? "sale la de Recortes, con las cifras medidas" : `SALE ${deSalida.visibles.join("+") || "NADA"}`}` +
+        `; ${mal.length ? `MAL AL PULSAR: ${mal.join(" | ")}` : `las ${ids.length} pestañas enseñan solo la suya, con su nombre`}` +
+        `; con las flechas ${teclado ? "va y vuelve" : `NO (${trasDerecha.join(" ")}, ${trasIzquierda.join(" ")})`}` +
+        `; mide ${Math.round(alto)} px como mucho${alto <= ALTO_DE_ANTES ? "" : `, MÁS QUE LOS ${ALTO_DE_ANTES} DE ANTES`}${errores.length ? `  ERRORES: ${errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
+    );
+    if (!bien) fallos++;
+  }
+
+  // En el móvil, con el dedo (y a 390, además, sin JavaScript).
+  for (const [ancho, js] of [[390, true], [360, true], [390, false]]) {
+    const ctx = await navegador.newContext({ viewport: { width: ancho, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, javaScriptEnabled: js });
+    const page = await ctx.newPage();
+    const errores = [];
+    page.on("pageerror", (e) => errores.push(String(e)));
+    await page.goto(url(ruta), { waitUntil: "load" });
+    // La fila, a media pantalla, como la tendría quien está leyendo la sección.
+    await page.evaluate(() => {
+      document.documentElement.style.scrollBehavior = "auto";
+      const fila = document.querySelector(".rivales");
+      scrollTo(0, fila.getBoundingClientRect().top + scrollY - innerHeight / 2);
+    });
+    await page.waitForTimeout(500);
+    const medir = () => page.evaluate(() => {
+      const fila = document.querySelector(".rivales");
+      const f = fila.getBoundingClientRect();
+      const pestanas = [...fila.querySelectorAll(".pestana")].map((p) => p.getBoundingClientRect());
+      return {
+        y: scrollY, x: scrollX, izquierda: fila.scrollLeft, sobra: fila.scrollWidth - fila.clientWidth, fila: [f.left, f.right, f.top + f.height / 2],
+        bajito: Math.min(...pestanas.map((p) => p.height)),
+        ancho: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    const antes = await medir();
+    // Deslizar con el dedo: tocar en mitad de la fila, arrastrar a la izquierda y soltar. (El
+    // gesto de scroll de Chromium, `Input.synthesizeScrollGesture` con dedo, no mueve nada sin
+    // ventana; los toques sueltos sí, como un dedo de verdad.)
+    const cdp = js ? await ctx.newCDPSession(page) : null;
+    const deslizar = async () => {
+      const [izq, der, y] = (await medir()).fila;
+      const sesion = cdp || await ctx.newCDPSession(page);
+      const x0 = der - 50, recorrido = der - izq - 110, pasos = 12;
+      await sesion.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x0, y }] });
+      for (let i = 1; i <= pasos; i++) {
+        await sesion.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x0 - (recorrido * i) / pasos, y }] });
+        await page.waitForTimeout(16);
+      }
+      // El dedo se para antes de soltar: soltándolo en marcha la fila sigue corriendo por
+      // inercia un par de segundos, y el primer toque solo la frena (en un móvil, igual).
+      await page.waitForTimeout(150);
+      await sesion.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x0 - recorrido, y }] });
+      await page.waitForTimeout(50);
+      await sesion.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await page.waitForTimeout(400);
+    };
+    await deslizar();
+    const trasUno = await medir();
+    const sigue = await marcada(page); // arrastrar no elige ninguna
+    await deslizar();
+    await deslizar();
+    const alFinal = await medir();
+    // La última, con el dedo en sus coordenadas.
+    const ultima = await page.locator('.rivales input[value="snagit"]').evaluate((i) => {
+      const r = i.closest(".pestana").getBoundingClientRect();
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return [x, y, r.right, document.elementFromPoint(x, y) === i];
+    });
+    await page.touchscreen.tap(ultima[0], ultima[1]);
+    await page.waitForTimeout(700);
+    const v = await visibles(page);
+    const tras = await medir();
+    await ctx.close();
+    const desliza = antes.sobra > 0 && trasUno.izquierda > antes.izquierda + 40 && alFinal.izquierda >= alFinal.sobra - 2 && sigue === "recortes";
+    const quieta = trasUno.y === antes.y && tras.y === antes.y && tras.x === 0 && tras.ancho <= 0;
+    const bien = desliza && quieta && v.join() === "snagit" && antes.bajito >= 44 && ultima[2] <= ancho + 1 && !errores.length;
+    console.log(
+      `${(ruta || "portada").padEnd(12)} la comparativa a ${ancho}${js ? "" : " sin JavaScript"}: la fila ${desliza ? `se desliza con el dedo hasta el final (${Math.round(antes.sobra)} px de más) sin elegir ninguna` : `NO SE DESLIZA BIEN (${antes.izquierda} → ${trasUno.izquierda} → ${alFinal.izquierda} de ${antes.sobra}, marcada ${sigue})`}` +
+        `, la página ${quieta ? "quieta y sin salirse" : `SE MUEVE O SE SALE (y ${antes.y} → ${tras.y}, x ${tras.x}, ${tras.ancho} px de más)`}` +
+        `; tocar Snagit ${v.join() === "snagit" ? "enseña la suya" : `ENSEÑA ${v.join("+") || "NADA"}${ultima[3] ? "" : " (EL DEDO NO CAE EN ELLA)"}`}${ultima[2] <= ancho + 1 ? "" : " (CORTADA EN EL BORDE)"}` +
+        `; pestañas de ${antes.bajito >= 44 ? "44 px o más" : `${Math.round(antes.bajito)} PX`}${errores.length ? `  ERRORES: ${errores.join(" | ")}` : ""}${bien ? "" : "  MAL"}`,
     );
     if (!bien) fallos++;
   }
