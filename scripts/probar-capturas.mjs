@@ -15,14 +15,15 @@
  *  1. La miniatura: cada carta mide lo que dice `miniatura.rs` (la ventana no corta ni deja
  *     hueco), los botones salen al pasar el ratón, copiar pide su orden con su número, y
  *     arrastrar con el ratón de verdad pide a Rust el arrastre.
- *  2. El historial: la quinta pestaña, la rejilla con sus miniaturas y sus fechas, y las
+ *  2. El historial: su apartado del riel, la rejilla con sus miniaturas y sus fechas, y las
  *     acciones al pasar el ratón. Desde S26, la caja de buscar por el texto de las fotos: que
  *     quepa en la fila de los filtros, que pida a Rust lo escrito, lo que sale sin resultados
  *     y que Escape la borre. El texto de cada foto lo pone aquí `TEXTOS`, y el Rust de
  *     mentira busca sin tildes ni mayúsculas, como `historial_texto.rs`.
- *  3. «Después de capturar» en Capturar, y que la pestaña sigue cabiendo sin rueda en 840 x 760.
- *     Desde S24 la ventana mide lo justo de cada pestaña (613 en Capturar): eso lo comprueba
- *     `probar-medida-ajustes.mjs`.
+ *  3. «Después de capturar», que desde la 0.5 (S36) es su propio apartado: que cabe sin rueda en
+ *     900 x 760, que el color del fondo sale con fondo puesto, y que el dibujo de «Así va a
+ *     salir» pierde el fondo al quitarlo. La ventana mide lo justo de cada apartado: eso lo
+ *     comprueba `probar-medida-ajustes.mjs`.
  *
  * Lo que NO puede probar: soltar la miniatura en WhatsApp. Eso es el arrastre de Windows
  * (OLE) con un ratón de verdad sobre otra app, y solo lo puede mirar Munir.
@@ -296,7 +297,7 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
 // ── 2. El historial ────────────────────────────────────────────────────────────────
 for (const tema of ["oscuro", "claro"]) {
   console.log(`\nEl historial en la ventana de ajustes, tema ${tema}`);
-  const pagina = await navegador.newPage({ viewport: { width: 840, height: 760 } });
+  const pagina = await navegador.newPage({ viewport: { width: 900, height: 760 } });
   pagina.on("pageerror", (e) => fallos.push(`error en la página: ${e.message}`));
   await pagina.addInitScript((t) => localStorage.setItem("winshotx.tema", t), tema);
   await pagina.goto(`${base}/index.html`);
@@ -408,7 +409,7 @@ for (const tema of ["oscuro", "claro"]) {
 // fila de los filtros y que lo de sin resultados salga traducido.
 for (const idioma of ["en", "zh"]) {
   console.log(`\nLa caja de buscar del historial, en ${idioma}`);
-  const pagina = await navegador.newPage({ viewport: { width: 840, height: 760 } });
+  const pagina = await navegador.newPage({ viewport: { width: 900, height: 760 } });
   pagina.on("pageerror", (e) => fallos.push(`error en la página: ${e.message}`));
   await pagina.addInitScript((i) => localStorage.setItem("winshotx.idioma", i), idioma);
   await pagina.goto(`${base}/index.html`);
@@ -428,27 +429,31 @@ for (const idioma of ["en", "zh"]) {
   await pagina.close();
 }
 
-// ── 3. «Después de capturar», en Capturar ──────────────────────────────────────────
+// ── 3. «Después de capturar», su apartado ──────────────────────────────────────────
 // En los dos idiomas: las frases inglesas miden distinto, y lo que cabe en uno puede pedir
 // rueda en el otro.
 for (const idioma of ["es", "en"]) {
-  console.log(`\nDespués de capturar, en la pestaña de Capturar, en ${idioma}`);
-  const pagina = await navegador.newPage({ viewport: { width: 840, height: 760 } });
+  console.log(`
+Después de capturar, en su apartado, en ${idioma}`);
+  const pagina = await navegador.newPage({ viewport: { width: 900, height: 760 } });
   pagina.on("pageerror", (e) => fallos.push(`error en la página: ${e.message}`));
   await pagina.addInitScript((i) => localStorage.setItem("winshotx.idioma", i), idioma);
   await pagina.goto(`${base}/index.html`);
+  await pagina.locator('[data-riel] [data-vista="despues"]').click();
   await pagina.locator("[data-tour='despues-de-capturar']").waitFor();
   await pagina.waitForTimeout(150);
-  const seccion = pagina.locator("[data-tour='despues-de-capturar']");
-  const caja = await seccion.boundingBox();
-  const atajo = await pagina.locator("[data-tour='al-pulsar']").boundingBox();
-  comprueba(Math.abs(caja.x - atajo.x) < 1 && caja.y > atajo.y, "la miniatura va debajo de «Al pulsar el atajo», en la misma columna");
+  const miniatura = await pagina.locator('[data-fila="desMiniatura"]').count();
+  comprueba(miniatura === 1, "la miniatura de la esquina tiene su fila en «Después de capturar»");
   const rueda = await pagina.evaluate(() => {
     const el = document.querySelector("[data-scroll-ajustes]");
     return el.scrollHeight - el.clientHeight;
   });
-  comprueba(rueda <= 0, `con el fondo puesto, la pestaña cabe sin rueda en 840 x 760 (${rueda} px de más)`);
-  comprueba(await pagina.getByRole("radiogroup").isVisible(), "con fondo puesto sale la fila del color");
+  comprueba(rueda <= 0, `con el fondo puesto, el apartado cabe sin rueda en 900 x 760 (${rueda} px de más)`);
+  // Por su nombre: el marco y el color son dos grupos de opciones, y solo el color va en muestras.
+  const color = pagina.getByRole("radiogroup", { name: idioma === "es" ? "Color del fondo" : "Background color" });
+  comprueba(await color.isVisible(), "con fondo puesto sale la fila del color");
+  const conFondo = await pagina.locator('[data-dibujo-de] [data-dibujo="fondo"]').count();
+  comprueba(conFondo === 1, "y el dibujo de «Así va a salir» enseña la foto sobre su fondo");
   await foto(pagina, `6-despues-de-capturar-${idioma}.png`);
   if (idioma !== "es") {
     await pagina.close();
@@ -457,6 +462,9 @@ for (const idioma of ["es", "en"]) {
   await pagina.getByRole("button", { name: "Sin fondo" }).click();
   const guardado = await pagina.evaluate(() => window.__llamadas.findLast((l) => l.cmd === "set_settings")?.args);
   comprueba(guardado?.settings?.marcoCapturas?.aire === 0, `«Sin fondo» guarda el aire a 0: ${JSON.stringify(guardado?.settings?.marcoCapturas)}`);
+  await pagina.waitForTimeout(150);
+  const sinFondo = await pagina.locator('[data-dibujo-de] [data-dibujo="fondo"]').count();
+  comprueba(sinFondo === 0, "y al quitarlo, el dibujo lo pierde también");
   await pagina.close();
 }
 

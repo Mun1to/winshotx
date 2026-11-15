@@ -102,9 +102,19 @@ export function encajar(s: Sitio): Encaje {
 export function useVentanaALaMedida(
   hueco: RefObject<HTMLElement | null>,
   contenido: RefObject<HTMLElement | null>,
-  opciones: { listo: boolean; maximo?: number; otraVez?: unknown },
+  opciones: {
+    listo: boolean;
+    maximo?: number;
+    otraVez?: unknown;
+    /**
+     * El ancho que pide la página al abrirse, en px lógicos, si la ventana es más estrecha.
+     * Solo la primera vez: después manda quien la estira a mano. Los ajustes de la 0.5 piden
+     * 900 porque la bienvenida, que vive en la misma ventana, la deja en 840.
+     */
+    anchoMinimo?: number;
+  },
 ) {
-  const { listo, maximo, otraVez } = opciones;
+  const { listo, maximo, otraVez, anchoMinimo } = opciones;
   const primera = useRef(true);
   // Una sola a la vez: dos ajustes cruzados (el del cambio de pestaña y el del contenido que
   // termina de pintarse) podían acabar con el alto del primero puesto encima del segundo.
@@ -153,12 +163,17 @@ export function useVentanaALaMedida(
             : null,
           conservarCentro: primera.current,
         });
+        // El ancho, solo al abrir y solo si se queda corta: se ensancha por igual a los dos
+        // lados, para que siga donde estaba.
+        const ancho =
+          primera.current && anchoMinimo ? Math.max(dentro.width, Math.ceil(anchoMinimo * escala)) : dentro.width;
+        const x = posicion.x - Math.round((ancho - dentro.width) / 2);
         primera.current = false;
-        if (encaje.alto !== dentro.height) {
-          await ventana.setSize(new PhysicalSize(dentro.width, encaje.alto));
+        if (encaje.alto !== dentro.height || ancho !== dentro.width) {
+          await ventana.setSize(new PhysicalSize(ancho, encaje.alto));
         }
-        if (encaje.y !== null) {
-          await ventana.setPosition(new PhysicalPosition(posicion.x, encaje.y));
+        if (encaje.y !== null || x !== posicion.x) {
+          await ventana.setPosition(new PhysicalPosition(x, encaje.y ?? posicion.y));
         }
       } while (pendiente.current);
     } catch {

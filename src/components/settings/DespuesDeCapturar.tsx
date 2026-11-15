@@ -2,12 +2,12 @@ import { PanelBottomOpen } from "lucide-react";
 import { useT } from "../../lib/i18n";
 import type { Settings } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
-import { Row, Section } from "./Section";
+import { Row } from "./Section";
 
 /**
  * Lo que pasa con una foto después de capturarla (S4 del plan de CleanShot X): la miniatura
- * de la esquina (E2) en su bloque, y el fondo para todas las capturas (E1) como fila de
- * «La captura».
+ * de la esquina (E2) y el fondo para todas las capturas (E1). Desde la 0.5 son dos filas del
+ * apartado «Después de capturar».
  *
  * Los valores por defecto son los de Rust (`settings.rs`): miniatura a los 10 segundos y
  * sin fondo. Aquí se repiten para unos ajustes viejos que no los traen.
@@ -40,31 +40,28 @@ export function ajustesDeDuracion(d: Duracion): Partial<Settings> {
   return { miniatura: true, miniaturaSegundos: d === "siempre" ? 0 : Number(d) };
 }
 
-export function DespuesDeCapturar({ settings, patch }: Props) {
+export function FilaMiniatura({ settings, patch }: Props) {
   const t = useT();
   const duracion = duracionDe(settings);
 
   return (
-    <Section title={t("Después de capturar")} tour="despues-de-capturar">
-      <Row
-        icon={<PanelBottomOpen className="size-4" />}
-        label={t("Miniatura en la esquina")}
-        explicacion={t(
-          "Después de copiar o guardar una foto sale abajo a la derecha. Arrástrala a un chat, a un correo o a una carpeta y llega como archivo; al pasar el ratón la copias, la guardas, la editas o la anclas. Se va sola, salvo mientras tienes el ratón encima.",
-        )}
-        // Sin línea de ayuda debajo: con ella la pestaña de Capturar dejaba de caber sin
-        // rueda. Lo que hace va en la explicación del icono.
-        stacked
-        control={
-          <Segmented
-            value={duracion}
-            options={DURACIONES.map((o) => ({ ...o, label: t(o.label) }))}
-            onChange={(d) => patch(ajustesDeDuracion(d))}
-            etiqueta={t("Miniatura en la esquina")}
-          />
-        }
-      />
-    </Section>
+    <Row
+      id="desMiniatura"
+      icon={<PanelBottomOpen className="size-4" />}
+      label={t("Miniatura en la esquina")}
+      explicacion={t(
+        "Después de copiar o guardar una foto sale abajo a la derecha. Arrástrala a un chat, a un correo o a una carpeta y llega como archivo; al pasar el ratón la copias, la guardas, la editas o la anclas. Se va sola, salvo mientras tienes el ratón encima.",
+      )}
+      stacked
+      control={
+        <Segmented
+          value={duracion}
+          options={DURACIONES.map((o) => ({ ...o, label: t(o.label) }))}
+          onChange={(d) => patch(ajustesDeDuracion(d))}
+          etiqueta={t("Miniatura en la esquina")}
+        />
+      }
+    />
   );
 }
 
