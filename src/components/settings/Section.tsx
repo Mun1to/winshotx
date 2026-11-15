@@ -111,7 +111,9 @@ export function Row({
           idioma no cabe, baja de línea antes que perder letras. */}
       <span className="min-w-0">
         <span className="block text-pretty text-[15px] font-medium text-titulo">{label}</span>
-        {hint && <span className={`block text-pretty text-[13px] ${TONO[tone]}`}>{hint}</span>}
+        {/* Un dato largo sin espacios (la ruta de la carpeta) se parte donde haga falta antes
+            que salirse de la fila por la derecha. */}
+        {hint && <span className={`block text-pretty text-[13px] [overflow-wrap:anywhere] ${TONO[tone]}`}>{hint}</span>}
       </span>
     </span>
   );
