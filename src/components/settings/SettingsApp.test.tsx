@@ -9,7 +9,7 @@
  * espannol igual, porque el componente la escribio a pelo sin pasarla por `t()`. Ha pasado.
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { llamadas, responde, ventana } from "../../test/preparar";
@@ -221,10 +221,20 @@ describe("la cabecera", () => {
     expect(screen.queryByText("Guardado")).toBeNull();
   });
 
-  it("ya no hay barra de abajo ni logo de fondo", async () => {
+  it("la barra de abajo vuelve (S40) con el café, que abre buymeacoffee y nada más", async () => {
     await abrirAjustes();
-    expect(screen.queryByRole("contentinfo")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Apoyar" })).toBeNull();
+    const barra = screen.getByRole("contentinfo");
+    expect(barra).toHaveAttribute("data-barra-abajo");
+    // Uno solo en toda la ventana: el de Ayuda se llama «Invitar» y vive en su fila.
+    const apoyar = screen.getByRole("button", { name: "Apoyar" });
+    expect(barra).toContainElement(apoyar);
+    expect(apoyar).toHaveAttribute("title", "buymeacoffee.com/munito");
+    const antes = llamadas.filter((l) => l.comando === "open_url").length;
+    fireEvent.click(apoyar);
+    await waitFor(() => expect(llamadas.filter((l) => l.comando === "open_url").length).toBe(antes + 1));
+    expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
+      url: "https://buymeacoffee.com/munito",
+    });
   });
 });
 
@@ -339,8 +349,10 @@ describe("lo que ensenna de la maquina", () => {
     // «todo va bien» que no pide nada.
     await waitFor(() => expect(llamadas.some((l) => l.comando === "is_store_build")).toBe(true));
     expect(screen.queryByText("estás en la última versión")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Buscar actualizaciones" }));
-    await waitFor(() => expect(screen.getByText("estás en la última versión")).toBeInTheDocument());
+    // El de la fila (la barra de abajo lleva otro, que tiene su propia prueba).
+    const fila = document.querySelector<HTMLElement>('[data-fila="appVersion"]')!;
+    fireEvent.click(within(fila).getByRole("button", { name: "Buscar actualizaciones" }));
+    await waitFor(() => expect(within(fila).getByText("estás en la última versión")).toBeInTheDocument());
   });
 });
 
@@ -791,69 +803,85 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
 });
 
 /**
- * S24: la ventana mide lo que mide su apartado. Aquí no hay maquetación (happy-dom no mide
- * nada), así que se le dice cuánto mide cada apartado y se mira qué pide la ventana. Lo de
- * medir de verdad se comprueba en Edge sin ventana (`scripts/probar-medida-ajustes.mjs`).
+ * S40: vuelve la barra de abajo, la de lo que se toca a menudo, a mano desde cualquier
+ * apartado. Que quepa y que se lea se mide en Edge (`scripts/probar-medida-ajustes.mjs`).
  */
-describe("la ventana a la medida de su apartado", () => {
-  /** Lo que mide cada apartado por dentro, sin la cabecera. */
-  const MIDE: Record<string, number> = { capturar: 521, grabar: 650, teclas: 416 };
-  /** La cabecera, lo único que va fuera del hueco con rueda desde que no hay barra de abajo. */
-  const FUERA = 58;
-  afterEach(() => vi.restoreAllMocks());
+describe("la barra de abajo", () => {
+  const barra = () => document.querySelector<HTMLElement>("[data-barra-abajo]")!;
+  const guardado = () =>
+    (llamadas.filter((l) => l.comando === "set_settings").at(-1)?.args as { settings: Settings } | undefined)?.settings;
 
-  function medirComoEdge() {
-    const real = Element.prototype.getBoundingClientRect;
-    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-      if (!this.hasAttribute("data-contenido-ajustes")) return real.call(this);
-      const alto = MIDE[this.getAttribute("data-apartado") ?? ""] ?? MIDE.capturar;
-      return { x: 0, y: FUERA, top: FUERA, left: 0, right: 836, bottom: FUERA + alto, width: 836, height: alto, toJSON: () => ({}) } as DOMRect;
-    });
-    vi.spyOn(document.documentElement, "clientHeight", "get").mockImplementation(() => ventana.dentro.height);
-    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
-      return this.hasAttribute("data-scroll-ajustes") ? ventana.dentro.height - FUERA : 0;
-    });
-  }
-
-  it("abre con el alto de Capturar y con los 900 de ancho del diseño nuevo", async () => {
-    medirComoEdge();
+  it("sale en todos los apartados, con el tema, el idioma, al soltar, el tour, buscar versión nueva y el café", async () => {
     await abrirAjustes();
-    // La bienvenida deja la ventana en 840: los ajustes piden 900 al abrirse.
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: FUERA + MIDE.capturar }));
-    // Y se ensancha por igual a los dos lados: 30 px a la izquierda.
-    expect(ventana.posiciones.at(-1)?.x).toBe(70);
+    for (const nombre of ["Capturar", "Historial", "Ayuda y winshotx"]) {
+      ir(nombre);
+      const b = within(barra());
+      expect(b.getByRole("group", { name: "Tema" })).toBeInTheDocument();
+      expect(b.getByRole("group", { name: "Idioma" })).toBeInTheDocument();
+      expect(b.getByRole("group", { name: "Al soltar el ratón" })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: /Tour/ })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: /Buscar actualizaciones/ })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: "Apoyar" })).toBeInTheDocument();
+    }
   });
 
-  it("crece para Grabar y encoge para Teclas, sin mover el borde de arriba ni el ancho", async () => {
-    medirComoEdge();
+  it("cambia el tema, el idioma y lo que pasa al soltar, y lo guarda", async () => {
     await abrirAjustes();
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(FUERA + MIDE.capturar));
-    const posiciones = ventana.posiciones.length;
-    ir("Grabar");
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: FUERA + MIDE.grabar }));
-    ir("Teclas de Windows");
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 900, height: FUERA + MIDE.teclas }));
-    // La primera vez se recentra; después los iconos se quedan debajo del ratón.
-    expect(ventana.posiciones.length).toBe(posiciones);
+    const b = within(barra());
+    fireEvent.click(b.getByRole("button", { name: "Oscuro" }));
+    await waitFor(() => expect(guardado()?.theme).toBe("oscuro"));
+    fireEvent.click(b.getByRole("button", { name: "Copia" }));
+    await waitFor(() => expect(guardado()?.captureFlow).toBe("instant"));
+    // Cada idioma con su nombre en ese idioma; el que se está viendo, marcado.
+    expect(b.getByRole("button", { name: "Español" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(b.getByRole("button", { name: "English" }));
+    await waitFor(() => expect(guardado()?.language).toBe("en"));
+    expect(within(barra()).getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("si la estiran a mano más estrecha, no se la vuelve a ensanchar", async () => {
-    medirComoEdge();
+  it("el tour se abre desde ella", async () => {
     await abrirAjustes();
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.width).toBe(900));
-    ventana.dentro = { ...ventana.dentro, width: 800 };
-    ir("Grabar");
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 800, height: FUERA + MIDE.grabar }));
+    fireEvent.click(within(barra()).getByRole("button", { name: /Tour/ }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
   });
 
-  it("en una pantalla baja se queda dentro de la zona útil", async () => {
-    medirComoEdge();
-    ventana.escala = 1.25;
+  it("al buscar versión nueva, contesta; sin preguntar, no dice nada", async () => {
     await abrirAjustes();
-    ir("Grabar");
-    // La pantalla de prueba tiene 1032 de zona útil y 40 de marco: a 125 %, 708 lógicos son
-    // 885 físicos, que caben. Lo que no cabe lo prueba `ventanaALaMedida.test.ts`.
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(Math.ceil((FUERA + MIDE.grabar) * 1.25)));
+    // La ventana mira sola al abrirse: estando al día, la barra no lo cuenta.
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "is_store_build")).toBe(true));
+    expect(within(barra()).queryByText("Ya tienes la última")).not.toBeInTheDocument();
+    fireEvent.click(within(barra()).getByRole("button", { name: /Buscar actualizaciones/ }));
+    await waitFor(() => expect(within(barra()).getByText("Ya tienes la última")).toBeInTheDocument());
+  });
+});
+
+/**
+ * S40: la ventana mide siempre lo mismo. La pone a su tamaño `App.tsx` al abrir
+ * (`ventanaFija.test.ts`); los ajustes no la tocan nunca, ni al cambiar de apartado ni con el
+ * historial lleno, y lo que no cabe baja con la rueda dentro (`scripts/probar-medida-ajustes.mjs`
+ * lo mide en Edge sin ventana).
+ */
+describe("la ventana con su tamaño fijo", () => {
+  it("pasar por los ocho apartados, ida y vuelta, no le cambia el tamaño ni la mueve", async () => {
+    await abrirAjustes();
+    for (const nombre of [
+      "Capturar",
+      "Después de capturar",
+      "Grabar",
+      "Los últimos segundos",
+      "Historial",
+      "Teclas de Windows",
+      "La app",
+      "Ayuda y winshotx",
+      "Grabar",
+      "Capturar",
+    ]) {
+      ir(nombre);
+      await waitFor(() => expect(within(riel()).getByRole("button", { name: nombre })).toHaveAttribute("aria-current", "page"));
+    }
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ventana.tamannos).toEqual([]);
+    expect(ventana.posiciones).toEqual([]);
   });
 });
 

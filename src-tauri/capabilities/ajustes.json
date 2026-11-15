@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "ajustes",
-  "description": "La ventana de ajustes mide lo que mide su pestaña: cambiar su tamaño y, si se saldría de la pantalla, subirla.",
+  "description": "La ventana de ajustes se pone al abrir a su tamaño fijo (o al que le dio quien la usa) dentro de la zona útil de su pantalla: cambiar su tamaño y su sitio.",
   "windows": ["main"],
   "permissions": ["core:window:allow-set-size", "core:window:allow-set-position"]
 }

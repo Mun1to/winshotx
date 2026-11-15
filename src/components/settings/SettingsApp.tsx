@@ -31,7 +31,7 @@ import {
   type Settings,
   type ShortcutStatus,
 } from "../../lib/types";
-import { useVentanaALaMedida } from "../../lib/ventanaALaMedida";
+import { useSobra } from "../../lib/ventanaFija";
 import { AvisoActualizacion, useActualizacion } from "./Actualizacion";
 import {
   ApartadoApp,
@@ -48,21 +48,9 @@ import { Cabecera } from "./Cabecera";
 import { GuidedTour } from "./GuidedTour";
 import { Paleta } from "./Paleta";
 import { FilaEncendida } from "./Section";
-import { ALTO_RIEL, Riel } from "./Riel";
+import { BarraRapida } from "./BarraRapida";
+import { Riel } from "./Riel";
 import { VistaPrevia } from "./VistaPrevia";
-
-/**
- * Lo más que crece la ventana en el historial, en px lógicos: lo que medía de alto cuando
- * todas las pestañas abrían igual (840 x 760). Con más fotos, baja con la rueda.
- */
-const ALTO_HISTORIAL = 760;
-
-/**
- * El ancho de la ventana de ajustes desde la 0.5: el riel de 64, las filas y el dibujo de
- * 290 a la derecha. Es también el de `tauri.conf.json`; aquí se pide al abrir porque la
- * bienvenida, que vive en la misma ventana, la deja en 840.
- */
-export const ANCHO_AJUSTES = 900;
 
 /** La inyecta Vite desde package.json: escribirla a mano acababa en cuatro copias. */
 const VERSION = __VERSION__;
@@ -351,21 +339,12 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
       .catch((e) => setError(String(e)));
   }, []);
 
-  // S24: la ventana mide lo que mide el apartado que enseña (ver `ventanaALaMedida.ts`). El
-  // historial es lo único que no se ajusta del todo: con un año de capturas sería una ventana
-  // de la altura de la pantalla, así que se queda en lo que medían antes los ajustes y baja
-  // con la rueda, que en una galería de fotos es lo normal.
+  // S40: la ventana mide siempre lo mismo (`ventanaFija.ts`, desde `App.tsx`) y lo que no
+  // cabe en ella (el historial lleno, una pantalla baja) baja con la rueda en este hueco, con
+  // la cabecera y el riel quietos.
   const hueco = useRef<HTMLDivElement>(null);
   const contenido = useRef<HTMLDivElement>(null);
-  const { sobra } = useVentanaALaMedida(hueco, contenido, {
-    listo: settings !== null,
-    maximo: seccion === "historial" ? ALTO_HISTORIAL : undefined,
-    anchoMinimo: ANCHO_AJUSTES,
-    // El cambio de apartado ya lo ve el ResizeObserver, pero ese solo avisa al pintar: se
-    // pide también aquí para no depender de él. Y el aviso de error va fuera del hueco, así
-    // que tampoco lo vería.
-    otraVez: `${seccion}|${error ?? ""}`,
-  });
+  const sobra = useSobra(hueco, contenido, settings !== null);
 
   // Al cambiar de apartado se empieza por arriba: el hueco con rueda es el mismo para todos,
   // y sin esto el historial abría a media galería si se había bajado en otro apartado.
@@ -439,15 +418,15 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
 
         <div className="relative min-w-0 flex-1">
           <div ref={hueco} className="h-full overflow-y-auto" data-scroll-ajustes>
-            {/* Los márgenes van en este envoltorio y no en el hueco: lo que mide él es lo que
-                pide la ventana (S24). Y nunca menos que el riel, o se cortaría su último icono. */}
-            <div ref={contenido} data-contenido-ajustes data-apartado={seccion} style={{ minHeight: ALTO_RIEL }}>
+            {/* Al menos el alto del hueco: así, en un apartado corto, el dibujo de la derecha
+                llega hasta abajo y no queda una franja vacía debajo de todo (S40). */}
+            <div ref={contenido} data-contenido-ajustes data-apartado={seccion} className="flex min-h-full flex-col">
               {seccion === "historial" ? (
-                <div className="px-5 py-5">
+                <div className="flex-1 px-5 py-5">
                   <Historial carpeta={settings.saveDirectory} />
                 </div>
               ) : (
-                <div className="flex gap-7 px-6 pb-7 pt-6">
+                <div className="flex flex-1 gap-7 px-6 pb-7 pt-6">
                   <main className="min-w-0 flex-1">
                     <div className="mb-4">
                       <h1 className="text-[22px] font-bold leading-tight text-titulo">{t(actual.nombre)}</h1>
@@ -458,8 +437,10 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     </FilaEncendida.Provider>
                   </main>
                   {actual.dibujo && (
-                    // A toda la altura de la columna: el panel se estira con ella y el dibujo
-                    // va centrado dentro, para que no quede un hueco debajo.
+                    // De arriba abajo, también en un apartado corto: la ventana mide siempre
+                    // lo mismo (S40) y así no queda una franja vacía debajo de todo. Lo de
+                    // dentro va centrado (con el nombre arriba y el dibujo en medio quedaba un
+                    // hueco entre los dos, mirado en foto).
                     <aside
                       data-tour="dibujo"
                       data-dibujo-de={seccion}
@@ -503,6 +484,14 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
           {error}
         </p>
       )}
+
+      {/* Lo que se toca a menudo, a mano desde cualquier apartado (vuelve en S40). */}
+      <BarraRapida
+        settings={settings}
+        patch={patch}
+        onTour={() => setTour(true)}
+        actualizacion={{ fase: actualizacion.fase, mirar: () => void actualizacion.mirar(true) }}
+      />
     </div>
   );
 }

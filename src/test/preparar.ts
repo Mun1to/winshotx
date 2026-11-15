@@ -92,17 +92,26 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 /**
- * La ventana de mentira, con su tamaño. Desde S24 la de ajustes se mide y pide su alto:
- * `ventana.tamannos` apunta cada `setSize` (en físicos) para comprobar lo que pidió.
+ * La ventana de mentira, con su tamaño. Desde S40 la de ajustes se pone a su tamaño fijo al
+ * abrir: `ventana.tamannos` apunta cada `setSize` (en físicos) para comprobar lo que pidió, y
+ * `estirar` hace lo que haría quien la estira a mano (el aviso de tamaño nuevo de Windows).
  */
 export const ventana = {
-  dentro: { width: 840, height: 760 },
+  dentro: { width: 900, height: 723 },
   marco: 40,
   y: 100,
   escala: 1,
+  maximizada: false,
   tamannos: [] as { width: number; height: number }[],
   posiciones: [] as { x: number; y: number }[],
+  oyentesTamanno: [] as ((e: { payload: { width: number; height: number } }) => void)[],
 };
+
+/** Como si alguien estirara la ventana a mano hasta `width` x `height` físicos. */
+export function estirar(width: number, height: number) {
+  ventana.dentro = { width, height };
+  for (const oyente of ventana.oyentesTamanno) oyente({ payload: { width, height } });
+}
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -125,6 +134,13 @@ vi.mock("@tauri-apps/api/window", () => ({
       ventana.posiciones.push({ x: sitio.x, y: sitio.y });
       ventana.y = sitio.y;
       return Promise.resolve();
+    },
+    isMaximized: () => Promise.resolve(ventana.maximizada),
+    onResized: (oyente: (e: { payload: { width: number; height: number } }) => void) => {
+      ventana.oyentesTamanno.push(oyente);
+      return Promise.resolve(() => {
+        ventana.oyentesTamanno = ventana.oyentesTamanno.filter((cual) => cual !== oyente);
+      });
     },
     label: "prueba",
   }),
@@ -167,11 +183,13 @@ afterEach(() => {
   llamadas.length = 0;
   localStorage.clear();
   Object.assign(ventana, {
-    dentro: { width: 840, height: 760 },
+    dentro: { width: 900, height: 723 },
     marco: 40,
     y: 100,
     escala: 1,
+    maximizada: false,
     tamannos: [],
     posiciones: [],
+    oyentesTamanno: [],
   });
 });

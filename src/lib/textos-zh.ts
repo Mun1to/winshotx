@@ -808,4 +808,11 @@ export const ZH: Record<string, string> = {
   "Sonido del PC": "电脑声音",
   "Redondeado": "圆角",
   "Tu micrófono": "你的麦克风",
+  // S40 (la barra de abajo vuelve)
+  "Barra": "工具栏",
+  "Copia": "复制",
+  "Tour": "导览",
+  "Buscando…": "正在检查…",
+  "Ya tienes la última": "已是最新版本",
+  "Apoyar": "支持",
 };

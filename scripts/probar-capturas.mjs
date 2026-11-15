@@ -325,8 +325,8 @@ for (const tema of ["oscuro", "claro"]) {
     enLaFila.caja[1] <= enLaFila.pestana[1] + 1 && enLaFila.caja[0] === enLaFila.carpeta[0] && enLaFila.caja[2] >= 240,
     `la caja va en la fila de los filtros, junto a «Abrir la carpeta», y mide ${Math.round(enLaFila.caja[2])} px`,
   );
-  // La ventana mide lo que mide su pestaña (S24): buscando, la pestaña no encoge, o la
-  // ventana daría saltos con cada palabra.
+  // Buscando, la pestaña no encoge (S24, cuando la ventana medía lo que su pestaña; desde S40
+  // la ventana es fija y así la rueda no aparece y desaparece con cada letra).
   const altoDeLaPestana = () =>
     pagina.evaluate(() => Math.round(document.querySelector("[data-contenido-ajustes]").getBoundingClientRect().height));
   const altoSinBuscar = await altoDeLaPestana();

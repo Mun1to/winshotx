@@ -808,4 +808,11 @@ export const EN: Record<string, string> = {
   "Sonido del PC": "PC sound",
   "Redondeado": "Rounded",
   "Tu micrófono": "Your microphone",
+  // S40 (la barra de abajo vuelve)
+  "Barra": "Bar",
+  "Copia": "Copy",
+  "Tour": "Tour",
+  "Buscando…": "Checking…",
+  "Ya tienes la última": "You have the latest",
+  "Apoyar": "Support",
 };

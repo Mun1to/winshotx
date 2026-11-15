@@ -10,21 +10,19 @@ interface GrupoProps {
 }
 
 /**
- * Un grupo de ajustes: el título suelto y las filas con una línea fina entre una y otra.
+ * Un grupo de ajustes: el título suelto y las filas sueltas debajo.
  *
  * Sin tarjeta desde la 0.5 (S36, la variación 9 que eligió Munito): con cuatro tarjetas
  * por pestaña la pantalla se leía como cajas dentro de la ventana, que es lo que no quiere
- * («nada de cárceles»). Ahora es como una lista de la web: el título en la letra de los
- * titulares y las filas sueltas.
+ * («nada de cárceles»). Y sin raya entre fila y fila desde S40: con la 0.5.0 delante, «no me
+ * gusta el diseño de los separadores de las opciones». Las filas se separan con aire, los
+ * grupos con su título, y la fila que está bajo el ratón se ilumina con un fondo suave.
  */
 export function Grupo({ title, children, tour }: GrupoProps) {
   return (
-    <section data-tour={tour} className="mb-7 last:mb-0">
-      {title && <h2 className="mb-1 text-[15px] font-bold text-titulo">{title}</h2>}
-      {/* La linea va entre filas y nunca encima de la primera. Se pone sobre los hijos
-          directos y no sobre `.fila + .fila`: alguna fila llega envuelta en su propio
-          contenedor, y una regla de hermanos adyacentes se saltaba justo esas. */}
-      <div className="border-y border-linea [&>*+*]:border-t [&>*+*]:border-linea">{children}</div>
+    <section data-tour={tour} className="mb-6 last:mb-0">
+      {title && <h2 className="mb-1.5 text-[15px] font-bold text-titulo">{title}</h2>}
+      <div>{children}</div>
     </section>
   );
 }
@@ -118,12 +116,12 @@ export function Row({
     </span>
   );
 
-  // Encendida, la fila gana el aire de dentro que pierde por fuera: el texto no se mueve
-  // y el aro no pisa la letra.
-  const luz = luce
-    ? "-mx-2 rounded-lg bg-marca/10 px-3 ring-1 ring-marca/50"
-    : "px-1";
-  const comun = `transition-[background-color,box-shadow] duration-300 ${luz}`;
+  // La fila lleva siempre el aire de dentro que pierde por fuera (-mx-2 px-3): así el fondo
+  // suave al pasar el ratón y el aro del buscador no pisan la letra, y el texto no se mueve.
+  // Al pasar el ratón, un fondo suave en vez de la raya de antes (S40): dice qué fila es la
+  // que se está mirando sin cajas quietas.
+  const luz = luce ? "bg-marca/10 ring-1 ring-marca/50" : "hover:bg-realce/60";
+  const comun = `-mx-2 rounded-lg px-3 transition-[background-color,box-shadow] duration-200 ${luz}`;
 
   if (stacked) {
     return (
@@ -135,7 +133,10 @@ export function Row({
   }
 
   return (
-    <div ref={yo} data-fila={id} className={`flex items-center justify-between gap-4 py-3 ${comun}`}>
+    // Todas al mismo alto (52), tengan un interruptor, un atajo o unas pestañas: sin la raya de
+    // entre filas (S40), lo que marca el ritmo es la distancia, y con alturas distintas (47 las
+    // del interruptor, 60 las del atajo) la lista se leía torcida.
+    <div ref={yo} data-fila={id} className={`flex min-h-[52px] items-center justify-between gap-4 py-2 ${comun}`}>
       {texto}
       {control !== null && <span className="shrink-0">{control}</span>}
     </div>

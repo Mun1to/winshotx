@@ -51,21 +51,20 @@ const bandera = (nombre, pordefecto) => {
 
 const salida = resolve(args.find((a) => !a.startsWith("--")) ?? "ventana.png");
 const bienvenida = args.includes("--bienvenida");
-// Los ajustes miden 900 de ancho desde la 0.5 (S36: el riel, las filas y el dibujo); la
-// bienvenida sigue en 840, que es lo que se pide ella al abrirse.
-const ancho = bandera("ancho", bienvenida ? "840" : "900");
-// El alto de la foto. Desde S24 (14-nov-2026) los ajustes miden lo que mide su pestaña, así
-// que sin --alto el banco hace lo que la app: una primera pasada sin foto en la que la
-// página pide su alto (`setSize`, que aquí se apunta), y la foto a ese alto. Con --alto=N se
-// fuerza, por ejemplo para ver una ventana que alguien ha encogido a mano.
+// La ventana principal (ajustes y bienvenida) mide 900 x 723 por dentro desde S40
+// (15-nov-2026), siempre, salvo que alguien la estire: son `ANCHO_VENTANA` y `ALTO_VENTANA` de
+// `src/lib/ventanaFija.ts`, y los de `tauri.conf.json`.
+const ancho = bandera("ancho", "900");
+// El alto de la foto. Sin --alto el banco hace lo que la app: una primera pasada sin foto en
+// la que la página se pone a su tamaño (`setSize`, que aquí se apunta; en una pantalla baja,
+// --zona, se encoge a la zona útil), y la foto a ese alto. Con --alto=N se fuerza, por ejemplo
+// para ver una ventana que alguien ha estirado o encogido a mano.
 //
-// La bienvenida también, desde S38 (15-nov-2026): cada paso pide su alto, y su foto sale a
-// ese alto. Las demás ventanas no piden nada: van a 760 si no se dice otra cosa. Estuvo en
-// 640 mientras la ventana medía 510, así que las fotos enseñaban 130 px de más y una sección
-// que se salía por abajo parecía caber: el alto de la foto tiene que ser el de la ventana
-// de verdad. (Para la bienvenida, 640 es solo el alto con el que arranca la primera pasada.)
+// El alto de la foto tiene que ser el de la ventana de verdad: estuvo en 640 mientras la
+// ventana medía 510, y una sección que se salía por abajo parecía caber. Las demás ventanas
+// no piden nada y van a 760 si no se dice otra cosa.
 const altoForzado = bandera("alto", null);
-const alto = altoForzado ?? (bienvenida ? "640" : "760");
+const alto = altoForzado ?? "760";
 // El alto útil de la pantalla de mentira, en px lógicos (sin la barra de tareas): para ver
 // qué pasa en una pantalla baja, como un portátil de 768 al 125 % (--zona=566 --escala=1.25).
 const zona = Number(bandera("zona", "1032"));
@@ -135,6 +134,12 @@ const CUANTOS = fija ? 1 : Math.max(1, Math.round(duracion * 30));
 const menu = args.includes("--menu");
 // Un marco de recorte ya colocado dentro del editor: "x,y,ancho,alto" en píxeles de la foto.
 const recorte = bandera("recorte", null);
+// S40: el tamaño que alguien le dio a mano a la ventana la última vez, "ancho,alto" en px
+// lógicos (`ventanaAjustes` en los ajustes): la ventana abre así en vez de a 900 x 723.
+const guardada = bandera("guardada", null);
+// S40: el historial con N capturas, para ver que baja con la rueda dentro sin agrandar nada.
+// Salen sin miniatura (el icono de foto), que para medir la rejilla basta.
+const historialLleno = Number(bandera("historial", "0"));
 // En vez de una foto, escupe el DOM ya montado. Para cuando lo que falla no se ve mirando:
 // una medida que sale cero, una clase que no llegó, un estilo que el navegador no aplicó.
 const dom = args.includes("--dom");
@@ -196,6 +201,10 @@ const AJUSTES = {
   zoomShortcut: "CmdOrCtrl+Shift+9",
   recordCamera: args.includes("--camara"),
   cameraDevice: null,
+  // S40 (tamaño fijo)
+  ventanaAjustes: guardada
+    ? { ancho: Number(guardada.split(",")[0]), alto: Number(guardada.split(",")[1]) }
+    : null,
 };
 
 /**
@@ -265,7 +274,17 @@ const FOTOGRAMAS = Array.from({ length: CUANTOS }, (_, i) => ({
   thumbPath: "/editor.png",
 }));
 
+const AHORA = Date.now();
+const HISTORIAL = Array.from({ length: historialLleno }, (_, i) => ({
+  ruta: `C:\\Users\\yo\\Pictures\\winshotx\\winshotx-${i}.png`,
+  nombre: `winshotx-${i}.png`,
+  tipo: i % 5 === 2 ? "video" : "foto",
+  bytes: 120_000 + i * 7_000,
+  cuandoMs: AHORA - i * 5_400_000,
+}));
+
 const RESPUESTAS = {
+  ...(historialLleno ? { historial_lista: { entradas: HISTORIAL, total: HISTORIAL.length, buscable: true, porLeer: 0 } } : {}),
   get_settings: AJUSTES,
   set_settings: AJUSTES,
   shortcut_status: { capture: true, edit: true, record: true, replay: true, printScreen: false, winShiftS: false },
@@ -405,6 +424,7 @@ Object.assign(window.__TAURI_INTERNALS__, {
     if (cmd === "overlay_bootstrap") return Promise.resolve(${JSON.stringify(OVERLAY)});
     // La pantalla congelada viaja por el IPC en PNG; aquí la sirve este mismo servidor.
     if (cmd === "freeze_png") return fetch("/freeze.png").then((r) => r.arrayBuffer());
+    if (cmd === "historial_miniatura") return Promise.reject("sin miniatura en el banco");
     (window.__llamadas ??= []).push({ cmd, args });
     if (cmd in tabla) return Promise.resolve(tabla[cmd]);
     if (cmd === "plugin:event|listen") {
@@ -417,7 +437,7 @@ Object.assign(window.__TAURI_INTERNALS__, {
       }
       return Promise.resolve(null);
     }
-    // S24: la ventana de mentira, para que la página pueda medirse y pedir su alto. Mide lo
+    // S24: la ventana de mentira, para que la página pueda medirse y ponerse su tamaño. Mide lo
     // que mide el navegador sin ventana, con una barra de título de 32 px encima, y está
     // arriba del todo de una pantalla de 1920 de ancho con --zona de alto útil.
     const dpr = devicePixelRatio;
@@ -700,7 +720,8 @@ server.listen(0, async () => {
   // por la esquina, en negro, porque lo centrado se queda fuera. Así que se fotografía a
   // 500 y sale con más aire del que tiene de verdad. Para verla a su tamaño real hace
   // falta un navegador de verdad con el viewport a 132.
-  let [w, h] = [ancho, alto];
+  // La principal nace a 723 de alto, como en `tauri.conf.json`.
+  let [w, h] = [ancho, altoForzado ?? (pagina === "index.html" ? "723" : alto)];
   if (cuenta !== null) {
     pagina = `cuenta.html?segundos=${cuenta}`;
     [w, h] = ["500", "500"];
@@ -786,10 +807,13 @@ server.listen(0, async () => {
   // La bienvenida se fotografía aquí mismo, con este reloj de verdad. Con el reloj virtual de
   // la pasada de abajo, `--paso=N` sacaba siempre el paso 1: el cambio de paso espera a que
   // acabe la salida del anterior (`AnimatePresence mode="wait"`), y esa salida no acababa.
-  if (bienvenida && pedida && !dom) {
-    const [, altoPaso, tipoPaso, dprPaso] = pedida.split(",");
-    const cssPaso = tipoPaso === "Physical" ? Number(altoPaso) / Number(dprPaso) : Number(altoPaso);
-    const altoFoto = Math.ceil(cssPaso - 0.01);
+  if (bienvenida && !dom) {
+    let altoFoto = Number(h);
+    if (pedida) {
+      const [, altoPaso, tipoPaso, dprPaso] = pedida.split(",");
+      const cssPaso = tipoPaso === "Physical" ? Number(altoPaso) / Number(dprPaso) : Number(altoPaso);
+      altoFoto = Math.ceil(cssPaso - 0.01);
+    }
     await p.setViewportSize({ width: Number(w), height: altoFoto });
     await p.waitForTimeout(400);
     await p.screenshot({ path: salida });

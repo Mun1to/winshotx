@@ -158,6 +158,10 @@ export const getSettings = () => invoke<Settings>("get_settings");
 export const setSettings = (settings: Settings) =>
   invoke<Settings>("set_settings", { settings });
 
+/** El tamaño que se le ha dado a mano a la ventana de ajustes, en px lógicos (S40). */
+export const guardarVentanaAjustes = (ancho: number, alto: number) =>
+  invoke<void>("guardar_ventana_ajustes", { ancho, alto });
+
 /**
  * Solo el interruptor de la barra de acciones, guardado desde el overlay.
  *

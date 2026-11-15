@@ -41,7 +41,7 @@ fn la_ventana_de_ajustes_puede_cambiar_su_tamanno_y_subirse() {
     for hace_falta in ["core:window:allow-set-size", "core:window:allow-set-position"] {
         assert!(
             permisos.contains(hace_falta),
-            "la ventana de ajustes no tiene {hace_falta}: `useVentanaALaMedida` no podría \
+            "la ventana de ajustes no tiene {hace_falta}: `useVentanaFija` no podría \
              ajustarla y se quedaría con el alto de tauri.conf.json sin dar ningún error"
         );
     }
@@ -50,6 +50,6 @@ fn la_ventana_de_ajustes_puede_cambiar_su_tamanno_y_subirse() {
 #[test]
 fn y_lo_que_lee_de_su_ventana_y_su_pantalla_va_en_el_permiso_de_serie() {
     // `core:default` trae `core:window:default`, que tiene inner_size, outer_size,
-    // outer_position, scale_factor y current_monitor: lo que mide `ventanaALaMedida.ts`.
+    // outer_position, scale_factor, current_monitor e is_maximized: lo que mide `ventanaFija.ts`.
     assert!(permisos_de("main").contains("core:default"));
 }

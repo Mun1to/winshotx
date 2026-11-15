@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -26,7 +26,6 @@ import type {
   ShortcutStatus,
 } from "../../lib/types";
 import { partesDeAtajo } from "../../lib/teclas";
-import { useVentanaALaMedida } from "../../lib/ventanaALaMedida";
 import { ShortcutField } from "../settings/ShortcutField";
 import { Marca } from "../ui/Marca";
 import { Segmented } from "../ui/Segmented";
@@ -44,8 +43,11 @@ import { DibujoAlSoltar, DibujoAtajos, DibujoBandeja, DibujoImprPant } from "./D
  *
  * Desde la 0.5 (S38) habla el idioma de los ajustes nuevos: la misma cabecera con el nombre y
  * la version, los pasos como pestañas de texto con su raya, filas sueltas con una linea fina
- * entre ellas, y a la derecha el dibujo de lo que va a pasar. Y la ventana mide lo que mide
- * cada paso: con 840 x 640 fijos quedaban entre 179 y 260 px vacios debajo de cada uno.
+ * entre ellas, y a la derecha el dibujo de lo que va a pasar.
+ *
+ * La ventana no cambia de tamaño al pasar de paso (S40): mide lo mismo que los ajustes
+ * (`ventanaFija.ts`), y lo que sobra debajo de un paso corto lo llena el dibujo de la derecha,
+ * que va de arriba abajo. De S38 a S40 media cada paso y se movia para dejar quieto el pie.
  */
 
 const PASOS = ["Tus teclas", "Al soltar", "Impr Pant", "Listo"];
@@ -75,16 +77,6 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   });
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const hueco = useRef<HTMLDivElement>(null);
-  const contenido = useRef<HTMLDivElement>(null);
-  // A la medida de cada paso, sin hueco abajo. El borde que se queda quieto es el de abajo:
-  // ahi va «Siguiente», que es lo que se pulsa una y otra vez.
-  useVentanaALaMedida(hueco, contenido, {
-    listo: ajustes !== null,
-    otraVez: `${paso}|${error ?? ""}`,
-    anclarAbajo: true,
-  });
 
   useEffect(() => {
     void getSettings().then(setAjustes);
@@ -168,43 +160,43 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
         </nav>
       </header>
 
-      <div ref={hueco} className="min-h-0 flex-1 overflow-y-auto">
-        <div ref={contenido}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={paso}
-              initial={{ opacity: 0, x: 14 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -14 }}
-              transition={{ duration: 0.16, ease: "easeOut" }}
-            >
-              {paso === 0 && (
-                <Atajos
-                  ajustes={ajustes}
-                  atajos={atajos}
-                  onCaptura={(v) => guardar({ captureShortcut: v })}
-                  onGrabacion={(v) => guardar({ recordShortcut: v })}
-                />
-              )}
-              {paso === 1 && (
-                <AlSoltar
-                  valor={ajustes.captureFlow}
-                  onChange={(v) => guardar({ captureFlow: v })}
-                />
-              )}
-              {paso === 2 && (
-                <TeclaImprPant estado={imprPant} onElegir={(quiere) => void pedirTecla(quiere)} />
-              )}
-              {paso === 3 && (
-                <Final
-                  ajustes={ajustes}
-                  imprPant={imprPant}
-                  onArranque={(v) => guardar({ startWithWindows: v })}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-scroll-bienvenida>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={paso}
+            data-paso={paso}
+            className="flex flex-1 flex-col"
+            initial={{ opacity: 0, x: 14 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -14 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            {paso === 0 && (
+              <Atajos
+                ajustes={ajustes}
+                atajos={atajos}
+                onCaptura={(v) => guardar({ captureShortcut: v })}
+                onGrabacion={(v) => guardar({ recordShortcut: v })}
+              />
+            )}
+            {paso === 1 && (
+              <AlSoltar
+                valor={ajustes.captureFlow}
+                onChange={(v) => guardar({ captureFlow: v })}
+              />
+            )}
+            {paso === 2 && (
+              <TeclaImprPant estado={imprPant} onElegir={(quiere) => void pedirTecla(quiere)} />
+            )}
+            {paso === 3 && (
+              <Final
+                ajustes={ajustes}
+                imprPant={imprPant}
+                onArranque={(v) => guardar({ startWithWindows: v })}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {error && (
@@ -259,7 +251,7 @@ function Paso({
   children: ReactNode;
 }) {
   return (
-    <div className="flex gap-7 px-7 pt-6 pb-7">
+    <div className="flex flex-1 gap-7 px-7 pt-6 pb-7">
       <div className="min-w-0 flex-1">
         <h1 className="text-[22px] leading-tight font-bold text-pretty text-titulo">{titulo}</h1>
         <p className="mt-1.5 text-[14px] text-pretty text-apagado">{sub}</p>
@@ -317,15 +309,22 @@ function ConNegrita({ frase, datos }: { frase: string; datos: Record<string, str
   );
 }
 
-/** Las filas sueltas de los ajustes nuevos: titulo suelto encima y una linea fina entre ellas. */
+/**
+ * Las filas sueltas de los ajustes: titulo suelto encima y las filas debajo, sin raya entre
+ * ellas desde S40 (Munito, con la 0.5.0: «no me gusta el diseño de los separadores»). Las
+ * separa el aire, como en los ajustes (`settings/Section.tsx`).
+ */
 function Bloque({ titulo, children }: { titulo?: string; children: ReactNode }) {
   return (
     <section className="mt-5">
-      {titulo && <h2 className="mb-1 px-1 text-[15px] font-bold text-titulo">{titulo}</h2>}
-      <div className="border-y border-linea [&>*+*]:border-t [&>*+*]:border-linea">{children}</div>
+      {titulo && <h2 className="mb-1.5 px-1 text-[15px] font-bold text-titulo">{titulo}</h2>}
+      <div>{children}</div>
     </section>
   );
 }
+
+/** Lo que llevan todas las filas: el aire de los lados y el fondo suave bajo el raton. */
+const FILA = "-mx-2 rounded-lg px-3 transition-colors duration-200 hover:bg-realce/60";
 
 /**
  * Una fila: el icono suelto, el nombre a 15 px y debajo lo que explica a 13, sin cortar, y el
@@ -360,14 +359,15 @@ function Fila({
   );
   if (debajo) {
     return (
-      <div className="px-1 py-3">
+      <div className={`${FILA} py-3`}>
         {texto}
         <div className="mt-2 pl-7">{control}</div>
       </div>
     );
   }
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 py-3">
+    // Al mismo alto que las de los ajustes (52), tengan lo que tengan a la derecha.
+    <div className={`${FILA} flex min-h-[52px] flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2`}>
       {texto}
       {control && <span className="shrink-0">{control}</span>}
     </div>
@@ -469,19 +469,6 @@ function PistaDeAtajo({
   );
 }
 
-/**
- * El campo de los ajustes, con su letra a 12 px. El campo pinta sus teclas a 11, por debajo
- * del minimo de la casa; la pieza es de los ajustes (`settings/ShortcutField.tsx`) y se
- * arregla alli, pero la bienvenida no la enseña asi mientras tanto.
- */
-function CampoDeAtajo(props: { value: string; active: boolean; onChange: (v: string) => void }) {
-  return (
-    <span className="block [&_kbd]:text-[12px] [&_span]:text-[12px]">
-      <ShortcutField {...props} />
-    </span>
-  );
-}
-
 /* ------------------------------------------------------------------ los cuatro pasos */
 
 function Atajos({
@@ -532,7 +519,7 @@ function Atajos({
             />
           }
           control={
-            <CampoDeAtajo
+            <ShortcutField
               value={ajustes.captureShortcut}
               active={atajos.capture}
               onChange={onCaptura}
@@ -551,7 +538,7 @@ function Atajos({
             />
           }
           control={
-            <CampoDeAtajo
+            <ShortcutField
               value={ajustes.recordShortcut}
               active={atajos.record}
               onChange={onGrabacion}
