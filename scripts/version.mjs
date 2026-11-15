@@ -79,7 +79,11 @@ const rutaWeb = join(raiz, "frontlaxweb", "index.html");
 try {
   const web = readFileSync(rutaWeb, "utf8");
   const numero = /\d+\.\d+\.\d+/g;
-  const puesta = web.replace(/<span class="ver-set"[^>]*>[^<]*<\/span>/, (span) => span.replace(numero, NUEVA));
+  // La cabecera de los ajustes de la demo («winshotx 0.5.0») lleva el suyo en <b data-version>.
+  const puesta = web
+    .replace(/<span class="ver-set"[^>]*>[^<]*<\/span>/, (span) => span.replace(numero, NUEVA))
+    .replace(/<b data-version>[^<]*<\/b>/g, `<b data-version>${NUEVA}</b>`)
+    .replace(/("softwareVersion":\s*")[^"]*"/, `$1${NUEVA}"`);
   if (!/<span class="ver-set"/.test(web)) console.error("Ojo: la demo de la web ya no tiene su <span class=\"ver-set\">: pon la versión a mano.");
   if (puesta !== web) {
     writeFileSync(rutaWeb, puesta);
