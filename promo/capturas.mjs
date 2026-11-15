@@ -263,6 +263,50 @@ try {
     console.log("ajustes: hecho");
   }
 
+  /* ---------------- 5. las teclas de Windows: «Take Win+Shift+S» apagado y encendido */
+  if (quiero("teclas")) {
+    // Las dos con el banco levantado y Playwright, para que salgan iguales y para medir dónde
+    // queda el interruptor. Encendido es `--tecla-pendiente` (pedida) y además conseguida: el
+    // banco no tiene bandera para eso, así que se cambia su respuesta de `shortcut_status`.
+    const fotos = [
+      { nombre: "ajustes-teclas.png", clave: "no", args: [] },
+      { nombre: "ajustes-teclas-si.png", clave: "si", args: ["--tecla-pendiente"], conseguida: true },
+    ];
+    for (const f of fotos) {
+      const { url, apagar: parar } = await servirBanco(["--idioma=en", "--tema=oscuro", "--seccion=teclas", ...f.args]);
+      apagar.push(parar);
+      const ctx = await navegador.newContext({ viewport: { width: 900, height: 723 }, deviceScaleFactor: 2, colorScheme: "dark", reducedMotion: "reduce" });
+      const p = await ctx.newPage();
+      if (f.conseguida) {
+        await p.route("**/index.html", async (ruta) => {
+          const r = await ruta.fetch();
+          const cuerpo = (await r.text()).replace('"winShiftS":false', '"winShiftS":true');
+          await ruta.fulfill({ response: r, body: cuerpo });
+        });
+      }
+      await p.goto(url, { waitUntil: "load" });
+      const interruptor = p.locator('[data-fila="tecWinS"] [role="switch"]');
+      await interruptor.waitFor({ timeout: 15000 });
+      await p.evaluate(() => document.fonts.ready);
+      await p.waitForTimeout(1200);
+      const caja = async (sel) => {
+        const r = await p.locator(sel).first().boundingBox();
+        return r && { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+      };
+      // Con el interruptor encendido la fila crece (sale «Apply» y la pista ocupa dos líneas), así
+      // que se mide en las dos fotos.
+      (medidas.teclas ??= {})[f.clave] = {
+        interruptor: await caja('[data-fila="tecWinS"] [role="switch"]'),
+        fila: await caja('[data-fila="tecWinS"]'),
+        dibujo: await caja('[data-dibujo="win-mayus-s"]'),
+      };
+      await p.screenshot({ path: join(salida, f.nombre) });
+      await ctx.close();
+      parar();
+    }
+    console.log("teclas: hecho");
+  }
+
   const rutaMedidas = join(salida, "medidas.json");
   const antes = existsSync(rutaMedidas) ? JSON.parse(await readFile(rutaMedidas, "utf8")) : {};
   await writeFile(rutaMedidas, JSON.stringify({ ...antes, ...medidas, pantalla: PANTALLA }, null, 1));
