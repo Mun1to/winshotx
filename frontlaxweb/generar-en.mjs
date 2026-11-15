@@ -11,7 +11,7 @@
  * soporte/ -> en/support/ y novedades/ -> en/changelog/ (esta la escribe antes
  * generar-novedades.mjs).
  */
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -98,11 +98,32 @@ function traducir(html) {
  * contenido es una URL distinta y el navegador no puede servir la de antes.
  */
 function versionar(html, huellas) {
-  return html.replace(
-    /((?:\.\.\/)*)(estilos\.css|demo\.js|cruceta\.js|leer\.js)(\?v=[a-f0-9]+)?/g,
-    (_todo, subir, archivo) => `${subir}${archivo}?v=${huellas[archivo]}`,
-  );
+  return html
+    .replace(
+      /((?:\.\.\/)*)(estilos\.css|demo\.js|cruceta\.js|leer\.js)(\?v=[a-f0-9]+)?/g,
+      (_todo, subir, archivo) => `${subir}${archivo}?v=${huellas[archivo]}`,
+    )
+    // Las fotos de img/, lo mismo. Cloudflare las guarda 7 días en su caché, así que el
+    // 15-nov, después de rehacerlas desde la 0.5, la del editor seguía saliendo la vieja (con
+    // el fondo morado) a quien la pidiera: con su huella, una foto nueva es otra dirección.
+    // Solo las rutas relativas (detrás de una comilla): la absoluta del JSON-LD no se toca.
+    .replace(/(["'])((?:\.\.\/)*)img\/([a-z0-9-]+\.webp)(\?v=[a-f0-9]+)?/g, (todo, comilla, subir, foto) => {
+      if (!huellasFotos[foto]) throw new Error(`la página pide img/${foto} y no existe`);
+      return `${comilla}${subir}img/${foto}?v=${huellasFotos[foto]}`;
+    });
 }
+
+// Las fotos son binarias: la huella es la de sus bytes, iguales en Windows y en el servidor.
+const huellasFotos = Object.fromEntries(
+  await Promise.all(
+    (await readdir(join(aqui, "img")))
+      .filter((foto) => foto.endsWith(".webp"))
+      .map(async (foto) => [
+        foto,
+        createHash("sha256").update(await readFile(join(aqui, "img", foto))).digest("hex").slice(0, 8),
+      ]),
+  ),
+);
 
 const huellas = Object.fromEntries(
   await Promise.all(

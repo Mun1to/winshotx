@@ -198,7 +198,10 @@ fotoEscritorio.addEventListener("load", () => {
   pintarMiniaturas();
   refrescarEditor();
 });
-fotoEscritorio.src = new URL(`img/escritorio-${idioma}.webp`, BASE).href;
+// La de la precarga de la página, que lleva la huella de la foto (generar-en.mjs): pedirla
+// sin ella se lleva la vieja de la caché de Cloudflare, y la precarga no serviría de nada.
+const precargaEscritorio = document.querySelector('link[rel="preload"][as="image"][href*="escritorio-"]');
+fotoEscritorio.src = precargaEscritorio ? precargaEscritorio.href : new URL(`img/escritorio-${idioma}.webp`, BASE).href;
 
 const caja = $("caja");
 const velo = $("velo");
