@@ -34,7 +34,6 @@ export const ZH: Record<string, string> = {
   "Nada con «{consulta}». Prueba con otra palabra.": "没有找到「{consulta}」。换个词试试。",
 
   // 截图
-  "Al pulsar el atajo": "按下快捷键时",
   "Capturar región": "区域截图",
   "esa combinación está ocupada": "该组合键已被占用",
   "Esperar antes de capturar": "截图前等待",

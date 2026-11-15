@@ -235,7 +235,6 @@ describe("con la aplicacion en ingles", () => {
    * componente escribiendo espannol a pelo.
    */
   const DELATORAS = [
-    "Al pulsar el atajo",
     "Los atajos",
     "Al capturar",
     "Sale la barra",
