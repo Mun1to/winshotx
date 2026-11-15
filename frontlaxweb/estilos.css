@@ -150,7 +150,10 @@ nav.barra { position: sticky; top: 0; z-index: 50; height: var(--nav-alto); padd
 .barra-dentro {
   /* 1fr a los lados para que el menú caiga en el centro exacto de la barra */
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px;
-  height: 62px; padding: 0 10px 0 18px; border-radius: 16px;
+  /* El alto de la fila de arriba va en `--alto`: la barra compacta lo cambia, y el menú del
+     móvil crece hacia abajo a partir de él. */
+  --alto: 62px;
+  height: var(--alto); padding: 0 10px 0 18px; border-radius: 16px;
   background: var(--vidrio); backdrop-filter: blur(16px) saturate(1.3);
   box-shadow: 0 0 0 1px var(--linea), var(--sombra-barra);
   /* Lo que mide la barra entera (lo mismo que `.env`), para ir de ahí a lo justo. */
@@ -165,11 +168,12 @@ nav.barra { position: sticky; top: 0; z-index: 50; height: var(--nav-alto); padd
    (`.anima`): quien llega a mitad de página la ve ya compacta, sin verla encogerse. */
 nav.barra.anima .barra-dentro {
   transition: max-width .55s cubic-bezier(.22, 1, .36, 1), height .55s cubic-bezier(.22, 1, .36, 1),
-    translate .55s cubic-bezier(.22, 1, .36, 1);
+    translate .55s cubic-bezier(.22, 1, .36, 1), border-radius .55s cubic-bezier(.22, 1, .36, 1),
+    background-color .3s;
 }
 nav.barra.compacta .barra-dentro {
   max-width: calc(var(--lleno) - (var(--lleno) - var(--justo, var(--lleno))) * var(--motion-gain, 1));
-  height: calc(62px - 8px * var(--motion-gain, 1));
+  --alto: calc(62px - 8px * var(--motion-gain, 1));
   translate: 0 calc(-4px * var(--motion-gain, 1));
 }
 .logo-nombre {
@@ -213,44 +217,85 @@ nav.barra.compacta .barra-dentro {
 /* En el móvil no se descarga un programa de Windows: ahí sobra el botón. */
 @media (max-width: 640px) { .barra .baja { display: none; } }
 
-/* El menú del móvil y la tableta: un botón con su nombre y, al abrirlo, un panel opaco
-   debajo de la barra con las cinco páginas, cada una con su zona de dedo de 48 px. En el
-   móvil va a lo ancho de la barra; en la tableta, a la derecha, debajo del botón. */
+/* El menú del móvil y la tableta: un botón con su nombre y, al tocarlo, la misma píldora de la
+   barra crece hacia abajo con las cinco páginas dentro, cada una con su zona de dedo de 48 px,
+   y al cerrarlo se recoge. Nada de una tarjeta suelta debajo: «que se desplegase el header
+   entero, como que se expande hacia abajo» (Munito, 15-nov). Lo que crece es el alto de la
+   píldora, que vive en una barra con `contain: layout size`: cada fotograma solo recoloca lo
+   de dentro de la barra (una veintena de piezas), nunca la página, que no se mueve. Sin
+   JavaScript es un <details> que se abre igual; con él, leer.js lo deja siempre abierto y
+   manda la clase `menu-abierto` en la barra, para que el panel se vea también al recogerse. */
 .barra-dentro { position: relative; }
 .menu { display: none; }
 @media (max-width: 1020px) {
   .menu { display: block; }
+  /* La fila de arriba se queda en su sitio y con su alto mientras la píldora crece. */
+  .barra-dentro { grid-template-rows: var(--alto); align-content: start; overflow: clip; }
+  /* Al crecer, una curva que arranca suave: la del compactado se come casi el 90 % en los
+     primeros 170 ms, y lo que se despliega «crece poco a poco» (GUSTOS-DE-DISENO, 8). */
+  nav.barra.anima .barra-dentro {
+    transition: max-width .5s cubic-bezier(.4, 0, .2, 1), height .5s cubic-bezier(.4, 0, .2, 1),
+      translate .55s cubic-bezier(.22, 1, .36, 1), border-radius .5s cubic-bezier(.4, 0, .2, 1), background-color .3s;
+  }
+  nav.barra.menu-abierto .barra-dentro,
+  nav.barra:has(.menu[open]:not(.con-js)) .barra-dentro {
+    height: calc(var(--alto) + var(--menu-alto, 330px));
+    max-width: var(--lleno); border-radius: 22px;
+    /* «El menú del móvil, opaco y ordenado» (GUSTOS-DE-DISENO, 9): abierto, sin cristal. */
+    background-color: var(--panel);
+  }
   .menu > summary {
     display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px;
     border-radius: 10px; list-style: none; cursor: pointer; user-select: none;
     font: 600 15px/1 var(--letra); color: var(--texto); transition: background .18s;
   }
   .menu > summary::-webkit-details-marker { display: none; }
-  .menu > summary:hover, .menu[open] > summary { background: var(--realce-medio); }
+  .menu > summary:hover, .menu:is(.abierto, [open]:not(.con-js)) > summary { background: var(--realce-medio); }
   .menu > summary:focus-visible { outline: 2px solid var(--azul); outline-offset: 3px; }
   .menu > summary svg { width: 20px; height: 20px; }
-  .menu .cierra, .menu[open] .abre { display: none; }
-  .menu[open] .cierra { display: block; }
+  .menu .cierra, .menu:is(.abierto, [open]:not(.con-js)) .abre { display: none; }
+  .menu:is(.abierto, [open]:not(.con-js)) .cierra { display: block; }
+  /* Las páginas, dentro de la píldora, justo debajo de su fila de arriba. Cerrado no se ven ni
+     se pueden alcanzar con el tabulador; se esconden cuando la píldora ya se ha recogido. */
   .menu-panel {
-    position: absolute; top: calc(100% + 8px); right: 0; width: min(320px, 100%);
-    display: grid; padding: 8px; border-radius: 16px; text-align: left;
-    background: var(--panel); box-shadow: 0 0 0 1px var(--linea), var(--sombra-barra);
-    transform-origin: top right;
+    position: absolute; top: var(--alto); left: 0; right: 0;
+    display: grid; gap: 2px 8px;
+    padding: 0 10px 12px; text-align: left;
+    visibility: hidden; transition: visibility 0s .55s;
   }
-  .menu[open] .menu-panel { animation: menu-entra .18s cubic-bezier(.2, .7, .2, 1); }
+  nav.barra.menu-abierto .menu-panel,
+  .menu[open]:not(.con-js) .menu-panel { visibility: visible; transition-delay: 0s; }
   .menu-panel a {
     display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px;
     border-radius: 10px; font-size: 17px; font-weight: 550; color: var(--texto);
+    /* Entran uno tras otro bajando un poco mientras la píldora crece; al cerrar se van juntos y
+       deprisa. El recorrido va con el dial de la casa; el fundido, siempre. */
+    opacity: 0; translate: 0 calc(-10px * var(--motion-gain, 1));
+    transition: opacity .16s, translate .16s, background .18s;
   }
+  nav.barra.menu-abierto .menu-panel a,
+  .menu[open]:not(.con-js) .menu-panel a {
+    opacity: 1; translate: 0 0;
+    transition: opacity .32s ease calc(70ms + var(--n, 0) * 40ms), translate .45s cubic-bezier(.22, 1, .36, 1) calc(70ms + var(--n, 0) * 40ms), background .18s;
+  }
+  .menu-panel a:nth-child(2) { --n: 1; }
+  .menu-panel a:nth-child(3) { --n: 2; }
+  .menu-panel a:nth-child(4) { --n: 3; }
+  .menu-panel a:nth-child(5) { --n: 4; }
+  .menu-panel a:nth-child(6) { --n: 5; }
   .menu-panel a:hover { background: var(--realce-medio); text-decoration: none; }
   .menu-panel a.aqui { text-decoration: none; box-shadow: inset 3px 0 0 var(--azul); }
   .menu-panel svg { width: 20px; height: 20px; flex: none; color: var(--suave); }
   /* GitHub ya está en la barra en la tableta: en el panel solo sale en el móvil. */
   .menu-panel .menu-gh { display: none; margin-top: 6px; border-top: 1px solid var(--linea); border-radius: 0 0 10px 10px; color: var(--suave); font-size: 16px; }
 }
+/* En la tableta las cinco páginas caben en una fila: en columnas de a tres quedaba una fila coja. */
+@media (min-width: 641px) and (max-width: 1020px) {
+  .menu-panel { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .menu-panel a { padding: 0 10px; font-size: 16px; white-space: nowrap; }
+}
 @media (max-width: 520px) {
   .barra .gh { display: none; }
-  .menu-panel { left: 0; width: auto; transform-origin: top center; }
   .menu-panel .menu-gh { display: flex; }
 }
 /* En lo más estrecho (360) no caben el logo, «English» y «Menú» con su nombre: el botón se
@@ -258,9 +303,6 @@ nav.barra.compacta .barra-dentro {
 @media (max-width: 379px) {
   .menu > summary { width: 44px; height: 44px; padding: 0; justify-content: center; }
   .menu > summary span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-}
-@keyframes menu-entra {
-  from { opacity: 0; transform: translateY(calc(-6px * var(--motion-gain, 1))) scale(.98); }
 }
 
 /* ---------- botones: el principal relleno y vivo, el segundo con fondo suave y el mismo tamaño ---------- */

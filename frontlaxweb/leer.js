@@ -160,16 +160,49 @@ document.querySelectorAll(".tabla-comparar, .texto .tabla").forEach((caja) => {
 });
 
 /* ----------------------------------------------------------- el menú del móvil */
-// Es un <details>, que ya se abre y se cierra solo. Esto lo cierra al elegir una sección
-// de esta misma página (si no, se queda abierto encima de lo que has pedido ver), con
-// Escape y al tocar fuera de él.
+// Sin JavaScript es un <details>, que se abre y se cierra solo. Con él, al tocar «Menú» la
+// píldora de la barra crece hacia abajo con las páginas dentro, y al cerrar se recoge (el
+// movimiento lo hace el CSS con la clase `menu-abierto` en la barra). El <details> se queda
+// siempre abierto por dentro: cerrado de verdad, el navegador esconde las páginas de golpe y
+// no se las vería irse. Al abrir, el foco va a la primera página; Escape cierra y lo devuelve
+// a «Menú»; tocar fuera o elegir una página también cierra.
 document.querySelectorAll("details.menu").forEach((menu) => {
-  const cerrar = () => { menu.open = false; };
-  menu.querySelectorAll(".menu-panel a").forEach((a) => a.addEventListener("click", cerrar));
-  addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && menu.open) { cerrar(); menu.querySelector("summary").focus(); }
-  });
-  document.addEventListener("click", (e) => { if (menu.open && !menu.contains(e.target)) cerrar(); });
+  const nav = menu.closest("nav.barra");
+  const pildora = menu.closest(".barra-dentro");
+  const boton = menu.querySelector("summary");
+  const panel = menu.querySelector(".menu-panel");
+  if (!nav || !pildora || !boton || !panel) return;
+  menu.classList.add("con-js");
+  menu.open = true;
+  if (!panel.id) panel.id = "menu-paginas";
+  boton.setAttribute("role", "button");
+  boton.setAttribute("aria-controls", panel.id);
+  boton.setAttribute("aria-expanded", "false");
+  // Lo que crece la píldora es lo que mide el panel: se mide al cargar y cada vez que cambia
+  // (el ancho de la ventana, la letra al llegar). Solo escribe cuando cambia.
+  let medido = -1;
+  const medir = () => {
+    const alto = panel.offsetHeight;
+    if (alto === medido || !alto) return;
+    medido = alto;
+    pildora.style.setProperty("--menu-alto", `${alto}px`);
+  };
+  medir();
+  if ("ResizeObserver" in window) new ResizeObserver(medir).observe(panel);
+  const abierto = () => nav.classList.contains("menu-abierto");
+  const poner = (abrir, foco) => {
+    if (abrir) medir();
+    nav.classList.toggle("menu-abierto", abrir);
+    menu.classList.toggle("abierto", abrir);
+    boton.setAttribute("aria-expanded", String(abrir));
+    if (!foco) return;
+    if (abrir) panel.querySelector("a")?.focus({ preventScroll: true });
+    else boton.focus({ preventScroll: true });
+  };
+  boton.addEventListener("click", (e) => { e.preventDefault(); poner(!abierto(), !abierto()); });
+  panel.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => poner(false, false)));
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && abierto()) poner(false, true); });
+  document.addEventListener("click", (e) => { if (abierto() && !pildora.contains(e.target)) poner(false, false); });
 });
 
 /* --------------------------------------------- la barra se compacta al bajar */
