@@ -47,6 +47,13 @@ export type CaptureMode = "still" | "video" | "gif";
 export interface OverlayPayload {
   monitor: MonitorInfo;
   /**
+   * Todas las pantallas de esta captura, la propia incluida, en pixeles fisicos del
+   * escritorio virtual: con ellas el recorte puede empezar en una y seguir en la de al lado
+   * (`lib/seleccionCompartida.ts`). Un payload viejo no la trae, y entonces el overlay se
+   * porta como con una sola pantalla, sin cruzar.
+   */
+  monitores?: MonitorInfo[];
+  /**
    * De que disparo del atajo es este payload. Se devuelve en `overlayListo` al tener la
    * imagen pintada, para que un aviso tardio de una captura ya cancelada no ensenne nada.
    */

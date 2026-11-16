@@ -40,8 +40,24 @@ export const llamadas: { comando: string; args: unknown }[] = [];
 /** Los comandos que van a fallar, con el mensaje que devuelven. Se rellena con `falla`. */
 const fallos = new Map<string, string>();
 
+/** Un `listen` de Tauri, con sus opciones (el `target`, sobre todo). */
+interface Oyente {
+  oyente: (evento: { payload: unknown }) => void;
+  opciones?: { target?: unknown };
+}
+
 /** Quien esta escuchando cada evento de Tauri. Se rellena solo, con cada `listen`. */
-const oyentes = new Map<string, ((evento: { payload: unknown }) => void)[]>();
+const oyentes = new Map<string, Oyente[]>();
+
+/**
+ * Cada `listen` con lo que pidio, en orden. Un `listen` sin `target` oye TODO lo que se
+ * emite, tambien lo dirigido a otra ventana y el eco de lo propio (la trampa del pool de
+ * overlays): con esto se puede comprobar que se ha pedido con su destino.
+ */
+export const escuchas: { evento: string; opciones?: { target?: unknown } }[] = [];
+
+/** Lo que se ha mandado con `emitTo`, en orden: a que ventana, que evento y con que. */
+export const emitidos: { destino: string; evento: string; carga: unknown }[] = [];
 
 /** Pone lo que devolvera un comando de Rust durante la prueba. */
 export function responde(comando: string, valor: unknown) {
@@ -77,18 +93,38 @@ vi.mock("@tauri-apps/api/core", () => ({
  * justo donde estan los fallos que no se ven: un aviso que no llega deja un boton apagado
  * y sin explicacion, y las pruebas siguen todas en verde.
  */
-export function emite(evento: string, payload: unknown) {
-  for (const oyente of oyentes.get(evento) ?? []) oyente({ payload });
+export function emite(evento: string, payload: unknown, destino?: string) {
+  for (const { oyente, opciones } of oyentes.get(evento) ?? []) {
+    // Con destino, como `emit_to`: le llega a quien escucha esa ventana y a quien escucha
+    // sin destino, que en Tauri oye todo. Sin destino, como `emit`: a todos.
+    const target = opciones?.target;
+    const etiqueta =
+      typeof target === "string" ? target : (target as { label?: string } | undefined)?.label;
+    if (destino !== undefined && etiqueta !== undefined && etiqueta !== destino) continue;
+    oyente({ payload });
+  }
 }
 
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: (evento: string, oyente: (e: { payload: unknown }) => void) => {
-    oyentes.set(evento, [...(oyentes.get(evento) ?? []), oyente]);
+  listen: (
+    evento: string,
+    oyente: (e: { payload: unknown }) => void,
+    opciones?: { target?: unknown },
+  ) => {
+    const entrada: Oyente = { oyente, opciones };
+    escuchas.push({ evento, opciones });
+    oyentes.set(evento, [...(oyentes.get(evento) ?? []), entrada]);
     return Promise.resolve(() => {
-      oyentes.set(evento, (oyentes.get(evento) ?? []).filter((cual) => cual !== oyente));
+      oyentes.set(evento, (oyentes.get(evento) ?? []).filter((cual) => cual !== entrada));
     });
   },
   emit: () => Promise.resolve(),
+  // Se apunta y se entrega como lo haria Tauri: solo a quien escucha esa ventana.
+  emitTo: (destino: string, evento: string, carga: unknown) => {
+    emitidos.push({ destino, evento, carga });
+    emite(evento, carga, destino);
+    return Promise.resolve();
+  },
 }));
 
 /**
@@ -97,6 +133,8 @@ vi.mock("@tauri-apps/api/event", () => ({
  * `estirar` hace lo que haría quien la estira a mano (el aviso de tamaño nuevo de Windows).
  */
 export const ventana = {
+  /** La etiqueta de la ventana: los overlays se llaman `overlay-<id>`. */
+  etiqueta: "prueba",
   dentro: { width: 900, height: 723 },
   marco: 40,
   y: 100,
@@ -142,7 +180,7 @@ vi.mock("@tauri-apps/api/window", () => ({
         ventana.oyentesTamanno = ventana.oyentesTamanno.filter((cual) => cual !== oyente);
       });
     },
-    label: "prueba",
+    label: ventana.etiqueta,
   }),
   // Una pantalla de 1920 x 1080 con la barra de tareas de 48 px abajo.
   currentMonitor: () =>
@@ -180,9 +218,12 @@ afterEach(() => {
   respuestas.clear();
   fallos.clear();
   oyentes.clear();
+  escuchas.length = 0;
+  emitidos.length = 0;
   llamadas.length = 0;
   localStorage.clear();
   Object.assign(ventana, {
+    etiqueta: "prueba",
     dentro: { width: 900, height: 723 },
     marco: 40,
     y: 100,

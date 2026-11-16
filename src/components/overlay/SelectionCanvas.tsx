@@ -40,6 +40,24 @@ import {
   type VentanaDelSistema,
 } from "../../lib/pantallas";
 import {
+  aFisico,
+  apartarDeOtras,
+  cajaDe,
+  cursorDelGesto,
+  dentroDe,
+  enUnaPantalla,
+  interseca,
+  interseccion,
+  monitoresDe,
+  pantallaDeLaMedida,
+  pantallaQueManda,
+  pantallasQueToca,
+  puntoACss,
+  puntoAFisico,
+  type Fase,
+  type Punto,
+} from "../../lib/seleccionCompartida";
+import {
   EVENTS,
   type CaptureMode,
   type OverlayModeState,
@@ -54,6 +72,7 @@ import { Magnifier } from "./Magnifier";
 import { ModeBar, SELECTOR_BARRA } from "./ModeBar";
 import { ScreenPicker } from "./ScreenPicker";
 import { SelectionHandles, type HandleId } from "./SelectionHandles";
+import { useSeleccionCompartida } from "./useSeleccionCompartida";
 
 type Mode =
   | { kind: "idle" }
@@ -62,6 +81,19 @@ type Mode =
   | { kind: "resizing"; handle: HandleId; base: Rect };
 
 const MIN_DRAG = 4; // por debajo de esto, un arrastre cuenta como clic
+
+/** Lo que se cuenta a las demas pantallas de cada gesto (`lib/seleccionCompartida.ts`). */
+const FASE_DEL_GESTO: Record<Mode["kind"], Fase> = {
+  idle: "quieta",
+  drawing: "dibujando",
+  moving: "moviendo",
+  resizing: "estirando",
+};
+
+/** Lo que se ve de esta pantalla, en sus CSS. */
+function vistaDeLaVentana(): Rect {
+  return { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
+}
 
 /** Lo que ocupa la lupa con su barra de abajo, y el aire que se le deja al cursor. */
 const LUPA_ANCHO = 148;
@@ -331,14 +363,106 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const geometriaRef = useRef(geometria);
   geometriaRef.current = geometria;
 
+  /**
+   * Todas las pantallas de esta captura (la propia con lo que dice su payload), y la caja
+   * del escritorio entero. Un payload viejo sin la lista es una sola pantalla.
+   */
+  const monitores = useMemo(
+    () => (payload ? monitoresDe(payload.monitor, payload.monitores) : []),
+    [payload],
+  );
+  const variasPantallas = monitores.length > 1;
+  const escritorio = useMemo(() => cajaDe(monitores), [monitores]);
+
+  /**
+   * Si el recorte puede seguir en la pantalla de al lado. Solo en foto libre: el video y el
+   * GIF graban un monitor por sesion, la proporcion se cuenta contra una pantalla, el scroll
+   * baja una ventana y la pantalla entera es una. Sin cruzar, el raton se queda dentro de
+   * esta ventana, que de paso evita grabar un trozo dibujado mas alla del borde.
+   */
+  const puedeCruzar =
+    variasPantallas && modo === "still" && !conScroll && proporcion === "libre" && !pantallaEntera;
+
+  /**
+   * Las pantallas que tocaba el recorte al empezar el gesto, en fisicos: el iman del borde
+   * cuenta desde ellas y mover no se sale de su caja (`lib/seleccionCompartida.ts`).
+   */
+  const partidaRef = useRef<{ caja: Rect; ids: number[] } | null>(null);
+  const empezarGesto = useCallback(
+    (base: Rect | null) => {
+      if (!payload) return;
+      const yo = payload.monitor;
+      const tocadas =
+        base && base.width > 0 && base.height > 0
+          ? pantallasQueToca(aFisico(base, yo, scale), monitores)
+          : [];
+      const partida = tocadas.length > 0 ? tocadas : [yo];
+      partidaRef.current = { caja: cajaDe(partida)!, ids: partida.map((m) => m.id) };
+    },
+    [payload, scale, monitores],
+  );
+
+  /**
+   * Donde se queda el raton de un gesto, en CSS de esta pantalla: dentro de la ventana si
+   * no se puede cruzar; y si se puede, con el iman del borde y dentro del escritorio.
+   */
+  const limitarCursor = useCallback(
+    (x: number, y: number): Punto => {
+      if (!puedeCruzar || !payload) {
+        return { x: clamp(x, 0, window.innerWidth), y: clamp(y, 0, window.innerHeight) };
+      }
+      const yo = payload.monitor;
+      const p = cursorDelGesto(
+        puntoAFisico({ x, y }, yo, scale),
+        partidaRef.current?.caja ?? yo,
+        escritorio ?? yo,
+      );
+      return puntoACss(p, yo, scale);
+    },
+    [puedeCruzar, payload, scale, escritorio],
+  );
+
   /** El recorte que se dibuja de un punto a otro, libre o con su proporción. */
   const dibujar = useCallback(
     (ax: number, ay: number, bx: number, by: number): Rect => {
-      if (!geometria) return normalize(ax, ay, bx, by);
+      if (!geometria) {
+        const b = limitarCursor(bx, by);
+        return normalize(ax, ay, b.x, b.y);
+      }
       const { unidad, limite, escala } = geometria;
       return recorteConProporcion({ x: ax, y: ay }, { x: bx, y: by }, unidad, limite, escala);
     },
-    [geometria],
+    [geometria, limitarCursor],
+  );
+
+  /**
+   * Mover el recorte entero sin salirse: de la ventana si no se puede cruzar, y si se puede,
+   * de la caja de las pantallas que tocaba al empezar, con el iman si asoma a otra.
+   */
+  const moverA = useCallback(
+    (x: number, y: number, base: Rect): Rect => {
+      const partida = partidaRef.current;
+      if (!puedeCruzar || !payload || !partida) {
+        return {
+          x: clamp(x, 0, window.innerWidth - base.width),
+          y: clamp(y, 0, window.innerHeight - base.height),
+          width: base.width,
+          height: base.height,
+        };
+      }
+      const yo = payload.monitor;
+      const caja = aPantalla(partida.caja, yo, scale);
+      const movido = {
+        x: clamp(x, caja.x, caja.x + caja.width - base.width),
+        y: clamp(y, caja.y, caja.y + caja.height - base.height),
+        width: base.width,
+        height: base.height,
+      };
+      const fisico = aFisico(movido, yo, scale);
+      const apartado = apartarDeOtras(fisico, partida.ids, monitores);
+      return apartado === fisico ? movido : aPantalla(apartado, yo, scale);
+    },
+    [puedeCruzar, payload, scale, monitores],
   );
 
   /**
@@ -347,36 +471,94 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
    * mitad de arrastrar, desde donde se empezó hasta el cursor; tirando de un asa, igual que
    * si se acabara de mover; y quieto, en el mismo sitio y de tamaño parecido.
    */
-  const geometriaAntes = useRef<string>("");
+  //
+  // Con varias pantallas hay ademas otra cosa que hacer a la vez: un recorte que cruza y
+  // pasa a video, a GIF, a una proporcion o a scroll se queda en el trozo de una sola
+  // pantalla. Y lo hace UNA (plano dos pantallas, 2.5): la del gesto si hay uno en marcha,
+  // y si no, la que manda; las demas se enteran por `EVENTO_SELECCION`. Si lo hicieran
+  // todas, cada una lo dejaria en la suya. Va en el mismo efecto que la proporcion porque
+  // las dos cosas cambian el mismo recorte, y dos efectos leerian los dos el de antes.
+  const reglasAntes = useRef({ clave: "", cruza: false });
+  /** Si este overlay es el que escribe el recorte cuando no hay gesto aqui. Ver abajo. */
+  const escritorRef = useRef(true);
   useEffect(() => {
     const clave = geometria ? `${proporcion}|${modo !== "still"}` : "";
-    if (clave === geometriaAntes.current) return;
-    geometriaAntes.current = clave;
-    if (!geometria) return;
-    const { unidad, limite, escala } = geometria;
+    const antes = reglasAntes.current;
+    reglasAntes.current = { clave, cruza: puedeCruzar };
+    const nuevaGeometria = geometria !== null && clave !== antes.clave;
+    const dejaDeCruzar = antes.cruza && !puedeCruzar;
+    if (!nuevaGeometria && !dejaDeCruzar) return;
     const m = modeRef.current;
+    if (m.kind === "idle" && !escritorRef.current) return;
+    const vista = vistaDeLaVentana();
+    /** Lo que cruza, en el trozo de esta pantalla; lo que no, tal cual. */
+    const aSuTrozo = (r: Rect): Rect => (dejaDeCruzar ? (interseccion(r, vista) ?? r) : r);
     const c = cursorRef.current;
     if (m.kind === "drawing") {
-      setSelection(recorteConProporcion({ x: m.originX, y: m.originY }, c, unidad, limite, escala));
+      setSelection(dibujar(m.originX, m.originY, c.x, c.y));
       return;
     }
     if (m.kind === "resizing") {
-      setSelection(asaConProporcion(m.base, m.handle, c, unidad, limite, escala));
+      const base = aSuTrozo(m.base);
+      if (base !== m.base) setMode({ ...m, base });
+      if (geometria) {
+        const { unidad, limite, escala } = geometria;
+        setSelection(asaConProporcion(base, m.handle, c, unidad, limite, escala));
+      } else {
+        const b = limitarCursor(c.x, c.y);
+        setSelection(applyHandle(base, m.handle, b.x, b.y));
+      }
       return;
     }
     const actual = selectionRef.current;
-    if (!actual || actual.width < MIN_DRAG || actual.height < MIN_DRAG) return;
-    const nuevo = cambiarProporcion(actual, unidad, limite, escala);
+    if (!actual) return;
+    let nuevo = aSuTrozo(actual);
+    if (nuevaGeometria && geometria) {
+      if (nuevo.width < MIN_DRAG || nuevo.height < MIN_DRAG) return;
+      const { unidad, limite, escala } = geometria;
+      nuevo = cambiarProporcion(nuevo, unidad, limite, escala);
+    }
+    if (nuevo === actual) return;
     setSelection(nuevo);
     // Arrastrándolo, el tamaño sale de `base`: sin esto, el siguiente movimiento le
     // devolvería el de antes.
     if (m.kind === "moving") setMode({ ...m, base: nuevo });
-  }, [geometria, proporcion, modo]);
+  }, [geometria, proporcion, modo, puedeCruzar, dibujar, limitarCursor]);
 
   /** Si el fondo ya esta dibujado en `source`. Hasta entonces, la pantalla de arranque. */
   const [fondoListo, setFondoListo] = useState(false);
   /** Donde se cuelga el lienzo con la pantalla congelada, que es el fondo que se ve. */
   const fondoRef = useRef<HTMLDivElement>(null);
+
+  /** El raton del gesto de aqui, en fisicos y dentro del escritorio, para la lupa de al lado. */
+  const cursorFis = useMemo(() => {
+    if (!payload || mode.kind === "idle") return null;
+    const p = puntoAFisico(cursor, payload.monitor, scale);
+    const dentro = escritorio ? dentroDe(p, escritorio) : p;
+    return { x: Math.round(dentro.x), y: Math.round(dentro.y) };
+  }, [payload, mode.kind, cursor, scale, escritorio]);
+
+  /**
+   * El recorte es uno para todas las pantallas: lo de aqui se cuenta a las demas, y lo que
+   * hacen ellas llega aqui. `faseRemota` dice si hay un gesto en marcha en otra pantalla.
+   */
+  const { faseRemota, cursorRemoto } = useSeleccionCompartida({
+    payload,
+    monitores,
+    escala: scale,
+    listo: fondoListo && source !== null,
+    selection,
+    fase: FASE_DEL_GESTO[mode.kind],
+    cursorFis,
+    ponerSeleccion: setSelection,
+  });
+
+  /**
+   * Si el recorte asoma por ESTA pantalla. Con varias, cada una guarda el recorte entero,
+   * tambien cuando esta en otra: para lo que se pinta aqui cuenta el trozo que se ve.
+   */
+  const seleccionAqui =
+    selection !== null && (!variasPantallas || interseca(selection, vistaDeLaVentana()));
 
   /** Ventanas del sistema recortadas a este monitor, ya en coordenadas CSS locales. */
   const snapTargets = useMemo(
@@ -403,9 +585,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const hoveredRef = useRef<VentanaDelSistema | null>(null);
 
   const hovered = useMemo(() => {
-    if (!cursorAqui || selection || mode.kind !== "idle" || pantallaEntera) return null;
+    if (!cursorAqui || seleccionAqui || mode.kind !== "idle" || pantallaEntera) return null;
     return windowAt(cursor.x, cursor.y);
-  }, [windowAt, cursor, cursorAqui, selection, mode.kind, pantallaEntera]);
+  }, [windowAt, cursor, cursorAqui, seleccionAqui, mode.kind, pantallaEntera]);
   hoveredRef.current = hovered;
 
   /**
@@ -567,6 +749,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     [payload, scale],
   );
 
+  /**
+   * Lo que se graba o se baja con scroll, de una sola pantalla: ni el video ni el scroll
+   * cruzan. Lo normal es que la pantalla que manda ya lo haya recortado al cambiar de modo;
+   * esto es por si se graba antes de que llegue su aviso.
+   */
+  const aUnaPantalla = useCallback(
+    (rect: Rect): Rect => enUnaPantalla(toPhysical(rect), monitores),
+    [toPhysical, monitores],
+  );
+
   const capturarRegion = useCallback(
     async (rect: Rect, action: StillAction) => {
       if (!payload || busy) return;
@@ -608,14 +800,14 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       setBusy(true);
       setError(null);
       try {
-        await scrollIniciar(toPhysical(rect));
+        await scrollIniciar(aUnaPantalla(rect));
       } catch (e) {
         setError(String(e));
       } finally {
         setBusy(false);
       }
     },
-    [payload, busy, toPhysical],
+    [payload, busy, aUnaPantalla],
   );
 
   const capturarTodasLasPantallas = useCallback(
@@ -697,7 +889,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       setBusy(true);
       setError(null);
       try {
-        await startRecording(toPhysical(rect), {
+        await startRecording(aUnaPantalla(rect), {
           format,
           fps: payload.settings.fps,
           // El interruptor de audio del overlay se fue con la barra vieja: mientras el
@@ -715,7 +907,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         setBusy(false);
       }
     },
-    [payload, busy, toPhysical],
+    [payload, busy, aUnaPantalla],
   );
 
   const nudge = useCallback((dx: number, dy: number, resize: boolean) => {
@@ -905,8 +1097,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     [source, scale],
   );
 
+  // El raton de un gesto de otra pantalla que pasa por esta: la lupa sale aqui, con el
+  // color de aqui.
+  useEffect(() => {
+    if (cursorRemoto) readHex(cursorRemoto.x, cursorRemoto.y);
+  }, [cursorRemoto, readHex]);
+
   // Durante el gesto los eventos se escuchan en window, no en el div: asi el arrastre
-  // no se pierde aunque el webview no conceda la captura de puntero.
+  // no se pierde aunque el webview no conceda la captura de puntero. Y con el boton
+  // apretado, Chromium sigue mandando aqui el raton aunque salga de la ventana: asi el
+  // recorte sigue en la pantalla de al lado (`clientX` mas alla del ancho, o negativo).
   useEffect(() => {
     if (mode.kind === "idle") return;
 
@@ -920,19 +1120,15 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         readHex(x, y);
         setSelection(dibujar(mode.originX, mode.originY, x, y));
       } else if (mode.kind === "moving") {
-        setSelection({
-          x: clamp(x - mode.grabX, 0, window.innerWidth - mode.base.width),
-          y: clamp(y - mode.grabY, 0, window.innerHeight - mode.base.height),
-          width: mode.base.width,
-          height: mode.base.height,
-        });
+        setSelection(moverA(x - mode.grabX, y - mode.grabY, mode.base));
       } else if (mode.kind === "resizing") {
         const g = geometriaRef.current;
-        setSelection(
-          g
-            ? asaConProporcion(mode.base, mode.handle, { x, y }, g.unidad, g.limite, g.escala)
-            : applyHandle(mode.base, mode.handle, x, y),
-        );
+        if (g) {
+          setSelection(asaConProporcion(mode.base, mode.handle, { x, y }, g.unidad, g.limite, g.escala));
+        } else {
+          const b = limitarCursor(x, y);
+          setSelection(applyHandle(mode.base, mode.handle, b.x, b.y));
+        }
       }
     };
 
@@ -967,7 +1163,19 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [mode, readHex, dibujar, alVuelo, alEditor, modo, capturarRegion, grabarRegion, empezarScroll]);
+  }, [
+    mode,
+    readHex,
+    dibujar,
+    moverA,
+    limitarCursor,
+    alVuelo,
+    alEditor,
+    modo,
+    capturarRegion,
+    grabarRegion,
+    empezarScroll,
+  ]);
 
   /** Se lleva esta pantalla entera con lo que diga la barra: foto, video o GIF. */
   const llevarsePantalla = useCallback(async () => {
@@ -1042,11 +1250,15 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     }
     const x = e.clientX;
     const y = e.clientY;
+    // Donde empieza el gesto: lo primero que se cuenta a las demas pantallas.
+    setCursor({ x, y });
     const current = selectionRef.current;
     if (current && contains(current, x, y)) {
+      empezarGesto(current);
       setMode({ kind: "moving", grabX: x - current.x, grabY: y - current.y, base: current });
       return;
     }
+    empezarGesto(null);
     setMode({ kind: "drawing", originX: x, originY: y, candidate: windowAt(x, y)?.rect ?? null });
     setSelection({ x, y, width: 0, height: 0 });
   };
@@ -1064,6 +1276,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         Math.abs(e.clientY - desdeLaBarra.y) >= MIN_DRAG
       ) {
         origenBarra.current = null;
+        empezarGesto(null);
         // Sin candidata: quien arrastra desde la barra quiere SU recorte, no la ventana
         // que haya debajo.
         setMode({
@@ -1091,9 +1304,38 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       ? selection
       : null;
   const highlight = !active && hovered ? hovered : null;
-  const sitioBarra = active ? sitioDeLaBarra(active, window.innerHeight) : null;
+  /**
+   * Con varias pantallas el recorte puede estar entero en otra, o asomar solo un trozo por
+   * esta. `visible` dice si asoma; `trozo`, lo que se ve aqui, que es donde van la barra de
+   * acciones y la medida. Con una sola pantalla, los dos son el recorte, como siempre.
+   */
+  const vista = vistaDeLaVentana();
+  const visible = active !== null && (!variasPantallas || interseca(active, vista));
+  const trozo = active && variasPantallas ? (interseccion(active, vista) ?? active) : active;
+  const rectFisico = active && variasPantallas ? aFisico(active, payload.monitor, scale) : null;
+  /** La barra de acciones va en una sola pantalla: la que se lleva mas trozo. */
+  const manda =
+    !variasPantallas ||
+    (rectFisico !== null && pantallaQueManda(rectFisico, monitores)?.id === payload.monitor.id);
+  /** Y la medida, en la de la esquina de arriba a la izquierda, que es donde se pone. */
+  const conLaMedida =
+    !variasPantallas ||
+    (rectFisico !== null && pantallaDeLaMedida(rectFisico, monitores)?.id === payload.monitor.id);
+  // Un solo escritor: sin gesto aqui, el recorte lo reajusta la que manda, y solo si no hay
+  // un gesto en marcha en otra pantalla (ver el efecto de la proporcion).
+  escritorRef.current = !variasPantallas || (manda && faseRemota === "quieta");
+  /** Mientras otra pantalla arrastra, aqui no se ofrece nada: se mira. */
+  const gestoFuera = faseRemota !== "quieta";
+  const sitioBarra = trozo ? sitioDeLaBarra(trozo, window.innerHeight) : null;
   const conBarraDeAcciones =
-    active !== null && mode.kind === "idle" && !alVuelo && !alEditor && !conScroll;
+    active !== null &&
+    visible &&
+    manda &&
+    !gestoFuera &&
+    mode.kind === "idle" &&
+    !alVuelo &&
+    !alEditor &&
+    !conScroll;
   /**
    * Si la barra de acciones se ha ido ENCIMA del recorte (debajo no cabía): ahí es donde va
    * la etiqueta de la medida, y la tapaba entera. Pasa con todo recorte alto pegado abajo,
@@ -1101,12 +1343,22 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
    * ventana de verdad, en la pantalla de abajo al 125 % (S27).
    */
   const barraEncima =
-    conBarraDeAcciones && sitioBarra !== null && sitioBarra.volteada && sitioBarra.top <= active!.y;
-  const magnifierVisible =
-    cursorAqui &&
-    payload.settings.showMagnifier &&
-    !pantallaEntera &&
-    (!active || mode.kind === "drawing");
+    conBarraDeAcciones && sitioBarra !== null && sitioBarra.volteada && sitioBarra.top <= trozo!.y;
+  /**
+   * Donde va la lupa: en la pantalla donde esta el raton. Si el gesto es de otra pantalla,
+   * lo dice su aviso; si es de esta, el raton puede haberse ido a la de al lado, y entonces
+   * aqui no se pinta.
+   */
+  const cursorDentro =
+    cursor.x >= 0 && cursor.y >= 0 && cursor.x < vista.width && cursor.y < vista.height;
+  const lupaEn = gestoFuera
+    ? faseRemota === "dibujando"
+      ? cursorRemoto
+      : null
+    : cursorAqui && cursorDentro && (!active || mode.kind === "drawing")
+      ? cursor
+      : null;
+  const magnifierVisible = lupaEn !== null && payload.settings.showMagnifier && !pantallaEntera;
 
   return (
     <div
@@ -1122,7 +1374,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       <div ref={fondoRef} className="pointer-events-none absolute inset-0" />
 
       {/* Sin seleccion: velo uniforme. Con seleccion: el velo lo dibuja la sombra del recuadro. */}
-      {!active && <div className="pointer-events-none absolute inset-0 bg-black/45" />}
+      {/* Y si el recorte esta en otra pantalla, aqui el velo uniforme: la sombra de un recuadro
+          lejano no llega a taparla entera. */}
+      {!visible && <div className="pointer-events-none absolute inset-0 bg-black/45" />}
 
       {/* La ventana de debajo del cursor, con su nombre: el marco solo, y encima azul
           fuerte, no decia de que era ni que se le podia hacer clic. */}
@@ -1160,7 +1414,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         </div>
       )}
 
-      {active && (
+      {/* El recuadro va entero, sin recortar a la ventana: asi la junta entre pantallas no
+          lleva raya, y cada pantalla pinta las asas que le caen. */}
+      {active && visible && (
         <>
           <div
             style={{
@@ -1174,19 +1430,24 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           />
           <SelectionHandles
             rect={active}
-            onGrab={(handle) => setMode({ kind: "resizing", handle, base: active })}
+            onGrab={(handle) => {
+              empezarGesto(active);
+              setMode({ kind: "resizing", handle, base: active });
+            }}
           />
-          <DimensionBadge
-            width={active.width * scale}
-            height={active.height * scale}
-            proporcion={
-              tieneLaProporcion(active.width * scale, active.height * scale, proporcion)
-                ? proporcion
-                : "libre"
-            }
-            left={active.x + 2}
-            top={!barraEncima && active.y > 30 ? active.y - 30 : active.y + 6}
-          />
+          {conLaMedida && trozo && (
+            <DimensionBadge
+              width={active.width * scale}
+              height={active.height * scale}
+              proporcion={
+                tieneLaProporcion(active.width * scale, active.height * scale, proporcion)
+                  ? proporcion
+                  : "libre"
+              }
+              left={trozo.x + 2}
+              top={!barraEncima && trozo.y > 30 ? trozo.y - 30 : trozo.y + 6}
+            />
+          )}
         </>
       )}
 
@@ -1197,34 +1458,34 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         Se pinta cuando se pinta la lupa, que es cuando hace falta precision, y desaparece
         con la seleccion hecha para no ensuciar lo que se esta mirando.
       */}
-      {magnifierVisible && (
+      {magnifierVisible && lupaEn && (
         <div className="pointer-events-none absolute inset-0 z-30">
           <div
             className="absolute inset-x-0 h-px bg-white/25 mix-blend-difference"
-            style={{ top: cursor.y }}
+            style={{ top: lupaEn.y }}
           />
           <div
             className="absolute inset-y-0 w-px bg-white/25 mix-blend-difference"
-            style={{ left: cursor.x }}
+            style={{ left: lupaEn.x }}
           />
         </div>
       )}
 
-      {magnifierVisible && source && (
+      {magnifierVisible && lupaEn && source && (
         <Magnifier
           source={source}
-          px={cursor.x * scale}
-          py={cursor.y * scale}
-          {...sitioDeLaLupa(cursor.x, cursor.y, window.innerWidth, window.innerHeight)}
+          px={lupaEn.x * scale}
+          py={lupaEn.y * scale}
+          {...sitioDeLaLupa(lupaEn.x, lupaEn.y, window.innerWidth, window.innerHeight)}
           hex={hex}
         />
       )}
 
       <AnimatePresence>
-        {conBarraDeAcciones && active && (
+        {conBarraDeAcciones && trozo && (
           <FloatingToolbar
             key="toolbar"
-            left={clamp(active.x + active.width / 2, 190, window.innerWidth - 190)}
+            left={clamp(trozo.x + trozo.width / 2, 190, window.innerWidth - 190)}
             top={sitioBarra!.top}
             flipped={sitioBarra!.volteada}
             busy={busy}
@@ -1280,7 +1541,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       */}
       {cursorAqui &&
         ultimaRegion &&
-        !selection &&
+        !seleccionAqui &&
         mode.kind === "idle" &&
         !pantallaEntera &&
         !hovered && (
@@ -1340,7 +1601,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           soloFoto={payload?.recording ?? false}
           onAjustes={() => void openSettings()}
           onCancel={() => void cancelCapture()}
-          dimmed={mode.kind !== "idle"}
+          dimmed={mode.kind !== "idle" || gestoFuera}
         />
       )}
     </div>

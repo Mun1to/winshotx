@@ -6,15 +6,22 @@
  * está la barra de arriba.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SelectionCanvas } from "./SelectionCanvas";
 import { aplicarIdioma } from "../../lib/i18n";
-import { emite, llamadas, responde } from "../../test/preparar";
+import { emite, emitidos, escuchas, llamadas, responde, ventana } from "../../test/preparar";
 import { EVENTO_PROPORCION, type Proporcion } from "../../lib/proporcion";
-import { EVENTS, type OverlayPayload, type Rect, type Settings } from "../../lib/types";
+import { EVENTO_SELECCION, type SeleccionCompartida } from "../../lib/seleccionCompartida";
+import {
+  EVENTS,
+  type MonitorInfo,
+  type OverlayPayload,
+  type Rect,
+  type Settings,
+} from "../../lib/types";
 
 const ANCHO = window.innerWidth;
 const ALTO = window.innerHeight;
@@ -33,17 +40,21 @@ const AJUSTES = {
   highlightKeys: false,
 } as unknown as Settings;
 
+const MONITOR: MonitorInfo = {
+  id: 1,
+  label: "PANTALLA 1",
+  x: 0,
+  y: 0,
+  width: ANCHO,
+  height: ALTO,
+  scale: 1,
+  isPrimary: true,
+};
+
 const PAYLOAD: OverlayPayload = {
-  monitor: {
-    id: 1,
-    label: "PANTALLA 1",
-    x: 0,
-    y: 0,
-    width: ANCHO,
-    height: ALTO,
-    scale: 1,
-    isPrimary: true,
-  },
+  monitor: MONITOR,
+  // Una sola pantalla: todo lo de antes de las dos pantallas sigue igual.
+  monitores: [MONITOR],
   generation: 1,
   windows: [],
   settings: AJUSTES,
@@ -736,5 +747,373 @@ describe("la proporción en lo que se guarda y se graba, a 100, 125 y 150 %", ()
     const r = regionDe("start_recording");
     expect([r.width % 2, r.height % 2]).toEqual([0, 0]);
     expect(exacta(r, "16:9")).toBe(true);
+  });
+});
+
+/**
+ * Una captura que empieza en una pantalla y sigue en la de al lado (plano dos pantallas).
+ *
+ * Con las pantallas de Munito medidas el 16 de noviembre de 2026: la principal en el origen,
+ * la de la izquierda en x NEGATIVA y mas baja, y el portatil debajo al 125 %. Para la
+ * vecina de la derecha, que el no tiene, una igual que la principal.
+ *
+ * Las regiones que se mandan a guardar al cruzar se apuntan en
+ * `%TEMP%\winshotx-dos-pantallas\regiones.json`, para que la prueba de Rust las recorte de
+ * punta a punta por el camino de «Guardar» y mire el PNG.
+ */
+describe("dos pantallas: el recorte sigue en la de al lado", () => {
+  function monitor(id: number, x: number, y: number, width: number, height: number, scale = 1): MonitorInfo {
+    return { id, label: `PANTALLA ${id}`, x, y, width, height, scale, isPrimary: id === 1 };
+  }
+  const PRINCIPAL = monitor(1, 0, 0, 1920, 1080);
+  const IZQUIERDA = monitor(2, -1920, 483, 1920, 1080);
+  const PORTATIL = monitor(3, 0, 1080, 1920, 1200, 1.25);
+  const DERECHA = monitor(2, 1920, 0, 1920, 1080);
+  const LAS_SUYAS = [PRINCIPAL, IZQUIERDA, PORTATIL];
+
+  const apuntadas: { nombre: string; monitores: MonitorInfo[]; region: Rect }[] = [];
+  afterAll(() => {
+    const carpeta = join(tmpdir(), "winshotx-dos-pantallas");
+    mkdirSync(carpeta, { recursive: true });
+    writeFileSync(join(carpeta, "regiones.json"), JSON.stringify(apuntadas, null, 2));
+  });
+
+  /** El navegador de pruebas mide 1024 x 768: aqui cada pantalla mide lo suyo, y se devuelve. */
+  const navegador = (window as unknown as {
+    happyDOM: { setViewport(v: { width: number; height: number }): void };
+  }).happyDOM;
+  const VISTA_ANTES = { width: window.innerWidth, height: window.innerHeight };
+  afterEach(() => navegador.setViewport(VISTA_ANTES));
+
+  beforeEach(() => {
+    // La lupa pinta rejilla y recuadro: con el doble de arriba solo, revienta el render.
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      drawImage: () => {},
+      getImageData: () => ({ data: new Uint8ClampedArray([0, 0, 0, 255]) }),
+      clearRect: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => {},
+      strokeRect: () => {},
+    })) as unknown as HTMLCanvasElement["getContext"];
+  });
+
+  /**
+   * Abre el overlay de `yo` como lo abre Rust: su ventana mide la pantalla en CSS, su
+   * congelado en fisicos (de ahi sale la escala), se llama `overlay-<id>` y el payload trae
+   * todas las pantallas.
+   */
+  async function abrirEn(yo: MonitorInfo, todas: MonitorInfo[], ajustes: Partial<Settings> = {}) {
+    navegador.setViewport({ width: Math.round(yo.width / yo.scale), height: Math.round(yo.height / yo.scale) });
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: yo.width, height: yo.height })));
+    ventana.etiqueta = `overlay-${yo.id}`;
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      monitor: yo,
+      monitores: todas,
+      screenCount: todas.length,
+      settings: { ...AJUSTES, ...ajustes } as Settings,
+    } satisfies OverlayPayload);
+    const { container } = render(<SelectionCanvas monitorId={yo.id} />);
+    await waitFor(() => expect(container.querySelector("canvas")).not.toBeNull());
+    expect(window.innerWidth).toBe(Math.round(yo.width / yo.scale));
+    return container.firstElementChild as HTMLElement;
+  }
+
+  /** Lo que se le ha contado a una ventana sobre el recorte, en orden. */
+  function avisosA(etiqueta: string): SeleccionCompartida[] {
+    return emitidos
+      .filter((e) => e.destino === etiqueta && e.evento === EVENTO_SELECCION)
+      .map((e) => e.carga as SeleccionCompartida);
+  }
+
+  async function regionDe(comando: string): Promise<Rect> {
+    await waitFor(() => expect(llamadas.some((l) => l.comando === comando)).toBe(true));
+    return (llamadas.find((l) => l.comando === comando)!.args as { region: Rect }).region;
+  }
+
+  /** El recuadro azul de la seleccion, si se pinta en esta pantalla. */
+  function recuadro(lienzo: HTMLElement): HTMLElement | null {
+    return lienzo.querySelector<HTMLElement>('[class~="border-blue-500/90"]');
+  }
+
+  it("de la principal a la de la derecha: la vecina se entera y Ctrl+S guarda las dos", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 1920 + 150, y: 500 });
+
+    const fisico = { x: 200, y: 300, width: 1870, height: 200 };
+    expect(avisosA("overlay-2").at(-1)).toEqual({
+      generacion: 1,
+      emisor: 1,
+      rect: fisico,
+      fase: "quieta",
+      cursor: null,
+    });
+    // La medida es la del recorte entero, y la barra sale aqui, que se lleva mas trozo.
+    expect(recorte()).toBe("1870 × 200");
+    expect(await screen.findByLabelText("Copiar")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    const r = await regionDe("capture_still");
+    expect(r).toEqual(fisico);
+    apuntadas.push({ nombre: "principal hacia la derecha, 100 %", monitores: [PRINCIPAL, DERECHA], region: r });
+  });
+
+  it("en medio del gesto, la vecina recibe el recorte y el raton en el cuadro siguiente", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 1920 + 150, clientY: 500, buttons: 1 });
+    await waitFor(() =>
+      expect(avisosA("overlay-2").at(-1)).toEqual({
+        generacion: 1,
+        emisor: 1,
+        rect: { x: 200, y: 300, width: 1870, height: 200 },
+        fase: "dibujando",
+        cursor: { x: 2070, y: 500 },
+      }),
+    );
+    // Tres movimientos seguidos en el mismo cuadro son un solo aviso, con el ultimo.
+    const antes = avisosA("overlay-2").length;
+    for (const x of [2100, 2150, 2200]) {
+      fireEvent.pointerMove(window, { clientX: x, clientY: 500, buttons: 1 });
+    }
+    await waitFor(() => expect(avisosA("overlay-2").at(-1)!.cursor).toEqual({ x: 2200, y: 500 }));
+    expect(avisosA("overlay-2").length).toBe(antes + 1);
+    fireEvent.pointerUp(window, { clientX: 2200, clientY: 500 });
+    expect(avisosA("overlay-2").at(-1)).toMatchObject({ fase: "quieta", cursor: null });
+  });
+
+  it("pasarse 10 px del borde se queda en el borde (el iman); 150, cruza", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 1920 + 10, y: 500 });
+    expect(recorte()).toBe("1720 × 200");
+    expect(avisosA("overlay-2").at(-1)!.rect).toEqual({ x: 200, y: 300, width: 1720, height: 200 });
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    const r = await regionDe("capture_still");
+    expect(r.x + r.width).toBe(1920);
+    apuntadas.push({ nombre: "iman: 10 px de mas se quedan en el borde", monitores: [PRINCIPAL, DERECHA], region: r });
+
+    // Fuera del recorte de antes: dentro seria moverlo.
+    arrastrar(lienzo, { x: 200, y: 600 }, { x: 1920 + 150, y: 800 });
+    expect(recorte()).toBe("1870 × 200");
+  });
+
+  it("hacia la de la izquierda, con x negativa y mas baja que la principal", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, LAS_SUYAS);
+    arrastrar(lienzo, { x: 300, y: 700 }, { x: -150, y: 900 });
+
+    const fisico = { x: -150, y: 700, width: 450, height: 200 };
+    expect(avisosA("overlay-2").at(-1)).toMatchObject({ rect: fisico, fase: "quieta" });
+    // Al portatil tambien se le cuenta: la seleccion es una para todas.
+    expect(avisosA("overlay-3").at(-1)).toMatchObject({ rect: fisico, fase: "quieta" });
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    const r = await regionDe("capture_still");
+    expect(r).toEqual(fisico);
+    apuntadas.push({ nombre: "principal hacia la izquierda, x negativa", monitores: LAS_SUYAS, region: r });
+  });
+
+  it("desde el portatil al 125 %, hacia arriba a la principal", async () => {
+    const lienzo = await abrirEn(PORTATIL, LAS_SUYAS);
+    // 152 CSS hacia arriba son 190 fisicos dentro de la principal.
+    arrastrar(lienzo, { x: 100, y: 200 }, { x: 400, y: -152 });
+
+    const fisico = { x: 125, y: 890, width: 375, height: 440 };
+    expect(avisosA("overlay-1").at(-1)).toMatchObject({ rect: fisico, fase: "quieta", emisor: 3 });
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    const r = await regionDe("capture_still");
+    expect(r).toEqual(fisico);
+    apuntadas.push({ nombre: "portatil al 125 % hacia la principal", monitores: LAS_SUYAS, region: r });
+  });
+
+  it("y desde el portatil, 10 CSS hacia arriba (12,5 fisicos) se quedan en su borde", async () => {
+    const lienzo = await abrirEn(PORTATIL, LAS_SUYAS);
+    arrastrar(lienzo, { x: 100, y: 200 }, { x: 400, y: -10 });
+    expect(avisosA("overlay-1").at(-1)!.rect).toEqual({ x: 125, y: 1080, width: 375, height: 250 });
+  });
+
+  it("dentro de una sola pantalla, un gesto son dos avisos: al empezar y al soltar", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, LAS_SUYAS);
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    for (let x = 220; x <= 500; x += 20) {
+      fireEvent.pointerMove(window, { clientX: x, clientY: 300 + x / 2, buttons: 1 });
+    }
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 550 });
+    // Lo que va por cuadro (rAF) tendria su oportunidad aqui: no tiene que haber ninguno.
+    await new Promise((listo) => setTimeout(listo, 50));
+
+    for (const etiqueta of ["overlay-2", "overlay-3"]) {
+      expect(avisosA(etiqueta).map((a) => a.fase)).toEqual(["dibujando", "quieta"]);
+    }
+    expect(avisosA("overlay-2")[1].rect).toEqual({ x: 200, y: 300, width: 300, height: 250 });
+    // Y a si misma no se manda nada.
+    expect(avisosA("overlay-1")).toEqual([]);
+  });
+
+  it("en video no cruza: se para en el borde y graba eso", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: false, withToolbar: true });
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 1920 + 150, y: 500 });
+    expect(await regionDe("start_recording")).toEqual({ x: 200, y: 300, width: 1720, height: 200 });
+  });
+
+  it("con 16:9 tampoco: el recorte cabe en su pantalla", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    emite(EVENTO_PROPORCION, "16:9");
+    await waitFor(() => expect(botonProporcion()).toHaveTextContent("16:9"));
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 1920 + 150, y: 500 });
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    const r = await regionDe("capture_still");
+    expect(r.x + r.width).toBeLessThanOrEqual(1920);
+    expect(r.width * 9).toBe(r.height * 16);
+  });
+
+  it("estirar con un asa: 10 px de mas se quedan en el borde, 150 cruzan", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 600, y: 500 });
+    const asaDerecha = () =>
+      [...lienzo.querySelectorAll<HTMLElement>("div")]
+        .filter((d) => d.style.cursor === "ew-resize")
+        .sort((a, b) => parseFloat(b.style.left) - parseFloat(a.style.left))[0];
+
+    fireEvent.pointerDown(asaDerecha(), { clientX: 600, clientY: 400, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 1930, clientY: 400, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 1930, clientY: 400 });
+    expect(avisosA("overlay-2").at(-1)!.rect).toEqual({ x: 200, y: 300, width: 1720, height: 200 });
+
+    fireEvent.pointerDown(asaDerecha(), { clientX: 1920, clientY: 400, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 2070, clientY: 400, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 2070, clientY: 400 });
+    expect(avisosA("overlay-2").at(-1)).toMatchObject({
+      rect: { x: 200, y: 300, width: 1870, height: 200 },
+      fase: "quieta",
+    });
+  });
+
+  it("mover un recorte de una pantalla no lo pasa a la de al lado", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    fireEvent.pointerDown(lienzo, { clientX: 300, clientY: 400, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 300 + 1700, clientY: 400, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 300 + 1700, clientY: 400 });
+    expect(avisosA("overlay-2").at(-1)).toMatchObject({
+      rect: { x: 1620, y: 300, width: 300, height: 200 },
+      fase: "quieta",
+    });
+  });
+
+  it("pasar a video con un recorte que cruza lo deja en el trozo de la que manda", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 1920 + 150, y: 500 });
+    expect(recorte()).toBe("1870 × 200");
+
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: false, withToolbar: true });
+    await waitFor(() => expect(recorte()).toBe("1720 × 200"));
+    // Y la vecina se entera: el recorte vuelve a ser uno solo.
+    expect(avisosA("overlay-2").at(-1)).toMatchObject({
+      rect: { x: 200, y: 300, width: 1720, height: 200 },
+      fase: "quieta",
+    });
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(await regionDe("start_recording")).toEqual({ x: 200, y: 300, width: 1720, height: 200 });
+  });
+
+  it("la que no manda no lo toca, y si se graba antes del aviso, sale de una sola pantalla", async () => {
+    const lienzo = await abrirEn(PRINCIPAL, [PRINCIPAL, DERECHA]);
+    // 120 de ancho aqui y 600 en la de la derecha: manda la derecha.
+    arrastrar(lienzo, { x: 1800, y: 300 }, { x: 1920 + 600, y: 500 });
+    expect(screen.queryByLabelText("Copiar")).toBeNull();
+    const avisos = avisosA("overlay-2").length;
+
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: false, withToolbar: true });
+    await waitFor(() => expect(screen.getByLabelText("Vídeo")).toHaveAttribute("aria-pressed", "true"));
+    expect(recorte()).toBe("720 × 200");
+    expect(avisosA("overlay-2").length).toBe(avisos);
+
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(await regionDe("start_recording")).toEqual({ x: 1920, y: 300, width: 600, height: 200 });
+  });
+
+  describe("la vecina, montada como el portatil", () => {
+    const CRUZA = { x: 300, y: 900, width: 800, height: 400 };
+    const carga = (cambios: Partial<SeleccionCompartida> = {}): SeleccionCompartida => ({
+      generacion: 1,
+      emisor: 1,
+      rect: CRUZA,
+      fase: "quieta",
+      cursor: null,
+      ...cambios,
+    });
+
+    it("escucha solo lo suyo: con su etiqueta como destino", async () => {
+      await abrirEn(PORTATIL, LAS_SUYAS);
+      const suya = escuchas.find((e) => e.evento === EVENTO_SELECCION);
+      expect(suya?.opciones?.target).toBe("overlay-3");
+    });
+
+    it("recibe el recorte y pinta su trozo, la barra, y Ctrl+S manda el recorte exacto", async () => {
+      const lienzo = await abrirEn(PORTATIL, LAS_SUYAS);
+      emite(EVENTO_SELECCION, carga(), "overlay-3");
+
+      await waitFor(() => expect(recuadro(lienzo)).not.toBeNull());
+      // En sus CSS al 125 %: empieza 144 por encima de su borde de arriba.
+      const r = recuadro(lienzo)!;
+      expect([r.style.left, r.style.top, r.style.width, r.style.height]).toEqual([
+        "240px",
+        "-144px",
+        "640px",
+        "320px",
+      ]);
+      // 800 x 220 aqui contra 800 x 180 en la principal: la barra es de esta.
+      const barra = (await screen.findByLabelText("Copiar")).closest("div.absolute") as HTMLElement;
+      expect(parseFloat(barra.style.top)).toBeGreaterThanOrEqual(0);
+      // La medida va en la de la esquina de arriba a la izquierda, que es la principal.
+      expect(recorte()).toBeNull();
+      // Lo que llega no se reenvia.
+      expect(emitidos.filter((e) => e.evento === EVENTO_SELECCION)).toEqual([]);
+
+      fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+      const region = await regionDe("capture_still");
+      expect(region).toEqual(CRUZA);
+      apuntadas.push({ nombre: "la vecina (portatil al 125 %) guarda lo que cruza", monitores: LAS_SUYAS, region });
+    });
+
+    it("mientras la otra arrastra no ofrece la barra, y la lupa sale donde esta el raton", async () => {
+      const lienzo = await abrirEn(PORTATIL, LAS_SUYAS, { showMagnifier: true });
+      emite(EVENTO_SELECCION, carga({ fase: "dibujando", cursor: { x: 500, y: 1300 } }), "overlay-3");
+      await waitFor(() => expect(recuadro(lienzo)).not.toBeNull());
+      expect(screen.queryByLabelText("Copiar")).toBeNull();
+      const lupa = screen.getByText(/^#[0-9a-f]{6}$/i).closest("div.absolute") as HTMLElement;
+      // El raton en (500, 1300) fisicos es (400, 176) en sus CSS: la lupa, a su lado.
+      expect(parseFloat(lupa.style.left)).toBeGreaterThan(400);
+
+      emite(EVENTO_SELECCION, carga(), "overlay-3");
+      expect(await screen.findByLabelText("Copiar")).toBeInTheDocument();
+      expect(screen.queryByText(/^#[0-9a-f]{6}$/i)).toBeNull();
+    });
+
+    it("lo de otra captura, el eco propio y lo que va a otra ventana se ignoran", async () => {
+      const lienzo = await abrirEn(PORTATIL, LAS_SUYAS);
+      emite(EVENTO_SELECCION, carga({ generacion: 0 }), "overlay-3");
+      emite(EVENTO_SELECCION, carga({ emisor: 3 }), "overlay-3");
+      emite(EVENTO_SELECCION, carga(), "overlay-2");
+      await new Promise((listo) => setTimeout(listo, 20));
+      expect(recuadro(lienzo)).toBeNull();
+
+      emite(EVENTO_SELECCION, carga(), "overlay-3");
+      await waitFor(() => expect(recuadro(lienzo)).not.toBeNull());
+    });
+
+    it("lo que no asoma por aqui no se pinta, y el velo la tapa entera", async () => {
+      const lienzo = await abrirEn(PORTATIL, LAS_SUYAS);
+      emite(EVENTO_SELECCION, carga({ rect: { x: 200, y: 300, width: 300, height: 200 } }), "overlay-3");
+      await new Promise((listo) => setTimeout(listo, 20));
+      expect(recuadro(lienzo)).toBeNull();
+      expect(lienzo.querySelector('[class~="bg-black/45"]')).not.toBeNull();
+      expect(screen.queryByLabelText("Copiar")).toBeNull();
+    });
   });
 });
