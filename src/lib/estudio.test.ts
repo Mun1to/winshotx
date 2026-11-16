@@ -37,6 +37,7 @@ import {
   ONDA_MS,
   estelaDelPuntero,
   desenfoqueDeCamara,
+  vistaDelEditor,
 } from "./estudio";
 import type { MuestraCamara } from "./types";
 
@@ -270,6 +271,69 @@ describe("la vista previa con el marco puesto", () => {
     expect(m.width + 2 * m.aire).toBeLessThanOrEqual(800);
     expect(m.height + 2 * m.aire).toBeLessThanOrEqual(500);
     expect(m.radio).toBe(7);
+  });
+});
+
+// El portátil se colgaba por debajo de la vista al elegir 9:16 en «Calidad y tamaño»: se
+// medía con el recorte (vertical) y la caja seguía con la forma del vídeo entero (16-nov-2026).
+describe("la vista previa con un recorte de otra forma", () => {
+  const REGION = { width: 1920, height: 1080 };
+  // El 9:16 que pone el botón: 608 × 1080 en el centro.
+  const VERTICAL = { x1: 656 / 1920, y1: 0, x2: 1264 / 1920, y2: 1 };
+  const conPortatil = (ancho: number, alto: number) => ({
+    aire: 64 / ancho,
+    esquinas: 0,
+    fondo: "noche" as const,
+    sombra: true,
+    carcasa: { elegida: "portatil" as const, oscura: true, ancho, alto },
+  });
+  // Lo que dibuja el SVG del portátil tiene que ser la caja de la imagen más su relleno, a
+  // menos de un píxel (la caja se redondea a píxeles enteros). En el banco sobraban 622 por abajo.
+  const cuadra = (v: ReturnType<typeof vistaDelEditor>) => {
+    const c = v.caja.carcasa!;
+    expect(Math.abs(c.geometria.ancho * c.k - (v.caja.width + c.izquierda + c.derecha))).toBeLessThan(1);
+    expect(Math.abs(c.geometria.alto * c.k - (v.caja.height + c.arriba + c.abajo))).toBeLessThan(1);
+  };
+
+  it("con el recorte puesto se ve el trozo, con el portátil a su medida y dentro del hueco", () => {
+    const v = vistaDelEditor(840, 500, REGION, VERTICAL, false, conPortatil(608, 1080));
+    expect(v.ventana).toEqual(VERTICAL);
+    expect(v.caja.width / v.caja.height).toBeCloseTo(608 / 1080, 2);
+    cuadra(v);
+    const c = v.caja.carcasa!;
+    expect(c.geometria.alto * c.k + 2 * v.caja.aire).toBeLessThanOrEqual(500 + 1);
+    expect(c.geometria.ancho * c.k + 2 * v.caja.aire).toBeLessThanOrEqual(840 + 1);
+  });
+
+  it("encuadrando se ve la captura entera, y el portátil y el aire se miden con ella", () => {
+    const v = vistaDelEditor(840, 500, REGION, VERTICAL, true, conPortatil(608, 1080));
+    expect(v.ventana).toBeNull();
+    expect(v.caja.width / v.caja.height).toBeCloseTo(1920 / 1080, 2);
+    cuadra(v);
+    // El aire es el del archivo (64 px de 608) a la escala de lo que se ve.
+    expect(Math.abs(v.caja.aire - (64 / 608) * v.caja.width * (608 / 1920))).toBeLessThanOrEqual(1);
+  });
+
+  it("sin recorte, como siempre", () => {
+    const marco = conPortatil(1920, 1080);
+    const v = vistaDelEditor(840, 500, REGION, null, false, marco);
+    expect(v.ventana).toBeNull();
+    expect(v.caja).toEqual(medidasConMarco(840, 500, 1920, 1080, marco));
+  });
+});
+
+describe("la transformación con la vista recortada", () => {
+  const V = { x1: 0.25, y1: 0, x2: 0.75, y2: 1 };
+
+  it("sin zoom, el recorte se queda donde está: no se transforma nada", () => {
+    expect(transformacion(null, 800, 600, V)).toBe("none");
+    expect(transformacion({ ...V }, 800, 600, V)).toBe("none");
+  });
+
+  it("acercándose a la mitad de arriba del recorte, esa mitad llena el recorte", () => {
+    const css = transformacion({ x1: 0.375, y1: 0, x2: 0.625, y2: 0.5 }, 800, 600, V);
+    // Escala 2 y la esquina (300, 0) va a parar a la del recorte (200, 0): 200 - 600 = -400.
+    expect(css).toBe("translate(-400.00px, 0.00px) scale(2.0000, 2.0000)");
   });
 });
 

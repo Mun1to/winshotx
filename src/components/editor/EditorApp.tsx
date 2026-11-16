@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -41,7 +41,7 @@ import { ExportPanel } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
-import { cursorEn, ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
+import { cursorEn, ESTUDIO_APAGADO, vistaDelEditor, type Estudio } from "../../lib/estudio";
 import { cssDelFondo } from "../../lib/fondos";
 import { FondoVivo } from "./FondoVivo";
 // S25 (marco)
@@ -523,20 +523,36 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * del estudio puesto, lo que ocupan su aire y el radio de sus esquinas: la imagen se
    * encoge lo justo para que imagen y marco quepan juntos, como en el archivo.
    */
-  const cajaDeLaVista = useMemo(
+  const { caja: cajaDeLaVista, ventana: ventanaDeLaVista } = useMemo(
     () =>
       session
-        ? medidasConMarco(
+        ? vistaDelEditor(
             // El `p-4` del hueco son 16 px por lado que no puede ocupar la imagen.
             medidaDelHueco.width - 32,
             medidaDelHueco.height - 32,
-            session.region.width,
-            session.region.height,
+            session.region,
+            recorte,
+            recortando,
             estudio.marco,
           )
-        : { width: 0, height: 0, aire: 0, radio: 0 },
-    [medidaDelHueco, session, estudio.marco],
+        : { caja: { width: 0, height: 0, aire: 0, radio: 0 }, ventana: null },
+    [medidaDelHueco, session, recorte, recortando, estudio.marco],
   );
+  /**
+   * Con un recorte puesto, la caja de la imagen es el trozo recortado y esto es la captura
+   * entera, desplazada dentro de ella: el vídeo y las capas siguen midiendo la captura
+   * entera (las marcas no se mueven), y lo de fuera del trozo no se ve. Sin recorte, no
+   * genera caja y todo queda como antes.
+   */
+  const capturaEntera: CSSProperties = ventanaDeLaVista
+    ? {
+        position: "absolute",
+        width: `${100 / (ventanaDeLaVista.x2 - ventanaDeLaVista.x1)}%`,
+        height: `${100 / (ventanaDeLaVista.y2 - ventanaDeLaVista.y1)}%`,
+        left: `${(-100 * ventanaDeLaVista.x1) / (ventanaDeLaVista.x2 - ventanaDeLaVista.x1)}%`,
+        top: `${(-100 * ventanaDeLaVista.y1) / (ventanaDeLaVista.y2 - ventanaDeLaVista.y1)}%`,
+      }
+    : { display: "contents" };
   // S25 (marco): lo que ocupa la ventana o el portátil en la vista previa, si hay.
   const carcasaDeLaVista = cajaDeLaVista.carcasa ?? null;
 
@@ -970,8 +986,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 elegida={estudio.marco.carcasa.elegida}
                 oscura={estudio.marco.carcasa.oscura}
                 geometria={carcasaDeLaVista.geometria}
-                ancho={estudio.marco.carcasa.ancho}
-                alto={estudio.marco.carcasa.alto}
+                ancho={carcasaDeLaVista.ancho}
+                alto={carcasaDeLaVista.alto}
                 k={carcasaDeLaVista.k}
                 sombra={estudio.marco.sombra ? cajaDeLaVista.aire : null}
               />
@@ -991,7 +1007,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   estudio.marco?.sombra && cajaDeLaVista.aire > 0 && !carcasaDeLaVista
                     ? `0 ${Math.round(cajaDeLaVista.aire * 0.22)}px ${Math.round(cajaDeLaVista.aire * 0.9)}px rgba(0, 0, 0, 0.42)`
                     : undefined,
-                aspectRatio: `${session.region.width} / ${session.region.height}`,
+                aspectRatio: ventanaDeLaVista
+                  ? `${(ventanaDeLaVista.x2 - ventanaDeLaVista.x1) * session.region.width} / ${(ventanaDeLaVista.y2 - ventanaDeLaVista.y1) * session.region.height}`
+                  : `${session.region.width} / ${session.region.height}`,
                 // El `aspect-ratio` de arriba es el respaldo mientras no se ha medido nada.
                 // Lo que manda son estos dos numeros, calculados sobre el hueco de verdad.
                 ...(cajaDeLaVista.width
@@ -999,6 +1017,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   : { maxWidth: "100%", maxHeight: "100%" }),
               }}
             >
+              <div data-captura-entera="" style={capturaEntera}>
               <PreviewCanvas
                 videoRef={videoRef}
                 videoUrl={videoUrl}
@@ -1021,6 +1040,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   msParado={posicionMs}
                   reproduciendo={playing}
                   sinEncuadre={herramienta !== null || recortando}
+                  ventana={ventanaDeLaVista}
                   zooms={zoomsMostrados}
                   elegido={bloqueElegido}
                   onPunto={(x, y) => {
@@ -1030,7 +1050,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   edicion={edicion}
                 />
               )}
-              {/* S8 (cámara en el Estudio) */}
+              </div>
+              {/* S8 (cámara en el Estudio). Fuera de la captura entera: la burbuja se coloca
+                  sobre lo que sale en el archivo, que es lo que mide esta caja. */}
               {session.format !== "still" && (
                 <CapaCamara
                   sessionId={sessionId}
@@ -1054,6 +1076,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   msParado={posicionMs}
                 />
               )}
+              <div style={capturaEntera}>
               {/* S11 (pistas) */}
               {session.format !== "still" && suenanLasPistas && (
                 <SonidoPorPistas
@@ -1116,7 +1139,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   !recortando
                 }
               />
-              <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
+              {/* Fuera de encuadrar, la vista ya enseña solo el trozo: no hay nada que oscurecer. */}
+              <CapaRecorte activa={recortando} recorte={recortando ? recorte : null} onRecorte={setRecorte} />
+              </div>
             </div>
             </div>
             </div>

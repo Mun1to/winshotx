@@ -9,9 +9,10 @@ import { useT } from "../../lib/i18n";
  * queda fuera se oscurece en vez de desaparecer: la captura entera se sigue viendo, así
  * que se puede recolocar el marco mirando lo que se está dejando fuera.
  *
- * **La vista previa no se recorta.** Las marcas dibujadas antes siguen donde estaban y
- * quien las vuelve a medir sobre el trozo es Rust al exportar. Recortar aquí obligaría a
- * mover todas las anotaciones cada vez que se toca una esquina del marco.
+ * Solo se ve mientras se encuadra. Fuera de eso la vista enseña el trozo y nada más, como el
+ * archivo (`vistaDelEditor`), pero sin recortar nada: la captura entera se desplaza dentro de
+ * la caja, así que las marcas dibujadas antes siguen donde estaban y quien las vuelve a medir
+ * sobre el trozo es Rust al exportar.
  */
 interface Props {
   activa: boolean;

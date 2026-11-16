@@ -9,7 +9,7 @@
  * formas (aro, flecha, pastilla) repetidas a mano porque un canvas no sabe de `image`.
  */
 import type { AtajoGrabado, Background, ClicGrabado, MuestraCamara } from "./types";
-import type { Recorte } from "./recorte";
+import { medida as medidaDelRecorte, ordenar, type Recorte } from "./recorte";
 import type { Suavizado, TramoEscritura } from "./contrato";
 // S25 (marco)
 import { geometria as geometriaDeLaCarcasa, type CarcasaElegida, type Geometria } from "./carcasa";
@@ -62,6 +62,9 @@ export interface CarcasaDeVista {
   /** Píxeles de pantalla por cada píxel del archivo. */
   k: number;
   geometria: Geometria;
+  /** Lo que se midió para la carcasa, en píxeles del archivo: con ello se dibujan la barra y el bisel. */
+  ancho: number;
+  alto: number;
   /** Lo que mide la carcasa por cada lado de la captura, ya en la vista previa. */
   izquierda: number;
   arriba: number;
@@ -343,6 +346,8 @@ export function medidasConMarco(
           carcasa: {
             k,
             geometria: g,
+            ancho: c.ancho,
+            alto: c.alto,
             izquierda: g.x * k,
             arriba: g.y * k,
             derecha: (g.ancho - g.x - c.ancho) * k,
@@ -350,6 +355,60 @@ export function medidasConMarco(
           },
         }
       : {}),
+  };
+}
+
+/**
+ * Lo que enseña la vista previa del editor, y con qué marco.
+ *
+ * Con un recorte puesto, el trozo recortado y nada más, que es lo que sale en el archivo:
+ * `ventana` es ese trozo, y la caja de la imagen tiene su forma. Encuadrando, la captura
+ * entera, para ver lo que se deja fuera. El marco del panel se mide con el archivo (el aire
+ * en tanto por uno de su ancho, la carcasa con su tamaño), así que aquí se lleva a lo que se
+ * ve: sin eso, un portátil medido para un 9:16 se dibujaba alrededor de una caja 16:9 y se
+ * colgaba por debajo de la vista.
+ */
+export function vistaDelEditor(
+  huecoAncho: number,
+  huecoAlto: number,
+  region: { width: number; height: number },
+  recorte: Recorte | null,
+  encuadrando: boolean,
+  marco: MarcoDeVista | null,
+): { caja: ReturnType<typeof medidasConMarco>; ventana: Recorte | null } {
+  const exportado = recorte ? medidaDelRecorte(recorte, region.width, region.height) : region;
+  const ventana = recorte && !encuadrando ? ordenar(recorte) : null;
+  const visto = ventana ? exportado : region;
+  // Píxeles de la captura que se ven por cada uno de los que salen en el archivo.
+  const r = visto.width / Math.max(1, exportado.width);
+  const marcoVisto =
+    marco && r !== 1
+      ? {
+          ...marco,
+          aire: marco.aire / r,
+          esquinas: marco.esquinas / r,
+          carcasa: marco.carcasa
+            ? {
+                ...marco.carcasa,
+                ancho: marco.carcasa.ancho * r,
+                alto: (marco.carcasa.ancho * r * visto.height) / Math.max(1, visto.width),
+              }
+            : marco.carcasa,
+        }
+      : marco?.carcasa
+        ? {
+            ...marco,
+            // Con la misma forma que lo que se ve aunque el archivo vaya estirado (ancho y alto
+            // sin el candado): un píxel de diferencia ya descuadraba el dibujo del portátil.
+            carcasa: {
+              ...marco.carcasa,
+              alto: (marco.carcasa.ancho * visto.height) / Math.max(1, visto.width),
+            },
+          }
+        : marco;
+  return {
+    caja: medidasConMarco(huecoAncho, huecoAlto, visto.width, visto.height, marcoVisto),
+    ventana,
   };
 }
 
@@ -417,14 +476,28 @@ export function encuadreEn(muestras: MuestraCamara[], ms: number): Recorte | nul
  * trozo `[x1, x2] × [y1, y2]` de la imagen pasa a llenar la caja entera. Con el origen en
  * la esquina de arriba a la izquierda, escalar y luego desplazar.
  */
-export function transformacion(encuadre: Recorte | null, ancho: number, alto: number): string {
-  if (esEntero(encuadre) || !encuadre) return "none";
-  const sx = 1 / Math.max(0.001, encuadre.x2 - encuadre.x1);
-  const sy = 1 / Math.max(0.001, encuadre.y2 - encuadre.y1);
-  const tx = -encuadre.x1 * ancho * sx;
-  const ty = -encuadre.y1 * alto * sy;
+export function transformacion(
+  encuadre: Recorte | null,
+  ancho: number,
+  alto: number,
+  // Con un recorte puesto, la vista enseña solo ese trozo de la captura (`vistaDelEditor`):
+  // el encuadre va a parar a él y no a la caja entera. Sin zoom, el recorte se queda quieto.
+  ventana: Recorte | null = null,
+): string {
+  if (!encuadre || (ventana ? mismoTrozo(encuadre, ventana) : esEntero(encuadre))) return "none";
+  const v = ventana ?? { x1: 0, y1: 0, x2: 1, y2: 1 };
+  const sx = (v.x2 - v.x1) / Math.max(0.001, encuadre.x2 - encuadre.x1);
+  const sy = (v.y2 - v.y1) / Math.max(0.001, encuadre.y2 - encuadre.y1);
+  const tx = (v.x1 - encuadre.x1 * sx) * ancho;
+  const ty = (v.y1 - encuadre.y1 * sy) * alto;
   return `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
 }
+
+const mismoTrozo = (a: Recorte, b: Recorte) =>
+  Math.abs(a.x1 - b.x1) < 0.001 &&
+  Math.abs(a.y1 - b.y1) < 0.001 &&
+  Math.abs(a.x2 - b.x2) < 0.001 &&
+  Math.abs(a.y2 - b.y2) < 0.001;
 
 /**
  * Lleva un punto de la imagen (de 0 a 1) al cuadro que se ve, tras el encuadre. `null`
