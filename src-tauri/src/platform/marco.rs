@@ -80,8 +80,8 @@ const NEGRO: Color = Color(0, 0, 0);
 /// Ambar en pausa, el mismo del punto de la barra en pausa.
 const EN_PAUSA: Color = Color(0xF5, 0x9E, 0x0B);
 
-/// Como se ve el marco. Munito, 16-nov: «no me gusta, revísalo, el diseño rojo». Hasta que
-/// elija entre las variaciones (`ver_las_variaciones_del_marco`), el de siempre.
+/// Como se ve el marco. Munito, 16-nov: «no me gusta, revísalo, el diseño rojo»; entre las
+/// variaciones (`ver_las_variaciones_del_marco`) eligió la 2, el azul con luz.
 // Solo se usa uno a la vez (`ESTILO`): los otros viven para las fotos de las variaciones.
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,8 +97,9 @@ pub enum Estilo {
     BlancoConLuz,
 }
 
-/// El marco que se ve al grabar.
-pub const ESTILO: Estilo = Estilo::Rojo;
+/// El marco que se ve al grabar: el azul de winshotx con su luz (Munito, 16-nov, «2. Azul con
+/// luz»). En pausa, la linea y la luz pasan a ambar.
+pub const ESTILO: Estilo = Estilo::AzulConLuz;
 
 /// Lo que despega la linea del fondo, por fuera: un color, lo fuerte que es pegado a la linea
 /// (se apaga hacia fuera hasta cero) y lo que mide a 100 %.
