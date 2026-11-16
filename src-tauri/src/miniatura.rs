@@ -20,7 +20,7 @@
 //! guardada (`winshotx-AAAAMMDD-HHMMSS.png`), que es lo que verá quien la reciba en el chat.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 
 use image::RgbaImage;
 use parking_lot::Mutex;
@@ -90,6 +90,12 @@ static SIGUIENTE: AtomicU64 = AtomicU64::new(1);
 /// hilos de sus órdenes, y preguntarle a Tauri por el `hwnd()` desde otro hilo es una
 /// pregunta que espera sin plazo (trampa 34): así se pregunta una vez y no a cada carta.
 static VENTANA: AtomicIsize = AtomicIsize::new(0);
+
+/// Si la pagina de la ventana ya esta montada: lo dice ella al pedir la pila
+/// (`miniaturas_lista`). Hasta entonces la ventana no se ensenna: WebView2 pinta de blanco lo
+/// que aun no ha cargado, y la primera miniatura tras arrancar salia como un recuadro blanco
+/// (16-nov, grabando en el modo desarrollo, donde la pagina tarda segundos en cargar).
+static PAGINA_LISTA: AtomicBool = AtomicBool::new(false);
 
 /// Después de copiar o guardar una foto: prepara su miniatura y la enseña.
 ///
@@ -287,6 +293,7 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
         .focused(false)
         .visible(false)
         .build()?;
+    PAGINA_LISTA.store(false, Ordering::Relaxed);
     crate::platform::window_style::rounded_corners(&window);
     crate::platform::window_style::never_focus(&window);
     #[cfg(windows)]
@@ -310,6 +317,10 @@ fn ensennar(app: &AppHandle, segundos: u32) {
             crate::platform::window_style::esconder_hwnd(hwnd);
         }
         let _ = window.hide();
+        return;
+    }
+    // Con la pagina aun cargando, se ensenna cuando avise (`miniaturas_lista`).
+    if !PAGINA_LISTA.load(Ordering::Relaxed) {
         return;
     }
     let (trabajo, escala) = pantalla_del_raton().unwrap_or(((0, 0, 1920, 1040), 1.0));
@@ -358,7 +369,12 @@ fn de(id: u64) -> Result<(PathBuf, bool, Rect)> {
 
 #[tauri::command]
 pub async fn miniaturas_lista(app: AppHandle) -> Pila {
-    vista_de_la_pila(segundos(&app))
+    // La pagina ya esta montada: si habia algo esperando a ensennarse, ahora.
+    let segundos = segundos(&app);
+    if !PAGINA_LISTA.swap(true, Ordering::Relaxed) && !PILA.lock().is_empty() {
+        ensennar(&app, segundos);
+    }
+    vista_de_la_pila(segundos)
 }
 
 #[tauri::command]
