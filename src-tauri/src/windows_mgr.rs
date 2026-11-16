@@ -508,12 +508,7 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
             crate::platform::window_style::rounded_corners(&nueva);
             // Sin esto la cuenta atras cierra el menu que se venia a fotografiar.
             crate::platform::window_style::never_focus(&nueva);
-            // Su ventana a pelo, para no preguntarle a Tauri por ella en cada cuenta atras:
-            // esto se llama tambien desde el menu de la bandeja, fuera del hilo principal, y
-            // ahi preguntar espera sin plazo (trampa 34).
-            if let Ok(hwnd) = nueva.hwnd() {
-                CUENTA_HWND.store(hwnd.0 as isize, Ordering::Relaxed);
-            }
+            guardar_cuenta_hwnd(&nueva);
             nueva
         }
     };
@@ -651,7 +646,21 @@ fn ventanita_de_numero(app: &AppHandle, indice: u32) -> Option<tauri::WebviewWin
         .ok()?;
     crate::platform::window_style::rounded_corners(&construida);
     crate::platform::window_style::never_focus(&construida);
+    // La misma ventana que la cuenta atras: si nace aqui, tambien hay que saber cual es.
+    guardar_cuenta_hwnd(&construida);
     Some(construida)
+}
+
+/// Guarda la ventana de la cuenta atras a pelo, la cree quien la cree (la cuenta atras o el
+/// numero de pantalla de los ajustes), para no preguntarle a Tauri por ella en cada cuenta
+/// atras: se llama tambien desde el menu de la bandeja, fuera del hilo principal.
+fn guardar_cuenta_hwnd(window: &tauri::WebviewWindow) {
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() {
+        CUENTA_HWND.store(hwnd.0 as isize, Ordering::Relaxed);
+    }
+    #[cfg(not(windows))]
+    let _ = window;
 }
 
 /// La esconde y la deja en cero, que la pagina dibuja como el icono de la camara y no
