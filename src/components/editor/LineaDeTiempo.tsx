@@ -375,19 +375,13 @@ export function LineaDeTiempo({
 
   return (
     <section className="shrink-0 border-t border-linea px-4 pt-3 pb-3">
-      <div className="flex items-start gap-2">
-        <div className="flex h-14 shrink-0 items-center gap-1.5">
-          {delante}
-          {/* Dónde está la vista previa. Mientras suena lo escribe el bucle de arriba. */}
-          <span
-            ref={reloj}
-            className="w-[58px] text-[14px] font-medium tabular-nums text-titulo"
-          >
-            {formatoTiempo(posicionMs)}
-          </span>
-        </div>
-
-        <div className="min-w-0 flex-1" style={{ paddingInline: ASA }}>
+      {/*
+        Las pistas, de lado a lado. El play iba a su izquierda, en una columna que solo llenaba
+        la fila de las miniaturas: debajo, junto a la pista de zooms y a la fila de botones,
+        quedaba un hueco vacío del ancho de los mandos (Munito, 16-nov: «lo que no me gusta es
+        que quede un huecazo aquí»). Ahora va en la fila de abajo, al principio.
+      */}
+        <div className="min-w-0" style={{ paddingInline: ASA }}>
           <div
             ref={pista}
             data-pista
@@ -544,7 +538,20 @@ export function LineaDeTiempo({
             />
           )}
 
-          <div className="mt-2 flex min-h-8 items-center justify-between gap-3 text-[13px]">
+        </div>
+
+        <div className="mt-2 flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5">
+            {delante}
+            {/* Dónde está la vista previa. Mientras suena lo escribe el bucle de arriba. */}
+            <span
+              ref={reloj}
+              className="w-[58px] text-[14px] font-medium tabular-nums text-titulo"
+            >
+              {formatoTiempo(posicionMs)}
+            </span>
+          </div>
+          <div className="flex min-h-8 min-w-0 flex-1 items-center justify-between gap-3 text-[13px]">
             {zoomElegido ? (
               <div className="min-w-0 flex-1">
                 <AjustesDelZoom
@@ -637,7 +644,6 @@ export function LineaDeTiempo({
             )}
           </div>
         </div>
-      </div>
     </section>
   );
 }
