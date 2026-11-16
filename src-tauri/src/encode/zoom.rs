@@ -306,8 +306,16 @@ impl Camara {
 /// opuestas cae en el medio de la pantalla, que es donde no ha pasado nada. A partir de ahí
 /// la cámara sigue al ratón, con inercia (`Seguimiento`).
 pub fn tramos(clics: &[Clic], ajustes: &Ajustes) -> Vec<Tramo> {
+    let puntos: Vec<(Clic, u64)> = clics.iter().map(|c| (*c, ajustes.quieto_clic_ms)).collect();
+    tramos_con_su_rato(&puntos, ajustes)
+}
+
+/// Lo mismo, con el rato quieto de cada punto: el de un clic es corto (`quieto_clic_ms`) y el
+/// de una marca de la tecla de zoom, que se pulsa adrede para mirar algo, el de siempre
+/// (`quieto_ms`). Al juntarse, el tramo dura hasta el último que acabe.
+pub fn tramos_con_su_rato(puntos: &[(Clic, u64)], ajustes: &Ajustes) -> Vec<Tramo> {
     let mut salida: Vec<Tramo> = Vec::new();
-    for clic in clics {
+    for &(clic, quieto) in puntos {
         match salida.last_mut() {
             // Sigue dentro del anterior, o empezaria a acercarse antes de que el anterior
             // acabe de alejarse: se alarga en vez de abrir otro que se pisaria con el. La
@@ -318,15 +326,15 @@ pub fn tramos(clics: &[Clic], ajustes: &Ajustes) -> Vec<Tramo> {
                 if clic.ms <= ultimo.fin_cerca_ms + ajustes.quieto_ms + 2 * ajustes.transicion_ms =>
             {
                 ultimo.fin_cerca_ms = clic.ms;
-                ultimo.lejos_ms = clic.ms + ajustes.quieto_clic_ms;
-                ultimo.hasta_ms = clic.ms + ajustes.quieto_clic_ms + ajustes.transicion_ms;
+                ultimo.lejos_ms = ultimo.lejos_ms.max(clic.ms + quieto);
+                ultimo.hasta_ms = ultimo.lejos_ms + ajustes.transicion_ms;
             }
             _ => salida.push(Tramo {
                 desde_ms: clic.ms.saturating_sub(ajustes.transicion_ms),
                 cerca_ms: clic.ms,
                 fin_cerca_ms: clic.ms,
-                lejos_ms: clic.ms + ajustes.quieto_clic_ms,
-                hasta_ms: clic.ms + ajustes.quieto_clic_ms + ajustes.transicion_ms,
+                lejos_ms: clic.ms + quieto,
+                hasta_ms: clic.ms + quieto + ajustes.transicion_ms,
                 x: clic.x,
                 y: clic.y,
                 escala: ajustes.escala,
