@@ -1,6 +1,41 @@
 {
   "versiones": [
     {
+      "version": "0.5.1",
+      "desde": "0.5.0",
+      "fecha": "2026-11-16",
+      "es": {
+        "titulo": "Captura mientras grabas y entre dos pantallas",
+        "puntos": [
+          "**Haz una foto mientras grabas**: con una grabación en marcha, el atajo de captura abre la selección, y ni la selección ni la miniatura salen en el vídeo.",
+          "**Captura a caballo entre dos pantallas**: empieza el recorte en una y sigue en la de al lado; la foto sale entera.",
+          "**El marco de grabar, ahora azul**: ya no sale en tus otras pantallas y, si grabas una ventana, va con ella cuando la mueves.",
+          "**Corta con la B**: en el editor, **B** (o **Ctrl+B**) corta el vídeo donde está el cabezal.",
+          "**La línea de tiempo ocupa todo el ancho**: el play y el volumen bajan a la fila de abajo y ya no dejan un hueco.",
+          "**El sonido del PC se oye aunque la app esté muy baja en el mezclador de Windows**: winshotx lo sube al parar y te avisa.",
+          "**El zoom de los clics se va antes**: 0,6 s después del último clic en vez de 1,2.",
+          "**Escape a mitad del arrastre ya no captura nada** al soltar el ratón.",
+          "**Grabar en Windows 10** ya no pide quitar el borde amarillo, que ese Windows no deja quitar.",
+          "**Con el marco de portátil, elegir 9:16** enseña en el editor el trozo recortado, como sale en el archivo. Y la miniatura de la esquina ya no sale como un recuadro blanco."
+        ]
+      },
+      "en": {
+        "titulo": "Capture while recording and across two screens",
+        "puntos": [
+          "**Take a shot while recording**: with a recording running, the capture shortcut opens the selection, and neither the selection nor the thumbnail shows up in the video.",
+          "**Capture across two screens**: start the crop on one and carry on into the next; the shot comes out whole.",
+          "**The recording frame, now blue**: it no longer shows up on your other screens and, if you record a window, it moves with it.",
+          "**Cut with B**: in the editor, **B** (or **Ctrl+B**) cuts the video at the playhead.",
+          "**The timeline spans the full width**: play and volume move to the bottom row and no longer leave a gap.",
+          "**PC sound is heard even with the app turned way down in the Windows mixer**: winshotx raises it when you stop and tells you.",
+          "**Click zoom leaves sooner**: 0.6 s after the last click instead of 1.2.",
+          "**Escape halfway through a drag no longer captures anything** when you let go of the mouse.",
+          "**Recording on Windows 10** no longer asks to remove the yellow border, which that Windows does not allow.",
+          "**With the laptop frame, choosing 9:16** shows the cropped part in the editor, as the file comes out. And the corner thumbnail no longer appears as a white box."
+        ]
+      }
+    },
+    {
       "version": "0.5.0",
       "desde": "0.4.8",
       "fecha": "2026-11-15",
