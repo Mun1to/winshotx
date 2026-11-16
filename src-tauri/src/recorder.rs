@@ -298,17 +298,24 @@ impl SalidaDeAudio {
         let Some(captura) = self.captura.take() else { return (None, None) };
         let formato = captura.formato;
         captura.parar();
-        let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str| {
+        // El del PC se sube si llegó casi mudo (una app muy baja en el mezclador de Windows,
+        // `pistas::nivelar_si_casi_muda`); la voz no, que subirla sube su siseo.
+        let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str, nivelar: bool| {
             let Some(wav) = wav else { return (None, None) };
-            let pico = wav.pico();
-            if wav.cerrar() > 0 {
+            let (escritos, pico) = if nivelar {
+                wav.cerrar_y_nivelar()
+            } else {
+                let pico = wav.pico();
+                (wav.cerrar(), pico)
+            };
+            if escritos > 0 {
                 (Some(nombre.to_string()), Some(pico))
             } else {
                 (None, None)
             }
         };
-        let (sistema, pico_sistema) = con_sonido(self.pc.take(), ARCHIVO_PC);
-        let (microfono, pico_microfono) = con_sonido(self.microfono.take(), ARCHIVO_MICROFONO);
+        let (sistema, pico_sistema) = con_sonido(self.pc.take(), ARCHIVO_PC, true);
+        let (microfono, pico_microfono) = con_sonido(self.microfono.take(), ARCHIVO_MICROFONO, false);
         let pistas = crate::contrato::PistasGrabadas {
             sistema,
             microfono,
