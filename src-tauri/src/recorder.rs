@@ -183,6 +183,22 @@ fn flip_rows_en(input: &[u8], width: u32, height: u32, out: &mut Vec<u8>) {
     }
 }
 
+/// La parte de la region que cae en la pantalla donde cae mas de ella.
+///
+/// Desde el 16-nov una foto puede cruzar de una pantalla a otra, pero un video no:
+/// windows-capture graba un monitor por sesion y recorta dentro de el sin mirar sus bordes, y
+/// una region que se saliera grabaria lo que no es. El overlay ya no deja cruzar en video;
+/// esto es por si algo (un agente, la ultima region repetida) llega cruzando igual. Sin
+/// pantallas conocidas, o sin tocar ninguna, la region se queda como llega.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn dentro_de_su_monitor(region: Rect, pantallas: &[Rect]) -> Rect {
+    pantallas
+        .iter()
+        .filter_map(|&p| crate::capture::interseccion(region, p))
+        .max_by_key(|r| u64::from(r.width) * u64::from(r.height))
+        .unwrap_or(region)
+}
+
 fn monitor_origin(app: &AppHandle, region: Rect) -> (i32, i32) {
     let state = app.state::<AppState>();
     let (cx, cy) = region.center();
@@ -414,6 +430,16 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     }
 
     windows_mgr::close_overlays(app);
+    // Una grabacion de pantalla se queda en una pantalla (ver `dentro_de_su_monitor`). La de
+    // una ventana no: Windows graba la ventana entera, este donde este.
+    let region = if options.window.filter(|h| *h != 0).is_none() {
+        let pantallas: Vec<Rect> = crate::capture::monitors()
+            .map(|m| m.iter().map(|m| Rect { x: m.x, y: m.y, width: m.width, height: m.height }).collect())
+            .unwrap_or_default();
+        dentro_de_su_monitor(region, &pantallas)
+    } else {
+        region
+    };
     let region = region.to_even();
     let id = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
     let dir = state.session_dir(&id);
@@ -1628,5 +1654,36 @@ mod pruebas_del_aviso_de_la_tira {
         lista_sin_miniaturas("s29b-a");
         assert_eq!(de("s29b-a"), 1, "la misma sesión se apunta una vez, con la hora de la última");
         SIN_MINIATURAS.lock().retain(|(o, _)| o != "s29b-a" && o != "s29b-b");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_de_la_region {
+    use super::*;
+
+    /// Una region que cruza de una pantalla a otra se graba solo en la que se lleva mas de
+    /// ella, y una que cabe en una se queda igual (las pantallas de Munito, 16-nov).
+    #[test]
+    fn un_video_se_queda_en_la_pantalla_donde_cae_mas() {
+        let pantallas = [
+            Rect { x: 0, y: 0, width: 1920, height: 1080 },
+            Rect { x: -1920, y: 483, width: 1920, height: 1080 },
+            Rect { x: 0, y: 1080, width: 1920, height: 1200 },
+        ];
+        let dentro = Rect { x: 100, y: 100, width: 800, height: 600 };
+        assert_eq!(dentro_de_su_monitor(dentro, &pantallas), dentro);
+        assert_eq!(
+            dentro_de_su_monitor(Rect { x: -300, y: 600, width: 800, height: 300 }, &pantallas),
+            Rect { x: 0, y: 600, width: 500, height: 300 },
+            "cruzando a la izquierda, se queda la principal, donde cae mas"
+        );
+        assert_eq!(
+            dentro_de_su_monitor(Rect { x: 100, y: 1000, width: 400, height: 400 }, &pantallas),
+            Rect { x: 100, y: 1080, width: 400, height: 320 },
+            "cruzando al portatil, se queda el portatil"
+        );
+        let en_ninguna = Rect { x: -20_000, y: 0, width: 10, height: 10 };
+        assert_eq!(dentro_de_su_monitor(en_ninguna, &pantallas), en_ninguna);
+        assert_eq!(dentro_de_su_monitor(dentro, &[]), dentro);
     }
 }

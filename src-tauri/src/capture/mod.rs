@@ -3,6 +3,9 @@ mod bench_freeze;
 // S27 (proporción fija): que el PNG guardado salga de la proporción exacta.
 #[cfg(test)]
 mod proporcion_pruebas;
+// 16-nov: que una seleccion que cruza de una pantalla a otra salga entera en el PNG.
+#[cfg(test)]
+mod dos_pantallas_pruebas;
 #[cfg(windows)]
 mod wgc;
 // S5 (scroll): la captura con scroll, que cose las fotos de una zona mientras baja.
@@ -358,24 +361,92 @@ pub fn window_rects() -> Vec<WindowRect> {
         .collect()
 }
 
-/// Recorta la region pedida del monitor que la contiene, usando la imagen ya congelada.
+/// Recorta la region pedida de las pantallas congeladas. Ver `recortar_escritorio`.
 pub fn crop_from_freeze(freezes: &[Freeze], region: Rect) -> Result<image::RgbaImage> {
-    let (cx, cy) = region.center();
-    let freeze = freezes
-        .iter()
-        .find(|f| f.monitor.contains(cx, cy))
-        .or_else(|| freezes.first())
-        .ok_or_else(|| AppError::Msg("no hay pantalla congelada".into()))?;
+    recortar_escritorio(freezes, region).map(|(imagen, _)| imagen)
+}
 
-    let image = &freeze.image;
-    let local_x = (region.x - freeze.monitor.x).max(0) as u32;
-    let local_y = (region.y - freeze.monitor.y).max(0) as u32;
-    let width = region.width.min(image.width().saturating_sub(local_x));
-    let height = region.height.min(image.height().saturating_sub(local_y));
-    if width == 0 || height == 0 {
-        return Err(AppError::Msg("la selección queda fuera de la pantalla".into()));
+/// Lo que tienen en comun dos rectangulos, o nada si no se tocan.
+pub fn interseccion(a: Rect, b: Rect) -> Option<Rect> {
+    let (x1, y1) = (a.x.max(b.x), a.y.max(b.y));
+    let x2 = (a.x + a.width as i32).min(b.x + b.width as i32);
+    let y2 = (a.y + a.height as i32).min(b.y + b.height as i32);
+    (x2 > x1 && y2 > y1).then(|| Rect { x: x1, y: y1, width: (x2 - x1) as u32, height: (y2 - y1) as u32 })
+}
+
+/// Lo que ocupa la imagen congelada de una pantalla en el escritorio virtual: su monitor, y
+/// nunca mas de lo que mide la imagen.
+fn sitio_de(f: &Freeze) -> Rect {
+    Rect {
+        x: f.monitor.x,
+        y: f.monitor.y,
+        width: f.monitor.width.min(f.image.width()),
+        height: f.monitor.height.min(f.image.height()),
     }
-    Ok(image::imageops::crop_imm(image.as_ref(), local_x, local_y, width, height).to_image())
+}
+
+/// Recorta una region del escritorio virtual de las pantallas congeladas, **aunque cruce de
+/// una pantalla a otra** (16-nov: «que empieces una captura en una pantalla y en la que tienes
+/// al lado puedas capturar las dos al mismo tiempo»). Devuelve la imagen y lo que de verdad
+/// abarca: la region recortada a las pantallas, porque lo que cae fuera de todas no se
+/// rellena (un redondeo en el borde dejaria una raya transparente).
+///
+/// Cada trozo va en sus pixeles fisicos, sin reescalar: el del portatil al 125 % trae la
+/// interfaz un 25 % mas grande que el de la pantalla al 100 %, que es lo que hay en cada
+/// pantalla y lo que dice la medida de la seleccion. Lo que queda entre dos pantallas
+/// desalineadas va transparente, como en `stitch_all` (D7).
+///
+/// Antes se cogia solo la pantalla del centro de la region, y una region que empezaba fuera
+/// de ella por la izquierda o por arriba salia desplazada en vez de recortada.
+pub fn recortar_escritorio(freezes: &[Freeze], region: Rect) -> Result<(image::RgbaImage, Rect)> {
+    let trozos: Vec<(&Freeze, Rect)> = freezes
+        .iter()
+        .filter_map(|f| Some((f, interseccion(region, sitio_de(f))?)))
+        .collect();
+    let Some(&(primera, trozo)) = trozos.first() else {
+        return Err(AppError::Msg("la selección queda fuera de la pantalla".into()));
+    };
+    if trozos.len() == 1 {
+        let (x, y) = ((trozo.x - primera.monitor.x) as u32, (trozo.y - primera.monitor.y) as u32);
+        let imagen = image::imageops::crop_imm(primera.image.as_ref(), x, y, trozo.width, trozo.height).to_image();
+        return Ok((imagen, trozo));
+    }
+    let caja = trozos.iter().skip(1).fold(trozo, |c, &(_, t)| {
+        let (x1, y1) = (c.x.min(t.x), c.y.min(t.y));
+        let x2 = (c.x + c.width as i32).max(t.x + t.width as i32);
+        let y2 = (c.y + c.height as i32).max(t.y + t.height as i32);
+        Rect { x: x1, y: y1, width: (x2 - x1) as u32, height: (y2 - y1) as u32 }
+    });
+    let mut lienzo = image::RgbaImage::from_pixel(caja.width, caja.height, image::Rgba([0, 0, 0, 0]));
+    for (f, t) in trozos {
+        pegar_trozo(&mut lienzo, caja, f, t);
+    }
+    Ok((lienzo, caja))
+}
+
+/// Copia en el lienzo (que ocupa `lienzo_en` del escritorio) el trozo `trozo` de una pantalla
+/// congelada, fila a fila. `trozo` tiene que caer dentro de la pantalla y del lienzo.
+///
+/// Con copias de memoria, no con `imageops::overlay`: aquel mezcla el alfa pixel a pixel y
+/// tardaba 50 ms en juntar tres pantallas, y una pantalla congelada es opaca entera, no hay
+/// nada que mezclar. Los monitores no se solapan, asi que copiar encima es exactamente lo que
+/// hacia la mezcla.
+fn pegar_trozo(lienzo: &mut image::RgbaImage, lienzo_en: Rect, f: &Freeze, trozo: Rect) {
+    let ancho_lienzo = lienzo.width() as usize * 4;
+    let ancho_imagen = f.image.width() as usize * 4;
+    let fila = trozo.width as usize * 4;
+    let (ox, oy) = ((trozo.x - f.monitor.x) as usize, (trozo.y - f.monitor.y) as usize);
+    let (dx, dy) = ((trozo.x - lienzo_en.x) as usize, (trozo.y - lienzo_en.y) as usize);
+    let origen = f.image.as_raw();
+    let destino = lienzo.as_mut();
+    for y in 0..trozo.height as usize {
+        let a = (dy + y) * ancho_lienzo + dx * 4;
+        let o = (oy + y) * ancho_imagen + ox * 4;
+        if a + fila > destino.len() || o + fila > origen.len() {
+            break;
+        }
+        destino[a..a + fila].copy_from_slice(&origen[o..o + fila]);
+    }
 }
 
 /// El rectangulo que contiene todas las pantallas: el escritorio virtual entero.
@@ -415,28 +486,9 @@ pub fn stitch_all(freezes: &[Freeze]) -> Result<(image::RgbaImage, Rect)> {
         .ok_or_else(|| AppError::Msg("no hay ninguna pantalla congelada".into()))?;
 
     let mut lienzo = image::RgbaImage::from_pixel(marco.width, marco.height, image::Rgba([0, 0, 0, 0]));
-
-    // Fila a fila con copias de memoria, no con `imageops::overlay`: aquel mezcla el alfa
-    // pixel a pixel y tardaba 50 ms en juntar tres pantallas, y una pantalla congelada es
-    // opaca entera, no hay nada que mezclar. Los monitores no se solapan, asi que copiar
-    // encima es exactamente lo que hacia la mezcla.
-    let ancho_lienzo = marco.width as usize * 4;
     for f in freezes {
-        let dx = (f.monitor.x - marco.x).max(0) as usize;
-        let dy = (f.monitor.y - marco.y).max(0) as usize;
-        let (fw, fh) = f.image.dimensions();
-        let fila = fw as usize * 4;
-        let origen = f.image.as_raw();
-        let destino = lienzo.as_mut();
-        for y in 0..fh as usize {
-            let a = (dy + y) * ancho_lienzo + dx * 4;
-            if a + fila > destino.len() {
-                break;
-            }
-            destino[a..a + fila].copy_from_slice(&origen[y * fila..(y + 1) * fila]);
-        }
+        pegar_trozo(&mut lienzo, marco, f, sitio_de(f));
     }
-
     Ok((lienzo, marco))
 }
 
@@ -521,6 +573,85 @@ mod tests {
             resultado.map(|i| primer_pixel(&i))
         );
     }
+    /// Una region que cruza de una pantalla a la de al lado se lleva las dos, cada trozo de
+    /// la suya y en su sitio (16-nov).
+    #[test]
+    fn una_region_que_cruza_dos_pantallas_se_lleva_las_dos() {
+        let freezes = tres_pantallas();
+        let (imagen, abarca) =
+            recortar_escritorio(&freezes, Rect { x: 1820, y: 10, width: 200, height: 100 }).unwrap();
+        assert_eq!((imagen.width(), imagen.height()), (200, 100));
+        assert_eq!(abarca, Rect { x: 1820, y: 10, width: 200, height: 100 });
+        assert_eq!(imagen.get_pixel(0, 50).0, [255, 0, 0, 255], "la izquierda, de la roja");
+        assert_eq!(imagen.get_pixel(99, 50).0, [255, 0, 0, 255]);
+        assert_eq!(imagen.get_pixel(100, 50).0, [0, 255, 0, 255], "la derecha, de la verde");
+        assert_eq!(imagen.get_pixel(199, 50).0, [0, 255, 0, 255]);
+        // Y de punta a punta, las tres.
+        let (todas, _) = recortar_escritorio(&freezes, Rect { x: 1900, y: 0, width: 2000, height: 10 }).unwrap();
+        assert_eq!(todas.get_pixel(1999, 5).0, [0, 0, 255, 255], "el final, de la azul");
+    }
+
+    /// Las pantallas de Munito (16-nov): la principal, la de la izquierda mas baja y el
+    /// portatil debajo, al 125 % (su congelada va en fisicos, 1920x1200). Cada pantalla de un
+    /// color, para saber de donde sale cada pixel.
+    fn sus_pantallas() -> Vec<Freeze> {
+        let color = |c: [u8; 3], w, h| image::RgbaImage::from_pixel(w, h, image::Rgba([c[0], c[1], c[2], 255]));
+        let mut portatil = congelada(2, 0, 1080, color([0, 0, 255], 1920, 1200));
+        portatil.monitor.scale = 1.25;
+        vec![
+            congelada(0, 0, 0, color([255, 0, 0], 1920, 1080)),
+            congelada(1, -1920, 483, color([0, 255, 0], 1920, 1080)),
+            portatil,
+        ]
+    }
+
+    /// De la principal al portatil: el alto exacto en fisicos, sin reescalar nada.
+    #[test]
+    fn de_la_principal_al_portatil_en_fisicos() {
+        let (imagen, abarca) =
+            recortar_escritorio(&sus_pantallas(), Rect { x: 100, y: 900, width: 400, height: 400 }).unwrap();
+        assert_eq!(abarca, Rect { x: 100, y: 900, width: 400, height: 400 });
+        assert_eq!(imagen.get_pixel(10, 179).0, [255, 0, 0, 255], "arriba, la principal");
+        assert_eq!(imagen.get_pixel(10, 180).0, [0, 0, 255, 255], "desde y=1080, el portatil");
+    }
+
+    /// En diagonal, de la izquierda al portatil: lo que no es de ninguna pantalla va
+    /// transparente (D7), y lo que se sale del escritorio se recorta en vez de rellenarse.
+    #[test]
+    fn en_diagonal_el_hueco_queda_transparente() {
+        let pantallas = sus_pantallas();
+        let (imagen, abarca) =
+            recortar_escritorio(&pantallas, Rect { x: -200, y: 1000, width: 400, height: 200 }).unwrap();
+        assert_eq!(abarca, Rect { x: -200, y: 1000, width: 400, height: 200 });
+        assert_eq!(imagen.get_pixel(10, 10).0, [0, 255, 0, 255], "la izquierda");
+        assert_eq!(imagen.get_pixel(390, 10).0, [255, 0, 0, 255], "la principal");
+        assert_eq!(imagen.get_pixel(390, 190).0, [0, 0, 255, 255], "el portatil");
+        assert_eq!(imagen.get_pixel(10, 190).0, [0, 255, 0, 255], "la izquierda baja hasta y=1563");
+
+        // Por encima de la de la izquierda no hay pantalla: hueco transparente.
+        let (alta, _) = recortar_escritorio(&pantallas, Rect { x: -100, y: 400, width: 200, height: 200 }).unwrap();
+        assert_eq!(alta.get_pixel(10, 10).0[3], 0, "encima de la izquierda, transparente");
+        assert_eq!(alta.get_pixel(10, 150).0, [0, 255, 0, 255]);
+        assert_eq!(alta.get_pixel(150, 10).0, [255, 0, 0, 255]);
+
+        // Lo que se sale por fuera de todo el escritorio no se rellena: se recorta.
+        let (fuera, abarca) =
+            recortar_escritorio(&pantallas, Rect { x: 1800, y: -50, width: 300, height: 100 }).unwrap();
+        assert_eq!(abarca, Rect { x: 1800, y: 0, width: 120, height: 50 });
+        assert_eq!((fuera.width(), fuera.height()), (120, 50));
+    }
+
+    /// Una region que empieza un poco a la izquierda de su pantalla (sin pantalla ahi) se
+    /// recorta; antes se cogia desde el borde con el ancho entero y salia desplazada.
+    #[test]
+    fn una_region_que_empieza_fuera_se_recorta_sin_desplazarse() {
+        let freezes = vec![congelada(0, 0, 0, image::RgbaImage::from_fn(100, 100, |x, _| image::Rgba([x as u8, 0, 0, 255])))];
+        let (imagen, abarca) = recortar_escritorio(&freezes, Rect { x: -10, y: 0, width: 50, height: 10 }).unwrap();
+        assert_eq!(abarca, Rect { x: 0, y: 0, width: 40, height: 10 });
+        assert_eq!(imagen.get_pixel(0, 0).0[0], 0);
+        assert_eq!(imagen.get_pixel(39, 0).0[0], 39);
+    }
+
     /// Un monitor mas bajo que los otros deja un hueco debajo que no es de nadie.
     fn tres_pantallas_desalineadas() -> Vec<Freeze> {
         // La tercera es de 1920x720 en vez de 1920x1080: deja 360 px de hueco debajo.

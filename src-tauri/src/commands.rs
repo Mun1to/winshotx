@@ -35,6 +35,10 @@ pub struct OverlayPayload {
     /// Si hay una grabación en marcha. Entonces el overlay solo se abre para hacer fotos (ver
     /// `windows_mgr::open_overlays`), y la barra no ofrece grabar: daría «ya hay una grabación».
     recording: bool,
+    /// Todas las pantallas, en fisicos del escritorio virtual: con ellas una seleccion empieza
+    /// en una y sigue en la de al lado (16-nov). Salen del sistema y no de las congeladas, que
+    /// llegan en dos tandas: al montar el overlay de la primera, las otras aun no estan.
+    monitores: Vec<capture::MonitorInfo>,
 }
 
 /// Construye el payload de una pantalla. La usan tanto el comando `overlay_bootstrap`
@@ -46,6 +50,8 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         .iter()
         .find(|f| f.monitor.id == monitor_id)
         .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?;
+    let monitores = capture::monitors()
+        .unwrap_or_else(|_| freezes.iter().map(|f| f.monitor.clone()).collect());
 
     Ok(OverlayPayload {
         monitor: freeze.monitor.clone(),
@@ -58,9 +64,10 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         // las capturas lleguen en dos tandas (primero la del raton) y `freezes` no este
         // completo todavia.
         screen_number: freeze.monitor.id as usize + 1,
-        screen_count: capture::monitors().map(|m| m.len()).unwrap_or(freezes.len()).max(1),
+        screen_count: monitores.len().max(1),
         last_region: *state.last_region.read(),
         recording: state.is_recording(),
+        monitores,
     })
 }
 
@@ -140,10 +147,12 @@ pub async fn freeze_bytes(
 
 #[tauri::command]
 pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Result<StillResult> {
-    let image = {
+    // La region puede cruzar de una pantalla a otra (16-nov): se juntan sus trozos, y lo que
+    // sigue usa lo que de verdad abarca (sin lo que caiga fuera de todas las pantallas).
+    let (image, region) = {
         let state = app.state::<AppState>();
         let freezes = state.freezes.read();
-        capture::crop_from_freeze(&freezes, region)?
+        capture::recortar_escritorio(&freezes, region)?
     };
     // Se recuerda solo si el recorte ha salido bien: repetir una region que fallo no
     // repetiria nada. Y solo aqui, no en `capture_all_screens`, porque "la ultima region"
