@@ -49,6 +49,7 @@ fn las_regiones_que_cruzan_salen_enteras_en_el_png() {
     let dir = std::env::temp_dir().join("winshotx-dos-pantallas").join("png");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
+    let mut cruzan = 0;
     for (i, ap) in apuntadas.iter().enumerate() {
         let freezes: Vec<Freeze> = ap
             .monitores
@@ -64,7 +65,8 @@ fn las_regiones_que_cruzan_salen_enteras_en_el_png() {
             ap.monitores.iter().map(|m| Rect { x: m.x, y: m.y, width: m.width, height: m.height }).collect();
         let trozos: Vec<(usize, Rect)> =
             sitios.iter().enumerate().filter_map(|(n, &s)| Some((n, interseccion(ap.region, s)?))).collect();
-        assert!(trozos.len() >= 2, "{}: la region {:?} no cruza de pantalla", ap.nombre, ap.region);
+        // La del iman (pasarse unos pixeles del borde) se queda a proposito en una pantalla.
+        cruzan += usize::from(trozos.len() >= 2);
 
         let (recorte, abarca) = recortar_escritorio(&freezes, ap.region).expect("el recorte");
         let destino = dir.join(format!("{i}.png"));
@@ -79,5 +81,6 @@ fn las_regiones_que_cruzan_salen_enteras_en_el_png() {
             assert_eq!(leido.get_pixel(cx, cy).0, color(n), "{}: el trozo de la pantalla {n} no es suyo", ap.nombre);
         }
     }
+    assert!(cruzan >= 3, "solo {cruzan} regiones cruzan de pantalla");
     let _ = std::fs::remove_dir_all(&dir);
 }
