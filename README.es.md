@@ -197,7 +197,7 @@ claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe
 Es donde lo dejan el instalador y winget, salvo que eligieras otra carpeta (la guía trae una línea
 que la encuentra); con la portable, pon la carpeta donde la descomprimiste.
 Sin MCP, `winshotx.exe agent` hace lo mismo desde cualquier terminal y contesta con una línea de
-JSON. **Una grabación que empieza un agente se ve igual que una tuya**, con el marco rojo y la
+JSON. **Una grabación que empieza un agente se ve igual que una tuya**, con el marco y la
 barra, así que siempre sabes cuándo se graba la pantalla. Cómo se añade a cada agente, y todas las
 órdenes: [docs/AGENTS-API.es.md](docs/AGENTS-API.es.md).
 

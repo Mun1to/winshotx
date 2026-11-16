@@ -963,7 +963,7 @@ fn terminar(mut recording: RecordingState) -> Result<SessionData> {
             let _ = control.stop();
         });
     }
-    // El marco se quita ya: lo que viene ahora es guardar, y un marco rojo encima de un
+    // El marco se quita ya: lo que viene ahora es guardar, y un marco encima de un
     // escritorio que ya no se graba dice lo contrario de lo que pasa.
     #[cfg(windows)]
     drop(recording.marco.take());

@@ -198,7 +198,7 @@ That is where the installer and winget put it, unless you picked another folder 
 line that finds it); with the portable build, use the folder you unzipped it into.
 Without MCP, `winshotx.exe agent` does the same from any terminal and answers
 with one line of JSON. **A recording started by an agent looks exactly like one of yours**, with
-the red frame and the bar, so you always know when the screen is being recorded. How to add it to
+the frame and the bar, so you always know when the screen is being recorded. How to add it to
 every agent, and every command: [docs/AGENTS-API.md](docs/AGENTS-API.md).
 
 ## Is this what you were looking for?

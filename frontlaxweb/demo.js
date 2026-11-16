@@ -36,7 +36,7 @@ const FRASES = {
   pistaFantasma: ["Así se recorta. <b>Ahora tú</b>: arrastra donde quieras, o pulsa el lápiz para editarla.", "That's how you crop. <b>Your turn</b>: drag anywhere, or press the pencil to edit it."],
   pistaHay: ["Copia, guarda, ancla o pulsa el <b>lápiz</b> para abrirla en el editor. <kbd>V</kbd> y <kbd>G</kbd> pasan a vídeo y GIF.", "Copy, save, pin, or press the <b>pencil</b> to open it in the editor. <kbd>V</kbd> and <kbd>G</kbd> switch to video and GIF."],
   pistaGrabar: ["Ahora pulsa <b>Grabar</b>, mueve el ratón por dentro y haz algún clic: saldrá en el vídeo.", "Now press <b>Record</b>, move the mouse inside and click something: it will be in the video."],
-  pistaGrabando: ["Grabando: <b>mueve el ratón y haz clic</b> dentro del marco rojo.", "Recording: <b>move the mouse and click</b> inside the red frame."],
+  pistaGrabando: ["Grabando: <b>mueve el ratón y haz clic</b> dentro del marco.", "Recording: <b>move the mouse and click</b> inside the frame."],
   pistaEdiVideo: ["Dale al <b>play</b>, pon un zoom en el carril de abajo, cambia el fondo o dibuja encima.", "Hit <b>play</b>, add a zoom on the lane below, change the background or draw on top."],
   pistaEdiFoto: ["Dibuja encima con las marcas de arriba, cambia el fondo y <b>guárdala</b>.", "Draw on it with the marks up top, change the background and <b>save it</b>."],
   pistaSet: ["Los ajustes de verdad, con sus cinco pestañas. Lo que guardes en la demo sale en el <b>Historial</b>.", "The real settings, with their five tabs. Whatever you save in the demo shows up in <b>History</b>."],
@@ -90,7 +90,7 @@ const FRASES_DEDO = {
   pistaSel: ["Esto no es un vídeo: <b>arrastra el dedo sobre la pantalla</b>, como harías con el ratón en la tuya.", "This isn't a video: <b>drag your finger over the screen</b>, just like you would with the mouse on yours."],
   pistaHay: ["Copia, guarda, ancla o pulsa el <b>lápiz</b> para abrirla en el editor. Arriba pasas a vídeo y GIF.", "Copy, save, pin, or press the <b>pencil</b> to open it in the editor. Up top you can switch to video and GIF."],
   pistaGrabar: ["Ahora pulsa <b>Grabar</b> y arrastra el dedo por dentro, tocando algo: saldrá en el vídeo.", "Now press <b>Record</b> and drag your finger around inside, tapping something: it will be in the video."],
-  pistaGrabando: ["Grabando: <b>arrastra el dedo y toca</b> dentro del marco rojo.", "Recording: <b>drag your finger and tap</b> inside the red frame."],
+  pistaGrabando: ["Grabando: <b>arrastra el dedo y toca</b> dentro del marco.", "Recording: <b>drag your finger and tap</b> inside the frame."],
 };
 const conDedo = matchMedia("(pointer: coarse)");
 /* Cada idioma tiene su propia URL, así que aquí solo hay que leer cuál es esta página. */
@@ -542,7 +542,7 @@ function anclar(r) {
 
 /* --------------------------------------------- grabar */
 let grabando = null;
-const marcoRojo = $("marco-rojo");
+const marcoGrabar = $("marco-grabar");
 const barraGrabando = $("barra-grabando");
 function empezarGrabacion() {
   const r = rectangulo();
@@ -553,11 +553,11 @@ function empezarGrabacion() {
   sel.style.boxShadow = "none";
   sel.style.display = "none";
   velo.style.display = "none";
-  marcoRojo.hidden = false;
-  marcoRojo.style.left = pct(r.x);
-  marcoRojo.style.top = pct(r.y);
-  marcoRojo.style.width = pct(r.w);
-  marcoRojo.style.height = pct(r.h);
+  marcoGrabar.hidden = false;
+  marcoGrabar.style.left = pct(r.x);
+  marcoGrabar.style.top = pct(r.y);
+  marcoGrabar.style.width = pct(r.w);
+  marcoGrabar.style.height = pct(r.h);
   barraGrabando.hidden = false;
   const abajo = (r.y + r.h) * caja.clientHeight + 50 < caja.clientHeight;
   barraGrabando.style.left = pct(r.x + r.w / 2);
@@ -589,7 +589,7 @@ function terminarGrabacion() {
   clearInterval(grabando.tic);
   const g = grabando;
   grabando = null;
-  marcoRojo.hidden = true;
+  marcoGrabar.hidden = true;
   barraGrabando.hidden = true;
   $("reloj-grabando").textContent = "0:00";
   velo.style.display = "block";
@@ -1715,7 +1715,7 @@ candado.addEventListener("click", () => queueMicrotask(marcarCandado));
     if (grabando) {
       clearInterval(grabando.tic);
       grabando = null;
-      marcoRojo.hidden = true;
+      marcoGrabar.hidden = true;
       barraGrabando.hidden = true;
       $("reloj-grabando").textContent = "0:00";
     }

@@ -161,7 +161,7 @@ PowerShell espere a la respuesta.
 
 ## Lo que ve quien está delante del ordenador
 
-- **Una grabación que empieza un agente se ve igual que una tuya**: el marco rojo alrededor de lo que
+- **Una grabación que empieza un agente se ve igual que una tuya**: el marco alrededor de lo que
   se graba y la barra pequeña con el contador. winshotx nunca graba a escondidas. La persona puede
   pararla desde la barra como cualquier otra grabación.
 - **No suena nada** salvo que el agente pase `cue`.

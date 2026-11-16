@@ -12,7 +12,7 @@
 //! **La API es pública y para agentes de cualquier sitio:** los nombres de las órdenes, de los
 //! campos y los errores van en inglés. El código de dentro, en español, como el resto.
 //!
-//! Una grabación pedida por un agente se ve igual que una normal (el marco rojo y la barra),
+//! Una grabación pedida por un agente se ve igual que una normal (el marco y la barra),
 //! para que quien está delante sepa que se graba. No se esconde a propósito.
 
 pub mod cliente;
