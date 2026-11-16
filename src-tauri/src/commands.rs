@@ -191,7 +191,9 @@ fn entregar(
     };
     // El clic va aqui y no en cada rama: suena por haber capturado, se haga lo que se haga
     // despues con la imagen. Y va antes de escribir el archivo para que no lo retrase.
-    if con_sonido {
+    // Grabando, no: se grabaria en el sonido del PC (y en el micro), y ese pico le quitaba
+    // ademas a una pista casi muda la subida de `pistas::nivelar_si_casi_muda` (16-nov).
+    if con_sonido && !state.is_recording() {
         crate::platform::sonido::obturador();
     }
 

@@ -198,7 +198,8 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
     // overlay tapa el escritorio de todas formas, asi que tenerlos escondidos mas rato no
     // se ve en la imagen y si aumenta la posibilidad de dejarselos escondidos a alguien.
     // El guardian los devuelve tambien si la captura falla a medias.
-    let esconder_iconos = state.settings.read().hide_desktop_icons;
+    // Grabando, no: la grabacion los veria desaparecer y volver en mitad del video (16-nov).
+    let esconder_iconos = state.settings.read().hide_desktop_icons && !state.is_recording();
     let iconos = if esconder_iconos {
         crate::platform::desktop_icons::esconder()
     } else {
