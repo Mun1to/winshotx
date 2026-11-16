@@ -3633,6 +3633,34 @@ mod la_linea_de_tiempo {
         }
     }
 
+    /// Lo mismo a velocidad «Lenta» (0,6): el acercamiento dura 750 ms y el rato quieto de un
+    /// clic 600, así que la rampa es más de un tercio del bloque, y los bloques no pueden
+    /// recortarla (revisión, 16-nov).
+    #[test]
+    fn a_velocidad_lenta_los_bloques_sacan_el_mismo_gif() {
+        let mut session = sesion("automaticos-lentos", &[(0, mitades())], 7_000);
+        session.clics = vec![
+            zoom::Clic { ms: 1_000, x: 30, y: 40, derecho: false },
+            zoom::Clic { ms: 4_500, x: 90, y: 20, derecho: false },
+        ];
+        session.cursor = (0..430u64).map(|k| (k * 16, 20 + (k as i32 % 80), 40)).collect();
+        let mut p = peticion(&session);
+        p.zoom = 2.0;
+        p.zoom_speed = 0.6;
+        let sin_pista = gif(&session, &p, "sin-pista");
+        let bloques = zooms_de_la_sesion(&session, p.zoom, p.crop, p.zoom_speed);
+        p.edicion.zooms = Some(bloques.clone());
+        let con_pista = gif(&session, &p, "con-pista");
+        let _ = std::fs::remove_dir_all(&session.dir);
+
+        assert_eq!(bloques.len(), 2, "un bloque por clic: {bloques:?}");
+        assert_eq!(sin_pista.len(), con_pista.len(), "los mismos fotogramas");
+        for (a, b) in sin_pista.iter().zip(&con_pista) {
+            assert_eq!((a.0, a.1), (b.0, b.1), "los mismos tiempos");
+            assert!(a.2 == b.2, "el fotograma de {} ms ha cambiado", a.0);
+        }
+    }
+
     /// A3 visto desde la pista: dos pulsaciones de la tecla de zoom son dos bloques, y se
     /// acercan aunque el panel tenga el zoom de los clics apagado.
     #[test]

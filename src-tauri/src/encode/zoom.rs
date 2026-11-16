@@ -222,8 +222,13 @@ pub fn tramos_a_mano(zooms: &[ZoomAMano], ajustes: &Ajustes) -> Vec<Tramo> {
             continue;
         }
         // En un bloque corto, acercarse y alejarse se comen como mucho un tercio cada uno:
-        // siempre queda un rato quieto encima, que es para lo que se pone.
-        let transicion = ajustes.transicion_ms.min((z.hasta_ms - desde) / 3);
+        // siempre queda un rato quieto encima, que es para lo que se pone. En uno más largo,
+        // basta con que quede el rato quieto de un clic: así el bloque de un clic a velocidad
+        // «Lenta» (750 ms de rampa y 600 quieto, más de un tercio cada rampa) sale igual que
+        // sin pista.
+        let largo = z.hasta_ms - desde;
+        let quieto = ajustes.quieto_clic_ms.min(largo / 3);
+        let transicion = ajustes.transicion_ms.min((largo - quieto) / 2);
         salida.push(Tramo {
             desde_ms: desde,
             hasta_ms: z.hasta_ms,
