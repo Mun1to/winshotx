@@ -64,6 +64,11 @@ export interface OverlayPayload {
    * globales porque puede ser de otro monitor: cada overlay mira si es suya.
    */
   lastRegion: Rect | null;
+  /**
+   * Si hay una grabación en marcha: entonces el overlay solo hace fotos, y la barra no
+   * ofrece Vídeo ni GIF (otra grabación daría «ya hay una grabación en curso»).
+   */
+  recording?: boolean;
 }
 
 export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text" | /* S4 (capturas) */ "qr";

@@ -218,6 +218,25 @@ describe("el interruptor de la barra de acciones", () => {
   });
 });
 
+// Grabando se puede abrir el overlay para hacer una foto, pero otra grabación da «ya hay una
+// grabación en curso»: la barra no la ofrece, ni con botón ni con tecla (revisión, 16-nov-2026).
+describe("grabando, el overlay solo hace fotos", () => {
+  it("no ofrece Vídeo ni GIF, y ni la V, ni la G, ni otra pantalla lo pasan a grabar", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, recording: true });
+    const lienzo = await abrir();
+    expect(screen.queryByLabelText("Vídeo")).toBeNull();
+    expect(screen.queryByLabelText("GIF")).toBeNull();
+    fireEvent.keyDown(window, { key: "v" });
+    fireEvent.keyDown(window, { key: "g" });
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: false, withToolbar: false });
+
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "capture_still")).toBe(true));
+    expect(llamadas.some((l) => l.comando === "start_recording")).toBe(false);
+  });
+});
+
 describe("la tecla que captura y abre el editor", () => {
   /**
    * Quien pulsa esa tecla ya sabe que va a anotar, asi que pararse en la barra a elegir

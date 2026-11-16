@@ -216,6 +216,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [conBarra, setConBarra] = useState(true);
   const modoRef = useRef<CaptureMode>("still");
   modoRef.current = modo;
+  /** Hay una grabación en marcha: este overlay solo hace fotos. */
+  const grabandoRef = useRef(false);
   const pantallaRef = useRef(false);
   pantallaRef.current = pantallaEntera;
   const conBarraRef = useRef(true);
@@ -461,7 +463,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         })
         .catch(() => {});
       // Quien pulsa el atajo de grabar quiere grabar: la barra abre en vídeo y ya.
-      setModo(data.intent === "record" ? "video" : "still");
+      grabandoRef.current = data.recording ?? false;
+      setModo(data.intent === "record" && !data.recording ? "video" : "still");
       setConBarra(data.settings.captureFlow === "toolbar");
       void getCurrentWindow().setFocus();
 
@@ -826,10 +829,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       } else if (key === "f") {
         difundir({ mode: "still" });
       } else if (key === "g") {
-        difundir({ mode: "gif" });
+        if (!grabandoRef.current) difundir({ mode: "gif" });
       } else if (key === "v") {
-        difundir({ mode: "video" });
+        if (!grabandoRef.current) difundir({ mode: "video" });
       } else if (key === "w") {
+        if (grabandoRef.current) return;
         // Grabar SOLO la ventana de debajo, se tape o no se tape. Es una tecla y no un
         // boton porque solo tiene sentido mientras hay una ventana resaltada debajo del
         // raton, que es justo cuando no se esta mirando ninguna barra.
@@ -995,7 +999,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   // pantalla en concreto se capture entera porque alguien pulso su numero.
   useEffect(() => {
     const modos = listen<OverlayModeState>(EVENTS.overlayMode, ({ payload: p }) => {
-      setModo(p.mode);
+      setModo(grabandoRef.current ? "still" : p.mode);
       setPantallaEntera(p.fullScreen);
       setConBarra(p.withToolbar);
       if (p.fullScreen) setSelection(null);
@@ -1333,6 +1337,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           onConScroll={cambiarScroll}
           proporcion={proporcion}
           onProporcion={elegirProporcion}
+          soloFoto={payload?.recording ?? false}
           onAjustes={() => void openSettings()}
           onCancel={() => void cancelCapture()}
           dimmed={mode.kind !== "idle"}

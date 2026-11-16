@@ -33,6 +33,8 @@ interface Props {
    */
   proporcion?: Proporcion;
   onProporcion?: (valor: Proporcion) => void;
+  /** Grabando: solo fotos, sin Vídeo ni GIF (otra grabación no puede empezar). */
+  soloFoto?: boolean;
   /** Abre los ajustes de winshotx, cerrando la captura. */
   onAjustes: () => void;
   onCancel: () => void;
@@ -62,6 +64,7 @@ export function ModeBar({
   onConScroll,
   proporcion = "libre",
   onProporcion,
+  soloFoto = false,
   onAjustes,
   onCancel,
   dimmed,
@@ -88,23 +91,27 @@ export function ModeBar({
           <Camera className="size-[19px]" />
         </Boton>
 
-        <Boton
-          activo={value === "video"}
-          onClick={() => onChange("video")}
-          etiqueta="Vídeo"
-          titulo="Grabar el recorte en MP4 · V"
-        >
-          <Video className="size-[19px]" />
-        </Boton>
+        {!soloFoto && (
+          <>
+            <Boton
+              activo={value === "video"}
+              onClick={() => onChange("video")}
+              etiqueta="Vídeo"
+              titulo="Grabar el recorte en MP4 · V"
+            >
+              <Video className="size-[19px]" />
+            </Boton>
 
-        <Boton
-          activo={value === "gif"}
-          onClick={() => onChange("gif")}
-          etiqueta="GIF"
-          titulo="Grabar el recorte en GIF · G"
-        >
-          <IconoGif />
-        </Boton>
+            <Boton
+              activo={value === "gif"}
+              onClick={() => onChange("gif")}
+              etiqueta="GIF"
+              titulo="Grabar el recorte en GIF · G"
+            >
+              <IconoGif />
+            </Boton>
+          </>
+        )}
 
         <span className="mx-1 h-6 w-px bg-white/10" />
 

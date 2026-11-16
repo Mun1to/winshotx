@@ -32,6 +32,9 @@ pub struct OverlayPayload {
     /// La ultima region capturada, en coordenadas del escritorio virtual, o nada si
     /// todavia no se ha capturado ninguna desde que se abrio la app.
     last_region: Option<Rect>,
+    /// Si hay una grabación en marcha. Entonces el overlay solo se abre para hacer fotos (ver
+    /// `windows_mgr::open_overlays`), y la barra no ofrece grabar: daría «ya hay una grabación».
+    recording: bool,
 }
 
 /// Construye el payload de una pantalla. La usan tanto el comando `overlay_bootstrap`
@@ -57,6 +60,7 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         screen_number: freeze.monitor.id as usize + 1,
         screen_count: capture::monitors().map(|m| m.len()).unwrap_or(freezes.len()).max(1),
         last_region: *state.last_region.read(),
+        recording: state.is_recording(),
     })
 }
 
