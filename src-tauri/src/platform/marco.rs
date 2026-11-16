@@ -82,6 +82,8 @@ const EN_PAUSA: Color = Color(0xF5, 0x9E, 0x0B);
 
 /// Como se ve el marco. Munito, 16-nov: «no me gusta, revísalo, el diseño rojo». Hasta que
 /// elija entre las variaciones (`ver_las_variaciones_del_marco`), el de siempre.
+// Solo se usa uno a la vez (`ESTILO`): los otros viven para las fotos de las variaciones.
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Estilo {
     /// 0. El de la 0.4.1 a la 0.5.0: linea roja y una sombra negra corta.
@@ -108,6 +110,7 @@ struct Halo {
 }
 
 impl Estilo {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub const TODOS: [Estilo; 4] = [Estilo::Rojo, Estilo::Azul, Estilo::AzulConLuz, Estilo::BlancoConLuz];
 
     /// El color de la linea, grabando o en pausa.
