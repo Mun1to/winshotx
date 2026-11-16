@@ -17,6 +17,38 @@ use crate::error::{AppError, Result};
 use crate::record::comparar_gpu::{Cambio, Comparador};
 use crate::record::delta::Parche;
 
+/// El cursor y el borde amarillo, como se pueden pedir en ESTE Windows.
+///
+/// Sin el borde y con el cursor como diga el usuario, donde se deja. Windows 10 no deja
+/// quitar el borde (`IsBorderRequired` llega con la 10.0.20348) y la 1903 y la 1909 no dejan
+/// elegir el cursor (`IsCursorCaptureEnabled`, la 2004): pedirlo hacía que windows-capture se
+/// negara a empezar (`BorderConfigUnsupported`), y la grabación no arrancaba en ningún
+/// Windows 10 de casa. Ahí se graba con lo de Windows: el borde se ve en la pantalla, no en el
+/// vídeo, y el cursor sale siempre.
+fn como_se_puede(
+    capture_cursor: bool,
+    cursor_se_elige: bool,
+    borde_se_quita: bool,
+) -> (CursorCaptureSettings, DrawBorderSettings) {
+    let cursor = match (cursor_se_elige, capture_cursor) {
+        (false, _) => CursorCaptureSettings::Default,
+        (true, true) => CursorCaptureSettings::WithCursor,
+        (true, false) => CursorCaptureSettings::WithoutCursor,
+    };
+    let borde = if borde_se_quita { DrawBorderSettings::WithoutBorder } else { DrawBorderSettings::Default };
+    (cursor, borde)
+}
+
+/// `como_se_puede` con lo que dice este Windows.
+fn cursor_y_borde(capture_cursor: bool) -> (CursorCaptureSettings, DrawBorderSettings) {
+    use windows_capture::graphics_capture_api::GraphicsCaptureApi as Api;
+    como_se_puede(
+        capture_cursor,
+        Api::is_cursor_settings_supported().unwrap_or(false),
+        Api::is_border_settings_supported().unwrap_or(false),
+    )
+}
+
 /// windows-capture identifica monitores por HMONITOR, asi que se lo pedimos a Win32.
 pub(crate) fn monitor_at(x: i32, y: i32) -> Result<WcMonitor> {
     use windows::Win32::Foundation::POINT;
@@ -421,14 +453,11 @@ pub fn start(
         ..flags_base
     };
 
+    let (cursor, borde) = cursor_y_borde(capture_cursor);
     let settings = Settings::new(
         monitor,
-        if capture_cursor {
-            CursorCaptureSettings::WithCursor
-        } else {
-            CursorCaptureSettings::WithoutCursor
-        },
-        DrawBorderSettings::WithoutBorder,
+        cursor,
+        borde,
         SecondaryWindowSettings::Default,
         MinimumUpdateIntervalSettings::Default,
         DirtyRegionSettings::Default,
@@ -485,14 +514,11 @@ pub fn start_window(
         ..flags_base
     };
 
+    let (cursor, borde) = cursor_y_borde(capture_cursor);
     let settings = Settings::new(
         windows_capture::window::Window::from_raw_hwnd(ventana.0),
-        if capture_cursor {
-            CursorCaptureSettings::WithCursor
-        } else {
-            CursorCaptureSettings::WithoutCursor
-        },
-        DrawBorderSettings::WithoutBorder,
+        cursor,
+        borde,
         SecondaryWindowSettings::Default,
         MinimumUpdateIntervalSettings::Default,
         DirtyRegionSettings::Default,
@@ -506,6 +532,21 @@ pub fn start_window(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Lo que se pide en cada Windows: en el 11 como siempre, y en el 10 lo de Windows, que
+    /// es lo único con lo que la grabación arranca (revisión del 16-nov).
+    #[test]
+    fn en_windows_10_se_graba_con_lo_que_deja() {
+        use CursorCaptureSettings as C;
+        use DrawBorderSettings as B;
+        let ok = |(c, b): (C, B), (ec, eb): (C, B)| c == ec && b == eb;
+        assert!(ok(como_se_puede(true, true, true), (C::WithCursor, B::WithoutBorder)), "Windows 11");
+        assert!(ok(como_se_puede(false, true, true), (C::WithoutCursor, B::WithoutBorder)));
+        assert!(ok(como_se_puede(false, true, false), (C::WithoutCursor, B::Default)), "Windows 10 2004 a 22H2");
+        assert!(ok(como_se_puede(false, false, false), (C::Default, B::Default)), "Windows 10 1903 y 1909");
+        // Y en este Windows 11 se sigue quitando el borde, como antes.
+        assert!(cursor_y_borde(true).1 == B::WithoutBorder);
+    }
 
     use std::sync::mpsc::channel;
     use std::time::Duration;
