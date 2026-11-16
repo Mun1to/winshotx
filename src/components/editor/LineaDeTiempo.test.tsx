@@ -439,6 +439,44 @@ describe("las tijeras", () => {
     expect(screen.getByRole("button", { name: "Quitar este trozo" })).toBeDisabled();
   });
 
+  it("la B corta donde está el cabezal, igual que el botón, y Ctrl+B también", () => {
+    const alPiezas = vi.fn();
+    const { rerender } = render(<ConPista alPiezas={alPiezas} posicion={4_000} />);
+    expect(screen.getByRole("button", { name: /Cortar aquí/ })).toHaveAttribute(
+      "title",
+      expect.stringMatching(/\(B\)$/),
+    );
+    fireEvent.keyDown(window, { key: "b" });
+    expect(alPiezas).toHaveBeenLastCalledWith([
+      expect.objectContaining({ desdeMs: 0, hastaMs: 4_000 }),
+      expect.objectContaining({ desdeMs: 4_000, hastaMs: 10_000 }),
+    ]);
+    rerender(<ConPista alPiezas={alPiezas} posicion={7_000} />);
+    fireEvent.keyDown(window, { key: "B", ctrlKey: true });
+    expect(alPiezas.mock.lastCall![0].map((p: Pieza) => [p.desdeMs, p.hastaMs])).toEqual([
+      [0, 4_000],
+      [4_000, 7_000],
+      [7_000, 10_000],
+    ]);
+    // Otra vez en el mismo sitio no hace un trozo de cero.
+    alPiezas.mockClear();
+    fireEvent.keyDown(window, { key: "b" });
+    expect(alPiezas).not.toHaveBeenCalled();
+  });
+
+  it("escribiendo en un campo, la B es una letra y no corta", () => {
+    const alPiezas = vi.fn();
+    render(
+      <>
+        <input aria-label="texto" />
+        <ConPista alPiezas={alPiezas} posicion={4_000} />
+      </>,
+    );
+    fireEvent.keyDown(screen.getByLabelText("texto"), { key: "b" });
+    fireEvent.keyDown(window, { key: "b", altKey: true });
+    expect(alPiezas).not.toHaveBeenCalled();
+  });
+
   it("«Acelerar lo escrito» corta en cada rato de escritura y lo pone rápido", () => {
     const alPiezas = vi.fn();
     render(<ConPista alPiezas={alPiezas} escritura={[{ desdeMs: 2_000, hastaMs: 5_000 }]} />);

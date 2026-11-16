@@ -28,6 +28,12 @@ export const TECLA_COPIAR_TEXTO = "T";
 /** Tapar los datos personales de una vez: la D, de «datos». */
 export const TECLA_TAPAR_DATOS = "D";
 
+/**
+ * «Cortar aquí», donde está el cabezal: la B, la de cortar en casi todos los editores de vídeo
+ * (y Ctrl+B también vale, que es la de CapCut).
+ */
+export const TECLA_CORTAR = "B";
+
 /** La herramienta de una tecla («7», «f»...), o null si esa tecla no es de ninguna. */
 export function herramientaDeTecla(tecla: string): Herramienta | null {
   const buscada = tecla.toUpperCase();

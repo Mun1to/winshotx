@@ -32,6 +32,7 @@ import { useT } from "../../lib/i18n";
 import { AjustesDelTrozo, AjustesDelZoom } from "./AjustesDeLaPista";
 import { AjustesDeLaTapa, PistaDeTapar } from "./PistaDeTapar";
 import { quitarTapa } from "../../lib/tapar";
+import { TECLA_CORTAR, conTecla } from "./teclas";
 
 /** Lo que se está arrastrando: una de las dos asas o el cabezal. */
 type Arrastre = "desde" | "hasta" | "cabezal" | null;
@@ -357,6 +358,33 @@ export function LineaDeTiempo({
     );
   const zoomElegido = elegido !== null && onZooms ? zooms[elegido] : undefined;
 
+  /** «Cortar aquí»: donde está el cabezal ahora, también mientras suena. */
+  const cortarAqui = () => {
+    if (!onPiezas) return;
+    const ms = ahora();
+    if (sePuedePartir(trozos, ms)) onPiezas(partir(trozos, ms));
+  };
+  const cortarConTecla = useRef(cortarAqui);
+  cortarConTecla.current = cortarAqui;
+
+  /**
+   * La B corta donde está el cabezal, igual que el botón; y Ctrl+B también, que es la de CapCut.
+   * Mientras se escribe un texto la B es una letra, no un corte.
+   */
+  const conCortes = Boolean(onPiezas);
+  useEffect(() => {
+    if (!conCortes) return;
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key.toUpperCase() !== TECLA_CORTAR || e.altKey || e.shiftKey || e.repeat) return;
+      const donde = e.target as HTMLElement | null;
+      if (donde?.tagName === "INPUT" || donde?.tagName === "TEXTAREA" || donde?.isContentEditable) return;
+      e.preventDefault();
+      cortarConTecla.current();
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [conCortes]);
+
   /** Un clic en la pista de zooms pone uno ahí; con uno elegido, primero lo suelta. */
   const pulsarPistaDeZoom = (clientX: number) => {
     if (!onZooms) return;
@@ -605,9 +633,12 @@ export function LineaDeTiempo({
                 <div className="flex shrink-0 items-center gap-2">
                   {onPiezas && (
                     <BotonDeLinea
-                      onClick={() => onPiezas(partir(trozos, ahora()))}
+                      onClick={cortarAqui}
                       apagado={!sePuedePartir(trozos, posicionMs)}
-                      titulo={t("Corta el vídeo donde está el cabezal: después puedes quitar o acelerar cada trozo")}
+                      titulo={conTecla(
+                        t("Corta el vídeo donde está el cabezal: después puedes quitar o acelerar cada trozo"),
+                        TECLA_CORTAR,
+                      )}
                     >
                       <Scissors className="size-4" />
                       {t("Cortar aquí")}
