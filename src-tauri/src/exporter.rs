@@ -1268,7 +1268,12 @@ impl Camara {
             .filter(|c| c.x >= 0 && c.y >= 0 && c.x < ancho as i32 && c.y < alto as i32)
             .collect();
         let nivel = if con_clics { zoom.min(zoom::ESCALA_MAXIMA) } else { NIVEL_DE_LA_TECLA };
-        let ajustes = zoom::Ajustes::a_velocidad(nivel, velocidad);
+        let mut ajustes = zoom::Ajustes::a_velocidad(nivel, velocidad);
+        if !con_clics {
+            // Solo la tecla de zoom, que se pulsa adrede para mirar algo: se queda lo de
+            // siempre, no el rato corto de los clics (16-nov).
+            ajustes.quieto_clic_ms = ajustes.quieto_ms;
+        }
         camara(zoom::tramos(&clics, &ajustes), ajustes)
     }
 }
