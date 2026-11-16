@@ -972,9 +972,22 @@ pub fn close_recorder(app: &AppHandle) {
 /// de grabacion, la cuenta atras y las capturas ancladas van sin marco porque son
 /// herramientas flotantes, no ventanas.
 pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
+    abrir_editor(app, session_id, true)
+}
+
+/// El editor de una grabación que acaba de terminar, SIN cerrar el que haya abierto.
+///
+/// Desde el 16-nov se puede capturar grabando, y esa foto puede estar en el editor cuando se
+/// para: cerrarlo para abrir la grabación tiraba la foto sin preguntar (cerrar el editor
+/// descarta su sesión). Así se quedan los dos, y cada uno se cierra cuando se quiera.
+pub fn open_editor_al_lado(app: &AppHandle, session_id: &str) -> Result<()> {
+    abrir_editor(app, session_id, false)
+}
+
+fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Result<()> {
     crate::crono::marca("editor-pedido");
     for (label, window) in app.webview_windows() {
-        if label.starts_with(EDITOR_LABEL) {
+        if cerrar_los_demas && label.starts_with(EDITOR_LABEL) {
             let _ = window.close();
         }
     }

@@ -989,7 +989,8 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
     cerrar_esta_barra(app, barra);
 
     if open_editor {
-        if let Err(error) = al_editor(app, &session) {
+        // Al lado del que haya: puede ser una foto hecha durante esta misma grabación.
+        if let Err(error) = al_editor(app, &session, true) {
             eprintln!("no se ha podido abrir el editor: {error}");
         }
     } else {
@@ -1080,12 +1081,17 @@ pub(crate) fn la_pagina_tiene_su_lista(app: &AppHandle, session: &SessionData) {
 
 /// Abre una sesión ya guardada (y ya en `state.sessions`) en el editor, y le prepara lo que
 /// espera a tenerlo delante: las miniaturas de la tira y la vista previa si falta. Lo usan
-/// `entregar` y la orden `open` del canal de agentes (S15).
-pub(crate) fn al_editor(app: &AppHandle, session: &SessionData) -> Result<()> {
+/// `entregar` y la orden `open` del canal de agentes (S15). Con `al_lado`, el editor que
+/// hubiera abierto se queda (`windows_mgr::open_editor_al_lado`).
+pub(crate) fn al_editor(app: &AppHandle, session: &SessionData, al_lado: bool) -> Result<()> {
     let state = app.state::<AppState>();
     // Aunque el editor no se abra, lo de abajo se hace igual, como antes de sacarlo aquí: el
     // error se devuelve al final.
-    let abierto = windows_mgr::open_editor(app, &session.id);
+    let abierto = if al_lado {
+        windows_mgr::open_editor_al_lado(app, &session.id)
+    } else {
+        windows_mgr::open_editor(app, &session.id)
+    };
     // Y ahora las miniaturas, con el editor ya abierto. Antes se hacian ANTES de abrirlo
     // y con un minuto de grabacion la barra decia «Guardando…» varios segundos sin que
     // hubiera nada que guardar: solo miniaturas que el editor puede esperar.

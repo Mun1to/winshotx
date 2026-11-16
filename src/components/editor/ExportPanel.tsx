@@ -418,12 +418,14 @@ export function ExportPanel({
       // El "done" del backend llega antes de copiar al portapapeles y antes de que el
       // comando devuelva: si soltara aqui la guarda, un segundo clic arrancaria otra
       // exportacion sobre la misma sesion. Quien la suelta es el finally de run().
+      // El de otro editor no es suyo: se quedaria con la barra puesta y sin poder guardar.
+      if (e.payload.sessionId && e.payload.sessionId !== session.id) return;
       if (e.payload.stage !== "done") setProgress(e.payload);
     });
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [session.id]);
 
   /**
    * Lo que dura lo que se va a guardar, en segundos, antes de la velocidad general. Con

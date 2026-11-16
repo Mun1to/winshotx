@@ -126,6 +126,10 @@ struct ExportProgress {
     stage: String,
     done: usize,
     total: usize,
+    /// De qué sesión es. Desde el 16-nov puede haber dos editores abiertos (una captura hecha
+    /// grabando y la grabación al pararla), y el aviso va a todos: sin esto, el editor que no
+    /// exporta se quedaba con la barra puesta y sin poder guardar.
+    session_id: String,
 }
 
 /// Elige los fotogramas que tocan para el fps pedido y calcula sus retardos.
@@ -800,6 +804,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 stage: stage.to_string(),
                 done,
                 total,
+                session_id: request.session_id.clone(),
             },
         );
     };

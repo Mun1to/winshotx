@@ -194,7 +194,7 @@ impl Hace for EnLaApp {
                 s
             }
         };
-        crate::recorder::al_editor(&self.app, &session).map_err(|e| format!("winshotx could not open the editor ({e})."))
+        crate::recorder::al_editor(&self.app, &session, false).map_err(|e| format!("winshotx could not open the editor ({e})."))
     }
 }
 

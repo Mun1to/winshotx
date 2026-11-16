@@ -320,6 +320,8 @@ export interface ExportProgress {
   stage: "reading" | "palette" | "encoding" | "writing" | "done";
   done: number;
   total: number;
+  /** De qué sesión es: con dos editores abiertos, cada uno atiende solo al suyo. */
+  sessionId?: string;
 }
 
 export interface Settings {
