@@ -1,6 +1,23 @@
 {
   "versiones": [
     {
+      "version": "0.5.2",
+      "desde": "0.5.1",
+      "fecha": "2026-11-16",
+      "es": {
+        "titulo": "Sin recuadro blanco al parar de grabar",
+        "puntos": [
+          "**Al parar una grabación ya no sale un recuadro en blanco** donde estaban el menú de la bandeja o la miniatura de la esquina."
+        ]
+      },
+      "en": {
+        "titulo": "No blank box when you stop recording",
+        "puntos": [
+          "**Stopping a recording no longer leaves a blank box** where the tray menu or the corner thumbnail last was."
+        ]
+      }
+    },
+    {
       "version": "0.5.1",
       "desde": "0.5.0",
       "fecha": "2026-11-16",
