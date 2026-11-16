@@ -1071,9 +1071,10 @@ html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 .herramientas button.acento:hover { background: var(--app-azul-claro); color: #fff; }
 .herramientas button.grabar .punto, .barra-grabando .punto { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
 .modos button[data-accion="soltar"].viva { background: #ffffff26; color: #fff; }
-.marco-rojo {
+.marco-grabar {
   position: absolute; z-index: 5; pointer-events: none; border-radius: 8px;
-  box-shadow: 0 0 0 2px #ef4444, 0 0 0 6px #ef444426, 0 8px 24px #0006;
+  /* Como el de la app desde el 16-nov: la linea azul de winshotx con su luz alrededor. */
+  box-shadow: 0 0 0 2px #0a9bff, 0 0 12px 3px #0a9bff80;
 }
 .barra-grabando {
   position: absolute; z-index: 6; translate: -50% 0; display: flex; align-items: center; gap: 10px;

@@ -589,7 +589,7 @@ mod pruebas {
     }
 
     /// DE VERDAD, con la app: graba 2 s de la pantalla 0, para y exporta un MP4. Se ve en la
-    /// pantalla (el marco rojo y la barra, como cualquier grabación) y NO hace sonar nada: sin
+    /// pantalla (el marco y la barra, como cualquier grabación) y NO hace sonar nada: sin
     /// marimba, sin sonido del PC, sin micro y sin cámara. Necesita la app NUEVA abierta (con el
     /// canal), o `WINSHOTX_EXE` con la ruta de su exe para que la arranque:
     ///
