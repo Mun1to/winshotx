@@ -254,6 +254,21 @@ fn pantalla_del_raton() -> Option<((i32, i32, i32, i32), f64)> {
     None
 }
 
+/// Al empezar y al acabar una grabación: una miniatura que ya estaba a la vista al darle a
+/// grabar salía en los primeros segundos del vídeo (el menú de la bandeja hace lo mismo con
+/// `tray_menu::fuera_de_la_grabacion`). Las que salen después lo deciden en `ensennar`.
+pub fn fuera_de_la_grabacion(grabando: bool) {
+    #[cfg(windows)]
+    {
+        let hwnd = VENTANA.load(Ordering::Relaxed);
+        if hwnd != 0 {
+            crate::platform::window_style::fuera_de_la_captura_hwnd(hwnd, grabando);
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = grabando;
+}
+
 /// Crea la ventana la primera vez, y las siguientes la devuelve tal cual.
 fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     if let Some(existente) = app.get_webview_window(ETIQUETA) {

@@ -508,18 +508,33 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
             crate::platform::window_style::rounded_corners(&nueva);
             // Sin esto la cuenta atras cierra el menu que se venia a fotografiar.
             crate::platform::window_style::never_focus(&nueva);
+            // Su ventana a pelo, para no preguntarle a Tauri por ella en cada cuenta atras:
+            // esto se llama tambien desde el menu de la bandeja, fuera del hilo principal, y
+            // ahi preguntar espera sin plazo (trampa 34).
+            if let Ok(hwnd) = nueva.hwnd() {
+                CUENTA_HWND.store(hwnd.0 as isize, Ordering::Relaxed);
+            }
             nueva
         }
     };
 
     colocar_cuenta_atras(&window);
     // Con una grabacion en marcha, la cuenta atras tampoco sale en el video.
-    crate::platform::window_style::fuera_de_la_captura(
-        &window,
-        app.state::<AppState>().is_recording(),
-    );
+    #[cfg(windows)]
+    {
+        let hwnd = CUENTA_HWND.load(Ordering::Relaxed);
+        if hwnd != 0 {
+            crate::platform::window_style::fuera_de_la_captura_hwnd(
+                hwnd,
+                app.state::<AppState>().is_recording(),
+            );
+        }
+    }
     let _ = window.show();
 }
+
+/// La ventana de la cuenta atras a pelo, guardada al crearla. 0 si no existe todavia.
+static CUENTA_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
 /// La pone en el centro del monitor donde esta el cursor, que es el que el usuario esta
 /// mirando. Se recoloca en cada disparo porque el raton puede estar en otra pantalla que

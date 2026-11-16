@@ -363,6 +363,10 @@ unsafe fn crear_ventanas(
             )
         }
         .map_err(|e| format!("no se ha podido crear una linea del marco: {e}"))?;
+        // Fuera de toda foto y de todo video: va por fuera de la region, asi que a lo que se
+        // graba no le quita nada, y desde el 16-nov se puede capturar grabando (la linea roja
+        // salia en la foto) y bajar con la captura con scroll grabando (salia en el video).
+        let _ = crate::platform::window_style::fuera_de_la_captura_hwnd(hwnd.0 as isize, true);
         // El dibujo va en la ventana antes de ensennarla: aparece ya pintada, sin un
         // fotograma vacio, y las cuatro a la vez.
         unsafe { poner_dibujo(hwnd, tira, &pintar_tira(region, tira, medidas, color)) }
@@ -604,6 +608,15 @@ mod tests {
         let empezo = std::time::Instant::now();
         let marco = Marco::abrir(region, 1.0).expect("el marco tenía que abrirse");
         assert_eq!(marco.ventanas.len(), 4, "tienen que ser cuatro tiras");
+        // Fuera de toda foto y de todo video (16-nov): ni sale en una captura hecha grabando
+        // ni en el video de una captura con scroll.
+        for &ventana in &marco.ventanas {
+            use windows::Win32::UI::WindowsAndMessaging::{GetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
+            let mut afinidad = 0u32;
+            unsafe { GetWindowDisplayAffinity(HWND(ventana as *mut core::ffi::c_void), &mut afinidad) }
+                .expect("la afinidad de la tira");
+            assert_eq!(afinidad, WDA_EXCLUDEFROMCAPTURE.0, "una tira del marco sale en las fotos");
+        }
         marco.pausado(true);
         marco.pausado(false);
         drop(marco);
@@ -694,7 +707,12 @@ mod tests {
                 let dib = CreateDIBSection(Some(memoria), &info, DIB_RGB_COLORS, &mut bits, None, 0)
                     .expect("no se ha podido crear el lienzo");
                 let anterior = SelectObject(memoria, dib.into());
+                // El marco va fuera de toda foto (16-nov), y eso alcanza tambien a
+                // `PrintWindow`: para ver su dibujo se le deja entrar un momento, y luego se
+                // vuelve a sacar. Que este fuera lo comprueba `se_abre_y_se_cierra_...`.
+                crate::platform::window_style::fuera_de_la_captura_hwnd(ventana, false);
                 let pintada = PrintWindow(hwnd, memoria, PRINT_WINDOW_FLAGS(2)).as_bool();
+                crate::platform::window_style::fuera_de_la_captura_hwnd(ventana, true);
                 assert!(pintada, "la ventana no se ha dejado fotografiar");
                 let n = (ancho * alto * 4) as usize;
                 let pixeles = std::slice::from_raw_parts(bits as *const u8, n).to_vec();

@@ -75,6 +75,9 @@ pub struct Anotador {
     /// mantenerla pulsada es UNA marca, no sesenta por segundo.
     tecla_zoom: Option<teclas::TeclaZoom>,
     zoom_abajo: bool,
+    /// Si el teclado lo tiene ahora una ventana de winshotx que no sale en el video (la
+    /// seleccion de una captura hecha grabando): lo que se teclee ahi no es del tutorial.
+    encima: bool,
     escritura: teclas::Escritura,
     lector: teclas::Lector,
     /// Donde se vio el raton la ultima vez, ya en coordenadas de la region. Es a donde
@@ -115,6 +118,7 @@ impl Anotador {
             ids: HashMap::new(),
             tecla_zoom: None,
             zoom_abajo: false,
+            encima: false,
             escritura: teclas::Escritura::default(),
             lector: teclas::Lector::default(),
             ultimo_raton: (0, 0),
@@ -180,7 +184,14 @@ impl Anotador {
                 self.anotaciones.cambios_puntero.push((ts_ms, id));
             }
         }
-        if let Some(clic) = self.raton.mirar(ts_ms) {
+        // Un clic encima de una ventana de winshotx que no sale en el video (la seleccion de
+        // una captura hecha grabando, la barra, el menu de la bandeja) no es del tutorial: no
+        // da zoom, ni aro, ni sonido de clic al guardar.
+        let clic = self
+            .raton
+            .mirar(ts_ms)
+            .filter(|c| !crate::platform::window_style::punto_fuera_del_video(c.x, c.y));
+        if let Some(clic) = clic {
             self.anotaciones.clics.push(zoom::Clic {
                 ms: clic.ms,
                 x: clic.x - rx,
@@ -195,6 +206,8 @@ impl Anotador {
             realce::olvidar_viejos(&mut self.aros, ts_ms);
         }
         let foto = self.lector.leer();
+        // Y lo que se teclea en ellas tampoco (Ctrl+S en la seleccion salia como atajo).
+        self.encima = crate::platform::window_style::delante_fuera_del_video();
         self.mirar_teclado(ts_ms, &foto, (rx, ry));
     }
 
@@ -203,14 +216,15 @@ impl Anotador {
     /// desde una prueba no se puede pulsar Ctrl.
     fn mirar_teclado(&mut self, ts_ms: u64, foto: &teclas::Foto, (rx, ry): (i32, i32)) {
         let zoom = self.tecla_zoom.as_ref().is_some_and(|t| t.pulsada(foto));
-        if zoom && !self.zoom_abajo {
+        if zoom && !self.zoom_abajo && !self.encima {
             let (x, y) = self.ultimo_raton;
             self.anotaciones.marcas_zoom.push(MarcaZoom { ms: ts_ms, x, y });
         }
         self.zoom_abajo = zoom;
 
         // La tecla de zoom es de winshotx, no del tutorial: no sale en la pastilla.
-        if let Some(nuevo) = self.teclado.mirar_foto(foto, ts_ms).filter(|_| !zoom) {
+        let encima = self.encima;
+        if let Some(nuevo) = self.teclado.mirar_foto(foto, ts_ms).filter(|_| !zoom && !encima) {
             let (x, y) = self.ultimo_raton;
             self.anotaciones.teclas.push(teclas::Atajo {
                 x,
@@ -222,9 +236,11 @@ impl Anotador {
             }
         }
 
-        self.escritura.mirar(ts_ms, foto, self.tecla_zoom.as_ref(), || {
-            teclas::caret().map(|(x, y)| (x - rx, y - ry))
-        });
+        if !self.encima {
+            self.escritura.mirar(ts_ms, foto, self.tecla_zoom.as_ref(), || {
+                teclas::caret().map(|(x, y)| (x - rx, y - ry))
+            });
+        }
     }
 
     /// Pinta encima del fotograma lo que toque verse ahora: los aros y la pastilla.
