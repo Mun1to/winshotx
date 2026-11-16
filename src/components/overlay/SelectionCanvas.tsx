@@ -212,6 +212,20 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
   const modeRef = useRef<Mode>(mode);
   modeRef.current = mode;
+  /**
+   * La captura ya se ha cerrado (Escape, o Rust al aparcar los overlays) y lo que llegue del
+   * ratón hasta la próxima vez que se enseñe no hace nada.
+   *
+   * El overlay no se esconde al cerrar: se aparca fuera de las pantallas, y Chromium le sigue
+   * mandando el ratón del arrastre que estaba en marcha. Con Escape a medio arrastre, al
+   * soltar el botón se copiaba el recorte o empezaba a grabar (Munito, 16-nov: «haz que
+   * cuando le des al Esc no se capture nada»). Se limpia en `boot`, al enseñarse otra vez.
+   */
+  const cerrada = useRef(false);
+  const soltarElGesto = useCallback(() => {
+    cerrada.current = true;
+    setMode({ kind: "idle" });
+  }, []);
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const cursorRef = useRef(cursor);
   cursorRef.current = cursor;
@@ -611,6 +625,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     setSource(null);
     setSelection(null);
     setMode({ kind: "idle" });
+    cerrada.current = false;
     setPantallaEntera(false);
     setConScroll(false);
     setProporcion("libre");
@@ -739,10 +754,14 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     const unlisten = listen<OverlayPayload>(EVENTS.overlayShow, (e) => void boot(e.payload), {
       target: etiqueta,
     });
+    // Cerrada desde Rust (el Escape de otra pantalla, Guardar como...): si el arrastre era
+    // de esta, se suelta aquí también.
+    const cierre = listen(EVENTS.overlayHide, () => soltarElGesto(), { target: etiqueta });
     return () => {
       void unlisten.then((fn) => fn());
+      void cierre.then((fn) => fn());
     };
-  }, [boot]);
+  }, [boot, soltarElGesto]);
 
   const toPhysical = useCallback(
     (rect: Rect): Rect => aVirtual(rect, payload!.monitor, scale),
@@ -938,7 +957,9 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           // Un solo Escape se sale, haya recorte hecho o no. Antes el primero borraba el
           // recorte y hacia falta otro para cerrar: quien pulsa Escape encima de una
           // captura quiere irse, y el recorte se rehace arrastrando otra vez, sin tener
-          // que borrarlo antes.
+          // que borrarlo antes. Y a medio arrastre, el gesto se suelta aquí: al soltar el
+          // botón no se captura ni se graba nada.
+          soltarElGesto();
           void cancelCapture();
           return;
         case "Enter":
@@ -1081,6 +1102,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     cambiarScroll,
     empezarScroll,
     elegirProporcion,
+    soltarElGesto,
   ]);
 
   const readHex = useCallback(
@@ -1133,6 +1155,10 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     };
 
     const onUp = () => {
+      if (cerrada.current) {
+        setMode({ kind: "idle" });
+        return;
+      }
       if (mode.kind === "drawing") {
         const drawn = selectionRef.current;
         const dibujado = drawn && drawn.width >= MIN_DRAG && drawn.height >= MIN_DRAG;

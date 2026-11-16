@@ -61,6 +61,11 @@ pub const EVENT_SETTINGS_SHOWN: &str = "winshotx://settings-shown";
 /// a recibir un remontaje que dispare su arranque solo.
 pub const EVENT_OVERLAY_SHOW: &str = "winshotx://overlay-show";
 
+/// La captura se ha cerrado: el overlay suelta el arrastre que tuviera a medias. Se aparca
+/// fuera de las pantallas sin esconderse, y sin esto, el botón soltado después de un Escape
+/// copiaba el recorte o empezaba a grabar.
+pub const EVENT_OVERLAY_HIDE: &str = "winshotx://overlay-hide";
+
 /// Cuantos segundos le quedan al temporizador. Lo recibe la ventanita de la cuenta atras,
 /// que a partir de ahi baja sola de segundo en segundo: Rust solo dice el numero de
 /// partida y avisa con un cero cuando se acabo.

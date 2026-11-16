@@ -119,6 +119,74 @@ describe("salir de la captura", () => {
       expect(llamadas.some((l) => l.comando === "cancel_capture")).toBe(true),
     );
   });
+
+  /** Lo que se haya mandado a capturar o a grabar, que después de un Escape tiene que ser nada. */
+  const capturado = () =>
+    llamadas.filter((l) => l.comando === "capture_still" || l.comando === "start_recording");
+
+  it("Escape en medio del arrastre, al vuelo: al soltar el ratón no se captura nada", async () => {
+    // Munito, 16-nov: «haz que cuando le des al Esc no se capture nada». El Escape cerraba el
+    // overlay, pero el gesto seguía vivo, y al soltar el botón se copiaba el recorte.
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      settings: { ...AJUSTES, captureFlow: "instant" } as Settings,
+    });
+    const lienzo = await abrir();
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 1 });
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+    fireEvent.pointerCancel(window);
+
+    await waitFor(() =>
+      expect(llamadas.some((l) => l.comando === "cancel_capture")).toBe(true),
+    );
+    // Lo que se dispara al soltar es asíncrono: se le da su vuelta antes de mirar.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(capturado()).toEqual([]);
+  });
+
+  it("Escape en medio del arrastre en vídeo: al soltar no empieza a grabar", async () => {
+    const lienzo = await abrir();
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: false, withToolbar: true });
+    await waitFor(() => expect(screen.getByLabelText("Vídeo")).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 1 });
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(capturado()).toEqual([]);
+  });
+
+  it("cerrada desde Rust a medio arrastre (el Escape de otra pantalla), tampoco", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      settings: { ...AJUSTES, captureFlow: "instant" } as Settings,
+    });
+    const lienzo = await abrir();
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 1 });
+    emite(EVENTS.overlayHide, null);
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(capturado()).toEqual([]);
+  });
+
+  it("y la siguiente vez que se abre, soltar vuelve a capturar", async () => {
+    const alVuelo = { ...PAYLOAD, settings: { ...AJUSTES, captureFlow: "instant" } as Settings };
+    responde("overlay_bootstrap", alVuelo);
+    const lienzo = await abrir();
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.pointerUp(window, { clientX: 200, clientY: 300 });
+
+    emite(EVENTS.overlayShow, { ...alVuelo, generation: 2 });
+    await screen.findByLabelText("Foto");
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    await waitFor(() => expect(capturado().map((l) => l.comando)).toEqual(["capture_still"]));
+  });
 });
 
 describe("la barra de arriba no se queda el sitio", () => {

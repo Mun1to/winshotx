@@ -772,6 +772,9 @@ pub fn close_overlays(app: &AppHandle) {
             .map(|m| aparcadero_de(m, &monitores))
             .unwrap_or_else(|| aparcadero(app));
         let _ = window.set_position(sitio);
+        // Aparcada sigue recibiendo el raton del arrastre que llevara: que lo suelte, o el
+        // boton soltado despues de un Escape captura igual (ver `EVENT_OVERLAY_HIDE`).
+        let _ = window.emit_to(label.as_str(), crate::EVENT_OVERLAY_HIDE, ());
     }
 }
 
