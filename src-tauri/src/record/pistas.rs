@@ -216,15 +216,16 @@ impl EscritorWav {
     }
 
     /// Cierra como `cerrar`, y si la pista llegó casi muda la sube (`nivelar_si_casi_muda`).
-    /// Devuelve los bytes de sonido y el pico que queda en el archivo.
-    pub fn cerrar_y_nivelar(self) -> (u64, u16) {
+    /// `con_voz`: si la grabación trae una voz que se oye, para no taparla. Devuelve los
+    /// bytes de sonido y el pico que queda en el archivo.
+    pub fn cerrar_y_nivelar(self, con_voz: bool) -> (u64, u16) {
         let ruta = self.ruta.clone();
         let pico = self.pico;
         let escritos = self.cerrar();
         if escritos == 0 {
             return (0, pico);
         }
-        (escritos, nivelar_si_casi_muda(&ruta, pico))
+        (escritos, nivelar_si_casi_muda(&ruta, pico, con_voz))
     }
 }
 
@@ -233,24 +234,31 @@ pub const PICO_CASI_MUDO: u16 = 328;
 /// Hasta donde se sube una pista casi muda: -6 dBFS de pico, como un vídeo normal y sin
 /// rozar el tope.
 const PICO_NIVELADO: f32 = 16_384.0;
+/// Y si la grabación trae una voz que se oye, solo hasta -20 dBFS: de fondo, debajo de ella.
+/// Alguien que pone la música baja a propósito para hablar encima no quiere que le gane.
+const PICO_NIVELADO_CON_VOZ: f32 = 3_277.0;
 /// Y como mucho cuánto se multiplica: x100 son +40 dB. Más que eso ya es subir el siseo.
 const GANANCIA_MAXIMA: f32 = 100.0;
 
-/// Sube una pista casi muda hasta `PICO_NIVELADO`, en el mismo archivo, y devuelve el pico
-/// que queda. Una muda del todo (pico 0) o una que ya se oye se quedan como están.
+/// Sube una pista casi muda hasta `PICO_NIVELADO` (o `PICO_NIVELADO_CON_VOZ`), en el mismo
+/// archivo, y devuelve el pico que queda. Una muda del todo (pico 0) o una que ya se oye se
+/// quedan como están.
 ///
 /// **Por qué:** winshotx graba lo que suena en el PC DESPUÉS de la rueda de cada app en el
 /// mezclador de Windows, y con Brave al 10 % (14-nov) y al 20 % (16-nov) el vídeo de YouTube
 /// llegó a -56 y a -44 dB: se grababa, pero no se oía ni en la vista previa ni en el archivo.
 /// El aviso del editor estaba dentro del apartado Sonido, plegado, y Munir volvió a pensar
 /// que la vista previa estaba rota: «¿por qué sigo sin escuchar el volumen del vídeo?». Lo
-/// del PC es una copia digital, sin ruido de fondo que subir con ella. La voz no se toca: un
-/// micrófono bajo trae su siseo, y subirlo lo agranda.
-pub fn nivelar_si_casi_muda(ruta: &Path, pico: u16) -> u16 {
+/// que sube es casi todo la señal: llega ya en 16 bits, y a x100 el ruido de redondear queda
+/// por debajo de -55 dBFS, sin siseo de micrófono que agrandar (salvo que el PC esté sonando
+/// una llamada o un micro con «Escuchar este dispositivo»). La voz no se toca: un micrófono
+/// bajo trae su siseo, y subirlo lo agranda.
+pub fn nivelar_si_casi_muda(ruta: &Path, pico: u16, con_voz: bool) -> u16 {
     if pico == 0 || pico >= PICO_CASI_MUDO {
         return pico;
     }
-    let ganancia = (PICO_NIVELADO / f32::from(pico)).min(GANANCIA_MAXIMA);
+    let objetivo = if con_voz { PICO_NIVELADO_CON_VOZ } else { PICO_NIVELADO };
+    let ganancia = (objetivo / f32::from(pico)).min(GANANCIA_MAXIMA);
     match multiplicar(ruta, ganancia) {
         Ok(nuevo) => nuevo,
         Err(error) => {
@@ -457,14 +465,16 @@ mod pruebas {
         let dir = std::env::temp_dir().join("winshotx-pistas-nivelar");
         let _ = std::fs::create_dir_all(&dir);
         let info = AudioInfo { channels: 2, sample_rate: 48_000 };
-        // Más de un trozo de un mega, para que el bucle dé la vuelta: 300.000 muestras.
-        let onda: Vec<i16> = (0..300_000).map(|k| ((k as f32 * 0.05).sin() * 200.0).round() as i16).collect();
+        // Más de un trozo de un mega, para que el bucle dé la vuelta: 600.001 muestras son
+        // 1.200.002 bytes, un mega entero y algo más.
+        let onda: Vec<i16> = (0..600_001).map(|k| ((k as f32 * 0.05).sin() * 200.0).round() as i16).collect();
+        assert!(onda.len() * 2 > 1 << 20);
         let bytes: Vec<u8> = onda.iter().flat_map(|m| m.to_le_bytes()).collect();
 
         let mut baja = EscritorWav::crear(&dir.join("baja.wav"), info).unwrap();
         baja.escribir(&bytes);
         assert_eq!(baja.pico(), 200);
-        let (escritos, pico) = baja.cerrar_y_nivelar();
+        let (escritos, pico) = baja.cerrar_y_nivelar(false);
         assert_eq!(escritos, bytes.len() as u64);
         assert!((16_300..=16_384).contains(&pico), "sube hasta -6 dBFS: {pico}");
         let (leido_info, leidas) = leer_wav(&dir.join("baja.wav")).expect("la cabecera sigue bien");
@@ -479,17 +489,22 @@ mod pruebas {
 
         let mut alta = EscritorWav::crear(&dir.join("alta.wav"), info).unwrap();
         alta.escribir(&(-12_000i16).to_le_bytes());
-        assert_eq!(alta.cerrar_y_nivelar(), (2, 12_000), "la que se oye no se toca");
+        assert_eq!(alta.cerrar_y_nivelar(false), (2, 12_000), "la que se oye no se toca");
         assert_eq!(leer_wav(&dir.join("alta.wav")).unwrap().1, (-12_000i16).to_le_bytes());
 
         let mut muda = EscritorWav::crear(&dir.join("muda.wav"), info).unwrap();
         muda.escribir(&[0, 0, 0, 0]);
-        assert_eq!(muda.cerrar_y_nivelar(), (4, 0), "el silencio exacto no se sube");
+        assert_eq!(muda.cerrar_y_nivelar(false), (4, 0), "el silencio exacto no se sube");
 
         // Un clic suelto a -60 dB no se multiplica por más de x100.
         let mut suelta = EscritorWav::crear(&dir.join("suelta.wav"), info).unwrap();
         suelta.escribir(&33i16.to_le_bytes());
-        assert_eq!(suelta.cerrar_y_nivelar().1, 3_300);
+        assert_eq!(suelta.cerrar_y_nivelar(false).1, 3_300);
+
+        // Con una voz que se oye, la música baja de fondo solo sube hasta -20 dBFS.
+        let mut de_fondo = EscritorWav::crear(&dir.join("fondo.wav"), info).unwrap();
+        de_fondo.escribir(&200i16.to_le_bytes());
+        assert_eq!(de_fondo.cerrar_y_nivelar(true).1, 3_277);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

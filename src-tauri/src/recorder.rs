@@ -299,11 +299,16 @@ impl SalidaDeAudio {
         let formato = captura.formato;
         captura.parar();
         // El del PC se sube si llegó casi mudo (una app muy baja en el mezclador de Windows,
-        // `pistas::nivelar_si_casi_muda`); la voz no, que subirla sube su siseo.
+        // `pistas::nivelar_si_casi_muda`), y menos si hay una voz que se oye, para no taparla;
+        // la voz no, que subirla sube su siseo.
+        let con_voz = self
+            .microfono
+            .as_ref()
+            .is_some_and(|voz| voz.pico() >= record::pistas::PICO_CASI_MUDO);
         let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str, nivelar: bool| {
             let Some(wav) = wav else { return (None, None) };
             let (escritos, pico) = if nivelar {
-                wav.cerrar_y_nivelar()
+                wav.cerrar_y_nivelar(con_voz)
             } else {
                 let pico = wav.pico();
                 (wav.cerrar(), pico)
