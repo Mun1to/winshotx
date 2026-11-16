@@ -7,18 +7,27 @@
 //!
 //! **Son cuatro ventanas de Windows a pelo, sin webview.** Cada webview cuesta decenas de
 //! megabytes y un buen rato en arrancar, y aqui hacen falta cuatro tiras: una arriba, otra
-//! abajo y dos a los lados, **por fuera** de la region. Por fuera es lo que las deja fuera
-//! del video: la captura recorta exactamente la region, y el marco empieza un pixel mas
-//! alla. Cuatro tiras y no una ventana grande con un agujero: lo que se graba no lleva
-//! nada encima, ni siquiera transparente.
+//! abajo y dos a los lados. Cuatro tiras y no una ventana grande con un agujero: lo que se
+//! graba no lleva nada encima, ni siquiera transparente.
+//!
+//! **Por fuera de la region, salvo donde por fuera no hay pantalla.** Por fuera, la captura
+//! recorta exactamente la region y el marco empieza un pixel mas alla. Pero un lado pegado al
+//! borde de su pantalla, por fuera, cae en la pantalla de al lado o en ninguna: grabando la
+//! pantalla entera, el marco salia en el borde de los OTROS monitores y en la grabada no se
+//! veia nada (16-nov, «el marco de grabar se bugea»). Ese lado va por dentro, pegado al borde:
+//! las tiras estan fuera de toda foto y de todo video (`fuera_de_la_captura_hwnd`), asi que no
+//! salen en lo grabado. En un Windows que no deja sacarlas (antes de la 10 2004), nunca van
+//! por dentro.
+//!
+//! **Grabando una ventana, el marco la sigue**: si se mueve o cambia de tamanno, el marco va
+//! con ella, y si se minimiza o se cierra, se esconde. Antes se quedaba donde estaba la
+//! ventana al empezar.
 //!
 //! **Cada tira se dibuja pixel a pixel, con su transparencia** (`UpdateLayeredWindow`): una
 //! linea nitida de dos pixeles por la escala de la pantalla, separada de la region por un
 //! hueco de otros dos, con las esquinas redondeadas y suaves como las de una ventana de
-//! Windows 11, y por fuera una sombra corta que la separa de lo de detras (una linea roja
-//! sobre una foto roja, sin sombra, no se ve). El marco de antes eran cuatro rectangulos de
-//! color pintados con `FillRect`: esquinas en angulo recto, ninguna separacion del fondo, y
-//! un primer fotograma sin pintar al aparecer.
+//! Windows 11, y por fuera un halo corto que la separa de lo de detras (una sombra, o la luz
+//! de su color, segun el `Estilo`).
 //!
 //! Las cuatro son de las que **no se pueden pulsar** (`WS_EX_TRANSPARENT`: el clic las
 //! atraviesa y llega a lo que haya debajo), **no cogen el foco** (`WS_EX_NOACTIVATE`),
@@ -26,32 +35,36 @@
 //!
 //! Viven en **su propio hilo con su propio bucle de mensajes**, como cualquier ventana de
 //! Windows: una ventana atiende los mensajes en el hilo que la creo, y el hilo principal
-//! esta ocupado con Tauri. Se les habla con `PostThreadMessage` (cambiar el color, cerrar)
-//! y el hilo termina cuando se le pide, no antes.
+//! esta ocupado con Tauri. Se les habla con `PostThreadMessage` (pausar, cerrar) y el hilo
+//! termina cuando se le pide, no antes.
 
 #![cfg(windows)]
 
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
-use windows::core::PCWSTR;
-use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, SIZE, WPARAM};
+use windows::core::{BOOL, PCWSTR};
+use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, SIZE, WPARAM};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDC, ReleaseDC, SelectObject,
-    AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION,
-    DIB_RGB_COLORS,
+    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, EnumDisplayMonitors, GetDC,
+    GetMonitorInfoW, MonitorFromRect, ReleaseDC, SelectObject, AC_SRC_ALPHA, AC_SRC_OVER,
+    BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION, DIB_RGB_COLORS, HDC, HMONITOR,
+    MONITORINFO, MONITOR_DEFAULTTONEAREST,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::HiDpi::{
-    SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+    GetDpiForMonitor, SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+    MDT_EFFECTIVE_DPI,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-    PostQuitMessage, PostThreadMessageW, RegisterClassW, ShowWindow, TranslateMessage,
-    UpdateLayeredWindow, HTTRANSPARENT, MSG, SW_SHOWNOACTIVATE, ULW_ALPHA, WM_APP, WM_NCHITTEST,
-    WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_EX_TRANSPARENT, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, IsIconic,
+    IsWindow, IsWindowVisible, KillTimer, PostQuitMessage, PostThreadMessageW, RegisterClassW,
+    SetTimer, SetWindowPos, ShowWindow, TranslateMessage, UpdateLayeredWindow, HTTRANSPARENT,
+    MSG, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, ULW_ALPHA,
+    WM_APP, WM_NCHITTEST, WM_TIMER, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 
 use crate::capture::Rect;
@@ -59,26 +72,69 @@ use crate::error::{AppError, Result};
 
 /// Rojo mientras se graba: es el color que todo el mundo lee como «grabando», y el mismo del
 /// punto de la barra (`bg-red-500`).
-const GRABANDO: Color = Color(0xEF, 0x44, 0x44);
+const ROJO: Color = Color(0xEF, 0x44, 0x44);
+/// El azul de winshotx (`#0a9bff`, el del logo y la web).
+const AZUL: Color = Color(0x0A, 0x9B, 0xFF);
+const BLANCO: Color = Color(0xFF, 0xFF, 0xFF);
+const NEGRO: Color = Color(0, 0, 0);
 /// Ambar en pausa, el mismo del punto de la barra en pausa.
 const EN_PAUSA: Color = Color(0xF5, 0x9E, 0x0B);
 
-/// Lo oscura que es la sombra pegada a la linea. Se apaga hacia fuera hasta cero.
-const SOMBRA: f32 = 0.30;
+/// Como se ve el marco. Munito, 16-nov: «no me gusta, revísalo, el diseño rojo». Hasta que
+/// elija entre las variaciones (`ver_las_variaciones_del_marco`), el de siempre.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Estilo {
+    /// 0. El de la 0.4.1 a la 0.5.0: linea roja y una sombra negra corta.
+    Rojo,
+    /// 1. La misma linea y la misma sombra, en el azul de winshotx.
+    Azul,
+    /// 2. La linea azul con su luz alrededor en vez de sombra.
+    AzulConLuz,
+    /// 3. Una linea blanca con la luz azul de winshotx por fuera: se lee sobre lo oscuro por
+    /// la linea y sobre lo claro por la luz.
+    BlancoConLuz,
+}
+
+/// El marco que se ve al grabar.
+pub const ESTILO: Estilo = Estilo::Rojo;
+
+/// Lo que despega la linea del fondo, por fuera: un color, lo fuerte que es pegado a la linea
+/// (se apaga hacia fuera hasta cero) y lo que mide a 100 %.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Halo {
+    color: Color,
+    fuerza: f32,
+    ancho: f64,
+}
+
+impl Estilo {
+    pub const TODOS: [Estilo; 4] = [Estilo::Rojo, Estilo::Azul, Estilo::AzulConLuz, Estilo::BlancoConLuz];
+
+    /// El color de la linea, grabando o en pausa.
+    fn linea(self, pausado: bool) -> Color {
+        match (self, pausado) {
+            (Estilo::BlancoConLuz, _) => BLANCO,
+            (_, true) => EN_PAUSA,
+            (Estilo::Rojo, false) => ROJO,
+            (Estilo::Azul | Estilo::AzulConLuz, false) => AZUL,
+        }
+    }
+
+    /// El halo de fuera. La sombra es negra y solo oscurece; la luz es del color del estado
+    /// (azul grabando, ambar en pausa), y en el blanco es la que dice si esta en pausa.
+    fn halo(self, pausado: bool) -> Halo {
+        let estado = if pausado { EN_PAUSA } else { AZUL };
+        match self {
+            Estilo::Rojo | Estilo::Azul => Halo { color: NEGRO, fuerza: 0.30, ancho: 5.0 },
+            Estilo::AzulConLuz => Halo { color: estado, fuerza: 0.55, ancho: 9.0 },
+            Estilo::BlancoConLuz => Halo { color: estado, fuerza: 0.75, ancho: 9.0 },
+        }
+    }
+}
 
 /// Un color de la linea, en rojo, verde y azul.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Color(u8, u8, u8);
-
-impl Color {
-    /// Para viajar en el `WPARAM` de un mensaje.
-    fn empaquetar(self) -> usize {
-        (self.0 as usize) | ((self.1 as usize) << 8) | ((self.2 as usize) << 16)
-    }
-    fn desempaquetar(v: usize) -> Self {
-        Color(v as u8, (v >> 8) as u8, (v >> 16) as u8)
-    }
-}
 
 /// Lo que mide el marco en pixeles de la pantalla.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,8 +146,8 @@ struct Medidas {
     linea: i32,
     /// El radio de la esquina de dentro de la linea (la de fuera es este mas la linea).
     radio: i32,
-    /// La sombra, por fuera de la linea.
-    sombra: i32,
+    /// El halo, por fuera de la linea.
+    halo: i32,
 }
 
 /// Hasta donde puede llegar el radio con un hueco dado sin que la esquina de la region asome
@@ -101,10 +157,10 @@ const RADIO_POR_HUECO: f64 = std::f64::consts::SQRT_2 / (std::f64::consts::SQRT_
 
 impl Medidas {
     /// A 100 %: dos pixeles de hueco, dos de linea, esquina de seis por dentro (ocho por
-    /// fuera, la de las ventanas de Windows 11) y cinco de sombra. Crecen con la escala de la
-    /// pantalla y se redondean a pixeles enteros: una linea de 2,5 pixeles no existe, se ve
-    /// borrosa.
-    fn a_escala(escala: f64) -> Self {
+    /// fuera, la de las ventanas de Windows 11) y el halo de su estilo (cinco de sombra). Crecen
+    /// con la escala de la pantalla y se redondean a pixeles enteros: una linea de 2,5 pixeles
+    /// no existe, se ve borrosa.
+    fn a_escala(escala: f64, estilo: Estilo) -> Self {
         let e = if escala.is_finite() && escala > 0.0 { escala } else { 1.0 };
         let px = |v: f64, minimo: f64| (v * e).round().max(minimo) as i32;
         let hueco = px(2.0, 1.0);
@@ -112,19 +168,289 @@ impl Medidas {
             hueco,
             linea: px(2.0, 1.0),
             radio: px(6.0, 0.0).min((hueco as f64 * RADIO_POR_HUECO).floor() as i32),
-            sombra: px(5.0, 2.0),
+            halo: px(estilo.halo(false).ancho, 2.0),
         }
     }
 
-    /// Lo que sale el marco por fuera de la region, por cada lado.
+    /// Lo que sale el marco por fuera de la region, por cada lado que va por fuera.
     fn grosor(self) -> i32 {
-        self.hueco + self.linea + self.sombra
+        self.hueco + self.linea + self.halo
     }
 }
 
-/// Los dos recados que se le mandan al hilo.
-const MSG_REPINTAR: u32 = WM_APP + 1;
+/// La figura del marco alrededor de una region: el borde de dentro de la linea, el radio de
+/// cada esquina y las cuatro tiras (ventanas) que la cubren.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Forma {
+    region: Rect,
+    medidas: Medidas,
+    /// El borde de dentro de la linea, contado desde la esquina de arriba a la izquierda de la
+    /// region (para no hacer cuentas finas con coordenadas grandes: las pruebas viven en
+    /// -20000): izquierda, arriba, derecha y abajo.
+    contorno: [f32; 4],
+    /// El radio de cada esquina del contorno: arriba a la izquierda, arriba a la derecha,
+    /// abajo a la izquierda y abajo a la derecha.
+    radios: [f32; 4],
+    /// Las cuatro tiras, en la pantalla: arriba, abajo, izquierda y derecha. Arriba y abajo
+    /// cubren tambien las esquinas.
+    tiras: [Rect; 4],
+}
+
+impl Forma {
+    /// El marco de esa region, con cada lado por fuera o, si `dentro` lo dice (arriba, abajo,
+    /// izquierda, derecha), por dentro y pegado al borde.
+    ///
+    /// Una esquina con algun lado por dentro va en angulo recto: redonda, su curva se meteria
+    /// en la region por donde no hay tira que la pinte, y la linea saldria cortada.
+    fn nueva(region: Rect, medidas: Medidas, dentro: [bool; 4]) -> Self {
+        let (w, h) = (region.width as i32, region.height as i32);
+        let Medidas { hueco, linea, radio, .. } = medidas;
+        let g = medidas.grosor();
+        let [arriba, abajo, izquierda, derecha] = dentro;
+        // De cada lado, por orden: el borde de dentro de la linea, lo de fuera del todo del
+        // marco y el borde del agujero que dejan las tiras en medio. Por fuera, el agujero es
+        // la region; por dentro, la region menos la linea.
+        let lado = |por_dentro: bool, borde: i32, hacia_fuera: i32| {
+            if por_dentro {
+                (borde - hacia_fuera * linea, borde, borde - hacia_fuera * linea)
+            } else {
+                (borde + hacia_fuera * hueco, borde + hacia_fuera * g, borde)
+            }
+        };
+        let (c_arr, o_arr, m_arr) = lado(arriba, 0, -1);
+        let (c_aba, o_aba, m_aba) = lado(abajo, h, 1);
+        let (c_izq, o_izq, m_izq) = lado(izquierda, 0, -1);
+        let (c_der, o_der, m_der) = lado(derecha, w, 1);
+        let tira = |x1: i32, y1: i32, x2: i32, y2: i32| Rect {
+            x: region.x + x1,
+            y: region.y + y1,
+            width: (x2 - x1).max(1) as u32,
+            height: (y2 - y1).max(1) as u32,
+        };
+        let redonda = |a: bool, b: bool| if a || b { 0.0 } else { radio as f32 };
+        Self {
+            region,
+            medidas,
+            contorno: [c_izq as f32, c_arr as f32, c_der as f32, c_aba as f32],
+            radios: [
+                redonda(arriba, izquierda),
+                redonda(arriba, derecha),
+                redonda(abajo, izquierda),
+                redonda(abajo, derecha),
+            ],
+            tiras: [
+                tira(o_izq, o_arr, o_der, m_arr),
+                tira(o_izq, m_aba, o_der, o_aba),
+                tira(o_izq, m_arr, m_izq, m_aba),
+                tira(m_der, m_arr, o_der, m_aba),
+            ],
+        }
+    }
+
+    /// El radio de la esquina que toca a ese punto (contado desde la region).
+    fn radio_en(&self, x: f32, y: f32) -> f32 {
+        let [x1, y1, x2, y2] = self.contorno;
+        let (derecha, abajo) = (x >= (x1 + x2) / 2.0, y >= (y1 + y2) / 2.0);
+        self.radios[usize::from(derecha) + 2 * usize::from(abajo)]
+    }
+
+    /// Lo mismo que otra forma salvo el sitio: basta con mover las ventanas, sin repintarlas.
+    fn misma_figura(&self, otra: &Forma) -> bool {
+        let tamanno = |f: &Forma| f.tiras.map(|t| (t.width, t.height));
+        self.medidas == otra.medidas
+            && self.contorno == otra.contorno
+            && self.radios == otra.radios
+            && tamanno(self) == tamanno(otra)
+    }
+}
+
+/// La distancia de un punto al borde de dentro de la linea, en pixeles: negativa por dentro
+/// (la region y el hueco) y positiva por fuera. El punto va contado desde la esquina de arriba
+/// a la izquierda de la region.
+fn distancia(forma: &Forma, x: f32, y: f32) -> f32 {
+    let [x1, y1, x2, y2] = forma.contorno;
+    let r = forma.radio_en(x, y);
+    let qx = (x - (x1 + x2) / 2.0).abs() - (x2 - x1) / 2.0 + r;
+    let qy = (y - (y1 + y2) / 2.0).abs() - (y2 - y1) / 2.0 + r;
+    if r <= 0.0 {
+        // Una esquina en angulo recto lo es tambien por fuera de la linea: con la distancia de
+        // siempre, la linea doblaria la esquina redonda y dejaria su pico sin pintar.
+        return qx.max(qy);
+    }
+    (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) - r
+}
+
+/// El dibujo de una tira: cada pixel segun lo lejos que este del borde de dentro de la linea.
+/// Sale en BGRA premultiplicado, que es lo que pide `UpdateLayeredWindow`.
+///
+/// En los tramos rectos, el hueco y la linea son pixeles enteros y sus bordes caen justo
+/// entre dos pixeles: la linea sale nitida, sin medio pixel borroso a ningun lado. En las
+/// esquinas redondas cada pixel se mira en 4x4 puntos y la curva sale suave, sin escalones.
+fn pintar_tira(forma: &Forma, tira: Rect, estilo: Estilo, pausado: bool) -> Vec<u8> {
+    let linea = forma.medidas.linea as f32;
+    let ancho_halo = forma.medidas.halo.max(1) as f32;
+    let (color, halo) = (estilo.linea(pausado), estilo.halo(pausado));
+    let (dx, dy) = (tira.x - forma.region.x, tira.y - forma.region.y);
+    let [x1, y1, x2, y2] = forma.contorno;
+    let mut bgra = Vec::with_capacity(tira.width as usize * tira.height as usize * 4);
+    for fila in 0..tira.height as i32 {
+        for col in 0..tira.width as i32 {
+            let (x, y) = ((dx + col) as f32, (dy + fila) as f32);
+            let d = distancia(forma, x + 0.5, y + 0.5);
+            let r = forma.radio_en(x + 0.5, y + 0.5);
+            // Cerca de una esquina redonda: donde empieza su curva, con un pixel de margen.
+            let en_curva = r > 0.0
+                && (x + 0.5 < x1 + r + 1.0 || x + 0.5 > x2 - r - 1.0)
+                && (y + 0.5 < y1 + r + 1.0 || y + 0.5 > y2 - r - 1.0);
+            let cubre = if !en_curva {
+                // Tramo recto: el centro del pixel decide, y la linea sale de pixeles enteros.
+                if (0.0..=linea).contains(&d) { 1.0 } else { 0.0 }
+            } else {
+                let mut dentro = 0u32;
+                for my in 0..4 {
+                    for mx in 0..4 {
+                        let (sx, sy) = (x + (mx as f32 + 0.5) / 4.0, y + (my as f32 + 0.5) / 4.0);
+                        if (0.0..=linea).contains(&distancia(forma, sx, sy)) {
+                            dentro += 1;
+                        }
+                    }
+                }
+                dentro as f32 / 16.0
+            };
+            // El halo solo va por fuera de la linea: el hueco de dentro queda limpio.
+            let fuera = if d > linea / 2.0 {
+                let t = ((d - linea) / ancho_halo).clamp(0.0, 1.0);
+                halo.fuerza * (1.0 - t) * (1.0 - t)
+            } else {
+                0.0
+            };
+            // La linea encima del halo, premultiplicado.
+            let alfa = cubre + fuera * (1.0 - cubre);
+            let canal = |l: u8, h: u8| {
+                (l as f32 * cubre + h as f32 * fuera * (1.0 - cubre)).round().min(255.0) as u8
+            };
+            bgra.extend_from_slice(&[
+                canal(color.2, halo.color.2),
+                canal(color.1, halo.color.1),
+                canal(color.0, halo.color.0),
+                (alfa * 255.0).round() as u8,
+            ]);
+        }
+    }
+    bgra
+}
+
+/// Que lados del marco van por dentro de la region (arriba, abajo, izquierda, derecha): los
+/// que, por fuera, caerian aunque sea un pixel fuera de las pantallas que toca la region, en
+/// la de al lado o en ninguna.
+///
+/// Una region que no toca ninguna pantalla (las pruebas, en -20000) lo lleva todo por fuera.
+fn lados_por_dentro(region: Rect, grosor: i32, pantallas: &[Rect]) -> [bool; 4] {
+    let suyas: Vec<Rect> = pantallas.iter().copied().filter(|p| comun(p, &region) > 0).collect();
+    if suyas.is_empty() {
+        return [false; 4];
+    }
+    let (x, y, w, h) = (region.x, region.y, region.width, region.height);
+    let g = grosor.max(1);
+    let por_fuera = [
+        Rect { x, y: y - g, width: w, height: g as u32 },
+        Rect { x, y: y + h as i32, width: w, height: g as u32 },
+        Rect { x: x - g, y, width: g as u32, height: h },
+        Rect { x: x + w as i32, y, width: g as u32, height: h },
+    ];
+    por_fuera.map(|tira| {
+        let cubierto: i64 = suyas.iter().map(|p| comun(p, &tira)).sum();
+        cubierto < i64::from(tira.width) * i64::from(tira.height)
+    })
+}
+
+/// Los pixeles que tienen en comun dos rectangulos.
+fn comun(a: &Rect, b: &Rect) -> i64 {
+    let ancho = (a.x + a.width as i32).min(b.x + b.width as i32) - a.x.max(b.x);
+    let alto = (a.y + a.height as i32).min(b.y + b.height as i32) - a.y.max(b.y);
+    if ancho <= 0 || alto <= 0 { 0 } else { i64::from(ancho) * i64::from(alto) }
+}
+
+/// Las pantallas, en pixeles fisicos del escritorio (el hilo del marco los ve asi).
+fn pantallas() -> Vec<Rect> {
+    unsafe extern "system" fn una(monitor: HMONITOR, _: HDC, _: *mut RECT, datos: LPARAM) -> BOOL {
+        let lista = unsafe { &mut *(datos.0 as *mut Vec<Rect>) };
+        let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
+        if unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool() {
+            let r = info.rcMonitor;
+            lista.push(Rect {
+                x: r.left,
+                y: r.top,
+                width: (r.right - r.left).max(0) as u32,
+                height: (r.bottom - r.top).max(0) as u32,
+            });
+        }
+        true.into()
+    }
+    let mut lista: Vec<Rect> = Vec::new();
+    let _ = unsafe { EnumDisplayMonitors(None, None, Some(una), LPARAM(&raw mut lista as isize)) };
+    lista
+}
+
+/// La escala de la pantalla donde cae mas de esa region (1,25 es el 125 % de Windows).
+fn escala_en(region: Rect) -> f64 {
+    let r = RECT {
+        left: region.x,
+        top: region.y,
+        right: region.x + region.width as i32,
+        bottom: region.y + region.height as i32,
+    };
+    let (mut dpi_x, mut dpi_y) = (96u32, 96u32);
+    unsafe {
+        let monitor = MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST);
+        let _ = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y);
+    }
+    f64::from(dpi_x.max(1)) / 96.0
+}
+
+/// Donde esta una ventana, del marco REAL que compone el escritorio (el mismo con que se
+/// empieza a grabarla), o nada si ya no se ve: cerrada, minimizada, escondida o en otro
+/// escritorio virtual.
+fn donde_se_ve(ventana: isize) -> Option<Rect> {
+    let hwnd = HWND(ventana as *mut core::ffi::c_void);
+    unsafe {
+        if !IsWindow(Some(hwnd)).as_bool() || IsIconic(hwnd).as_bool() || !IsWindowVisible(hwnd).as_bool() {
+            return None;
+        }
+        let mut oculta = 0u32;
+        let _ = DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAKED,
+            (&raw mut oculta).cast(),
+            std::mem::size_of::<u32>() as u32,
+        );
+        if oculta != 0 {
+            return None;
+        }
+        let mut r = RECT::default();
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            (&raw mut r).cast(),
+            std::mem::size_of::<RECT>() as u32,
+        )
+        .ok()?;
+        Some(Rect {
+            x: r.left,
+            y: r.top,
+            width: (r.right - r.left).max(1) as u32,
+            height: (r.bottom - r.top).max(1) as u32,
+        })
+    }
+}
+
+/// Los recados que se le mandan al hilo.
+const MSG_PAUSAR: u32 = WM_APP + 1;
 const MSG_CERRAR: u32 = WM_APP + 2;
+
+/// Cada cuanto se mira donde esta la ventana que se graba: lo que tarda un fotograma a 60, para
+/// que al arrastrarla el marco vaya con ella y no detras.
+const SEGUIR_CADA_MS: u32 = 16;
 
 /// El marco en pantalla. Se cierra al soltarlo.
 pub struct Marco {
@@ -145,11 +471,20 @@ impl Marco {
     /// alguna no se pudo crear. Un marco que no se abre no impide grabar: quien llama lo
     /// apunta y sigue.
     pub fn abrir(region: Rect, escala: f64) -> Result<Self> {
-        let medidas = Medidas::a_escala(escala);
+        Self::abrir_con(region, escala, None, ESTILO)
+    }
+
+    /// El marco de una ventana que se graba: empieza alrededor de `region` (donde estaba la
+    /// ventana al empezar) y la sigue si se mueve, cambia de tamanno o se esconde.
+    pub fn abrir_en_ventana(region: Rect, escala: f64, ventana: isize) -> Result<Self> {
+        Self::abrir_con(region, escala, Some(ventana), ESTILO)
+    }
+
+    fn abrir_con(region: Rect, escala: f64, seguir: Option<isize>, estilo: Estilo) -> Result<Self> {
         let (aviso_tx, aviso_rx) = mpsc::channel::<Aviso>();
         let hilo = std::thread::Builder::new()
             .name("winshotx-marco".into())
-            .spawn(move || bucle(region, medidas, aviso_tx))
+            .spawn(move || bucle(region, escala, seguir, estilo, aviso_tx))
             .map_err(|e| AppError::Msg(format!("no se ha podido abrir el marco: {e}")))?;
         let (id_hilo, ventanas) = aviso_rx
             .recv()
@@ -162,11 +497,10 @@ impl Marco {
         })
     }
 
-    /// Cambia el color: ambar en pausa, rojo grabando.
+    /// Cambia el color: el de pausa en pausa, el de grabar grabando.
     pub fn pausado(&self, pausado: bool) {
-        let color = if pausado { EN_PAUSA } else { GRABANDO };
         let _ = unsafe {
-            PostThreadMessageW(self.id_hilo, MSG_REPINTAR, WPARAM(color.empaquetar()), LPARAM(0))
+            PostThreadMessageW(self.id_hilo, MSG_PAUSAR, WPARAM(usize::from(pausado)), LPARAM(0))
         };
     }
 }
@@ -180,138 +514,212 @@ impl Drop for Marco {
     }
 }
 
-/// Las cuatro tiras, por fuera de la region: arriba, abajo, izquierda y derecha.
-///
-/// Va aparte para poder probarla sin abrir nada: si se equivoca en un pixel el marco tapa
-/// el borde de lo que se graba o sale en el video.
-pub fn lineas(region: Rect, grosor: i32) -> [Rect; 4] {
-    let g = grosor.max(1);
-    let (x, y) = (region.x, region.y);
-    let (w, h) = (region.width as i32, region.height as i32);
-    let ancho_con_esquinas = (w + 2 * g) as u32;
-    [
-        // Arriba y abajo cubren tambien las esquinas.
-        Rect { x: x - g, y: y - g, width: ancho_con_esquinas, height: g as u32 },
-        Rect { x: x - g, y: y + h, width: ancho_con_esquinas, height: g as u32 },
-        Rect { x: x - g, y, width: g as u32, height: h as u32 },
-        Rect { x: x + w, y, width: g as u32, height: h as u32 },
-    ]
-}
-
-/// La distancia de un punto al borde de dentro de la linea, en pixeles: negativa por dentro
-/// (la region y el hueco) y positiva por fuera. Ese borde es la region agrandada `hueco`
-/// pixeles por cada lado, con las esquinas redondeadas de radio `radio`. El punto va contado
-/// desde la esquina de arriba a la izquierda de la region, para no hacer cuentas finas con
-/// coordenadas de pantalla grandes (el marco de las pruebas vive en -20000).
-fn distancia(region: Rect, medidas: Medidas, x: f32, y: f32) -> f32 {
-    let (medio_ancho, medio_alto) = (region.width as f32 / 2.0, region.height as f32 / 2.0);
-    let (hueco, radio) = (medidas.hueco as f32, medidas.radio as f32);
-    let qx = (x - medio_ancho).abs() - (medio_ancho + hueco) + radio;
-    let qy = (y - medio_alto).abs() - (medio_alto + hueco) + radio;
-    (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) - radio
-}
-
-/// El dibujo de una tira: cada pixel segun lo lejos que este del borde de dentro de la linea.
-/// Sale en BGRA premultiplicado, que es lo que pide `UpdateLayeredWindow`.
-///
-/// En los tramos rectos, el hueco y la linea son pixeles enteros y sus bordes caen justo
-/// entre dos pixeles: la linea sale nitida, sin medio pixel borroso a ningun lado. En las
-/// esquinas cada pixel se mira en 4x4 puntos y la curva sale suave, sin escalones.
-fn pintar_tira(region: Rect, tira: Rect, medidas: Medidas, color: Color) -> Vec<u8> {
-    let linea = medidas.linea as f32;
-    let sombra = medidas.sombra.max(1) as f32;
-    let (dx, dy) = (tira.x - region.x, tira.y - region.y);
-    // Donde empieza la curva de cada esquina, contado desde el centro de la region.
-    let (recto_x, recto_y) = (
-        region.width as f32 / 2.0 + (medidas.hueco - medidas.radio) as f32,
-        region.height as f32 / 2.0 + (medidas.hueco - medidas.radio) as f32,
-    );
-    let mut bgra = Vec::with_capacity(tira.width as usize * tira.height as usize * 4);
-    for fila in 0..tira.height as i32 {
-        for col in 0..tira.width as i32 {
-            let (x, y) = ((dx + col) as f32, (dy + fila) as f32);
-            let d = distancia(region, medidas, x + 0.5, y + 0.5);
-            let en_curva = (x + 0.5 - region.width as f32 / 2.0).abs() > recto_x - 1.0
-                && (y + 0.5 - region.height as f32 / 2.0).abs() > recto_y - 1.0;
-            let cubre = if !en_curva {
-                // Tramo recto: el centro del pixel decide, y la linea sale de pixeles enteros.
-                if (0.0..=linea).contains(&d) { 1.0 } else { 0.0 }
-            } else {
-                let mut dentro = 0u32;
-                for my in 0..4 {
-                    for mx in 0..4 {
-                        let (sx, sy) = (x + (mx as f32 + 0.5) / 4.0, y + (my as f32 + 0.5) / 4.0);
-                        if (0.0..=linea).contains(&distancia(region, medidas, sx, sy)) {
-                            dentro += 1;
-                        }
-                    }
-                }
-                dentro as f32 / 16.0
-            };
-            // La sombra solo va por fuera de la linea: el hueco de dentro queda limpio.
-            let oscuro = if d > linea / 2.0 {
-                let t = ((d - linea) / sombra).clamp(0.0, 1.0);
-                SOMBRA * (1.0 - t) * (1.0 - t)
-            } else {
-                0.0
-            };
-            // La linea encima de la sombra. La sombra es negra: solo pone alfa, no color.
-            let alfa = cubre + oscuro * (1.0 - cubre);
-            let canal = |v: u8| (v as f32 * cubre).round() as u8;
-            bgra.extend_from_slice(&[
-                canal(color.2),
-                canal(color.1),
-                canal(color.0),
-                (alfa * 255.0).round() as u8,
-            ]);
-        }
-    }
-    bgra
-}
-
 /// Lo que el hilo le cuenta a quien lo abrio: su identificador y sus ventanas, o por que no.
 type Aviso = std::result::Result<(u32, Vec<isize>), String>;
 
+/// Las cuatro ventanas del marco y lo que ensennan, dentro de su hilo.
+struct Dibujo {
+    ventanas: [HWND; 4],
+    estilo: Estilo,
+    pausado: bool,
+    /// Si las tiras estan fuera de toda foto y de todo video. Sin eso, ningun lado puede ir
+    /// por dentro: saldria en lo grabado.
+    fuera_del_video: bool,
+    forma: Forma,
+    a_la_vista: bool,
+}
+
+impl Dibujo {
+    /// Crea las cuatro ventanas, les da su dibujo y las ensenna.
+    unsafe fn crear(region: Rect, escala: f64, estilo: Estilo) -> std::result::Result<Self, String> {
+        let instancia = unsafe { GetModuleHandleW(None) }.map_err(|e| e.to_string())?;
+        let clase = WNDCLASSW {
+            lpfnWndProc: Some(procedimiento),
+            hInstance: instancia.into(),
+            lpszClassName: PCWSTR(CLASE.as_ptr()),
+            ..Default::default()
+        };
+        // Cero es «no se ha podido», salvo que sea porque ya estaba: entonces vale igual.
+        let _ = unsafe { RegisterClassW(&clase) };
+
+        let mut ventanas = [HWND::default(); 4];
+        let mut fuera_del_video = true;
+        for ventana in &mut ventanas {
+            let hwnd = unsafe {
+                CreateWindowExW(
+                    WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_LAYERED,
+                    PCWSTR(CLASE.as_ptr()),
+                    PCWSTR::null(),
+                    WS_POPUP,
+                    region.x,
+                    region.y,
+                    1,
+                    1,
+                    None,
+                    None,
+                    Some(instancia.into()),
+                    None,
+                )
+            }
+            .map_err(|e| format!("no se ha podido crear una linea del marco: {e}"))?;
+            // Fuera de toda foto y de todo video: desde el 16-nov se puede capturar grabando
+            // (la linea salia en la foto) y bajar con la captura con scroll grabando (salia en
+            // el video), y es lo que deja poner por dentro un lado pegado al borde.
+            fuera_del_video &= crate::platform::window_style::fuera_de_la_captura_hwnd(hwnd.0 as isize, true);
+            *ventana = hwnd;
+        }
+        let mut dibujo = Self {
+            ventanas,
+            estilo,
+            pausado: false,
+            fuera_del_video,
+            forma: Forma::nueva(region, Medidas::a_escala(escala, estilo), [false; 4]),
+            a_la_vista: false,
+        };
+        dibujo.forma = dibujo.forma_de(region, escala);
+        // El dibujo va en la ventana antes de ensennarla: aparece ya pintada, sin un
+        // fotograma vacio, y las cuatro a la vez.
+        unsafe { dibujo.pintar() }.map_err(|e| format!("no se ha podido pintar una linea del marco: {e}"))?;
+        unsafe { dibujo.ver(true) };
+        Ok(dibujo)
+    }
+
+    /// La forma del marco para esa region, con los lados por dentro donde por fuera no hay
+    /// pantalla (si se puede).
+    fn forma_de(&self, region: Rect, escala: f64) -> Forma {
+        let medidas = Medidas::a_escala(escala, self.estilo);
+        let dentro = if self.fuera_del_video {
+            lados_por_dentro(region, medidas.grosor(), &pantallas())
+        } else {
+            [false; 4]
+        };
+        Forma::nueva(region, medidas, dentro)
+    }
+
+    /// Le da a cada ventana su dibujo, su tamanno y su sitio.
+    unsafe fn pintar(&self) -> windows::core::Result<()> {
+        for (hwnd, tira) in self.ventanas.iter().zip(self.forma.tiras) {
+            unsafe { poner_dibujo(*hwnd, tira, &pintar_tira(&self.forma, tira, self.estilo, self.pausado)) }?;
+        }
+        Ok(())
+    }
+
+    /// Lleva el marco a otra forma: si solo cambia el sitio, mueve las ventanas; si no, las
+    /// repinta.
+    unsafe fn poner(&mut self, forma: Forma) {
+        if forma == self.forma {
+            return;
+        }
+        let mover = forma.misma_figura(&self.forma);
+        self.forma = forma;
+        if mover {
+            for (hwnd, tira) in self.ventanas.iter().zip(forma.tiras) {
+                let _ = unsafe {
+                    SetWindowPos(*hwnd, None, tira.x, tira.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)
+                };
+            }
+        } else {
+            let _ = unsafe { self.pintar() };
+        }
+    }
+
+    unsafe fn pausar(&mut self, pausado: bool) {
+        if pausado != self.pausado {
+            self.pausado = pausado;
+            let _ = unsafe { self.pintar() };
+        }
+    }
+
+    unsafe fn ver(&mut self, si: bool) {
+        if si != self.a_la_vista {
+            self.a_la_vista = si;
+            for hwnd in self.ventanas {
+                let _ = unsafe { ShowWindow(hwnd, if si { SW_SHOWNOACTIVATE } else { SW_HIDE }) };
+            }
+        }
+    }
+
+    unsafe fn cerrar(&self) {
+        for hwnd in self.ventanas {
+            let _ = unsafe { DestroyWindow(hwnd) };
+        }
+    }
+}
+
+/// La ventana que se graba y donde estaba al empezar, para llevar el marco con ella.
+struct Seguir {
+    ventana: isize,
+    /// La region que se graba al empezar, y donde estaba la ventana entonces: la region se
+    /// mueve y crece lo mismo que la ventana.
+    region: Rect,
+    al_empezar: Rect,
+}
+
+impl Seguir {
+    /// Donde va ahora la region, o nada si la ventana no se ve.
+    fn region_ahora(&self) -> Option<Rect> {
+        let ahora = donde_se_ve(self.ventana)?;
+        let (dw, dh) = (
+            ahora.width as i64 - self.al_empezar.width as i64,
+            ahora.height as i64 - self.al_empezar.height as i64,
+        );
+        Some(Rect {
+            x: self.region.x + (ahora.x - self.al_empezar.x),
+            y: self.region.y + (ahora.y - self.al_empezar.y),
+            width: (self.region.width as i64 + dw).max(1) as u32,
+            height: (self.region.height as i64 + dh).max(1) as u32,
+        })
+    }
+}
+
 /// Lo que corre en el hilo: crea las ventanas, avisa, y atiende mensajes hasta que le
 /// digan que cierre.
-fn bucle(region: Rect, medidas: Medidas, aviso: mpsc::Sender<Aviso>) {
+fn bucle(region: Rect, escala: f64, seguir: Option<isize>, estilo: Estilo, aviso: mpsc::Sender<Aviso>) {
     // La region llega en pixeles fisicos. La app ya ve las pantallas asi (lo pone tao al
     // arrancar), pero el hilo no depende de eso: un proceso que no lo pida (las pruebas)
     // veria sus ventanas reescaladas por Windows y borrosas.
     let _ = unsafe { SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
-    let mut color = GRABANDO;
-    let ventanas = match unsafe { crear_ventanas(region, medidas, color) } {
-        Ok(v) => v,
+    let mut dibujo = match unsafe { Dibujo::crear(region, escala, estilo) } {
+        Ok(d) => d,
         Err(e) => {
             let _ = aviso.send(Err(e));
             return;
         }
     };
+    let seguir = seguir.and_then(|ventana| {
+        Some(Seguir { ventana, region, al_empezar: donde_se_ve(ventana)? })
+    });
+    let reloj = if seguir.is_some() { unsafe { SetTimer(None, 0, SEGUIR_CADA_MS, None) } } else { 0 };
     // Desde aqui el hilo ya tiene cola de mensajes (la crea la primera ventana), asi que
     // `PostThreadMessage` desde fuera ya no se pierde.
     let _ = aviso.send(Ok((
         unsafe { GetCurrentThreadId() },
-        ventanas.iter().map(|(h, _)| h.0 as isize).collect(),
+        dibujo.ventanas.iter().map(|h| h.0 as isize).collect(),
     )));
 
     let mut msg = MSG::default();
     unsafe {
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
             match msg.message {
-                MSG_REPINTAR if msg.hwnd.0.is_null() => {
-                    let nuevo = Color::desempaquetar(msg.wParam.0);
-                    if nuevo != color {
-                        color = nuevo;
-                        for &(hwnd, tira) in &ventanas {
-                            let _ = poner_dibujo(hwnd, tira, &pintar_tira(region, tira, medidas, color));
+                MSG_PAUSAR if msg.hwnd.0.is_null() => dibujo.pausar(msg.wParam.0 != 0),
+                MSG_CERRAR if msg.hwnd.0.is_null() => {
+                    if reloj != 0 {
+                        let _ = KillTimer(None, reloj);
+                    }
+                    dibujo.cerrar();
+                    PostQuitMessage(0);
+                }
+                WM_TIMER if msg.hwnd.0.is_null() => {
+                    if let Some(seguir) = &seguir {
+                        match seguir.region_ahora() {
+                            Some(region) => {
+                                let forma = dibujo.forma_de(region, escala_en(region));
+                                dibujo.poner(forma);
+                                dibujo.ver(true);
+                            }
+                            None => dibujo.ver(false),
                         }
                     }
-                }
-                MSG_CERRAR if msg.hwnd.0.is_null() => {
-                    for &(hwnd, _) in &ventanas {
-                        let _ = DestroyWindow(hwnd);
-                    }
-                    PostQuitMessage(0);
                 }
                 _ => {
                     let _ = TranslateMessage(&msg);
@@ -328,56 +736,6 @@ const CLASE: &[u16] = &[
     b'w' as u16, b'i' as u16, b'n' as u16, b's' as u16, b'h' as u16, b'o' as u16, b't' as u16,
     b'x' as u16, b'-' as u16, b'm' as u16, b'a' as u16, b'r' as u16, b'c' as u16, b'o' as u16, 0,
 ];
-
-unsafe fn crear_ventanas(
-    region: Rect,
-    medidas: Medidas,
-    color: Color,
-) -> std::result::Result<Vec<(HWND, Rect)>, String> {
-    let instancia = unsafe { GetModuleHandleW(None) }.map_err(|e| e.to_string())?;
-    let clase = WNDCLASSW {
-        lpfnWndProc: Some(procedimiento),
-        hInstance: instancia.into(),
-        lpszClassName: PCWSTR(CLASE.as_ptr()),
-        ..Default::default()
-    };
-    // Cero es «no se ha podido», salvo que sea porque ya estaba: entonces vale igual.
-    let _ = unsafe { RegisterClassW(&clase) };
-
-    let mut ventanas = Vec::with_capacity(4);
-    for tira in lineas(region, medidas.grosor()) {
-        let hwnd = unsafe {
-            CreateWindowExW(
-                WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_LAYERED,
-                PCWSTR(CLASE.as_ptr()),
-                PCWSTR::null(),
-                WS_POPUP,
-                tira.x,
-                tira.y,
-                tira.width as i32,
-                tira.height as i32,
-                None,
-                None,
-                Some(instancia.into()),
-                None,
-            )
-        }
-        .map_err(|e| format!("no se ha podido crear una linea del marco: {e}"))?;
-        // Fuera de toda foto y de todo video: va por fuera de la region, asi que a lo que se
-        // graba no le quita nada, y desde el 16-nov se puede capturar grabando (la linea roja
-        // salia en la foto) y bajar con la captura con scroll grabando (salia en el video).
-        let _ = crate::platform::window_style::fuera_de_la_captura_hwnd(hwnd.0 as isize, true);
-        // El dibujo va en la ventana antes de ensennarla: aparece ya pintada, sin un
-        // fotograma vacio, y las cuatro a la vez.
-        unsafe { poner_dibujo(hwnd, tira, &pintar_tira(region, tira, medidas, color)) }
-            .map_err(|e| format!("no se ha podido pintar una linea del marco: {e}"))?;
-        ventanas.push((hwnd, tira));
-    }
-    for &(hwnd, _) in &ventanas {
-        let _ = unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
-    }
-    Ok(ventanas)
-}
 
 /// Le da a la ventana su dibujo (BGRA premultiplicado, del tamanno de la tira) y su sitio.
 unsafe fn poner_dibujo(hwnd: HWND, tira: Rect, bgra: &[u8]) -> windows::core::Result<()> {
@@ -452,408 +810,5 @@ unsafe extern "system" fn procedimiento(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Ni un pixel del marco cae dentro de la region: lo que se graba se recorta exacto, y
-    /// una linea que se metiera un pixel saldria en todos los fotogramas del video.
-    #[test]
-    fn el_marco_va_por_fuera_de_la_region() {
-        let region = Rect { x: 100, y: 200, width: 640, height: 480 };
-        let [arriba, abajo, izquierda, derecha] = lineas(region, 2);
-        assert_eq!((arriba.x, arriba.y, arriba.width, arriba.height), (98, 198, 644, 2));
-        assert_eq!((abajo.x, abajo.y, abajo.width, abajo.height), (98, 680, 644, 2));
-        assert_eq!((izquierda.x, izquierda.y, izquierda.width, izquierda.height), (98, 200, 2, 480));
-        assert_eq!((derecha.x, derecha.y, derecha.width, derecha.height), (740, 200, 2, 480));
-
-        let dentro = |r: &Rect| {
-            let (x1, y1) = (r.x, r.y);
-            let (x2, y2) = (r.x + r.width as i32, r.y + r.height as i32);
-            let (rx2, ry2) = (region.x + region.width as i32, region.y + region.height as i32);
-            x1 < rx2 && x2 > region.x && y1 < ry2 && y2 > region.y
-        };
-        for escala in [1.0, 1.25, 1.5, 2.0] {
-            for linea in lineas(region, Medidas::a_escala(escala).grosor()) {
-                assert!(!dentro(&linea), "la tira {linea:?} pisa la region grabada a {escala}");
-            }
-        }
-    }
-
-    /// Un grosor de cero o negativo no puede dejar una ventana sin tamanno.
-    #[test]
-    fn el_grosor_nunca_baja_de_un_pixel() {
-        let region = Rect { x: 0, y: 0, width: 10, height: 10 };
-        for linea in lineas(region, 0) {
-            assert!(linea.width >= 1 && linea.height >= 1);
-        }
-    }
-
-    /// La linea crece con la escala de la pantalla, siempre en pixeles enteros (2,5 pixeles
-    /// no existen y se verian borrosos), y una escala rota se trata como 100 %.
-    #[test]
-    fn las_medidas_crecen_con_la_escala_en_pixeles_enteros() {
-        let m = |e: f64| {
-            let m = Medidas::a_escala(e);
-            (m.hueco, m.linea, m.radio, m.sombra)
-        };
-        assert_eq!(m(1.0), (2, 2, 6, 5));
-        assert_eq!(m(1.25), (3, 3, 8, 6));
-        assert_eq!(m(1.5), (3, 3, 9, 8));
-        assert_eq!(m(1.75), (4, 4, 11, 9));
-        assert_eq!(m(2.0), (4, 4, 12, 10));
-        assert_eq!(m(0.0), m(1.0));
-        assert_eq!(m(f64::NAN), m(1.0));
-    }
-
-    /// Los pixeles de una columna de la tira de arriba, de la region hacia fuera:
-    /// (rojo, verde, azul, alfa), premultiplicados.
-    fn columna(region: Rect, medidas: Medidas, color: Color, col: i32) -> Vec<[u8; 4]> {
-        let tira = lineas(region, medidas.grosor())[0];
-        let dibujo = pintar_tira(region, tira, medidas, color);
-        (0..tira.height as i32)
-            .rev()
-            .map(|fila| {
-                let i = ((fila * tira.width as i32 + col) * 4) as usize;
-                [dibujo[i + 2], dibujo[i + 1], dibujo[i], dibujo[i + 3]]
-            })
-            .collect()
-    }
-
-    /// En el tramo recto, de la region hacia fuera: el hueco limpio, la linea de pixeles
-    /// enteros y del grosor que toca (tantas filas SEGUIDAS del rojo exacto y opacas como dice
-    /// la escala, y ni una mas) y la sombra, que no pone color, solo oscurece, y se apaga hacia
-    /// fuera hasta casi nada.
-    #[test]
-    fn la_linea_es_nitida_y_de_su_grosor_y_la_sombra_se_apaga() {
-        let region = Rect { x: 1000, y: 1000, width: 400, height: 300 };
-        for escala in [1.0, 1.25, 1.5, 2.0] {
-            let medidas = Medidas::a_escala(escala);
-            let px = columna(region, medidas, GRABANDO, 200);
-            let (hueco, linea) = (medidas.hueco as usize, medidas.linea as usize);
-            assert!(px[..hueco].iter().all(|p| *p == [0, 0, 0, 0]), "el hueco, limpio, a {escala}: {px:?}");
-            let opacas = px[hueco..].iter().take_while(|p| **p == [0xEF, 0x44, 0x44, 255]).count();
-            assert_eq!(opacas, linea, "a {escala}: {px:?}");
-            let sombra = &px[hueco + linea..];
-            assert_eq!(sombra.len() as i32, medidas.sombra);
-            assert!(sombra.iter().all(|p| p[..3] == [0, 0, 0]), "la sombra no pone color: {sombra:?}");
-            assert!(sombra[0][3] >= 50, "pegada a la linea se tiene que notar: {sombra:?}");
-            assert!(sombra.windows(2).all(|w| w[1][3] < w[0][3]), "se apaga hacia fuera: {sombra:?}");
-            assert!(sombra.last().unwrap()[3] <= 10, "y acaba en casi nada: {sombra:?}");
-        }
-    }
-
-    /// La esquina de la region nunca asoma por dentro de la linea, a ninguna escala: si
-    /// asomara, la linea se cortaria en la esquina (las tiras no pueden pintar dentro de la
-    /// region). Es lo que limita el radio con el hueco que hay (`RADIO_POR_HUECO`): a 120 %,
-    /// por ejemplo, el hueco redondea a 2 y el radio a 7, y con 7 la esquina asomaria.
-    #[test]
-    fn la_region_queda_dentro_de_la_linea() {
-        let region = Rect { x: 0, y: 0, width: 400, height: 300 };
-        let mut escala = 0.5;
-        while escala <= 3.0 {
-            let m = Medidas::a_escala(escala);
-            for (x, y) in [(0.0, 0.0), (400.0, 0.0), (0.0, 300.0), (400.0, 300.0)] {
-                let d = distancia(region, m, x, y);
-                assert!(d <= 0.0, "a {escala} la esquina ({x}, {y}) asoma {d} pixeles: {m:?}");
-            }
-            escala += 0.05;
-        }
-    }
-
-    /// Las esquinas son redondas de verdad y suaves: el pixel donde iria la esquina de un
-    /// rectangulo queda sin rojo, el pico de fuera de la tira vacio, la curva tiene pixeles a
-    /// medias (sin escalones) y la linea mide en la diagonal lo mismo que en los lados. El
-    /// marco de antes era un rectangulo de color: en su esquina, rojo entero.
-    #[test]
-    fn la_esquina_es_redonda_y_suave() {
-        let region = Rect { x: 0, y: 0, width: 400, height: 300 };
-        for escala in [1.0, 1.25, 1.5, 2.0] {
-            let m = Medidas::a_escala(escala);
-            let g = m.grosor();
-            let tira = lineas(region, g)[0];
-            let dibujo = pintar_tira(region, tira, m, GRABANDO);
-            // Pixel contado desde la esquina de la region (negativo hacia fuera).
-            let pixel = |x: i32, y: i32| {
-                let i = (((y + g) * tira.width as i32 + (x + g)) * 4) as usize;
-                [dibujo[i + 2], dibujo[i + 1], dibujo[i], dibujo[i + 3]]
-            };
-            assert_eq!(pixel(-g, -g)[3], 0, "el pico de fuera, vacio, a {escala}");
-            let esquina = -(m.hueco + m.linea);
-            assert!(
-                pixel(esquina, esquina)[0] < 0xEF / 2,
-                "donde iria la esquina en angulo recto hay rojo a {escala}: {:?}",
-                pixel(esquina, esquina)
-            );
-            let a_medias = (-g..0)
-                .flat_map(|y| (-g..0).map(move |x| (x, y)))
-                .filter(|&(x, y)| (1..0xEF).contains(&pixel(x, y)[0]))
-                .count();
-            assert!(a_medias >= 4, "la curva no tiene borde suave a {escala}");
-            let rojos = (1..=g).filter(|&k| pixel(-k, -k)[0] as f32 >= 0xEF as f32 * 0.5).count();
-            let diagonal = m.linea as f32 / std::f32::consts::SQRT_2;
-            assert!(
-                (rojos as f32 - diagonal).abs() <= 1.0,
-                "la esquina no tiene el grosor de los lados a {escala}: {rojos} frente a {diagonal}"
-            );
-        }
-    }
-
-    /// Abre el marco de verdad, fuera de todas las pantallas para que nadie lo vea, y lo
-    /// cierra: comprueba que el hilo arranca, que las ventanas se crean y que cerrar no se
-    /// queda colgado esperando a nadie. Es lo unico de este archivo que no se puede saber
-    /// leyendo el codigo.
-    #[test]
-    fn se_abre_y_se_cierra_sin_quedarse_colgado() {
-        let region = Rect { x: -20_000, y: -20_000, width: 200, height: 100 };
-        let empezo = std::time::Instant::now();
-        let marco = Marco::abrir(region, 1.0).expect("el marco tenía que abrirse");
-        assert_eq!(marco.ventanas.len(), 4, "tienen que ser cuatro tiras");
-        // Fuera de toda foto y de todo video (16-nov): ni sale en una captura hecha grabando
-        // ni en el video de una captura con scroll.
-        for &ventana in &marco.ventanas {
-            use windows::Win32::UI::WindowsAndMessaging::{GetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
-            let mut afinidad = 0u32;
-            unsafe { GetWindowDisplayAffinity(HWND(ventana as *mut core::ffi::c_void), &mut afinidad) }
-                .expect("la afinidad de la tira");
-            assert_eq!(afinidad, WDA_EXCLUDEFROMCAPTURE.0, "una tira del marco sale en las fotos");
-        }
-        marco.pausado(true);
-        marco.pausado(false);
-        drop(marco);
-        assert!(
-            empezo.elapsed() < std::time::Duration::from_secs(5),
-            "abrir y cerrar el marco ha tardado {:?}",
-            empezo.elapsed()
-        );
-    }
-
-    /// Lo que ensenna Windows de cada ventana es su dibujo, en su sitio, y cambia al pausar:
-    /// la linea roja, sus esquinas suaves, y ambar en pausa. Una ventana `WS_EX_LAYERED` a la
-    /// que no le llega su dibujo no se ve nunca, y eso no lo dice ningun error: por eso se
-    /// mira la foto. Se compara el color premultiplicado, que es lo que entrega la foto (ver
-    /// `fotos`).
-    #[test]
-    fn se_ve_su_dibujo_rojo_y_en_pausa_ambar() {
-        let region = Rect { x: -20_000, y: -20_000, width: 200, height: 100 };
-        let medidas = Medidas::a_escala(1.5);
-        let marco = Marco::abrir(region, 1.5).expect("el marco tenía que abrirse");
-        let tiras = lineas(region, medidas.grosor());
-        let comprobar = |color: Color| {
-            for (i, (sitio, bgra)) in fotos(&marco).iter().enumerate() {
-                let medida = |r: &Rect| (r.x, r.y, r.width, r.height);
-                assert_eq!(medida(sitio), medida(&tiras[i]), "la tira {i} no esta en su sitio");
-                let dibujo = pintar_tira(region, tiras[i], medidas, color);
-                assert_eq!(bgra.len(), dibujo.len());
-                let distintos = bgra
-                    .chunks_exact(4)
-                    .zip(dibujo.chunks_exact(4))
-                    .filter(|(a, b)| a[..3] != b[..3])
-                    .count();
-                assert_eq!(distintos, 0, "la tira {i} no ensenna su dibujo en {color:?}");
-            }
-        };
-        comprobar(GRABANDO);
-        marco.pausado(true);
-        // El repintado es un mensaje al otro hilo: se le da un momento para atenderlo.
-        std::thread::sleep(std::time::Duration::from_millis(120));
-        comprobar(EN_PAUSA);
-        marco.pausado(false);
-        std::thread::sleep(std::time::Duration::from_millis(120));
-        comprobar(GRABANDO);
-    }
-
-    /// Foto de cada ventana del marco: su sitio en la pantalla y sus pixeles en BGRA, tal
-    /// como los compone Windows (`PW_RENDERFULLCONTENT`), sin que aparezca nada en pantalla.
-    ///
-    /// Ojo: de una ventana con alfa por pixel, Windows entrega el color ya mezclado sobre
-    /// negro (el premultiplicado) y **no toca el byte de alfa** (medido el 12-nov-2026: con el
-    /// lienzo lleno de blanco, la sombra sale negra y el alfa sigue en 255). El color se puede
-    /// comparar; el alfa, no.
-    fn fotos(marco: &Marco) -> Vec<(Rect, Vec<u8>)> {
-        use windows::Win32::Foundation::RECT;
-        use windows::Win32::Graphics::Gdi::{
-            CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDC, ReleaseDC,
-            SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
-        };
-        use windows::Win32::Storage::Xps::{PrintWindow, PRINT_WINDOW_FLAGS};
-        use windows::Win32::UI::HiDpi::{
-            SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
-        };
-        use windows::Win32::UI::WindowsAndMessaging::GetWindowRect;
-
-        unsafe { SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
-        let mut fotos = Vec::new();
-        for &ventana in &marco.ventanas {
-            let hwnd = HWND(ventana as *mut core::ffi::c_void);
-            let mut r = RECT::default();
-            unsafe { GetWindowRect(hwnd, &mut r) }.expect("el sitio de la ventana");
-            let (ancho, alto) = (r.right - r.left, r.bottom - r.top);
-            unsafe {
-                let pantalla = GetDC(None);
-                let memoria = CreateCompatibleDC(Some(pantalla));
-                let info = BITMAPINFO {
-                    bmiHeader: BITMAPINFOHEADER {
-                        biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-                        biWidth: ancho,
-                        biHeight: -alto,
-                        biPlanes: 1,
-                        biBitCount: 32,
-                        biCompression: BI_RGB.0,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                };
-                let mut bits: *mut core::ffi::c_void = std::ptr::null_mut();
-                let dib = CreateDIBSection(Some(memoria), &info, DIB_RGB_COLORS, &mut bits, None, 0)
-                    .expect("no se ha podido crear el lienzo");
-                let anterior = SelectObject(memoria, dib.into());
-                // El marco va fuera de toda foto (16-nov), y eso alcanza tambien a
-                // `PrintWindow`: para ver su dibujo se le deja entrar un momento, y luego se
-                // vuelve a sacar. Que este fuera lo comprueba `se_abre_y_se_cierra_...`.
-                crate::platform::window_style::fuera_de_la_captura_hwnd(ventana, false);
-                let pintada = PrintWindow(hwnd, memoria, PRINT_WINDOW_FLAGS(2)).as_bool();
-                crate::platform::window_style::fuera_de_la_captura_hwnd(ventana, true);
-                assert!(pintada, "la ventana no se ha dejado fotografiar");
-                let n = (ancho * alto * 4) as usize;
-                let pixeles = std::slice::from_raw_parts(bits as *const u8, n).to_vec();
-                SelectObject(memoria, anterior);
-                let _ = DeleteObject(dib.into());
-                let _ = DeleteDC(memoria);
-                let _ = ReleaseDC(None, pantalla);
-                fotos.push((
-                    Rect { x: r.left, y: r.top, width: ancho as u32, height: alto as u32 },
-                    pixeles,
-                ));
-            }
-        }
-        fotos
-    }
-
-    /// Un escritorio de mentira: una pagina blanca con renglones, una foto roja y naranja (lo
-    /// peor para ver un marco rojo) y un editor oscuro.
-    fn escritorio(ancho: u32, alto: u32) -> image::RgbaImage {
-        use image::Rgba;
-        let mut img = image::RgbaImage::new(ancho, alto);
-        let (a, b) = (ancho * 38 / 100, ancho * 62 / 100);
-        for (x, y, p) in img.enumerate_pixels_mut() {
-            *p = if x < a {
-                if y % 22 < 7 && x % 260 > 30 && x % 260 < 210 + (y * 7) % 40 {
-                    Rgba([206, 210, 217, 255])
-                } else {
-                    Rgba([250, 250, 250, 255])
-                }
-            } else if x < b {
-                let t = (x - a) as f32 / (b - a) as f32;
-                let u = y as f32 / alto as f32;
-                Rgba([
-                    (230.0 - 60.0 * u) as u8,
-                    (60.0 + 90.0 * t * (1.0 - u)) as u8,
-                    (40.0 + 80.0 * u) as u8,
-                    255,
-                ])
-            } else if y % 20 < 6 && (x - b) % 300 > 24 && (x - b) % 300 < 120 + (y * 13) % 150 {
-                if (y / 20) % 3 == 0 {
-                    Rgba([122, 162, 247, 255])
-                } else {
-                    Rgba([110, 116, 128, 255])
-                }
-            } else {
-                Rgba([30, 31, 34, 255])
-            };
-        }
-        img
-    }
-
-    /// El marco encima del escritorio de mentira: cada foto en su sitio, con el color que
-    /// entrega Windows (premultiplicado) y el alfa de su dibujo, que la foto no trae (ver
-    /// `fotos`; la prueba `se_ve_su_dibujo_rojo_y_en_pausa_ambar` comprueba que el color de
-    /// las dos es el mismo).
-    fn componer(
-        fotos: &[(Rect, Vec<u8>)],
-        dibujos: &[Vec<u8>],
-        origen: (i32, i32),
-        fondo: &mut image::RgbaImage,
-    ) {
-        for ((sitio, bgra), dibujo) in fotos.iter().zip(dibujos) {
-            for fila in 0..sitio.height as i32 {
-                for col in 0..sitio.width as i32 {
-                    let (x, y) = (sitio.x + col - origen.0, sitio.y + fila - origen.1);
-                    if x < 0 || y < 0 || x >= fondo.width() as i32 || y >= fondo.height() as i32 {
-                        continue;
-                    }
-                    let i = ((fila * sitio.width as i32 + col) * 4) as usize;
-                    let (b, g, r) = (bgra[i] as f32, bgra[i + 1] as f32, bgra[i + 2] as f32);
-                    let a = dibujo[i + 3] as f32 / 255.0;
-                    let p = fondo.get_pixel_mut(x as u32, y as u32);
-                    let mezcla = |s: f32, d: u8| (s + d as f32 * (1.0 - a)).round().min(255.0) as u8;
-                    *p = image::Rgba([mezcla(r, p[0]), mezcla(g, p[1]), mezcla(b, p[2]), 255]);
-                }
-            }
-        }
-    }
-
-    /// Un trozo ampliado sin suavizar, para ver los pixeles de una esquina.
-    fn ampliar(img: &image::RgbaImage, x: u32, y: u32, lado: u32, veces: u32) -> image::RgbaImage {
-        image::RgbaImage::from_fn(lado * veces, lado * veces, |i, j| {
-            *img.get_pixel((x + i / veces).min(img.width() - 1), (y + j / veces).min(img.height() - 1))
-        })
-    }
-
-    /// Fotos del marco de verdad, sin abrir nada en pantalla, a 100, 125 y 150 %: el marco
-    /// entero sobre el escritorio de mentira y, a la derecha, sus dos esquinas de arriba
-    /// ampliadas diez veces (la de la pagina blanca y la del editor oscuro).
-    ///
-    /// `WINSHOTX_FOTOS=<carpeta> WINSHOTX_FOTOS_NOMBRE=despues cargo test --lib ver_el_marco -- --ignored --nocapture`
-    #[test]
-    #[ignore = "no comprueba nada: deja un PNG por escala para mirar"]
-    fn ver_el_marco() {
-        let carpeta = std::env::var("WINSHOTX_FOTOS")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|_| std::env::temp_dir().join("winshotx-marco"));
-        let nombre = std::env::var("WINSHOTX_FOTOS_NOMBRE").unwrap_or_else(|_| "marco".into());
-        for escala in [1.0f64, 1.25, 1.5] {
-            let e = |v: f64| (v * escala).round() as i32;
-            let region = Rect { x: -20_000, y: -20_000, width: e(520.0) as u32, height: e(300.0) as u32 };
-            let margen = e(36.0);
-            let marco = Marco::abrir(region, escala).expect("el marco tenía que abrirse");
-            std::thread::sleep(std::time::Duration::from_millis(120));
-            let fotos = fotos(&marco);
-            drop(marco);
-
-            let (ancho, alto) = (region.width + 2 * margen as u32, region.height + 2 * margen as u32);
-            let mut lienzo = escritorio(ancho, alto);
-            let medidas = Medidas::a_escala(escala);
-            let dibujos: Vec<_> = lineas(region, medidas.grosor())
-                .iter()
-                .map(|&tira| pintar_tira(region, tira, medidas, GRABANDO))
-                .collect();
-            componer(&fotos, &dibujos, (region.x - margen, region.y - margen), &mut lienzo);
-
-            let lado = e(20.0) as u32;
-            let veces = 10;
-            let izquierda = ampliar(&lienzo, margen as u32 - lado / 2, margen as u32 - lado / 2, lado, veces);
-            let derecha = ampliar(
-                &lienzo,
-                margen as u32 + region.width - lado / 2,
-                margen as u32 - lado / 2,
-                lado,
-                veces,
-            );
-            let hueco = 16;
-            let hoja_ancho = ancho + hueco + izquierda.width() + hueco + derecha.width();
-            let hoja_alto = alto.max(izquierda.height());
-            let mut hoja = image::RgbaImage::from_pixel(hoja_ancho, hoja_alto, image::Rgba([120, 120, 124, 255]));
-            image::imageops::replace(&mut hoja, &lienzo, 0, 0);
-            image::imageops::replace(&mut hoja, &izquierda, (ancho + hueco) as i64, 0);
-            image::imageops::replace(
-                &mut hoja,
-                &derecha,
-                (ancho + hueco + izquierda.width() + hueco) as i64,
-                0,
-            );
-            let ruta = carpeta.join(format!("{nombre}-{}.png", (escala * 100.0).round() as u32));
-            crate::encode::png::save(&hoja, &ruta, hoja.width(), hoja.height()).expect("guardar");
-            println!("{}", ruta.display());
-        }
-    }
-}
+#[path = "marco_pruebas.rs"]
+mod tests;

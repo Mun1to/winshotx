@@ -739,8 +739,13 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         None => win::start(region, origin, false, fps, flags_base)?,
     };
 
-    // El marco alrededor de lo que se graba. Que no se pueda abrir no impide grabar.
-    let marco = match crate::platform::marco::Marco::abrir(region, escala_del_marco(region)) {
+    // El marco alrededor de lo que se graba, y si es una ventana, que la siga. Que no se
+    // pueda abrir no impide grabar.
+    let abierto = match ventana {
+        Some(hwnd) => crate::platform::marco::Marco::abrir_en_ventana(region, escala_del_marco(region), hwnd),
+        None => crate::platform::marco::Marco::abrir(region, escala_del_marco(region)),
+    };
+    let marco = match abierto {
         Ok(marco) => Some(marco),
         Err(error) => {
             eprintln!("[winshotx] sin marco alrededor de la grabacion: {error}");

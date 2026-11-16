@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{AppError, Result};
 
 /// Rectangulo en pixeles fisicos del escritorio virtual.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rect {
     pub x: i32,
