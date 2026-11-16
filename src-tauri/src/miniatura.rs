@@ -265,8 +265,10 @@ fn pantalla_del_raton() -> Option<((i32, i32, i32, i32), f64)> {
 pub fn fuera_de_la_grabacion(grabando: bool) {
     #[cfg(windows)]
     {
+        // Solo si se ve: a la escondida se le pone en `ensennar`, y cambiarsela escondida
+        // dejaba un recuadro blanco en la esquina (ver `window_style::a_la_vista`).
         let hwnd = VENTANA.load(Ordering::Relaxed);
-        if hwnd != 0 {
+        if crate::platform::window_style::a_la_vista(hwnd) {
             crate::platform::window_style::fuera_de_la_captura_hwnd(hwnd, grabando);
         }
     }

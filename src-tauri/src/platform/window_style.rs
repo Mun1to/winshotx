@@ -215,6 +215,25 @@ pub fn fuera_de_la_captura_hwnd(ventana: isize, fuera: bool) -> bool {
     return hecho;
 }
 
+/// Si Windows tiene la ventana a la vista (aunque este aparcada fuera de las pantallas).
+///
+/// Para no cambiarle la afinidad a una escondida: al empezar y al parar una grabacion se le
+/// cambiaba al menu de la bandeja y a la miniatura escondidos, y en su ultimo sitio salia un
+/// recuadro en blanco que solo se iba al volver a ensennar la ventana (issue #15, 16-nov:
+/// «no matter how I stop, it shows the blank shape»; y la miniatura blanca de Munito grabando).
+/// Las que se ensennan ya ponen la suya justo antes, asi que a una escondida no le hace falta.
+#[cfg(windows)]
+pub fn a_la_vista(ventana: isize) -> bool {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::IsWindowVisible;
+    ventana != 0 && unsafe { IsWindowVisible(HWND(ventana as *mut core::ffi::c_void)) }.as_bool()
+}
+
+#[cfg(not(windows))]
+pub fn a_la_vista(_ventana: isize) -> bool {
+    false
+}
+
 /// Las ventanas de winshotx que ahora mismo no salen en lo que se graba (`fuera_de_la_captura`).
 ///
 /// Lo que se hace ENCIMA de ellas tampoco es del video: desde el 16-nov se puede capturar
