@@ -533,6 +533,9 @@ export const EN: Record<string, string> = {
   "Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.":
     "It is the only way to support winshotx: there is no paid version, no ads and no data to sell. You pay once, you choose how much, and no account is needed.",
   Invitar: "Buy one",
+  "Llegó casi mudo (la app que sonaba estaba muy baja en el mezclador de Windows) y se subió {n} dB al grabar.":
+    "It arrived almost silent (the app that was playing was turned way down in the Windows volume mixer) and was raised {n} dB while recording.",
+  "El sonido del PC llegó casi mudo: lo he subido {n} dB": "The PC sound arrived almost silent: I raised it {n} dB",
   "No sonó nada en el PC mientras grababas.":
     "Nothing played on the PC while you were recording.",
   "Se grabó casi sin sonido: la app que sonaba estaba muy baja en el mezclador de Windows.":

@@ -99,6 +99,9 @@ pub struct SessionInfo {
     /// de una pista muda o casi muda. Sin dato (sesiones de antes), `None` y no avisa.
     pub pico_pc: Option<f32>,
     pub pico_microfono: Option<f32>,
+    /// Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo
+    /// (`pistas::nivelar_si_casi_muda`), para que el editor lo diga. Sin subir, `None`.
+    pub subida_pc: Option<f32>,
 }
 
 impl From<&SessionData> for SessionInfo {
@@ -111,6 +114,7 @@ impl From<&SessionData> for SessionInfo {
         let pistas = data.pistas.clone().unwrap_or_default();
         let pico_pc = nivel(&sonido_pc, pistas.pico_sistema);
         let pico_microfono = nivel(&microfono, pistas.pico_microfono);
+        let subida_pc = sonido_pc.as_ref().and(pistas.subida_sistema);
         Self {
             id: data.id.clone(),
             region: data.region,
@@ -130,6 +134,7 @@ impl From<&SessionData> for SessionInfo {
             microfono,
             pico_pc,
             pico_microfono,
+            subida_pc,
         }
     }
 }
@@ -301,31 +306,34 @@ impl SalidaDeAudio {
         // El del PC se sube si llegó casi mudo (una app muy baja en el mezclador de Windows,
         // `pistas::nivelar_si_casi_muda`), y menos si hay una voz que se oye, para no taparla;
         // la voz no, que subirla sube su siseo.
+        // Con su nivel y no con su pico, como el PC: un golpe en la mesa no es una voz.
         let con_voz = self
             .microfono
             .as_ref()
-            .is_some_and(|voz| voz.pico() >= record::pistas::PICO_CASI_MUDO);
+            .is_some_and(|voz| voz.nivel() >= record::pistas::PICO_CASI_MUDO);
         let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str, nivelar: bool| {
-            let Some(wav) = wav else { return (None, None) };
-            let (escritos, pico) = if nivelar {
+            let Some(wav) = wav else { return (None, None, None) };
+            let (escritos, pico, ganancia) = if nivelar {
                 wav.cerrar_y_nivelar(con_voz)
             } else {
                 let pico = wav.pico();
-                (wav.cerrar(), pico)
+                (wav.cerrar(), pico, None)
             };
             if escritos > 0 {
-                (Some(nombre.to_string()), Some(pico))
+                (Some(nombre.to_string()), Some(pico), ganancia)
             } else {
-                (None, None)
+                (None, None, None)
             }
         };
-        let (sistema, pico_sistema) = con_sonido(self.pc.take(), ARCHIVO_PC, true);
-        let (microfono, pico_microfono) = con_sonido(self.microfono.take(), ARCHIVO_MICROFONO, false);
+        let (sistema, pico_sistema, subida) = con_sonido(self.pc.take(), ARCHIVO_PC, true);
+        let (microfono, pico_microfono, _) = con_sonido(self.microfono.take(), ARCHIVO_MICROFONO, false);
         let pistas = crate::contrato::PistasGrabadas {
             sistema,
             microfono,
             pico_sistema,
             pico_microfono,
+            // En decibelios, que es como se dice en el editor.
+            subida_sistema: subida.map(|g| (20.0 * g.log10() * 10.0).round() / 10.0),
         };
         if pistas.sistema.is_none() && pistas.microfono.is_none() {
             return (None, None);
@@ -775,6 +783,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         microfono: None,
         pico_pc: None,
         pico_microfono: None,
+        subida_pc: None,
     };
 
     *state.recording.lock() = Some(recording);

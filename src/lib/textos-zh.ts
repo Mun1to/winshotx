@@ -527,6 +527,9 @@ export const ZH: Record<string, string> = {
   "Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.":
     "这是支持 winshotx 的唯一方式：没有付费版、没有广告、没有数据可卖。一次付款，金额由你决定，无需账号。",
   Invitar: "请一杯",
+  "Llegó casi mudo (la app que sonaba estaba muy baja en el mezclador de Windows) y se subió {n} dB al grabar.":
+    "录到的声音几乎听不见（正在播放的应用在 Windows 音量合成器中音量很低），录制时已提高 {n} dB。",
+  "El sonido del PC llegó casi mudo: lo he subido {n} dB": "电脑声音几乎听不见：已提高 {n} dB",
   "No sonó nada en el PC mientras grababas.":
     "录制时电脑没有播放任何声音。",
   "Se grabó casi sin sonido: la app que sonaba estaba muy baja en el mezclador de Windows.":

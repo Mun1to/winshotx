@@ -262,7 +262,7 @@ pub enum ClicElegido {
 /// todo iba a un solo `audio.pcm` que ya no se podía separar. Las sesiones de antes (y las
 /// de la repetición instantánea, que sigue mezclando) no traen esto, y se abren y se
 /// guardan como siempre.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PistasGrabadas {
     /// El archivo con lo que sonó en el PC, dentro de la carpeta de la sesión.
@@ -273,6 +273,9 @@ pub struct PistasGrabadas {
     /// exacto). Las sesiones de antes de la 0.4.6 no lo traen, y entonces no se avisa de nada.
     pub pico_sistema: Option<u16>,
     pub pico_microfono: Option<u16>,
+    /// Cuántos decibelios se subió el sonido del PC al cerrarlo porque llegó casi mudo
+    /// (`pistas::nivelar_si_casi_muda`). Sin subir, o en las sesiones de antes, `None`.
+    pub subida_sistema: Option<f32>,
 }
 
 /// Una pista en el editor: encendida o no, y a qué volumen.

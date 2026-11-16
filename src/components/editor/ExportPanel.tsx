@@ -632,6 +632,7 @@ export function ExportPanel({
                 }
                 picoPc={session.picoPc}
                 picoVoz={session.picoMicrofono}
+                subidaPc={session.subidaPc}
                 onPc={(sonidoPc) => onEdicion?.({ sonidoPc })}
                 onVoz={(microfono) => onEdicion?.({ microfono })}
               />

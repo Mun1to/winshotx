@@ -594,6 +594,13 @@ describe("el sonido del PC y la voz en la vista previa", () => {
     expect(aviso).toHaveBeenCalled();
     aviso.mockRestore();
   });
+
+  // El aviso de debajo del mando va en «Sonido», que suele estar plegado: al abrir se dice
+  // arriba, donde se ve, que el sonido del PC se subió (revisión del 16-nov).
+  it("si el sonido del PC se subió al grabar, lo dice arriba al abrir", async () => {
+    await abrirConPistas({ sonidoPc: "C:\\t\\sonido-pc.wav", picoPc: 0.49, subidaPc: 36.5 });
+    expect(await screen.findByText("El sonido del PC llegó casi mudo: lo he subido 37 dB")).toBeInTheDocument();
+  });
 });
 
 describe("silenciar la vista previa", () => {

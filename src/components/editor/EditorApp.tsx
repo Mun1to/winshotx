@@ -218,6 +218,10 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     ])
       .then(([info, frameList, config, ffmpeg]) => {
         setSession(info);
+        // El sonido del PC subido al grabar se dice aquí arriba, donde se ve: su mando va en
+        // «Sonido», que suele estar plegado, y el 16-nov eso hizo pensar que la vista previa
+        // no sonaba.
+        if (info.subidaPc) setAviso(t("El sonido del PC llegó casi mudo: lo he subido {n} dB", { n: Math.round(info.subidaPc) }));
         ponerFotogramas(turno, frameList);
         setSettings(config);
         // Desde la 0.5 el editor sigue el tema de la app, como las demás ventanas: hasta aquí

@@ -128,6 +128,8 @@ export interface SessionInfo {
    * sesiones de antes de la 0.4.6 no lo traen. */
   picoPc?: number | null;
   picoMicrofono?: number | null;
+  /** Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo. */
+  subidaPc?: number | null;
 }
 
 /**

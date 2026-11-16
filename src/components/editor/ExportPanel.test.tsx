@@ -837,6 +837,17 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
     expect(screen.queryByText(/sin sonido|no mandó nada|No sonó nada/)).not.toBeInTheDocument();
   });
 
+  // Revisión del 16-nov: al subirlo, el pico ya se oye y el aviso de casi mudo desaparecía, así
+  // que nadie sabía que el sonido se había tocado.
+  it("el sonido del PC subido al grabar lo dice debajo de su mando, con cuánto", () => {
+    pintarConPistas({ ...CON_PISTAS, picoPc: 0.49, subidaPc: 36.5 });
+    expect(
+      screen.getByText(
+        "Llegó casi mudo (la app que sonaba estaba muy baja en el mezclador de Windows) y se subió 37 dB al grabar.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("el PC en silencio exacto dice que no sonó nada", () => {
     pintarConPistas({ ...CON_PISTAS, picoPc: 0 });
     expect(screen.getByText("No sonó nada en el PC mientras grababas.")).toBeInTheDocument();
