@@ -78,7 +78,10 @@ impl Default for Ajustes {
         Self {
             escala: 1.8,
             transicion_ms: 450,
-            quieto_ms: 1200,
+            // Era 1.200, y con el alejamiento detras la camara seguia encima del boton casi dos
+            // segundos despues de pulsarlo. Munir, 16-nov-2026: «que el zoom en los clics se
+            // quite mas rapido, al dar clic se queda mucho tiempo y queda raro».
+            quieto_ms: 600,
             seguir_ms: 500,
             inercia_ms: 220,
             velocidad_max: 1.3,

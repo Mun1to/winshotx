@@ -1846,7 +1846,9 @@ mod tests {
         session.width = 400;
         session.height = 300;
         session.clics.push(zoom::Clic { ms: 600, x: 100, y: 150, derecho: false });
-        session.cursor = (0..=180u64).map(|k| (k * 16, 100 + k as i32, 150)).collect();
+        // A dos píxeles cada 16 ms: desde el 16-nov el zoom se queda 0,6 s quieto tras el clic
+        // (era 1,2), y a uno por paso el ratón no salía de la mitad que la cámara ya enseña.
+        session.cursor = (0..=180u64).map(|k| (k * 16, (100 + 2 * k as i32).min(399), 150)).collect();
         let muestras = muestras_de_camara(&session, 2.0, None, 1.0, None);
         let acercadas: Vec<&MuestraCamara> = muestras.iter().filter(|m| m.x2 - m.x1 < 0.9).collect();
         assert!(acercadas.len() > 20, "solo {} muestras acercadas", acercadas.len());
