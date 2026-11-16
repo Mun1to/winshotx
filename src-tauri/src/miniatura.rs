@@ -92,9 +92,8 @@ static SIGUIENTE: AtomicU64 = AtomicU64::new(1);
 static VENTANA: AtomicIsize = AtomicIsize::new(0);
 
 /// Si la pagina de la ventana ya esta montada: lo dice ella al pedir la pila
-/// (`miniaturas_lista`). Hasta entonces la ventana no se ensenna: WebView2 pinta de blanco lo
-/// que aun no ha cargado, y la primera miniatura tras arrancar salia como un recuadro blanco
-/// (16-nov, grabando en el modo desarrollo, donde la pagina tarda segundos en cargar).
+/// (`miniaturas_lista`). Hasta entonces la ventana espera aparcada fuera de las pantallas
+/// (ver `ventana`): WebView2 pinta de blanco lo que aun no ha cargado.
 static PAGINA_LISTA: AtomicBool = AtomicBool::new(false);
 
 /// Después de copiar o guardar una foto: prepara su miniatura y la enseña.
@@ -298,10 +297,21 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     crate::platform::window_style::never_focus(&window);
     #[cfg(windows)]
     if let Ok(handle) = window.hwnd() {
-        VENTANA.store(handle.0 as isize, Ordering::Relaxed);
+        let hwnd = handle.0 as isize;
+        VENTANA.store(hwnd, Ordering::Relaxed);
+        // Mientras carga, a la vista pero fuera de todas las pantallas, como los overlays
+        // aparcados: asi su primera ensennada ya trae algo pintado. Escondida hasta el final,
+        // la primera miniatura de la sesion hecha grabando salia como un recuadro blanco
+        // (16-nov, dos veces; la misma grabando pero con la ventana ya ensennada antes salia
+        // bien). Fuera de las pantallas no sale en ningun video.
+        crate::platform::window_style::colocar_y_ensennar_hwnd(hwnd, APARCADA, APARCADA);
     }
     Ok(window)
 }
+
+/// Donde espera la ventana mientras carga su pagina: lejos de cualquier pantalla.
+#[cfg(windows)]
+const APARCADA: i32 = -20000;
 
 /// Coloca la ventana para lo que haya en la pila, avisa a la página y la enseña. Con la
 /// pila vacía, la esconde.
@@ -371,7 +381,8 @@ fn de(id: u64) -> Result<(PathBuf, bool, Rect)> {
 pub async fn miniaturas_lista(app: AppHandle) -> Pila {
     // La pagina ya esta montada: si habia algo esperando a ensennarse, ahora.
     let segundos = segundos(&app);
-    if !PAGINA_LISTA.swap(true, Ordering::Relaxed) && !PILA.lock().is_empty() {
+    // Tambien con la pila vacia: entonces la esconde, y no se queda aparcada a la vista.
+    if !PAGINA_LISTA.swap(true, Ordering::Relaxed) {
         ensennar(&app, segundos);
     }
     vista_de_la_pila(segundos)
