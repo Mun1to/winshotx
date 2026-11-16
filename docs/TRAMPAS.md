@@ -1469,3 +1469,17 @@ crecia.
 **Arreglo:** `capabilities/ajustes.json` da `set-size` y `set-position` solo a la ventana `main`, y
 `tests/permisos.rs` se pone rojo si faltan. Lo que se pida nuevo a una ventana desde su pagina,
 se mira en una ventana de verdad antes de darlo por bueno.
+
+## 53. Windows graba el sonido del PC despues de la rueda de cada app, y apartar una ventana de la captura la aparta tambien de `PrintWindow`
+
+**El sonido.** La captura del sonido del PC (loopback de WASAPI) recibe la mezcla ya con el volumen de cada aplicacion
+del mezclador de Windows. Con Brave al 10 % (14 de noviembre) y al 20 % (16 de noviembre), un video de YouTube llego a
+-56 y a -44 dBFS: se grababa, pero no se oia ni en la vista previa ni en el archivo, y parecia que la vista previa estaba
+rota. El aviso del editor estaba dentro del apartado Sonido, plegado, y no lo vio nadie. Arreglo: al parar, una pista del
+PC por debajo de -40 dBFS de pico se sube (`record::pistas::nivelar_si_casi_muda`): a -6 dBFS, o a -20 si hay una voz que
+se oye, para no taparla. Queda abierto que se decide por UN pico (una notificacion a volumen normal lo apaga).
+
+**La ventana.** `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` saca una ventana de las capturas de pantalla (WGC,
+duplicacion de escritorio) y tambien de `PrintWindow` con `PW_RENDERFULLCONTENT`: la prueba del marco, que fotografia sus
+tiras asi, se quedo sin dibujo al apartar el marco de las fotos. La prueba ahora le devuelve la afinidad un momento para
+fotografiarlo, y comprueba aparte con `GetWindowDisplayAffinity` que este fuera.
