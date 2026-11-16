@@ -10,7 +10,7 @@
  * «Sin dato oficial», nunca como «No», y una fila con ese valor no se enseña en esa pestaña.
  *
  * Caduca: los tamaños de los instaladores, las versiones y los idiomas cambian con cada
- * versión de cada una. El 3,00 MB es el instalador de la 0.5.0 (2.995.795 bytes).
+ * versión de cada una. El 3,01 MB es el instalador de la 0.5.1 (3.008.387 bytes).
  *
  * Cada valor es [estado, español, inglés]; estado: si | no | medio | nv (sin dato oficial) |
  * num (una cifra o un texto).
@@ -159,7 +159,7 @@ export const FILAS = [
   {
     // No va en las listas: son las dos cifras grandes de cada pestaña.
     id: "instalador", es: "Instalador", en: "Installer",
-    v: { wx: NUM("3,00 MB", "3.00 MB"), recortes: NUM("Viene con Windows", "Comes with Windows"), gamebar: NUM("Viene con Windows", "Comes with Windows"), sharex: NUM("145 MB"), greenshot: NUM("4 MB"),
+    v: { wx: NUM("3,01 MB", "3.01 MB"), recortes: NUM("Viene con Windows", "Comes with Windows"), gamebar: NUM("Viene con Windows", "Comes with Windows"), sharex: NUM("145 MB"), greenshot: NUM("4 MB"),
       flameshot: NUM("19 MB"), screentogif: NUM("75 MB"), obs: NUM("187 MB"), lightshot: NUM("2,4 MB", "2.4 MB"), picpick: NUM("69 MB"), snagit: NUM("441 MB") },
   },
 
