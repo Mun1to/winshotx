@@ -302,6 +302,17 @@ fn ensennar(app: &AppHandle, segundos: u32) {
     let (ancho, alto) = ((ancho * escala).round() as u32, (alto * escala).round() as u32);
     let _ = window.set_size(PhysicalSize::new(ancho, alto));
     let (x, y) = sitio(trabajo, ancho, alto, escala);
+    // Una foto hecha en medio de una grabacion (se puede desde el 16-nov): la miniatura se ve,
+    // pero no sale en el video. Fuera de una grabacion, normal. Por la ventana a pelo, como el
+    // resto de esta funcion: preguntarle a Tauri por ella fuera del hilo principal espera
+    // sin plazo (trampa 34).
+    #[cfg(windows)]
+    if hwnd != 0 {
+        crate::platform::window_style::fuera_de_la_captura_hwnd(
+            hwnd,
+            app.state::<crate::state::AppState>().is_recording(),
+        );
+    }
     // Sin activarla: `show()` le daría el foco a la ventana, y el foco es de la app donde
     // se va a pegar.
     #[cfg(windows)]

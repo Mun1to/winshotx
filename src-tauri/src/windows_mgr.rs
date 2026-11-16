@@ -110,7 +110,12 @@ impl OverlayIntent {
 /// estaba cuando se pulso el atajo) y esconder los iconos del escritorio.
 pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     let state = app.state::<AppState>();
-    if state.is_recording() {
+    // Grabando, lo que no se abre es OTRA grabacion (el atajo de grabar ya la para, en
+    // `hotkeys.rs`). Una foto si: Munir, 16-nov-2026, «puedes hacer que cuando grabas puedas
+    // tomar capturas». Antes esto volvia sin hacer nada y el atajo parecia roto. Las ventanas
+    // de la captura (la seleccion, la cuenta atras y la miniatura) se sacan del video con
+    // `fuera_de_la_captura`, asi que en lo grabado no sale nada de esto.
+    if state.is_recording() && !intent.es_foto() {
         return Ok(());
     }
     // Si el atajo se pulsa dos veces muy seguidas, la segunda pulsacion se ignora en vez
@@ -323,6 +328,11 @@ fn preparar_overlay(app: &AppHandle, state: &AppState, monitor: &MonitorInfo) ->
         build_overlay_window(app, &label, monitor.id)?
     };
 
+    // Una foto en medio de una grabacion: la seleccion no puede salir en el video. Se decide
+    // en cada captura porque la ventana se reutiliza, y fuera de una grabacion vuelve a ser
+    // normal (excluida, una captura del propio overlay saldria en blanco).
+    crate::platform::window_style::fuera_de_la_captura(&window, state.is_recording());
+
     // El tamanno se pone ya, aparcada, para que el navegador se acomode a el mientras
     // carga la imagen. La posicion NO: eso es ensennarla, y se ensenna cuando avise de
     // que esta pintada (`overlay_listo`), o cuando se agote la espera del rescate.
@@ -503,6 +513,11 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
     };
 
     colocar_cuenta_atras(&window);
+    // Con una grabacion en marcha, la cuenta atras tampoco sale en el video.
+    crate::platform::window_style::fuera_de_la_captura(
+        &window,
+        app.state::<AppState>().is_recording(),
+    );
     let _ = window.show();
 }
 
