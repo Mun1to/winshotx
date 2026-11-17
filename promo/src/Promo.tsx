@@ -178,7 +178,7 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
     // La historia va con la música a −8 dB: sus efectos, también bajos. «920» es la quinta
     // palabra de su frase (entra en el 3, una cada 3).
     ...ticsDeCuenta(T.lento + 3 + 4 * 3, 15, 0.11),
-    // 1. Win, Shift y S, cada una en el fotograma en que se hunde (`Teclas`: entra 2, cada 4);
+    // 1. Ctrl, Shift y 2, cada una en el fotograma en que se hunde (`Teclas`: entra 2, cada 4);
     // el aire del zoom al recorte, con el pico donde la cámara va más deprisa; el clic al
     // apretar el ratón y el obturador al soltarlo, que es cuando la captura está hecha.
     ...(["tecla-1", "tecla-2", "tecla-3"] as const).map((n, i) => efecto(n, T.rapido + PREGUNTA + 2 + i * 4, 0.43)),
@@ -263,12 +263,13 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
             </Camara>
           }
         />
-        {/* El atajo que se enseña es el suyo, Win + Shift + S (Munito, 15-nov: «el atajo
-            principal es Win Shift S»); winshotx se lo puede quitar a Windows en Ajustes. */}
+        {/* El atajo propio de winshotx, Ctrl + Shift + 2 (el que trae de serie). Win + Shift + S
+            se guarda para la sexta pregunta: Munito, 17-nov, «en vez de el win pon un shortcut de
+            antes porque luego dices lo del win». */}
         <Sequence from={PREGUNTA} durationInFrames={s(1.3)}>
           <VeloVivo claves={[[0, 0.7, 8], [s(1.0), 0.7, 8], [s(1.3), 0, 0]]} />
           <Centro>
-            <Teclas teclas={["Win", "Shift", "S"]} entra={2} cada={4} tam={96} />
+            <Teclas teclas={["Ctrl", "Shift", "2"]} entra={2} cada={4} tam={96} />
           </Centro>
         </Sequence>
       </Sequence>
