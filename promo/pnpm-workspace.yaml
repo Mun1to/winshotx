@@ -1,0 +1,5 @@
+# Este archivo existe para que `promo` sea su PROPIA raíz de instalación y no cuelgue de la
+# del repo: Remotion arrastra un Chrome sin ventana de unos 150 MB que no tiene por qué
+# bajarse quien clona winshotx para compilarlo. (Lo mismo que `Adeorq/promo`.)
+allowBuilds:
+  esbuild: true

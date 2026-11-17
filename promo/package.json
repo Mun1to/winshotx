@@ -1,0 +1,24 @@
+{
+  "name": "winshotx-promo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The winshotx promo video, made with Remotion from frames of the real app. Kept out of the pnpm workspace on purpose: Remotion pulls a headless Chrome that nobody building the app needs. Install it here with `pnpm install --ignore-workspace`.",
+  "scripts": {
+    "capturas": "node capturas.mjs",
+    "tipos": "tsc --noEmit",
+    "ver": "remotion studio src/index.ts",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.507",
+    "remotion": "4.0.507",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "typescript": "~5.8.3"
+  }
+}
