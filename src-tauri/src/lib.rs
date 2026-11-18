@@ -253,6 +253,10 @@ pub fn run() {
             // se colocan las ventanas y que atajos hay. Se mira aqui, en el hilo de GTK.
             #[cfg(target_os = "linux")]
             platform::xdg::anotar_la_sesion();
+            #[cfg(target_os = "linux")]
+            for ventana in app.webview_windows().values() {
+                platform::window_style::titulo_al_dia(ventana);
+            }
             let mut config = settings::load(&handle);
 
             // Actualizar desde los propios ajustes acaba en `relaunch()`, y winshotx vuelve

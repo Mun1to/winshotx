@@ -57,6 +57,31 @@ pub fn pantalla_completa_en(window: &tauri::WebviewWindow, monitor: u32) -> bool
     true
 }
 
+/// Que la barra de titulo de Wayland siga al titulo de la ventana.
+///
+/// Alli la barra la monta tao con el titulo con el que nace la ventana, y lo que se le cambia
+/// despues no le llega: la bienvenida salia titulada «winshotx · ajustes».
+#[cfg(target_os = "linux")]
+pub fn titulo_al_dia(window: &tauri::WebviewWindow) {
+    let ventana = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        use gtk::prelude::*;
+        let Ok(gtk_window) = ventana.gtk_window() else {
+            return;
+        };
+        gtk_window.connect_title_notify(|gtk_window| {
+            let cabecera = gtk_window
+                .titlebar()
+                .and_then(|barra| barra.downcast::<gtk::EventBox>().ok())
+                .and_then(|caja| caja.child())
+                .and_then(|hijo| hijo.downcast::<gtk::HeaderBar>().ok());
+            if let Some(cabecera) = cabecera {
+                cabecera.set_title(gtk_window.title().as_deref());
+            }
+        });
+    });
+}
+
 /// Una ventana que no coge el foco JAMAS, ni al mostrarse ni al hacerle clic encima.
 ///
 /// El `.focused(false)` del constructor solo vale para el primer momento: en cuanto se

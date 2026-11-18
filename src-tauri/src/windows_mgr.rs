@@ -1083,6 +1083,8 @@ fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Re
     // Sin `rounded_corners`: eso es para las ventanas sin marco. El marco del sistema ya
     // trae las esquinas que Windows quiere, y forzarlas encima deja un borde raro.
     let _ = window.set_min_size(Some(LogicalSize::new(760.0, 520.0)));
+    #[cfg(target_os = "linux")]
+    crate::platform::window_style::titulo_al_dia(&window);
     window.set_focus()?;
     crate::crono::marca("editor-creado");
     Ok(())
