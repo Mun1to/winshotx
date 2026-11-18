@@ -139,7 +139,45 @@ tarjeta(
     "Crop the screen", "before you blink",
     "Screenshots, videos and GIFs for Windows",
     [("114 ms", "to show it"),
-     ("3.00 MB", "installer"),
+     ("3.01 MB", "installer"),
      ("Free", "open source")],
     captura_de_la_app(),
 )
+
+
+def miniatura_del_video(destino, rotulo):
+    """La misma tarjeta con un botón de reproducir encima de la ventana: es la portada del vídeo en
+    el README. Sale de la tarjeta para que las cifras de las dos no puedan contar cosas distintas."""
+    img = Image.open(AQUI / "social-en.png").convert("RGBA")
+    W, H = img.size
+    # La ventana, desenfocada y más oscura: si no, sus textos se cruzan con el rótulo del botón.
+    ventana = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(ventana).rounded_rectangle([612, 84, W + 40, H + 40], 18, fill=255)
+    img.paste(img.filter(ImageFilter.GaussianBlur(1.6)), (0, 0), ventana)
+    velo = Image.new("RGBA", (W, H), (6, 8, 12, 0))
+    velo.putalpha(ventana.point(lambda v: 125 if v else 0))
+    img = Image.alpha_composite(img, velo)
+
+    cx, cy, r, ss = 906, 318, 68, 4
+    sombra = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(sombra).ellipse([cx - r - 4, cy - r + 8, cx + r + 4, cy + r + 16], fill=(0, 0, 0, 190))
+    img = Image.alpha_composite(img, sombra.filter(ImageFilter.GaussianBlur(18)))
+
+    boton = Image.new("RGBA", (2 * r * ss, 2 * r * ss), (0, 0, 0, 0))
+    d = ImageDraw.Draw(boton)
+    d.ellipse([0, 0, 2 * r * ss - 1, 2 * r * ss - 1], fill=AZUL + (255,))
+    # El triángulo va un poco a la derecha: centrado por su caja parece caído hacia la izquierda.
+    c, t = r * ss, 28 * ss
+    d.polygon([(c - t * 0.62, c - t), (c - t * 0.62, c + t), (c + t * 1.08, c)], fill=(255, 255, 255, 255))
+    boton = boton.resize((2 * r, 2 * r), Image.LANCZOS)
+    img.paste(boton, (cx - r, cy - r), boton)
+
+    d = ImageDraw.Draw(img)
+    letra = fuente("segoeuib.ttf", 30)
+    d.text((cx - d.textlength(rotulo, font=letra) / 2, cy + r + 22), rotulo, font=letra, fill=(255, 255, 255))
+    img.convert("RGB").save(AQUI.parent / ".github" / "readme" / destino, optimize=True)
+    print("hecha:", destino)
+
+
+miniatura_del_video("video-en.png", "Watch the video · 45 s")
+miniatura_del_video("video-es.png", "Mira el vídeo · 45 s")

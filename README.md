@@ -21,7 +21,7 @@ Licence MIT · Windows 10 and 11 · Installer 3.01 MB
 
 </div>
 
-<p align="center"><img src="frontlaxweb/social-en.png" alt="winshotx: crop the screen before you blink"></p>
+<p align="center"><a href="https://winshotx.com/video/winshotx-0.5.mp4"><img src=".github/readme/video-en.png" alt="Watch the 45 second winshotx video: crop the screen before you blink"></a></p>
 
 ## How it works
 
