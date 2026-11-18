@@ -15,7 +15,7 @@ import { Teclas } from "../piezas/Teclas";
  * Dirección 1, «La carrera»: primero la prueba. El atajo, la carrera de los dos tiempos
  * medidos (a cámara lenta, cinco veces) con el overlay de verdad apareciendo cuando llega el
  * de winshotx, la memoria, el nombre, y después cuatro cosas que hace, cada una con su
- * resultado. Las cifras son las de la web: 114 ms y 920 ms, 33 MB y 253 MB, 3,00 MB.
+ * resultado. Las cifras son las de la web: 114 ms y 920 ms, 33 MB y 253 MB, 3,01 MB.
  */
 export const D1 = {
   atajo: 0,
@@ -106,7 +106,7 @@ export function DireccionCarrera() {
       <Sequence from={D1.peso} durationInFrames={D1.cierre - D1.peso}>
         <Fondo />
         <Centro y={-40}>
-          <Palabras texto="*3.00 MB* installer" tam={110} />
+          <Palabras texto="*3.01 MB* installer" tam={110} />
         </Centro>
         <Centro y={90}>
           <Palabras texto="No account, no cloud, no telemetry" entra={14} cada={3} tam={46} peso={500} color={COLOR.suave} />

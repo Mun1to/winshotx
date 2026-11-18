@@ -48,7 +48,7 @@ pnpm ver                            # Remotion Studio, to look around
 
 - English, 16:9 at 1920 x 1080, and it has to make sense **with the sound off** (Reddit plays it muted).
 - Only the real app, and only measured, published figures: 114 ms against 920 ms, 33 MB against
-  253 MB, a 3.00 MB installer, free and MIT.
+  253 MB, a 3.01 MB installer, free and MIT.
 - Text is centered, loose (never inside a box), two to five words, one word in colour.
 - Sound effects, but discreet: each on its frame, never the same one twice in a row. Keys, clicks,
   the shutter and the switch sit at the music's normal level (0.7 to 2.3 dB above it), the ticks

@@ -368,7 +368,7 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
         </Sequence>
         <Sequence from={PREGUNTA}>
           <Centro y={-50}>
-            <Palabras texto="*3.00 MB* to install" tam={104} cada={3} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
+            <Palabras texto="*3.01 MB* to install" tam={104} cada={3} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
           </Centro>
           <Centro y={80}>
             <Palabras texto="33 MB of memory while it runs" entra={s(0.7)} cada={3} tam={50} peso={500} color={COLOR.suave} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />

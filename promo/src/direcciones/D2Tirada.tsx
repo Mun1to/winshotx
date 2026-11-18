@@ -160,7 +160,7 @@ export function DireccionTirada() {
           <Palabras texto="*33 MB* while it runs" tam={92} />
         </Centro>
         <Centro y={70}>
-          <Palabras texto="*3.00 MB* to install" entra={s(1.2)} tam={92} />
+          <Palabras texto="*3.01 MB* to install" entra={s(1.2)} tam={92} />
         </Centro>
       </Sequence>
       <Sequence from={D2.cierre}>

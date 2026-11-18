@@ -132,7 +132,7 @@ export function DireccionLoHiceYo() {
         <Sequence from={P}>
           <Fondo />
           <Centro y={-50}>
-            <Palabras texto="*3.00 MB* to install" tam={100} />
+            <Palabras texto="*3.01 MB* to install" tam={100} />
           </Centro>
           <Centro y={80}>
             <Palabras texto="33 MB of memory while it runs" entra={s(0.9)} cada={3} tam={48} peso={500} color={COLOR.suave} />
