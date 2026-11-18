@@ -226,6 +226,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     cerrada.current = true;
     setMode({ kind: "idle" });
   }, []);
+  /** Si la pulsación que está llegando ya trajo su `pointerdown`: ver `onMouseDown`. */
+  const pointerdownVisto = useRef(false);
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const cursorRef = useRef(cursor);
   cursorRef.current = cursor;
@@ -640,6 +642,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     setSelection(null);
     setMode({ kind: "idle" });
     cerrada.current = false;
+    pointerdownVisto.current = false;
     setPantallaEntera(false);
     setConScroll(false);
     setProporcion("libre");
@@ -1272,7 +1275,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     };
   }, [llevarsePantalla]);
 
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onPointerDown = (e: React.MouseEvent) => {
     if (busy) return;
     // Lo que nace encima de la barra todavia no es nada: se apunta donde empezo y se
     // espera a ver si el puntero se mueve (recorte por debajo) o se suelta (clic del
@@ -1301,6 +1304,17 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     empezarGesto(null);
     setMode({ kind: "drawing", originX: x, originY: y, candidate: windowAt(x, y)?.rect ?? null });
     setSelection({ x, y, width: 0, height: 0 });
+  };
+
+  /**
+   * En Linux el overlay se esconde de verdad, y con Escape a medio arrastre WebKitGTK no ve
+   * soltar el botón: cree que sigue pulsado y la pulsación siguiente no le da `pointerdown`, solo
+   * `mousedown`. Sin esto, la captura de después no respondía al primer arrastre.
+   */
+  const onMouseDown = (e: React.MouseEvent) => {
+    const visto = pointerdownVisto.current;
+    pointerdownVisto.current = false;
+    if (!visto && e.button === 0 && e.buttons === 1) onPointerDown(e);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -1402,7 +1416,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
 
   return (
     <div
+      // En la fase de captura: las asas y la barra paran su `pointerdown` antes de que suba.
+      onPointerDownCapture={() => {
+        pointerdownVisto.current = true;
+      }}
       onPointerDown={onPointerDown}
+      onMouseDown={onMouseDown}
       onPointerMove={onPointerMove}
       onPointerEnter={() => setCursorAqui(true)}
       onPointerLeave={() => setCursorAqui(false)}

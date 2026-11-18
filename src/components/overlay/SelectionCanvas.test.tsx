@@ -187,6 +187,58 @@ describe("salir de la captura", () => {
     arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
     await waitFor(() => expect(capturado().map((l) => l.comando)).toEqual(["capture_still"]));
   });
+
+  it("si tras esconderse a medio arrastre solo llega el mousedown, el arrastre vale igual", async () => {
+    // WebKitGTK no vio soltar el botón con la ventana escondida: la pulsación siguiente no le
+    // da `pointerdown`, y sin esto esa captura no respondía al primer arrastre.
+    const alVuelo = { ...PAYLOAD, settings: { ...AJUSTES, captureFlow: "instant" } as Settings };
+    responde("overlay_bootstrap", alVuelo);
+    const lienzo = await abrir();
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    emite(EVENTS.overlayShow, { ...alVuelo, generation: 2 });
+    await screen.findByLabelText("Foto");
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 0, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+    await waitFor(() => expect(capturado().map((l) => l.comando)).toEqual(["capture_still"]));
+  });
+
+  it("una pulsación normal trae los dos avisos y sigue siendo un solo gesto", async () => {
+    const lienzo = await abrir();
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 0, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 600, buttons: 1 });
+    fireEvent.mouseDown(lienzo, { clientX: 600, clientY: 600, button: 0, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 600, clientY: 600 });
+    expect(recorte()).toBe("400 × 300");
+  });
+
+  it("el mousedown de un asa no empieza otro recorte encima de estirar el que hay", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    const asa = [...lienzo.querySelectorAll<HTMLElement>("div")]
+      .filter((d) => d.style.cursor === "ew-resize")
+      .sort((a, b) => parseFloat(b.style.left) - parseFloat(a.style.left))[0];
+    fireEvent.pointerDown(asa, { clientX: 500, clientY: 400, buttons: 1 });
+    fireEvent.mouseDown(asa, { clientX: 500, clientY: 400, button: 0, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 400, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 600, clientY: 400 });
+    expect(recorte()).toBe("400 × 200");
+  });
+
+  it("el mousedown de otro botón, o de dos a la vez, no empieza ningún recorte", async () => {
+    const lienzo = await abrir();
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 2, buttons: 2 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 2 });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 0, buttons: 3 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 3 });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+    expect(recorte()).toBeNull();
+  });
 });
 
 describe("la barra de arriba no se queda el sitio", () => {
