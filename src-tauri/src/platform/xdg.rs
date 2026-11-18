@@ -113,6 +113,30 @@ pub fn anotar_la_sesion() {
     eprintln!("[sesion] GTK pinta por {}", if wayland { "Wayland" } else { "X11" });
 }
 
+/// Deja a Xlib preparada para que la usen varios hilos. Tiene que ser lo primero de Xlib que
+/// se llame en todo el proceso: va al principio de `run`.
+///
+/// En X11, tao (la caja de ventanas de Tauri) abre un hilo aparte que escucha el teclado con
+/// su propia conexion de Xlib (`XOpenDisplay`, XInput2 y `XNextEvent`), a la vez que GTK usa
+/// Xlib en el hilo principal. Xlib solo aguanta eso si antes se ha llamado a `XInitThreads`.
+/// Desde libX11 1.8.1 la biblioteca lo hace sola al cargarse, y por eso en casi todas partes no
+/// pasa nada; pero Ubuntu 22.04 y Linux Mint 21 llevan la 1.7.5, y alli winshotx abortaba al
+/// arrancar seis de cada diez veces con «[xcb] Unknown sequence number while processing queue»
+/// (medido el 18-nov-2026 con el .deb de la CI en un Ubuntu 22.04 limpio; con `XInitThreads`
+/// por delante, cero de diez).
+///
+/// En Wayland y sin pantalla no molesta: solo prepara los cerrojos de la biblioteca.
+#[cfg(target_os = "linux")]
+pub fn xlib_para_varios_hilos() {
+    #[link(name = "X11")]
+    extern "C" {
+        fn XInitThreads() -> std::ffi::c_int;
+    }
+    unsafe {
+        XInitThreads();
+    }
+}
+
 /// Hace algo en el hilo de GTK y espera lo que devuelva.
 ///
 /// GTK solo se toca desde el hilo principal, y Tauri tiene ese hilo cogido mientras corre su

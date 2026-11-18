@@ -172,6 +172,10 @@ fn solo_para_el_usuario(carpeta: &std::path::Path) {
 }
 
 pub fn run() {
+    // S44 (Linux): antes que nada de nada, y con un solo hilo todavía. En Ubuntu 22.04 y Linux
+    // Mint 21, sin esto winshotx aborta al arrancar. Ver `platform::xdg::xlib_para_varios_hilos`.
+    #[cfg(target_os = "linux")]
+    platform::xdg::xlib_para_varios_hilos();
     // El cronometro, si se pide, lo primero de todo: cuenta desde que nacio el proceso y asi
     // se ve tambien lo que cuesta llegar hasta aqui. Ver `crono`.
     if std::env::args().any(|arg| arg == "--crono") {
