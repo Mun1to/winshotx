@@ -57,6 +57,37 @@ pub fn pantalla_completa_en(window: &tauri::WebviewWindow, monitor: u32) -> bool
     true
 }
 
+/// En X11, pide el foco otra vez cuando la ventana escondida ya esta en la pantalla.
+///
+/// Pedirlo nada mas ensennarla no basta: openbox dejaba el teclado en la ventana de antes, y Esc
+/// no cerraba la captura hasta hacer clic en ella. En Wayland el foco no se pide asi.
+#[cfg(target_os = "linux")]
+pub fn foco_al_aparecer(window: &tauri::WebviewWindow) {
+    if crate::platform::xdg::es_wayland() {
+        return;
+    }
+    let ventana = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        use gtk::prelude::*;
+        let Ok(gtk_window) = ventana.gtk_window() else {
+            return;
+        };
+        if gtk_window.is_mapped() {
+            return;
+        }
+        let senal = std::rc::Rc::new(std::cell::Cell::new(None));
+        let una_vez = senal.clone();
+        let id = gtk_window.connect_map_event(move |gtk_window, _| {
+            if let Some(id) = una_vez.take() {
+                gtk_window.disconnect(id);
+            }
+            gtk_window.present_with_time(gtk::gdk::ffi::GDK_CURRENT_TIME as u32);
+            gtk::glib::Propagation::Proceed
+        });
+        senal.set(Some(id));
+    });
+}
+
 /// Que la barra de titulo de Wayland siga al titulo de la ventana.
 ///
 /// Alli la barra la monta tao con el titulo con el que nace la ventana, y lo que se le cambia

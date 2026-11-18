@@ -428,6 +428,10 @@ fn ensennar_overlay(app: &AppHandle, label: &str, monitor: &MonitorInfo, con_foc
     if !colocada {
         let _ = window.set_position(PhysicalPosition::new(monitor.x, monitor.y));
     }
+    #[cfg(target_os = "linux")]
+    if con_foco {
+        crate::platform::window_style::foco_al_aparecer(&window);
+    }
     let _ = window.show();
     // Si el aparcadero no pudo darle el DPI de su monitor y Windows la ha reescalado al
     // traerla, el tamanno se corrige aqui. Normalmente no pasa y esta comprobacion es una
