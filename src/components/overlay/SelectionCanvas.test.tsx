@@ -1237,3 +1237,44 @@ describe("dos pantallas: el recorte sigue en la de al lado", () => {
     });
   });
 });
+
+describe("revisión: la primera pulsación tras Esc cae encima de lo que ya hay", () => {
+  // En ese estado WebKitGTK solo manda `mousedown`, sin `pointerdown`.
+  const suelto = { button: 0, buttons: 1 };
+
+  it("un mousedown suelto en Copiar no borra el recorte", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    expect(recorte()).toBe("300 × 200");
+    fireEvent.mouseDown(lienzo, { clientX: 500, clientY: 500, button: 2, buttons: 2 });
+    const copiar = screen.getAllByRole("button").find((b) => /Copiar/.test(b.textContent ?? "") || /Copiar/.test(b.getAttribute("aria-label") ?? "") || /Copiar/.test(b.getAttribute("title") ?? ""));
+    if (!copiar) throw new Error("sin boton Copiar: " + screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent).join(" | "));
+    fireEvent.mouseDown(copiar, { clientX: 700, clientY: 560, ...suelto });
+    expect(recorte()).toBe("300 × 200");
+  });
+
+  it("un mousedown suelto en un asa no borra el recorte", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    expect(recorte()).toBe("300 × 200");
+    fireEvent.mouseDown(lienzo, { clientX: 500, clientY: 500, button: 2, buttons: 2 });
+    const asa = [...lienzo.querySelectorAll<HTMLElement>("div")]
+      .filter((d) => d.style.cursor === "ew-resize")
+      .sort((a, b) => parseFloat(b.style.left) - parseFloat(a.style.left))[0];
+    fireEvent.mouseDown(asa, { clientX: 504, clientY: 400, ...suelto });
+    expect(recorte()).toBe("300 × 200");
+  });
+
+  it("y el asa pulsada así estira el recorte, no lo mueve", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    fireEvent.mouseDown(lienzo, { clientX: 500, clientY: 500, button: 2, buttons: 2 });
+    const asa = [...lienzo.querySelectorAll<HTMLElement>("div")]
+      .filter((d) => d.style.cursor === "ew-resize")
+      .sort((a, b) => parseFloat(b.style.left) - parseFloat(a.style.left))[0];
+    fireEvent.mouseDown(asa, { clientX: 500, clientY: 400, ...suelto });
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 400, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 600, clientY: 400 });
+    expect(recorte()).toBe("400 × 200");
+  });
+});

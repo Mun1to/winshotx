@@ -226,7 +226,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     cerrada.current = true;
     setMode({ kind: "idle" });
   }, []);
-  /** Si la pulsación que está llegando ya trajo su `pointerdown`: ver `onMouseDown`. */
+  /** Si la pulsación que está llegando ya trajo su `pointerdown`: ver `onMouseDownCapture`. */
   const pointerdownVisto = useRef(false);
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const cursorRef = useRef(cursor);
@@ -1309,12 +1309,26 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   /**
    * En Linux el overlay se esconde de verdad, y con Escape a medio arrastre WebKitGTK no ve
    * soltar el botón: cree que sigue pulsado y la pulsación siguiente no le da `pointerdown`, solo
-   * `mousedown`. Sin esto, la captura de después no respondía al primer arrastre.
+   * `mousedown`. Se le manda el que falta al elemento pulsado, para que cada cosa responda como
+   * siempre: el fondo empieza el recorte, las asas estiran y la barra de acciones se queda su clic.
    */
-  const onMouseDown = (e: React.MouseEvent) => {
+  const onMouseDownCapture = (e: React.MouseEvent) => {
     const visto = pointerdownVisto.current;
     pointerdownVisto.current = false;
-    if (!visto && e.button === 0 && e.buttons === 1) onPointerDown(e);
+    if (visto || e.button !== 0 || e.buttons !== 1) return;
+    e.target.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        buttons: 1,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        pointerType: "mouse",
+        isPrimary: true,
+      }),
+    );
+    pointerdownVisto.current = false;
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -1421,7 +1435,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         pointerdownVisto.current = true;
       }}
       onPointerDown={onPointerDown}
-      onMouseDown={onMouseDown}
+      onMouseDownCapture={onMouseDownCapture}
       onPointerMove={onPointerMove}
       onPointerEnter={() => setCursorAqui(true)}
       onPointerLeave={() => setCursorAqui(false)}
