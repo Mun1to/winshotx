@@ -142,6 +142,59 @@ describe("arrastrar a otra app", () => {
   });
 });
 
+/**
+ * En Linux el arrastre es el de GTK, que se queda con el soltar: WebKitGTK no ve subir el botón
+ * y la pulsación siguiente le llega con su `mousedown` pero sin `pointerdown` (medido en X11
+ * el 18 de noviembre de 2026: la segunda miniatura no se podía arrastrar, y el primer clic en
+ * «Mostrar» después de soltar una en el fondo no hacía nada).
+ */
+describe("la pulsación que llega sin su `pointerdown` (Linux, tras un arrastre)", () => {
+  const arrastrada = async () => {
+    await pintar();
+    const c = carta(7);
+    fireEvent.pointerEnter(c);
+    // Una pulsación de verdad trae las dos cosas, y el arrastre se queda el soltar.
+    fireEvent.pointerDown(c, { button: 0, buttons: 1, clientX: 50, clientY: 50 });
+    fireEvent.mouseDown(c, { button: 0, buttons: 1, clientX: 50, clientY: 50 });
+    fireEvent.pointerMove(c, { buttons: 1, clientX: 90, clientY: 70 });
+    expect(pedidas("miniatura_arrastrar")).toHaveLength(1);
+    return c;
+  };
+
+  it("vuelve a arrastrar la carta", async () => {
+    const c = await arrastrada();
+    fireEvent.mouseDown(c, { button: 0, buttons: 1, clientX: 60, clientY: 60 });
+    fireEvent.pointerMove(c, { buttons: 1, clientX: 100, clientY: 80 });
+    expect(pedidas("miniatura_arrastrar")).toHaveLength(2);
+  });
+
+  it("no se come el clic del botón pulsado", async () => {
+    await arrastrada();
+    const copiar = screen.getAllByText("Copiar")[0];
+    fireEvent.mouseDown(copiar, { button: 0, buttons: 1, clientX: 100, clientY: 70 });
+    fireEvent.click(copiar);
+    expect(pedidas("miniatura_copiar")).toHaveLength(1);
+  });
+
+  it("y la que sí lo trae no lo recibe dos veces", async () => {
+    await pintar();
+    const c = carta(7);
+    // Si el `mousedown` mandara otro `pointerdown`, el arrastre se mediría desde (58, 58) y
+    // moverse a (60, 60) no llegaría al umbral.
+    fireEvent.pointerDown(c, { button: 0, buttons: 1, clientX: 50, clientY: 50 });
+    fireEvent.mouseDown(c, { button: 0, buttons: 1, clientX: 58, clientY: 58 });
+    fireEvent.pointerMove(c, { buttons: 1, clientX: 60, clientY: 60 });
+    expect(pedidas("miniatura_arrastrar")).toHaveLength(1);
+  });
+
+  it("el botón derecho no cuenta como pulsación", async () => {
+    const c = await arrastrada();
+    fireEvent.mouseDown(c, { button: 2, buttons: 2, clientX: 60, clientY: 60 });
+    fireEvent.pointerMove(c, { buttons: 2, clientX: 100, clientY: 80 });
+    expect(pedidas("miniatura_arrastrar")).toHaveLength(1);
+  });
+});
+
 describe("se va sola", () => {
   it("al rato que diga «Ajustes»", async () => {
     vi.useFakeTimers();
