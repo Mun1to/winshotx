@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { partesDeAtajo } from "../../lib/teclas";
+import { corriendoEnLinux, partesDeAtajo } from "../../lib/teclas";
 import { useT } from "../../lib/i18n";
 
 /** Teclas que solo acompañan: por sí solas no forman un atajo. */
@@ -115,9 +115,11 @@ export function ShortcutField({ value, onChange, active }: Props) {
       type="button"
       onClick={() => setRecording((r) => !r)}
       title={
-        recording
-          ? t("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí")
-          : t("Clic para cambiar el atajo")
+        !recording
+          ? t("Clic para cambiar el atajo")
+          : corriendoEnLinux()
+            ? t("Pulsa la combinación · las que el escritorio se reserva no llegan hasta aquí")
+            : t("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí")
       }
       data-atajo
       className="group flex h-9 items-center justify-end px-1 outline-none"

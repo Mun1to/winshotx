@@ -251,6 +251,8 @@ export const ZH: Record<string, string> = {
   "Clic para cambiar el atajo": "点击更改快捷键",
   "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí":
     "请按下组合键 · Windows 保留的组合键不会传到这里",
+  "Pulsa la combinación · las que el escritorio se reserva no llegan hasta aquí":
+    "请按下组合键 · 桌面保留的组合键不会传到这里",
   "Pulsa las teclas…": "请按快捷键…",
 
   // 设置导览

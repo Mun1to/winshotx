@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { aplicarIdioma } from "../../lib/i18n";
 import { ShortcutField } from "./ShortcutField";
 
@@ -118,5 +118,36 @@ describe("la tecla Super en WebKitGTK", () => {
     fireEvent.keyDown(window, { key: "Meta", code: "MetaLeft", metaKey: true });
     fireEvent.keyDown(window, { key: "S", code: "KeyS", metaKey: true, shiftKey: true });
     expect(onChange).toHaveBeenCalledWith("Super+Shift+KeyS");
+  });
+});
+
+describe("la pista mientras escucha las teclas", () => {
+  const EN_LINUX = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
+  const EN_WINDOWS = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0 Edg/142.0";
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function pista(agente: string, idioma: "es" | "en" | "zh") {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(agente);
+    aplicarIdioma(idioma);
+    const { unmount } = render(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={() => undefined} />);
+    fireEvent.click(screen.getByRole("button"));
+    const titulo = screen.getByRole("button").getAttribute("title");
+    unmount();
+    return titulo;
+  }
+
+  it("en Linux habla del escritorio, en los tres idiomas", () => {
+    expect(pista(EN_LINUX, "es")).toBe("Pulsa la combinación · las que el escritorio se reserva no llegan hasta aquí");
+    expect(pista(EN_LINUX, "en")).toBe("Press the combination · the ones the desktop keeps never reach here");
+    expect(pista(EN_LINUX, "zh")).toBe("请按下组合键 · 桌面保留的组合键不会传到这里");
+  });
+
+  it("en Windows sigue hablando de Windows", () => {
+    expect(pista(EN_WINDOWS, "es")).toBe("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí");
+    expect(pista(EN_WINDOWS, "en")).toBe("Press the combination · the ones Windows keeps never reach here");
+    expect(pista(EN_WINDOWS, "zh")).toBe("请按下组合键 · Windows 保留的组合键不会传到这里");
   });
 });

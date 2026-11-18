@@ -256,6 +256,8 @@ export const EN: Record<string, string> = {
   "Clic para cambiar el atajo": "Click to change the shortcut",
   "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí":
     "Press the combination · the ones Windows keeps never reach here",
+  "Pulsa la combinación · las que el escritorio se reserva no llegan hasta aquí":
+    "Press the combination · the ones the desktop keeps never reach here",
   "Pulsa las teclas…": "Press the keys…",
 
   // El tour guiado
