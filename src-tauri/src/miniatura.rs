@@ -489,23 +489,52 @@ pub async fn miniatura_anclar(app: AppHandle, id: u64) -> Result<()> {
 pub async fn miniatura_arrastrar(app: AppHandle, id: u64) -> Result<()> {
     let (archivo, _, _) = de(id)?;
     let window = ventana(&app)?;
-    #[cfg(windows)]
-    let hwnd = window.hwnd().map_err(|e| AppError::Msg(e.to_string()))?.0 as isize;
-    // Sin OLE no hay ventana que dar: `arrastrar` contesta que fuera de Windows no se puede.
-    #[cfg(not(windows))]
-    let hwnd = {
-        let _ = window;
-        0
-    };
-    let otra = app.clone();
-    app.run_on_main_thread(move || {
-        match crate::platform::arrastrar::arrastrar(hwnd, &archivo) {
-            Ok(true) => quitar(&otra, id),
-            Ok(false) => {}
-            Err(e) => eprintln!("[winshotx] {e}"),
-        }
-    })
-    .map_err(|e| AppError::Msg(e.to_string()))?;
+    // En Linux el arrastre es el de GTK: no espera a que se suelte, y avisa al acabar. La
+    // imagen que va con el ratón es la vista pequeña de la carta.
+    #[cfg(target_os = "linux")]
+    {
+        let vista = PILA.lock().iter().find(|m| m.id == id).map(|m| m.vista.clone());
+        let otra = app.clone();
+        app.run_on_main_thread(move || {
+            let Ok(ventana_gtk) = window.gtk_window() else {
+                return;
+            };
+            let empezado = crate::platform::arrastrar::arrastrar_en_gtk(
+                &ventana_gtk,
+                &archivo,
+                vista.as_deref(),
+                move |recogida| {
+                    if recogida {
+                        quitar(&otra, id);
+                    }
+                },
+            );
+            if let Err(e) = empezado {
+                eprintln!("[winshotx] {e}");
+            }
+        })
+        .map_err(|e| AppError::Msg(e.to_string()))?;
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        #[cfg(windows)]
+        let hwnd = window.hwnd().map_err(|e| AppError::Msg(e.to_string()))?.0 as isize;
+        // Sin OLE ni GTK no hay ventana que dar: `arrastrar` contesta que ahí no se puede.
+        #[cfg(not(windows))]
+        let hwnd = {
+            let _ = window;
+            0
+        };
+        let otra = app.clone();
+        app.run_on_main_thread(move || {
+            match crate::platform::arrastrar::arrastrar(hwnd, &archivo) {
+                Ok(true) => quitar(&otra, id),
+                Ok(false) => {}
+                Err(e) => eprintln!("[winshotx] {e}"),
+            }
+        })
+        .map_err(|e| AppError::Msg(e.to_string()))?;
+    }
     Ok(())
 }
 
