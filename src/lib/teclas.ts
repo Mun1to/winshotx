@@ -9,8 +9,6 @@ const BONITOS: Record<string, string> = {
   CmdOrCtrl: "Ctrl",
   CommandOrControl: "Ctrl",
   Control: "Ctrl",
-  Super: "Win",
-  Meta: "Win",
   Escape: "Esc",
   Space: "Espacio",
   PrintScreen: "Impr Pant",
@@ -28,7 +26,13 @@ const BONITOS: Record<string, string> = {
   BracketRight: "]",
 };
 
+/** La tecla del logo. WebKitGTK dice «Linux» en su nombre también en Wayland. */
+function teclaDelLogo(): string {
+  return navigator.userAgent.includes("Linux") ? "Super" : "Win";
+}
+
 export function nombreDeTecla(code: string): string {
+  if (code === "Super" || code === "Meta") return teclaDelLogo();
   if (code.startsWith("Digit")) return code.slice(5);
   if (code.startsWith("Key")) return code.slice(3);
   if (code.startsWith("Numpad")) return `Num ${code.slice(6)}`;
