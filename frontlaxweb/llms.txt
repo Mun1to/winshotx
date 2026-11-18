@@ -95,6 +95,27 @@ is downloaded at runtime.
   version, so a coffee is the only way to support it. A star on GitHub or a bug report
   helps just as much.
 
+## How-to guides
+
+- [How to record your screen on Windows 10 and 11, with sound](https://winshotx.com/en/screen-recorder/) ([Spanish](https://winshotx.com/grabar-pantalla/))
+- [How to take a screenshot on Windows 10 and 11](https://winshotx.com/en/screenshot/) ([Spanish](https://winshotx.com/captura-de-pantalla/))
+- [Screen to GIF: how to record a GIF of your screen on Windows](https://winshotx.com/en/screen-to-gif/) ([Spanish](https://winshotx.com/grabar-gif/))
+
+## Comparisons
+
+Each page says where winshotx wins and where the other tool wins, with sources.
+
+- [Snipping Tool alternative: winshotx, head to head](https://winshotx.com/en/snipping-tool-alternative/) ([Spanish](https://winshotx.com/alternativa-a-herramienta-de-recortes/))
+- [Xbox Game Bar alternative: winshotx, head to head](https://winshotx.com/en/xbox-game-bar-alternative/) ([Spanish](https://winshotx.com/alternativa-a-xbox-game-bar/))
+- [ShareX alternative: winshotx, head to head](https://winshotx.com/en/sharex-alternative/) ([Spanish](https://winshotx.com/alternativa-a-sharex/))
+- [Greenshot alternative: winshotx, head to head](https://winshotx.com/en/greenshot-alternative/) ([Spanish](https://winshotx.com/alternativa-a-greenshot/))
+- [Flameshot alternative: winshotx, head to head](https://winshotx.com/en/flameshot-alternative/) ([Spanish](https://winshotx.com/alternativa-a-flameshot/))
+- [ScreenToGif alternative: winshotx, head to head](https://winshotx.com/en/screentogif-alternative/) ([Spanish](https://winshotx.com/alternativa-a-screentogif/))
+- [OBS Studio alternative: winshotx, head to head](https://winshotx.com/en/obs-studio-alternative/) ([Spanish](https://winshotx.com/alternativa-a-obs-studio/))
+- [Lightshot alternative: winshotx, head to head](https://winshotx.com/en/lightshot-alternative/) ([Spanish](https://winshotx.com/alternativa-a-lightshot/))
+- [PicPick alternative: winshotx, head to head](https://winshotx.com/en/picpick-alternative/) ([Spanish](https://winshotx.com/alternativa-a-picpick/))
+- [Snagit alternative: winshotx, head to head](https://winshotx.com/en/snagit-alternative/) ([Spanish](https://winshotx.com/alternativa-a-snagit/))
+
 ## Documentation
 
 The guide covers install, region capture with the magnifier, GIF and MP4 recording, the last

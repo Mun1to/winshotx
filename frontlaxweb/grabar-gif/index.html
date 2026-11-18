@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="Screen to GIF: how to record a GIF of your screen on Windows">Cómo grabar un GIF de la pantalla en Windows</title>
+<meta name="description" content="Cómo grabar un GIF de la pantalla en Windows sin instalar FFmpeg: eliges la zona, paras, recortas y lo pegas en Slack o Discord. Gratis y sin cuenta.">
+<link rel="canonical" href="https://winshotx.com/grabar-gif/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-gif/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/screen-to-gif/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/grabar-gif/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://winshotx.com/grabar-gif/">
+<meta property="og:title" content="Cómo grabar un GIF de la pantalla en Windows">
+<meta property="og:description" content="Cómo grabar un GIF de la pantalla en Windows sin instalar FFmpeg: eliges la zona, paras, recortas y lo pegas en Slack o Discord. Gratis y sin cuenta.">
+<meta property="og:image" content="https://winshotx.com/social.png?v=4">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx, «Crop the screen before you blink»: 114 ms, instalador de 3,01 MB, gratis y de código abierto, junto a su ventana de ajustes">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cómo grabar un GIF de la pantalla en Windows">
+<meta name="twitter:description" content="Cómo grabar un GIF de la pantalla en Windows sin instalar FFmpeg: eliges la zona, paras, recortas y lo pegas en Slack o Discord. Gratis y sin cuenta.">
+<meta name="twitter:image" content="https://winshotx.com/social.png?v=4">
+<link rel="icon" href="../favicon.ico?v=2" sizes="any">
+<link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
+<script>
+// El dial de movimiento de la casa, igual que en la portada (ver index.html).
+(function () {
+  var h = document.documentElement;
+  var q = new URLSearchParams(location.search).get("motion");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var gain = q === "off" ? 0 : q === "full" ? 1 : reduce ? 0.25 : 1;
+  h.style.setProperty("--motion-gain", String(gain));
+  h.classList.toggle("motion", gain > 0);
+  h.classList.toggle("quieto", gain === 0);
+})();
+</script>
+<link rel="stylesheet" href="../estilos.css?v=22675198">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Grabar un GIF", "item": "https://winshotx.com/grabar-gif/" }
+  ]
+}
+</script>
+<script type="application/ld+json" data-faq>
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "es",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "¿Cómo grabo un GIF de la pantalla en Windows?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pulsa Ctrl+Shift+5, arrastra sobre la zona y púlsalo otra vez para parar. Se abre el editor con todos los fotogramas y el panel escribe el GIF. No hay que instalar FFmpeg."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Cómo pego un GIF en Slack o en Discord?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Usa Copiar en el panel de exportación. Un PNG va al portapapeles como imagen, y un JPG, un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿El GIF lleva sonido?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No, el formato GIF no guarda sonido. Si lo necesitas, graba en MP4: el sonido del PC y tu micrófono van cada uno en su pista."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Es gratis winshotx?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<!-- Esta página la escribe generar-paginas.mjs: no se edita a mano, que se pisa la próxima vez. -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
+      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+    </g>
+    <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
+  </symbol>
+<symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+</svg>
+
+<nav class="barra">
+  <div class="env barra-dentro">
+    <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+    <span class="enlaces">
+      <a href="../#funciones" data-en="Features">Funciones</a>
+      <a href="../#demo" data-en="Try it">Pruébalo</a>
+      <a href="../#comparativa" data-en="Compare">Comparativa</a>
+      <a href="../docs/" data-en="Docs">Guía</a>
+      <a href="../novedades/" data-en="What's new">Novedades</a>
+      <a href="../soporte/" data-en="Support">Soporte</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
+      <a class="idioma" id="idioma" href="../en/screen-to-gif/" hreflang="en" lang="en">English</a>
+      <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download">Descargar</span></a>
+      <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
+           y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
+           Un <details> se abre y se cierra sin JavaScript; con leer.js?v=69245323 la píldora de la barra
+           crece hacia abajo con las páginas dentro, y se recoge al elegir, con Escape o tocando fuera. -->
+      <details class="menu">
+        <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span data-en="Menu">Menú</span></summary>
+        <div class="menu-panel">
+          <a href="../#funciones" data-en="Features">Funciones</a>
+          <a href="../#demo" data-en="Try it">Pruébalo</a>
+          <a href="../#comparativa" data-en="Compare">Comparativa</a>
+          <a href="../docs/" data-en="Docs">Guía</a>
+          <a href="../novedades/" data-en="What's new">Novedades</a>
+          <a href="../soporte/" data-en="Support">Soporte</a>
+          <a class="menu-gh" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg><span data-en="The code, on GitHub">El código, en GitHub</span></a>
+        </div>
+      </details>
+    </span>
+  </div>
+</nav>
+
+<main class="leer">
+  <div class="env">
+    <header class="leer-cabeza">
+      <h1 data-en="How to record a GIF of your screen on Windows">Cómo grabar un GIF de la pantalla en Windows</h1>
+      <p class="entradilla" data-html data-en="Windows does not record GIF for everyone yet: in the Snipping Tool it is Insiders only, and up to 30 seconds. With winshotx you press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt;, then &lt;kbd&gt;G&lt;/kbd&gt;, drag over the area and get a GIF. There is no FFmpeg to install.">Windows todavía no graba GIF para todo el mundo: en la Herramienta de Recortes solo está en Insiders, y hasta 30 segundos. Con winshotx pulsas <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, después <kbd>G</kbd>, arrastras sobre la zona y sale un GIF. No hay que instalar FFmpeg.</p>
+      <p class="botones"><a class="btn uno" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download for Windows">Descargar para Windows</span></a></p>
+    </header>
+
+    <div class="leer-rejilla">
+      <nav class="leer-indice" aria-label="En esta página" data-aria-en="On this page">
+        <a href="#pasos" data-en="Step by step">Paso a paso</a>
+        <a href="#formato" data-en="GIF or MP4">GIF o MP4</a>
+        <a href="#comparar" data-en="Compare">Comparar</a>
+        <a href="#preguntas" data-en="Questions">Preguntas</a>
+      </nav>
+
+      <div class="texto">
+<section id="pasos" class="con-foto">
+<div>
+<h2 data-en="How to record a GIF with winshotx">Cómo se graba un GIF con winshotx</h2>
+<ol class="lista pasos">
+<li data-html data-en="&lt;b&gt;Install winshotx.&lt;/b&gt; It weighs 3.01 MB, installs for your user only and never shows the administrator prompt."><b>Instala winshotx.</b> Pesa 3,01 MB, se instala solo para tu usuario y nunca sale la ventana de permisos de administrador.</li>
+<li data-html data-en="&lt;b&gt;Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt; and then &lt;kbd&gt;G&lt;/kbd&gt;.&lt;/b&gt; The &lt;kbd&gt;G&lt;/kbd&gt; key switches from video to GIF before you crop."><b>Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd> y después <kbd>G</kbd>.</b> La <kbd>G</kbd> cambia de vídeo a GIF antes de recortar.</li>
+<li data-html data-en="&lt;b&gt;Drag over the area.&lt;/b&gt; When you let go of the mouse, it starts recording."><b>Arrastra sobre la zona.</b> Al soltar el ratón, empieza a grabar.</li>
+<li data-html data-en="&lt;b&gt;Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt; again to stop.&lt;/b&gt; The editor opens, already on GIF."><b>Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd> otra vez para parar.</b> Se abre el editor, ya en GIF.</li>
+<li data-html data-en="&lt;b&gt;Trim and save.&lt;/b&gt; Drag the blue edges of the timeline and press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;S&lt;/kbd&gt;. The panel shows the estimated size before writing anything."><b>Recorta y guarda.</b> Arrastra los bordes azules de la línea de tiempo y pulsa <kbd>Ctrl</kbd>+<kbd>S</kbd>. El panel enseña el tamaño estimado antes de escribir nada.</li>
+</ol>
+</div>
+<figure><img src="../img/editor-es.webp?v=ab26ef6c" data-src-en="../img/editor-en.webp?v=0a9a1fde" width="1280" height="800" loading="lazy" alt="El editor de winshotx, con la línea de tiempo abajo y los formatos MP4, GIF, PNG y JPG a la derecha" data-alt-en="The winshotx editor, with the timeline at the bottom and the MP4, GIF, PNG and JPG formats on the right"></figure>
+</section>
+
+<section id="formato">
+<h2 data-en="When to use GIF and when MP4">Cuándo usar GIF y cuándo MP4</h2>
+<ul class="lista">
+<li data-html data-en="&lt;b&gt;GIF.&lt;/b&gt; Short interface clips. It loops everywhere with no player."><b>GIF.</b> Clips cortos de interfaz. Hace bucle en todas partes sin reproductor.</li>
+<li data-html data-en="&lt;b&gt;MP4.&lt;/b&gt; Anything longer than a few seconds, or with a lot of movement."><b>MP4.</b> Todo lo que pase de unos segundos, o con mucho movimiento.</li>
+</ul>
+</section>
+
+<section id="comparar">
+<h2 data-en="Compared with other GIF tools">Frente a otros programas de GIF</h2>
+<p data-en="If what you need is editing a GIF frame by frame, ScreenToGif does it and winshotx does not:">Si lo tuyo es editar un GIF fotograma a fotograma, ScreenToGif lo hace y winshotx no:</p>
+<div class="tabla comparar"><table>
+<thead><tr><th scope="col" data-en="What">Qué</th><th scope="col">winshotx</th><th scope="col">ScreenToGif</th><th scope="col">ShareX</th></tr></thead>
+<tbody>
+<tr><th scope="row" data-en="Record GIF">Grabar GIF</th><td data-en="Yes">Sí</td><td data-en="Its specialty">Es lo suyo</td><td data-en="Yes">Sí</td></tr>
+<tr><th scope="row" data-en="Edit a GIF frame by frame">Editar un GIF fotograma a fotograma</th><td>No</td><td data-en="Yes">Sí</td><td>No</td></tr>
+<tr><th scope="row" data-en="Arrows, text and numbered steps">Flechas, texto y pasos numerados</th><td data-en="Eleven marks">Once marcas</td><td data-en="No numbered steps">Sin pasos numerados</td><td data-en="Yes">Sí</td></tr>
+<tr><th scope="row" data-en="Record MP4 video">Grabar vídeo MP4</th><td data-en="At 15, 30 or 60 fps">A 15, 30 o 60 fps</td><td data-en="With FFmpeg, separately">Con FFmpeg aparte</td><td data-en="Yes">Sí</td></tr>
+<tr><th scope="row" data-en="Installer">Instalador</th><td data-en="3.01 MB">3,01 MB</td><td>75 MB</td><td>145 MB</td></tr>
+</tbody>
+</table></div>
+<p data-html data-en="Using something else? See winshotx against &lt;a href=&quot;../alternativa-a-screentogif/&quot;&gt;ScreenToGif&lt;/a&gt; or &lt;a href=&quot;../alternativa-a-sharex/&quot;&gt;ShareX&lt;/a&gt;.">¿Usas otro programa? Mira winshotx frente a <a href="../alternativa-a-screentogif/">ScreenToGif</a> o <a href="../alternativa-a-sharex/">ShareX</a>.</p>
+</section>
+
+<section id="preguntas">
+<h2 data-en="Questions">Preguntas</h2>
+<h3 data-en="How do I record a GIF of my screen on Windows?">¿Cómo grabo un GIF de la pantalla en Windows?</h3>
+<p data-html data-en="Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt;, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.">Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, arrastra sobre la zona y púlsalo otra vez para parar. Se abre el editor con todos los fotogramas y el panel escribe el GIF. No hay que instalar FFmpeg.</p>
+<h3 data-en="How do I paste a GIF into Slack or Discord?">¿Cómo pego un GIF en Slack o en Discord?</h3>
+<p data-html data-en="Use &lt;b&gt;Copy&lt;/b&gt; in the export panel. A PNG goes to the clipboard as an image, and a JPG, a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead.">Usa <b>Copiar</b> en el panel de exportación. Un PNG va al portapapeles como imagen, y un JPG, un GIF o un MP4 van a la vez como archivo y como su ruta escrita: se pegan directamente en Slack, Discord o el Explorador, y en una caja de texto sale la ruta.</p>
+<h3 data-en="Does the GIF have sound?">¿El GIF lleva sonido?</h3>
+<p data-en="No, the GIF format does not store sound. If you need it, record in MP4: the PC sound and your microphone each go on their own track.">No, el formato GIF no guarda sonido. Si lo necesitas, graba en MP4: el sonido del PC y tu micrófono van cada uno en su pista.</p>
+<h3 data-en="Is winshotx free?">¿Es gratis winshotx?</h3>
+<p data-en="Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.">Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago.</p>
+</section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="pie">
+  <div class="env">
+    <div class="pie-rejilla">
+      <div class="quien">
+        <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+        <p data-en="Screenshots and screen recording for Windows. Free, open source and with no account.">Capturas y grabación de pantalla para Windows. Gratis, de código abierto y sin cuenta.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Product">Producto</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe" data-en="Download">Descargar</a></li>
+          <li><a href="../novedades/" data-en="What's new">Novedades</a></li>
+          <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener" data-en="Portable version">Versión portable</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Help">Ayuda</h2>
+        <ul>
+          <li><a href="../soporte/" data-en="Support">Soporte</a></li>
+          <li><a href="../docs/" data-en="Docs">Guía</a></li>
+          <li><a href="../#preguntas" data-en="Questions">Preguntas</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/issues" rel="noopener" data-en="Report a bug">Avisar de un fallo</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Code">Código</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/blob/main/LICENSE" rel="noopener" data-en="MIT licence">Licencia MIT</a></li>
+          <li><a href="../docs/#agentes" data-en="For AI agents">Para agentes de IA</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="More">Más</h2>
+        <ul>
+          <li><a href="../privacidad/" data-en="Privacy">Privacidad</a></li>
+          <li><a href="https://buymeacoffee.com/munito" rel="noopener" data-en="Buy me a coffee">Invítame a un café</a></li>
+          <li><a class="valvula sin-mov" href="?motion=off" data-en="Fewer animations">Menos animaciones</a><a class="valvula con-mov" href="./" data-en="All animations">Con animaciones</a></li>
+        </ul>
+      </div>
+    </div>
+    <!-- paginas:desde (lo escribe generar-paginas.mjs a partir de paginas.mjs) -->
+    <div class="pie-rejilla pie-paginas">
+      <div>
+        <h2 class="pie-titulo" data-en="How to">Cómo se hace</h2>
+        <ul>
+          <li><a href="../grabar-pantalla/" data-en="Record your screen">Grabar la pantalla</a></li>
+          <li><a href="../captura-de-pantalla/" data-en="Take a screenshot">Hacer una captura</a></li>
+          <li><a href="../grabar-gif/" data-en="Record a GIF">Grabar un GIF</a></li>
+        </ul>
+      </div>
+      <div class="pie-alternativas">
+        <h2 class="pie-titulo" data-en="Alternative to">Alternativa a</h2>
+        <ul>
+          <li><a href="../alternativa-a-herramienta-de-recortes/" data-en="Snipping Tool">Recortes</a></li>
+          <li><a href="../alternativa-a-xbox-game-bar/">Game Bar</a></li>
+          <li><a href="../alternativa-a-sharex/">ShareX</a></li>
+          <li><a href="../alternativa-a-greenshot/">Greenshot</a></li>
+          <li><a href="../alternativa-a-flameshot/">Flameshot</a></li>
+          <li><a href="../alternativa-a-screentogif/">ScreenToGif</a></li>
+          <li><a href="../alternativa-a-obs-studio/">OBS</a></li>
+          <li><a href="../alternativa-a-lightshot/">Lightshot</a></li>
+          <li><a href="../alternativa-a-picpick/">PicPick</a></li>
+          <li><a href="../alternativa-a-snagit/">Snagit</a></li>
+        </ul>
+      </div>
+    </div>
+    <!-- paginas:hasta -->
+    <div class="pie-abajo">
+      <span data-html data-en="© 2026 winshotx · Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt;">© 2026 winshotx · Hecho por <a href="https://munito.dev">Munir Torres</a></span>
+      <span data-en="No accounts, no cloud and no surprises">Sin cuentas, sin nube y sin sorpresas</span>
+    </div>
+  </div>
+</footer>
+
+<script src="../leer.js?v=69245323"></script>
+</body>
+</html>

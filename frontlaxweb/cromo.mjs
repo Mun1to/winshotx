@@ -12,6 +12,7 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { TODAS } from "./paginas.mjs";
 
 /** Cada página, dónde vive y cómo se llega desde ella a la raíz y a su versión inglesa. */
 export const PAGINAS_CROMO = {
@@ -21,6 +22,8 @@ export const PAGINAS_CROMO = {
   novedades: { archivo: join("novedades", "index.html"), raiz: "../", ingles: "../en/changelog/", aqui: "novedades/" },
   // La 404 se sirve en cualquier dirección, así que todo va desde la raíz del dominio.
   "404": { archivo: "404.html", raiz: "/", ingles: "/en/", aqui: null },
+  // Las páginas por problema y las «alternativa a» (paginas.mjs): las escribe generar-paginas.mjs.
+  ...Object.fromEntries(TODAS.map((p) => [p.es, { archivo: join(p.es, "index.html"), raiz: "../", ingles: `../en/${p.en}/`, aqui: null }])),
 };
 
 const SPRITE = /<svg style="display:none"[^>]*>[\s\S]*?<\/svg>/;

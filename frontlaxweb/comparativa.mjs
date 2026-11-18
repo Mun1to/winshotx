@@ -221,6 +221,9 @@ const fuentes = (idioma, recortes) => [
 const RECORTES = "https://support.microsoft.com/{idioma}/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b";
 const AVISAR = "https://github.com/Mun1to/winshotx/issues";
 
+// La fecha en la que se comprobó todo lo de arriba: la dicen estas fuentes y cada página «alternativa a».
+export const COMPROBADO = { es: "15 de noviembre de 2026", en: "15 November 2026" };
+
 export const TEXTOS = {
   titulo: { es: "Frente a frente", en: "Head to head" },
   entradilla: {
@@ -248,7 +251,7 @@ export const TEXTOS = {
     { num: "31 MB", otra: "98 MB", largo: 31.6, es: "esperando en la bandeja", en: "waiting in the tray" },
   ],
   fuentes: {
-    es: `Comprobado el 15 de noviembre de 2026 en la web, la ayuda y las notas de versión de cada una: ${fuentes("es-es", "Herramienta de Recortes")}. «No» quiere decir que no sale en ninguna de sus fuentes oficiales; ScreenToGif es la versión que su autor ya llama antigua. Si algo ha cambiado, ${enlace(AVISAR, "avísame")} y se corrige.`,
-    en: `Checked on 15 November 2026 on each one's website, help pages and release notes: ${fuentes("en-us", "Snipping Tool")}. "No" means it is not in any of its official sources; ScreenToGif is the version its author now calls the old one. If something has changed, ${enlace(AVISAR, "tell me")} and it gets fixed.`,
+    es: `Comprobado el ${COMPROBADO.es} en la web, la ayuda y las notas de versión de cada una: ${fuentes("es-es", "Herramienta de Recortes")}. «No» quiere decir que no sale en ninguna de sus fuentes oficiales; ScreenToGif es la versión que su autor ya llama antigua. Si algo ha cambiado, ${enlace(AVISAR, "avísame")} y se corrige.`,
+    en: `Checked on ${COMPROBADO.en} on each one's website, help pages and release notes: ${fuentes("en-us", "Snipping Tool")}. "No" means it is not in any of its official sources; ScreenToGif is the version its author now calls the old one. If something has changed, ${enlace(AVISAR, "tell me")} and it gets fixed.`,
   },
 };

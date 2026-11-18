@@ -1486,6 +1486,7 @@ html.motion .medidas:not(.vistas) .llena { --lleno: 0; }
 .frente-nada { color: var(--suave); }
 .frente-mas { margin-top: 14px; padding-left: 38px; color: var(--suave); font-size: 15.5px; }
 .frente-empatan { margin-top: 40px; max-width: 90ch; color: var(--suave); font-size: 16.5px; }
+.frente-pagina { margin-top: 24px; }
 :is(.frente-mas, .frente-empatan) b { color: var(--texto); }
 
 .fuentes { margin-top: 26px; color: var(--suave); font-size: 15px; max-width: 90ch; }
@@ -1530,6 +1531,14 @@ html.motion .medidas:not(.vistas) .llena { --lleno: 0; }
   .pie ul { gap: 0; }
   .pie li a, html.quieto .pie li .valvula.con-mov { display: inline-flex; align-items: center; min-height: 44px; }
   .pie-titulo { margin-bottom: 4px; }
+}
+/* Las páginas por problema y las «alternativa a»: una fila más, con las mismas columnas. */
+.pie-paginas { margin-top: 40px; }
+.pie-alternativas { grid-column: 2 / -1; }
+.pie-alternativas ul { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 32px; }
+@media (max-width: 860px) {
+  .pie-paginas > div { grid-column: 1 / -1; }
+  .pie-alternativas ul { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
 }
 
 
@@ -1656,7 +1665,7 @@ html.quieto .valvula.con-mov { display: inline; }
   padding: 2px 6px; border-radius: 6px; background: var(--realce-medio);
   font-family: var(--letra-mono); font-size: .86em; overflow-wrap: anywhere;
 }
-.texto kbd, .faq kbd {
+.texto kbd, .faq kbd, .leer-cabeza kbd {
   display: inline-block; min-width: 1.6em; padding: 1px 7px; border-radius: 6px; text-align: center;
   border: 1px solid var(--linea-viva); border-bottom-width: 2px; background: var(--realce-medio);
   font: 600 .84em/1.5 var(--letra); color: var(--texto); white-space: nowrap;
@@ -1735,6 +1744,28 @@ html.quieto .valvula.con-mov { display: inline; }
   .leer-indice a { flex: none; border-left: 0; padding: 11px 0; }
   .leer-indice a[aria-current="true"] { border-left: 0; padding-left: 0; text-decoration: underline 3px var(--azul); text-underline-offset: 10px; }
   .texto { font-size: 17px; }
+}
+
+/* ---------- las páginas por problema y las «alternativa a» (generar-paginas.mjs) ----------
+   Las piezas de la guía y de la comparativa de la portada, a lo ancho de la columna de leer. */
+.leer-cabeza .botones { margin-top: 26px; }
+.texto .lista.pasos { counter-reset: paso; }
+.texto .lista.pasos li { counter-increment: paso; }
+.texto .lista.pasos li::before {
+  content: counter(paso); left: 0; top: 0; width: auto; height: auto; background: none;
+  -webkit-mask: none; mask: none; color: var(--azul); font: 700 19px/1.5 var(--letra-titulo);
+}
+.texto .tabla.comparar tbody th { white-space: normal; min-width: 180px; }
+.texto .medidas .medida-num { font-size: clamp(44px, 3.6vw, 68px); }
+.texto .frente-dos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 clamp(28px, 3vw, 56px); margin-top: 0; }
+.texto .frente-cifras { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 8px 48px; margin-top: 28px; }
+.texto .frente-cifras-que { flex-basis: 100%; margin-top: 0; }
+.texto .frente-sub { margin: 40px 0 20px; font-size: clamp(22px, 1.6vw, 28px); }
+.texto .frente-lista b { font-size: 17.5px; }
+.texto .fuentes { max-width: 90ch; }
+@media (max-width: 860px) {
+  .texto .frente-dos { grid-template-columns: minmax(0, 1fr); }
+  .texto .tabla.comparar tbody th { min-width: 0; }
 }
 
 /* ---------- novedades (las escribe generar-novedades.mjs) ----------

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="How to record your screen on Windows 10 and 11, with sound">Cómo grabar la pantalla en Windows 10 y 11, con sonido</title>
+<meta name="description" content="Cómo grabar la pantalla en Windows con lo que ya trae el sistema, y qué añade winshotx: tu cámara encima, zooms a cada clic y datos personales tapados. Gratis.">
+<link rel="canonical" href="https://winshotx.com/grabar-pantalla/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-pantalla/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/screen-recorder/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/grabar-pantalla/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://winshotx.com/grabar-pantalla/">
+<meta property="og:title" content="Cómo grabar la pantalla en Windows 10 y 11, con sonido">
+<meta property="og:description" content="Cómo grabar la pantalla en Windows con lo que ya trae el sistema, y qué añade winshotx: tu cámara encima, zooms a cada clic y datos personales tapados. Gratis.">
+<meta property="og:image" content="https://winshotx.com/social.png?v=4">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx, «Crop the screen before you blink»: 114 ms, instalador de 3,01 MB, gratis y de código abierto, junto a su ventana de ajustes">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cómo grabar la pantalla en Windows 10 y 11, con sonido">
+<meta name="twitter:description" content="Cómo grabar la pantalla en Windows con lo que ya trae el sistema, y qué añade winshotx: tu cámara encima, zooms a cada clic y datos personales tapados. Gratis.">
+<meta name="twitter:image" content="https://winshotx.com/social.png?v=4">
+<link rel="icon" href="../favicon.ico?v=2" sizes="any">
+<link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
+<script>
+// El dial de movimiento de la casa, igual que en la portada (ver index.html).
+(function () {
+  var h = document.documentElement;
+  var q = new URLSearchParams(location.search).get("motion");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var gain = q === "off" ? 0 : q === "full" ? 1 : reduce ? 0.25 : 1;
+  h.style.setProperty("--motion-gain", String(gain));
+  h.classList.toggle("motion", gain > 0);
+  h.classList.toggle("quieto", gain === 0);
+})();
+</script>
+<link rel="stylesheet" href="../estilos.css?v=22675198">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Grabar la pantalla", "item": "https://winshotx.com/grabar-pantalla/" }
+  ]
+}
+</script>
+<script type="application/ld+json" data-faq>
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "es",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "¿Cómo grabo la pantalla en Windows 11 sin instalar nada?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Con la Herramienta de Recortes: pulsa Win+Mayús+R, elige la zona y dale a Iniciar. Para acabar, dale a Detener y guarda el vídeo."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Graba el sonido del PC y el micrófono?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sí: el audio del sistema (lo que suene por los altavoces) y tu micrófono, cada uno grabado en su propia pista y con su volumen en el editor. Cada uno tiene su interruptor en Ajustes y cualquiera de los dos puede ir solo."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Es gratis winshotx?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿En qué versiones de Windows funciona?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Windows 10 (versión 1903 o superior) y Windows 11."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<!-- Esta página la escribe generar-paginas.mjs: no se edita a mano, que se pisa la próxima vez. -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
+      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+    </g>
+    <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
+  </symbol>
+<symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+</svg>
+
+<nav class="barra">
+  <div class="env barra-dentro">
+    <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+    <span class="enlaces">
+      <a href="../#funciones" data-en="Features">Funciones</a>
+      <a href="../#demo" data-en="Try it">Pruébalo</a>
+      <a href="../#comparativa" data-en="Compare">Comparativa</a>
+      <a href="../docs/" data-en="Docs">Guía</a>
+      <a href="../novedades/" data-en="What's new">Novedades</a>
+      <a href="../soporte/" data-en="Support">Soporte</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
+      <a class="idioma" id="idioma" href="../en/screen-recorder/" hreflang="en" lang="en">English</a>
+      <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download">Descargar</span></a>
+      <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
+           y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
+           Un <details> se abre y se cierra sin JavaScript; con leer.js?v=69245323 la píldora de la barra
+           crece hacia abajo con las páginas dentro, y se recoge al elegir, con Escape o tocando fuera. -->
+      <details class="menu">
+        <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span data-en="Menu">Menú</span></summary>
+        <div class="menu-panel">
+          <a href="../#funciones" data-en="Features">Funciones</a>
+          <a href="../#demo" data-en="Try it">Pruébalo</a>
+          <a href="../#comparativa" data-en="Compare">Comparativa</a>
+          <a href="../docs/" data-en="Docs">Guía</a>
+          <a href="../novedades/" data-en="What's new">Novedades</a>
+          <a href="../soporte/" data-en="Support">Soporte</a>
+          <a class="menu-gh" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg><span data-en="The code, on GitHub">El código, en GitHub</span></a>
+        </div>
+      </details>
+    </span>
+  </div>
+</nav>
+
+<main class="leer">
+  <div class="env">
+    <header class="leer-cabeza">
+      <h1 data-en="How to record your screen on Windows">Cómo grabar la pantalla en Windows</h1>
+      <p class="entradilla" data-html data-en="On Windows 11, press &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;R&lt;/kbd&gt; and the Snipping Tool records the area you pick, with nothing to install. In a game or an app, &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Alt&lt;/kbd&gt;+&lt;kbd&gt;R&lt;/kbd&gt; from Xbox Game Bar works too. If you want your webcam on top, zooms on every click or personal data covered up, winshotx does it for free and with no account.">En Windows 11, pulsa <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>R</kbd> y la Herramienta de Recortes graba la zona que elijas, sin instalar nada. En un juego o una app también vale <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd>, de la Xbox Game Bar. Si quieres tu cámara encima, zooms a cada clic o tapar datos personales, winshotx lo hace gratis y sin cuenta.</p>
+      <p class="botones"><a class="btn uno" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download for Windows">Descargar para Windows</span></a></p>
+    </header>
+
+    <div class="leer-rejilla">
+      <nav class="leer-indice" aria-label="En esta página" data-aria-en="On this page">
+        <a href="#windows" data-en="With Windows">Con Windows</a>
+        <a href="#pasos" data-en="With winshotx">Con winshotx</a>
+        <a href="#comparar" data-en="Compare">Comparar</a>
+        <a href="#preguntas" data-en="Questions">Preguntas</a>
+      </nav>
+
+      <div class="texto">
+<section id="windows">
+<h2 data-en="What Windows already includes">Lo que ya trae Windows</h2>
+<p data-en="For a short video every now and then, this is enough:">Para un vídeo corto de vez en cuando, con esto te basta:</p>
+<ul class="lista">
+<li data-html data-en="&lt;b&gt;Snipping Tool, on Windows 11.&lt;/b&gt; Press &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;R&lt;/kbd&gt;, pick the area and select Start. To finish, select Stop and save the video."><b>Herramienta de Recortes, en Windows 11.</b> Pulsa <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>R</kbd>, elige la zona y dale a Iniciar. Para acabar, dale a Detener y guarda el vídeo.</li>
+<li data-html data-en="&lt;b&gt;Xbox Game Bar, on Windows 10 and 11.&lt;/b&gt; Open the game or app and press &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Alt&lt;/kbd&gt;+&lt;kbd&gt;R&lt;/kbd&gt; to start, and again to stop. It records only that game or app."><b>Xbox Game Bar, en Windows 10 y 11.</b> Abre el juego o la app y pulsa <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> para empezar, y otra vez para parar. Graba solo ese juego o esa app.</li>
+</ul>
+</section>
+
+<section id="pasos" class="con-foto">
+<div>
+<h2 data-en="How to record with winshotx">Cómo se graba con winshotx</h2>
+<ol class="lista pasos">
+<li data-html data-en="&lt;b&gt;Install winshotx.&lt;/b&gt; It weighs 3.01 MB, installs for your user only and never shows the administrator prompt."><b>Instala winshotx.</b> Pesa 3,01 MB, se instala solo para tu usuario y nunca sale la ventana de permisos de administrador.</li>
+<li data-html data-en="&lt;b&gt;Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt; and drag over the area.&lt;/b&gt; When you let go of the mouse, it starts recording. To record just one window, leave the mouse over it and press &lt;kbd&gt;W&lt;/kbd&gt;."><b>Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd> y arrastra sobre la zona.</b> Al soltar el ratón, empieza a grabar. Para grabar solo una ventana, deja el ratón encima y pulsa <kbd>W</kbd>.</li>
+<li data-html data-en="&lt;b&gt;Press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;5&lt;/kbd&gt; again to stop.&lt;/b&gt; The editor opens with the whole recording."><b>Pulsa <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd> otra vez para parar.</b> Se abre el editor con la grabación entera.</li>
+<li data-html data-en="&lt;b&gt;Trim and save.&lt;/b&gt; Drag the blue edges of the timeline and press &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;S&lt;/kbd&gt; to export the MP4."><b>Recorta y guarda.</b> Arrastra los bordes azules de la línea de tiempo y pulsa <kbd>Ctrl</kbd>+<kbd>S</kbd> para sacar el MP4.</li>
+</ol>
+<p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span data-html data-en="&lt;b&gt;Missed it?&lt;/b&gt; With the ring on, &lt;kbd&gt;Ctrl&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;6&lt;/kbd&gt; keeps the last 15, 30 or 60 seconds without having pressed record beforehand."><b>¿Se te ha pasado?</b> Con el anillo encendido, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> se queda con los últimos 15, 30 o 60 segundos sin haber dado a grabar antes.</span></p>
+</div>
+<figure><img src="../img/grabar-es.webp?v=be3e70d6" data-src-en="../img/grabar-en.webp?v=734a5392" width="1140" height="720" loading="lazy" alt="Una zona elegida para grabar en vídeo, con su botón rojo de grabar" data-alt-en="An area picked to record as video, with its red record button"></figure>
+</section>
+
+<section id="comparar">
+<h2 data-en="What winshotx adds">Lo que añade winshotx</h2>
+<p data-en="The three of them, row by row, including where Windows wins:">Las tres, fila a fila, y también lo que gana Windows:</p>
+<div class="tabla comparar"><table>
+<thead><tr><th scope="col" data-en="What">Qué</th><th scope="col">winshotx</th><th scope="col" data-en="Snipping Tool">Herramienta de Recortes</th><th scope="col">Xbox Game Bar</th></tr></thead>
+<tbody>
+<tr><th scope="row" data-en="Record MP4 video">Grabar vídeo MP4</th><td data-en="At 15, 30 or 60 fps">A 15, 30 o 60 fps</td><td data-en="Yes">Sí</td><td data-en="Of the game or app">Del juego o la app</td></tr>
+<tr><th scope="row" data-en="PC sound and microphone">Sonido del PC y micrófono</th><td data-en="Each on its own track">Cada uno en su pista</td><td data-en="Yes">Sí</td><td data-en="Yes">Sí</td></tr>
+<tr><th scope="row" data-en="Your webcam on top">Tu cámara encima</th><td data-en="Round or with corners">Redonda o con esquinas</td><td>No</td><td>No</td></tr>
+<tr><th scope="row" data-en="A video with zooms that follow your clicks, and a background">Un vídeo con zooms que siguen a los clics, y su fondo</th><td data-en="Yes, on export">Sí, al exportar</td><td>No</td><td>No</td></tr>
+<tr><th scope="row" data-en="Cover personal data in a video">Tapar datos personales en un vídeo</th><td data-en="Yes">Sí</td><td>No</td><td>No</td></tr>
+<tr><th scope="row" data-en="The last seconds, without pressing record">Los últimos segundos, sin haber dado a grabar</th><td data-en="15, 30 or 60 s">15, 30 o 60 s</td><td>No</td><td data-en="30 s of the game">30 s del juego</td></tr>
+<tr><th scope="row" data-en="Comes with Windows">Viene puesta con Windows</th><td>No</td><td data-en="Yes">Sí</td><td data-en="Yes">Sí</td></tr>
+</tbody>
+</table></div>
+<p data-html data-en="Using something else? See winshotx against &lt;a href=&quot;../alternativa-a-obs-studio/&quot;&gt;OBS Studio&lt;/a&gt;, &lt;a href=&quot;../alternativa-a-xbox-game-bar/&quot;&gt;Xbox Game Bar&lt;/a&gt; or &lt;a href=&quot;../alternativa-a-sharex/&quot;&gt;ShareX&lt;/a&gt;.">¿Usas otro programa? Mira winshotx frente a <a href="../alternativa-a-obs-studio/">OBS Studio</a>, <a href="../alternativa-a-xbox-game-bar/">la Xbox Game Bar</a> o <a href="../alternativa-a-sharex/">ShareX</a>.</p>
+</section>
+
+<section id="preguntas">
+<h2 data-en="Questions">Preguntas</h2>
+<h3 data-en="How do I record my screen on Windows 11 without installing anything?">¿Cómo grabo la pantalla en Windows 11 sin instalar nada?</h3>
+<p data-html data-en="With the Snipping Tool: press &lt;kbd&gt;Win&lt;/kbd&gt;+&lt;kbd&gt;Shift&lt;/kbd&gt;+&lt;kbd&gt;R&lt;/kbd&gt;, pick the area and select Start. To finish, select Stop and save the video.">Con la Herramienta de Recortes: pulsa <kbd>Win</kbd>+<kbd>Mayús</kbd>+<kbd>R</kbd>, elige la zona y dale a Iniciar. Para acabar, dale a Detener y guarda el vídeo.</p>
+<h3 data-en="Does it record PC sound and the microphone?">¿Graba el sonido del PC y el micrófono?</h3>
+<p data-en="Yes: the system audio (whatever the speakers are playing) and your microphone, each recorded on its own track and with its own volume in the editor. Each has its own switch in Settings and either can go alone.">Sí: el audio del sistema (lo que suene por los altavoces) y tu micrófono, cada uno grabado en su propia pista y con su volumen en el editor. Cada uno tiene su interruptor en Ajustes y cualquiera de los dos puede ir solo.</p>
+<h3 data-en="Is winshotx free?">¿Es gratis winshotx?</h3>
+<p data-en="Yes, all of it. It's open source under the MIT licence: the full code is on GitHub, with no time limit and no feature locked behind a payment.">Sí, entero. Es código abierto bajo licencia MIT: el código completo está en GitHub, sin límite de tiempo ni funciones bloqueadas detrás de un pago.</p>
+<h3 data-en="Which versions of Windows does it run on?">¿En qué versiones de Windows funciona?</h3>
+<p data-en="Windows 10 (version 1903 or later) and Windows 11.">Windows 10 (versión 1903 o superior) y Windows 11.</p>
+</section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="pie">
+  <div class="env">
+    <div class="pie-rejilla">
+      <div class="quien">
+        <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+        <p data-en="Screenshots and screen recording for Windows. Free, open source and with no account.">Capturas y grabación de pantalla para Windows. Gratis, de código abierto y sin cuenta.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Product">Producto</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe" data-en="Download">Descargar</a></li>
+          <li><a href="../novedades/" data-en="What's new">Novedades</a></li>
+          <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener" data-en="Portable version">Versión portable</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Help">Ayuda</h2>
+        <ul>
+          <li><a href="../soporte/" data-en="Support">Soporte</a></li>
+          <li><a href="../docs/" data-en="Docs">Guía</a></li>
+          <li><a href="../#preguntas" data-en="Questions">Preguntas</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/issues" rel="noopener" data-en="Report a bug">Avisar de un fallo</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Code">Código</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/blob/main/LICENSE" rel="noopener" data-en="MIT licence">Licencia MIT</a></li>
+          <li><a href="../docs/#agentes" data-en="For AI agents">Para agentes de IA</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="More">Más</h2>
+        <ul>
+          <li><a href="../privacidad/" data-en="Privacy">Privacidad</a></li>
+          <li><a href="https://buymeacoffee.com/munito" rel="noopener" data-en="Buy me a coffee">Invítame a un café</a></li>
+          <li><a class="valvula sin-mov" href="?motion=off" data-en="Fewer animations">Menos animaciones</a><a class="valvula con-mov" href="./" data-en="All animations">Con animaciones</a></li>
+        </ul>
+      </div>
+    </div>
+    <!-- paginas:desde (lo escribe generar-paginas.mjs a partir de paginas.mjs) -->
+    <div class="pie-rejilla pie-paginas">
+      <div>
+        <h2 class="pie-titulo" data-en="How to">Cómo se hace</h2>
+        <ul>
+          <li><a href="../grabar-pantalla/" data-en="Record your screen">Grabar la pantalla</a></li>
+          <li><a href="../captura-de-pantalla/" data-en="Take a screenshot">Hacer una captura</a></li>
+          <li><a href="../grabar-gif/" data-en="Record a GIF">Grabar un GIF</a></li>
+        </ul>
+      </div>
+      <div class="pie-alternativas">
+        <h2 class="pie-titulo" data-en="Alternative to">Alternativa a</h2>
+        <ul>
+          <li><a href="../alternativa-a-herramienta-de-recortes/" data-en="Snipping Tool">Recortes</a></li>
+          <li><a href="../alternativa-a-xbox-game-bar/">Game Bar</a></li>
+          <li><a href="../alternativa-a-sharex/">ShareX</a></li>
+          <li><a href="../alternativa-a-greenshot/">Greenshot</a></li>
+          <li><a href="../alternativa-a-flameshot/">Flameshot</a></li>
+          <li><a href="../alternativa-a-screentogif/">ScreenToGif</a></li>
+          <li><a href="../alternativa-a-obs-studio/">OBS</a></li>
+          <li><a href="../alternativa-a-lightshot/">Lightshot</a></li>
+          <li><a href="../alternativa-a-picpick/">PicPick</a></li>
+          <li><a href="../alternativa-a-snagit/">Snagit</a></li>
+        </ul>
+      </div>
+    </div>
+    <!-- paginas:hasta -->
+    <div class="pie-abajo">
+      <span data-html data-en="© 2026 winshotx · Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt;">© 2026 winshotx · Hecho por <a href="https://munito.dev">Munir Torres</a></span>
+      <span data-en="No accounts, no cloud and no surprises">Sin cuentas, sin nube y sin sorpresas</span>
+    </div>
+  </div>
+</footer>
+
+<script src="../leer.js?v=69245323"></script>
+</body>
+</html>

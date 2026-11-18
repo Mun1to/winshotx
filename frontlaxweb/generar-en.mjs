@@ -16,9 +16,15 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sincronizarCromo } from "./cromo.mjs";
+import { TODAS } from "./paginas.mjs";
+import { comprobarPaginas } from "./comprobar-paginas.mjs";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const BASE = "https://winshotx.com/";
+
+// Lo primero, las páginas por problema y las «alternativa a»: escriben su bloque en el pie de
+// la portada, y todo lo de abajo copia ese pie.
+const { NUEVAS } = await import("./generar-paginas.mjs");
 
 // Primero la página de novedades, que sale de novedades/versiones.json. Así el despliegue,
 // que corre este script y para si algo cambia, también se entera de un JSON tocado sin
@@ -77,6 +83,10 @@ function traducir(html) {
   // cambian de nombre. Los absolutos los pone cada página.
   html = html.replace(/href="((?:\.\.\/)*)novedades\/(#[^"]*)?"/g, 'href="$1changelog/$2"');
   html = html.replace(/href="((?:\.\.\/)*)soporte\/(#[^"]*)?"/g, 'href="$1support/$2"');
+  // Y las páginas por problema y las «alternativa a», cada una con su nombre inglés.
+  for (const p of TODAS) {
+    html = html.replace(new RegExp(`href="((?:\\.\\./)*)${p.es}/(#[^"]*)?"`, "g"), `href="$1${p.en}/$2"`);
+  }
 
   html = html.replace('<html lang="es">', '<html lang="en">');
   html = html.replace('<meta property="og:locale" content="es_ES">', '<meta property="og:locale" content="en_US">');
@@ -153,8 +163,10 @@ function construirFaq(html, idioma) {
   const seccion = html.match(/<section id="preguntas"[^>]*>([\s\S]*?)<\/section>/);
   if (!seccion) throw new Error("no aparece la seccion de preguntas");
 
+  // Las marcas de dentro de una respuesta (un enlace, una tecla) van pegadas a su texto: con un
+  // espacio en su lugar salía «Ctrl + Shift + 5 , arrastra».
   const soloTexto = (s) =>
-    desescapar(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    desescapar(s.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
 
   // docs/ enseña el FAQ como h3+p sueltos; la portada lo mete en un acordeón animado
   // con el chevron y el <div class="faq-cajon"> de por medio. Cualquier cosa entre el
@@ -328,6 +340,35 @@ const PAGINAS = [
         '<a class="idioma" id="idioma" href="../../novedades/" hreflang="es" lang="es">Español</a>',
     },
   },
+  // Las que escribe generar-paginas.mjs: los mismos cambios para todas, con sus textos.
+  ...NUEVAS.map((p) => {
+    const attr = (s) => s.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    const [es, en] = [`${BASE}${p.es}/`, `${BASE}en/${p.en}/`];
+    return {
+      origen: join(p.es, "index.html"),
+      destino: ["en", p.en, "index.html"],
+      propios: {
+        [`<link rel="canonical" href="${es}">`]: `<link rel="canonical" href="${en}">`,
+        [`<meta property="og:url" content="${es}">`]: `<meta property="og:url" content="${en}">`,
+        [`<meta name="description" content="${attr(p.descripcion.es)}">`]: `<meta name="description" content="${attr(p.descripcion.en)}">`,
+        [`<meta property="og:title" content="${attr(p.titulo.es)}">`]: `<meta property="og:title" content="${attr(p.titulo.en)}">`,
+        [`<meta property="og:description" content="${attr(p.descripcion.es)}">`]: `<meta property="og:description" content="${attr(p.descripcion.en)}">`,
+        [`<meta name="twitter:title" content="${attr(p.titulo.es)}">`]: `<meta name="twitter:title" content="${attr(p.titulo.en)}">`,
+        [`<meta name="twitter:description" content="${attr(p.descripcion.es)}">`]: `<meta name="twitter:description" content="${attr(p.descripcion.en)}">`,
+        [`"item": "${BASE}" }`]: `"item": "${BASE}en/" }`,
+        [`"name": ${JSON.stringify(p.miga.es)}, "item": "${es}" }`]: `"name": ${JSON.stringify(p.miga.en)}, "item": "${en}" }`,
+        'src="../img/': 'src="../../img/',
+        'href="../logo.svg': 'href="../../logo.svg',
+        'href="../favicon.ico': 'href="../../favicon.ico',
+        'href="../apple-touch-icon.png': 'href="../../apple-touch-icon.png',
+        'href="../estilos.css?v=': 'href="../../estilos.css?v=',
+        'src="../leer.js?v=': 'src="../../leer.js?v=',
+        '<a href="../privacidad/">Privacy</a>': '<a href="../privacy/">Privacy</a>',
+        [`<a class="idioma" id="idioma" href="../en/${p.en}/" hreflang="en" lang="en">English</a>`]:
+          `<a class="idioma" id="idioma" href="../../${p.es}/" hreflang="es" lang="es">Español</a>`,
+      },
+    };
+  }),
 ];
 
 /** Que claves de ATRIBUTOS ha encontrado de verdad alguna pagina. */
@@ -385,5 +426,12 @@ if (huerfanas.length) {
   console.error("Estas frases ya no estan en el HTML espannol, asi que su traduccion no se aplica:");
   for (const es of huerfanas) console.error(`  ${es}`);
   console.error("Cambia la clave en ATRIBUTOS por el texto que hay ahora, o quitala.");
+  process.exit(1);
+}
+
+// Y las páginas nuevas, ya en los dos idiomas: una que no cumpla no se publica.
+const { fallos } = await comprobarPaginas(aqui);
+if (fallos.length) {
+  for (const fallo of fallos) console.error(`MAL ${fallo}`);
   process.exit(1);
 }

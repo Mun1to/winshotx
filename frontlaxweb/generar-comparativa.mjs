@@ -16,6 +16,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HERRAMIENTAS, FILAS, TEXTOS } from "./comparativa.mjs";
+import { ALTERNATIVAS } from "./paginas.mjs";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const OTRAS = HERRAMIENTAS.filter((h) => h.id !== "wx");
@@ -149,8 +150,13 @@ ${pierde.map((f) => linea(f, true)).join("\n") || `              ${el("li", 'cla
 }
 
 function panel(rival) {
+  // Cada pestaña lleva a la página entera de esa herramienta (generar-paginas.mjs).
+  const pagina = ALTERNATIVAS.find((a) => a.id === rival.id);
+  // Con el nombre corto de la pestaña: un botón no se parte en dos renglones, tampoco a 360 px.
+  const boton = dos((L) => `${L === "es" ? "Comparar con" : "Compare with"} ${nombre(rival, L, true)}`);
   return `      <div class="frente" id="frente-${rival.id}">
 ${rival.id === "recortes" ? `${medidas()}\n` : ""}${frenteDos(rival)}
+        <div class="botones frente-pagina">${el("a", `class="btn dos" href="${pagina.es}/"`, boton)}</div>
       </div>`;
 }
 

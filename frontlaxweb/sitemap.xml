@@ -91,4 +91,240 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/support/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/soporte/"/>
   </url>
+  <!-- paginas:desde (lo escribe generar-paginas.mjs) -->
+  <url>
+    <loc>https://winshotx.com/grabar-pantalla/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-pantalla/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screen-recorder/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/grabar-pantalla/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/screen-recorder/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-pantalla/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screen-recorder/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/grabar-pantalla/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/captura-de-pantalla/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/captura-de-pantalla/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screenshot/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/captura-de-pantalla/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/screenshot/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/captura-de-pantalla/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screenshot/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/captura-de-pantalla/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/grabar-gif/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-gif/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screen-to-gif/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/grabar-gif/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/screen-to-gif/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-gif/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screen-to-gif/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/grabar-gif/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-herramienta-de-recortes/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-herramienta-de-recortes/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/snipping-tool-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-herramienta-de-recortes/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/snipping-tool-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-herramienta-de-recortes/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/snipping-tool-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-herramienta-de-recortes/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-xbox-game-bar/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-xbox-game-bar/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/xbox-game-bar-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-xbox-game-bar/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/xbox-game-bar-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-xbox-game-bar/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/xbox-game-bar-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-xbox-game-bar/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-sharex/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-sharex/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/sharex-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-sharex/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/sharex-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-sharex/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/sharex-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-sharex/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-greenshot/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-greenshot/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/greenshot-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-greenshot/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/greenshot-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-greenshot/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/greenshot-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-greenshot/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-flameshot/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-flameshot/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/flameshot-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-flameshot/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/flameshot-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-flameshot/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/flameshot-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-flameshot/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-screentogif/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-screentogif/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screentogif-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-screentogif/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/screentogif-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-screentogif/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/screentogif-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-screentogif/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-obs-studio/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-obs-studio/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/obs-studio-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-obs-studio/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/obs-studio-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-obs-studio/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/obs-studio-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-obs-studio/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-lightshot/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-lightshot/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/lightshot-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-lightshot/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/lightshot-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-lightshot/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/lightshot-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-lightshot/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-picpick/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-picpick/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/picpick-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-picpick/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/picpick-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-picpick/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/picpick-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-picpick/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/alternativa-a-snagit/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-snagit/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/snagit-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-snagit/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/snagit-alternative/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/alternativa-a-snagit/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/snagit-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/alternativa-a-snagit/"/>
+  </url>
+  <!-- paginas:hasta -->
 </urlset>
