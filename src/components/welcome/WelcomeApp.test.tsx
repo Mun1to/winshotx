@@ -148,6 +148,7 @@ describe("lo que hace cada paso", () => {
 
 describe("el dibujo de la barra de tareas de Windows", () => {
   const barraDeWindows = () => document.querySelector('[data-dibujo="winshotx-en-la-bandeja"]');
+  const dibujoDeLaZona = () => document.querySelector('[data-dibujo="seleccion"]');
   const irAlFinal = async () => {
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Listo" }));
     await screen.findByRole("heading", { name: "Listo, ya puedes capturar" });
@@ -156,19 +157,21 @@ describe("el dibujo de la barra de tareas de Windows", () => {
   it("en Windows sale en el primer paso", async () => {
     await abrir();
     expect(barraDeWindows()).not.toBeNull();
+    expect(dibujoDeLaZona()).not.toBeNull();
   });
 
-  it("en Linux con X11 no sale ni en las teclas ni al final", async () => {
+  it("en Linux con X11 se dibuja la zona, sin la barra ni en las teclas ni al final", async () => {
     responde("plataforma", { sistema: "linux", wayland: false });
     await abrir();
     await screen.findByRole("heading", { name: "winshotx ya está en marcha" });
     await waitFor(() => expect(screen.queryByRole("button", { name: "Impr Pant" })).toBeNull());
     expect(barraDeWindows()).toBeNull();
+    expect(dibujoDeLaZona()).not.toBeNull();
     await irAlFinal();
     expect(barraDeWindows()).toBeNull();
   });
 
-  it("en Wayland tampoco", async () => {
+  it("en Wayland, igual", async () => {
     responde("plataforma", { sistema: "linux", wayland: true });
     responde("teclas_del_escritorio", {
       capture: { texto: "Press <Shift><Control>2", atajo: "CmdOrCtrl+Shift+Digit2" },
@@ -179,6 +182,7 @@ describe("el dibujo de la barra de tareas de Windows", () => {
     await abrir();
     await screen.findByText("Capturar y abrir el editor");
     expect(barraDeWindows()).toBeNull();
+    expect(dibujoDeLaZona()).not.toBeNull();
     await irAlFinal();
     expect(barraDeWindows()).toBeNull();
   });

@@ -330,7 +330,7 @@ function Escenario({
   frases,
 }: {
   titulo: string;
-  /** En Linux no se pasa: el de las teclas pinta la barra de tareas de Windows. */
+  /** El último paso de Linux no lo lleva: el suyo pinta la bandeja de Windows. */
   dibujo?: ReactNode;
   frases: ReactNode[];
 }) {
@@ -566,7 +566,7 @@ function Atajos({
       derecha={
         <Escenario
           titulo={t("Lo que vas a ver")}
-          dibujo={enLinux ? undefined : <DibujoAtajos />}
+          dibujo={<DibujoAtajos conBarra={!enLinux} />}
           frases={[
             <ConNegrita
               key="c"
@@ -658,6 +658,7 @@ function AtajosEnWayland({
       derecha={
         <Escenario
           titulo={t("Lo que vas a ver")}
+          dibujo={<DibujoAtajos conBarra={false} />}
           frases={[
             t("Pulsa el atajo cuando quieras"),
             t("Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir."),
