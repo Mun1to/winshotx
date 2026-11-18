@@ -719,9 +719,8 @@ pub fn precrear_overlays(app: &AppHandle) {
         let Ok(window) = build_overlay_window(app, &label, monitor.id) else {
             continue;
         };
-        // En Wayland no hay «fuera de las pantallas»: el escritorio ignora la posicion y la
-        // ventana aparcada salia a la vista, en negro. Alli se crea escondida y punto.
-        if en_wayland() {
+        // En Linux se crea escondida y punto: ver `SE_PUEDE_APARCAR`.
+        if !SE_PUEDE_APARCAR {
             continue;
         }
         // Aparcada fuera de las pantallas y ENSENNADA, no escondida.
@@ -744,6 +743,13 @@ pub fn precrear_overlays(app: &AppHandle) {
 fn intencion_del_portal(error: &crate::error::AppError) -> bool {
     error.to_string().contains("Portal request didn't succeed")
 }
+
+/// Si una ventana colocada fuera de las pantallas deja de verse de verdad.
+///
+/// Solo en Windows. En Wayland el escritorio ignora la posicion y la ventana salia a la vista,
+/// en negro. En X11 el gestor de ventanas la devuelve hasta dejar un trozo dentro: con openbox,
+/// los 100 pixeles de abajo del overlay se quedaban arriba de la pantalla, con la foto congelada.
+const SE_PUEDE_APARCAR: bool = cfg!(windows);
 
 /// Si las ventanas van por Wayland, donde ninguna app puede colocar las suyas.
 fn en_wayland() -> bool {
@@ -789,9 +795,8 @@ pub fn close_overlays(app: &AppHandle) {
         else {
             continue;
         };
-        // En Wayland, escondida de verdad: aparcarla no la saca de la pantalla (ver
-        // `precrear_overlays`).
-        if en_wayland() {
+        // En Linux, escondida de verdad: aparcarla no la saca de la pantalla.
+        if !SE_PUEDE_APARCAR {
             let _ = window.hide();
             continue;
         }
