@@ -328,7 +328,10 @@ pub async fn historial_abrir(app: AppHandle, ruta: String) -> Result<()> {
             .arg(&ruta)
             .spawn()?;
     }
-    #[cfg(not(windows))]
+    // El visor o el reproductor que tenga puesto el escritorio: lo decide `xdg-open`.
+    #[cfg(target_os = "linux")]
+    crate::platform::xdg::abrir(ruta.as_os_str())?;
+    #[cfg(not(any(windows, target_os = "linux")))]
     let _ = ruta;
     Ok(())
 }
