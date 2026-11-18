@@ -330,14 +330,15 @@ function Escenario({
   frases,
 }: {
   titulo: string;
-  dibujo: ReactNode;
+  /** En Linux no se pasa: el de las teclas pinta la barra de tareas de Windows. */
+  dibujo?: ReactNode;
   frases: ReactNode[];
 }) {
   return (
     <figure className="flex h-full flex-col justify-center rounded-xl bg-tarjeta px-5 py-5">
       <figcaption className="mb-4 text-[15px] font-bold text-titulo">{titulo}</figcaption>
       {dibujo}
-      <ul className="mt-4 space-y-2 text-[14px] leading-snug text-texto">
+      <ul className={`${dibujo ? "mt-4 " : ""}space-y-2 text-[14px] leading-snug text-texto`}>
         {frases.map((frase, i) => (
           <li key={i} className="flex gap-2.5">
             <span aria-hidden="true" className="mt-[7px] size-[5px] shrink-0 rounded-full bg-marca" />
@@ -565,7 +566,7 @@ function Atajos({
       derecha={
         <Escenario
           titulo={t("Lo que vas a ver")}
-          dibujo={<DibujoAtajos />}
+          dibujo={enLinux ? undefined : <DibujoAtajos />}
           frases={[
             <ConNegrita
               key="c"
@@ -657,7 +658,6 @@ function AtajosEnWayland({
       derecha={
         <Escenario
           titulo={t("Lo que vas a ver")}
-          dibujo={<DibujoAtajos />}
           frases={[
             t("Pulsa el atajo cuando quieras"),
             t("Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir."),
@@ -852,10 +852,9 @@ function Final({
       }
       derecha={
         enLinux ? (
-          // El dibujo de la bandeja es la de Windows, y en GNOME ni siquiera hay bandeja.
+          // Sin dibujo: los que hay pintan la bandeja de Windows, y en GNOME ni siquiera hay bandeja.
           <Escenario
             titulo={t("Lo que vas a ver")}
-            dibujo={<DibujoAtajos />}
             frases={[t("Pulsa el atajo cuando quieras. Los ajustes se abren desde winshotx en el menú de aplicaciones.")]}
           />
         ) : (

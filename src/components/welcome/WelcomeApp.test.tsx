@@ -146,6 +146,44 @@ describe("lo que hace cada paso", () => {
   });
 });
 
+describe("el dibujo de la barra de tareas de Windows", () => {
+  const barraDeWindows = () => document.querySelector('[data-dibujo="winshotx-en-la-bandeja"]');
+  const irAlFinal = async () => {
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Listo" }));
+    await screen.findByRole("heading", { name: "Listo, ya puedes capturar" });
+  };
+
+  it("en Windows sale en el primer paso", async () => {
+    await abrir();
+    expect(barraDeWindows()).not.toBeNull();
+  });
+
+  it("en Linux con X11 no sale ni en las teclas ni al final", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrir();
+    await screen.findByRole("heading", { name: "winshotx ya está en marcha" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Impr Pant" })).toBeNull());
+    expect(barraDeWindows()).toBeNull();
+    await irAlFinal();
+    expect(barraDeWindows()).toBeNull();
+  });
+
+  it("en Wayland tampoco", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", {
+      capture: { texto: "Press <Shift><Control>2", atajo: "CmdOrCtrl+Shift+Digit2" },
+      edit: null,
+      aMano: false,
+      orden: "winshotx",
+    });
+    await abrir();
+    await screen.findByText("Capturar y abrir el editor");
+    expect(barraDeWindows()).toBeNull();
+    await irAlFinal();
+    expect(barraDeWindows()).toBeNull();
+  });
+});
+
 describe("el aspecto de la 0.5", () => {
   /**
    * Lo que se escribe en el código de la bienvenida, no lo que pinta: el campo de los atajos
