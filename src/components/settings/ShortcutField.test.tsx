@@ -47,3 +47,76 @@ describe("el campo del atajo", () => {
     expect(screen.getByRole("button", { name: "Ctrl Shift S" })).toBeInTheDocument();
   });
 });
+
+/**
+ * Los eventos son los medidos en WebKitGTK con la tecla de verdad, en X11 y en GNOME Wayland:
+ * la tecla del logo se llama `Super`, su código es `OSLeft` y `metaKey` no se enciende nunca.
+ */
+describe("la tecla Super en WebKitGTK", () => {
+  beforeEach(() => aplicarIdioma("es"));
+
+  const SUPER = { key: "Super", code: "OSLeft" };
+  const SHIFT = { key: "Shift", code: "ShiftLeft", shiftKey: true };
+
+  function escuchando() {
+    const onChange = vi.fn();
+    render(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button"));
+    return onChange;
+  }
+
+  it("Super, Mayús y K se guardan como Super+Shift+KeyK", () => {
+    const onChange = escuchando();
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.keyDown(window, SHIFT);
+    fireEvent.keyDown(window, { key: "K", code: "KeyK", shiftKey: true });
+    expect(onChange).toHaveBeenCalledWith("Super+Shift+KeyK");
+  });
+
+  it("apretadas al revés, Mayús primero, es el mismo atajo", () => {
+    const onChange = escuchando();
+    fireEvent.keyDown(window, SHIFT);
+    fireEvent.keyDown(window, { ...SUPER, shiftKey: true });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "K", code: "KeyK", shiftKey: true });
+    expect(onChange).toHaveBeenCalledWith("Super+Shift+KeyK");
+  });
+
+  it("Super y una letra, sin nada más, ya es un atajo", () => {
+    const onChange = escuchando();
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.keyDown(window, { key: "k", code: "KeyK" });
+    expect(onChange).toHaveBeenCalledWith("Super+KeyK");
+  });
+
+  it("la Super de la derecha cuenta igual", () => {
+    const onChange = escuchando();
+    fireEvent.keyDown(window, { key: "Super", code: "OSRight" });
+    fireEvent.keyDown(window, { key: "k", code: "KeyK" });
+    expect(onChange).toHaveBeenCalledWith("Super+KeyK");
+  });
+
+  it("una vez suelta, deja de contar", () => {
+    const onChange = escuchando();
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.keyUp(window, SUPER);
+    fireEvent.keyDown(window, { key: "k", code: "KeyK", ctrlKey: true });
+    expect(onChange).toHaveBeenCalledWith("CmdOrCtrl+KeyK");
+  });
+
+  it("si el escritorio se lleva el foco, no se queda pegada", () => {
+    // Super sola abre las actividades de GNOME: llega el keydown, luego blur y nunca el keyup.
+    const onChange = escuchando();
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.blur(window);
+    fireEvent.keyDown(window, { key: "k", code: "KeyK", ctrlKey: true });
+    expect(onChange).toHaveBeenCalledWith("CmdOrCtrl+KeyK");
+  });
+
+  it("en Windows la tecla del logo sigue guardándose igual", () => {
+    const onChange = escuchando();
+    fireEvent.keyDown(window, { key: "Meta", code: "MetaLeft", metaKey: true });
+    fireEvent.keyDown(window, { key: "S", code: "KeyS", metaKey: true, shiftKey: true });
+    expect(onChange).toHaveBeenCalledWith("Super+Shift+KeyS");
+  });
+});
