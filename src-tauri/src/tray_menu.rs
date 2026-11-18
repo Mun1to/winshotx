@@ -255,7 +255,14 @@ pub fn esconder(app: &AppHandle) {
 /// **Se vuelve a poner como estaba al terminar**, y no da igual: el temporizador de la
 /// captura existe justo para fotografiar menus abiertos, y un menu que se quedara excluido
 /// saldria en blanco en la foto sin que ningun error lo dijera.
+///
+/// **Solo si esta a la vista** (issue #15, 16-nov): cambiarsela al menu escondido dejaba un
+/// recuadro en blanco en su sitio al parar cualquier grabacion. Escondido no hace falta:
+/// `mostrar` la pone en cada apertura.
 pub fn fuera_de_la_grabacion(app: &AppHandle, grabando: bool) {
+    if !crate::platform::window_style::a_la_vista(MENU.load(Ordering::Relaxed)) {
+        return;
+    }
     if let Some(window) = app.get_webview_window(TRAY_MENU_LABEL) {
         crate::platform::window_style::fuera_de_la_captura(&window, grabando);
     }
@@ -334,14 +341,16 @@ fn mostrar(app: &AppHandle, anclaje: (i32, i32)) -> Result<()> {
     ESPERANDO_NUEVA.store(nueva, Ordering::Relaxed);
     ESPERANDO.store(apertura, Ordering::Relaxed);
     let _ = window.set_position(PhysicalPosition::new(APARCADO.0, APARCADO.1));
+    crate::platform::guardia::permitir(MENU.load(Ordering::Relaxed));
+    window.show()?;
     // La ventana se reutiliza de una vez para otra, asi que esto se decide cada vez que se
-    // abre y no al crearla: grabando, fuera del video; el resto del tiempo, normal.
+    // abre y no al crearla: grabando, fuera del video; el resto del tiempo, normal. Ya a la
+    // vista y aparcado fuera de las pantallas: cambiada escondida dejaba un recuadro blanco
+    // en su ultimo sitio (issue #15, ver `window_style::a_la_vista`).
     crate::platform::window_style::fuera_de_la_captura(
         &window,
         app.state::<crate::state::AppState>().is_recording(),
     );
-    crate::platform::guardia::permitir(MENU.load(Ordering::Relaxed));
-    window.show()?;
     window.set_focus()?;
     if !nueva {
         // Que vuelva a leer el estado (el anillo puede haberse encendido desde los ajustes)

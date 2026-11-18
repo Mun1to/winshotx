@@ -177,6 +177,19 @@ pub struct Settings {
     /// La marimba al empezar a grabar (`platform::sonido::sonar_al_empezar`). Suena y acaba
     /// antes de abrir la captura de sonido, así que no queda dentro del vídeo.
     pub sonido_al_empezar: bool,
+    // S40 (tamaño fijo)
+    /// El tamaño de la ventana de ajustes si alguien la ha estirado a mano, en px lógicos.
+    /// `None` es el de serie (`src/lib/ventanaFija.ts`). Solo lo cambia
+    /// `guardar_ventana_ajustes`: la ventana manda los ajustes de cuando se abrió y no puede
+    /// pisarlo con un `None` viejo.
+    pub ventana_ajustes: Option<TamanoVentana>,
+}
+
+/// Lo que mide una ventana por dentro, en px lógicos (los de la escala 100 %).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TamanoVentana {
+    pub ancho: u32,
+    pub alto: u32,
 }
 
 impl Default for Settings {
@@ -232,6 +245,8 @@ impl Default for Settings {
             // S10 (sonidos)
             // Encendido: es como se sabe, sin mirar, que ya está grabando.
             sonido_al_empezar: true,
+            // S40 (tamaño fijo)
+            ventana_ajustes: None,
         }
     }
 }
@@ -358,6 +373,22 @@ pub fn save(app: &AppHandle, settings: &Settings) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// S40: quien viene de la 0.5.0 no trae tamaño guardado y abre al de serie; y el que se
+    /// guarda va y vuelve tal cual, con el nombre que lee el frontend.
+    #[test]
+    fn el_tamanno_de_la_ventana_de_ajustes_se_lee_y_se_guarda() {
+        let viejos: Settings =
+            serde_json::from_value(serde_json::json!({ "captureShortcut": "Alt+KeyX" })).unwrap();
+        assert_eq!(viejos.ventana_ajustes, None);
+
+        let mut settings = Settings::default();
+        settings.ventana_ajustes = Some(TamanoVentana { ancho: 1000, alto: 760 });
+        let json = serde_json::to_value(&settings).unwrap();
+        assert_eq!(json["ventanaAjustes"], serde_json::json!({ "ancho": 1000, "alto": 760 }));
+        let vuelta: Settings = serde_json::from_value(json).unwrap();
+        assert_eq!(vuelta.ventana_ajustes, Some(TamanoVentana { ancho: 1000, alto: 760 }));
+    }
 
     /// Quien actualice desde una version sin la tecla del editor tiene que encontrarsela
     /// puesta, no vacia: un atajo en blanco no se registra y la funcion no existiria.

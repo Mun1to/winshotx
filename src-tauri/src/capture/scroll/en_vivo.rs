@@ -405,7 +405,9 @@ fn entregar(app: &AppHandle, imagen: &RgbaImage, region: Rect) {
         .settings
         .read()
         .play_sound;
-    if con_sonido {
+    // Grabando, sin obturador: se colaria en el sonido del video (16-nov).
+    let grabando = app.state::<crate::state::AppState>().is_recording();
+    if con_sonido && !grabando {
         crate::platform::sonido::obturador();
     }
     let zona = Rect {

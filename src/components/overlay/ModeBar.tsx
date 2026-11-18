@@ -1,6 +1,7 @@
-import { Camera, Monitor, PanelBottom, ScrollText, Settings, Video, X } from "lucide-react";
+import { Camera, Monitor, PanelBottom, Ratio, ScrollText, Settings, Video, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { useT } from "../../lib/i18n";
+import { siguienteProporcion, type Proporcion } from "../../lib/proporcion";
 
 /**
  * Como reconoce el lienzo un gesto que nace en la barra.
@@ -26,6 +27,14 @@ interface Props {
    */
   conScroll?: boolean;
   onConScroll?: (valor: boolean) => void;
+  /**
+   * La proporción fija del recorte. El botón pasa a la siguiente, como la X, y enseña la
+   * que va puesta. Sin `onProporcion` no sale.
+   */
+  proporcion?: Proporcion;
+  onProporcion?: (valor: Proporcion) => void;
+  /** Grabando: solo fotos, sin Vídeo ni GIF (otra grabación no puede empezar). */
+  soloFoto?: boolean;
   /** Abre los ajustes de winshotx, cerrando la captura. */
   onAjustes: () => void;
   onCancel: () => void;
@@ -53,6 +62,9 @@ export function ModeBar({
   onConBarra,
   conScroll = false,
   onConScroll,
+  proporcion = "libre",
+  onProporcion,
+  soloFoto = false,
   onAjustes,
   onCancel,
   dimmed,
@@ -79,23 +91,27 @@ export function ModeBar({
           <Camera className="size-[19px]" />
         </Boton>
 
-        <Boton
-          activo={value === "video"}
-          onClick={() => onChange("video")}
-          etiqueta="Vídeo"
-          titulo="Grabar el recorte en MP4 · V"
-        >
-          <Video className="size-[19px]" />
-        </Boton>
+        {!soloFoto && (
+          <>
+            <Boton
+              activo={value === "video"}
+              onClick={() => onChange("video")}
+              etiqueta="Vídeo"
+              titulo="Grabar el recorte en MP4 · V"
+            >
+              <Video className="size-[19px]" />
+            </Boton>
 
-        <Boton
-          activo={value === "gif"}
-          onClick={() => onChange("gif")}
-          etiqueta="GIF"
-          titulo="Grabar el recorte en GIF · G"
-        >
-          <IconoGif />
-        </Boton>
+            <Boton
+              activo={value === "gif"}
+              onClick={() => onChange("gif")}
+              etiqueta="GIF"
+              titulo="Grabar el recorte en GIF · G"
+            >
+              <IconoGif />
+            </Boton>
+          </>
+        )}
 
         <span className="mx-1 h-6 w-px bg-white/10" />
 
@@ -121,6 +137,30 @@ export function ModeBar({
             titulo="Captura con scroll: baja la página y la junta en una imagen · S"
           >
             <ScrollText className="size-[19px]" />
+          </Boton>
+        )}
+
+        {/* La forma del recorte, también del mismo eje: libre, 16:9, 1:1, 9:16 o 4:3. Libre
+            lleva el dibujo; puesta, la propia proporción en letra, porque cinco rectángulos
+            casi iguales no se distinguen a 19 px y «9:16» se lee de un vistazo. Cabe en el
+            mismo botón cuadrado, así que la barra no cambia de ancho al pasar de una a otra.
+            Vale en foto y grabando, así que no se esconde con el modo; con scroll sí, porque
+            lo cosido mide lo que mida la página. */}
+        {onProporcion && !conScroll && (
+          <Boton
+            activo={proporcion !== "libre"}
+            onClick={() => onProporcion(siguienteProporcion(proporcion))}
+            etiqueta="Proporción del recorte"
+            titulo="Proporción del recorte: {cual} · X"
+            vars={{ cual: proporcion === "libre" ? t("libre") : proporcion }}
+          >
+            {proporcion === "libre" ? (
+              <Ratio className="size-[19px]" />
+            ) : (
+              <span className="text-[13px] leading-none font-semibold tracking-tight tabular-nums">
+                {proporcion}
+              </span>
+            )}
           </Boton>
         )}
 
@@ -209,12 +249,15 @@ function Boton({
   onClick,
   etiqueta,
   titulo,
+  vars,
   children,
 }: {
   activo: boolean;
   onClick: () => void;
   etiqueta: string;
   titulo: string;
+  /** Lo que cambia dentro del `titulo`, como en `t`. */
+  vars?: Record<string, string>;
   children: React.ReactNode;
 }) {
   const t = useT();
@@ -222,7 +265,7 @@ function Boton({
     <button
       type="button"
       onClick={onClick}
-      title={t(titulo)}
+      title={t(titulo, vars)}
       aria-label={t(etiqueta)}
       aria-pressed={activo}
       className={`flex size-9 items-center justify-center rounded-xl transition-colors ${

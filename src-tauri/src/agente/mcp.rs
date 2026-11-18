@@ -290,7 +290,7 @@ computer. To make a video: pick what to record with screens or windows, call rec
 do what you want to show, call record_stop, then export to an .mp4 or .gif file (or \
 open_in_editor so the person can polish it). For a screenshot, call capture. Coordinates \
 are physical pixels of the virtual desktop, the same ones screens and windows return. A \
-recording is always visible to the person at the computer (a red frame and a small bar), \
+recording is always visible to the person at the computer (a frame and a small bar), \
 and nothing plays a sound unless you pass cue: true. The screen can show private things: \
 record and capture only what the person asked for. If winshotx is not running, the first \
 call starts it in the background and takes a few seconds longer.";
@@ -494,7 +494,7 @@ fn herramientas() -> Value {
             "description": format!("Start recording a screen, a window or a region. \
                 {target} It returns once the recording has really started (after the webcam \
                 warms up, if it is on) with {{ok, session}}; keep the session id for export. \
-                The person at the computer sees winshotx's usual red frame and recording bar, \
+                The person at the computer sees winshotx's usual frame and recording bar, \
                 on purpose. Only one recording can run at a time. Then do what you want to \
                 show and call record_stop."),
             "inputSchema": esquema(objetivo(), json!({

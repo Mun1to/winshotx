@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { MuestraCamara, StudioData } from "../../lib/types";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
+import type { Recorte } from "../../lib/recorte";
 import { medidasDeLupa, ventanaDelZoom } from "../../lib/zooms";
 import { useT } from "../../lib/i18n";
 import {
@@ -48,6 +49,11 @@ interface Props {
    * dibuja se mide sobre la captura entera y con la cámara acercada caería en otro sitio.
    */
   sinEncuadre?: boolean;
+  /**
+   * El trozo recortado, si la vista enseña solo eso (`vistaDelEditor`). La capa sigue midiendo
+   * la captura entera, como el vídeo, pero lo que se ve, y donde se dibuja, es ese trozo.
+   */
+  ventana?: Recorte | null;
   /** Los bloques de la pista de zooms: de aquí salen las lupas que se pintan encima. */
   zooms?: TramoZoom[];
   /**
@@ -94,6 +100,7 @@ export function CapaEstudio({
   msParado,
   reproduciendo,
   sinEncuadre = false,
+  ventana = null,
   zooms = [],
   elegido = null,
   onPunto,
@@ -120,8 +127,8 @@ export function CapaEstudio({
   /** Cuándo se movió el ratón, sacado una vez: con ello se sabe cuánto lleva quieto. */
   const movs = useMemo(() => movimientos(datos?.cursor ?? []), [datos]);
   // Lo último que se sabe, para que el bucle no tenga que reengancharse a cada cambio.
-  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando, edicion });
-  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando, edicion };
+  const estado = useRef({ datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, ventana, imagenes, movs, lupas, colocando, edicion });
+  estado.current = { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, ventana, imagenes, movs, lupas, colocando, edicion };
 
   useEffect(() => {
     let vivo = true;
@@ -132,33 +139,41 @@ export function CapaEstudio({
       peticion = requestAnimationFrame(pintar);
       const canvas = lienzo.current;
       const video = videoRef.current;
-      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, imagenes, movs, lupas, colocando, edicion } =
+      const { datos, camara, estudio, ancho, alto, msParado, reproduciendo, sinEncuadre, ventana, imagenes, movs, lupas, colocando, edicion } =
         estado.current;
       // Lo del cursor (S7): el suavizado elegido manda sobre el interruptor de antes.
       const suavizado = edicion?.suavizado ?? (estudio.suave ? "poco" : "nada");
       const estela = Math.min(1, Math.max(0, edicion?.estela ?? 0));
       if (!canvas) return;
 
+      // El canvas cubre lo que se ve: la imagen entera, o el trozo recortado (`ventana`). Todo
+      // lo que se dibuja va ahí, como en el archivo. W y H son la captura entera a esa escala,
+      // que es lo que mide la caja del vídeo.
       const caja = canvas.getBoundingClientRect();
-      const W = Math.max(1, Math.round(caja.width));
-      const H = Math.max(1, Math.round(caja.height));
+      const Wv = Math.max(1, Math.round(caja.width));
+      const Hv = Math.max(1, Math.round(caja.height));
+      const vista = ventana ?? { x1: 0, y1: 0, x2: 1, y2: 1 };
+      const W = Wv / Math.max(0.001, vista.x2 - vista.x1);
+      const H = Hv / Math.max(0.001, vista.y2 - vista.y1);
       const dpr = window.devicePixelRatio || 1;
-      if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
-        canvas.width = W * dpr;
-        canvas.height = H * dpr;
+      if (canvas.width !== Wv * dpr || canvas.height !== Hv * dpr) {
+        canvas.width = Wv * dpr;
+        canvas.height = Hv * dpr;
       }
 
       const ms = reproduciendo && video ? video.currentTime * 1000 : msParado;
       // La cámara la pide el editor solo cuando hay algo que acercar (el zoom de los clics,
-      // la tecla de zoom o un bloque de la pista): sin muestras, la imagen entera.
-      const encuadre = camara.length > 0 && !sinEncuadre && !colocando ? encuadreEn(camara, ms) : null;
+      // la tecla de zoom o un bloque de la pista): sin muestras, la imagen entera, o el
+      // trozo recortado.
+      const deLaCamara = camara.length > 0 && !sinEncuadre && !colocando ? encuadreEn(camara, ms) : null;
+      const encuadre = deLaCamara ?? ventana;
       if (video) {
-        const css = transformacion(encuadre, W, H);
+        const css = transformacion(encuadre, W, H, ventana);
         if (video.style.transform !== css) video.style.transform = css;
         // La estela de la cámara (A4): mientras se mueve, el vídeo se emborrona lo que ha
         // recorrido en el último paso de exportar. En redondo, que es lo que sabe el navegador.
-        const antes = encuadre && estela > 0 ? encuadreEn(camara, ms - 33) : null;
-        const borroso = encuadre && estela > 0 ? desenfoqueDeCamara(antes, encuadre, W, H, estela) : 0;
+        const antes = deLaCamara && estela > 0 ? encuadreEn(camara, ms - 33) : null;
+        const borroso = deLaCamara && estela > 0 ? desenfoqueDeCamara(antes, deLaCamara, Wv, Hv, estela) : 0;
         const filtro = borroso > 0.3 ? `blur(${borroso.toFixed(1)}px)` : "";
         if (video.style.filter !== filtro) video.style.filter = filtro;
       }
@@ -166,7 +181,7 @@ export function CapaEstudio({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0, 0, Wv, Hv);
 
       // Las lupas de la pista, con la imagen del vídeo ampliada debajo de su lente.
       if (video && video.videoWidth > 0) {
@@ -182,7 +197,7 @@ export function CapaEstudio({
               v = raton[1] / Math.max(1, alto);
             }
           }
-          pintarLupa(ctx, video, z, u, v, abre, W, H, encuadre, ancho);
+          pintarLupa(ctx, video, z, u, v, abre, Wv, Hv, encuadre, ancho);
         }
       }
 
@@ -194,7 +209,7 @@ export function CapaEstudio({
       const escala = H / Math.max(1, alto);
       const aPantalla = (x: number, y: number) => {
         const sitio = colocar(x / Math.max(1, ancho), y / Math.max(1, alto), encuadre);
-        return sitio ? { x: sitio.u * W, y: sitio.v * H } : null;
+        return sitio ? { x: sitio.u * Wv, y: sitio.v * Hv } : null;
       };
 
       // El puntero va DEBAJO del aro, como al exportar: el aro se abre desde donde se
@@ -268,7 +283,7 @@ export function CapaEstudio({
 
       if (estudio.teclas) {
         const atajo = atajoEn(datos.teclas, ms);
-        if (atajo) pastilla(ctx, atajo.texto, atajo.opacidad, W, H, escala);
+        if (atajo) pastilla(ctx, atajo.texto, atajo.opacidad, Wv, Hv, escala);
       }
     };
 
@@ -290,7 +305,17 @@ export function CapaEstudio({
         ref={lienzo}
         data-capa-estudio
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 size-full"
+        className="pointer-events-none absolute"
+        style={
+          ventana
+            ? {
+                left: `${ventana.x1 * 100}%`,
+                top: `${ventana.y1 * 100}%`,
+                width: `${(ventana.x2 - ventana.x1) * 100}%`,
+                height: `${(ventana.y2 - ventana.y1) * 100}%`,
+              }
+            : { inset: 0, width: "100%", height: "100%" }
+        }
       />
       {colocando && !sinEncuadre && elegido && onPunto && (
         <PuntoFijo zoom={elegido} ancho={ancho} alto={alto} onPunto={onPunto} />

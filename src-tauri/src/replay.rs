@@ -310,11 +310,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 con_cursor,
                 desde_la_limpieza: 0,
                 reciclados: reciclados_cocina,
-                reduccion: destino.map(|(w, h)| {
-                    crate::encode::escalar::Reduccion::nueva(region.width, region.height, w, h)
-                }),
-                nativo_anterior: None,
-                escalado: Vec::new(),
+                imagen: crate::record::buffer::ImagenDelAnillo::nueva(region.width, region.height, destino),
             };
             cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado_ms, audio.as_ref());
             if let Some(captura) = audio {
@@ -343,6 +339,8 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
             min_interval_ms: 0,
             start: Instant::now(),
             reciclados,
+            // S29: el anillo pide solo lo que cambia. Ver `Cocina::tragar`.
+            solo_cambios: true,
         },
     )?;
 
@@ -479,12 +477,8 @@ struct Cocina {
     /// Por donde vuelven los bufers a la captura. Ver `win::Reciclados`.
     #[cfg(windows)]
     reciclados: crate::record::win::Reciclados,
-    /// Lo que hace falta para reducir solo lo que cambio, cuando se guarda a menos tamanno:
-    /// las tablas, el ultimo fotograma nativo y el reducido que se va pegando. Vacio si se
-    /// guarda al tamanno de la pantalla. Ver `escalar::Reduccion`.
-    reduccion: Option<crate::encode::escalar::Reduccion>,
-    nativo_anterior: Option<Vec<u8>>,
-    escalado: Vec<u8>,
+    /// La pantalla puesta al dia con lo que llega, y como se guarda. Ver `ImagenDelAnillo`.
+    imagen: crate::record::buffer::ImagenDelAnillo,
 }
 
 impl Cocina {
@@ -535,23 +529,34 @@ impl Cocina {
             }
 
             match receiver.recv_timeout(Duration::from_millis(150)) {
-                Ok(mut frame) => {
-                    // Si mientras se guardaba el anterior han llegado varios, se atiende
-                    // SOLO el ultimo y los de en medio se tiran. Esto corre durante horas:
-                    // si el disco o la maquina no dan para el ritmo pedido, la cola crece
-                    // sola y cada fotograma sin comprimir son ocho megabytes de memoria.
-                    // Mejor grabar a menos fotogramas por segundo que llenarle la RAM a
-                    // alguien que ni sabe que esto esta puesto.
-                    let mut tirados = 0u32;
+                Ok(primero) => {
+                    // Si mientras se guardaba el anterior han llegado varios, se guarda UNO
+                    // con todo lo que traian. Esto corre durante horas: si el disco o la
+                    // maquina no dan para el ritmo pedido, la cola crece sola y cada
+                    // fotograma entero son ocho megabytes de memoria. Mejor grabar a menos
+                    // fotogramas por segundo que llenarle la RAM a alguien que ni sabe que
+                    // esto esta puesto.
+                    //
+                    // S29: los que traen solo zonas NO se pueden tirar (cada uno dice lo que
+                    // cambio desde el anterior); se pegan todos, que es copiar unos pocos
+                    // pixeles. Los enteros si: uno entero deja viejo todo lo de antes.
+                    let mut lote = vec![primero];
                     while let Ok(siguiente) = receiver.try_recv() {
-                        let tirado = std::mem::replace(&mut frame, siguiente);
-                        self.reciclados.devolver(tirado.bgra);
-                        tirados += 1;
+                        lote.push(siguiente);
                     }
-                    perdidos += u64::from(tirados);
-                    ultimo_ts = frame.ts_ms;
+                    let desde = lote.iter().rposition(|f| f.zonas.is_none()).unwrap_or(0);
+                    perdidos += (lote.len() - 1) as u64;
+                    for (i, frame) in lote.into_iter().enumerate() {
+                        ultimo_ts = frame.ts_ms;
+                        let bufer = if i < desde {
+                            frame.bgra
+                        } else {
+                            self.imagen.recibir(frame.bgra, frame.zonas)
+                        };
+                        self.reciclados.devolver(bufer);
+                    }
                     let antes = self.anillo.escritos();
-                    self.tragar(frame);
+                    self.tragar(ultimo_ts);
                     escritos.fetch_add(
                         self.anillo.escritos().saturating_sub(antes),
                         Ordering::Relaxed,
@@ -588,10 +593,10 @@ impl Cocina {
     ) {
     }
 
+    /// Guarda la pantalla como esta (ya puesta al dia por `imagen.recibir`) y anota donde
+    /// estaba el raton, los clics y los atajos en ese instante.
     #[cfg(windows)]
-    fn tragar(&mut self, frame: crate::record::win::CapturedFrame) {
-        let mut rgba = frame.bgra;
-        crate::recorder::bgra_a_rgba_en_sitio(&mut rgba);
+    fn tragar(&mut self, ts_ms: u64) {
         // Todo lo que se anota va YA en la escala a la que se guarda. Guardar a 720p desde
         // una pantalla de 1080p y anotar el clic en coordenadas de 1080 dejaria la camara
         // acercandose a un sitio que no es, y el puntero dibujado fuera de la pantalla.
@@ -602,9 +607,9 @@ impl Cocina {
         // despues. Son doce bytes por clic: no se decide antes lo que se va a querer luego.
         if let Some((cx, cy)) = record::raton::cursor() {
             self.cursor
-                .push((frame.ts_ms, x_en(cx - self.region.x), y_en(cy - self.region.y)));
+                .push((ts_ms, x_en(cx - self.region.x), y_en(cy - self.region.y)));
         }
-        if let Some(clic) = self.vigilante.mirar(frame.ts_ms) {
+        if let Some(clic) = self.vigilante.mirar(ts_ms) {
             self.clics.push(crate::encode::zoom::Clic {
                 ms: clic.ms,
                 x: x_en(clic.x - self.region.x),
@@ -612,7 +617,7 @@ impl Cocina {
                 derecho: clic.derecho,
             });
         }
-        if let Some(atajo) = self.teclado.mirar(frame.ts_ms) {
+        if let Some(atajo) = self.teclado.mirar(ts_ms) {
             self.teclas.push(record::teclas::Atajo {
                 x: x_en(atajo.x - self.region.x),
                 y: y_en(atajo.y - self.region.y),
@@ -620,55 +625,8 @@ impl Cocina {
             });
         }
 
-        let (ancho, alto) = self.destino.unwrap_or((self.region.width, self.region.height));
-        // El bufer del fotograma vuelve a la captura en cuanto se ha guardado, escalado o
-        // no: es lo que evita reservar ocho megabytes nuevos por cada uno.
-        match self.destino {
-            None => {
-                if let Err(error) = self.anillo.empujar(&rgba, ancho, alto, frame.ts_ms) {
-                    eprintln!("[replay] fotograma perdido: {error}");
-                }
-                self.reciclados.devolver(rgba);
-            }
-            Some((w, h)) => {
-                // Se reduce SOLO lo que cambio respecto al fotograma nativo anterior y se
-                // pega sobre el reducido de antes: reducir 1080p a 720p entero son 10-12 ms
-                // de CPU por fotograma, y lo normal es que solo se haya movido el cursor.
-                // Ver `escalar::Reduccion`. Sin fotograma anterior (el primero, o si el
-                // tamanno no cuadra) se reduce entero.
-                let Some(reduccion) = self.reduccion.as_ref() else {
-                    return;
-                };
-                if self.escalado.len() != (w as usize) * (h as usize) * 4 {
-                    self.escalado = vec![0u8; (w as usize) * (h as usize) * 4];
-                    self.nativo_anterior = None;
-                }
-                let cambios = match self.nativo_anterior.as_ref() {
-                    Some(anterior) if anterior.len() == rgba.len() => crate::record::delta::zonas_cambiadas(
-                        anterior,
-                        &rgba,
-                        self.region.width,
-                        self.region.height,
-                    ),
-                    _ => vec![crate::record::delta::Parche {
-                        x: 0,
-                        y: 0,
-                        width: self.region.width,
-                        height: self.region.height,
-                    }],
-                };
-                for cambio in cambios {
-                    let zona = reduccion.zona_afectada(cambio);
-                    reduccion.reducir_zona(&rgba, zona, &mut self.escalado);
-                }
-                if let Err(error) = self.anillo.empujar(&self.escalado, ancho, alto, frame.ts_ms) {
-                    eprintln!("[replay] fotograma perdido: {error}");
-                }
-                // Este fotograma se queda como referencia; el anterior vuelve a la captura.
-                if let Some(viejo) = self.nativo_anterior.replace(rgba) {
-                    self.reciclados.devolver(viejo);
-                }
-            }
+        if let Err(error) = self.imagen.guardar(&mut self.anillo, ts_ms) {
+            eprintln!("[replay] fotograma perdido: {error}");
         }
 
         // Las anotaciones tambien se tiran cuando se salen de la ventana: un anillo que
@@ -676,9 +634,7 @@ impl Cocina {
         self.desde_la_limpieza += 1;
         if self.desde_la_limpieza >= 60 {
             self.desde_la_limpieza = 0;
-            let corte = frame
-                .ts_ms
-                .saturating_sub(self.ventana_ms + crate::record::buffer::SEGMENTO_MS);
+            let corte = ts_ms.saturating_sub(self.ventana_ms + crate::record::buffer::SEGMENTO_MS);
             self.cursor.retain(|(ms, _, _)| *ms >= corte);
             self.clics.retain(|clic| clic.ms >= corte);
             self.teclas.retain(|atajo| atajo.ms >= corte);
@@ -853,7 +809,7 @@ pub(crate) fn preparar_por_detras(app: &AppHandle, id: String) {
                 Ok(()) => {
                     let _ = session.persist();
                     state.sessions.write().insert(id.clone(), session);
-                    let _ = app.emit(crate::recorder::EVENT_SESSION_THUMBS, id.clone());
+                    crate::recorder::avisar_de_la_tira(&app, &id);
                 }
                 // Sin miniaturas la tira ensenna huecos, pero el video y la exportacion
                 // van igual: no es motivo para tirar nada.
@@ -1610,7 +1566,8 @@ mod pruebas_con_pantalla {
                 min_interval_ms: 0,
                 start: Instant::now(),
                 reciclados: win::Reciclados::default(),
-                },
+                solo_cambios: false,
+            },
         )
         .expect("no ha arrancado la captura");
 

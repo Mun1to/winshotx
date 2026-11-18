@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorApp } from "./EditorApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { emite, llamadas, responde } from "../../test/preparar";
+import { NIVEL_DE_FABRICA } from "../../lib/volumenDeLaVista";
 
 const destruir = vi.fn();
 /** Los títulos que el editor le ha puesto a su ventana, en orden. */
@@ -180,6 +181,37 @@ describe("la vista previa del estudio", () => {
     expect(llamadas.filter((l) => l.comando === "session_frames").length).toBe(antes + 1);
   });
 
+  it("la lista con miniaturas no se pierde si el arranque contesta después (S29b)", async () => {
+    // La carrera: al abrir se piden los fotogramas junto con los ajustes y ffmpeg. Si la tira
+    // acaba en ese rato, Rust avisa y la lista nueva (con miniaturas) llega ANTES que la del
+    // arranque (sin ellas), y esa la pisaba: la tira se quedaba vacía para siempre.
+    preparar(VERTICAL, "C:\\s\\preview.mp4", "video");
+    const SIN = [0, 1, 2].map((i) => ({ index: i, timestampMs: i * 33, durationMs: 33, thumbPath: "" }));
+    const CON = SIN.map((f) => ({ ...f, thumbPath: `C:\\t\\${f.index}.png` }));
+    responde("session_frames", SIN);
+    let soltarFfmpeg: (v: boolean) => void = () => {};
+    responde("ffmpeg_available", new Promise<boolean>((listo) => (soltarFfmpeg = listo)));
+    const vista = render(<EditorApp sessionId="s1" />);
+    // El arranque ya pidió su lista (sin miniaturas) y espera a ffmpeg.
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+    responde("session_frames", CON);
+    const antes = llamadas.filter((l) => l.comando === "session_frames").length;
+    emite("winshotx://session-thumbs", "s1");
+    await waitFor(() =>
+      expect(llamadas.filter((l) => l.comando === "session_frames").length).toBe(antes + 1),
+    );
+    // Ahora contesta el arranque, tarde y con la lista vieja.
+    soltarFfmpeg(false);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    await waitFor(() =>
+      expect(
+        [...vista.container.querySelectorAll("img")].some((img) =>
+          img.getAttribute("src")?.startsWith("asset://C:\\t\\"),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it("una captura fija no la lleva: no tiene tiempo dentro", async () => {
     const vista = await abrir();
     expect(vista.container.querySelector("[data-capa-estudio]")).toBeNull();
@@ -203,6 +235,8 @@ describe("la vista previa del estudio", () => {
     render(<EditorApp sessionId="s1" />);
     await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
     expect(llamadas.some((l) => l.comando === "session_camera")).toBe(false);
+    // El zoom de los clics vive en su grupo plegable del panel (S39).
+    fireEvent.click(document.querySelector('[data-grupo="zoom"]')!);
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     await waitFor(() => expect(llamadas.some((l) => l.comando === "session_camera")).toBe(true));
     const peticion = llamadas.find((l) => l.comando === "session_camera")?.args as { zoom: number };
@@ -498,7 +532,8 @@ describe("el marco del estudio en la vista previa", () => {
     });
     expect(marco.style.background).toContain("linear-gradient");
     expect(marco.style.padding).not.toBe("");
-    const imagen = marco.firstElementChild as HTMLElement;
+    // S25 (marco): entre el fondo y la imagen va la caja de la carcasa (sin caja si no hay).
+    const imagen = marco.querySelector("[data-imagen]") as HTMLElement;
     expect(imagen.style.borderRadius).not.toBe("");
     fireEvent.click(screen.getByRole("button", { name: "Sin fondo" }));
     await waitFor(() => expect(container.querySelector("[data-marco]")).toBeNull());
@@ -542,7 +577,7 @@ describe("el sonido del PC y la voz en la vista previa", () => {
   it("una grabación de antes, con todo junto, suena por el vídeo como siempre", async () => {
     const { container } = await abrirConPistas({});
     expect(container.querySelectorAll("audio")).toHaveLength(0);
-    expect(container.querySelector("video")!.volume).toBe(1);
+    expect(container.querySelector("video")!.volume).toBe(NIVEL_DE_FABRICA);
   });
 
   it("si una pista no se puede abrir, vuelve a sonar el vídeo en vez de quedarse mudo", async () => {
@@ -555,9 +590,16 @@ describe("el sonido del PC y la voz en la vista previa", () => {
     });
     fireEvent.error(pista);
     await waitFor(() => expect(container.querySelectorAll("audio")).toHaveLength(0));
-    expect(container.querySelector("video")!.volume).toBe(1);
+    expect(container.querySelector("video")!.volume).toBe(NIVEL_DE_FABRICA);
     expect(aviso).toHaveBeenCalled();
     aviso.mockRestore();
+  });
+
+  // El aviso de debajo del mando va en «Sonido», que suele estar plegado: al abrir se dice
+  // arriba, donde se ve, que el sonido del PC se subió (revisión del 16-nov).
+  it("si el sonido del PC se subió al grabar, lo dice arriba al abrir", async () => {
+    await abrirConPistas({ sonidoPc: "C:\\t\\sonido-pc.wav", picoPc: 0.49, subidaPc: 36.5 });
+    expect(await screen.findByText("El sonido del PC llegó casi mudo: lo he subido 37 dB")).toBeInTheDocument();
   });
 });
 
@@ -585,7 +627,8 @@ describe("silenciar la vista previa", () => {
   it("el botón de al lado del play la calla y la vuelve a oír, cambiando de nombre", async () => {
     const { container } = await abrirVideo();
     const video = container.querySelector("video")!;
-    expect(video.volume).toBe(1);
+    // S31: la vista previa nace a la mitad, nunca a tope.
+    expect(video.volume).toBe(NIVEL_DE_FABRICA);
 
     fireEvent.click(screen.getByRole("button", { name: "Silenciar la vista previa (M)" }));
     expect(video.volume).toBe(0);
@@ -593,7 +636,7 @@ describe("silenciar la vista previa", () => {
     expect(oir).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(oir);
-    expect(video.volume).toBe(1);
+    expect(video.volume).toBe(NIVEL_DE_FABRICA);
   });
 
   it("la M hace lo mismo, como en cualquier reproductor", async () => {
@@ -601,7 +644,7 @@ describe("silenciar la vista previa", () => {
     fireEvent.keyDown(window, { key: "m" });
     expect(container.querySelector("video")!.volume).toBe(0);
     fireEvent.keyDown(window, { key: "M" });
-    expect(container.querySelector("video")!.volume).toBe(1);
+    expect(container.querySelector("video")!.volume).toBe(NIVEL_DE_FABRICA);
   });
 
   it("solo calla lo que se oye aquí: lo que se guarda sigue con su volumen", async () => {
@@ -632,5 +675,161 @@ describe("silenciar la vista previa", () => {
     const { container } = await abrirVideo();
     expect(screen.getByRole("button", { name: "Oír la vista previa (M)" })).toBeInTheDocument();
     expect(container.querySelector("video")!.volume).toBe(0);
+  });
+});
+
+// S31: además de callarla, su volumen, de 0 a 100. Solo lo que se oye al mirar.
+describe("el volumen de la vista previa", () => {
+  async function abrirVideo(pistas: Record<string, unknown> = {}) {
+    preparar(VERTICAL, "C:\\t\\preview.mp4", "mp4");
+    responde("session_info", {
+      id: "s1",
+      region: VERTICAL,
+      fps: 30,
+      frameCount: 3,
+      durationMs: 100,
+      hasAudio: true,
+      format: "mp4",
+      mp4Path: "C:\\t\\preview.mp4",
+      ...pistas,
+    });
+    const vista = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    return vista;
+  }
+  const deslizador = () => screen.getByRole("slider", { name: "Volumen de la vista previa" });
+  const altavoz = () => screen.getByRole("button", { name: /la vista previa \(M\)$/ });
+  const volumenDelVideo = (container: HTMLElement) => container.querySelector("video")!.volume;
+
+  it("va al lado del altavoz, de 0 a 100, y nace a la mitad", async () => {
+    const { container } = await abrirVideo();
+    expect(deslizador()).toHaveAttribute("min", "0");
+    expect(deslizador()).toHaveAttribute("max", "100");
+    expect(deslizador()).toHaveValue("50");
+    expect(volumenDelVideo(container)).toBe(0.5);
+    // Justo detrás del altavoz, en la misma fila que el play.
+    expect(altavoz().nextElementSibling?.contains(deslizador())).toBe(true);
+  });
+
+  it("moverlo cambia lo que se oye, y el altavoz enseña si suena bajo, alto o nada", async () => {
+    const { container } = await abrirVideo();
+    expect(altavoz().querySelector(".lucide-volume-1")).not.toBeNull();
+
+    fireEvent.change(deslizador(), { target: { value: "80" } });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.8);
+    expect(altavoz().querySelector(".lucide-volume-2")).not.toBeNull();
+
+    fireEvent.change(deslizador(), { target: { value: "0" } });
+    expect(volumenDelVideo(container)).toBe(0);
+    expect(altavoz().querySelector(".lucide-volume-x")).not.toBeNull();
+    expect(altavoz()).toHaveAccessibleName("Oír la vista previa (M)");
+  });
+
+  it("la M lo calla y al volver recupera el volumen que había", async () => {
+    const { container } = await abrirVideo();
+    fireEvent.change(deslizador(), { target: { value: "30" } });
+    fireEvent.keyDown(window, { key: "m" });
+    expect(volumenDelVideo(container)).toBe(0);
+    expect(deslizador()).toHaveValue("0");
+    fireEvent.keyDown(window, { key: "m" });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.3);
+    expect(deslizador()).toHaveValue("30");
+  });
+
+  it("las flechas de arriba y abajo lo suben y lo bajan", async () => {
+    const { container } = await abrirVideo();
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.6);
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(volumenDelVideo(container)).toBeCloseTo(0.4);
+    expect(deslizador()).toHaveValue("40");
+  });
+
+  it("con el deslizador cogido, las flechas son solo suyas: no suben dos veces", async () => {
+    const { container } = await abrirVideo();
+    fireEvent.keyDown(deslizador(), { key: "ArrowUp" });
+    expect(volumenDelVideo(container)).toBe(0.5);
+  });
+
+  it("se recuerda para el vídeo siguiente", async () => {
+    const primero = await abrirVideo();
+    fireEvent.change(deslizador(), { target: { value: "25" } });
+    primero.unmount();
+
+    const { container } = await abrirVideo();
+    expect(deslizador()).toHaveValue("25");
+    expect(volumenDelVideo(container)).toBeCloseTo(0.25);
+  });
+
+  it("con el PC y la voz por separado, cada pista suena a su mando por el de la vista", async () => {
+    const { container } = await abrirVideo({
+      sonidoPc: "C:\\t\\sonido-pc.wav",
+      microfono: "C:\\t\\microfono.wav",
+    });
+    await waitFor(() => expect(container.querySelectorAll("audio")).toHaveLength(2));
+    fireEvent.change(deslizador(), { target: { value: "40" } });
+    // Sus mandos van al 100 % de serie: aquí suenan al 40 % de la vista.
+    await waitFor(() => {
+      for (const pista of container.querySelectorAll("audio")) expect(pista.volume).toBeCloseTo(0.4);
+    });
+    expect(volumenDelVideo(container)).toBe(0);
+  });
+
+  it("lo que se guarda no cambia: sale con el volumen de sus mandos", async () => {
+    await abrirVideo();
+    fireEvent.change(deslizador(), { target: { value: "20" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar MP4" }));
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "export_media")).toBe(true));
+    const peticion = (llamadas.find((l) => l.comando === "export_media")?.args as {
+      request: Record<string, unknown>;
+    }).request;
+    expect(peticion.volume).toBe(1);
+  });
+});
+
+// S25 (marco): la ventana y el portátil en la vista previa, con la imagen en su hueco.
+describe("el marco de ventana o de portátil en la vista previa", () => {
+  it("la ventana se dibuja alrededor y la imagen queda dentro, debajo de la barra", async () => {
+    localStorage.setItem("winshotx.tema", "oscuro");
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 0, top: 0, width: 1200, height: 700, right: 1200, bottom: 700, x: 0, y: 0, toJSON() {},
+    } as DOMRect);
+    prepararLarga();
+    const { container } = render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+    // El marco va en su propio grupo plegable del panel (S39).
+    const marco = document.querySelector('[data-grupo="marco"]')!;
+    if (marco.getAttribute("aria-expanded") !== "true") fireEvent.click(marco);
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    const pieza = await waitFor(() => {
+      const el = container.querySelector("[data-pieza]") as HTMLElement | null;
+      expect(el).not.toBeNull();
+      return el!;
+    });
+    expect(container.querySelector('[data-carcasa="ventana-oscura"]')).not.toBeNull();
+    // La barra arriba: el relleno de arriba es mucho más que el de los lados.
+    expect(parseFloat(pieza.style.paddingTop)).toBeGreaterThan(parseFloat(pieza.style.paddingLeft) * 10);
+    expect(pieza.querySelector("[data-imagen]")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Portátil" }));
+    await waitFor(() => expect(container.querySelector('[data-carcasa="portatil"]')).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Ninguno" }));
+    await waitFor(() => expect(container.querySelector("[data-pieza]")).toBeNull());
+    vi.restoreAllMocks();
+    localStorage.removeItem("winshotx.tema");
+  });
+});
+
+// S39: el editor era oscuro siempre; desde la 0.5 sigue el tema de la app, como las demás ventanas.
+describe("el tema", () => {
+  it("se pinta con el tema de los ajustes", async () => {
+    // Empieza en oscuro, que es lo que recordaba la ventana: tiene que cambiarlo el ajuste.
+    localStorage.setItem("winshotx.tema", "oscuro");
+    document.documentElement.dataset.tema = "oscuro";
+    preparar();
+    responde("get_settings", { saveDirectory: "C:\capturas", theme: "claro", language: "es" });
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(document.documentElement.dataset.tema).toBe("claro"));
+    responde("get_settings", { saveDirectory: "C:\capturas", theme: "oscuro", language: "es" });
   });
 });

@@ -39,8 +39,11 @@ pub struct Ajustes {
     pub escala: f32,
     /// Lo que tarda en acercarse y en alejarse.
     pub transicion_ms: u64,
-    /// Lo que se queda quieto después del último clic del grupo.
+    /// Lo que se queda quieto después de lo último que pasó: escribir, la tecla de zoom y
+    /// los bloques puestos a mano. Y lo que tienen dos clics para ir en el mismo tramo.
     pub quieto_ms: u64,
+    /// Lo que se queda quieto después del último clic de un grupo de clics, más corto.
+    pub quieto_clic_ms: u64,
     /// Cuánto pasado del ratón se promedia para seguirlo.
     ///
     /// Más alto es más suave y más retrasado; más bajo, más pegado y más nervioso. Medio
@@ -79,6 +82,10 @@ impl Default for Ajustes {
             escala: 1.8,
             transicion_ms: 450,
             quieto_ms: 1200,
+            // Era el mismo 1.200, y con el alejamiento detras la camara seguia encima del boton
+            // casi dos segundos despues de pulsarlo. Munir, 16-nov-2026: «que el zoom en los
+            // clics se quite mas rapido, al dar clic se queda mucho tiempo y queda raro».
+            quieto_clic_ms: 600,
             seguir_ms: 500,
             inercia_ms: 220,
             velocidad_max: 1.3,
@@ -215,8 +222,13 @@ pub fn tramos_a_mano(zooms: &[ZoomAMano], ajustes: &Ajustes) -> Vec<Tramo> {
             continue;
         }
         // En un bloque corto, acercarse y alejarse se comen como mucho un tercio cada uno:
-        // siempre queda un rato quieto encima, que es para lo que se pone.
-        let transicion = ajustes.transicion_ms.min((z.hasta_ms - desde) / 3);
+        // siempre queda un rato quieto encima, que es para lo que se pone. En uno más largo,
+        // basta con que quede el rato quieto de un clic: así el bloque de un clic a velocidad
+        // «Lenta» (750 ms de rampa y 600 quieto, más de un tercio cada rampa) sale igual que
+        // sin pista.
+        let largo = z.hasta_ms - desde;
+        let quieto = ajustes.quieto_clic_ms.min(largo / 3);
+        let transicion = ajustes.transicion_ms.min((largo - quieto) / 2);
         salida.push(Tramo {
             desde_ms: desde,
             hasta_ms: z.hasta_ms,
@@ -299,22 +311,35 @@ impl Camara {
 /// opuestas cae en el medio de la pantalla, que es donde no ha pasado nada. A partir de ahí
 /// la cámara sigue al ratón, con inercia (`Seguimiento`).
 pub fn tramos(clics: &[Clic], ajustes: &Ajustes) -> Vec<Tramo> {
+    let puntos: Vec<(Clic, u64)> = clics.iter().map(|c| (*c, ajustes.quieto_clic_ms)).collect();
+    tramos_con_su_rato(&puntos, ajustes)
+}
+
+/// Lo mismo, con el rato quieto de cada punto: el de un clic es corto (`quieto_clic_ms`) y el
+/// de una marca de la tecla de zoom, que se pulsa adrede para mirar algo, el de siempre
+/// (`quieto_ms`). Al juntarse, el tramo dura hasta el último que acabe.
+pub fn tramos_con_su_rato(puntos: &[(Clic, u64)], ajustes: &Ajustes) -> Vec<Tramo> {
     let mut salida: Vec<Tramo> = Vec::new();
-    for clic in clics {
+    for &(clic, quieto) in puntos {
         match salida.last_mut() {
             // Sigue dentro del anterior, o empezaria a acercarse antes de que el anterior
-            // acabe de alejarse: se alarga en vez de abrir otro que se pisaria con el.
-            Some(ultimo) if clic.ms <= ultimo.hasta_ms + ajustes.transicion_ms => {
+            // acabe de alejarse: se alarga en vez de abrir otro que se pisaria con el. La
+            // ventana para juntarlos es la de siempre (`quieto_ms`, 2,1 s tras el clic), no
+            // la del rato quieto, que es mas corto: dos clics a segundo y medio alejaban la
+            // camara y la volvian a acercar, un rebote.
+            Some(ultimo)
+                if clic.ms <= ultimo.fin_cerca_ms + ajustes.quieto_ms + 2 * ajustes.transicion_ms =>
+            {
                 ultimo.fin_cerca_ms = clic.ms;
-                ultimo.lejos_ms = clic.ms + ajustes.quieto_ms;
-                ultimo.hasta_ms = clic.ms + ajustes.quieto_ms + ajustes.transicion_ms;
+                ultimo.lejos_ms = ultimo.lejos_ms.max(clic.ms + quieto);
+                ultimo.hasta_ms = ultimo.lejos_ms + ajustes.transicion_ms;
             }
             _ => salida.push(Tramo {
                 desde_ms: clic.ms.saturating_sub(ajustes.transicion_ms),
                 cerca_ms: clic.ms,
                 fin_cerca_ms: clic.ms,
-                lejos_ms: clic.ms + ajustes.quieto_ms,
-                hasta_ms: clic.ms + ajustes.quieto_ms + ajustes.transicion_ms,
+                lejos_ms: clic.ms + quieto,
+                hasta_ms: clic.ms + quieto + ajustes.transicion_ms,
                 x: clic.x,
                 y: clic.y,
                 escala: ajustes.escala,
@@ -703,6 +728,7 @@ mod tests {
             escala: 2.0,
             transicion_ms: 400,
             quieto_ms: 1000,
+            quieto_clic_ms: 1000,
             seguir_ms: 500,
             inercia_ms: 220,
             velocidad_max: 1.3,
@@ -946,8 +972,29 @@ mod tests {
         let t = tramos(&clics, &a);
         assert_eq!(t.len(), 1);
         let ultimo = 1000 + 9 * 500;
-        assert_eq!(t[0].hasta_ms, ultimo + a.quieto_ms + a.transicion_ms);
+        assert_eq!(t[0].hasta_ms, ultimo + a.quieto_clic_ms + a.transicion_ms);
         assert_eq!(camara(&t, t[0].hasta_ms + 1, 1920, 1080, &a).escala, 1.0);
+    }
+
+    /// Munir, 16-nov-2026: «que el zoom en los clics se quite más rápido». Tras un clic suelto
+    /// la cámara se queda quieta 0,6 s y se aleja; dos clics a 1,8 s siguen en el mismo tramo
+    /// (la cámara no se aleja para volver a acercarse); escribir y la tecla de zoom siguen
+    /// mirando 1,2 s.
+    #[test]
+    fn tras_un_clic_se_va_antes_sin_rebotar_entre_dos_clics() {
+        let a = Ajustes::default();
+        assert_eq!((a.quieto_clic_ms, a.quieto_ms), (600, 1200));
+        let suelto = tramos(&[clic(1_000, 200, 200)], &a);
+        assert_eq!(suelto[0].lejos_ms, 1_600, "se queda quieto 0,6 s");
+        assert_eq!(suelto[0].hasta_ms, 1_600 + a.transicion_ms);
+        assert_eq!(camara(&suelto, 2_100, 1920, 1080, &a).escala, 1.0, "a los 1,1 s ya está fuera");
+
+        let dos = tramos(&[clic(1_000, 200, 200), clic(2_800, 300, 300)], &a);
+        assert_eq!(dos.len(), 1, "a 1,8 s es el mismo tramo: {dos:?}");
+        for ms in (1_000..=2_800).step_by(50) {
+            assert!(camara(&dos, ms, 1920, 1080, &a).escala > 1.5, "a los {ms} ms la cámara se ha alejado");
+        }
+        assert_eq!(dos[0].lejos_ms, 2_800 + 600);
     }
 
     /// Un rastro de raton: una anotacion cada 33 ms, como al grabar a 30 fps.

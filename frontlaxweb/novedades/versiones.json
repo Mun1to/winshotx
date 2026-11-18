@@ -1,6 +1,93 @@
 {
   "versiones": [
     {
+      "version": "0.5.2",
+      "desde": "0.5.1",
+      "fecha": "2026-11-16",
+      "es": {
+        "titulo": "Sin recuadro blanco al parar de grabar",
+        "puntos": [
+          "**Al parar una grabación ya no sale un recuadro en blanco** donde estaban el menú de la bandeja o la miniatura de la esquina."
+        ]
+      },
+      "en": {
+        "titulo": "No blank box when you stop recording",
+        "puntos": [
+          "**Stopping a recording no longer leaves a blank box** where the tray menu or the corner thumbnail last was."
+        ]
+      }
+    },
+    {
+      "version": "0.5.1",
+      "desde": "0.5.0",
+      "fecha": "2026-11-16",
+      "es": {
+        "titulo": "Captura mientras grabas y entre dos pantallas",
+        "puntos": [
+          "**Haz una foto mientras grabas**: con una grabación en marcha, el atajo de captura abre la selección, y ni la selección ni la miniatura salen en el vídeo.",
+          "**Captura a caballo entre dos pantallas**: empieza el recorte en una y sigue en la de al lado; la foto sale entera.",
+          "**El marco de grabar, ahora azul**: ya no sale en tus otras pantallas y, si grabas una ventana, va con ella cuando la mueves.",
+          "**Corta con la B**: en el editor, **B** (o **Ctrl+B**) corta el vídeo donde está el cabezal.",
+          "**La línea de tiempo ocupa todo el ancho**: el play y el volumen bajan a la fila de abajo y ya no dejan un hueco.",
+          "**El sonido del PC se oye aunque la app esté muy baja en el mezclador de Windows**: winshotx lo sube al parar y te avisa.",
+          "**El zoom de los clics se va antes**: 0,6 s después del último clic en vez de 1,2.",
+          "**Escape a mitad del arrastre ya no captura nada** al soltar el ratón.",
+          "**Grabar en Windows 10** ya no pide quitar el borde amarillo, que ese Windows no deja quitar.",
+          "**Con el marco de portátil, elegir 9:16** enseña en el editor el trozo recortado, como sale en el archivo. Y la miniatura de la esquina ya no sale como un recuadro blanco."
+        ]
+      },
+      "en": {
+        "titulo": "Capture while recording and across two screens",
+        "puntos": [
+          "**Take a shot while recording**: with a recording running, the capture shortcut opens the selection, and neither the selection nor the thumbnail shows up in the video.",
+          "**Capture across two screens**: start the crop on one and carry on into the next; the shot comes out whole.",
+          "**The recording frame, now blue**: it no longer shows up on your other screens and, if you record a window, it moves with it.",
+          "**Cut with B**: in the editor, **B** (or **Ctrl+B**) cuts the video at the playhead.",
+          "**The timeline spans the full width**: play and volume move to the bottom row and no longer leave a gap.",
+          "**PC sound is heard even with the app turned way down in the Windows mixer**: winshotx raises it when you stop and tells you.",
+          "**Click zoom leaves sooner**: 0.6 s after the last click instead of 1.2.",
+          "**Escape halfway through a drag no longer captures anything** when you let go of the mouse.",
+          "**Recording on Windows 10** no longer asks to remove the yellow border, which that Windows does not allow.",
+          "**With the laptop frame, choosing 9:16** shows the cropped part in the editor, as the file comes out. And the corner thumbnail no longer appears as a white box."
+        ]
+      }
+    },
+    {
+      "version": "0.5.0",
+      "desde": "0.4.8",
+      "fecha": "2026-11-15",
+      "es": {
+        "titulo": "Todo rediseñado: ajustes, editor y bienvenida",
+        "puntos": [
+          "**Ajustes nuevos**: un riel de iconos a la izquierda, un apartado cada vez y, a la derecha, un dibujo en vivo de cómo va a salir lo que cambias.",
+          "**Busca cualquier ajuste con Ctrl+F**: escribe lo que buscas y salta a su fila y la ilumina.",
+          "**La ventana de ajustes tiene siempre el mismo tamaño**: ya no crece al cambiar de apartado, y si la estiras tú, se acuerda de tu tamaño.",
+          "**El editor, renovado**: sigue el tema claro u oscuro, la barra de dibujo cabe en una fila y cada botón dice su tecla, y el panel de exportar va en una columna con grupos que se pliegan.",
+          "**El editor abre antes las grabaciones largas**: la tira de un minuto está lista en 0,7 s en vez de 2,8.",
+          "**Marco de ventana o de portátil**: mete la captura dentro de una ventana de Windows 11 o de un portátil, en la foto y en el vídeo, sin encogerla.",
+          "**Busca en el historial por el texto de tus capturas**: winshotx lo lee en segundo plano con el lector de Windows, sin subir nada.",
+          "**Proporción fija al recortar**: pulsa **X** mientras arrastras para pasar por 16:9, 1:1, 9:16 y 4:3.",
+          "**Los últimos segundos gastan mucho menos**: con el anillo encendido y solo el ratón moviéndose, un 86 % menos de CPU, porque la tarjeta gráfica compara cada fotograma y solo se lee lo que cambió.",
+          "**La bienvenida, el menú de la bandeja, la barra de grabación y el recorte**, con el aspecto nuevo: letra más grande, el logo de verdad y sin cajas. Y un **volumen** para la vista previa del editor."
+        ]
+      },
+      "en": {
+        "titulo": "Everything redesigned: settings, editor and welcome",
+        "puntos": [
+          "**New settings**: a rail of icons on the left, one section at a time and, on the right, a live drawing of how what you change will turn out.",
+          "**Find any setting with Ctrl+F**: type what you are after and it jumps to its row and lights it up.",
+          "**The settings window keeps one size**: it no longer grows when you switch sections, and if you resize it yourself, it remembers your size.",
+          "**A renewed editor**: it follows the light or dark theme, the drawing toolbar fits in one row and every button tells its key, and the export panel is one column with groups that fold.",
+          "**The editor opens long recordings sooner**: the strip of a one-minute clip is ready in 0.7 s instead of 2.8.",
+          "**Window or laptop frame**: put the capture inside a Windows 11 window or a laptop, in the picture and in the video, without shrinking it.",
+          "**Search the history by the text in your shots**: winshotx reads it in the background with Windows' own OCR, and uploads nothing.",
+          "**Fixed aspect ratio while cropping**: press **X** while you drag to go through 16:9, 1:1, 9:16 and 4:3.",
+          "**The last few seconds cost far less**: with the ring on and only the mouse moving, 86% less CPU, because the graphics card compares every frame and only what changed is read.",
+          "**The welcome, the tray menu, the recording bar and the crop** get the new look: bigger text, the real logo and no boxes. And a **volume** control for the editor preview."
+        ]
+      }
+    },
+    {
       "version": "0.4.7",
       "desde": null,
       "fecha": "2026-11-14",

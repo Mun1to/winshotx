@@ -99,6 +99,9 @@ pub struct SessionInfo {
     /// de una pista muda o casi muda. Sin dato (sesiones de antes), `None` y no avisa.
     pub pico_pc: Option<f32>,
     pub pico_microfono: Option<f32>,
+    /// Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo
+    /// (`pistas::nivelar_si_casi_muda`), para que el editor lo diga. Sin subir, `None`.
+    pub subida_pc: Option<f32>,
 }
 
 impl From<&SessionData> for SessionInfo {
@@ -111,6 +114,7 @@ impl From<&SessionData> for SessionInfo {
         let pistas = data.pistas.clone().unwrap_or_default();
         let pico_pc = nivel(&sonido_pc, pistas.pico_sistema);
         let pico_microfono = nivel(&microfono, pistas.pico_microfono);
+        let subida_pc = sonido_pc.as_ref().and(pistas.subida_sistema);
         Self {
             id: data.id.clone(),
             region: data.region,
@@ -130,6 +134,7 @@ impl From<&SessionData> for SessionInfo {
             microfono,
             pico_pc,
             pico_microfono,
+            subida_pc,
         }
     }
 }
@@ -143,6 +148,21 @@ pub(crate) fn bgra_a_rgba_en_sitio(pixeles: &mut [u8]) {
     for pixel in pixeles.chunks_exact_mut(4) {
         pixel.swap(0, 2);
     }
+}
+
+/// Lo mismo, copiando de `origen` a `destino` (del mismo largo) en la misma pasada. Lo usa
+/// el anillo para pegar las zonas que cambian (S29).
+pub(crate) fn bgra_a_rgba_copiando(origen: &[u8], destino: &mut [u8]) {
+    for (o, d) in origen.chunks_exact(4).zip(destino.chunks_exact_mut(4)) {
+        let v = u32::from_le_bytes([o[0], o[1], o[2], o[3]]);
+        d.copy_from_slice(&dar_la_vuelta(v).to_le_bytes());
+    }
+}
+
+/// B y R cambian de sitio; G y A se quedan.
+#[inline(always)]
+fn dar_la_vuelta(v: u32) -> u32 {
+    (v & 0xFF00_FF00) | ((v & 0x0000_00FF) << 16) | ((v >> 16) & 0x0000_00FF)
 }
 
 /// Media Foundation quiere las filas al reves; la captura las entrega derechas.
@@ -161,6 +181,22 @@ fn flip_rows_en(input: &[u8], width: u32, height: u32, out: &mut Vec<u8>) {
             out[dst..dst + stride].copy_from_slice(&input[src..src + stride]);
         }
     }
+}
+
+/// La parte de la region que cae en la pantalla donde cae mas de ella.
+///
+/// Desde el 16-nov una foto puede cruzar de una pantalla a otra, pero un video no:
+/// windows-capture graba un monitor por sesion y recorta dentro de el sin mirar sus bordes, y
+/// una region que se saliera grabaria lo que no es. El overlay ya no deja cruzar en video;
+/// esto es por si algo (un agente, la ultima region repetida) llega cruzando igual. Sin
+/// pantallas conocidas, o sin tocar ninguna, la region se queda como llega.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn dentro_de_su_monitor(region: Rect, pantallas: &[Rect]) -> Rect {
+    pantallas
+        .iter()
+        .filter_map(|&p| crate::capture::interseccion(region, p))
+        .max_by_key(|r| u64::from(r.width) * u64::from(r.height))
+        .unwrap_or(region)
 }
 
 fn monitor_origin(app: &AppHandle, region: Rect) -> (i32, i32) {
@@ -283,22 +319,37 @@ impl SalidaDeAudio {
         let Some(captura) = self.captura.take() else { return (None, None) };
         let formato = captura.formato;
         captura.parar();
-        let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str| {
-            let Some(wav) = wav else { return (None, None) };
-            let pico = wav.pico();
-            if wav.cerrar() > 0 {
-                (Some(nombre.to_string()), Some(pico))
+        // El del PC se sube si llegó casi mudo (una app muy baja en el mezclador de Windows,
+        // `pistas::nivelar_si_casi_muda`), y menos si hay una voz que se oye, para no taparla;
+        // la voz no, que subirla sube su siseo.
+        // Con su nivel y no con su pico, como el PC: un golpe en la mesa no es una voz.
+        let con_voz = self
+            .microfono
+            .as_ref()
+            .is_some_and(|voz| voz.nivel() >= record::pistas::PICO_CASI_MUDO);
+        let con_sonido = |wav: Option<record::pistas::EscritorWav>, nombre: &str, nivelar: bool| {
+            let Some(wav) = wav else { return (None, None, None) };
+            let (escritos, pico, ganancia) = if nivelar {
+                wav.cerrar_y_nivelar(con_voz)
             } else {
-                (None, None)
+                let pico = wav.pico();
+                (wav.cerrar(), pico, None)
+            };
+            if escritos > 0 {
+                (Some(nombre.to_string()), Some(pico), ganancia)
+            } else {
+                (None, None, None)
             }
         };
-        let (sistema, pico_sistema) = con_sonido(self.pc.take(), ARCHIVO_PC);
-        let (microfono, pico_microfono) = con_sonido(self.microfono.take(), ARCHIVO_MICROFONO);
+        let (sistema, pico_sistema, subida) = con_sonido(self.pc.take(), ARCHIVO_PC, true);
+        let (microfono, pico_microfono, _) = con_sonido(self.microfono.take(), ARCHIVO_MICROFONO, false);
         let pistas = crate::contrato::PistasGrabadas {
             sistema,
             microfono,
             pico_sistema,
             pico_microfono,
+            // En decibelios, que es como se dice en el editor.
+            subida_sistema: subida.map(|g| (20.0 * g.log10() * 10.0).round() / 10.0),
         };
         if pistas.sistema.is_none() && pistas.microfono.is_none() {
             return (None, None);
@@ -379,6 +430,16 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     }
 
     windows_mgr::close_overlays(app);
+    // Una grabacion de pantalla se queda en una pantalla (ver `dentro_de_su_monitor`). La de
+    // una ventana no: Windows graba la ventana entera, este donde este.
+    let region = if options.window.filter(|h| *h != 0).is_none() {
+        let pantallas: Vec<Rect> = crate::capture::monitors()
+            .map(|m| m.iter().map(|m| Rect { x: m.x, y: m.y, width: m.width, height: m.height }).collect())
+            .unwrap_or_default();
+        dentro_de_su_monitor(region, &pantallas)
+    } else {
+        region
+    };
     let region = region.to_even();
     let id = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
     let dir = state.session_dir(&id);
@@ -697,14 +758,20 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         min_interval_ms: 0,
         start: reloj_inicio,
         reciclados,
+        solo_cambios: false,
     };
     let control = match ventana {
         Some(hwnd) => win::start_window(hwnd, false, fps, flags_base)?,
         None => win::start(region, origin, false, fps, flags_base)?,
     };
 
-    // El marco alrededor de lo que se graba. Que no se pueda abrir no impide grabar.
-    let marco = match crate::platform::marco::Marco::abrir(region, escala_del_marco(region)) {
+    // El marco alrededor de lo que se graba, y si es una ventana, que la siga. Que no se
+    // pueda abrir no impide grabar.
+    let abierto = match ventana {
+        Some(hwnd) => crate::platform::marco::Marco::abrir_en_ventana(region, escala_del_marco(region), hwnd),
+        None => crate::platform::marco::Marco::abrir(region, escala_del_marco(region)),
+    };
+    let marco = match abierto {
         Ok(marco) => Some(marco),
         Err(error) => {
             eprintln!("[winshotx] sin marco alrededor de la grabacion: {error}");
@@ -747,12 +814,14 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         microfono: None,
         pico_pc: None,
         pico_microfono: None,
+        subida_pc: None,
     };
 
     *state.recording.lock() = Some(recording);
     // El menu de la bandeja, si estaba abierto, se queda fuera del video desde el primer
     // fotograma. El que se abra DESPUES lo resuelve el propio menu al ensennarse.
     crate::tray_menu::fuera_de_la_grabacion(app, true);
+    crate::miniatura::fuera_de_la_grabacion(true);
     match windows_mgr::open_recorder(app, region) {
         Ok(label) => {
             if let Some(recording) = state.recording.lock().as_mut() {
@@ -894,7 +963,7 @@ fn terminar(mut recording: RecordingState) -> Result<SessionData> {
             let _ = control.stop();
         });
     }
-    // El marco se quita ya: lo que viene ahora es guardar, y un marco rojo encima de un
+    // El marco se quita ya: lo que viene ahora es guardar, y un marco encima de un
     // escritorio que ya no se graba dice lo contrario de lo que pasa.
     #[cfg(windows)]
     drop(recording.marco.take());
@@ -923,6 +992,7 @@ pub fn stop(app: &AppHandle) -> Result<()> {
     };
     avisar_barra(app, tick_de(&recording, true));
     crate::tray_menu::fuera_de_la_grabacion(app, false);
+    crate::miniatura::fuera_de_la_grabacion(false);
     let open_editor = state.settings.read().open_editor_after_recording;
     let barra = recording.barra.clone();
 
@@ -966,7 +1036,8 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
     cerrar_esta_barra(app, barra);
 
     if open_editor {
-        if let Err(error) = al_editor(app, &session) {
+        // Al lado del que haya: puede ser una foto hecha durante esta misma grabación.
+        if let Err(error) = al_editor(app, &session, true) {
             eprintln!("no se ha podido abrir el editor: {error}");
         }
     } else {
@@ -988,26 +1059,99 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
     let _ = app.emit(EVENT_SESSION_READY, session.id);
 }
 
+/// Las sesiones cuya lista de fotogramas salió hacia el editor SIN miniaturas, y cuándo.
+///
+/// Es para una carrera del editor (S29b): al abrirse pide la lista junto con los ajustes y si
+/// hay ffmpeg, y la guarda cuando han llegado las cuatro cosas. Si la tira termina justo en
+/// ese rato, el aviso le hace pedir la lista otra vez, esa respuesta (con miniaturas) llega
+/// ANTES que la primera, y la primera (sin ellas) la pisa: la tira se queda latiendo para
+/// siempre. En la 0.4.8 pasaba cuando la tira acababa en esos ~200 ms; desde que la tira no
+/// hace una miniatura por fotograma, acaba casi siempre ahí. El arreglo de verdad es de la
+/// página (apuntado para S28); mientras, el aviso se repite en cuanto la página ha guardado
+/// la lista vieja, que es cuando pide `session_studio` (lo pide justo después, con la sesión
+/// ya puesta), y como red, `REPETIR_AVISO_TRAS` después de la respuesta vieja.
+static SIN_MINIATURAS: parking_lot::Mutex<Vec<(String, Instant)>> = parking_lot::Mutex::new(Vec::new());
+
+/// La red: lo que se espera desde una lista sin miniaturas hasta repetir el aviso aunque la
+/// página no haya pedido `session_studio`.
+const REPETIR_AVISO_TRAS: Duration = Duration::from_millis(1500);
+
+/// Lo llama `session_frames` cuando contesta con fotogramas que aún no tienen miniatura.
+pub(crate) fn lista_sin_miniaturas(id: &str) {
+    let mut lista = SIN_MINIATURAS.lock();
+    lista.retain(|(otro, cuando)| otro != id && cuando.elapsed() < Duration::from_secs(60));
+    lista.push((id.to_string(), Instant::now()));
+}
+
+/// Saca la marca de esa sesión, si la había, con la hora de la lista vieja.
+fn quitar_lista_vieja(id: &str) -> Option<Instant> {
+    let mut lista = SIN_MINIATURAS.lock();
+    let cuando = lista.iter().find(|(otro, _)| otro == id).map(|(_, c)| *c);
+    lista.retain(|(otro, _)| otro != id);
+    cuando
+}
+
+/// Cuánto falta para la red: nada si la última lista que salió ya las llevaba.
+fn repetir_aviso_en(salio_sin: Option<Instant>, ahora: Instant) -> Option<Duration> {
+    let salio_sin = salio_sin?;
+    Some((salio_sin + REPETIR_AVISO_TRAS).saturating_duration_since(ahora))
+}
+
+/// Avisa al editor de que la tira está en disco y, si a ese editor ya le salió la lista sin
+/// miniaturas, deja puesta la red (ver `SIN_MINIATURAS`).
+pub(crate) fn avisar_de_la_tira(app: &AppHandle, id: &str) {
+    let _ = app.emit(EVENT_SESSION_THUMBS, id.to_string());
+    let salio_sin = SIN_MINIATURAS.lock().iter().find(|(otro, _)| otro == id).map(|(_, c)| *c);
+    if let Some(espera) = repetir_aviso_en(salio_sin, Instant::now()) {
+        let app = app.clone();
+        let id = id.to_string();
+        std::thread::spawn(move || {
+            std::thread::sleep(espera);
+            if quitar_lista_vieja(&id).is_some() {
+                crate::crono::marca("tira-aviso-de-red");
+                let _ = app.emit(EVENT_SESSION_THUMBS, id);
+            }
+        });
+    }
+}
+
+/// Lo llama `session_studio`: la página ya ha guardado la lista que pidió al abrirse. Si esa
+/// lista salió sin miniaturas y la tira ya está, se le repite el aviso ahora, que ya no la
+/// pisa nada.
+pub(crate) fn la_pagina_tiene_su_lista(app: &AppHandle, session: &SessionData) {
+    let tira_hecha = !session.frames.is_empty() && session.frames.iter().all(|f| !f.thumb_path.is_empty());
+    if tira_hecha && quitar_lista_vieja(&session.id).is_some() {
+        crate::crono::marca("tira-aviso-repetido");
+        let _ = app.emit(EVENT_SESSION_THUMBS, session.id.clone());
+    }
+}
+
 /// Abre una sesión ya guardada (y ya en `state.sessions`) en el editor, y le prepara lo que
 /// espera a tenerlo delante: las miniaturas de la tira y la vista previa si falta. Lo usan
-/// `entregar` y la orden `open` del canal de agentes (S15).
-pub(crate) fn al_editor(app: &AppHandle, session: &SessionData) -> Result<()> {
+/// `entregar` y la orden `open` del canal de agentes (S15). Con `al_lado`, el editor que
+/// hubiera abierto se queda (`windows_mgr::open_editor_al_lado`).
+pub(crate) fn al_editor(app: &AppHandle, session: &SessionData, al_lado: bool) -> Result<()> {
     let state = app.state::<AppState>();
     // Aunque el editor no se abra, lo de abajo se hace igual, como antes de sacarlo aquí: el
     // error se devuelve al final.
-    let abierto = windows_mgr::open_editor(app, &session.id);
+    let abierto = if al_lado {
+        windows_mgr::open_editor_al_lado(app, &session.id)
+    } else {
+        windows_mgr::open_editor(app, &session.id)
+    };
     // Y ahora las miniaturas, con el editor ya abierto. Antes se hacian ANTES de abrirlo
     // y con un minuto de grabacion la barra decia «Guardando…» varios segundos sin que
     // hubiera nada que guardar: solo miniaturas que el editor puede esperar.
     let mut con_miniaturas = session.clone();
     match record::generate_thumbnails(&mut con_miniaturas) {
         Ok(()) => {
+            crate::crono::marca("miniaturas-hechas");
             let _ = con_miniaturas.persist();
             state
                 .sessions
                 .write()
                 .insert(con_miniaturas.id.clone(), con_miniaturas);
-            let _ = app.emit(EVENT_SESSION_THUMBS, session.id.clone());
+            avisar_de_la_tira(app, &session.id);
         }
         Err(error) => eprintln!("[winshotx] sin miniaturas para la tira: {error}"),
     }
@@ -1048,6 +1192,7 @@ pub fn parar_sin_editor(app: &AppHandle, solo: Option<&str>) -> Result<SessionDa
     };
     avisar_barra(app, tick_de(&recording, true));
     crate::tray_menu::fuera_de_la_grabacion(app, false);
+    crate::miniatura::fuera_de_la_grabacion(false);
     let barra = recording.barra.clone();
     let resultado = terminar(recording);
     cerrar_esta_barra(app, barra.as_deref());
@@ -1137,6 +1282,7 @@ pub fn cancel(app: &AppHandle) -> Result<()> {
     };
     recording.descartar.store(true, Ordering::Relaxed);
     crate::tray_menu::fuera_de_la_grabacion(app, false);
+    crate::miniatura::fuera_de_la_grabacion(false);
     cerrar_barra(app, recording.barra.clone());
     std::thread::spawn(move || match terminar(recording) {
         Ok(session) => {
@@ -1459,5 +1605,85 @@ mod pruebas_del_arranque {
         assert!(Arrancando::tomar().is_none(), "una segunda ha arrancado encima de la primera");
         drop(primera);
         assert!(Arrancando::tomar().is_some(), "acabada la primera, ya se puede");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_del_aviso_de_la_tira {
+    use super::*;
+
+    /// Si la lista salió con miniaturas (o no salió), el aviso va una vez y ya.
+    #[test]
+    fn sin_lista_vieja_no_se_repite() {
+        assert_eq!(repetir_aviso_en(None, Instant::now()), None);
+    }
+
+    /// Si salió sin ellas hace nada, se repite cuando la respuesta vieja ya ha llegado seguro.
+    #[test]
+    fn con_una_lista_vieja_reciente_se_repite_despues() {
+        let ahora = Instant::now();
+        let espera = repetir_aviso_en(Some(ahora), ahora).expect("se repite");
+        assert_eq!(espera, REPETIR_AVISO_TRAS);
+        let espera = repetir_aviso_en(Some(ahora), ahora + Duration::from_millis(400)).unwrap();
+        assert_eq!(espera, REPETIR_AVISO_TRAS - Duration::from_millis(400));
+    }
+
+    /// Y si salió hace mucho, se repite ya, sin esperar.
+    #[test]
+    fn con_una_lista_vieja_antigua_se_repite_ya() {
+        let antes = Instant::now();
+        let espera = repetir_aviso_en(Some(antes), antes + Duration::from_secs(5)).unwrap();
+        assert_eq!(espera, Duration::ZERO);
+    }
+
+    /// La marca se saca una sola vez: el aviso repetido y la red no avisan los dos.
+    #[test]
+    fn la_lista_vieja_se_recoge_una_vez() {
+        lista_sin_miniaturas("s29b-c");
+        assert!(quitar_lista_vieja("s29b-c").is_some());
+        assert!(quitar_lista_vieja("s29b-c").is_none());
+    }
+
+    /// Lo que apunta `session_frames` lo recoge el aviso de ESA sesión, y solo una vez.
+    #[test]
+    fn la_lista_sin_miniaturas_se_apunta_por_sesion() {
+        lista_sin_miniaturas("s29b-a");
+        lista_sin_miniaturas("s29b-b");
+        let de = |id: &str| SIN_MINIATURAS.lock().iter().filter(|(o, _)| o == id).count();
+        assert_eq!(de("s29b-a"), 1);
+        lista_sin_miniaturas("s29b-a");
+        assert_eq!(de("s29b-a"), 1, "la misma sesión se apunta una vez, con la hora de la última");
+        SIN_MINIATURAS.lock().retain(|(o, _)| o != "s29b-a" && o != "s29b-b");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_de_la_region {
+    use super::*;
+
+    /// Una region que cruza de una pantalla a otra se graba solo en la que se lleva mas de
+    /// ella, y una que cabe en una se queda igual (las pantallas de Munito, 16-nov).
+    #[test]
+    fn un_video_se_queda_en_la_pantalla_donde_cae_mas() {
+        let pantallas = [
+            Rect { x: 0, y: 0, width: 1920, height: 1080 },
+            Rect { x: -1920, y: 483, width: 1920, height: 1080 },
+            Rect { x: 0, y: 1080, width: 1920, height: 1200 },
+        ];
+        let dentro = Rect { x: 100, y: 100, width: 800, height: 600 };
+        assert_eq!(dentro_de_su_monitor(dentro, &pantallas), dentro);
+        assert_eq!(
+            dentro_de_su_monitor(Rect { x: -300, y: 600, width: 800, height: 300 }, &pantallas),
+            Rect { x: 0, y: 600, width: 500, height: 300 },
+            "cruzando a la izquierda, se queda la principal, donde cae mas"
+        );
+        assert_eq!(
+            dentro_de_su_monitor(Rect { x: 100, y: 1000, width: 400, height: 400 }, &pantallas),
+            Rect { x: 100, y: 1080, width: 400, height: 320 },
+            "cruzando al portatil, se queda el portatil"
+        );
+        let en_ninguna = Rect { x: -20_000, y: 0, width: 10, height: 10 };
+        assert_eq!(dentro_de_su_monitor(en_ninguna, &pantallas), en_ninguna);
+        assert_eq!(dentro_de_su_monitor(dentro, &[]), dentro);
     }
 }

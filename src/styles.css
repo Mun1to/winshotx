@@ -40,6 +40,11 @@
   --color-apagado: var(--color-neutral-400);
   --color-tenue: var(--color-neutral-500);
   --color-fantasma: var(--color-neutral-600);
+  /* Lo que hay que mirar (un aviso, algo que va a ocupar mucho), en ámbar. Lo que falló va en
+     rojo, y lo que va bien no lleva color. En claro necesita un ámbar más oscuro para leerse:
+     este, sobre el lienzo claro, se queda en 1,6 a 1 de contraste, y el de claro da 4,7 a 1
+     (pasa el 4,5 que pide la letra pequeña). En oscuro da 10 a 1. */
+  --color-aviso: #fbbf24;
 }
 
 @layer base {
@@ -73,6 +78,7 @@
     --color-apagado: var(--color-neutral-600);
     --color-tenue: var(--color-neutral-500);
     --color-fantasma: var(--color-neutral-400);
+    --color-aviso: #b45309;
   }
 
   html,

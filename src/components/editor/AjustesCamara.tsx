@@ -64,7 +64,8 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
   const esquinas = Math.round(redondeo(m) * 100);
 
   return (
-    <div data-ajustes-camara>
+    // Un mando debajo de otro, con el mismo aire que el resto de su grupo del panel (S39).
+    <div data-ajustes-camara className="space-y-4">
       <Toggle
         checked={puesta}
         onChange={(si) => {
@@ -79,17 +80,17 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
         hint={t("arrástrala en la vista previa para moverla")}
       />
       {puesta && (
-        <div className="mt-2 space-y-3">
-          <SelectorDeForma
+        <SelectorDeForma
             forma={m.forma}
             onForma={(forma) => cambiar({ forma })}
             etiqueta={t("Forma de la cámara")}
             formas={FORMAS_DE_LA_CAMARA}
             enColumnas
           />
+      )}
           {/* S13 (redondeo): el mismo mando que las esquinas del marco del fondo. El círculo
               no tiene esquinas. */}
-          {m.forma !== "circulo" && (
+          {puesta && m.forma !== "circulo" && (
             <Slider
               label={t("Esquinas redondeadas")}
               hint={esquinas === 0 ? t("rectas") : `${esquinas} %`}
@@ -100,6 +101,7 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
               onChange={(v) => cambiar({ redondeo: v / 100 })}
             />
           )}
+          {puesta && (
           <Slider
             label={t("Tamaño")}
             hint={`${Math.round(m.tam * 100)} %`}
@@ -109,13 +111,20 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
             value={Math.round(m.tam * 100)}
             onChange={(v) => cambiar({ tam: v / 100 })}
           />
+          )}
+          {puesta && (
           <div>
-            <span className="mb-1.5 block text-[13px] font-medium text-texto">{t("Recorte de la cámara")}</span>
+            <span className="mb-1.5 block text-[15px] font-medium text-titulo">{t("Recorte de la cámara")}</span>
             {/* La imagen de la cámara con el marco de recortar encima: el mismo que el de la
                 captura, que se arrastra igual. */}
+            {/* Como mucho 90 px de alto: a todo el ancho del panel se comía el sitio de los demás
+                mandos y en una ventana de 700 de alto «Con borde» se quedaba debajo del borde. */}
             <div
-              className="relative overflow-hidden rounded-md bg-black"
-              style={{ aspectRatio: `${camara.ancho} / ${camara.alto}` }}
+              className="relative mx-auto overflow-hidden rounded-md bg-black"
+              style={{
+                aspectRatio: `${camara.ancho} / ${camara.alto}`,
+                maxWidth: Math.round((90 * camara.ancho) / Math.max(1, camara.alto)),
+              }}
             >
               <video
                 src={url}
@@ -138,23 +147,22 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
               />
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-3">
-              <span className="text-[12px] leading-snug text-suave">
+              <span className="text-[13px] leading-snug text-suave">
                 {t("Arrastra encima para recortarla")}
               </span>
               {recortada && (
                 <button
                   type="button"
                   onClick={() => cambiar({ recorte: SIN_RECORTE })}
-                  className="flex h-8 shrink-0 items-center rounded-lg bg-white/10 px-3 text-[13px] font-medium whitespace-nowrap text-neutral-100 transition-colors hover:bg-white/15 hover:text-white"
+                  className="flex h-8 shrink-0 items-center rounded-lg bg-realce px-3 text-[13px] font-medium whitespace-nowrap text-titulo transition-colors hover:bg-activo hover:text-titulo"
                 >
                   {t("Quitar el recorte")}
                 </button>
               )}
             </div>
           </div>
-          <Toggle checked={m.borde} onChange={(borde) => cambiar({ borde })} label={t("Con borde")} />
-        </div>
-      )}
+          )}
+          {puesta && <Toggle checked={m.borde} onChange={(borde) => cambiar({ borde })} label={t("Con borde")} />}
     </div>
   );
 }

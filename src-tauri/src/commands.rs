@@ -32,6 +32,13 @@ pub struct OverlayPayload {
     /// La ultima region capturada, en coordenadas del escritorio virtual, o nada si
     /// todavia no se ha capturado ninguna desde que se abrio la app.
     last_region: Option<Rect>,
+    /// Si hay una grabación en marcha. Entonces el overlay solo se abre para hacer fotos (ver
+    /// `windows_mgr::open_overlays`), y la barra no ofrece grabar: daría «ya hay una grabación».
+    recording: bool,
+    /// Todas las pantallas, en fisicos del escritorio virtual: con ellas una seleccion empieza
+    /// en una y sigue en la de al lado (16-nov). Salen del sistema y no de las congeladas, que
+    /// llegan en dos tandas: al montar el overlay de la primera, las otras aun no estan.
+    monitores: Vec<capture::MonitorInfo>,
 }
 
 /// Construye el payload de una pantalla. La usan tanto el comando `overlay_bootstrap`
@@ -43,6 +50,8 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         .iter()
         .find(|f| f.monitor.id == monitor_id)
         .ok_or_else(|| AppError::Msg(format!("el monitor {monitor_id} no tiene captura congelada")))?;
+    let monitores = capture::monitors()
+        .unwrap_or_else(|_| freezes.iter().map(|f| f.monitor.clone()).collect());
 
     Ok(OverlayPayload {
         monitor: freeze.monitor.clone(),
@@ -55,8 +64,10 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         // las capturas lleguen en dos tandas (primero la del raton) y `freezes` no este
         // completo todavia.
         screen_number: freeze.monitor.id as usize + 1,
-        screen_count: capture::monitors().map(|m| m.len()).unwrap_or(freezes.len()).max(1),
+        screen_count: monitores.len().max(1),
         last_region: *state.last_region.read(),
+        recording: state.is_recording(),
+        monitores,
     })
 }
 
@@ -111,6 +122,7 @@ pub async fn freeze_png(
 /// ve nunca la pantalla de «preparando la captura»: lo que aparece, aparece ya pintado.
 #[tauri::command]
 pub async fn overlay_listo(app: AppHandle, monitor_id: u32, generation: u64) {
+    crate::crono::marca(&format!("overlay-listo-{monitor_id}"));
     windows_mgr::overlay_listo(&app, monitor_id, generation);
 }
 
@@ -135,10 +147,12 @@ pub async fn freeze_bytes(
 
 #[tauri::command]
 pub async fn capture_still(app: AppHandle, region: Rect, action: String) -> Result<StillResult> {
-    let image = {
+    // La region puede cruzar de una pantalla a otra (16-nov): se juntan sus trozos, y lo que
+    // sigue usa lo que de verdad abarca (sin lo que caiga fuera de todas las pantallas).
+    let (image, region) = {
         let state = app.state::<AppState>();
         let freezes = state.freezes.read();
-        capture::crop_from_freeze(&freezes, region)?
+        capture::recortar_escritorio(&freezes, region)?
     };
     // Se recuerda solo si el recorte ha salido bien: repetir una region que fallo no
     // repetiria nada. Y solo aqui, no en `capture_all_screens`, porque "la ultima region"
@@ -173,7 +187,15 @@ fn entregar(
 ) -> Result<StillResult> {
     let state = app.state::<AppState>();
     // S4 (capturas): el fondo de las capturas (E1), en lo que se copia y se guarda.
-    let marco_capturas = state.settings.read().marco_capturas.clone();
+    let marco_capturas = {
+        let ajustes = state.settings.read();
+        let mut marco = ajustes.marco_capturas.clone();
+        // S25 (marco): la ventana del marco, clara u oscura como las de winshotx ahora mismo.
+        if marco.carcasa.is_some() {
+            marco.ventana_oscura = crate::platform::tema::oscuro(ajustes.theme);
+        }
+        marco
+    };
     let image = marco_capturas.para_la_accion(image, action);
     let (width, height) = (image.width(), image.height());
     let (copy_after, con_sonido) = {
@@ -182,7 +204,9 @@ fn entregar(
     };
     // El clic va aqui y no en cada rama: suena por haber capturado, se haga lo que se haga
     // despues con la imagen. Y va antes de escribir el archivo para que no lo retrase.
-    if con_sonido {
+    // Grabando, no: se grabaria en el sonido del PC (y en el micro), y ese pico le quitaba
+    // ademas a una pista casi muda la subida de `pistas::nivelar_si_casi_muda` (16-nov).
+    if con_sonido && !state.is_recording() {
         crate::platform::sonido::obturador();
     }
 
@@ -205,6 +229,8 @@ fn entregar(
             // capturas guardadas dentro del mismo segundo dejaban una sola.
             let path = crate::archivos::destino(&directory, "png")?;
             png::save(&image, &path, width, height)?;
+            // S26: su texto se lee ya, en el hilo del historial, sin que la captura espere.
+            crate::historial_texto::avisar(app);
             if copy_after {
                 let bytes = png::to_bytes(&image)?;
                 result.copied = crate::platform::clipboard::copy_image(&image, &bytes).is_ok();
@@ -222,6 +248,8 @@ fn entregar(
                 return Ok(result);
             };
             png::save(&image, &path, width, height)?;
+            // Si la ha dejado en la carpeta de capturas, sale en el historial y se lee (S26).
+            crate::historial_texto::avisar(app);
             if copy_after {
                 let bytes = png::to_bytes(&image)?;
                 result.copied = crate::platform::clipboard::copy_image(&image, &bytes).is_ok();
@@ -391,6 +419,7 @@ pub async fn save_pinned(app: AppHandle, path: String) -> Result<String> {
     let directory = PathBuf::from(app.state::<AppState>().settings.read().save_directory.clone());
     let destino = crate::archivos::destino(&directory, "png")?;
     std::fs::copy(&origen, &destino)?;
+    crate::historial_texto::avisar(&app);
     Ok(destino.to_string_lossy().to_string())
 }
 
@@ -516,7 +545,14 @@ pub async fn session_info(app: AppHandle, session_id: String) -> Result<SessionI
 
 #[tauri::command]
 pub async fn session_frames(app: AppHandle, session_id: String) -> Result<Vec<FrameDto>> {
-    Ok(session_of(&app, &session_id)?
+    crate::crono::marca("session_frames");
+    let session = session_of(&app, &session_id)?;
+    // Sin tira todavia: el aviso de cuando este se repetira mas tarde (ver
+    // `recorder::avisar_de_la_tira`).
+    if session.frames.iter().any(|f| f.thumb_path.is_empty()) {
+        crate::recorder::lista_sin_miniaturas(&session_id);
+    }
+    Ok(session
         .frames
         .into_iter()
         .map(|frame| FrameDto {
@@ -555,6 +591,7 @@ pub struct StudioDto {
 #[tauri::command]
 pub async fn session_studio(app: AppHandle, session_id: String) -> Result<StudioDto> {
     let session = session_of(&app, &session_id)?;
+    crate::recorder::la_pagina_tiene_su_lista(&app, &session);
     Ok(StudioDto {
         clics: session.clics,
         teclas: session.teclas,
@@ -625,6 +662,7 @@ pub async fn frame_image(app: AppHandle, session_id: String, index: usize) -> Re
     let directory = session.dir.join("full");
     std::fs::create_dir_all(&directory)?;
     let path = directory.join(format!("{index:06}.png"));
+    crate::crono::marca(&format!("frame_image-{index}"));
     if !path.exists() {
         let image = record::read_frame(&session, index)?;
         // Comprimido lo minimo: es una vista previa temporal que se pide en cada
@@ -632,6 +670,7 @@ pub async fn frame_image(app: AppHandle, session_id: String, index: usize) -> Re
         // `image` cada salto costaba 180 ms a 1080p. Ver `png::save_fast`.
         png::save_fast(&image, &path)?;
     }
+    crate::crono::marca(&format!("frame_image-{index}-hecho"));
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -1154,7 +1193,10 @@ pub async fn restart_shell(app: AppHandle) -> Result<crate::hotkeys::ShortcutSta
 }
 
 #[tauri::command]
-pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings> {
+pub async fn get_settings(window: tauri::WebviewWindow, state: State<'_, AppState>) -> Result<Settings> {
+    // La primera orden que manda casi cualquier pagina al montarse: su marca dice cuando ha
+    // cargado cada ventana (los ajustes, el editor, el menu de la bandeja...).
+    crate::crono::marca(&format!("get_settings-{}", window.label()));
     Ok(state.settings.read().clone())
 }
 
@@ -1167,6 +1209,9 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     // se hayan guardado desde el editor mientras tanto.
     let mut settings = settings;
     settings.presets = previous.presets.clone();
+    // S40: lo mismo con el tamaño que se le ha dado a mano a la ventana: solo lo cambia
+    // `guardar_ventana_ajustes`, y la bienvenida o los ajustes lo pisarían con su copia vieja.
+    settings.ventana_ajustes = previous.ventana_ajustes;
     *state.settings.write() = settings.clone();
     crate::settings::save(&app, &settings)?;
 
@@ -1205,6 +1250,20 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
         crate::platform::autostart::set(settings.start_with_windows)?;
     }
     Ok(settings)
+}
+
+/// S40: el tamaño que alguien le ha dado a mano a la ventana de ajustes, para abrirla así la
+/// próxima vez (`src/lib/ventanaFija.ts`). Va aparte de `set_settings` por lo mismo que los
+/// estilos guardados: toca solo esto, sobre lo que haya guardado en ese momento.
+#[tauri::command]
+pub async fn guardar_ventana_ajustes(app: AppHandle, ancho: u32, alto: u32) -> Result<()> {
+    let state = app.state::<AppState>();
+    let settings = {
+        let mut guard = state.settings.write();
+        guard.ventana_ajustes = Some(crate::settings::TamanoVentana { ancho, alto });
+        guard.clone()
+    };
+    crate::settings::save(&app, &settings)
 }
 
 /// Lo que el menu de la bandeja necesita saber para pintarse.

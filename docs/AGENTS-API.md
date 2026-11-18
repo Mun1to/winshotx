@@ -157,7 +157,7 @@ it, as above): that is what makes PowerShell wait for the answer.
 
 ## What the person at the computer sees
 
-- **A recording started by an agent looks exactly like one of yours**: the red frame around what
+- **A recording started by an agent looks exactly like one of yours**: the frame around what
   is being recorded and the small bar with the timer. winshotx never records in secret. The person
   can stop it from the bar like any other recording.
 - **Nothing makes a sound** unless the agent passes `cue`.

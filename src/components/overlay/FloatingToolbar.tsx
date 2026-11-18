@@ -1,4 +1,4 @@
-import { Check, Circle, Copy, Download, FolderOpen, Pencil, Pin, ScanQrCode, Type, X } from "lucide-react";
+import { Circle, Loader2, Copy, Download, FolderOpen, Pencil, Pin, ScanQrCode, Type, X } from "lucide-react";
 import type { CaptureMode } from "../../lib/types";
 import { GlassPanel } from "../ui/GlassPanel";
 import { IconButton } from "../ui/IconButton";
@@ -136,8 +136,10 @@ export function FloatingToolbar({
         <IconButton icon={X} label={t("Cancelar")} shortcut="Esc" onClick={onCancel} danger />
       </GlassPanel>
       {busy && (
-        <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-neutral-900/90 px-2 py-1 text-[11px] text-neutral-300 shadow-lg">
-          <Check className="size-3 text-emerald-400" /> {t("Procesando…")}
+        // Una rueda pequeña y gris, no un ✓ verde: todavía no ha terminado nada, y lo que va
+        // bien no lleva color.
+        <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-neutral-900/90 px-2 py-1 text-[12px] text-neutral-300 shadow-lg">
+          <Loader2 className="size-3.5 animate-spin text-neutral-400" aria-hidden="true" /> {t("Procesando…")}
         </div>
       )}
     </div>

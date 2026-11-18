@@ -157,6 +157,23 @@ describe("la barrita mientras baja", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Sube un poco, me he perdido");
   });
 
+  /**
+   * S37: el aviso iba recortado con «…» («Sube un poco, me he perdi…», y en inglés la mitad
+   * de «It won't scroll by itself: scroll it yourself»), justo lo que hay que leer para
+   * seguir. Ahora cabe en dos líneas y, mientras pide algo, la cifra le deja el sitio.
+   */
+  it("mientras pide algo, el aviso se lee entero, en ámbar, y la cifra se quita", async () => {
+    render(<BarraScroll />);
+    await progreso({ alto: 2340, estado: "perdida" });
+    const estado = screen.getByRole("status");
+    expect(estado.className).not.toMatch(/\btruncate\b/);
+    expect(estado.className).toContain("line-clamp-2");
+    expect(estado.className).toContain("text-aviso");
+    expect(screen.queryByText(/2.?340 px/)).toBeNull();
+    await progreso({ alto: 2400, estado: "tu" });
+    expect(screen.getByText(/2.?400 px/)).toBeInTheDocument();
+  });
+
   it("Parar se pide una vez y deja la barra en Cosiendo", () => {
     render(<BarraScroll />);
     expect(screen.getByLabelText("Parar")).toHaveTextContent("Esc");

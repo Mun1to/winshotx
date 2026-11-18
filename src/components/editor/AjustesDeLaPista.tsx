@@ -192,7 +192,7 @@ export function AjustesDelTrozo({
   const t = useT();
   return (
     <div data-ajustes-trozo className="flex flex-wrap items-center gap-x-5 gap-y-2">
-      <span className="text-[13px] font-medium whitespace-nowrap text-neutral-100">
+      <span className="text-[13px] font-medium whitespace-nowrap text-titulo">
         {t("Trozo {n} de {total}", { n: numero, total: cuantas })}
       </span>
       <Boton onClick={() => onCambio({ cortada: !pieza.cortada })} apagado={!pieza.cortada && !puedeQuitarse}>
@@ -217,7 +217,7 @@ function Boton({ onClick, apagado = false, children }: { onClick: () => void; ap
       type="button"
       onClick={onClick}
       disabled={apagado}
-      className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 text-[13px] font-medium whitespace-nowrap text-neutral-100 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-40"
+      className="flex h-8 items-center gap-1.5 rounded-lg bg-realce px-3 text-[13px] font-medium whitespace-nowrap text-titulo transition-colors hover:bg-activo hover:text-titulo disabled:opacity-40"
     >
       {children}
     </button>

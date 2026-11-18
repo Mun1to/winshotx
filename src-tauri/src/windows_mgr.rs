@@ -110,7 +110,12 @@ impl OverlayIntent {
 /// estaba cuando se pulso el atajo) y esconder los iconos del escritorio.
 pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     let state = app.state::<AppState>();
-    if state.is_recording() {
+    // Grabando, lo que no se abre es OTRA grabacion (el atajo de grabar ya la para, en
+    // `hotkeys.rs`). Una foto si: Munir, 16-nov-2026, «puedes hacer que cuando grabas puedas
+    // tomar capturas». Antes esto volvia sin hacer nada y el atajo parecia roto. Las ventanas
+    // de la captura (la seleccion, la cuenta atras y la miniatura) se sacan del video con
+    // `fuera_de_la_captura`, asi que en lo grabado no sale nada de esto.
+    if state.is_recording() && !intent.es_foto() {
         return Ok(());
     }
     // Si el atajo se pulsa dos veces muy seguidas, la segunda pulsacion se ignora en vez
@@ -193,7 +198,8 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
     // overlay tapa el escritorio de todas formas, asi que tenerlos escondidos mas rato no
     // se ve en la imagen y si aumenta la posibilidad de dejarselos escondidos a alguien.
     // El guardian los devuelve tambien si la captura falla a medias.
-    let esconder_iconos = state.settings.read().hide_desktop_icons;
+    // Grabando, no: la grabacion los veria desaparecer y volver en mitad del video (16-nov).
+    let esconder_iconos = state.settings.read().hide_desktop_icons && !state.is_recording();
     let iconos = if esconder_iconos {
         crate::platform::desktop_icons::esconder()
     } else {
@@ -328,6 +334,11 @@ fn preparar_overlay(app: &AppHandle, state: &AppState, monitor: &MonitorInfo) ->
         // Recien creada arranca sola y pide su payload con `overlay_bootstrap`.
         build_overlay_window(app, &label, monitor.id)?
     };
+
+    // Una foto en medio de una grabacion: la seleccion no puede salir en el video. Se decide
+    // en cada captura porque la ventana se reutiliza, y fuera de una grabacion vuelve a ser
+    // normal (excluida, una captura del propio overlay saldria en blanco).
+    crate::platform::window_style::fuera_de_la_captura(&window, state.is_recording());
 
     // El tamanno se pone ya, aparcada, para que el navegador se acomode a el mientras
     // carga la imagen. La posicion NO: eso es ensennarla, y se ensenna cuando avise de
@@ -508,13 +519,28 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
             crate::platform::window_style::rounded_corners(&nueva);
             // Sin esto la cuenta atras cierra el menu que se venia a fotografiar.
             crate::platform::window_style::never_focus(&nueva);
+            guardar_cuenta_hwnd(&nueva);
             nueva
         }
     };
 
     colocar_cuenta_atras(&window);
+    // Con una grabacion en marcha, la cuenta atras tampoco sale en el video.
+    #[cfg(windows)]
+    {
+        let hwnd = CUENTA_HWND.load(Ordering::Relaxed);
+        if hwnd != 0 {
+            crate::platform::window_style::fuera_de_la_captura_hwnd(
+                hwnd,
+                app.state::<AppState>().is_recording(),
+            );
+        }
+    }
     let _ = window.show();
 }
+
+/// La ventana de la cuenta atras a pelo, guardada al crearla. 0 si no existe todavia.
+static CUENTA_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
 /// La pone en el centro del monitor donde esta el cursor, que es el que el usuario esta
 /// mirando. Se recoloca en cada disparo porque el raton puede estar en otra pantalla que
@@ -631,7 +657,21 @@ fn ventanita_de_numero(app: &AppHandle, indice: u32) -> Option<tauri::WebviewWin
         .ok()?;
     crate::platform::window_style::rounded_corners(&construida);
     crate::platform::window_style::never_focus(&construida);
+    // La misma ventana que la cuenta atras: si nace aqui, tambien hay que saber cual es.
+    guardar_cuenta_hwnd(&construida);
     Some(construida)
+}
+
+/// Guarda la ventana de la cuenta atras a pelo, la cree quien la cree (la cuenta atras o el
+/// numero de pantalla de los ajustes), para no preguntarle a Tauri por ella en cada cuenta
+/// atras: se llama tambien desde el menu de la bandeja, fuera del hilo principal.
+fn guardar_cuenta_hwnd(window: &tauri::WebviewWindow) {
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() {
+        CUENTA_HWND.store(hwnd.0 as isize, Ordering::Relaxed);
+    }
+    #[cfg(not(windows))]
+    let _ = window;
 }
 
 /// La esconde y la deja en cero, que la pagina dibuja como el icono de la camara y no
@@ -772,6 +812,9 @@ pub fn close_overlays(app: &AppHandle) {
             .map(|m| aparcadero_de(m, &monitores))
             .unwrap_or_else(|| aparcadero(app));
         let _ = window.set_position(sitio);
+        // Aparcada sigue recibiendo el raton del arrastre que llevara: que lo suelte, o el
+        // boton soltado despues de un Escape captura igual (ver `EVENT_OVERLAY_HIDE`).
+        let _ = window.emit_to(label.as_str(), crate::EVENT_OVERLAY_HIDE, ());
     }
 }
 
@@ -997,8 +1040,22 @@ pub fn close_recorder(app: &AppHandle) {
 /// de grabacion, la cuenta atras y las capturas ancladas van sin marco porque son
 /// herramientas flotantes, no ventanas.
 pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
+    abrir_editor(app, session_id, true)
+}
+
+/// El editor de una grabación que acaba de terminar, SIN cerrar el que haya abierto.
+///
+/// Desde el 16-nov se puede capturar grabando, y esa foto puede estar en el editor cuando se
+/// para: cerrarlo para abrir la grabación tiraba la foto sin preguntar (cerrar el editor
+/// descarta su sesión). Así se quedan los dos, y cada uno se cierra cuando se quiera.
+pub fn open_editor_al_lado(app: &AppHandle, session_id: &str) -> Result<()> {
+    abrir_editor(app, session_id, false)
+}
+
+fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Result<()> {
+    crate::crono::marca("editor-pedido");
     for (label, window) in app.webview_windows() {
-        if label.starts_with(EDITOR_LABEL) {
+        if cerrar_los_demas && label.starts_with(EDITOR_LABEL) {
             let _ = window.close();
         }
     }
@@ -1022,6 +1079,7 @@ pub fn open_editor(app: &AppHandle, session_id: &str) -> Result<()> {
     // trae las esquinas que Windows quiere, y forzarlas encima deja un borde raro.
     let _ = window.set_min_size(Some(LogicalSize::new(760.0, 520.0)));
     window.set_focus()?;
+    crate::crono::marca("editor-creado");
     Ok(())
 }
 
@@ -1137,6 +1195,7 @@ fn sitio_del_ancla(region: Rect, monitor: Option<MonitorSitio>) -> (i32, i32) {
 /// interfaz sigue montada con los datos del arranque. Al volver a mostrarla hay que
 /// decirselo para que refresque el tamanno de la cache y mire si hay version nueva.
 pub fn show_settings(app: &AppHandle) -> Result<()> {
+    crate::crono::marca("ajustes-pedidos");
     if let Some(window) = app.get_webview_window("main") {
         window.show()?;
         let _ = window.unminimize();
@@ -1148,6 +1207,7 @@ pub fn show_settings(app: &AppHandle) -> Result<()> {
         #[cfg(windows)]
         force_foreground(&window);
         let _ = window.emit(crate::EVENT_SETTINGS_SHOWN, ());
+        crate::crono::marca("ajustes-mostrados");
     }
     Ok(())
 }

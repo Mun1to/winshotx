@@ -29,6 +29,8 @@ pub mod portal;
 pub mod escritorio;
 // S4 (capturas)
 pub mod arrastrar;
+// S25 (marco)
+pub mod tema;
 // S5 (scroll)
 
 use std::path::Path;

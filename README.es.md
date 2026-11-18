@@ -9,13 +9,13 @@
 Una **alternativa libre a la Herramienta de Recortes de Windows**: captura de región con lupa de
 píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selección ya pintada
 114 ms después del atajo con tres pantallas, gasta 33 MB de memoria y cabe en un instalador de
-2,95 MB. Sin cuenta, sin nube, sin telemetría y sin FFmpeg empaquetado.
+3,01 MB. Sin cuenta, sin nube, sin telemetría y sin FFmpeg empaquetado.
 
 <a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.es.svg"><img src=".github/readme/download-windows-light.es.svg" alt="Descargar para Windows"></picture></a>
 <a href="https://winshotx.com/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.es.svg"><img src=".github/readme/download-web-light.es.svg" alt="Probarla en el navegador"></picture></a>
 <a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/es%20dark.svg" alt="Microsoft Store" height="52"></a>
 
-[Licencia MIT](LICENSE) · Windows 10 y 11 · Instalador 2,95 MB
+[Licencia MIT](LICENSE) · Windows 10 y 11 · Instalador 3,01 MB
 
 [Comparar con la Herramienta de Recortes](#herramienta-de-recortes-contra-winshotx) · [Última versión](https://github.com/Mun1to/winshotx/releases/latest) · [English](README.md)
 
@@ -32,168 +32,157 @@ píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selecci�
 <img src=".github/readme/how-it-works-light.es.svg" alt="Pulsa el atajo: Se captura la pantalla, se muestra congelada y se selecciona encima. Arrastra sobre la zona: Sobre la pantalla congelada, con lupa 6× que da el color exacto en hexadecimal y ajuste a las ventanas: un clic coge la ventana entera. Suelta: Aparece una barra sobre la selección: copiar, guardar, editar Exporta: GIF, MP4, PNG o JPG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como archivo en Slack, Discord o el Explorador.">
 </picture></p>
 
-**La interfaz habla español e inglés**, y arranca en el que tenga puesto Windows. Se puede fijar
-uno de los dos en **Ajustes > La app > Aspecto**. Los identificadores y los comentarios del código
-están en español; los commits y la portada en inglés van aparte.
+**La interfaz habla español, inglés y chino**, y arranca en el que tenga puesto Windows; la barra de
+abajo de los ajustes fija otro. Los identificadores y los comentarios del código están en español; los
+commits y la portada en inglés van aparte.
 
 ## Qué hace
 
-|  |  |
-|---|---|
-| **Captura de región** | Sobre la pantalla congelada, con lupa 6× que da el color exacto en hexadecimal y ajuste a las ventanas: un clic coge la ventana entera. |
-| **Tapar datos personales** | Un clic en el editor encuentra los correos, teléfonos, tarjetas, cuentas bancarias y DNI de la imagen y deja un mosaico encima de cada uno, que destruye los píxeles en vez de emborronarlos. Nada se reconoce por la forma: la tarjeta tiene que pasar su dígito de control, el IBAN su resto y el DNI la letra que le toca, así que una factura no sale medio tapada. |
-| **Grabar una sola ventana** | Pulsa `W` con una ventana resaltada y se graba ella, aunque algo la tape: un aviso que salta encima ya no acaba dentro del vídeo. Y si mueves la ventana, los aros de los clics van con ella. |
-| **Grabación de la región** | A 15, 30 o 60 fps con Windows Graphics Capture, sin que se cuelen overlays en el vídeo. Un marco rojo fino enseña lo que se está grabando (ámbar en pausa), la barra de debajo dice si está entrando el sonido, y descartar pregunta dos veces. |
-| **Recortar en la línea de tiempo** | La grabación entera cabe a lo ancho: arrastras sus dos bordes azules para quedarte con un trozo, y la vista previa enseña el corte exacto mientras arrastras. Corta al milisegundo, también dentro de un rato en el que la pantalla no cambia, y el play se para al final del trozo. Proporciones de un clic (9:16, 4:5, 1:1, 16:9), encuadrar la imagen, escala con proporción bloqueada y control de calidad. |
-| **Estudio de grabación** | Un panel «Estudio»: ocho fondos con aire, esquinas redondeadas y sombra alrededor del vídeo; el puntero dibujado del tamaño que quieras sin pixelarse, con movimiento suave que le quita los temblores de la mano y la opción de esconderlo cuando se para; la cámara acercándose a cada clic y a cada atajo a la velocidad que elijas, siguiendo al ratón mientras está cerca; aros en los clics, los atajos en pantalla y el volumen. **Todo se decide al exportar**, sobre fotogramas que ya están en disco, y **todo se ve en vivo en la vista previa del editor**: lo que ves es lo que sale. |
-| **Velocidad al exportar** | 0,5×, 2× o 4× sobre lo grabado. Un tutorial tiene tramos en los que no pasa nada, y esos se ven a 2× sin perder nada. |
-| **Exportación** | GIF, MP4, PNG o JPG, a disco y al portapapeles: la imagen se pega como imagen y el GIF o el MP4 se pegan como **archivo** en Slack, Discord o el Explorador. |
-| **Los últimos segundos** | Graba siempre, tira lo viejo, y con una tecla se queda con los últimos 15, 30 o 60 segundos. Lo bueno de una pantalla casi siempre pasa **antes** de que a nadie se le ocurra grabarla. |
-| **Audio del sistema** | Lo que suena por tus altavoces entra en el MP4, cogido de la salida por defecto. Sin instalar nada, y lo sigues oyendo mientras se graba. |
-| **Capturar con espera** | 3 o 5 segundos antes de que se congele la pantalla, con la cuenta atrás en el centro. Es la única forma de fotografiar un menú abierto, porque al pulsar el atajo se cierra. |
-| **El texto de una imagen** | `T` sobre la selección, o el botón del editor, lee lo que pone en la imagen con el lector de Windows y lo copia. También en una grabación, sobre el fotograma que estés mirando. |
-| **Tus últimas capturas** | El menú de la bandeja enseña las últimas que guardaste como miniaturas, y un clic vuelve a dejarla en el portapapeles. No hay archivo de historial: la carpeta ES el historial, así que lo que borres por fuera desaparece de ahí solo. |
-| **Español, inglés y chino** | Sigue el idioma de Windows, o fijas el que quieras. El chino lo aportó alguien de fuera. |
-| **Claro y oscuro** | Sigue el tema de Windows y cambia con él, o fijas el que quieras. |
-| **Todo local** | Ni cuenta, ni telemetría, ni subidas. La única llamada a la red es mirar si hay versión nueva en GitHub. |
+### Captura sobre la pantalla congelada
 
-## Capturas
+<p align="center"><img src="frontlaxweb/img/capturar-es.webp" alt="Una zona elegida con winshotx sobre la pantalla congelada, con su medida encima y su barra debajo"></p>
 
-<p align="center"><img src="docs/img/ajustes.png" alt="Panel de ajustes de winshotx"></p>
+Pulsa <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>2</kbd> y la pantalla se congela, así que nada se mueve mientras arrastras. Una **lupa de 6×** enseña el color exacto bajo el puntero y `C` lo copia, y un clic se lleva una **ventana entera**. Al soltar sale una barra para copiar, guardar, editar, anclar o leer el texto.
 
-<p align="center">Panel de ajustes de winshotx</p>
+- `F`, `G` y `V` eligen qué sale antes de recortar: foto, GIF o vídeo.
+- `S` saca una **página larga**, bajando sola. `X` fija el recorte a 16:9, 1:1, 9:16 o 4:3.
+- Sin barra, si lo prefieres: la captura va directa al portapapeles. La bienvenida lo pregunta la primera vez.
+- ¿Prefieres pulsar **Impr Pant** o **Win + Mayús + S**? **Ajustes > Teclas de Windows** se las quita a la Herramienta de Recortes, y se las devuelve.
+
+### Graba, y luego edita con un estudio
+
+<p align="center"><img src="frontlaxweb/img/editor-es.webp" alt="El editor de winshotx: una captura sobre el fondo azul Océano con esquinas redondeadas y sombra, la línea de tiempo debajo y el panel del Estudio a la derecha"></p>
+
+Graba una zona, una pantalla entera o **una sola ventana**, aunque algo la tape. El sonido del PC y el micrófono van **cada uno en su pista**, y tu cámara puede ir encima. El editor recorta en una línea de tiempo, **se acerca a cada clic** y pone fondo, esquinas redondeadas, sombra y un puntero suave, todo **a la vista** antes de exportar a MP4 o GIF.
+
+### Unos ajustes que enseñan lo que hacen
+
+<p align="center"><img src="frontlaxweb/img/ajustes-es.webp" alt="Los ajustes de winshotx 0.5: una columna de iconos a la izquierda, un buscador arriba, el apartado Capturar con sus atajos y el dibujo Así va a salir a la derecha"></p>
+
+Ocho apartados, un **buscador** (`Ctrl+F`) que encuentra cualquier ajuste por su nombre y, a la derecha, **Así va a salir** dibuja lo que estás eligiendo antes de probarlo.
+
+### Y además
+
+- **Tapar datos personales.** Un clic encuentra los correos, teléfonos, tarjetas, cuentas bancarias y DNI, en una imagen o en un vídeo, y el mosaico **destruye los píxeles** en vez de emborronarlos. Una tarjeta tiene que pasar su dígito de control, así que una factura no sale tapada a medias.
+- **Los últimos segundos.** Puede grabar todo el rato en memoria, y `Ctrl+Mayús+6` se queda con los últimos 15, 30 o 60 segundos. Lo bueno casi siempre pasa **antes** de que nadie dé a grabar.
+- **El texto de una imagen.** `T` lo lee con el OCR de Windows y lo copia, también en una grabación.
+- **Anclar una captura.** `A` la deja flotando encima de todo, justo donde estaba.
+- **Once marcas.** Flechas, rectángulos, texto, resaltador, foco, mosaico y pasos numerados que se renumeran solos.
+- **Más rápido donde no pasa nada.** Exporta a 0,5×, 2× o 4×, o pulsa **Acelerar lo escrito**.
+- **Una cuenta atrás.** 3 o 5 segundos antes de congelar la pantalla, para fotografiar un menú abierto.
+- **Se pega donde lo necesitas.** Una imagen se pega como imagen, y un GIF o un MP4 como **archivo** en Slack, Discord o el Explorador.
+- **Todo se queda en tu PC.** Ni cuenta, ni telemetría, ni subidas: lo único que sale a la red es mirar si hay versión nueva en GitHub.
 
 ## Herramienta de Recortes contra winshotx
 
 Mismo equipo con Windows 11, tres pasadas cada una y las dos arrancando desde cero. El cronómetro
-para cuando la selección ya se ve en pantalla. La
-[tabla entera](https://winshotx.com/#frente-a-frente) tiene las diecinueve filas,
-incluidas las cinco que gana la de Windows.
+para cuando la selección ya se ve en pantalla. La [comparativa entera](https://winshotx.com/#comparativa)
+pone a winshotx contra otras diez, fila a fila, y dice dónde gana cada una.
 
 |  | winshotx | Herramienta de Recortes |
 |---|---|---|
 | Del atajo a la selección en pantalla, ya pintada (tres pantallas) | **114 ms** | 920 ms |
 | Memoria mientras capturas | **33 MB** | 253 MB |
 | Memoria esperando quieta | **31 MB** | 98 MB |
-| Graba GIF | **sí** | no |
-| Editor con línea de tiempo y estudio | **sí** | no |
-| Elegir el atajo de teclado | **sí** | no |
-| Dibujar y anotar encima | **seis marcas, con pasos numerados** | bolígrafo, formas y texto |
-| Copiar el texto de la imagen | **sí, con la tecla T y también dentro del editor** | sí |
-| Audio del sistema al grabar | **sí, y el micrófono en su propia pista** | sí |
-| Temporizador antes de capturar | 3 o 5 segundos | **3, 5 o 10 segundos** |
-| Tapar datos personales | **de un clic, y el mosaico destruye los píxeles** | automático, y difumina |
+| Un vídeo con zooms que siguen a los clics, y su fondo | **sí** | no |
+| Los últimos segundos, sin haber dado a grabar | **15, 30 o 60 s** | no |
+| Grabar GIF | **sí** | solo en Insider, 30 s |
+| Tapar datos personales | **solo, en imágenes y vídeos** | correos y teléfonos |
+| Dibujar encima | **once marcas, con texto y pasos numerados** | sin texto ni pasos |
+| Una página larga, bajando sola | **sí** | no |
+| Sonido del PC y micrófono | **cada uno en su pista** | sí |
+| Elegir tu propio atajo | **sí** | no |
+| La maneja un agente de IA | **sí** | no |
+| Cuenta atrás antes de capturar | 3 o 5 segundos | **3, 5 o 10 segundos** |
+| Viene puesta con Windows | no | **sí** |
+| Idiomas | 3 | **64** |
 
 ## Atajos
 
-| Atajo | Acción |
+| Atajo | Qué hace |
 |---|---|
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>2</kbd> | Capturar región |
-| <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd> | Capturar una región y abrirla en el editor, sin pasar por la barra |
-| En el editor | El escudo tapa los correos, teléfonos, tarjetas, cuentas y DNI que encuentre |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>5</kbd> | Grabar región · púlsalo otra vez para terminar |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>6</kbd> | Quedarte con lo último que pasó · mientras «los últimos segundos» esté encendido |
-| <kbd>Impr Pant</kbd> | Capturar región · si le quitas la tecla a la Herramienta de Recortes |
-| <kbd>Enter</kbd> | Copiar la selección al portapapeles |
-| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Guardar la selección en la carpeta de capturas |
-| <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>S</kbd> | Guardarla donde quieras: Windows pregunta carpeta y nombre |
-| <kbd>E</kbd> | Abrir la selección en el editor |
-| <kbd>A</kbd> | Anclar la selección: se queda flotando encima de todo, en su sitio |
-| <kbd>T</kbd> | Copiar el texto de la selección, leído por el lector de Windows |
-| <kbd>G</kbd> / <kbd>V</kbd> | Grabar la selección como GIF / vídeo |
-| <kbd>W</kbd> | Grabar **solo la ventana de debajo del cursor**, aunque algo la tape |
-| <kbd>Ctrl</kbd> + <kbd>A</kbd> | Seleccionar el monitor entero |
-| <kbd>←↑>↓</kbd> | Mover la selección · con `Shift` de 10 en 10 · con `Alt` redimensiona |
+| <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>2</kbd> | Capturar una zona |
+| <kbd>Win</kbd> + <kbd>Mayús</kbd> + <kbd>L</kbd> | Capturar e ir directo al editor |
+| <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>5</kbd> | Grabar una zona · otra vez para parar |
+| <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>6</kbd> | Quedarte con los últimos segundos · si ese anillo está encendido |
+| <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>9</kbd> | Acercarse mientras grabas |
+| <kbd>Impr Pant</kbd> · <kbd>Win</kbd> + <kbd>Mayús</kbd> + <kbd>S</kbd> | Capturar una zona · cuando **Ajustes > Teclas de Windows** se las queda |
+
+Todos se cambian en los ajustes: pulsa el campo y teclea la combinación nueva. Si otro programa ya la tiene, el campo se pone rojo y lo dice.
+
+<details>
+<summary><b>Mientras eliges la zona</b></summary>
+
+| Tecla | Qué hace |
+|---|---|
+| <kbd>Intro</kbd> | Copiar la selección |
+| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Guardarla en la carpeta de capturas |
+| <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>S</kbd> | Guardarla donde quieras |
+| <kbd>E</kbd> | Abrirla en el editor |
+| <kbd>A</kbd> | Anclarla encima de todo |
+| <kbd>T</kbd> | Copiar el texto que lleva dentro |
+| <kbd>C</kbd> | Copiar el color bajo el puntero |
+| <kbd>F</kbd> / <kbd>G</kbd> / <kbd>V</kbd> | Foto, GIF o vídeo |
+| <kbd>W</kbd> | Grabar solo la ventana bajo el puntero, aunque algo la tape |
+| <kbd>S</kbd> | Una página larga, bajando sola |
+| <kbd>X</kbd> | Fijar el recorte: libre, 16:9, 1:1, 9:16 o 4:3 |
+| <kbd>R</kbd> | La misma zona que la última vez |
+| <kbd>P</kbd> | Una pantalla entera: cada monitor enseña su número, y <kbd>1</kbd>, <kbd>2</kbd> o <kbd>3</kbd> se la lleva |
+| <kbd>B</kbd> | Enseñar u ocultar la barra |
+| <kbd>Ctrl</kbd> + <kbd>A</kbd> | El monitor entero |
+| <kbd>←</kbd> <kbd>↑</kbd> <kbd>></kbd> <kbd>↓</kbd> | Mover la selección · <kbd>Mayús</kbd> de 10 en 10 · <kbd>Alt</kbd> cambia el tamaño |
 | <kbd>Esc</kbd> | Cancelar |
+
+</details>
+
+<details>
+<summary><b>En el editor, y en una captura anclada</b></summary>
+
+| Tecla | Qué hace |
+|---|---|
+| <kbd>Espacio</kbd> | Reproducir el trozo que te quedas |
+| <kbd>I</kbd> / <kbd>O</kbd> | Cortar la entrada y la salida donde está la vista previa |
+| <kbd>←</kbd> <kbd>></kbd> | Un fotograma atrás o adelante |
+| <kbd>1</kbd> a <kbd>0</kbd> | Flecha, rectángulo, texto, resaltador, paso numerado, mosaico, flecha curva, línea, elipse y lápiz |
+| <kbd>F</kbd> | Foco: oscurece todo lo demás |
+| <kbd>C</kbd> | Encuadrar la imagen |
+| <kbd>T</kbd> | Copiar el texto de la imagen |
+| <kbd>D</kbd> | Tapar los datos personales que encuentre |
+| <kbd>Ctrl</kbd> + <kbd>Z</kbd> | Deshacer la última marca |
+| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Exportar con lo que tenga puesto el panel |
+| <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>S</kbd> | Exportar preguntando antes dónde |
+| <kbd>Esc</kbd> | Soltar el encuadre o la herramienta, y luego cerrar |
+
+En una captura anclada, <kbd>Ctrl</kbd> + <kbd>C</kbd> la copia, <kbd>Ctrl</kbd> + <kbd>S</kbd> la guarda, <kbd>T</kbd> copia su texto y <kbd>Esc</kbd> la cierra.
+
+</details>
+
+<details>
+<summary><b>Cómo le quita a Windows Impr Pant y Win + Mayús + S</b></summary>
+
+`Impr Pant` es de la Herramienta de Recortes por un valor del registro de cada usuario, así que registrar la tecla sin más parece que funciona y nunca salta. El interruptor borra ese valor y se queda la tecla, y al apagarlo deja el valor exactamente como estaba.
+
+`Win+Mayús+S` la atiende Windows antes que cualquier programa, gancho o atajo. Lo único que se la quita es apagar la S en `DisabledHotkeys`, y eso cuesta `Win+S`, la búsqueda. El escritorio solo lee esa lista al arrancar, así que el botón **Aplicar** reinicia el Explorador: dos segundos, y no se cierra nada más. Al apagarlo vuelve todo como estaba.
+
+Para quitar la Herramienta de Recortes del todo, la app abre la pantalla de Windows donde se hace, y nunca desinstala nada por su cuenta.
+
+</details>
 
 ## Instalación
 
-[**Descargar el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 2,95 MB · se instala solo para tu usuario, así que Windows no pide permisos de administrador. Las
+[**Descarga el instalador**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
+· 3,01 MB · se instala solo para tu usuario, así que Windows nunca pide permisos de administrador. Las
 versiones anteriores están en [Releases](../../releases).
 
-Otros tres caminos, la misma app:
+Otras tres formas, la misma app:
 
-```
-winget install Mun1to.winshotx
-```
+- **winget:** `winget install Mun1to.winshotx`
+- **[Microsoft Store](https://apps.microsoft.com/detail/9P1NKWNRXD6Z):** Microsoft firma el paquete y la tienda lo mantiene al día.
+- **Portable:** `winshotx-<versión>-portable-x64.zip` de [Releases](../../releases): un ejecutable, nada instalado, los ajustes en `%APPDATA%\winshotx`.
 
-o el **portable** `winshotx-<versión>-portable-x64.zip` de
-[Releases](../../releases): un ejecutable, sin instalar nada, con los ajustes igualmente en
-`%APPDATA%\winshotx`.
+Vive en la bandeja del sistema, sin ventana propia: si no la ves, mira detrás de la flecha `^` de la barra de tareas.
 
-o la [**Microsoft Store**](https://apps.microsoft.com/detail/9P1NKWNRXD6Z), donde el paquete lo
-firma Microsoft y lo mantiene al día la propia Store, así que el actualizador de la app se aparta.
-
-Al abrirse vive en la bandeja del sistema, sin ventana. Windows esconde los iconos nuevos: si no lo
-ves, está detrás de la flecha `^` de la barra de tareas.
-
-**Se actualiza sola.** En **Ajustes > Actualizaciones** aparece el botón cuando hay versión nueva, y
-con un clic se descarga, se instala y se reinicia. Las descargas van firmadas y la app comprueba la
-firma antes de instalar nada, así que un archivo manipulado no entra.
-
-## ¿Es esto lo que buscabas?
-
-- **"Quiero algo mejor que la Herramienta de Recortes."** Es esto, y se abre 33 veces antes. La de
-  Windows sigue ganando en anotar, en leer el texto de la imagen y en el audio del sistema, y la
-  tabla de arriba lo dice.
-- **"¿Cómo grabo un GIF de la pantalla en Windows?"** Pulsa `Ctrl+Shift+5`, arrastra sobre la zona,
-  púlsalo otra vez para parar y exporta a GIF desde el editor. Sin instalar FFmpeg.
-- **"Necesito un grabador de pantalla ligero."** 33 MB mientras captura y 31 esperando en la
-  bandeja.
-- **"Algo como ShareX, pero más simple."** Los mismos atajos globales y el mismo
-  overlay sobre la pantalla congelada, sin cientos de ajustes.
-- **"Quiero sacar un color de la pantalla."** La lupa te da el hexadecimal del píxel bajo el cursor
-  con zoom 6×.
-- **"¿Sube mis capturas a algún sitio?"** No. Ni cuenta, ni telemetría, ni más red que mirar si hay
-  versión nueva en GitHub.
-
-## Atajos
-
-En el editor: arrastra los bordes azules de la línea de tiempo para recortar, o pulsa `I` y `O` para
-cortar donde está la vista previa; `espacio` reproduce el trozo que te quedas, `C` encuadra la imagen,
-`←` `>` avanzan fotograma a fotograma, `Ctrl+S` exporta con los ajustes del panel, `Ctrl+Mayús+S`
-pregunta antes dónde guardarlo y `Esc` cierra.
-
-En el editor, para anotar: `1` flecha, `2` rectángulo, `3` texto, `4` resaltar, `5` paso numerado
-y `6` tapar datos. `Ctrl+Z` deshace la última marca. Los pasos se numeran solos, así que meter uno
-en medio no deja dos treses en la misma imagen.
-
-Los dos atajos globales se cambian desde Ajustes pulsando el campo y tecleando la combinación
-nueva. Si otra aplicación ya la tiene cogida, el campo se pone rojo y avisa.
-
-La tecla `Impr Pant` la tiene la Herramienta de Recortes por un valor del registro del usuario, así
-que registrar el atajo por su cuenta parece funcionar y luego no llega ninguna pulsación. El
-interruptor de Ajustes apaga ese valor y coge la tecla, y al desactivarlo lo deja como estaba.
-`Win+Mayús+S` la atiende Windows por delante de cualquier programa, hook o atajo. Lo único que se la
-quita es apagar la S en `DisabledHotkeys`, y eso hace el mismo interruptor: cuesta perder `Win+S`, la
-búsqueda, y al desactivarlo se devuelve todo tal cual. Esa lista la lee el escritorio solo al
-arrancar, así que hace falta que vuelva a arrancar: el botón **Aplicar** de esa misma fila reinicia
-el Explorador, que tarda dos segundos y no cierra nada, en vez de obligar a cerrar sesión. Si se
-prefiere quitar la Herramienta de Recortes entera, la app abre la pantalla de Windows donde se
-desinstala, pero nunca desinstala nada por su cuenta.
-
-## Dos formas de capturar
-
-Las dos usan el mismo atajo y la misma selección. Lo que cambia es el momento de soltar:
-
-| Perfil | Qué pasa al soltar el ratón |
-|---|---|
-| **Sale la barra** | Aparece una barra sobre la selección: copiar, guardar, editar |
-| **Se copia sola** | No aparece nada · la imagen ya está en el portapapeles |
-
-El perfil se elige en la bienvenida del primer arranque, y se cambia cuando quieras desde Ajustes.
-
-## Qué sale del recorte, y de qué pantalla
-
-Arriba y en el centro, donde Windows pone la suya, hay una barra con cuatro botones. Los tres
-primeros dicen **qué sale**: foto, vídeo o GIF, elegido antes de recortar y con las teclas `F`,
-`V` y `G`. El cuarto dice **de dónde**: al pulsarlo, cada monitor saca su propio número en el
-centro, y con `1`, `2` o `3` te llevas esa pantalla entera, esté donde esté el ratón en ese
-momento. Un clic sobre la pantalla hace lo mismo.
-
-Grabar respeta el perfil: con «se copia sola» arranca al soltar, y con «sale la barra» te deja
-ajustar el recuadro antes, porque equivocarse en una grabación cuesta minutos y no una tecla.
+**Se actualiza sola.** Cuando sale una versión nueva, los ajustes enseñan un botón, y con un clic se descarga, se instala y reinicia la app. Cada descarga va firmada y la firma se comprueba antes de instalar nada, así que un archivo manipulado se rechaza.
 
 ## Para agentes de IA
 
@@ -208,9 +197,24 @@ claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe
 Es donde lo dejan el instalador y winget, salvo que eligieras otra carpeta (la guía trae una línea
 que la encuentra); con la portable, pon la carpeta donde la descomprimiste.
 Sin MCP, `winshotx.exe agent` hace lo mismo desde cualquier terminal y contesta con una línea de
-JSON. **Una grabación que empieza un agente se ve igual que una tuya**, con el marco rojo y la
+JSON. **Una grabación que empieza un agente se ve igual que una tuya**, con el marco y la
 barra, así que siempre sabes cuándo se graba la pantalla. Cómo se añade a cada agente, y todas las
 órdenes: [docs/AGENTS-API.es.md](docs/AGENTS-API.es.md).
+
+## ¿Es esto lo que buscabas?
+
+- **"Quiero algo mejor que la Herramienta de Recortes."** Es esto, y se abre 8 veces antes. La de
+  Windows sigue viniendo puesta y hablando 64 idiomas; la tabla de arriba dice dónde gana cada una.
+- **"¿Cómo grabo un GIF de la pantalla en Windows?"** Pulsa `Ctrl+Mayús+5`, arrastra sobre la zona,
+  púlsalo otra vez para parar y exporta a GIF desde el editor. Sin instalar FFmpeg.
+- **"Necesito un grabador de pantalla ligero."** 33 MB mientras captura y 31 esperando en la
+  bandeja.
+- **"Algo como ShareX, pero más simple."** Los mismos atajos globales y el mismo
+  overlay sobre la pantalla congelada, sin cientos de ajustes.
+- **"Quiero sacar un color de la pantalla."** La lupa te da el hexadecimal del píxel bajo el cursor
+  con zoom 6×, y `C` lo copia.
+- **"¿Sube mis capturas a algún sitio?"** No. Ni cuenta, ni telemetría, ni más red que mirar si hay
+  versión nueva en GitHub.
 
 ## Cómo está construido
 
@@ -234,22 +238,14 @@ en Rust puro con paleta global, dithering Floyd-Steinberg y escritura solo del r
 entre fotogramas. Si tienes `ffmpeg` en el `PATH`, el editor ofrece además un motor de máxima
 calidad (`palettegen`), pero nunca se descarga ni se distribuye.
 
-[`docs/TRAMPAS.md`](docs/TRAMPAS.md) recoge las siete trampas de Tauri v2 en Windows que costaron
-horas: comandos síncronos que congelan la interfaz, ventanas que no se pueden crear desde el hilo de
-un atajo global, etiquetas de ventana que no se reutilizan, el primer clic que se come el sistema,
-un canvas contaminado por el protocolo `asset:`, una CSP incompleta que solo falla en el instalador
-y la clave de firma que se pasa de una forma y no de otra.
+[`docs/TRAMPAS.md`](docs/TRAMPAS.md) recoge las 52 trampas de Tauri v2 y de Windows que costaron
+horas, cada una con cómo se ve, por qué pasa y cómo se arregló: comandos síncronos que congelan la
+interfaz, ventanas que no se pueden crear desde el hilo de un atajo global, una CSP que solo falla en
+el instalador, una ventana que pide un tamaño sin permiso para pedirlo, y la clave de firma que se pasa
+de una forma y no de otra.
 
-## Estado
-
-Funciona en Windows 10 1903 o superior. macOS y Linux compilan, pero toda función específica de
-plataforma devuelve "esta función solo está implementada en Windows": captura, grabación,
-codificación MP4, portapapeles y arranque automático están detrás de `#[cfg(windows)]` con un stub
-para el resto, así que portarlo es rellenar esos stubs.
-
-**Lo que falta:** tapar datos personales solo (winshotx los tapa a mano, con mosaico), un
-temporizador de más de cinco segundos, y cualquier idioma que no sea español o inglés. La
-comparativa entera de la web dice qué filas sigue ganando la Herramienta de Recortes.
+**Solo Windows.** Funciona en Windows 10 1903 o posterior, y todo lo que toca el sistema va detrás de
+`#[cfg(windows)]`.
 
 <details>
 <summary><b>Desarrollo</b></summary>
@@ -276,6 +272,7 @@ sitemap tienen que cuadrar primero:
 ```bash
 node frontlaxweb/generar-en.mjs      # rehace /en/, el bloque de preguntas y las huellas
 python frontlaxweb/generar-social.py # rehace las dos tarjetas de 1200x630
+node frontlaxweb/hacer-imagenes.mjs  # rehace las fotos de la app desde dist/, tras pnpm build
 ```
 
 Para publicar una versión hace falta la clave privada de firma, que **no está en el repositorio** y

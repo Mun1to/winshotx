@@ -38,6 +38,11 @@ interface Props {
   conVolumen: boolean;
   /** Lo que hay que saber del sonido de esta exportación (lo acelerado va mudo), si algo. */
   aviso?: string;
+  /**
+   * Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo. Subido, su
+   * pico ya se oye y `avisoDeNivel` no dice nada: sin esto nadie sabría que se tocó.
+   */
+  subidaPc?: number | null;
   /** Lo más alto que sonó cada pista al grabarla, de 0 a 1 (`avisoDeNivel`). */
   picoPc?: number | null;
   picoVoz?: number | null;
@@ -50,7 +55,7 @@ interface Props {
  * y «Tu micrófono», cada uno con su interruptor y, encendido, su volumen. Lo que se toca se
  * oye en la vista previa en el momento y es lo que sale en el archivo.
  */
-export function MandosDePistas({ pc, voz, conVolumen, aviso, picoPc, picoVoz, onPc, onVoz }: Props) {
+export function MandosDePistas({ pc, voz, conVolumen, aviso, picoPc, picoVoz, subidaPc, onPc, onVoz }: Props) {
   const t = useT();
   const mandos: {
     titulo: string;
@@ -58,8 +63,12 @@ export function MandosDePistas({ pc, voz, conVolumen, aviso, picoPc, picoVoz, on
     nivel: string | null;
     cambiar: (p: VolumenDePista) => void;
   }[] = [];
-  if (pc) mandos.push({ titulo: t("Sonido del PC"), pista: pc, nivel: avisoDeNivel(picoPc, "pc"), cambiar: onPc });
-  if (voz) mandos.push({ titulo: t("Tu micrófono"), pista: voz, nivel: avisoDeNivel(picoVoz, "voz"), cambiar: onVoz });
+  const traducido = (aviso: string | null) => (aviso ? t(aviso) : null);
+  const delPc = subidaPc
+    ? t("Llegó casi mudo (la app que sonaba estaba muy baja en el mezclador de Windows) y se subió {n} dB al grabar.", { n: Math.round(subidaPc) })
+    : traducido(avisoDeNivel(picoPc, "pc"));
+  if (pc) mandos.push({ titulo: t("Sonido del PC"), pista: pc, nivel: delPc, cambiar: onPc });
+  if (voz) mandos.push({ titulo: t("Tu micrófono"), pista: voz, nivel: traducido(avisoDeNivel(picoVoz, "voz")), cambiar: onVoz });
   return (
     <>
       {mandos.map(({ titulo, pista, nivel, cambiar }, i) => (
@@ -72,7 +81,7 @@ export function MandosDePistas({ pc, voz, conVolumen, aviso, picoPc, picoVoz, on
           />
           {/* Con la pista apagada no hace falta: ya no va a sonar. */}
           {pista.encendida && nivel && (
-            <p className="text-[12px] leading-snug text-amber-300">{t(nivel)}</p>
+            <p className="text-[12px] leading-snug text-aviso">{nivel}</p>
           )}
           {pista.encendida && conVolumen && (
             <Slider

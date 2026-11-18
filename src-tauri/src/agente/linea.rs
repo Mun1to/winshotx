@@ -19,7 +19,7 @@ winshotx agent <command> [options]: let an AI agent record the screen, export an
   export  <session> [--out demo.mp4|demo.gif] [--style NAME] [--trim start,end] [--zoom-on-clicks 0..1] [--speed 0.25..4]
   open    <session>              opens it in the winshotx editor, for a person to polish
 Pixels are physical, on the virtual desktop (see screens). Without --out, files go to the folder in winshotx's settings.
-Unset options follow winshotx's settings, except the start sound (--cue), which is off. The red frame shows while recording.
+Unset options follow winshotx's settings, except the start sound (--cue), which is off. The frame shows while recording.
 Example: winshotx agent record --screen 0 --max-seconds 20   then   winshotx agent stop   then   winshotx agent export <session> --out demo.mp4";
 
 /// Cómo se lee el valor de una opción.

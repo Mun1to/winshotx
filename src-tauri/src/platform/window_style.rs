@@ -236,7 +236,74 @@ pub fn fuera_de_la_captura_hwnd(ventana: isize, fuera: bool) -> bool {
 
     let hwnd = HWND(ventana as *mut core::ffi::c_void);
     let afinidad = if fuera { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE };
-    return unsafe { SetWindowDisplayAffinity(hwnd, afinidad) }.is_ok();
+    let hecho = unsafe { SetWindowDisplayAffinity(hwnd, afinidad) }.is_ok();
+    if hecho {
+        let mut fuera_ahora = FUERA_DEL_VIDEO.lock();
+        fuera_ahora.retain(|&v| v != ventana);
+        if fuera {
+            fuera_ahora.push(ventana);
+        }
+    }
+    return hecho;
+}
+
+/// Si Windows tiene la ventana a la vista (aunque este aparcada fuera de las pantallas).
+///
+/// Para no cambiarle la afinidad a una escondida: al empezar y al parar una grabacion se le
+/// cambiaba al menu de la bandeja y a la miniatura escondidos, y en su ultimo sitio salia un
+/// recuadro en blanco que solo se iba al volver a ensennar la ventana (issue #15, 16-nov:
+/// «no matter how I stop, it shows the blank shape»; y la miniatura blanca de Munito grabando).
+/// Las que se ensennan ya ponen la suya justo antes, asi que a una escondida no le hace falta.
+#[cfg(windows)]
+pub fn a_la_vista(ventana: isize) -> bool {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::IsWindowVisible;
+    ventana != 0 && unsafe { IsWindowVisible(HWND(ventana as *mut core::ffi::c_void)) }.as_bool()
+}
+
+#[cfg(not(windows))]
+pub fn a_la_vista(_ventana: isize) -> bool {
+    false
+}
+
+/// Las ventanas de winshotx que ahora mismo no salen en lo que se graba (`fuera_de_la_captura`).
+///
+/// Lo que se hace ENCIMA de ellas tampoco es del video: desde el 16-nov se puede capturar
+/// grabando, y los clics de arrastrar la seleccion entraban como clics del tutorial (zoom,
+/// aros y sonido de clic al exportar), y Ctrl+S como un atajo con su pastilla.
+#[cfg(windows)]
+static FUERA_DEL_VIDEO: parking_lot::Mutex<Vec<isize>> = parking_lot::Mutex::new(Vec::new());
+
+/// La ventana de arriba del todo de la que cuelga esta (las paginas de WebView2 son hijas).
+#[cfg(windows)]
+fn raiz(ventana: windows::Win32::Foundation::HWND) -> isize {
+    use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GA_ROOT};
+    unsafe { GetAncestor(ventana, GA_ROOT) }.0 as isize
+}
+
+/// Si en ese punto del escritorio hay una ventana de winshotx que no sale en el video.
+#[cfg(windows)]
+pub fn punto_fuera_del_video(x: i32, y: i32) -> bool {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::UI::WindowsAndMessaging::WindowFromPoint;
+    let debajo = unsafe { WindowFromPoint(POINT { x, y }) };
+    if debajo.0.is_null() {
+        return false;
+    }
+    let raiz = raiz(debajo);
+    FUERA_DEL_VIDEO.lock().contains(&raiz)
+}
+
+/// Si la ventana que tiene el teclado es una de winshotx que no sale en el video.
+#[cfg(windows)]
+pub fn delante_fuera_del_video() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+    let delante = unsafe { GetForegroundWindow() };
+    if delante.0.is_null() {
+        return false;
+    }
+    let raiz = raiz(delante);
+    FUERA_DEL_VIDEO.lock().contains(&raiz)
 }
 
 #[cfg(not(windows))]

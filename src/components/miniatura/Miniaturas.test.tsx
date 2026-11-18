@@ -89,6 +89,8 @@ describe("las acciones", () => {
     fireEvent.click(screen.getAllByText("Copiar")[0]);
     await act(async () => {});
     expect(screen.getByRole("status")).toHaveTextContent("Copiada");
+    // S37: sin verde. Lo que va bien no lleva color; el rojo es solo para lo que falló.
+    expect(screen.getByRole("status").className).not.toMatch(/emerald|green/);
   });
 });
 

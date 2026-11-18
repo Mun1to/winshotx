@@ -109,8 +109,10 @@ export function PinWindow({ imagen }: { imagen: string }) {
       {aviso && (
         <span
           role="status"
-          className={`absolute bottom-2 left-1/2 max-w-[90%] -translate-x-1/2 truncate rounded-md px-2 py-1 text-[11px] font-medium text-white shadow-lg ${
-            aviso.malo ? "bg-red-500/90" : "bg-emerald-500/90"
+          // Lo que va bien no lleva color: gris oscuro, que se lee sobre cualquier foto. El
+          // rojo, solo si algo falló.
+          className={`absolute bottom-2 left-1/2 max-w-[90%] -translate-x-1/2 truncate rounded-md px-2 py-1 text-[12px] font-medium text-white shadow-lg ${
+            aviso.malo ? "bg-red-500/90" : "bg-neutral-900/90"
           }`}
         >
           {t(aviso.texto)}

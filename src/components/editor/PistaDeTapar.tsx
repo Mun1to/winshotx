@@ -93,7 +93,7 @@ export function PistaDeTapar({ tapas, onTapas, elegida, onElegir, total, msEn, o
       onPointerDown={(e) => {
         if (e.button === 0 && e.target === e.currentTarget) onElegir(null);
       }}
-      className="relative mt-2 touch-none rounded-[5px] bg-white/[0.04] select-none"
+      className="relative mt-2 touch-none rounded-[5px] bg-linea-tenue select-none"
       style={{ height: cuantos * (ALTO_FILA + 2) + 2 }}
     >
       {tapas.map((tapa, i) => (
@@ -182,7 +182,7 @@ function BloqueDeTapa({
         elegido ? "border-white" : "border-white/35 hover:border-white/70"
       }`}
     >
-      <EyeOff className="pointer-events-none size-3.5 shrink-0 text-white" aria-hidden="true" />
+      <EyeOff className="pointer-events-none size-3.5 shrink-0 text-titulo" aria-hidden="true" />
       {/* Los bordes que se cogen, que se ven al pasar por encima. */}
       <span className="pointer-events-none absolute inset-y-0.5 left-0.5 w-[3px] cursor-ew-resize rounded-full bg-white/0 group-hover:bg-white/80" />
       <span className="pointer-events-none absolute inset-y-0.5 right-0.5 w-[3px] cursor-ew-resize rounded-full bg-white/0 group-hover:bg-white/80" />
@@ -210,13 +210,13 @@ export function AjustesDeLaTapa({
   const t = useT();
   return (
     <div data-ajustes-tapa className="flex flex-wrap items-center gap-x-6 gap-y-2">
-      <span className="text-neutral-100">
+      <span className="text-titulo">
         {t("Mosaico de {desde} a {hasta}", {
           desde: formatoTiempo(tapa.desdeMs),
           hasta: formatoTiempo(tapa.hastaMs),
         })}
       </span>
-      <span className="text-neutral-300">{t("Tira de un borde para que tape más rato")}</span>
+      <span className="text-suave">{t("Tira de un borde para que tape más rato")}</span>
       <div className="ml-auto flex items-center gap-2">
         <Boton onClick={onQuitar}>{t("Quitar el mosaico")}</Boton>
         {cuantas > 1 && <Boton onClick={onQuitarTodas}>{t("Quitar todos ({n})", { n: cuantas })}</Boton>}
@@ -231,7 +231,7 @@ function Boton({ onClick, children }: { onClick: () => void; children: ReactNode
     <button
       type="button"
       onClick={onClick}
-      className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 text-[13px] font-medium whitespace-nowrap text-neutral-100 transition-colors hover:bg-white/15 hover:text-white"
+      className="flex h-8 items-center gap-1.5 rounded-lg bg-realce px-3 text-[13px] font-medium whitespace-nowrap text-titulo transition-colors hover:bg-activo hover:text-titulo"
     >
       {children}
     </button>

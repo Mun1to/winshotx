@@ -20,7 +20,7 @@
 //! guardada (`winshotx-AAAAMMDD-HHMMSS.png`), que es lo que verá quien la reciba en el chat.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 
 use image::RgbaImage;
 use parking_lot::Mutex;
@@ -90,6 +90,11 @@ static SIGUIENTE: AtomicU64 = AtomicU64::new(1);
 /// hilos de sus órdenes, y preguntarle a Tauri por el `hwnd()` desde otro hilo es una
 /// pregunta que espera sin plazo (trampa 34): así se pregunta una vez y no a cada carta.
 static VENTANA: AtomicIsize = AtomicIsize::new(0);
+
+/// Si la pagina de la ventana ya esta montada: lo dice ella al pedir la pila
+/// (`miniaturas_lista`). Hasta entonces la ventana espera aparcada fuera de las pantallas
+/// (ver `ventana`): WebView2 pinta de blanco lo que aun no ha cargado.
+static PAGINA_LISTA: AtomicBool = AtomicBool::new(false);
 
 /// Después de copiar o guardar una foto: prepara su miniatura y la enseña.
 ///
@@ -254,6 +259,23 @@ fn pantalla_del_raton() -> Option<((i32, i32, i32, i32), f64)> {
     None
 }
 
+/// Al empezar y al acabar una grabación: una miniatura que ya estaba a la vista al darle a
+/// grabar salía en los primeros segundos del vídeo (el menú de la bandeja hace lo mismo con
+/// `tray_menu::fuera_de_la_grabacion`). Las que salen después lo deciden en `ensennar`.
+pub fn fuera_de_la_grabacion(grabando: bool) {
+    #[cfg(windows)]
+    {
+        // Solo si se ve: a la escondida se le pone en `ensennar`, y cambiarsela escondida
+        // dejaba un recuadro blanco en la esquina (ver `window_style::a_la_vista`).
+        let hwnd = VENTANA.load(Ordering::Relaxed);
+        if crate::platform::window_style::a_la_vista(hwnd) {
+            crate::platform::window_style::fuera_de_la_captura_hwnd(hwnd, grabando);
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = grabando;
+}
+
 /// Crea la ventana la primera vez, y las siguientes la devuelve tal cual.
 fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     if let Some(existente) = app.get_webview_window(ETIQUETA) {
@@ -272,14 +294,26 @@ fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
         .focused(false)
         .visible(false)
         .build()?;
+    PAGINA_LISTA.store(false, Ordering::Relaxed);
     crate::platform::window_style::rounded_corners(&window);
     crate::platform::window_style::never_focus(&window);
     #[cfg(windows)]
     if let Ok(handle) = window.hwnd() {
-        VENTANA.store(handle.0 as isize, Ordering::Relaxed);
+        let hwnd = handle.0 as isize;
+        VENTANA.store(hwnd, Ordering::Relaxed);
+        // Mientras carga, a la vista pero fuera de todas las pantallas, como los overlays
+        // aparcados: asi su primera ensennada ya trae algo pintado. Escondida hasta el final,
+        // la primera miniatura de la sesion hecha grabando salia como un recuadro blanco
+        // (16-nov, dos veces; la misma grabando pero con la ventana ya ensennada antes salia
+        // bien). Fuera de las pantallas no sale en ningun video.
+        crate::platform::window_style::colocar_y_ensennar_hwnd(hwnd, APARCADA, APARCADA);
     }
     Ok(window)
 }
+
+/// Donde espera la ventana mientras carga su pagina: lejos de cualquier pantalla.
+#[cfg(windows)]
+const APARCADA: i32 = -20000;
 
 /// Coloca la ventana para lo que haya en la pila, avisa a la página y la enseña. Con la
 /// pila vacía, la esconde.
@@ -297,11 +331,26 @@ fn ensennar(app: &AppHandle, segundos: u32) {
         let _ = window.hide();
         return;
     }
+    // Con la pagina aun cargando, se ensenna cuando avise (`miniaturas_lista`).
+    if !PAGINA_LISTA.load(Ordering::Relaxed) {
+        return;
+    }
     let (trabajo, escala) = pantalla_del_raton().unwrap_or(((0, 0, 1920, 1040), 1.0));
     let (ancho, alto) = medida(cuantas);
     let (ancho, alto) = ((ancho * escala).round() as u32, (alto * escala).round() as u32);
     let _ = window.set_size(PhysicalSize::new(ancho, alto));
     let (x, y) = sitio(trabajo, ancho, alto, escala);
+    // Una foto hecha en medio de una grabacion (se puede desde el 16-nov): la miniatura se ve,
+    // pero no sale en el video. Fuera de una grabacion, normal. Por la ventana a pelo, como el
+    // resto de esta funcion: preguntarle a Tauri por ella fuera del hilo principal espera
+    // sin plazo (trampa 34).
+    #[cfg(windows)]
+    if hwnd != 0 {
+        crate::platform::window_style::fuera_de_la_captura_hwnd(
+            hwnd,
+            app.state::<crate::state::AppState>().is_recording(),
+        );
+    }
     // Sin activarla: `show()` le daría el foco a la ventana, y el foco es de la app donde
     // se va a pegar.
     #[cfg(windows)]
@@ -332,7 +381,13 @@ fn de(id: u64) -> Result<(PathBuf, bool, Rect)> {
 
 #[tauri::command]
 pub async fn miniaturas_lista(app: AppHandle) -> Pila {
-    vista_de_la_pila(segundos(&app))
+    // La pagina ya esta montada: si habia algo esperando a ensennarse, ahora.
+    let segundos = segundos(&app);
+    // Tambien con la pila vacia: entonces la esconde, y no se queda aparcada a la vista.
+    if !PAGINA_LISTA.swap(true, Ordering::Relaxed) {
+        ensennar(&app, segundos);
+    }
+    vista_de_la_pila(segundos)
 }
 
 #[tauri::command]
@@ -360,6 +415,7 @@ pub async fn miniatura_guardar(app: AppHandle, id: u64) -> Result<String> {
     let carpeta = PathBuf::from(app.state::<AppState>().settings.read().save_directory.clone());
     let destino = crate::archivos::destino(&carpeta, "png")?;
     std::fs::copy(&archivo, &destino)?;
+    crate::historial_texto::avisar(&app);
     if let Some(m) = PILA.lock().iter_mut().find(|m| m.id == id) {
         m.archivo = destino.clone();
         m.guardada = true;

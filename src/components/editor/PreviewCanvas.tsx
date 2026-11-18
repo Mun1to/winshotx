@@ -55,7 +55,7 @@ export function PreviewCanvas({
       <img src={posterUrl} alt="" className="size-full object-contain" />
     ) : (
       <div className="flex size-full items-center justify-center">
-        <span className="text-xs text-neutral-500">{t("Sin vista previa")}</span>
+        <span className="text-xs text-tenue">{t("Sin vista previa")}</span>
       </div>
     );
   }

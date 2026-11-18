@@ -157,11 +157,24 @@ pub fn cabecera_wav(info: AudioInfo, datos: u64) -> [u8; 44] {
 /// tamaño a cero y se corrige al cerrar, cuando ya se sabe cuánto ha sonado.
 pub struct EscritorWav {
     archivo: BufWriter<File>,
+    /// Donde está, para poder nivelarlo al cerrar (`cerrar_y_nivelar`).
+    ruta: PathBuf,
     info: AudioInfo,
     escritos: u64,
     /// La muestra más alta escrita, en valor absoluto: dice si la pista se oye (`pico`).
     pico: u16,
+    /// Lo más alto de cada trozo de 50 ms que sonó (`nivel`), y el trozo que se está llenando.
+    picos_de_trozo: Vec<u16>,
+    trozo_pico: u16,
+    trozo_muestras: u32,
+    muestras_por_trozo: u32,
 }
+
+/// Lo que dura cada trozo con el que se mide el nivel (`EscritorWav::nivel`).
+const MS_POR_TROZO: u32 = 50;
+/// Por debajo de esto (-72 dBFS) un trozo es silencio y no cuenta para el nivel: un vídeo en
+/// pausa no tiene que bajar la cuenta.
+const SONANDO: u16 = 8;
 
 impl EscritorWav {
     pub fn crear(ruta: &Path, info: AudioInfo) -> std::io::Result<Self> {
@@ -169,9 +182,14 @@ impl EscritorWav {
         archivo.write_all(&cabecera_wav(info, 0))?;
         Ok(Self {
             archivo,
+            ruta: ruta.to_path_buf(),
             info,
             escritos: 0,
             pico: 0,
+            picos_de_trozo: Vec::new(),
+            trozo_pico: 0,
+            trozo_muestras: 0,
+            muestras_por_trozo: (info.sample_rate * u32::from(info.channels) * MS_POR_TROZO / 1000).max(1),
         })
     }
 
@@ -181,7 +199,16 @@ impl EscritorWav {
         if self.archivo.write_all(pcm).is_ok() {
             self.escritos += pcm.len() as u64;
             for muestra in pcm.chunks_exact(2) {
-                self.pico = self.pico.max(i16::from_le_bytes([muestra[0], muestra[1]]).unsigned_abs());
+                let alto = i16::from_le_bytes([muestra[0], muestra[1]]).unsigned_abs();
+                self.pico = self.pico.max(alto);
+                self.trozo_pico = self.trozo_pico.max(alto);
+                self.trozo_muestras += 1;
+                if self.trozo_muestras == self.muestras_por_trozo {
+                    if self.trozo_pico >= SONANDO {
+                        self.picos_de_trozo.push(self.trozo_pico);
+                    }
+                    (self.trozo_pico, self.trozo_muestras) = (0, 0);
+                }
             }
         }
     }
@@ -192,6 +219,22 @@ impl EscritorWav {
     /// porque Brave estaba al 10 % en el mezclador, y el micro en ceros.
     pub fn pico(&self) -> u16 {
         self.pico
+    }
+
+    /// Lo alto que suena la pista casi todo el rato: el pico de los trozos de 50 ms que
+    /// suenan, dejando fuera el 10 % más alto. Es con lo que se decide si está casi muda,
+    /// y no con `pico`: un aviso de Windows a volumen normal en mitad de un vídeo casi mudo
+    /// lo dejaba sin subir. 0 si no sonó nada.
+    pub fn nivel(&self) -> u16 {
+        let mut picos = self.picos_de_trozo.clone();
+        if self.trozo_muestras > 0 && self.trozo_pico >= SONANDO {
+            picos.push(self.trozo_pico);
+        }
+        if picos.is_empty() {
+            return 0;
+        }
+        let i = ((picos.len() as f32 * 0.9).ceil() as usize).clamp(1, picos.len()) - 1;
+        *picos.select_nth_unstable(i).1
     }
 
     /// Cierra el archivo con su tamaño de verdad en la cabecera. Devuelve cuántos bytes de
@@ -211,6 +254,113 @@ impl EscritorWav {
             0
         }
     }
+
+    /// Cierra como `cerrar`, y si la pista llegó casi muda la sube (`nivelar_si_casi_muda`).
+    /// `con_voz`: si la grabación trae una voz que se oye, para no taparla. Devuelve los
+    /// bytes de sonido, el pico que queda en el archivo y por cuánto se multiplicó, si se subió.
+    pub fn cerrar_y_nivelar(self, con_voz: bool) -> (u64, u16, Option<f32>) {
+        let ruta = self.ruta.clone();
+        let (pico, nivel) = (self.pico, self.nivel());
+        let escritos = self.cerrar();
+        if escritos == 0 {
+            return (0, pico, None);
+        }
+        match nivelar_si_casi_muda(&ruta, nivel, con_voz) {
+            Some((nuevo, ganancia)) => (escritos, nuevo, Some(ganancia)),
+            None => (escritos, pico, None),
+        }
+    }
+}
+
+/// Por debajo de este pico (-40 dBFS) una pista no se oye: es el `CASI_MUDA` del editor.
+pub const PICO_CASI_MUDO: u16 = 328;
+/// Hasta donde se sube una pista casi muda: su nivel (`EscritorWav::nivel`) a -6 dBFS, como un
+/// vídeo normal. Lo que pase de ahí se dobla suave hacia el tope (`limitar`).
+const PICO_NIVELADO: f32 = 16_384.0;
+/// Y si la grabación trae una voz que se oye, solo hasta -20 dBFS: de fondo, debajo de ella.
+/// Alguien que pone la música baja a propósito para hablar encima no quiere que le gane.
+const PICO_NIVELADO_CON_VOZ: f32 = 3_277.0;
+/// Y como mucho cuánto se multiplica: x100 son +40 dB. Más que eso ya es subir el siseo.
+const GANANCIA_MAXIMA: f32 = 100.0;
+
+/// Sube una pista casi muda, en el mismo archivo, para que su `nivel` llegue a `PICO_NIVELADO`
+/// (o a `PICO_NIVELADO_CON_VOZ`), y devuelve el pico que queda y por cuánto se multiplicó. Una
+/// muda del todo (nivel 0) o una que ya se oye se quedan como están (`None`).
+///
+/// **Por qué:** winshotx graba lo que suena en el PC DESPUÉS de la rueda de cada app en el
+/// mezclador de Windows, y con Brave al 10 % (14-nov) y al 20 % (16-nov) el vídeo de YouTube
+/// llegó a -56 y a -44 dB: se grababa, pero no se oía ni en la vista previa ni en el archivo.
+/// El aviso del editor estaba dentro del apartado Sonido, plegado, y Munir volvió a pensar
+/// que la vista previa estaba rota: «¿por qué sigo sin escuchar el volumen del vídeo?». Lo
+/// que sube es casi todo la señal: llega ya en 16 bits, y a x100 el ruido de redondear queda
+/// por debajo de -55 dBFS, sin siseo de micrófono que agrandar (salvo que el PC esté sonando
+/// una llamada o un micro con «Escuchar este dispositivo»). La voz no se toca: un micrófono
+/// bajo trae su siseo, y subirlo lo agranda.
+pub fn nivelar_si_casi_muda(ruta: &Path, nivel: u16, con_voz: bool) -> Option<(u16, f32)> {
+    if nivel == 0 || nivel >= PICO_CASI_MUDO {
+        return None;
+    }
+    let objetivo = if con_voz { PICO_NIVELADO_CON_VOZ } else { PICO_NIVELADO };
+    let ganancia = (objetivo / f32::from(nivel)).min(GANANCIA_MAXIMA);
+    match multiplicar(ruta, ganancia) {
+        Ok(nuevo) => Some((nuevo, ganancia)),
+        Err(error) => {
+            eprintln!("[sonido] no se ha podido subir {}: {error}", ruta.display());
+            None
+        }
+    }
+}
+
+/// Lo que pasa de -6 dBFS tras subir se dobla suave hacia el tope en vez de cortarse: un aviso
+/// de Windows en mitad de un vídeo casi mudo sale x100 y, sin esto, se daría contra el tope.
+fn limitar(x: f32) -> f32 {
+    const UMBRAL: f32 = 16_384.0;
+    const RESTO: f32 = 32_767.0 - UMBRAL;
+    let a = x.abs();
+    if a <= UMBRAL {
+        return x;
+    }
+    (UMBRAL + RESTO * ((a - UMBRAL) / RESTO).tanh()).copysign(x)
+}
+
+/// Multiplica las muestras del WAV por `ganancia`, a trozos de un mega y en su sitio: una
+/// grabación de una hora son 690 MB y no tienen por qué pasar enteros por la memoria.
+fn multiplicar(ruta: &Path, ganancia: f32) -> std::io::Result<u16> {
+    use std::io::Read;
+    let mut archivo = std::fs::OpenOptions::new().read(true).write(true).open(ruta)?;
+    let mut trozo = vec![0u8; 1 << 20];
+    let mut posicion = CABECERA_WAV;
+    let mut pico = 0u16;
+    loop {
+        archivo.seek(SeekFrom::Start(posicion))?;
+        let mut leidos = 0;
+        while leidos < trozo.len() {
+            let n = archivo.read(&mut trozo[leidos..])?;
+            if n == 0 {
+                break;
+            }
+            leidos += n;
+        }
+        let pares = leidos & !1;
+        if pares == 0 {
+            break;
+        }
+        for muestra in trozo[..pares].chunks_exact_mut(2) {
+            let subida = limitar(f32::from(i16::from_le_bytes([muestra[0], muestra[1]])) * ganancia)
+                .round()
+                .clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16;
+            pico = pico.max(subida.unsigned_abs());
+            muestra.copy_from_slice(&subida.to_le_bytes());
+        }
+        archivo.seek(SeekFrom::Start(posicion))?;
+        archivo.write_all(&trozo[..pares])?;
+        posicion += pares as u64;
+        if leidos < trozo.len() {
+            break;
+        }
+    }
+    archivo.flush()?;
+    Ok(pico)
 }
 
 /// Lee lo que hay en un WAV escrito por `EscritorWav`: su formato y sus muestras. Solo para
@@ -361,6 +511,103 @@ mod pruebas {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// El sonido del PC que llega casi mudo (YouTube con Brave al 20 % en el mezclador, el
+    /// 16-nov: -44 dB de pico) se sube hasta oírse, con la forma intacta; el que ya se oye y
+    /// el silencio exacto se quedan como estaban. Leído del archivo, que es lo que oye el
+    /// editor y lo que se mezcla al guardar.
+    #[test]
+    fn el_sonido_del_pc_casi_mudo_se_sube_al_cerrar() {
+        let dir = std::env::temp_dir().join("winshotx-pistas-nivelar");
+        let _ = std::fs::create_dir_all(&dir);
+        let info = AudioInfo { channels: 2, sample_rate: 48_000 };
+        // Más de un trozo de un mega, para que el bucle dé la vuelta: 600.001 muestras son
+        // 1.200.002 bytes, un mega entero y algo más.
+        let onda: Vec<i16> = (0..600_001).map(|k| ((k as f32 * 0.05).sin() * 200.0).round() as i16).collect();
+        assert!(onda.len() * 2 > 1 << 20);
+        let bytes: Vec<u8> = onda.iter().flat_map(|m| m.to_le_bytes()).collect();
+
+        let mut baja = EscritorWav::crear(&dir.join("baja.wav"), info).unwrap();
+        baja.escribir(&bytes);
+        assert_eq!(baja.pico(), 200);
+        let (escritos, pico, ganancia) = baja.cerrar_y_nivelar(false);
+        assert_eq!(escritos, bytes.len() as u64);
+        assert_eq!(ganancia, Some(16_384.0 / 200.0));
+        assert!((16_300..=16_384).contains(&pico), "sube hasta -6 dBFS: {pico}");
+        let (leido_info, leidas) = leer_wav(&dir.join("baja.wav")).expect("la cabecera sigue bien");
+        assert_eq!((leido_info.channels, leido_info.sample_rate), (2, 48_000));
+        assert_eq!(leidas.len(), bytes.len());
+        let ganancia = 16_384.0 / 200.0;
+        for (k, par) in leidas.chunks_exact(2).enumerate().step_by(997) {
+            let esperada = (f32::from(onda[k]) * ganancia).round();
+            let leida = f32::from(i16::from_le_bytes([par[0], par[1]]));
+            assert!((leida - esperada).abs() <= 1.0, "muestra {k}: {leida} en vez de {esperada}");
+        }
+
+        let mut alta = EscritorWav::crear(&dir.join("alta.wav"), info).unwrap();
+        alta.escribir(&(-12_000i16).to_le_bytes());
+        assert_eq!(alta.cerrar_y_nivelar(false), (2, 12_000, None), "la que se oye no se toca");
+        assert_eq!(leer_wav(&dir.join("alta.wav")).unwrap().1, (-12_000i16).to_le_bytes());
+
+        let mut muda = EscritorWav::crear(&dir.join("muda.wav"), info).unwrap();
+        muda.escribir(&[0, 0, 0, 0]);
+        assert_eq!(muda.cerrar_y_nivelar(false), (4, 0, None), "el silencio exacto no se sube");
+
+        // Un clic suelto a -60 dB no se multiplica por más de x100.
+        let mut suelta = EscritorWav::crear(&dir.join("suelta.wav"), info).unwrap();
+        suelta.escribir(&33i16.to_le_bytes());
+        assert_eq!(suelta.cerrar_y_nivelar(false).1, 3_300);
+
+        // Con una voz que se oye, la música baja de fondo solo sube hasta -20 dBFS.
+        let mut de_fondo = EscritorWav::crear(&dir.join("fondo.wav"), info).unwrap();
+        de_fondo.escribir(&200i16.to_le_bytes());
+        assert_eq!(de_fondo.cerrar_y_nivelar(true).1, 3_277);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Un aviso de Windows a volumen normal en mitad de un vídeo casi mudo no impide subirlo:
+    /// lo que manda es lo que suena casi todo el rato, no la muestra más alta. Y lo fuerte se
+    /// dobla suave hacia el tope en vez de darse la vuelta (revisión, 16-nov).
+    #[test]
+    fn un_aviso_suelto_no_impide_subir_el_sonido_casi_mudo() {
+        let dir = std::env::temp_dir().join("winshotx-pistas-aviso");
+        let _ = std::fs::create_dir_all(&dir);
+        let info = AudioInfo { channels: 2, sample_rate: 48_000 };
+        // Diez segundos de YouTube a -46 dB (160) con un «ding» de 0,3 s a -12 dB (8.000) a los 5 s.
+        let total = 48_000 * 2 * 10;
+        let aviso = (48_000 * 2 * 5)..(48_000 * 2 * 5 + 48_000 * 2 * 3 / 10);
+        let onda: Vec<i16> = (0..total)
+            .map(|k| {
+                let a = if aviso.contains(&k) { 8_000.0 } else { 160.0 };
+                ((k as f32 * 0.05).sin() * a).round() as i16
+            })
+            .collect();
+        let bytes: Vec<u8> = onda.iter().flat_map(|m| m.to_le_bytes()).collect();
+        let mut wav = EscritorWav::crear(&dir.join("aviso.wav"), info).unwrap();
+        wav.escribir(&bytes);
+        assert_eq!(wav.pico(), 8_000, "la muestra más alta es la del aviso");
+        assert_eq!(wav.nivel(), 160, "y el nivel, el del vídeo");
+        let (_, pico, ganancia) = wav.cerrar_y_nivelar(false);
+        assert_eq!(ganancia, Some(100.0), "sube todo lo que puede: x100");
+        let leidas: Vec<i16> = leer_wav(&dir.join("aviso.wav"))
+            .unwrap()
+            .1
+            .chunks_exact(2)
+            .map(|p| i16::from_le_bytes([p[0], p[1]]))
+            .collect();
+        let alto = |r: std::ops::Range<usize>| leidas[r].iter().map(|m| m.unsigned_abs()).max().unwrap();
+        assert_eq!(alto(0..aviso.start), 16_000, "el vídeo, a -6 dBFS");
+        assert!(alto(aviso.clone()) > 30_000 && pico == alto(aviso.clone()), "el aviso, cerca del tope");
+        for k in aviso.clone() {
+            assert!(
+                onda[k] == 0 || (onda[k] > 0) == (leidas[k] > 0),
+                "la muestra {k} se ha dado la vuelta: {} pasó a {}",
+                onda[k],
+                leidas[k]
+            );
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// El editor recibe el pico de 0 a 1, y solo de las pistas que tienen archivo.
     #[test]
     fn el_editor_recibe_el_pico_de_cada_pista() {
@@ -371,10 +618,12 @@ mod pruebas {
             microfono: Some(ARCHIVO_MICROFONO.into()),
             pico_sistema: Some(52),
             pico_microfono: Some(0),
+            subida_sistema: Some(36.5),
         });
         let info = crate::recorder::SessionInfo::from(&s);
         assert!((info.pico_pc.unwrap() - 52.0 / 32_767.0).abs() < 1e-6);
         assert_eq!(info.pico_microfono, Some(0.0));
+        assert_eq!(info.subida_pc, Some(36.5), "y cuánto se subió el PC, para decirlo");
 
         s.pistas = Some(crate::contrato::PistasGrabadas {
             sistema: Some(ARCHIVO_PC.into()),
@@ -385,6 +634,7 @@ mod pruebas {
         let info = crate::recorder::SessionInfo::from(&s);
         assert_eq!(info.pico_pc, Some(1.0), "el tope se queda en 1");
         assert_eq!(info.pico_microfono, None, "sin archivo de voz, no hay nada que avisar");
+        assert_eq!(info.subida_pc, None, "sin subir, nada que decir");
 
         s.pistas = None;
         let info = crate::recorder::SessionInfo::from(&s);

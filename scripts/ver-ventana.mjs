@@ -50,19 +50,21 @@ const bandera = (nombre, pordefecto) => {
 };
 
 const salida = resolve(args.find((a) => !a.startsWith("--")) ?? "ventana.png");
-const ancho = bandera("ancho", "840");
 const bienvenida = args.includes("--bienvenida");
-// El alto de la foto. Desde S24 (14-nov-2026) los ajustes miden lo que mide su pestaña, así
-// que sin --alto el banco hace lo que la app: una primera pasada sin foto en la que la
-// página pide su alto (`setSize`, que aquí se apunta), y la foto a ese alto. Con --alto=N se
-// fuerza, por ejemplo para ver una ventana que alguien ha encogido a mano.
+// La ventana principal (ajustes y bienvenida) mide 900 x 723 por dentro desde S40
+// (15-nov-2026), siempre, salvo que alguien la estire: son `ANCHO_VENTANA` y `ALTO_VENTANA` de
+// `src/lib/ventanaFija.ts`, y los de `tauri.conf.json`.
+const ancho = bandera("ancho", "900");
+// El alto de la foto. Sin --alto el banco hace lo que la app: una primera pasada sin foto en
+// la que la página se pone a su tamaño (`setSize`, que aquí se apunta; en una pantalla baja,
+// --zona, se encoge a la zona útil), y la foto a ese alto. Con --alto=N se fuerza, por ejemplo
+// para ver una ventana que alguien ha estirado o encogido a mano.
 //
-// La bienvenida sigue pidiendo 840 x 640 fijos, y las demás ventanas no piden nada: van a
-// 760 si no se dice otra cosa. Estuvo en 640 mientras la ventana medía 510, así que las
-// fotos enseñaban 130 px de más y una sección que se salía por abajo parecía caber: el alto
-// de la foto tiene que ser el de la ventana de verdad.
+// El alto de la foto tiene que ser el de la ventana de verdad: estuvo en 640 mientras la
+// ventana medía 510, y una sección que se salía por abajo parecía caber. Las demás ventanas
+// no piden nada y van a 760 si no se dice otra cosa.
 const altoForzado = bandera("alto", null);
-const alto = altoForzado ?? (bienvenida ? "640" : "760");
+const alto = altoForzado ?? "760";
 // El alto útil de la pantalla de mentira, en px lógicos (sin la barra de tareas): para ver
 // qué pasa en una pantalla baja, como un portátil de 768 al 125 % (--zona=566 --escala=1.25).
 const zona = Number(bandera("zona", "1032"));
@@ -89,12 +91,13 @@ const tecla = bandera("tecla", null);
 // dentro: son los que hay que recomprobar cada vez que se le añade algo a uno.
 const paso = bandera("paso", null);
 // En qué parada del tour guiado se hace la foto (0 = la primera). Arranca el tour desde
-// su botón de "La app" y avanza con la flecha derecha, igual que una persona.
+// su botón de «Ayuda y winshotx» y avanza con la flecha derecha, igual que una persona.
 const tour = bandera("tour", null);
-// Qué sección de los ajustes se abre: capturar, grabar, teclas o app.
+// Qué apartado de los ajustes se abre: capturar, despues, grabar, ultimos, historial, teclas,
+// app o ayuda (los de `src/components/settings/mapaDeAjustes.ts`).
 const seccion = bandera("seccion", null);
-// Como si la ventana se hubiera abierto sola despues de actualizar: abre en "La app" y
-// la fila de Actualizaciones dice a que version se ha actualizado.
+// Como si la ventana se hubiera abierto sola despues de actualizar: abre en «Ayuda y
+// winshotx» y la cabecera dice a que version se ha actualizado.
 const actualizado = args.includes("--actualizado");
 // NVIDIA y la Barra de juego grabando a la vez que el anillo: la única forma de ver su aviso
 // debajo de «Grabar siempre lo último», porque en una máquina sin ellos no sale.
@@ -131,6 +134,12 @@ const CUANTOS = fija ? 1 : Math.max(1, Math.round(duracion * 30));
 const menu = args.includes("--menu");
 // Un marco de recorte ya colocado dentro del editor: "x,y,ancho,alto" en píxeles de la foto.
 const recorte = bandera("recorte", null);
+// S40: el tamaño que alguien le dio a mano a la ventana la última vez, "ancho,alto" en px
+// lógicos (`ventanaAjustes` en los ajustes): la ventana abre así en vez de a 900 x 723.
+const guardada = bandera("guardada", null);
+// S40: el historial con N capturas, para ver que baja con la rueda dentro sin agrandar nada.
+// Salen sin miniatura (el icono de foto), que para medir la rejilla basta.
+const historialLleno = Number(bandera("historial", "0"));
 // En vez de una foto, escupe el DOM ya montado. Para cuando lo que falla no se ve mirando:
 // una medida que sale cero, una clase que no llegó, un estilo que el navegador no aplicó.
 const dom = args.includes("--dom");
@@ -155,9 +164,11 @@ if (!existsSync(join(DIST, "index.html"))) {
   process.exit(1);
 }
 
+// Los atajos de fábrica (`Settings::default` en src-tauri/src/settings.rs): estas fotos salen en
+// la web y en el README, y hasta el 15-nov enseñaban Ctrl+Shift+S y Ctrl+Shift+A, que no trae nadie.
 const AJUSTES = {
-  captureShortcut: "CmdOrCtrl+Shift+KeyS",
-  recordShortcut: "CmdOrCtrl+Shift+KeyA",
+  captureShortcut: "CmdOrCtrl+Shift+Digit2",
+  recordShortcut: "CmdOrCtrl+Shift+Digit5",
   replayShortcut: "CmdOrCtrl+Shift+Digit6",
   editShortcut: "Super+Shift+KeyL",
   replayEnabled: anillo,
@@ -192,6 +203,10 @@ const AJUSTES = {
   zoomShortcut: "CmdOrCtrl+Shift+9",
   recordCamera: args.includes("--camara"),
   cameraDevice: null,
+  // S40 (tamaño fijo)
+  ventanaAjustes: guardada
+    ? { ancho: Number(guardada.split(",")[0]), alto: Number(guardada.split(",")[1]) }
+    : null,
 };
 
 /**
@@ -261,7 +276,17 @@ const FOTOGRAMAS = Array.from({ length: CUANTOS }, (_, i) => ({
   thumbPath: "/editor.png",
 }));
 
+const AHORA = Date.now();
+const HISTORIAL = Array.from({ length: historialLleno }, (_, i) => ({
+  ruta: `C:\\Users\\yo\\Pictures\\winshotx\\winshotx-${i}.png`,
+  nombre: `winshotx-${i}.png`,
+  tipo: i % 5 === 2 ? "video" : "foto",
+  bytes: 120_000 + i * 7_000,
+  cuandoMs: AHORA - i * 5_400_000,
+}));
+
 const RESPUESTAS = {
+  ...(historialLleno ? { historial_lista: { entradas: HISTORIAL, total: HISTORIAL.length, buscable: true, porLeer: 0 } } : {}),
   get_settings: AJUSTES,
   set_settings: AJUSTES,
   shortcut_status: { capture: true, edit: true, record: true, replay: true, printScreen: false, winShiftS: false },
@@ -401,6 +426,7 @@ Object.assign(window.__TAURI_INTERNALS__, {
     if (cmd === "overlay_bootstrap") return Promise.resolve(${JSON.stringify(OVERLAY)});
     // La pantalla congelada viaja por el IPC en PNG; aquí la sirve este mismo servidor.
     if (cmd === "freeze_png") return fetch("/freeze.png").then((r) => r.arrayBuffer());
+    if (cmd === "historial_miniatura") return Promise.reject("sin miniatura en el banco");
     (window.__llamadas ??= []).push({ cmd, args });
     if (cmd in tabla) return Promise.resolve(tabla[cmd]);
     if (cmd === "plugin:event|listen") {
@@ -413,7 +439,7 @@ Object.assign(window.__TAURI_INTERNALS__, {
       }
       return Promise.resolve(null);
     }
-    // S24: la ventana de mentira, para que la página pueda medirse y pedir su alto. Mide lo
+    // S24: la ventana de mentira, para que la página pueda medirse y ponerse su tamaño. Mide lo
     // que mide el navegador sin ventana, con una barra de título de 32 px encima, y está
     // arriba del todo de una pantalla de 1920 de ancho con --zona de alto útil.
     const dpr = devicePixelRatio;
@@ -492,27 +518,14 @@ addEventListener("load", () => {
 </script>`
   : "";
 
-// La sección se elige haciendo clic en su botón, como haría una persona: así se
-// fotografía la pantalla de verdad y no un estado montado a mano que quizá no exista.
-// Se busca por el texto porque las secciones son un `Segmented`, el mismo control que los
-// selectores de dentro, y ese componente no lleva atributos propios de cada opción.
-const ROTULOS = {
-  capturar: "Capturar",
-  grabar: "Grabar",
-  // S4 (capturas): la pestaña del historial va aquí, y el orden es el de la cabecera.
-  historial: "Historial",
-  teclas: "Teclas de Windows",
-  app: "La app",
-};
+// El apartado se elige haciendo clic en su icono del riel, como haría una persona: así se
+// fotografía la pantalla de verdad y no un estado montado a mano que quizá no exista. Se
+// busca por su `data-vista`, que no cambia con el idioma.
 const SECCION = seccion
   ? `<script>
 addEventListener("load", () => {
   setTimeout(() => {
-    // Por POSICIÓN y no por el texto del botón: los rótulos cambian con el idioma, y
-    // buscándolos por su nombre en español el guion dejaba de encontrarlos en inglés.
-    const orden = ${JSON.stringify(Object.keys(ROTULOS))};
-    const botones = document.querySelectorAll("header nav button");
-    botones[orden.indexOf(${JSON.stringify(seccion)})]?.click();
+    document.querySelector('[data-riel] [data-vista=${JSON.stringify(seccion)}]')?.click();
   }, 500);
 });
 </script>`
@@ -539,18 +552,12 @@ const TOUR = tour !== null
   ? `<script>
 addEventListener("load", () => {
   setTimeout(() => {
-    // Por posición, no por texto: los rótulos cambian con el idioma. "La app" es la
-    // cuarta sección, y dentro el botón del tour es el tercero de su bloque.
-    document.querySelectorAll("header nav button")[3]?.click();
+    // Por su data-vista y su data-fila, no por el texto: los rótulos cambian con el
+    // idioma. El tour se empieza desde su fila de «Ayuda y winshotx».
+    document.querySelector('[data-riel] [data-vista="ayuda"]')?.click();
     setTimeout(() => {
-      // El botón "Tour" de la barra de abajo, buscado por su texto: se llama igual en los
-      // dos idiomas y no se mueve de sitio al añadir o quitar filas de un bloque. Antes se
-      // cogía el tercer botón del bloque "winshotx", y en cuanto ese bloque cambió de
-      // filas el clic empezó a caer en el interruptor de arrancar con Windows: el tour no
-      // se abría y la foto salía de la ventana normal, sin que nada avisara.
-      [...document.querySelectorAll("footer button")]
-        .find((b) => b.textContent.trim() === "Tour")
-        ?.click();
+      // El último botón de la fila: el primero es el icono, que abre la explicación larga.
+      [...document.querySelectorAll('[data-fila="appTour"] button')].pop()?.click();
       let n = ${JSON.stringify(Number(tour))};
       const avanzar = () => {
         if (n-- <= 0) return;
@@ -715,7 +722,8 @@ server.listen(0, async () => {
   // por la esquina, en negro, porque lo centrado se queda fuera. Así que se fotografía a
   // 500 y sale con más aire del que tiene de verdad. Para verla a su tamaño real hace
   // falta un navegador de verdad con el viewport a 132.
-  let [w, h] = [ancho, alto];
+  // La principal nace a 723 de alto, como en `tauri.conf.json`.
+  let [w, h] = [ancho, altoForzado ?? (pagina === "index.html" ? "723" : alto)];
   if (cuenta !== null) {
     pagina = `cuenta.html?segundos=${cuenta}`;
     [w, h] = ["500", "500"];
@@ -762,8 +770,9 @@ server.listen(0, async () => {
       process.exit(code ?? 1);
     });
   };
-  // Los ajustes, sin --alto: primero se deja que la página pida su alto, como en la app.
-  const ajustes = pagina === "index.html" && !bienvenida && altoForzado === null;
+  // Los ajustes y la bienvenida, sin --alto: primero se deja que la página pida su alto,
+  // como en la app.
+  const ajustes = pagina === "index.html" && altoForzado === null;
   if (!ajustes) {
     fotografiar(h);
     return;
@@ -783,7 +792,11 @@ server.listen(0, async () => {
   await p.goto(url);
   // Lo que tarda en hacer su recorrido el guion de la sección o del tour, y después se
   // espera a que el alto pedido deje de cambiar.
-  await p.waitForTimeout(1200 + (tour !== null ? 900 + 300 * Number(tour) : 0));
+  await p.waitForTimeout(
+    1200 +
+      (tour !== null ? 900 + 300 * Number(tour) : 0) +
+      (paso !== null ? 400 + 320 * Number(paso) : 0),
+  );
   const leer = () =>
     p.evaluate(() => document.querySelector('meta[name="winshotx-medida"]')?.content ?? null);
   let pedida = await leer();
@@ -792,6 +805,24 @@ server.listen(0, async () => {
     const otra = await leer();
     if (otra === pedida) break;
     pedida = otra;
+  }
+  // La bienvenida se fotografía aquí mismo, con este reloj de verdad. Con el reloj virtual de
+  // la pasada de abajo, `--paso=N` sacaba siempre el paso 1: el cambio de paso espera a que
+  // acabe la salida del anterior (`AnimatePresence mode="wait"`), y esa salida no acababa.
+  if (bienvenida && !dom) {
+    let altoFoto = Number(h);
+    if (pedida) {
+      const [, altoPaso, tipoPaso, dprPaso] = pedida.split(",");
+      const cssPaso = tipoPaso === "Physical" ? Number(altoPaso) / Number(dprPaso) : Number(altoPaso);
+      altoFoto = Math.ceil(cssPaso - 0.01);
+    }
+    await p.setViewportSize({ width: Number(w), height: altoFoto });
+    await p.waitForTimeout(400);
+    await p.screenshot({ path: salida });
+    await edge.close();
+    server.close();
+    console.log(`hecha: ${salida} (${w} x ${altoFoto})`);
+    process.exit(0);
   }
   await edge.close();
   if (!pedida) {

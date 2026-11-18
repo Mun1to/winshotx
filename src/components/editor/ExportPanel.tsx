@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { ChevronDown, Clipboard, FolderDown, FolderOpen, Link2, Save, Unlink2 } from "lucide-react";
-import { exportMedia, pickDirectory, pickSaveFile, revealInExplorer } from "../../lib/ipc";
+import { camaraDeLaSesion, exportMedia, pickDirectory, pickSaveFile, revealInExplorer } from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
 import {
   EVENTS,
@@ -31,9 +31,19 @@ import { Presets } from "./Presets";
 import { edicionDe, estiloDe, panelDe } from "../../lib/presets";
 import type { Edicion } from "../../lib/contrato";
 import { Opcion, Opciones } from "../ui/Opcion";
+import { Segmented } from "../ui/Segmented";
+import { RELLENO, ROJO } from "./colores";
 // S11 (pistas)
 import { conPistas, pistaDe } from "../../lib/pistas";
 import { MandosDePistas } from "./MandosDePistas";
+// S25 (marco)
+import {
+  carcasaParaPedir,
+  geometria as geometriaDeLaCarcasa,
+  MARCOS,
+  ventanaOscura,
+  type CarcasaElegida,
+} from "../../lib/carcasa";
 
 /**
  * Los cuatro formatos, con lo que hace cada uno dicho en palabras: «H.264 por hardware»
@@ -65,25 +75,38 @@ const PARA_UNA_CAPTURA: Partial<Record<ExportFormat, string>> = {
 /** Los dos formatos que sacan UN fotograma, no un trozo de grabación. */
 const esUnaFoto = (formato: ExportFormat) => formato === "png" || formato === "jpg";
 
+/** Los grupos del panel, en su orden (S39, segunda vuelta). */
+type Grupo = "sonido" | "fondo" | "marco" | "puntero" | "clics" | "zoom" | "camara" | "archivo" | "estilos";
+
+/** «Ninguno» en el selector del marco, que no admite `null` como valor. */
+const SIN_CARCASA = "ninguno";
+
 /**
- * Si «Más ajustes» y «Estudio» se quedaron abiertos la última vez. Es comodidad de quien lo
- * usa, nada más: sin almacenamiento, cada uno se abre como viene de fábrica.
+ * Los grupos abiertos de fábrica: solo el fondo, que es lo que más cambia cómo se ve un vídeo.
+ * Con los nueve títulos (una grabación con cámara) y el fondo abierto, el panel cabe sin rueda
+ * en la ventana de 1.152 × 700 que abre una pantalla de 1920 al 125 %; con el sonido abierto
+ * también, ya no. Antes, con todo abierto, medía 1.533 px.
  */
-const CLAVE_MAS = "winshotx.editor.masAjustes";
-const CLAVE_ESTUDIO = "winshotx.editor.estudio";
-function leerAbierto(clave: string, deFabrica: boolean): boolean {
+const ABIERTOS_DE_FABRICA: Partial<Record<Grupo, boolean>> = { fondo: true };
+
+/**
+ * Qué grupos se dejaron abiertos la última vez. Es comodidad de quien lo usa, nada más: sin
+ * almacenamiento se abren los de fábrica.
+ */
+const CLAVE_GRUPOS = "winshotx.editor.grupos";
+function leerAbiertos(): Partial<Record<Grupo, boolean>> {
   try {
-    const guardado = localStorage.getItem(clave);
-    return guardado === null ? deFabrica : guardado === "1";
+    const guardado = localStorage.getItem(CLAVE_GRUPOS);
+    return guardado ? { ...ABIERTOS_DE_FABRICA, ...JSON.parse(guardado) } : ABIERTOS_DE_FABRICA;
   } catch {
-    return deFabrica;
+    return ABIERTOS_DE_FABRICA;
   }
 }
-function guardarAbierto(clave: string, abierto: boolean) {
+function guardarAbiertos(abiertos: Partial<Record<Grupo, boolean>>) {
   try {
-    localStorage.setItem(clave, abierto ? "1" : "0");
+    localStorage.setItem(CLAVE_GRUPOS, JSON.stringify(abiertos));
   } catch {
-    // Sin almacenamiento se abre como de fábrica la próxima vez, y ya está.
+    // Sin almacenamiento se abren los de fábrica la próxima vez, y ya está.
   }
 }
 
@@ -138,11 +161,11 @@ interface Props {
 /**
  * Guardar lo que se ha hecho.
  *
- * Arriba lo que casi siempre se toca (el formato, el sonido, el zoom y el puntero) y abajo
- * los botones de guardar, siempre a la vista. Todo lo demás (calidad, fotogramas por
- * segundo, velocidad, tamaño, marco) va plegado en «Más ajustes»: estaba todo a la vez,
- * en seis bloques con rótulos en mayúsculas, y para llegar al de abajo había que bajar
- * con la rueda en una ventana normal.
+ * Arriba el formato y debajo, en una columna, cada grupo con su título a la vista (sonido,
+ * fondo, marco, puntero, clics y teclas, zoom, cámara, calidad y tamaño, y estilos), cada uno
+ * plegable y recordando cómo se dejó. Abajo los botones de guardar, siempre a la vista. Estaba
+ * todo a la vez, en seis bloques con rótulos en mayúsculas, y para llegar al de abajo había
+ * que bajar con la rueda en una ventana normal.
  */
 export function ExportPanel({
   anotaciones,
@@ -211,6 +234,30 @@ export function ExportPanel({
   const [sombra, setSombra] = useState(true);
   /** El radio de las esquinas sobre el fondo, en píxeles del archivo. */
   const [esquinas, setEsquinas] = useState(0);
+  // S25 (marco)
+  /**
+   * La ventana o el portátil alrededor de la captura. Solo con fondo: sin aire detrás, sus
+   * esquinas y su sombra no tienen dónde verse, así que sin fondo cuenta como «Ninguno».
+   */
+  const [carcasa, setCarcasa] = useState<CarcasaElegida | null>(null);
+  const carcasaPuesta = margen > 0 ? carcasa : null;
+  /**
+   * La ventana sale clara u oscura como las de winshotx (en automático, como las de Windows):
+   * así se parece a las ventanas de quien la usa sin un cuarto botón. Se sigue al sistema
+   * mientras el editor está abierto, para que lo que se ve sea lo que sale.
+   */
+  const [oscura, setOscura] = useState(ventanaOscura);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const sistema = window.matchMedia("(prefers-color-scheme: dark)");
+    const mirar = () => setOscura(ventanaOscura());
+    sistema.addEventListener("change", mirar);
+    window.addEventListener("storage", mirar);
+    return () => {
+      sistema.removeEventListener("change", mirar);
+      window.removeEventListener("storage", mirar);
+    };
+  }, []);
   /**
    * Quitarle al puntero los temblores de la mano. **Encendido de fábrica**, como en Screen
    * Studio y en Cap: es lo que hace que un vídeo de pantalla se vea hecho a propósito, y
@@ -231,16 +278,32 @@ export function ExportPanel({
   const pc = pistaDe(edicion?.sonidoPc);
   const voz = pistaDe(edicion?.microfono);
   const suenaAlguna = (!!session.sonidoPc && pc.encendida) || (!!session.microfono && voz.encendida);
-  const [estudioAbierto, setEstudioAbierto] = useState(() => leerAbierto(CLAVE_ESTUDIO, true));
+  const [abiertos, setAbiertos] = useState(leerAbiertos);
+  useEffect(() => guardarAbiertos(abiertos), [abiertos]);
+  /** Las dos cosas que necesita cada grupo plegable: si está abierto y cómo cambiarlo. */
+  const plegado = (grupo: Grupo) => ({
+    grupo,
+    abierto: !!abiertos[grupo],
+    onCambiar: () => setAbiertos((antes) => ({ ...antes, [grupo]: !antes[grupo] })),
+  });
+  /** Si la grabación trae webcam: sin ella, el grupo «Cámara» no sale. */
+  const [hayCamara, setHayCamara] = useState(false);
+  useEffect(() => {
+    let vigente = true;
+    void camaraDeLaSesion(session.id)
+      .then((c) => {
+        if (vigente) setHayCamara(!!c);
+      })
+      .catch(() => undefined);
+    return () => {
+      vigente = false;
+    };
+  }, [session.id]);
   const [loop, setLoop] = useState(true);
   const [directory, setDirectory] = useState(saveDirectory);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mas, setMas] = useState(() => leerAbierto(CLAVE_MAS, false));
-
-  useEffect(() => guardarAbierto(CLAVE_MAS, mas), [mas]);
-  useEffect(() => guardarAbierto(CLAVE_ESTUDIO, estudioAbierto), [estudioAbierto]);
 
   /**
    * Lo que mide de verdad lo que se va a exportar, con el recorte ya aplicado.
@@ -276,10 +339,12 @@ export function ExportPanel({
               esquinas: esquinas / Math.max(1, width),
               fondo,
               sombra,
+              // S25 (marco): con el tamaño del archivo, que es con lo que se mide la carcasa.
+              carcasa: carcasaPuesta ? { elegida: carcasaPuesta, oscura, ancho: width, alto: height } : null,
             }
           : null,
     });
-  }, [zoom, cursor, aros, teclas, suave, esconder, velocidadZoom, volumen, velocidad, margen, esquinas, fondo, sombra, width, onEstudio]);
+  }, [zoom, cursor, aros, teclas, suave, esconder, velocidadZoom, volumen, velocidad, margen, esquinas, fondo, sombra, width, height, carcasaPuesta, oscura, onEstudio]);
 
   /**
    * Elegir un fondo sin aire pone el aire, las esquinas y la sombra que se ven bien a ese
@@ -289,6 +354,8 @@ export function ExportPanel({
   const elegirFondo = (elegido: Background | null) => {
     if (elegido === null) {
       setMargen(0);
+      // S25 (marco): sin fondo no hay marco; volver a poner un fondo no lo trae de vuelta.
+      setCarcasa(null);
       return;
     }
     setFondo(elegido);
@@ -306,7 +373,7 @@ export function ExportPanel({
    */
   const medidas = { ancho: width, altoGrabado: session.region.height };
   const estiloAhora = estiloDe(
-    { zoom, velocidadZoom, cursor, aros, teclas, suave, esconder, margen, esquinas, fondo, sombra },
+    { zoom, velocidadZoom, cursor, aros, teclas, suave, esconder, margen, esquinas, fondo, sombra, carcasa: carcasaPuesta },
     edicion,
     medidas,
   );
@@ -324,6 +391,8 @@ export function ExportPanel({
     setEsquinas(p.esquinas);
     setFondo(p.fondo);
     setSombra(p.sombra);
+    // S25 (marco)
+    setCarcasa(p.carcasa ?? null);
     // El fondo propio, el suavizado, esconder al escribir, el clic, la onda, la estela, acercarse
     // al escribir y la cámara. Nunca los zooms, los cortes ni lo tapado, que son de este vídeo.
     // Un estilo sin cámara (guardado con una grabación que no la tenía, o sin tocarla) no
@@ -349,12 +418,14 @@ export function ExportPanel({
       // El "done" del backend llega antes de copiar al portapapeles y antes de que el
       // comando devuelva: si soltara aqui la guarda, un segundo clic arrancaria otra
       // exportacion sobre la misma sesion. Quien la suelta es el finally de run().
+      // El de otro editor no es suyo: se quedaria con la barra puesta y sin poder guardar.
+      if (e.payload.sessionId && e.payload.sessionId !== session.id) return;
       if (e.payload.stage !== "done") setProgress(e.payload);
     });
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [session.id]);
 
   /**
    * Lo que dura lo que se va a guardar, en segundos, antes de la velocidad general. Con
@@ -376,8 +447,10 @@ export function ExportPanel({
     // A 2x el vídeo dura la mitad, así que también pesa la mitad.
     const seconds = segundos / velocidad;
     // El marco crece por fuera, así que el archivo también: la estimación cuenta con él.
-    const w = width + margen * 2;
-    const h = height + margen * 2;
+    // S25 (marco): y con la ventana o el portátil, que crecen por fuera de la captura.
+    const pieza = carcasaPuesta ? geometriaDeLaCarcasa(carcasaPuesta, width, height) : { ancho: width, alto: height };
+    const w = pieza.ancho + margen * 2;
+    const h = pieza.alto + margen * 2;
     if (format === "png") return w * h * 3 * 0.35;
     // Medido sobre capturas de verdad: un JPEG de calidad 85 se queda en torno a
     // 0,13 bytes por pixel, que es donde sale este factor.
@@ -385,7 +458,7 @@ export function ExportPanel({
     if (format === "gif") return w * h * (quality / 100) * 0.12 * fps * seconds;
     const bitrate = 1_000_000 + (quality / 100) * 11_000_000;
     return (bitrate / 8) * seconds;
-  }, [format, width, height, margen, quality, fps, segundos, velocidad]);
+  }, [format, width, height, margen, carcasaPuesta, quality, fps, segundos, velocidad]);
 
   const run = async (copyToClipboard: boolean, file: string | null = null) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
@@ -437,6 +510,8 @@ export function ExportPanel({
         // S11 (pistas): cada pista con su mando, solo las que trae la grabación.
         sonidoPc: session.sonidoPc ? pc : null,
         microfono: session.microfono ? voz : null,
+        // S25 (marco): la ventana con el tema de ahora, el mismo que enseña la vista previa.
+        carcasa: carcasaParaPedir(carcasaPuesta, oscura),
       });
       setResult(res);
     } catch (e) {
@@ -488,193 +563,225 @@ export function ExportPanel({
   const ocupado = progress !== null;
 
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-l border-white/8 bg-black/20">
+    <aside className="flex w-[300px] shrink-0 flex-col border-l border-linea">
       {/*
-        Guardar va justo debajo de los ajustes, y se queda pegado abajo si los ajustes no
-        caben.
-
-        Clavado siempre al pie dejaba un hueco en medio con «Más ajustes» plegado; y suelto
-        sin más, con todo abierto en una ventana normal, se iba por debajo del borde: la
-        acción principal del editor escondida detrás de una rueda de ratón.
+        Una columna, como la de antes de la 0.5, que es la que se entiende: el formato arriba, y
+        debajo cada grupo con su título a la vista y plegable. La primera vuelta de la 0.5 lo
+        escondía detrás de un riel de ocho iconos sin nombre (en los ajustes funciona porque hay
+        buscador y dibujo; aquí no). Con todo abierto medía 1.533 px en una ventana de 760: por
+        eso cada grupo se pliega y recuerda cómo se dejó.
       */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="px-4 pt-3 pb-4">
-        {/* El formato, en texto con su raya debajo: es una pestaña, no un interruptor. */}
-        <div className="flex gap-5 border-b border-white/8">
-          {formatos.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFormat(f.id)}
-              aria-pressed={format === f.id}
-              className={`-mb-px border-b-[3px] pt-1 pb-2 text-[15px] font-semibold transition-colors ${
-                format === f.id
-                  ? "border-blue-500 text-white"
-                  : "border-transparent text-neutral-400 hover:text-neutral-100"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="px-4 pt-3 pb-2.5">
+          {/* El formato, en texto con su raya debajo: es una pestaña, no un interruptor. */}
+          <div className="flex gap-5 border-b border-linea" role="group" aria-label={t("Formato")}>
+            {formatos.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFormat(f.id)}
+                aria-pressed={format === f.id}
+                className={`-mb-px border-b-[3px] pt-1 pb-2 text-[15px] font-semibold transition-colors ${
+                  format === f.id
+                    ? "border-marca text-titulo"
+                    : "border-transparent text-apagado hover:text-titulo"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2.5 text-[13px] leading-snug text-suave">
+            {t(
+              (esCaptura && PARA_UNA_CAPTURA[format]) ||
+                (FORMATS.find((f) => f.id === format)?.para ?? ""),
+            )}
+          </p>
         </div>
-        <p className="mt-2.5 text-[13px] leading-snug text-neutral-300">
-          {t(
-            (esCaptura && PARA_UNA_CAPTURA[format]) ||
-              (FORMATS.find((f) => f.id === format)?.para ?? ""),
-          )}
-        </p>
 
-        <div className="mt-4 space-y-4">
-          {format === "mp4" && !pistasAparte && (
-            <Toggle
-              checked={audio}
-              onChange={setAudio}
-              label={t("Sonido")}
-              hint={
-                !session.hasAudio
-                  ? t("esta grabación se hizo sin audio")
-                  : velocidad !== 1
+        {format === "mp4" && (
+          <Plegable titulo={t("Sonido")} {...plegado("sonido")}>
+            {!pistasAparte && (
+              <Toggle
+                checked={audio}
+                onChange={setAudio}
+                label={t("Con sonido")}
+                hint={
+                  !session.hasAudio
+                    ? t("esta grabación se hizo sin audio")
+                    : velocidad !== 1
+                      ? t("a otra velocidad el vídeo sale mudo")
+                      : trozosAcelerados
+                        ? t("los trozos acelerados salen sin sonido")
+                        : undefined
+                }
+              />
+            )}
+            {/* S11 (pistas): el sonido del PC y tu micrófono, cada uno con lo suyo. */}
+            {pistasAparte && (
+              <MandosDePistas
+                pc={session.sonidoPc ? pc : null}
+                voz={session.microfono ? voz : null}
+                conVolumen={velocidad === 1}
+                aviso={
+                  velocidad !== 1
                     ? t("a otra velocidad el vídeo sale mudo")
                     : trozosAcelerados
                       ? t("los trozos acelerados salen sin sonido")
                       : undefined
-              }
-            />
-          )}
-          {/* S11 (pistas): el sonido del PC y tu micrófono, cada uno con lo suyo. */}
-          {format === "mp4" && pistasAparte && (
-            <MandosDePistas
-              pc={session.sonidoPc ? pc : null}
-              voz={session.microfono ? voz : null}
-              conVolumen={velocidad === 1}
-              aviso={
-                velocidad !== 1
-                  ? t("a otra velocidad el vídeo sale mudo")
-                  : trozosAcelerados
-                    ? t("los trozos acelerados salen sin sonido")
-                    : undefined
-              }
-              picoPc={session.picoPc}
-              picoVoz={session.picoMicrofono}
-              onPc={(sonidoPc) => onEdicion?.({ sonidoPc })}
-              onVoz={(microfono) => onEdicion?.({ microfono })}
-            />
-          )}
-
-        </div>
-
-        {/*
-          El estudio: cómo se ve lo grabado, como en Screen Studio y en Cap. Abierto de
-          fábrica, porque es lo que hace bonito un vídeo de pantalla, y todo lo que se toca
-          aquí se ve en la vista previa en el momento: lo que ves es lo que sale.
-        */}
-        <Desplegable
-          titulo={t("Estudio")}
-          abierto={estudioAbierto}
-          onCambiar={() => setEstudioAbierto((abierto) => !abierto)}
-        >
-          <Grupo titulo={t("Estilo")}>
-            <Presets estilo={estiloAhora} onAplicar={aplicarEstilo} />
-          </Grupo>
-
-          <Grupo titulo={t("Fondo")}>
-            <FondoPicker
-              fondo={fondo}
-              conMarco={margen > 0}
-              elegido={edicion?.fondo ?? null}
-              onFondo={(f) => {
-                onEdicion?.({ fondo: null });
-                elegirFondo(f);
-              }}
-              onElegido={(e) => {
-                onEdicion?.({ fondo: e });
-                // Pone el aire si estaba a cero: un fondo propio sin aire no se ve.
-                elegirFondo(fondo);
-              }}
-            />
-            {/* Lo del marco solo con fondo: aire y esquinas de un marco que no existe son
-                controles que no hacen nada. */}
-            {margen > 0 && (
-              <div className="mt-3 space-y-3">
-                <Slider
-                  label={t("Aire alrededor")}
-                  hint={`${margen} px`}
-                  min={4}
-                  max={200}
-                  value={margen}
-                  onChange={setMargen}
-                />
-                <Slider
-                  label={t("Esquinas redondeadas")}
-                  hint={esquinas === 0 ? t("rectas") : `${esquinas} px`}
-                  min={0}
-                  max={60}
-                  value={esquinas}
-                  onChange={setEsquinas}
-                />
-                <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />
-              </div>
+                }
+                picoPc={session.picoPc}
+                picoVoz={session.picoMicrofono}
+                subidaPc={session.subidaPc}
+                onPc={(sonidoPc) => onEdicion?.({ sonidoPc })}
+                onVoz={(microfono) => onEdicion?.({ microfono })}
+              />
             )}
-          </Grupo>
+            {session.hasAudio && !pistasAparte && audio && velocidad === 1 && (
+              <Slider
+                label={t("Volumen")}
+                hint={`${Math.round(volumen * 100)} %`}
+                min={0}
+                max={200}
+                step={5}
+                value={Math.round(volumen * 100)}
+                onChange={(v) => setVolumen(v / 100)}
+              />
+            )}
+          </Plegable>
+        )}
 
-          {/* El puntero, el zoom y los atajos solo con tiempo dentro: una foto no tiene
-              ratón que se mueva ni clics a los que acercarse. */}
-          {!foto && (
-            <Grupo titulo={t("Puntero")}>
-              <div className="space-y-3">
-                <div>
-                  <Slider
-                    // Dentro del grupo «Puntero» no hace falta repetir la palabra en cada control.
-                    label={t("Tamaño")}
-                    hint={
-                      cursor === 0
-                        ? session.cursorBaked
-                          ? t("el de Windows")
-                          : t("sin puntero")
-                        : `${cursor} px`
-                    }
-                    min={0}
-                    max={80}
-                    step={4}
-                    value={cursor}
-                    onChange={setCursor}
-                  />
-                  {cursor > 0 && session.cursorBaked && (
-                    <p className="mt-1.5 text-[12px] leading-snug text-amber-300">
-                      {t("Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.")}
-                    </p>
-                  )}
-                </div>
-                {cursor > 0 && (
-                  <Toggle
-                    checked={esconder}
-                    onChange={setEsconder}
-                    label={t("Esconderlo cuando no se mueve")}
-                    hint={t("se va tras un segundo y medio quieto")}
-                  />
-                )}
-                {session.hasClicks && (
-                  <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />
-                )}
-                {/* El suavizado de tres opciones (sustituye al interruptor «Movimiento suave»),
-                    esconderlo al escribir, la estela, la onda y el sonido de los clics, y
-                    acercarse al escribir. */}
-                <AjustesCursor
-                  edicion={edicion ?? {}}
-                  onEdicion={(cambio) => onEdicion?.(cambio)}
-                  conPuntero={cursor > 0}
-                  conClics={session.hasClicks}
-                  conZoom={zoom > 1.05 || (edicion?.zooms?.length ?? 0) > 0}
-                  conEscritura={conEscritura}
-                />
-              </div>
-            </Grupo>
+        <Plegable titulo={t("Fondo")} {...plegado("fondo")}>
+          <FondoPicker
+            fondo={fondo}
+            conMarco={margen > 0}
+            elegido={edicion?.fondo ?? null}
+            onFondo={(f) => {
+              onEdicion?.({ fondo: null });
+              elegirFondo(f);
+            }}
+            onElegido={(e) => {
+              onEdicion?.({ fondo: e });
+              // Pone el aire si estaba a cero: un fondo propio sin aire no se ve.
+              elegirFondo(fondo);
+            }}
+          />
+          {/* Lo del marco solo con fondo: aire y esquinas de un marco que no existe son
+              controles que no hacen nada. */}
+          {margen > 0 && (
+            <Slider
+              label={t("Aire alrededor")}
+              hint={`${margen} px`}
+              min={4}
+              max={200}
+              value={margen}
+              onChange={setMargen}
+            />
           )}
+          {/* S25 (marco): con ventana o portátil, las esquinas son las suyas. */}
+          {margen > 0 && !carcasaPuesta && (
+            <Slider
+              label={t("Esquinas redondeadas")}
+              hint={esquinas === 0 ? t("rectas") : `${esquinas} px`}
+              min={0}
+              max={60}
+              value={esquinas}
+              onChange={setEsquinas}
+            />
+          )}
+          {margen > 0 && <Toggle checked={sombra} onChange={setSombra} label={t("Sombra")} />}
+        </Plegable>
 
-          {/* El zoom solo con clics: un deslizador que no puede hacer nada es peor que no
-              tenerlo. */}
-          {!foto && session.hasClicks && (
-            <Grupo titulo={t("Zoom")}>
+        {/* S25 (marco): la captura dentro de una ventana de Windows 11 o de un portátil. Elegir
+            uno sin fondo pone el fondo, como elegir un fondo pone el aire: sin nada detrás no
+            se vería. */}
+        <Plegable titulo={t("Marco")} {...plegado("marco")}>
+          <Segmented
+            value={carcasaPuesta ?? SIN_CARCASA}
+            etiqueta={t("Marco")}
+            options={MARCOS.map((m) => ({ value: m.id ?? SIN_CARCASA, label: t(m.nombre) }))}
+            onChange={(id) => {
+              const elegida = id === SIN_CARCASA ? null : (id as CarcasaElegida);
+              setCarcasa(elegida);
+              if (elegida && margen === 0) elegirFondo(fondo);
+            }}
+          />
+        </Plegable>
+
+        {/* Una foto no tiene puntero, ni clics, ni zoom: son cosas del tiempo. */}
+        {!foto && (
+          <Plegable titulo={t("Puntero")} {...plegado("puntero")}>
+            <div>
+              <Slider
+                label={t("Tamaño")}
+                hint={
+                  cursor === 0
+                    ? session.cursorBaked
+                      ? t("el de Windows")
+                      : t("sin puntero")
+                    : `${cursor} px`
+                }
+                min={0}
+                max={80}
+                step={4}
+                value={cursor}
+                onChange={setCursor}
+              />
+              {cursor > 0 && session.cursorBaked && (
+                <p className="mt-2 text-[13px] leading-snug text-aviso">
+                  {t("Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.")}
+                </p>
+              )}
+            </div>
+            {cursor > 0 && (
+              <Toggle
+                checked={esconder}
+                onChange={setEsconder}
+                label={t("Esconderlo cuando no se mueve")}
+                hint={t("se va tras un segundo y medio quieto")}
+              />
+            )}
+            {/* El suavizado de tres opciones, esconderlo al escribir y la estela. */}
+            <AjustesCursor
+              parte="puntero"
+              edicion={edicion ?? {}}
+              onEdicion={(cambio) => onEdicion?.(cambio)}
+              conPuntero={cursor > 0}
+              conClics={session.hasClicks}
+              conZoom={zoom > 1.05 || (edicion?.zooms?.length ?? 0) > 0}
+              conEscritura={conEscritura}
+            />
+          </Plegable>
+        )}
+
+        {!foto && (
+          <Plegable titulo={t("Clics y teclas")} {...plegado("clics")}>
+            {session.hasClicks && <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />}
+            {/* La onda y el sonido de los clics. */}
+            <AjustesCursor
+              parte="clics"
+              edicion={edicion ?? {}}
+              onEdicion={(cambio) => onEdicion?.(cambio)}
+              conPuntero={cursor > 0}
+              conClics={session.hasClicks}
+              conEscritura={conEscritura}
+            />
+            <Toggle
+              checked={teclas}
+              onChange={setTeclas}
+              label={t("Enseñar los atajos")}
+              // Este aviso viaja con el interruptor: es la regla que impide que una
+              // contraseña tecleada mientras se grababa acabe dentro del vídeo.
+              hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
+            />
+          </Plegable>
+        )}
+
+        {!foto && (session.hasClicks || conEscritura) && (
+          <Plegable titulo={t("Zoom")} {...plegado("zoom")}>
+            {/* El zoom de los clics solo con clics: un deslizador que no puede hacer nada es
+                peor que no tenerlo. */}
+            {session.hasClicks && (
               <Slider
                 label={t("Acercarse a los clics")}
                 hint={zoom <= 1.05 ? t("sin zoom") : `${zoom.toFixed(1)}×`}
@@ -684,209 +791,173 @@ export function ExportPanel({
                 value={zoom}
                 onChange={setZoom}
               />
-              {zoom > 1.05 && (
-                <div className="mt-3">
-                  <span className="mb-1 block text-[13px] font-medium text-neutral-200">
-                    {t("Velocidad del zoom")}
-                  </span>
-                  <Opciones>
-                    {VELOCIDADES_DE_ZOOM.map((v) => (
-                      <Opcion
-                        key={v.valor}
-                        puesta={velocidadZoom === v.valor}
-                        onClick={() => setVelocidadZoom(v.valor)}
-                      >
-                        {t(v.nombre)}
-                      </Opcion>
-                    ))}
-                  </Opciones>
-                </div>
-              )}
-            </Grupo>
-          )}
-
-          {/* La webcam: si la grabación no la trae no pinta nada, ni título. Su interruptor
-              «La cámara» hace de título del grupo. */}
-          {!foto && <AjustesCamara sessionId={session.id} edicion={edicion} onEdicion={onEdicion} />}
-
-          {!foto && (
-            <Toggle
-              checked={teclas}
-              onChange={setTeclas}
-              label={t("Enseñar los atajos")}
-              // Este aviso viaja con el interruptor: es la regla que impide que una
-              // contraseña tecleada mientras se grababa acabe dentro del vídeo.
-              hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
+            )}
+            {session.hasClicks && zoom > 1.05 && (
+              <div>
+                <Etiqueta>{t("Velocidad del zoom")}</Etiqueta>
+                <Segmented
+                  value={velocidadZoom}
+                  etiqueta={t("Velocidad del zoom")}
+                  options={VELOCIDADES_DE_ZOOM.map((v) => ({ value: v.valor, label: t(v.nombre) }))}
+                  onChange={setVelocidadZoom}
+                />
+              </div>
+            )}
+            <AjustesCursor
+              parte="zoom"
+              edicion={edicion ?? {}}
+              onEdicion={(cambio) => onEdicion?.(cambio)}
+              conPuntero={cursor > 0}
+              conClics={session.hasClicks}
+              conEscritura={conEscritura}
             />
-          )}
+          </Plegable>
+        )}
 
-          {format === "mp4" && session.hasAudio && !pistasAparte && audio && velocidad === 1 && (
+        {/* La webcam: el grupo solo sale si la grabación la trae. */}
+        {!foto && hayCamara && (
+          <Plegable titulo={t("Cámara")} {...plegado("camara")}>
+            <AjustesCamara sessionId={session.id} edicion={edicion} onEdicion={onEdicion} />
+          </Plegable>
+        )}
+
+        <Plegable titulo={t("Calidad y tamaño")} {...plegado("archivo")}>
+          {format !== "png" && (
             <Slider
-              label={t("Volumen")}
-              hint={`${Math.round(volumen * 100)} %`}
-              min={0}
-              max={200}
-              step={5}
-              value={Math.round(volumen * 100)}
-              onChange={(v) => setVolumen(v / 100)}
+              label={t("Calidad")}
+              hint={`${quality}%`}
+              min={10}
+              max={100}
+              value={quality}
+              onChange={setQuality}
             />
           )}
-        </Desplegable>
-
-        <button
-          type="button"
-          onClick={() => setMas((abierto) => !abierto)}
-          aria-expanded={mas}
-          className="mt-4 flex w-full items-center justify-between rounded-md py-2 text-left text-[14px] font-semibold text-neutral-100 transition-colors hover:text-white"
-        >
-          {t("Más ajustes")}
-          <ChevronDown
-            className={`size-[18px] text-neutral-300 transition-transform duration-200 ${mas ? "rotate-180" : ""}`}
-          />
-        </button>
-
-        {/*
-          Plegado con la fila de la rejilla de 0fr a 1fr: crece poco a poco y lo de debajo
-          baja con él, en vez de aparecer de golpe. Cerrado no se puede pulsar ni llegar con
-          el tabulador a nada de dentro.
-        */}
-        <div
-          className="grid transition-[grid-template-rows] duration-[240ms] ease-in-out"
-          style={{ gridTemplateRows: mas ? "1fr" : "0fr" }}
-        >
-          <div className="min-h-0 overflow-hidden" inert={!mas} aria-hidden={!mas}>
-            <div className="space-y-4 pt-1 pb-1">
-              {format !== "png" && (
-                <Slider
-                  label={t("Calidad")}
-                  hint={`${quality}%`}
-                  min={10}
-                  max={100}
-                  value={quality}
-                  onChange={setQuality}
-                />
-              )}
-
-              {/* Una foto no tiene fotogramas por segundo, ni velocidad. */}
-              {!foto && (
-                <Slider
-                  label={t("Fotogramas por segundo")}
-                  hint={`${fps} fps`}
-                  min={5}
-                  max={fpsMax}
-                  value={fps}
-                  onChange={setFps}
-                />
-              )}
-
-              {!foto && (
-                <Grupo titulo={t("Velocidad")}>
-                  <Opciones>
-                    {VELOCIDADES.map((v) => (
-                      <Opcion key={v} puesta={velocidad === v} onClick={() => setVelocidad(v)}>
-                        {v}×
-                      </Opcion>
-                    ))}
-                  </Opciones>
-                  {velocidad !== 1 && (
-                    <p className="mt-1.5 text-[12px] text-neutral-300">
-                      {velocidad > 1
-                        ? t("dura {n} veces menos, y sale sin sonido", { n: velocidad })
-                        : t("dura el doble, y sale sin sonido")}
-                    </p>
-                  )}
-                </Grupo>
-              )}
-
-              <Grupo titulo={t("Tamaño")}>
-                {/*
-                  La proporción, de un clic.
-
-                  Lo que se graba de un monitor sale SIEMPRE apaisado, así que para subir
-                  algo vertical hay que encuadrar, y encuadrar a ojo un 9:16 exacto no lo
-                  acierta nadie. Esto coloca el trozo más grande con esa forma, centrado, y
-                  después se arrastra donde haga falta sin perder la proporción.
-                */}
-                {onRecorte && (
-                  <Opciones>
-                    {PROPORCIONES.map((p) => (
-                      <Opcion
-                        key={p.id}
-                        puesta={
-                          recorte !== null &&
-                          esLaProporcion(p.valor, recorte, session.region.width, session.region.height)
-                        }
-                        onClick={() =>
-                          onRecorte(conProporcion(p.valor, session.region.width, session.region.height))
-                        }
-                      >
-                        {p.id}
-                      </Opcion>
-                    ))}
-                    {recorte !== null && (
-                      <button
-                        type="button"
-                        onClick={() => onRecorte(null)}
-                        title={t("Quitar el recorte")}
-                        aria-label={t("Quitar el recorte")}
-                        className="ml-auto rounded-md px-1.5 text-[16px] leading-none text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </Opciones>
-                )}
-                <div className="mt-2.5 flex items-end gap-2">
-                  <NumberField label={t("Ancho")} value={width} onChange={setW} suffix="px" />
-                  <button
-                    type="button"
-                    onClick={() => setLocked((l) => !l)}
-                    title={locked ? t("Proporción bloqueada") : t("Proporción libre")}
-                    className={`mb-1.5 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors ${
-                      locked ? "text-blue-400 hover:bg-white/10" : "text-neutral-400 hover:text-white"
-                    }`}
-                  >
-                    {locked ? <Link2 className="size-4" /> : <Unlink2 className="size-4" />}
-                  </button>
-                  <NumberField label={t("Alto")} value={height} onChange={setH} suffix="px" />
-                </div>
-                <Opciones>
-                  {[100, 75, 50].map((pct) => (
-                    <Opcion
-                      key={pct}
-                      puesta={false}
-                      onClick={() => {
-                        // Sobre lo que se va a exportar, no sobre la captura entera: con un
-                        // recorte puesto, el 50 % de la captura estiraria el trozo al doble.
-                        setWidth(Math.round((fuente.width * pct) / 100));
-                        setHeight(Math.round((fuente.height * pct) / 100));
-                      }}
-                    >
-                      {pct}%
-                    </Opcion>
-                  ))}
-                </Opciones>
-              </Grupo>
-
-              {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}
-              {hasFfmpeg && !foto && (
-                <Toggle
-                  checked={useFfmpeg}
-                  onChange={setUseFfmpeg}
-                  label={t("Motor FFmpeg")}
-                  hint={t("calidad máxima, más lento")}
-                />
+          {/* Una foto no tiene fotogramas por segundo, ni velocidad. */}
+          {!foto && (
+            <Slider
+              label={t("Fotogramas por segundo")}
+              hint={`${fps} fps`}
+              min={5}
+              max={fpsMax}
+              value={fps}
+              onChange={setFps}
+            />
+          )}
+          {!foto && (
+            <div>
+              <Etiqueta>{t("Velocidad")}</Etiqueta>
+              <Segmented
+                value={velocidad}
+                etiqueta={t("Velocidad")}
+                options={VELOCIDADES.map((v) => ({ value: v, label: `${v}×` }))}
+                onChange={setVelocidad}
+              />
+              {velocidad !== 1 && (
+                <p className="mt-1.5 text-[13px] text-suave">
+                  {velocidad > 1
+                    ? t("dura {n} veces menos, y sale sin sonido", { n: velocidad })
+                    : t("dura el doble, y sale sin sonido")}
+                </p>
               )}
             </div>
+          )}
+          <div>
+            <Etiqueta>{t("Tamaño")}</Etiqueta>
+            {/*
+              La proporción, de un clic.
+
+              Lo que se graba de un monitor sale SIEMPRE apaisado, así que para subir
+              algo vertical hay que encuadrar, y encuadrar a ojo un 9:16 exacto no lo
+              acierta nadie. Esto coloca el trozo más grande con esa forma, centrado, y
+              después se arrastra donde haga falta sin perder la proporción.
+            */}
+            {onRecorte && (
+              <Opciones>
+                {PROPORCIONES.map((p) => (
+                  <Opcion
+                    key={p.id}
+                    puesta={
+                      recorte !== null &&
+                      esLaProporcion(p.valor, recorte, session.region.width, session.region.height)
+                    }
+                    onClick={() => onRecorte(conProporcion(p.valor, session.region.width, session.region.height))}
+                  >
+                    {p.id}
+                  </Opcion>
+                ))}
+                {recorte !== null && (
+                  <button
+                    type="button"
+                    onClick={() => onRecorte(null)}
+                    title={t("Quitar el recorte")}
+                    aria-label={t("Quitar el recorte")}
+                    className="ml-auto rounded-md px-1.5 text-[16px] leading-none text-suave transition-colors hover:bg-realce hover:text-titulo"
+                  >
+                    ×
+                  </button>
+                )}
+              </Opciones>
+            )}
+            <div className="mt-2.5 flex items-end gap-2">
+              <NumberField label={t("Ancho")} value={width} onChange={setW} suffix="px" />
+              <button
+                type="button"
+                onClick={() => setLocked((l) => !l)}
+                title={locked ? t("Proporción bloqueada") : t("Proporción libre")}
+                className={`mb-1 flex size-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+                  locked ? "text-marca hover:bg-realce" : "text-apagado hover:text-titulo"
+                }`}
+              >
+                {locked ? <Link2 className="size-4" /> : <Unlink2 className="size-4" />}
+              </button>
+              <NumberField label={t("Alto")} value={height} onChange={setH} suffix="px" />
+            </div>
+            <Opciones>
+              {[100, 75, 50].map((pct) => (
+                <Opcion
+                  key={pct}
+                  puesta={false}
+                  onClick={() => {
+                    // Sobre lo que se va a exportar, no sobre la captura entera: con un
+                    // recorte puesto, el 50 % de la captura estiraria el trozo al doble.
+                    setWidth(Math.round((fuente.width * pct) / 100));
+                    setHeight(Math.round((fuente.height * pct) / 100));
+                  }}
+                >
+                  {pct}%
+                </Opcion>
+              ))}
+            </Opciones>
           </div>
-        </div>
+          {format === "gif" && <Toggle checked={loop} onChange={setLoop} label={t("Bucle infinito")} />}
+          {hasFfmpeg && !foto && (
+            <Toggle
+              checked={useFfmpeg}
+              onChange={setUseFfmpeg}
+              label={t("Motor FFmpeg")}
+              hint={t("calidad máxima, más lento")}
+            />
+          )}
+        </Plegable>
+
+        {/* Guardar el estilo va al final, después de lo que lo forma: se lee en su orden. */}
+        <Plegable titulo={t("Estilos")} {...plegado("estilos")}>
+          <div>
+            <p className="mb-3 text-[13px] leading-snug text-suave">
+              {t("Guarda el fondo, el puntero, los clics y el zoom con un nombre, para ponérselos a otro vídeo")}
+            </p>
+            <Presets enLista estilo={estiloAhora} onAplicar={aplicarEstilo} />
+          </div>
+        </Plegable>
       </div>
 
-      <div className="sticky bottom-0 space-y-2.5 border-t border-white/8 bg-[#141416] p-4">
+      {/* Guardar, siempre a la vista, abajo: los tres botones, la carpeta y lo que va a pesar. */}
+      <div className="space-y-2.5 border-t border-linea px-4 pt-3 pb-3">
+
         {progress && (
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div className="h-1.5 overflow-hidden rounded-full bg-realce">
             <div
-              className="h-full bg-blue-500 transition-[width] duration-150"
+              className="h-full bg-marca transition-[width] duration-150"
               style={{
                 width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%`,
               }}
@@ -899,7 +970,7 @@ export function ExportPanel({
           disabled={ocupado}
           onClick={() => void run(false)}
           title={t("Exportar a la carpeta elegida (Ctrl+S)")}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-500 text-[15px] font-semibold whitespace-nowrap text-white transition-colors hover:bg-blue-400 disabled:opacity-50"
+          className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[15px] font-semibold whitespace-nowrap transition-colors disabled:opacity-50 ${RELLENO}`}
         >
           <Save className="size-[18px]" /> {t("Guardar")} {format.toUpperCase()}
         </button>
@@ -925,12 +996,12 @@ export function ExportPanel({
           </BotonSegundo>
         </div>
 
-        <div className="flex items-center justify-between gap-3 text-[12px] text-neutral-300">
+        <div className="flex items-center justify-between gap-3 text-[13px] text-suave">
           <button
             type="button"
             onClick={() => void pickDirectory().then((dir) => dir && setDirectory(dir))}
             title={t("Elegir dónde se guarda")}
-            className="flex min-w-0 items-center gap-1.5 transition-colors hover:text-white"
+            className="flex min-w-0 items-center gap-1.5 transition-colors hover:text-titulo"
           >
             <FolderOpen className="size-4 shrink-0" />
             <span className="truncate" title={directory}>
@@ -945,9 +1016,10 @@ export function ExportPanel({
             {/* Copiar es lo que más se usa para mandarle el vídeo a alguien, así que se
                 dice en su propia línea y no escondido entre el tamaño y la carpeta. Un
                 vídeo no se pega como imagen: va como archivo (para el explorador y los
-                chats) y como su ruta escrita (para cualquier caja de texto). */}
+                chats) y como su ruta escrita (para cualquier caja de texto). Sin verde de
+                «todo va bien»: lo dice la frase. */}
             {result.copied && (
-              <p className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-300">
+              <p className="flex items-center gap-1.5 text-[13px] font-medium text-texto">
                 <Clipboard className="size-4 shrink-0" />
                 {format === "png" ? t("Copiado: ya se puede pegar") : t("Copiado: el archivo y su ruta")}
               </p>
@@ -955,16 +1027,16 @@ export function ExportPanel({
             {/* Y si no se pudo, se dice por qué. Antes el fallo se tragaba y pulsar copiar
                 parecía no hacer absolutamente nada. */}
             {result.copyError && (
-              <p className="text-[12px] text-red-300">
+              <p className={`text-[13px] ${ROJO}`}>
                 {t("No se ha podido copiar")}: {t(result.copyError)}
               </p>
             )}
             <button
               type="button"
               onClick={() => void revealInExplorer(result.path)}
-              className="flex w-full items-center gap-1.5 rounded-md py-1 text-left text-[13px] font-medium text-neutral-100 transition-colors hover:text-white"
+              className="flex w-full items-center gap-1.5 rounded-md py-1 text-left text-[13px] font-medium text-titulo transition-colors hover:text-marca"
             >
-              <FolderOpen className="size-4 shrink-0 text-blue-400" />
+              <FolderOpen className="size-4 shrink-0 text-marca" />
               <span className="truncate">
                 {t("Guardado")} · {formatBytes(result.bytes)} · {t("abrir carpeta")}
               </span>
@@ -972,40 +1044,54 @@ export function ExportPanel({
           </div>
         )}
 
-        {error && <p className="text-[12px] text-red-300">{error}</p>}
-      </div>
+        {error && <p className={`text-[13px] ${ROJO}`}>{error}</p>}
       </div>
     </aside>
   );
 }
 
 /**
- * Un apartado que se pliega: el título con su flecha, y debajo lo de dentro, que crece poco
- * a poco con la fila de la rejilla de 0fr a 1fr y empuja lo de debajo, en vez de aparecer
- * de golpe. Cerrado no se puede pulsar ni llegar con el tabulador a nada de dentro.
+ * Un grupo que se pliega: el título con su flecha, y debajo lo de dentro, que crece poco a
+ * poco con la fila de la rejilla de 0fr a 1fr y empuja lo de debajo, en vez de aparecer de
+ * golpe. Cerrado no se puede pulsar ni llegar con el tabulador a nada de dentro.
+ *
+ * Abrir uno que se queda por debajo del borde (los de abajo, con otros abiertos encima) lo trae
+ * a la vista al acabar de crecer: si no, se pulsa y parece que no pasa nada.
  */
-function Desplegable({
+function Plegable({
+  grupo,
   titulo,
   abierto,
   onCambiar,
   children,
 }: {
+  grupo: Grupo;
   titulo: string;
   abierto: boolean;
   onCambiar: () => void;
   children: ReactNode;
 }) {
+  const caja = useRef<HTMLDivElement>(null);
+  const abrir = () => {
+    onCambiar();
+    if (abierto) return;
+    // Lo de dentro tarda 240 ms en crecer: se mira dónde ha quedado cuando ya mide lo suyo.
+    setTimeout(() => caja.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }), 260);
+  };
   return (
-    <div className="mt-3 border-t border-white/8 pt-1">
+    <div ref={caja} className="border-t border-linea px-4">
       <button
         type="button"
-        onClick={onCambiar}
+        data-grupo={grupo}
+        onClick={abrir}
         aria-expanded={abierto}
-        className="flex w-full items-center justify-between rounded-md py-2 text-left text-[14px] font-semibold text-neutral-100 transition-colors hover:text-white"
+        className="group flex w-full items-center justify-between py-[7px] text-left text-[14px] font-semibold text-titulo"
       >
         {titulo}
         <ChevronDown
-          className={`size-[18px] text-neutral-300 transition-transform duration-200 ${abierto ? "rotate-180" : ""}`}
+          className={`size-[18px] text-apagado transition-[transform,color] duration-200 group-hover:text-titulo ${
+            abierto ? "rotate-180" : ""
+          }`}
         />
       </button>
       <div
@@ -1013,20 +1099,16 @@ function Desplegable({
         style={{ gridTemplateRows: abierto ? "1fr" : "0fr" }}
       >
         <div className="min-h-0 overflow-hidden" inert={!abierto} aria-hidden={!abierto}>
-          <div className="space-y-4 pt-1 pb-2">{children}</div>
+          <div className="space-y-4 pt-0.5 pb-3.5">{children}</div>
         </div>
       </div>
     </div>
   );
 }
 
-function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <div>
-      <span className="mb-2 block text-[13px] font-medium text-neutral-200">{titulo}</span>
-      {children}
-    </div>
-  );
+/** El nombre de una fila que lleva sus opciones debajo (el marco, la velocidad, el tamaño). */
+function Etiqueta({ children }: { children: ReactNode }) {
+  return <span className="mb-1 block text-[15px] font-medium text-titulo">{children}</span>;
 }
 
 function BotonSegundo({
@@ -1048,7 +1130,7 @@ function BotonSegundo({
       onClick={onClick}
       disabled={apagado}
       title={titulo}
-      className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white/10 text-[14px] font-medium whitespace-nowrap text-neutral-100 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+      className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-realce text-[14px] font-medium whitespace-nowrap text-titulo transition-colors hover:bg-activo disabled:opacity-50"
     >
       {icono}
       {children}

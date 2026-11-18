@@ -9,6 +9,8 @@
  */
 
 import type { Recorte } from "./recorte";
+// S25 (marco)
+import type { Carcasa } from "./carcasa";
 
 // Lo que se guarda al grabar
 
@@ -151,6 +153,9 @@ export interface Edicion {
   sonidoPc?: VolumenDePista | null;
   /** Y el del micrófono. */
   microfono?: VolumenDePista | null;
+  // S25 (marco)
+  /** La ventana (con su tema) o el portátil alrededor de la captura. null o ausente: sin marco. */
+  carcasa?: Carcasa | null;
 }
 
 // S11 (pistas): el sonido del PC y el micrófono, cada uno en su archivo

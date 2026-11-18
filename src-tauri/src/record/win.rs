@@ -14,6 +14,40 @@ use windows_capture::settings::{
 
 use crate::capture::Rect;
 use crate::error::{AppError, Result};
+use crate::record::comparar_gpu::{Cambio, Comparador};
+use crate::record::delta::Parche;
+
+/// El cursor y el borde amarillo, como se pueden pedir en ESTE Windows.
+///
+/// Sin el borde y con el cursor como diga el usuario, donde se deja. Windows 10 no deja
+/// quitar el borde (`IsBorderRequired` llega con la 10.0.20348) y la 1903 y la 1909 no dejan
+/// elegir el cursor (`IsCursorCaptureEnabled`, la 2004): pedirlo hacía que windows-capture se
+/// negara a empezar (`BorderConfigUnsupported`), y la grabación no arrancaba en ningún
+/// Windows 10 de casa. Ahí se graba con lo de Windows: el borde se ve en la pantalla, no en el
+/// vídeo, y el cursor sale siempre.
+fn como_se_puede(
+    capture_cursor: bool,
+    cursor_se_elige: bool,
+    borde_se_quita: bool,
+) -> (CursorCaptureSettings, DrawBorderSettings) {
+    let cursor = match (cursor_se_elige, capture_cursor) {
+        (false, _) => CursorCaptureSettings::Default,
+        (true, true) => CursorCaptureSettings::WithCursor,
+        (true, false) => CursorCaptureSettings::WithoutCursor,
+    };
+    let borde = if borde_se_quita { DrawBorderSettings::WithoutBorder } else { DrawBorderSettings::Default };
+    (cursor, borde)
+}
+
+/// `como_se_puede` con lo que dice este Windows.
+fn cursor_y_borde(capture_cursor: bool) -> (CursorCaptureSettings, DrawBorderSettings) {
+    use windows_capture::graphics_capture_api::GraphicsCaptureApi as Api;
+    como_se_puede(
+        capture_cursor,
+        Api::is_cursor_settings_supported().unwrap_or(false),
+        Api::is_border_settings_supported().unwrap_or(false),
+    )
+}
 
 /// windows-capture identifica monitores por HMONITOR, asi que se lo pedimos a Win32.
 pub(crate) fn monitor_at(x: i32, y: i32) -> Result<WcMonitor> {
@@ -29,8 +63,18 @@ pub(crate) fn monitor_at(x: i32, y: i32) -> Result<WcMonitor> {
 
 /// Un fotograma recien capturado, ya recortado a la region y en BGRA.
 pub struct CapturedFrame {
+    /// El fotograma entero, o, si viene `zonas`, solo esas zonas una detras de otra.
     pub bgra: Vec<u8>,
     pub ts_ms: u64,
+    /// S29: con `CaptureFlags::solo_cambios`, lo que cambio desde el fotograma anterior
+    /// que se ENTREGO (no desde el anterior que dibujo Windows): sus rectangulos, en
+    /// coordenadas de la region, y en `bgra` los pixeles de cada uno, fila a fila y uno
+    /// detras de otro. `None` es un fotograma entero, como siempre.
+    ///
+    /// Quien lo pide tiene que aplicar TODOS los que le lleguen, en orden, sobre su copia:
+    /// tirar uno es quedarse con un trozo de pantalla viejo para siempre (hasta el siguiente
+    /// entero).
+    pub zonas: Option<Vec<Parche>>,
 }
 
 #[derive(Clone)]
@@ -50,6 +94,11 @@ pub struct CaptureFlags {
     pub start: Instant,
     /// Los bufers ya usados que vuelven para el siguiente fotograma. Ver `Reciclados`.
     pub reciclados: Reciclados,
+    /// S29: entregar solo lo que cambio (ver `CapturedFrame::zonas`) cuando Windows sabe
+    /// decirlo. Lo pide el anillo, que corre toda la tarde y casi siempre ve una pantalla
+    /// en la que solo se mueve el raton. La grabacion normal no: su codificador quiere el
+    /// fotograma entero en cada vuelta.
+    pub solo_cambios: bool,
 }
 
 /// Bufers de fotograma que van y vuelven, para no reservar ocho megabytes nuevos sesenta
@@ -86,13 +135,56 @@ impl Reciclados {
     }
 }
 
+/// La textura de la que se leen los fotogramas, guardada entre uno y otro.
+///
+/// **Medido en S29:** el crate creaba una textura de ocho megabytes NUEVA en cada fotograma
+/// (`Frame::buffer_crop`) y copiaba a ella la pantalla entera. Guardandola, ademas, se queda
+/// con lo que tenia: copiar a ella solo las zonas que cambiaron basta para que siga teniendo
+/// la pantalla entera al dia (es lo que comprueba `verificacion`).
+struct Lector {
+    textura: windows::Win32::Graphics::Direct3D11::ID3D11Texture2D,
+    ancho: u32,
+    alto: u32,
+}
+
+impl Lector {
+    fn nuevo(frame: &Frame, ancho: u32, alto: u32) -> std::result::Result<Self, windows::core::Error> {
+        use windows::Win32::Graphics::Direct3D11::{
+            D3D11_CPU_ACCESS_READ, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
+        };
+        use windows::Win32::Graphics::Dxgi::Common::DXGI_SAMPLE_DESC;
+        let desc = D3D11_TEXTURE2D_DESC {
+            Width: ancho,
+            Height: alto,
+            MipLevels: 1,
+            ArraySize: 1,
+            Format: frame.desc().Format,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Usage: D3D11_USAGE_STAGING,
+            BindFlags: 0,
+            CPUAccessFlags: D3D11_CPU_ACCESS_READ.0 as u32,
+            MiscFlags: 0,
+        };
+        let mut textura = None;
+        unsafe { frame.device().CreateTexture2D(&desc, None, Some(&mut textura))? };
+        Ok(Self {
+            textura: textura.ok_or_else(|| windows::core::Error::from(windows::Win32::Foundation::E_FAIL))?,
+            ancho,
+            alto,
+        })
+    }
+}
+
 pub struct RegionCapture {
     flags: CaptureFlags,
     last_emit: Option<Instant>,
-    /// El apoyo que necesita el crate cuando la textura viene con relleno de fila. Se
-    /// guarda entre fotogramas para no reservar ocho megabytes nuevos sesenta veces por
-    /// segundo: la copia que se manda por el canal sigue siendo una, esta no cuenta.
-    scratch: Vec<u8>,
+    lector: Option<Lector>,
+    /// Con `solo_cambios`: la comparacion en la GPU con el ultimo fotograma entregado. Ver
+    /// `comparar_gpu`.
+    comparador: Option<Comparador>,
+    /// Si crear el comparador fallo una vez, no se reintenta en cada fotograma: se sigue
+    /// leyendo entero, como siempre.
+    sin_comparador: bool,
 }
 
 impl GraphicsCaptureApiHandler for RegionCapture {
@@ -103,7 +195,9 @@ impl GraphicsCaptureApiHandler for RegionCapture {
         Ok(Self {
             flags: ctx.flags,
             last_emit: None,
-            scratch: Vec::new(),
+            lector: None,
+            comparador: None,
+            sin_comparador: false,
         })
     }
 
@@ -116,18 +210,21 @@ impl GraphicsCaptureApiHandler for RegionCapture {
             control.stop();
             return Ok(());
         }
+        // En pausa no se lee nada. Al volver, el comparador sigue teniendo el ultimo que se
+        // entrego, asi que lo que cambio mientras tanto sale en la primera comparacion.
         if self.flags.pause.load(Ordering::Relaxed) {
             return Ok(());
         }
 
         // Windows entrega fotogramas al ritmo del compositor; aqui se recorta al fps pedido.
+        // Los que se saltan no hacen falta para nada: se compara siempre con el ultimo
+        // ENTREGADO, no con el anterior de Windows.
         let now = Instant::now();
         if let Some(last) = self.last_emit {
             if now.duration_since(last).as_millis() < self.flags.min_interval_ms as u128 {
                 return Ok(());
             }
         }
-        self.last_emit = Some(now);
 
         let (x1, y1, x2, y2) = self.flags.crop;
         // Grabando una VENTANA, su tamanno puede cambiar mientras se graba, y el
@@ -139,28 +236,66 @@ impl GraphicsCaptureApiHandler for RegionCapture {
         if x1 >= hasta_x || y1 >= hasta_y {
             return Ok(());
         }
-        let buffer = frame.buffer_crop(x1, y1, hasta_x, hasta_y)?;
-        // El crate necesita un Vec de apoyo por si la textura viene con relleno de fila.
-        // A un bufer devuelto si lo hay, que ya tiene sus paginas puestas; si no, a uno nuevo.
-        let mut data = self.flags.reciclados.coger();
         let pedido = ((x2 - x1) as usize, (y2 - y1) as usize);
-        let hay = ((hasta_x - x1) as usize, (hasta_y - y1) as usize);
-        let sin_relleno = buffer.as_nopadding_buffer(&mut self.scratch);
-        if hay == pedido {
-            data.extend_from_slice(sin_relleno);
-        } else {
-            data.resize(pedido.0 * pedido.1 * 4, 0);
-            for fila in 0..hay.1 {
-                let desde = fila * hay.0 * 4;
-                let hasta = desde + hay.0 * 4;
-                let destino = fila * pedido.0 * 4;
-                data[destino..destino + hay.0 * 4].copy_from_slice(&sin_relleno[desde..hasta]);
+        let hay = (hasta_x - x1, hasta_y - y1);
+        if self.lector.as_ref().is_none_or(|l| (l.ancho, l.alto) != hay) {
+            self.lector = Some(Lector::nuevo(frame, hay.0, hay.1)?);
+        }
+
+        // Que se lee: solo lo que cambio, o todo. El comparador solo cuando se pidio y la
+        // region esta entera (una ventana que encogio va entera, rellena de negro).
+        let entera = hay == (pedido.0 as u32, pedido.1 as u32);
+        if self.flags.solo_cambios && entera && !self.sin_comparador {
+            if self.comparador.as_ref().is_none_or(|c| c.medida() != hay) {
+                match Comparador::nuevo(frame.device(), frame.desc().Format, hay.0, hay.1) {
+                    Ok(c) => self.comparador = Some(c),
+                    Err(error) => {
+                        eprintln!("[captura] sin comparar en la GPU, se lee entero: {error}");
+                        self.sin_comparador = true;
+                        self.comparador = None;
+                    }
+                }
             }
+        } else {
+            self.comparador = None;
+        }
+        let zonas = match self.comparador.as_mut() {
+            Some(comparador) => match comparador.comparar(frame.device_context(), frame.as_raw_texture(), (x1, y1)) {
+                // El mismo fotograma: ni se lee ni se manda, y el ritmo no lo cuenta.
+                Ok(Cambio::Nada) => return Ok(()),
+                Ok(Cambio::Entero) => None,
+                Ok(Cambio::Zonas(zonas)) => Some(zonas),
+                Err(error) => {
+                    eprintln!("[captura] la comparacion en la GPU ha fallado, se lee entero: {error}");
+                    self.sin_comparador = true;
+                    self.comparador = None;
+                    None
+                }
+            },
+            None => None,
+        };
+        self.last_emit = Some(now);
+
+        // De donde se lee: de la copia que ya hizo el comparador (la region recortada, en
+        // 0,0), o del fotograma de Windows.
+        let lector = self.lector.as_ref().expect("el lector se acaba de crear");
+        let (origen, esquina) = match self.comparador.as_ref().and_then(Comparador::ultimo) {
+            Some(textura) => (textura, (0, 0)),
+            None => (frame.as_raw_texture(), (x1, y1)),
+        };
+        let data = leer(frame.device_context(), origen, esquina, lector, &zonas, pedido, &self.flags.reciclados)?;
+        #[cfg(test)]
+        if zonas.is_some() && verificacion::ACTIVA.load(Ordering::Relaxed) {
+            verificacion::comparar(frame, lector, (x1, y1));
         }
 
         let elapsed = now.duration_since(self.flags.start).as_millis() as u64;
         let ts_ms = elapsed.saturating_sub(self.flags.paused_ms.load(Ordering::Relaxed));
-        let _ = self.flags.sender.send(CapturedFrame { bgra: data, ts_ms });
+        let _ = self.flags.sender.send(CapturedFrame {
+            bgra: data,
+            ts_ms,
+            zonas,
+        });
         Ok(())
     }
 
@@ -168,6 +303,131 @@ impl GraphicsCaptureApiHandler for RegionCapture {
         self.flags.stop.store(true, Ordering::Relaxed);
         Ok(())
     }
+}
+
+/// S29: la prueba de que leer solo las zonas no pierde nada. Puesta, cada fotograma que se
+/// lee por zonas se lee TAMBIEN entero (por el camino de siempre del crate) y se compara
+/// pixel a pixel con lo que tiene la textura guardada: si se escapara un cambio, ahi
+/// saldria. Asi se vio que las zonas que dice Windows NO valen (ver `comparar_gpu`). Solo
+/// en pruebas.
+#[cfg(test)]
+pub(crate) mod verificacion {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+
+    use windows_capture::frame::Frame;
+
+    pub static ACTIVA: AtomicBool = AtomicBool::new(false);
+    pub static MIRADOS: AtomicU64 = AtomicU64::new(0);
+    pub static MALOS: AtomicU64 = AtomicU64::new(0);
+    pub static PIXELES_MALOS: AtomicU64 = AtomicU64::new(0);
+
+    pub fn reiniciar() {
+        MIRADOS.store(0, Ordering::Relaxed);
+        MALOS.store(0, Ordering::Relaxed);
+        PIXELES_MALOS.store(0, Ordering::Relaxed);
+    }
+
+    pub(super) fn comparar(frame: &mut Frame, lector: &super::Lector, (x1, y1): (u32, u32)) {
+        use windows::Win32::Graphics::Direct3D11::{D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ};
+        let fresco = {
+            let Ok(buffer) = frame.buffer_crop(x1, y1, x1 + lector.ancho, y1 + lector.alto) else {
+                return;
+            };
+            let mut apoyo = Vec::new();
+            buffer.as_nopadding_buffer(&mut apoyo).to_vec()
+        };
+        let contexto = frame.device_context();
+        let mut mapa = D3D11_MAPPED_SUBRESOURCE::default();
+        if unsafe { contexto.Map(&lector.textura, 0, D3D11_MAP_READ, 0, Some(&mut mapa)) }.is_err() {
+            return;
+        }
+        let fila = lector.ancho as usize * 4;
+        let mut malos = 0u64;
+        for y in 0..lector.alto as usize {
+            let guardada =
+                unsafe { std::slice::from_raw_parts((mapa.pData as *const u8).add(y * mapa.RowPitch as usize), fila) };
+            let nueva = &fresco[y * fila..(y + 1) * fila];
+            if guardada != nueva {
+                malos += guardada
+                    .chunks_exact(4)
+                    .zip(nueva.chunks_exact(4))
+                    .filter(|(a, b)| a != b)
+                    .count() as u64;
+            }
+        }
+        unsafe { contexto.Unmap(&lector.textura, 0) };
+        MIRADOS.fetch_add(1, Ordering::Relaxed);
+        if malos > 0 {
+            MALOS.fetch_add(1, Ordering::Relaxed);
+            PIXELES_MALOS.fetch_add(malos, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Copia de la GPU a la textura guardada lo que haya que leer (esas zonas, o la region
+/// entera) y lo saca a un bufer: las zonas una detras de otra, o el fotograma entero con lo
+/// que falte en negro si la ventana encogio.
+fn leer(
+    contexto: &windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
+    origen: &windows::Win32::Graphics::Direct3D11::ID3D11Texture2D,
+    (x1, y1): (u32, u32),
+    lector: &Lector,
+    zonas: &Option<Vec<Parche>>,
+    pedido: (usize, usize),
+    reciclados: &Reciclados,
+) -> std::result::Result<Vec<u8>, windows::core::Error> {
+    use windows::Win32::Graphics::Direct3D11::{D3D11_BOX, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ};
+
+    let entera = [Parche { x: 0, y: 0, width: lector.ancho, height: lector.alto }];
+    let que = zonas.as_deref().unwrap_or(&entera);
+    for z in que {
+        let caja = D3D11_BOX {
+            left: x1 + z.x,
+            top: y1 + z.y,
+            front: 0,
+            right: x1 + z.x + z.width,
+            bottom: y1 + z.y + z.height,
+            back: 1,
+        };
+        unsafe {
+            contexto.CopySubresourceRegion(&lector.textura, 0, z.x, z.y, 0, origen, 0, Some(&caja));
+        }
+    }
+    let mut mapa = D3D11_MAPPED_SUBRESOURCE::default();
+    unsafe { contexto.Map(&lector.textura, 0, D3D11_MAP_READ, 0, Some(&mut mapa))? };
+    let paso = mapa.RowPitch as usize;
+    let base = mapa.pData as *const u8;
+    let fila = |y: u32, x: u32, ancho: u32| -> &[u8] {
+        // SAFETY: la textura mide `lector.ancho` x `lector.alto` y esta mapeada hasta el
+        // Unmap de abajo; las zonas caen dentro (salen de teselas recortadas a la region).
+        unsafe { std::slice::from_raw_parts(base.add(y as usize * paso + x as usize * 4), ancho as usize * 4) }
+    };
+    let mut data = reciclados.coger();
+    match zonas {
+        Some(zonas) => {
+            data.reserve(zonas.iter().map(|z| z.pixeles() as usize * 4).sum());
+            for z in zonas {
+                for y in z.y..z.y + z.height {
+                    data.extend_from_slice(fila(y, z.x, z.width));
+                }
+            }
+        }
+        None if (lector.ancho as usize, lector.alto as usize) == pedido => {
+            data.reserve(pedido.0 * pedido.1 * 4);
+            for y in 0..lector.alto {
+                data.extend_from_slice(fila(y, 0, lector.ancho));
+            }
+        }
+        None => {
+            data.resize(pedido.0 * pedido.1 * 4, 0);
+            for y in 0..lector.alto as usize {
+                let destino = y * pedido.0 * 4;
+                data[destino..destino + lector.ancho as usize * 4].copy_from_slice(fila(y as u32, 0, lector.ancho));
+            }
+        }
+    }
+    unsafe { contexto.Unmap(&lector.textura, 0) };
+    Ok(data)
 }
 
 pub type Control =
@@ -193,14 +453,11 @@ pub fn start(
         ..flags_base
     };
 
+    let (cursor, borde) = cursor_y_borde(capture_cursor);
     let settings = Settings::new(
         monitor,
-        if capture_cursor {
-            CursorCaptureSettings::WithCursor
-        } else {
-            CursorCaptureSettings::WithoutCursor
-        },
-        DrawBorderSettings::WithoutBorder,
+        cursor,
+        borde,
         SecondaryWindowSettings::Default,
         MinimumUpdateIntervalSettings::Default,
         DirtyRegionSettings::Default,
@@ -257,14 +514,11 @@ pub fn start_window(
         ..flags_base
     };
 
+    let (cursor, borde) = cursor_y_borde(capture_cursor);
     let settings = Settings::new(
         windows_capture::window::Window::from_raw_hwnd(ventana.0),
-        if capture_cursor {
-            CursorCaptureSettings::WithCursor
-        } else {
-            CursorCaptureSettings::WithoutCursor
-        },
-        DrawBorderSettings::WithoutBorder,
+        cursor,
+        borde,
         SecondaryWindowSettings::Default,
         MinimumUpdateIntervalSettings::Default,
         DirtyRegionSettings::Default,
@@ -278,6 +532,21 @@ pub fn start_window(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Lo que se pide en cada Windows: en el 11 como siempre, y en el 10 lo de Windows, que
+    /// es lo único con lo que la grabación arranca (revisión del 16-nov).
+    #[test]
+    fn en_windows_10_se_graba_con_lo_que_deja() {
+        use CursorCaptureSettings as C;
+        use DrawBorderSettings as B;
+        let ok = |(c, b): (C, B), (ec, eb): (C, B)| c == ec && b == eb;
+        assert!(ok(como_se_puede(true, true, true), (C::WithCursor, B::WithoutBorder)), "Windows 11");
+        assert!(ok(como_se_puede(false, true, true), (C::WithoutCursor, B::WithoutBorder)));
+        assert!(ok(como_se_puede(false, true, false), (C::WithoutCursor, B::Default)), "Windows 10 2004 a 22H2");
+        assert!(ok(como_se_puede(false, false, false), (C::Default, B::Default)), "Windows 10 1903 y 1909");
+        // Y en este Windows 11 se sigue quitando el borde, como antes.
+        assert!(cursor_y_borde(true).1 == B::WithoutBorder);
+    }
 
     use std::sync::mpsc::channel;
     use std::time::Duration;
@@ -367,6 +636,7 @@ mod tests {
                 min_interval_ms: 0,
                 start: Instant::now(),
                 reciclados: Reciclados::default(),
+                solo_cambios: false,
             },
         )
         .expect("no se ha podido arrancar la captura");
@@ -428,6 +698,7 @@ mod tests {
                 min_interval_ms: 0,
                 start: Instant::now(),
                 reciclados: Reciclados::default(),
+                solo_cambios: false,
             },
         )
         .expect("no se ha podido arrancar la captura de la ventana");

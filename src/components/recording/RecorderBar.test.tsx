@@ -48,6 +48,30 @@ describe("lo que dice la barra", () => {
     expect(screen.queryByText("MP4")).toBeNull();
   });
 
+  /**
+   * La 0.5 (S37): el formato iba en una cajita a 10 px, «en pausa» y el tamaño a 11, y el
+   * ámbar era un `amber-400` suelto. Ahora todo se lee a 12 px como poco, sin caja, y lo que
+   * hay que mirar va en el color de aviso de toda la app.
+   */
+  it("lo que se lee va a 12 px como poco, el formato sin caja y el aviso en su color", async () => {
+    render(<RecorderBar />);
+    await act(async () => {
+      emite(EVENTS.recordingTick, tick({ bytes: CACHE_AVISO + 1, audio: true, microphone: true }));
+    });
+    const formato = screen.getByText("MP4");
+    expect(formato.className).not.toMatch(/\bborder\b|\brounded/);
+    const tamanno = screen.getByTitle(/La caché sin pérdida/);
+    expect(tamanno.className).toMatch(/\btext-aviso\b/);
+    await act(async () => {
+      emite(EVENTS.recordingTick, tick({ paused: true }));
+    });
+    expect(screen.getByText("en pausa").className).toMatch(/\btext-aviso\b/);
+    const clases = [...document.querySelectorAll("[class]")].map((el) => el.getAttribute("class") ?? "");
+    const tamannos = clases.flatMap((c) => [...c.matchAll(/text-\[(\d+(?:\.\d+)?)px\]/g)].map((m) => Number(m[1])));
+    expect(Math.min(...tamannos)).toBeGreaterThanOrEqual(12);
+    expect(clases.some((c) => /amber-/.test(c))).toBe(false);
+  });
+
   it("solo ensenna el sonido que entra de verdad", async () => {
     render(<RecorderBar />);
     await act(async () => {

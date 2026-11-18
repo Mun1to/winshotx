@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="winshotx support: help, bugs and uninstalling">Soporte de winshotx: ayuda, fallos y desinstalar</title>
+<meta name="description" content="Cómo pedir ayuda o avisar de un fallo de winshotx, las preguntas de siempre, dónde guarda tus capturas y tus ajustes, y cómo se desinstala del todo.">
+<link rel="canonical" href="https://winshotx.com/soporte/">
+<link rel="alternate" hreflang="es" href="https://winshotx.com/soporte/">
+<link rel="alternate" hreflang="en" href="https://winshotx.com/en/support/">
+<link rel="alternate" hreflang="x-default" href="https://winshotx.com/soporte/">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="winshotx">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://winshotx.com/soporte/">
+<meta property="og:title" content="Soporte de winshotx">
+<meta property="og:description" content="Pedir ayuda, avisar de un fallo, dónde están tus datos y cómo se desinstala.">
+<meta property="og:image" content="https://winshotx.com/social.png?v=4">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="winshotx, «Crop the screen before you blink»: 114 ms, instalador de 3,01 MB, gratis y de código abierto, junto a su ventana de ajustes">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Soporte de winshotx">
+<meta name="twitter:description" content="Pedir ayuda, avisar de un fallo, dónde están tus datos y cómo se desinstala.">
+<meta name="twitter:image" content="https://winshotx.com/social.png?v=4">
+<link rel="icon" href="../favicon.ico?v=2" sizes="any">
+<link rel="icon" href="../logo.svg?v=2" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
+<script>
+// El dial de movimiento de la casa, igual que en la portada (ver index.html): sin él, el
+// enlace «Menos animaciones» del pie no hacía nada en esta página.
+(function () {
+  var h = document.documentElement;
+  var q = new URLSearchParams(location.search).get("motion");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var gain = q === "off" ? 0 : q === "full" ? 1 : reduce ? 0.25 : 1;
+  h.style.setProperty("--motion-gain", String(gain));
+  h.classList.toggle("motion", gain > 0);
+  h.classList.toggle("quieto", gain === 0);
+})();
+</script>
+<link rel="stylesheet" href="../estilos.css?v=5a97bd84">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "winshotx", "item": "https://winshotx.com/" },
+    { "@type": "ListItem", "position": 2, "name": "Soporte", "item": "https://winshotx.com/soporte/" }
+  ]
+}
+</script>
+</head>
+<body>
+
+<!-- La barra, el pie y los dibujos los pone cromo.mjs (desde generar-en.mjs), copiados de la portada. -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="marca" viewBox="0 0 64 64">
+    <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
+      <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
+      <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
+    </g>
+    <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
+  </symbol>
+<symbol id="i-github" viewBox="0 0 16 16">
+    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+  </symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
+    </symbol>
+</svg>
+
+<nav class="barra">
+  <div class="env barra-dentro">
+    <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+    <span class="enlaces">
+      <a href="../#funciones" data-en="Features">Funciones</a>
+      <a href="../#demo" data-en="Try it">Pruébalo</a>
+      <a href="../#comparativa" data-en="Compare">Comparativa</a>
+      <a href="../docs/" data-en="Docs">Guía</a>
+      <a href="../novedades/" data-en="What's new">Novedades</a>
+      <a class="aqui" aria-current="page" href="../soporte/" data-en="Support">Soporte</a>
+    </span>
+    <span class="acciones">
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
+      <a class="idioma" id="idioma" href="../en/support/" hreflang="en" lang="en">English</a>
+      <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span data-en="Download">Descargar</span></a>
+      <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
+           y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
+           Un <details> se abre y se cierra sin JavaScript; con leer.js?v=69245323 la píldora de la barra
+           crece hacia abajo con las páginas dentro, y se recoge al elegir, con Escape o tocando fuera. -->
+      <details class="menu">
+        <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span data-en="Menu">Menú</span></summary>
+        <div class="menu-panel">
+          <a href="../#funciones" data-en="Features">Funciones</a>
+          <a href="../#demo" data-en="Try it">Pruébalo</a>
+          <a href="../#comparativa" data-en="Compare">Comparativa</a>
+          <a href="../docs/" data-en="Docs">Guía</a>
+          <a href="../novedades/" data-en="What's new">Novedades</a>
+          <a class="aqui" aria-current="page" href="../soporte/" data-en="Support">Soporte</a>
+          <a class="menu-gh" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg><span data-en="The code, on GitHub">El código, en GitHub</span></a>
+        </div>
+      </details>
+    </span>
+  </div>
+</nav>
+
+<!-- Lo que se cuenta aquí sale del código de la app (main, 0.5.0), no de memoria: la carpeta de
+     los ajustes es `app_config_dir` (settings.rs), el texto del historial `app_local_data_dir`
+     (historial_texto.rs), lo temporal `%TEMP%\winshotx` (lib.rs), y la casilla del desinstalador
+     es la de Tauri, que borra `%APPDATA%` y `%LOCALAPPDATA%` de `com.munir.winshotx`. El
+     desinstalador no lleva ganchos propios: no devuelve las teclas de Windows. -->
+<main class="leer">
+  <div class="env">
+    <header class="leer-cabeza">
+      <h1 data-en="Support">Soporte</h1>
+      <p class="entradilla" data-en="Something not working as it should? Here is how to get help and report a bug, the questions that always come up, where winshotx keeps your things, how to remove it completely and, if it saves you time, how to buy me a coffee.">¿Algo no va como debería? Aquí está cómo pedir ayuda y avisar de un fallo, las preguntas que llegan siempre, dónde guarda winshotx tus cosas, cómo quitarla del todo y, si te ahorra tiempo, cómo invitarme a un café.</p>
+    </header>
+
+    <div class="leer-rejilla">
+      <nav class="leer-indice" aria-label="En esta página" data-aria-en="On this page">
+        <a href="#ayuda" data-en="Get help">Pedir ayuda</a>
+        <a href="#dudas" data-en="Questions">Preguntas</a>
+        <a href="#datos" data-en="Your data">Tus datos</a>
+        <a href="#desinstalar" data-en="Uninstall">Desinstalar</a>
+        <a href="#apoyar" data-en="Buy me a coffee">Invítame a un café</a>
+      </nav>
+
+      <div class="texto">
+        <section id="ayuda">
+          <h2 data-en="Get help or report a bug">Pedir ayuda o avisar de un fallo</h2>
+          <p data-html data-en="Everything goes through the GitHub issues, which are public: that way anyone with the same problem finds the answer. Check first whether it is already there; if not, open a new one. From the app you get to the same place: &lt;b&gt;Settings → Help and winshotx → Report a bug&lt;/b&gt;.">Todo va por las incidencias de GitHub, que son públicas: así quien tenga el mismo problema encuentra la respuesta. Mira antes si ya está contado; si no, abre uno nuevo. Desde la app se llega al mismo sitio: <b>Ajustes → Ayuda y winshotx → Contar un fallo</b>.</p>
+          <p class="botones">
+            <a class="btn uno" href="https://github.com/Mun1to/winshotx/issues/new" rel="noopener"><svg aria-hidden="true"><use href="#i-github"/></svg><span data-en="Report a bug">Contar un fallo</span></a>
+            <a class="btn dos" href="https://github.com/Mun1to/winshotx/issues" rel="noopener"><span data-en="See the ones already reported">Ver los que ya están contados</span></a>
+          </p>
+          <p data-en="So it can be fixed the first time, include:">Para que se pueda arreglar a la primera, cuenta:</p>
+          <ul class="lista">
+            <li data-html data-en="&lt;b&gt;The winshotx version.&lt;/b&gt; It is at the top of Settings, next to the name."><b>La versión de winshotx.</b> Sale arriba de los Ajustes, junto al nombre.</li>
+            <li data-html data-en="&lt;b&gt;Your Windows&lt;/b&gt;: 10 or 11, and its version (&lt;kbd&gt;Win&lt;/kbd&gt; + &lt;kbd&gt;R&lt;/kbd&gt;, type &lt;code&gt;winver&lt;/code&gt; and press Enter)."><b>Tu Windows</b>: si es 10 u 11, y su versión (<kbd>Win</kbd> + <kbd>R</kbd>, escribe <code>winver</code> e Intro).</li>
+            <li data-html data-en="&lt;b&gt;How you installed it&lt;/b&gt;: from this website, with winget, from the Microsoft Store or the portable build."><b>Cómo la instalaste</b>: desde esta web, con winget, desde la Microsoft Store o la portable.</li>
+            <li data-html data-en="&lt;b&gt;What you did, what you expected and what happened&lt;/b&gt;, step by step, so it can be repeated."><b>Qué hiciste, qué esperabas y qué pasó</b>, paso a paso, para poder repetirlo.</li>
+            <li data-html data-en="&lt;b&gt;Your screens&lt;/b&gt;, if it goes wrong when capturing or recording: how many you have and the scale of each one (Settings → System → Display)."><b>Tus pantallas</b>, si falla al capturar o al grabar: cuántas tienes y a qué escala va cada una (Configuración → Sistema → Pantalla).</li>
+            <li data-html data-en="&lt;b&gt;A screenshot or a short video&lt;/b&gt;, if it can be seen. Cover anything personal first: winshotx does it by itself, with one click."><b>Una captura o un vídeo corto</b>, si se ve. Tapa antes lo que sea personal: winshotx lo hace sola, con un clic.</li>
+          </ul>
+          <p data-html data-en="If you have no GitHub account, or it is something that should not be public (a security problem, for example), write to &lt;a href=&quot;mailto:winshotx@gmail.com&quot;&gt;winshotx@gmail.com&lt;/a&gt;.">Si no tienes cuenta de GitHub, o es algo que no debe ser público (un fallo de seguridad, por ejemplo), escribe a <a href="mailto:winshotx@gmail.com">winshotx@gmail.com</a>.</p>
+        </section>
+
+        <section id="dudas">
+          <h2 data-en="The questions that always come up">Lo que se pregunta siempre</h2>
+
+          <h3 data-en="I installed it and I see nothing">La he instalado y no veo nada</h3>
+          <p data-html data-en="It lives in the system tray, with no window of its own. Windows hides new icons: if you cannot see it, it is behind the &lt;b&gt;^&lt;/b&gt; arrow on the taskbar. To keep it in sight, drag it from there onto the taskbar.">Vive en la bandeja del sistema, sin ventana propia. Windows esconde los iconos nuevos: si no lo ves, está detrás de la flecha <b>^</b> de la barra de tareas. Para tenerlo siempre a la vista, arrástralo de ahí a la barra.</p>
+
+          <h3 data-en="Print Screen still opens the Snipping Tool">Impr Pant sigue abriendo la Herramienta de Recortes</h3>
+          <p data-html data-en="In &lt;b&gt;Settings → Windows keys&lt;/b&gt; there is a switch that takes the key from the Snipping Tool and gives it to winshotx. &lt;kbd&gt;Win&lt;/kbd&gt; + &lt;kbd&gt;Shift&lt;/kbd&gt; + &lt;kbd&gt;S&lt;/kbd&gt; has a switch of its own, with a price it tells you about first: it takes &lt;kbd&gt;Win&lt;/kbd&gt; + &lt;kbd&gt;S&lt;/kbd&gt;, the search, with it. The details, in &lt;a href=&quot;../docs/#preguntas&quot;&gt;the docs&lt;/a&gt;.">En <b>Ajustes → Teclas de Windows</b> hay un interruptor que se la quita a la Herramienta de Recortes y se la da a winshotx. <kbd>Win</kbd> + <kbd>Mayús</kbd> + <kbd>S</kbd> tiene el suyo, con un precio que te dice antes: se lleva <kbd>Win</kbd> + <kbd>S</kbd>, la búsqueda. El detalle, en <a href="../docs/#preguntas">la guía</a>.</p>
+
+          <h3 data-en="The video has no microphone or no webcam">El vídeo sale sin micrófono o sin cámara</h3>
+          <p data-html data-en="First check that Windows lets apps use them: &lt;b&gt;Settings → Privacy &amp;amp; security → Microphone&lt;/b&gt; (or &lt;b&gt;Camera&lt;/b&gt;), with &lt;b&gt;Let desktop apps access your microphone&lt;/b&gt; turned on (in Windows 10, under &lt;b&gt;Privacy&lt;/b&gt;). Then, that they are turned on in winshotx before recording: it only records what you turn on.">Mira primero que Windows deje usarlos: <b>Configuración → Privacidad y seguridad → Micrófono</b> (o <b>Cámara</b>), con <b>Permitir que las aplicaciones de escritorio accedan al micrófono</b> encendido (en Windows 10, en <b>Privacidad</b>). Después, que estén encendidos en winshotx antes de grabar: solo graba lo que enciendes.</p>
+
+          <h3 data-en="How do I update it?">¿Cómo la actualizo?</h3>
+          <p data-html data-en="It updates itself. The one from this website and the one from winget ask GitHub whether there is a new version and install it with one click from Settings, checking its signature first; the one from the Microsoft Store is updated by the Store. What each version brings, in &lt;a href=&quot;../novedades/&quot;&gt;what's new&lt;/a&gt;.">Sola. La de esta web y la de winget le preguntan a GitHub si hay versión nueva y la instalan con un clic desde Ajustes, comprobando antes su firma; la de la Microsoft Store la actualiza la Store. Lo que trae cada una, en <a href="../novedades/">las novedades</a>.</p>
+
+          <p class="letra-chica" data-html data-en="Not here? The rest of the questions are in &lt;a href=&quot;../docs/#preguntas&quot;&gt;the docs&lt;/a&gt; and on &lt;a href=&quot;../#preguntas&quot;&gt;the home page&lt;/a&gt;.">¿No está aquí? Las demás preguntas, en <a href="../docs/#preguntas">la guía</a> y en <a href="../#preguntas">la portada</a>.</p>
+        </section>
+
+        <section id="datos">
+          <h2 data-en="Where it keeps your things">Dónde guarda tus cosas</h2>
+          <p data-html data-en="Nothing leaves your computer (the &lt;a href=&quot;../privacy/&quot;&gt;privacy page&lt;/a&gt; explains it). This is what it writes, and where:">Nada sale de tu ordenador (lo cuenta <a href="../privacidad/">la privacidad</a>). Esto es lo que escribe, y dónde:</p>
+          <ul class="lista">
+            <li data-html data-en="&lt;b&gt;Your screenshots and videos&lt;/b&gt;, in the folder you choose in &lt;b&gt;Settings → The app&lt;/b&gt;. By default, &lt;code&gt;Pictures\winshotx&lt;/code&gt;."><b>Tus capturas y vídeos</b>, en la carpeta que elijas en <b>Ajustes → La app</b>. De fábrica, <code>Imágenes\winshotx</code>.</li>
+            <li data-html data-en="&lt;b&gt;Your settings&lt;/b&gt;, in &lt;code&gt;%APPDATA%\com.munir.winshotx&lt;/code&gt;: the &lt;code&gt;settings.json&lt;/code&gt; file, and the backgrounds you add."><b>Tus ajustes</b>, en <code>%APPDATA%\com.munir.winshotx</code>: el archivo <code>settings.json</code>, y los fondos que añadas.</li>
+            <li data-html data-en="&lt;b&gt;The text read from your screenshots&lt;/b&gt;, so you can search them in History, in &lt;code&gt;%LOCALAPPDATA%\com.munir.winshotx&lt;/code&gt;."><b>El texto leído de tus capturas</b>, para buscarlas en el Historial, en <code>%LOCALAPPDATA%\com.munir.winshotx</code>.</li>
+            <li data-html data-en="&lt;b&gt;The temporary files&lt;/b&gt;: the recording you are editing, what &lt;b&gt;always recording the last seconds&lt;/b&gt; keeps, and the pinned screenshots, in &lt;code&gt;%TEMP%\winshotx&lt;/code&gt;. It is cleaned up every time winshotx starts, and &lt;b&gt;Settings → The app&lt;/b&gt; empties the recording cache with one button."><b>Lo temporal</b>: la grabación que estás editando, lo que guarda <b>grabar siempre lo último</b> y las capturas ancladas, en <code>%TEMP%\winshotx</code>. Se limpia cada vez que winshotx arranca, y <b>Ajustes → La app</b> vacía la caché de grabaciones con un botón.</li>
+          </ul>
+          <p data-html data-en="To open one of those folders, paste its name, &lt;code&gt;%&lt;/code&gt; signs included, into the File Explorer address bar. In the Microsoft Store version, Windows keeps the settings and the text inside the app's package, and deletes them when you uninstall it.">Para abrir una de esas carpetas, pega su nombre, con los <code>%</code>, en la barra de direcciones del Explorador. En la versión de la Microsoft Store, Windows guarda los ajustes y el texto dentro del paquete de la app, y los borra al desinstalarla.</p>
+        </section>
+
+        <section id="desinstalar">
+          <h2 data-en="How to uninstall it">Cómo se desinstala</h2>
+          <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span data-html data-en="&lt;b&gt;First, if you gave winshotx a Windows key&lt;/b&gt; (&lt;kbd&gt;Print Screen&lt;/kbd&gt; or &lt;kbd&gt;Win&lt;/kbd&gt; + &lt;kbd&gt;Shift&lt;/kbd&gt; + &lt;kbd&gt;S&lt;/kbd&gt;), turn its switch off in &lt;b&gt;Settings → Windows keys&lt;/b&gt;: that puts them back exactly as they were, and the uninstaller does not."><b>Antes, si le diste a winshotx una tecla de Windows</b> (<kbd>Impr Pant</kbd> o <kbd>Win</kbd> + <kbd>Mayús</kbd> + <kbd>S</kbd>), apaga su interruptor en <b>Ajustes → Teclas de Windows</b>: eso las deja exactamente como estaban, y el desinstalador no lo hace.</span></p>
+          <ul class="lista">
+            <li data-html data-en="&lt;b&gt;From this website or with winget:&lt;/b&gt; Settings → Apps → Installed apps → winshotx → Uninstall (in Windows 10, Apps and features). The uninstaller has a box, &lt;b&gt;Delete the application data&lt;/b&gt;: tick it and it also removes your settings and the text of your screenshots."><b>Desde esta web o con winget:</b> Configuración → Aplicaciones → Aplicaciones instaladas → winshotx → Desinstalar (en Windows 10, Aplicaciones y características). El desinstalador trae una casilla, <b>Delete the application data</b>: márcala y se lleva también tus ajustes y el texto de tus capturas.</li>
+            <li data-html data-en="&lt;b&gt;From the Microsoft Store:&lt;/b&gt; right-click winshotx in the Start menu → Uninstall. Windows removes its settings with it."><b>Desde la Microsoft Store:</b> clic derecho en winshotx en el menú Inicio → Desinstalar. Windows se lleva con ella sus ajustes.</li>
+            <li data-html data-en="&lt;b&gt;The portable build:&lt;/b&gt; quit it from the tray and delete its folder. Its settings are in the folders above, and they go by hand."><b>La portable:</b> ciérrala desde la bandeja y borra su carpeta. Sus ajustes están en las carpetas de arriba, y se borran a mano.</li>
+          </ul>
+          <p data-en="With winget, from the terminal too:">Con winget, también desde la terminal:</p>
+          <p class="orden-bloque"><code>winget uninstall Mun1to.winshotx</code></p>
+          <p data-html data-en="&lt;b&gt;No uninstaller touches your screenshots and videos&lt;/b&gt;: they are yours, and they stay in their folder."><b>Tus capturas y vídeos no los toca ningún desinstalador</b>: son tuyos, y se quedan en su carpeta.</p>
+        </section>
+
+        <section id="apoyar">
+          <h2 data-en="Buy me a coffee">Invítame a un café</h2>
+          <p data-en="winshotx is free and there is no paid version, no ads and no data to sell: a coffee is the only way to support it. You pay once, you choose the amount, and you need no account.">winshotx es gratis y no tiene versión de pago, ni anuncios, ni datos que vender: el café es la única forma de apoyarla. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.</p>
+          <p class="botones">
+            <a class="btn uno" href="https://buymeacoffee.com/munito" rel="noopener"><svg aria-hidden="true"><use href="#i-coffee"/></svg><span data-en="Buy me a coffee">Invítame a un café</span></a>
+            <a class="btn dos" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg aria-hidden="true"><use href="#i-github"/></svg><span data-en="Star it on GitHub">Dale una estrella en GitHub</span></a>
+          </p>
+          <p data-html data-en="A star on GitHub helps too: that way more people find it. From the app, the same coffee is in the &lt;b&gt;bottom bar of the settings&lt;/b&gt; and in &lt;b&gt;Help and winshotx&lt;/b&gt;.">Una estrella en GitHub también ayuda: así la encuentra más gente. Desde la app, el mismo café está en la <b>barra de abajo de los Ajustes</b> y en <b>Ayuda y winshotx</b>.</p>
+          <p class="letra-chica" data-en="Last updated: 15 November 2026.">Última actualización: 15 de noviembre de 2026.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="pie">
+  <div class="env">
+    <div class="pie-rejilla">
+      <div class="quien">
+        <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+        <p data-en="Screenshots and screen recording for Windows. Free, open source and with no account.">Capturas y grabación de pantalla para Windows. Gratis, de código abierto y sin cuenta.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Product">Producto</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe" data-en="Download">Descargar</a></li>
+          <li><a href="../novedades/" data-en="What's new">Novedades</a></li>
+          <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener" data-en="Portable version">Versión portable</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Help">Ayuda</h2>
+        <ul>
+          <li><a href="../soporte/" data-en="Support">Soporte</a></li>
+          <li><a href="../docs/" data-en="Docs">Guía</a></li>
+          <li><a href="../#preguntas" data-en="Questions">Preguntas</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/issues" rel="noopener" data-en="Report a bug">Avisar de un fallo</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="Code">Código</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/blob/main/LICENSE" rel="noopener" data-en="MIT licence">Licencia MIT</a></li>
+          <li><a href="../docs/#agentes" data-en="For AI agents">Para agentes de IA</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo" data-en="More">Más</h2>
+        <ul>
+          <li><a href="../privacidad/" data-en="Privacy">Privacidad</a></li>
+          <li><a href="https://buymeacoffee.com/munito" rel="noopener" data-en="Buy me a coffee">Invítame a un café</a></li>
+          <li><a class="valvula sin-mov" href="?motion=off" data-en="Fewer animations">Menos animaciones</a><a class="valvula con-mov" href="./" data-en="All animations">Con animaciones</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pie-abajo">
+      <span data-html data-en="© 2026 winshotx · Made by &lt;a href=&quot;https://munito.dev&quot;&gt;Munir Torres&lt;/a&gt;">© 2026 winshotx · Hecho por <a href="https://munito.dev">Munir Torres</a></span>
+      <span data-en="No accounts, no cloud and no surprises">Sin cuentas, sin nube y sin sorpresas</span>
+    </div>
+  </div>
+</footer>
+
+<script src="../leer.js?v=69245323"></script>
+</body>
+</html>

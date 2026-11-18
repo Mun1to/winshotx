@@ -2,7 +2,7 @@
  * El fondo de las capturas con un estilo guardado (S9): elegir uno manda a Rust su fondo
  * (también el propio) y su aire, y elegir un color de nombre quita el propio.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FondoEnLasCapturas } from "./FondoEnLasCapturas";
 import { aplicarIdioma } from "../../lib/i18n";
@@ -59,5 +59,40 @@ describe("un estilo guardado para todas las capturas", () => {
     pintar({ marcoCapturas: { aire: 8, fondo: "atardecer" }, presets: PRESETS });
     expect(screen.getByText("Or a saved style:")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("estilo guardado");
+  });
+});
+
+// S25 (marco)
+describe("el marco de las capturas", () => {
+  // Desde S36 es la pieza común de elegir entre pocas cosas (`Segmented`): un grupo con su
+  // nombre y botones que dicen cuál va elegido.
+  const marco = () => screen.queryByRole("group", { name: "Marco" });
+
+  it("sin fondo no sale; con fondo, sus tres opciones en «Ninguno»", () => {
+    pintar({ marcoCapturas: { aire: 0, fondo: "atardecer" } });
+    expect(marco()).toBeNull();
+    cleanup();
+    pintar({ marcoCapturas: { aire: 8, fondo: "atardecer" } });
+    expect(within(marco()!).getByRole("button", { name: "Ninguno" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(marco()!).getByRole("button", { name: "Ventana" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("elegir la ventana o el portátil lo guarda en los ajustes, junto al fondo; y «Ninguno» lo quita", () => {
+    const patch = pintar({ marcoCapturas: { aire: 8, fondo: "menta" } });
+    fireEvent.click(within(marco()!).getByRole("button", { name: "Portátil" }));
+    expect(patch).toHaveBeenCalledWith({ marcoCapturas: { aire: 8, fondo: "menta", carcasa: "portatil" } });
+    fireEvent.click(within(marco()!).getByRole("button", { name: "Ventana" }));
+    expect(patch).toHaveBeenCalledWith({ marcoCapturas: { aire: 8, fondo: "menta", carcasa: "ventana" } });
+    fireEvent.click(within(marco()!).getByRole("button", { name: "Ninguno" }));
+    expect(patch).toHaveBeenCalledWith({ marcoCapturas: { aire: 8, fondo: "menta", carcasa: null } });
+  });
+
+  it("un estilo con marco se lo pone a las capturas", () => {
+    const patch = pintar({
+      marcoCapturas: { aire: 0, fondo: "atardecer" },
+      presets: [{ nombre: "Con ventana", estilo: { aire: 0.05, fondo: "noche", carcasa: "ventana" } }],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Con ventana" }));
+    expect(patch).toHaveBeenCalledWith({ marcoCapturas: { aire: 9, fondo: "noche", elegido: null, carcasa: "ventana" } });
   });
 });

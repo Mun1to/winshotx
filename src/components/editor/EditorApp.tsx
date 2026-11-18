@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Pause, Play, VideoOff, Volume2, VolumeX } from "lucide-react";
+import { Pause, Play, VideoOff, Volume1, Volume2, VolumeX } from "lucide-react";
 import {
   discardSession,
   ffmpegAvailable,
@@ -31,6 +31,7 @@ import {
   type StudioData,
 } from "../../lib/types";
 import { BarraAnotar } from "./BarraAnotar";
+import { TECLA_COPIAR_TEXTO, TECLA_TAPAR_DATOS, herramientaDeTecla } from "./teclas";
 import { CapaAnotaciones } from "./CapaAnotaciones";
 import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
@@ -40,12 +41,15 @@ import { ExportPanel } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
-import { cursorEn, ESTUDIO_APAGADO, medidasConMarco, type Estudio } from "../../lib/estudio";
+import { cursorEn, ESTUDIO_APAGADO, vistaDelEditor, type Estudio } from "../../lib/estudio";
 import { cssDelFondo } from "../../lib/fondos";
 import { FondoVivo } from "./FondoVivo";
+// S25 (marco)
+import { CarcasaVista } from "./CarcasaVista";
 import { CapaCamara } from "./CapaCamara";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
 import { useT } from "../../lib/i18n";
+import { aplicarTema } from "../../lib/tema";
 import {
   duracionDe,
   fotogramaVecino,
@@ -66,18 +70,19 @@ import { volumenDelClicEnVista } from "../../lib/sonidoDeClic";
 // S11 (pistas)
 import { SonidoPorPistas } from "./SonidoPorPistas";
 import { conPistas } from "../../lib/pistas";
-
-/** Dónde se recuerda que la vista previa va sin sonido. */
-const CLAVE_VISTA_CALLADA = "winshotx.vistaCallada";
-
-/** Si la vista previa se dejó callada en este ordenador. Sin almacenamiento, suena. */
-function vistaCalladaRecordada(): boolean {
-  try {
-    return localStorage.getItem(CLAVE_VISTA_CALLADA) === "1";
-  } catch {
-    return false;
-  }
-}
+// S31 (volumen de la vista previa)
+import { Slider } from "../ui/Slider";
+import {
+  alternar,
+  conNivel,
+  escalon,
+  flechaDeOtro,
+  guardar as guardarVolumenDeLaVista,
+  leer as leerVolumenDeLaVista,
+  loQueSuena,
+  mover,
+  type VolumenDeLaVista,
+} from "../../lib/volumenDeLaVista";
 
 export function EditorApp({ sessionId }: { sessionId: string }) {
   const t = useT();
@@ -152,22 +157,22 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   useEffect(() => elegirMarca(null), [herramienta, elegirMarca]);
   const [colorMarca, setColorMarca] = useState(COLORES[0]);
   /**
-   * La vista previa sin sonido. Solo calla lo que se oye aquí: el archivo sale con el sonido
-   * que digan sus mandos. Se recuerda en este ordenador, porque quien edita sin sonido (en
+   * Lo que se oye en la vista previa: callada o no (el altavoz y la M) y su volumen (S31, el
+   * deslizador de al lado). Solo cambia lo que se oye aquí: el archivo sale con el sonido que
+   * digan sus mandos. Se recuerda en este ordenador, porque quien edita sin sonido o bajito (en
    * clase, en la oficina) lo quiere igual en el vídeo siguiente.
    */
-  const [callada, setCallada] = useState(vistaCalladaRecordada);
-  const alternarSonido = useCallback(() => {
-    setCallada((antes) => {
-      const ahora = !antes;
-      try {
-        localStorage.setItem(CLAVE_VISTA_CALLADA, ahora ? "1" : "0");
-      } catch {
-        // Sin almacenamiento se calla igual; solo no se recuerda.
-      }
+  const [vista, setVista] = useState(leerVolumenDeLaVista);
+  const cambiarVista = useCallback((cambio: (antes: VolumenDeLaVista) => VolumenDeLaVista) => {
+    setVista((antes) => {
+      const ahora = cambio(antes);
+      guardarVolumenDeLaVista(ahora);
       return ahora;
     });
   }, []);
+  const alternarSonido = useCallback(() => cambiarVista(alternar), [cambiarVista]);
+  /** Por cuánto se multiplica lo que suena en la vista previa, de 0 a 1. */
+  const suenaLaVista = loQueSuena(vista);
   /** El trozo que se exporta, de 0 a 1. Sin marco puesto sale la captura entera. */
   const [recorte, setRecorte] = useState<Recorte | null>(null);
   const [recortando, setRecortando] = useState(false);
@@ -182,11 +187,29 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const hueco = useRef<HTMLDivElement>(null);
   const [medidaDelHueco, setMedidaDelHueco] = useState({ width: 0, height: 0 });
 
+  /**
+   * Las listas de fotogramas, por turno: la que se PIDIÓ después manda, llegue cuando llegue.
+   *
+   * Se piden dos veces: al abrir (junto con los ajustes y ffmpeg, que tardan unos 200 ms) y
+   * cuando Rust avisa de que la tira ya está (`sessionThumbs`). Si la tira acaba en esos
+   * 200 ms, la lista nueva, con sus miniaturas, llega ANTES que la del arranque, y la del
+   * arranque, sin miniaturas, la pisaba: la tira se quedaba latiendo para siempre (S29b). El
+   * aviso repetido de Rust (`recorder::avisar_de_la_tira`) se queda como red.
+   */
+  const turnoPedido = useRef(0);
+  const turnoPuesto = useRef(0);
+  const ponerFotogramas = useCallback((turno: number, lista: FrameMeta[]) => {
+    if (turno < turnoPuesto.current) return;
+    turnoPuesto.current = turno;
+    setFrames(lista);
+  }, []);
+
   useEffect(() => {
     if (!sessionId) {
       setError(t("Falta el identificador de sesión"));
       return;
     }
+    const turno = ++turnoPedido.current;
     Promise.all([
       sessionInfo(sessionId),
       sessionFrames(sessionId),
@@ -195,8 +218,15 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     ])
       .then(([info, frameList, config, ffmpeg]) => {
         setSession(info);
-        setFrames(frameList);
+        // El sonido del PC subido al grabar se dice aquí arriba, donde se ve: su mando va en
+        // «Sonido», que suele estar plegado, y el 16-nov eso hizo pensar que la vista previa
+        // no sonaba.
+        if (info.subidaPc) setAviso(t("El sonido del PC llegó casi mudo: lo he subido {n} dB", { n: Math.round(info.subidaPc) }));
+        ponerFotogramas(turno, frameList);
         setSettings(config);
+        // Desde la 0.5 el editor sigue el tema de la app, como las demás ventanas: hasta aquí
+        // pinta el que recordaba (`tema.ts` lo lee al cargar), sin fogonazo.
+        if (config?.theme) aplicarTema(config.theme);
         setHasFfmpeg(ffmpeg);
         setHastaMs(duracionDe(frameList));
         setPiezas(piezasDe(duracionDe(frameList)));
@@ -497,20 +527,38 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * del estudio puesto, lo que ocupan su aire y el radio de sus esquinas: la imagen se
    * encoge lo justo para que imagen y marco quepan juntos, como en el archivo.
    */
-  const cajaDeLaVista = useMemo(
+  const { caja: cajaDeLaVista, ventana: ventanaDeLaVista } = useMemo(
     () =>
       session
-        ? medidasConMarco(
+        ? vistaDelEditor(
             // El `p-4` del hueco son 16 px por lado que no puede ocupar la imagen.
             medidaDelHueco.width - 32,
             medidaDelHueco.height - 32,
-            session.region.width,
-            session.region.height,
+            session.region,
+            recorte,
+            recortando,
             estudio.marco,
           )
-        : { width: 0, height: 0, aire: 0, radio: 0 },
-    [medidaDelHueco, session, estudio.marco],
+        : { caja: { width: 0, height: 0, aire: 0, radio: 0 }, ventana: null },
+    [medidaDelHueco, session, recorte, recortando, estudio.marco],
   );
+  /**
+   * Con un recorte puesto, la caja de la imagen es el trozo recortado y esto es la captura
+   * entera, desplazada dentro de ella: el vídeo y las capas siguen midiendo la captura
+   * entera (las marcas no se mueven), y lo de fuera del trozo no se ve. Sin recorte, no
+   * genera caja y todo queda como antes.
+   */
+  const capturaEntera: CSSProperties = ventanaDeLaVista
+    ? {
+        position: "absolute",
+        width: `${100 / (ventanaDeLaVista.x2 - ventanaDeLaVista.x1)}%`,
+        height: `${100 / (ventanaDeLaVista.y2 - ventanaDeLaVista.y1)}%`,
+        left: `${(-100 * ventanaDeLaVista.x1) / (ventanaDeLaVista.x2 - ventanaDeLaVista.x1)}%`,
+        top: `${(-100 * ventanaDeLaVista.y1) / (ventanaDeLaVista.y2 - ventanaDeLaVista.y1)}%`,
+      }
+    : { display: "contents" };
+  // S25 (marco): lo que ocupa la ventana o el portátil en la vista previa, si hay.
+  const carcasaDeLaVista = cajaDeLaVista.carcasa ?? null;
 
   // El volumen del estudio también se oye en la vista previa. Hasta el 100 %: un vídeo del
   // navegador no sube de ahí, y por encima solo lo nota el archivo.
@@ -518,10 +566,12 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   // S11 (pistas): con el PC y la voz por separado suenan sus dos pistas, cada una a su volumen
   // (`SonidoPorPistas`), y el vídeo, que las trae sumadas, se calla.
   const suenanLasPistas = conPistas(session) && !pistasRotas;
+  /** Hay vídeo que oír, y con él, el altavoz y su volumen al lado del play. */
+  const hayVideo = !!session?.mp4Path;
   useEffect(() => {
     const video = videoRef.current;
-    if (video) video.volume = callada || suenanLasPistas ? 0 : Math.min(1, Math.max(0, estudio.volumen));
-  }, [estudio.volumen, session?.mp4Path, suenanLasPistas, callada]);
+    if (video) video.volume = suenanLasPistas ? 0 : Math.min(1, Math.max(0, estudio.volumen)) * suenaLaVista;
+  }, [estudio.volumen, session?.mp4Path, suenanLasPistas, suenaLaVista]);
 
   /** Lo que dura lo que se queda. */
   const keptMs = Math.max(0, hastaMs - desdeMs);
@@ -574,16 +624,23 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         // caiga en ninguna otra rama.
         e.preventDefault();
         cambiarMarcas({ tipo: "deshacer" });
+      } else if (e.key === "Delete" && e.shiftKey) {
+        // Mayús+Supr quita todas, como el botón de la X; se deshace con Ctrl+Z.
+        e.preventDefault();
+        cambiarMarcas({ tipo: "borrarTodo" });
       } else if ((e.key === "Delete" || e.key === "Backspace") && marcas.elegida !== null) {
         // Supr borra lo elegido, y la tecla de borrar también, como en cualquier editor.
         e.preventDefault();
         cambiarMarcas({ tipo: "borrar", indice: marcas.elegida });
-      } else if (key >= "1" && key <= "6" && !e.ctrlKey) {
-        // Las seis herramientas de anotar, en el orden en que están en la barra.
-        const cual = (["arrow", "box", "text", "highlight", "step", "blur"] as Herramienta[])[
-          Number(key) - 1
-        ];
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && herramientaDeTecla(key)) {
+        // Cada herramienta de la barra con su tecla, la que dice al pasar el ratón (`teclas.ts`).
+        const cual = herramientaDeTecla(key);
         setHerramienta((puesta) => (puesta === cual ? null : cual));
+        if (cual) setRecortando(false);
+      } else if (key === TECLA_COPIAR_TEXTO.toLowerCase() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        void copiarTexto();
+      } else if (key === TECLA_TAPAR_DATOS.toLowerCase() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        void taparDatos();
       } else if (key === "c" && !e.ctrlKey && !e.metaKey) {
         // La otra mitad de recortar: A y B recortan el tiempo, esto recorta el espacio.
         setRecortando((puesto) => !puesto);
@@ -593,6 +650,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       } else if (key === "m" && !e.ctrlKey && !e.metaKey) {
         // M de mudo, como en casi cualquier reproductor de vídeo.
         alternarSonido();
+      } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && hayVideo && !flechaDeOtro(e.target)) {
+        // Arriba y abajo, el volumen de la vista previa, como en casi cualquier reproductor.
+        e.preventDefault();
+        const sentido = e.key === "ArrowUp" ? 1 : -1;
+        cambiarVista((antes) => mover(antes, sentido));
       } else if (e.key === "ArrowLeft") {
         ir(fotogramaVecino(frames, posicionMs, -1));
       } else if (e.key === "ArrowRight") {
@@ -612,7 +674,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     // `recortando`, `herramienta` y lo elegido entran aqui porque Escape los mira: sin ellos el
   // manejador se queda con la foto vieja del estado y cierra el editor, tirando los
   // fotogramas, en vez de soltar lo que se estuviera haciendo.
-  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca]);
+  }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca, hayVideo, cambiarVista, copiarTexto, taparDatos]);
 
   const videoUrl = useMemo(
     () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
@@ -675,12 +737,15 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     const unlisten = listen<string>(EVENTS.sessionThumbs, (e) => {
       if (e.payload !== sessionId) return;
-      void sessionFrames(sessionId).then(setFrames).catch(() => undefined);
+      const turno = ++turnoPedido.current;
+      void sessionFrames(sessionId)
+        .then((lista) => ponerFotogramas(turno, lista))
+        .catch(() => undefined);
     });
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [sessionId]);
+  }, [sessionId, ponerFotogramas]);
   // Sin MP4 la vista previa es una imagen: la miniatura de 80 px se veria borrosa,
   // asi que se pide el fotograma entero y se sustituye en cuanto llega.
   const [stillPath, setStillPath] = useState<string | null>(null);
@@ -728,7 +793,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-red-300">
+      <div className="flex h-full items-center justify-center bg-lienzo text-sm text-red-700 [[data-tema=oscuro]_&]:text-red-300">
         {error}
       </div>
     );
@@ -736,7 +801,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   if (!session || !settings || frames.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#161618] text-sm text-neutral-500">
+      <div className="flex h-full items-center justify-center bg-lienzo text-sm text-tenue">
         {t("Preparando la sesión…")}
       </div>
     );
@@ -761,7 +826,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
         onClick={togglePlay}
         aria-label={playing ? t("Pausar") : t("Reproducir")}
         title={playing ? t("Pausar") : t("Reproducir")}
-        className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+        className="flex size-10 items-center justify-center rounded-lg text-titulo transition-colors hover:bg-realce"
       >
         {playing ? (
           <Pause className="size-[22px]" fill="currentColor" />
@@ -773,31 +838,55 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       <button
         type="button"
         onClick={alternarSonido}
-        aria-label={callada ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
-        aria-pressed={callada}
-        title={callada ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
-        className="flex size-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+        aria-label={suenaLaVista === 0 ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
+        aria-pressed={suenaLaVista === 0}
+        title={suenaLaVista === 0 ? t("Oír la vista previa (M)") : t("Silenciar la vista previa (M)")}
+        className="flex size-10 items-center justify-center rounded-lg text-titulo transition-colors hover:bg-realce"
       >
-        {callada ? <VolumeX className="size-[22px]" /> : <Volume2 className="size-[22px]" />}
+        {escalon(vista) === "sin" ? (
+          <VolumeX className="size-[22px]" />
+        ) : escalon(vista) === "bajo" ? (
+          <Volume1 className="size-[22px]" />
+        ) : (
+          <Volume2 className="size-[22px]" />
+        )}
       </button>
+      {/*
+        S31: y su volumen, de 0 a 100. Suelto al ratón, el foco se va: así la M, el espacio y las
+        flechas siguen siendo del editor, que con el foco en el deslizador no las oiría.
+      */}
+      <div
+        className="w-20 pr-1"
+        title={t("Volumen de la vista previa: {porCiento} % (↑ ↓)", { porCiento: Math.round(suenaLaVista * 100) })}
+        onPointerUp={(e) => (e.target as HTMLElement).blur?.()}
+      >
+        <Slider
+          ariaLabel={t("Volumen de la vista previa")}
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round(suenaLaVista * 100)}
+          onChange={(v) => cambiarVista((antes) => conNivel(antes, v / 100))}
+        />
+      </div>
     </>
   ) : previaFallida ? (
     <span
-      className="flex items-center gap-1.5 px-1 text-[13px] whitespace-nowrap text-amber-300"
+      className="flex items-center gap-1.5 px-1 text-[13px] whitespace-nowrap text-aviso"
       title={t("Se puede recortar y exportar igual: lo que no va a funcionar es el play")}
     >
       <VideoOff className="size-5" />
       {t("Sin vista previa")}
     </span>
   ) : (
-    <span className="flex items-center gap-2 px-1 text-[13px] whitespace-nowrap text-neutral-200">
+    <span className="flex items-center gap-2 px-1 text-[13px] whitespace-nowrap text-texto">
       <AnilloDeEspera porCiento={porCiento} />
       {porCiento > 0 ? `${t("Preparando el vídeo…")} ${porCiento}%` : t("Preparando el vídeo…")}
     </span>
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#161618]">
+    <div className="flex h-full flex-col overflow-hidden bg-lienzo">
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
           {/*
@@ -846,7 +935,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
           <div
             ref={hueco}
-            className="relative grid min-h-0 flex-1 place-items-center bg-[repeating-conic-gradient(#18181a_0%_25%,#1d1d20_0%_50%)] bg-[length:24px_24px] p-4"
+            className="relative grid min-h-0 flex-1 place-items-center bg-[repeating-conic-gradient(var(--color-linea-tenue)_0%_25%,transparent_0%_50%)] bg-[length:24px_24px] p-4"
           >
             {/*
               La caja mide EXACTAMENTE lo que la imagen, no lo que el hueco.
@@ -880,19 +969,51 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
               }
             >
             {estudio.marco && cajaDeLaVista.aire > 0 && <FondoVivo elegido={edicion.fondo} />}
+            {/*
+              S25 (marco): la ventana o el portátil, alrededor de la captura. Es una caja con el
+              relleno de lo que crece la carcasa por cada lado y el dibujo detrás; sin carcasa no
+              genera caja (`display: contents`) y todo queda como antes.
+            */}
+            <div
+              data-pieza={carcasaDeLaVista ? "" : undefined}
+              style={
+                carcasaDeLaVista
+                  ? {
+                      position: "relative",
+                      padding: `${carcasaDeLaVista.arriba}px ${carcasaDeLaVista.derecha}px ${carcasaDeLaVista.abajo}px ${carcasaDeLaVista.izquierda}px`,
+                    }
+                  : { display: "contents" }
+              }
+            >
+            {carcasaDeLaVista && estudio.marco?.carcasa && (
+              <CarcasaVista
+                elegida={estudio.marco.carcasa.elegida}
+                oscura={estudio.marco.carcasa.oscura}
+                geometria={carcasaDeLaVista.geometria}
+                ancho={carcasaDeLaVista.ancho}
+                alto={carcasaDeLaVista.alto}
+                k={carcasaDeLaVista.k}
+                sombra={estudio.marco.sombra ? cajaDeLaVista.aire : null}
+              />
+            )}
             <div
               // `overflow-hidden` porque la camara del zoom escala el video dentro de
               // esta caja, y lo que se sale por los lados no tiene que verse.
+              data-imagen=""
               className="relative overflow-hidden"
               style={{
-                borderRadius: cajaDeLaVista.radio || undefined,
+                borderRadius: carcasaDeLaVista
+                  ? carcasaDeLaVista.geometria.radios.map((r) => `${r * carcasaDeLaVista.k}px`).join(" ")
+                  : cajaDeLaVista.radio || undefined,
                 // La misma sombra que pone Rust: cae hacia abajo un 22 % del aire y se
-                // difumina en un 45 %.
+                // difumina en un 45 %. Con carcasa la echa ella, no la captura.
                 boxShadow:
-                  estudio.marco?.sombra && cajaDeLaVista.aire > 0
+                  estudio.marco?.sombra && cajaDeLaVista.aire > 0 && !carcasaDeLaVista
                     ? `0 ${Math.round(cajaDeLaVista.aire * 0.22)}px ${Math.round(cajaDeLaVista.aire * 0.9)}px rgba(0, 0, 0, 0.42)`
                     : undefined,
-                aspectRatio: `${session.region.width} / ${session.region.height}`,
+                aspectRatio: ventanaDeLaVista
+                  ? `${(ventanaDeLaVista.x2 - ventanaDeLaVista.x1) * session.region.width} / ${(ventanaDeLaVista.y2 - ventanaDeLaVista.y1) * session.region.height}`
+                  : `${session.region.width} / ${session.region.height}`,
                 // El `aspect-ratio` de arriba es el respaldo mientras no se ha medido nada.
                 // Lo que manda son estos dos numeros, calculados sobre el hueco de verdad.
                 ...(cajaDeLaVista.width
@@ -900,6 +1021,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   : { maxWidth: "100%", maxHeight: "100%" }),
               }}
             >
+              <div data-captura-entera="" style={capturaEntera}>
               <PreviewCanvas
                 videoRef={videoRef}
                 videoUrl={videoUrl}
@@ -922,6 +1044,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   msParado={posicionMs}
                   reproduciendo={playing}
                   sinEncuadre={herramienta !== null || recortando}
+                  ventana={ventanaDeLaVista}
                   zooms={zoomsMostrados}
                   elegido={bloqueElegido}
                   onPunto={(x, y) => {
@@ -931,7 +1054,9 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   edicion={edicion}
                 />
               )}
-              {/* S8 (cámara en el Estudio) */}
+              </div>
+              {/* S8 (cámara en el Estudio). Fuera de la captura entera: la burbuja se coloca
+                  sobre lo que sale en el archivo, que es lo que mide esta caja. */}
               {session.format !== "still" && (
                 <CapaCamara
                   sessionId={sessionId}
@@ -940,10 +1065,22 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   onMarco={(camara) => setEdicion((antes) => ({ ...antes, camara }))}
                   hueco={hueco}
                   aire={estudio.marco ? cajaDeLaVista.aire : 0}
+                  // S25 (marco): la burbuja va sobre el vídeo exportado entero, carcasa incluida.
+                  alrededor={
+                    carcasaDeLaVista
+                      ? {
+                          izquierda: cajaDeLaVista.aire + carcasaDeLaVista.izquierda,
+                          arriba: cajaDeLaVista.aire + carcasaDeLaVista.arriba,
+                          derecha: cajaDeLaVista.aire + carcasaDeLaVista.derecha,
+                          abajo: cajaDeLaVista.aire + carcasaDeLaVista.abajo,
+                        }
+                      : undefined
+                  }
                   quieta={herramienta !== null || recortando}
                   msParado={posicionMs}
                 />
               )}
+              <div style={capturaEntera}>
               {/* S11 (pistas) */}
               {session.format !== "still" && suenanLasPistas && (
                 <SonidoPorPistas
@@ -952,7 +1089,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   microfono={session.microfono}
                   volumenPc={edicion.sonidoPc}
                   volumenMicrofono={edicion.microfono}
-                  callada={callada}
+                  volumenDeLaVista={suenaLaVista}
                   msParado={posicionMs}
                   onFallo={(motivo) => {
                     console.warn(`[winshotx] la pista no suena en la vista previa (${motivo}): suena el vídeo`);
@@ -981,7 +1118,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   piezas={piezas}
                   desdeMs={desdeMs}
                   hastaMs={hastaMs}
-                  volumen={callada ? 0 : volumenDelClicEnVista(edicion.sonidoClic, estudio.velocidad)}
+                  volumen={volumenDelClicEnVista(edicion.sonidoClic, estudio.velocidad) * suenaLaVista}
                   clic={edicion.clic}
                 />
               )}
@@ -1006,13 +1143,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   !recortando
                 }
               />
-              <CapaRecorte activa={recortando} recorte={recorte} onRecorte={setRecorte} />
+              {/* Fuera de encuadrar, la vista ya enseña solo el trozo: no hay nada que oscurecer. */}
+              <CapaRecorte activa={recortando} recorte={recortando ? recorte : null} onRecorte={setRecorte} />
+              </div>
+            </div>
             </div>
             </div>
             {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo. */}
             {aviso && (
               <div className="pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2">
-                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-neutral-100 shadow-lg backdrop-blur-md">
+                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-titulo shadow-lg backdrop-blur-md">
                   {aviso}
                 </span>
               </div>
@@ -1113,7 +1253,7 @@ function AnilloDeEspera({ porCiento }: { porCiento: number }) {
         r={radio}
         fill="none"
         strokeWidth="2.5"
-        className="stroke-white/15"
+        className="stroke-linea-fuerte"
       />
       <circle
         cx="12"
@@ -1122,7 +1262,7 @@ function AnilloDeEspera({ porCiento }: { porCiento: number }) {
         fill="none"
         strokeWidth="2.5"
         strokeLinecap="round"
-        className="stroke-blue-400 transition-[stroke-dashoffset] duration-300"
+        className="stroke-marca transition-[stroke-dashoffset] duration-300"
         strokeDasharray={vuelta}
         strokeDashoffset={vuelta * (1 - hecho)}
         transform="rotate(-90 12 12)"

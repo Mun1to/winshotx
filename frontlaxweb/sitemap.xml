@@ -73,4 +73,22 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/changelog/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/novedades/"/>
   </url>
+  <url>
+    <loc>https://winshotx.com/soporte/</loc>
+    <lastmod>2026-11-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/soporte/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/soporte/"/>
+  </url>
+  <url>
+    <loc>https://winshotx.com/en/support/</loc>
+    <lastmod>2026-11-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/soporte/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://winshotx.com/en/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://winshotx.com/soporte/"/>
+  </url>
 </urlset>

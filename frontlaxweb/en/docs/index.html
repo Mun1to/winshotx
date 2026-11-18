@@ -19,18 +19,31 @@
 <meta property="og:url" content="https://winshotx.com/en/docs/">
 <meta property="og:title" content="winshotx documentation">
 <meta property="og:description" content="Install, shortcuts, region capture, GIF and MP4 recording, the editor with its studio and export.">
-<meta property="og:image" content="https://winshotx.com/social-en.png?v=2">
+<meta property="og:image" content="https://winshotx.com/social-en.png?v=4">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="winshotx: 114 ms against the Snipping Tool's 920 ms">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="winshotx documentation">
 <meta name="twitter:description" content="Install, shortcuts, region capture, GIF and MP4 recording, the editor and export.">
-<meta name="twitter:image" content="https://winshotx.com/social-en.png?v=2">
+<meta name="twitter:image" content="https://winshotx.com/social-en.png?v=4">
 <link rel="icon" href="../../favicon.ico?v=2" sizes="any">
 <link rel="icon" href="../../logo.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png?v=2">
-<link rel="stylesheet" href="../../estilos.css?v=f43f3f9d">
+<script>
+// El dial de movimiento de la casa, igual que en la portada (ver index.html): sin él, el
+// enlace «Menos animaciones» del pie no hacía nada en esta página.
+(function () {
+  var h = document.documentElement;
+  var q = new URLSearchParams(location.search).get("motion");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var gain = q === "off" ? 0 : q === "full" ? 1 : reduce ? 0.25 : 1;
+  h.style.setProperty("--motion-gain", String(gain));
+  h.classList.toggle("motion", gain > 0);
+  h.classList.toggle("quieto", gain === 0);
+})();
+</script>
+<link rel="stylesheet" href="../../estilos.css?v=5a97bd84">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -68,7 +81,7 @@
       "name": "Does it upload my screenshots anywhere?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off."
+        "text": "No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and the Microsoft Store version does not even do that."
       }
     },
     {
@@ -92,7 +105,7 @@
       "name": "How do I stop Win+Shift+S from opening the Snipping Tool?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "With the Quedarme con Win+Mayús+S switch, in Settings → Windows keys . That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes Win+S , the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing Impr Pant costs nothing, and nobody should lose their search as a side effect of that."
+        "text": "With the Take Win+Shift+S switch, in Settings → Windows keys . That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes Win+S , the search, with it. Its Apply button restarts File Explorer so it takes effect, and turning it off puts everything back. It is a separate switch on purpose: freeing Print Screen costs nothing, and nobody should lose their search as a side effect of that."
       }
     },
     {
@@ -100,7 +113,7 @@
       "name": "How do I paste a GIF into Slack or Discord?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Use Copy in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead."
+        "text": "Use Copy in the export panel. A PNG goes to the clipboard as an image, and a JPG, a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead."
       }
     },
     {
@@ -116,7 +129,7 @@
       "name": "Does it work on macOS or Linux?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Not yet. The code compiles on both, but every platform specific function is behind a Windows guard with a stub for the rest, so porting means filling those stubs in. Capture, recording, MP4 encoding, clipboard and autostart are the ones that matter."
+        "text": "Not yet: today it is for Windows 10 and 11 only."
       }
     }
   ]
@@ -126,102 +139,140 @@
 <body>
 
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="marca" viewBox="0 0 64 64">
+<symbol id="marca" viewBox="0 0 64 64">
     <g fill="none" stroke="#0a9bff" stroke-linecap="round" stroke-width="8">
       <path d="M8 22v-8a6 6 0 0 1 6-6h8"/><path d="M42 8h8a6 6 0 0 1 6 6v8"/>
       <path d="M56 42v8a6 6 0 0 1-6 6h-8"/><path d="M22 56h-8a6 6 0 0 1-6-6v-8"/>
     </g>
     <g style="stroke:var(--marca-x,#fff)" stroke-width="8.5" stroke-linecap="round"><path d="M24 24 40 40"/><path d="M40 24 24 40"/></g>
   </symbol>
-  <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M10 2v2"/><path d="M14 2v2"/><path d="M6 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/>
-  </symbol>
-  <symbol id="i-github" viewBox="0 0 16 16">
+<symbol id="i-github" viewBox="0 0 16 16">
     <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
   </symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 9 6 6 6-6"/></symbol>
 </svg>
 
-<nav>
-  <div class="env">
-    <a class="marca solo-logo" href="../" aria-label="winshotx"><svg><use href="#marca"/></svg></a>
+<nav class="barra">
+  <div class="env barra-dentro">
+    <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
     <span class="enlaces">
-      <a href="../#numeros">Numbers</a>
+      <a href="../#funciones">Features</a>
       <a href="../#demo">Try it</a>
-      <a href="../#frente-a-frente">Head to head</a>
-      <a href="../#que-hace">Features</a>
-      <a href="../#atajos">Shortcuts</a>
-      <a class="aqui" href="./">Docs</a>
+      <a href="../#comparativa">Compare</a>
+      <a class="aqui" aria-current="page" href="../docs/">Docs</a>
       <a href="../changelog/">What's new</a>
+      <a href="../support/">Support</a>
     </span>
     <span class="acciones">
-      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub">
-        <svg class="gh-marca" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg>
-      </a>
+      <a class="gh" href="https://github.com/Mun1to/winshotx" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg></a>
       <a class="idioma" id="idioma" href="../../docs/" hreflang="es" lang="es">Español</a>
+      <a class="btn uno baja" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download</span></a>
+      <!-- El menú del móvil y la tableta: por debajo de 1020 px los enlaces de arriba no caben
+           y sin esto no había forma de llegar a la guía ni a las novedades más que por el pie.
+           Un <details> se abre y se cierra sin JavaScript; con leer.js?v=69245323 la píldora de la barra
+           crece hacia abajo con las páginas dentro, y se recoge al elegir, con Escape o tocando fuera. -->
+      <details class="menu">
+        <summary><svg class="abre" aria-hidden="true"><use href="#i-menu"/></svg><svg class="cierra" aria-hidden="true"><use href="#i-x"/></svg><span>Menu</span></summary>
+        <div class="menu-panel">
+          <a href="../#funciones">Features</a>
+          <a href="../#demo">Try it</a>
+          <a href="../#comparativa">Compare</a>
+          <a class="aqui" aria-current="page" href="../docs/">Docs</a>
+          <a href="../changelog/">What's new</a>
+          <a href="../support/">Support</a>
+          <a class="menu-gh" href="https://github.com/Mun1to/winshotx" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><use href="#i-github"/></svg><span>The code, on GitHub</span></a>
+        </div>
+      </details>
     </span>
   </div>
 </nav>
 
-<main class="env guia">
+<main class="leer">
+  <div class="env">
+    <header class="leer-cabeza">
+      <h1>winshotx documentation</h1>
+      <p class="entradilla">Everything the app does, in the order you are going to need it. It fits on one page on purpose.</p>
+    </header>
 
-  <h1>winshotx documentation</h1>
-  <p class="entradilla">Everything the app does, in the order you are going to need it. It fits on one page on purpose.</p>
+    <div class="leer-rejilla">
+      <nav class="leer-indice" aria-label="On this page">
+        <a href="#instalar">Install</a>
+        <a href="#capturar">Capture</a>
+        <a href="#grabar">Record</a>
+        <a href="#editor">Editor</a>
+        <a href="#exportar">Export</a>
+        <a href="#atajos-guia">Shortcuts</a>
+        <a href="#ajustes">Settings</a>
+        <a href="#agentes">AI agents</a>
+        <a href="#preguntas">Questions</a>
+      </nav>
 
-  <div class="indice">
-    <a href="#instalar">Install</a>
-    <a href="#capturar">Capture</a>
-    <a href="#grabar">Record</a>
-    <a href="#editor">Editor</a>
-    <a href="#exportar">Export</a>
-    <a href="#atajos-guia">Shortcuts</a>
-    <a href="#ajustes">Settings</a>
-    <a href="#agentes">AI agents</a>
-    <a href="#preguntas">Questions</a>
-  </div>
+      <div class="texto">
 
-  <section id="instalar">
+  <section id="instalar" class="con-foto">
+  <div>
+    <div data-demo="recorte">
     <h2>Install</h2>
-    <p>Download the installer and run it. It weighs 2.95 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.</p>
+    <p>Download the installer and run it. It weighs 3.01 MB, installs for your user only and never shows the administrator prompt. It needs Windows 10 version 1903 or newer.</p>
     <div class="botones">
-      <a class="btn primario" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
+      <a class="btn uno" data-demo="boton" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">
         <span>Download for Windows</span></a>
-      <a class="btn fantasma" href="https://github.com/Mun1to/winshotx/releases">All versions</a>
+      <a class="btn dos" href="https://github.com/Mun1to/winshotx/releases">All versions</a>
+    </div>
     </div>
     <p>It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the <code>^</code> arrow on the taskbar.</p>
-    <p>It updates itself. When a new version is out, a button shows up in <b>Ajustes → Actualizaciones</b>, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.</p>
-    <p>The first time it opens on its own with four steps: the shortcuts, how you prefer to capture, whether the <kbd>Impr Pant</kbd> key should open winshotx instead of the Snipping Tool, and whether it should start with Windows. You can see it again in <b>Ajustes → Sistema → Bienvenida</b>.</p>
+    <p>It updates itself. When a new version is out, the bottom bar of <b>Settings</b> shows a button for it, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.</p>
+    <p>The first time it opens on its own with four steps: the shortcuts, how you prefer to capture, whether the <kbd>Print Screen</kbd> key should open winshotx instead of the Snipping Tool, and whether it should start with Windows. You can see it again in <b>Settings → The app → Welcome</b>.</p>
+  </div>
+    <figure><img src="../../img/bienvenida-en.webp?v=02bf6235" width="900" height="723" alt="The winshotx welcome screen, which opens by itself the first time"></figure>
   </section>
 
-  <section id="capturar">
+  <section id="capturar" class="con-foto">
+  <div>
     <h2>Capture a region</h2>
     <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>2</kbd>. The screen freezes and you drag over what you want. It is a frozen screenshot, not a transparent window, which is why the magnifier is exact to the pixel and nothing flickers underneath.</p>
-    <ul role="list">
+    <ul class="lista">
       <li><b>Snapping to windows.</b> Move the cursor without dragging and the window underneath lights up; one click takes it whole, with its real coordinates.</li>
       <li><b>Magnifier.</b> While there is no selection, a 6× loupe follows the cursor and shows the hex code of the pixel underneath. That is the fastest way to pull a colour off the screen.</li>
       <li><b>Fine tuning.</b> The arrow keys move the selection one pixel at a time, <kbd>Shift</kbd> moves it ten, and <kbd>Alt</kbd> resizes instead of moving.</li>
       <li><b>Several monitors.</b> Every screen freezes at once, each at its own scaling, and a 100 × 100 selection produces a 100 × 100 file in real pixels.</li>
       <li><b>Straight into the editor.</b> <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> takes the same shot and opens the editor the moment you let go, skipping the toolbar. For the shot you have to work on.</li>
     </ul>
-    <p>What happens when you let go depends on the profile picked in <b>Ajustes → Captura</b>, and both use the same shortcut and the same selection.</p>
-    <ul role="list">
-      <li><b>Sale la barra.</b> A small toolbar appears over the selection: copy, save, open in the editor, record as GIF, record as video, or cancel with <kbd>Esc</kbd>. It is the complete one.</li>
+    <p>What happens when you let go depends on the profile picked in <b>Settings → Capture</b>, and both use the same shortcut and the same selection.</p>
+    <ul class="lista">
+      <li><b>Sale la barra.</b> A small toolbar appears next to the selection: copy, save, save to…, edit, pin, copy the text, read a QR code or cancel with <kbd>Esc</kbd>.</li>
       <li><b>Se copia sola.</b> Nothing appears: you let go of the mouse and the image is already in the clipboard, ready to paste. A single click on a window copies it whole.</li>
     </ul>
-    <p class="nota">The recording shortcut always shows the toolbar, whichever profile is set: it has to ask whether you want a GIF or a video.</p>
+    <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span>Photo, video or GIF are picked before cropping, on the top bar or with F, V and G. The recording shortcut opens already on video: when you let go of the mouse, it starts recording.</span></p>
+  </div>
+    <figure><img src="../../img/capturar-en.webp?v=9ea5207d" width="1140" height="720" loading="lazy" alt="The winshotx selection over a frozen screen, with its bar to copy, save or edit"></figure>
   </section>
 
-  <section id="grabar">
+  <section id="grabar" class="con-foto">
+  <div>
     <h2>Record</h2>
     <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, drag over the area and press the same shortcut again to stop. While it records you see a thin frame around the region and a small bar with the timer.</p>
     <p>It records through Windows Graphics Capture at 15, 30 or 60 fps, so no overlay leaks into the video and the cost to the processor is close to nothing. Every frame is written to a lossless cache on disk, which is what makes the frame by frame editing possible afterwards.</p>
     <p>It records sound too: the system audio (whatever the speakers are playing) and your microphone, each recorded on its own track and with its own volume in the editor. Each has its own switch in Settings and either can go alone. Exporting at a speed other than 1× comes out silent, and the panel says so beforehand: stretching a track without touching its pitch is another problem entirely.</p>
-    <p class="nota"><b>The last few seconds.</b> With the ring on, winshotx records all the time and drops the old, so <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> keeps the last 15, 30 or 60 seconds without having pressed record beforehand. You pick the screen, the quality and the smoothness, and it tells you up front how much disk it can take. Saving does not stop the recording.</p>
+    <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span><b>The last few seconds.</b> With the ring on, winshotx records all the time and drops the old, so <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> keeps the last 15, 30 or 60 seconds without having pressed record beforehand. You pick the screen, the quality and the smoothness, and it tells you up front how much disk it can take. Saving does not stop the recording.</span></p>
+  </div>
+    <figure><img src="../../img/grabar-en.webp?v=734a5392" width="1140" height="720" loading="lazy" alt="An area picked to record as video, with its red record button"></figure>
   </section>
 
-  <section id="editor">
+  <section id="editor" class="con-foto">
+  <div>
     <h2>The editor</h2>
     <p>When the recording stops, the editor opens with the whole clip: the recording fits across a timeline you trim by dragging its edges, and on the right the studio makes it look good.</p>
-    <ul role="list">
+    <ul class="lista">
       <li><b>The timeline.</b> The whole recording across the window, laid out by time. Click it to jump there, or drag along it.</li>
       <li><b>Trimming.</b> Drag the two blue edges to keep a piece, and the preview shows the exact cut while you drag; or press <kbd>I</kbd> and <kbd>O</kbd> to cut where it is. It cuts to the millisecond, even inside a stretch where the screen does not change.</li>
       <li><b>Vertical of one click.</b> 9:16, 4:5, 1:1 and 16:9 place the biggest crop with that shape, centred, and you drag it wherever you want without losing the proportion. What you record off a monitor is always landscape, so getting to 9:16 always means cropping the image.</li>
@@ -229,16 +280,21 @@
       <li><b>Scale.</b> Width and height are chained by default, so the proportion never breaks. There are 100, 75 and 50 percent buttons.</li>
       <li><b>Zoom on every click.</b> The camera moves in on each click of the recording, and how much you decide <em>after</em> recording: the clicks were written down while it recorded, so raising it, lowering it or dropping it never means recording again. And you choose how fast it moves: slow, normal or fast.</li>
       <li><b>Rings, keys and cursor.</b> A ring where you pressed, a badge with the shortcut you just typed (only shortcuts with a modifier, never a lone key: a password has no Ctrl in front) and the pointer drawn at the size you ask for, with smooth movement that takes the hand shake out and the option to hide it when it stops.</li>
-      <li><b>Background, corners and shadow.</b> Eight backgrounds to pick from, air around the capture, rounded corners and a shadow, shown in the preview as you change them. For when the video goes into a slide or a post.</li>
+      <li><b>Background, corners and shadow.</b> Eight built-in backgrounds or your own (an image, your desktop, a video or a colour), air around the capture, rounded corners and a shadow, shown in the preview as you change them. For when the video goes into a slide or a post.</li>
       <li><b>Speed.</b> 0.5×, 2× or 4× over what you recorded. A tutorial has stretches where nothing happens.</li>
-      <li><b>Six marks to annotate.</b> Arrow, rectangle, text, highlight, numbered step and a mosaic that destroys private data. They go on the video too, not only on a still.</li>
+      <li><b>Eleven tools to annotate.</b> Arrow, curved arrow, line, rectangle, ellipse, pen, text (typed right on the image), highlight, numbered step, spotlight and a mosaic that destroys private data. They go on the video too, not only on a still.</li>
+      <li><b>Zooms by hand.</b> Click the lane under the timeline to put a zoom there: drag it, stretch it by its edges and decide how close it gets and whether it follows the mouse.</li>
+      <li><b>Hide data.</b> One button finds emails, phone numbers, cards and IDs and pixelates them, in a video too.</li>
+      <li><b>Sound and webcam.</b> The PC sound and your microphone are separate tracks, each with its own volume, and they warn you if they were recorded silent; your webcam sits on top, round or with the corners you like. <kbd>M</kbd> mutes the preview.</li>
     </ul>
+  </div>
+    <figure><img src="../../img/editor-en.webp?v=0a9a1fde" width="1280" height="800" loading="lazy" alt="The winshotx editor with a Studio background, rounded corners and a shadow"></figure>
   </section>
 
   <section id="exportar">
     <h2>Export</h2>
     <p>Four formats: PNG and JPG for a still, GIF for something that loops in a chat, and MP4 for anything longer. The panel shows the estimated size before writing anything.</p>
-    <table class="tabla-guia">
+    <div class="tabla"><table>
       <thead><tr>
         <th>Format</th>
         <th>How it is made</th>
@@ -266,14 +322,14 @@
           <td>Anything longer than a few seconds, or with a lot of movement.</td>
         </tr>
       </tbody>
-    </table>
-    <p><b>Save</b> writes the file to disk. <b>Copy</b> puts it on the clipboard: a still goes as an image, and a GIF or an MP4 go <b>two ways at once, as a file and as their written path</b>. Where files can be dropped (Slack, Discord, File Explorer) the video is pasted; in any text box, its path.</p>
+    </table></div>
+    <p><b>Save</b> writes the file to disk. <b>Copy</b> puts it on the clipboard: a PNG goes as an image, and a JPG, a GIF or an MP4 go <b>two ways at once, as a file and as their written path</b>. Where files can be dropped (Slack, Discord, File Explorer) the video is pasted; in any text box, its path.</p>
     <p>If you happen to have <code>ffmpeg</code> on your <code>PATH</code>, the panel offers a maximum quality engine as well. It is never downloaded and never shipped: without it, everything above still works.</p>
   </section>
 
   <section id="atajos-guia">
     <h2>Shortcuts</h2>
-    <table class="tabla-guia">
+    <div class="tabla"><table>
       <thead><tr><th>Key</th><th>What it does</th></tr></thead>
       <tbody>
         <tr>
@@ -283,7 +339,9 @@
         <tr>
           <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd></th><td>Keep the last seconds, while «the last few seconds» is on</td></tr>
         <tr>
-          <th scope="row"><kbd>Impr Pant</kbd></th><td>Capture a region, if you took the key from the Snipping Tool</td></tr>
+          <th scope="row"><kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd></th><td>Capture and open the editor straight away</td></tr>
+        <tr>
+          <th scope="row"><kbd>Print Screen</kbd></th><td>Capture a region, if you took the key from the Snipping Tool</td></tr>
 
         <tr>
           <th scope="row"><kbd>Enter</kbd></th><td>Copy the selection to the clipboard</td></tr>
@@ -292,7 +350,7 @@
         <tr>
           <th scope="row"><kbd>E</kbd></th><td>Open the selection in the editor</td></tr>
         <tr>
-          <th scope="row"><kbd>G</kbd> / <kbd>V</kbd></th><td>Record the selection as GIF or as video</td></tr>
+          <th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></th><td>Save the selection wherever you choose</td></tr>
         <tr>
           <th scope="row"><kbd>A</kbd></th><td>Pin the selection: it floats on top of everything, right where it was</td></tr>
         <tr>
@@ -301,6 +359,10 @@
           <th scope="row"><kbd>C</kbd></th><td>Copy the colour under the cursor, the one the loupe is showing</td></tr>
         <tr>
           <th scope="row"><kbd>R</kbd></th><td>Repeat the last capture, on the same region</td></tr>
+        <tr>
+          <th scope="row"><kbd>S</kbd></th><td>Scrolling capture: it scrolls the page down by itself and stitches it into one image</td></tr>
+        <tr>
+          <th scope="row"><kbd>W</kbd></th><td>Record only the window underneath</td></tr>
         <tr>
           <th scope="row"><kbd>F</kbd> / <kbd>V</kbd> / <kbd>G</kbd></th><td>Choose photo, video or GIF before cropping</td></tr>
         <tr>
@@ -314,76 +376,142 @@
         <tr>
           <th scope="row"><kbd>Esc</kbd></th><td>Cancel</td></tr>
       </tbody>
-    </table>
-    <p>Inside the editor: drag the blue edges of the timeline to trim, or <kbd>I</kbd> and <kbd>O</kbd> cut where the preview is; <kbd>space</kbd> plays, <kbd>C</kbd> crops the image, the arrows step through frames, <kbd>Ctrl</kbd>+<kbd>S</kbd> exports with whatever the panel has set, and <kbd>Esc</kbd> closes.</p>
-    <p>And to annotate, six marks: <kbd>1</kbd> arrow, <kbd>2</kbd> box, <kbd>3</kbd> text, <kbd>4</kbd> highlight, <kbd>5</kbd> numbered step and <kbd>6</kbd> hide details. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the last one, and the steps number themselves.</p>
+    </table></div>
+    <p>Inside the editor: drag the blue edges of the timeline to trim, or <kbd>I</kbd> and <kbd>O</kbd> cut where the preview is; <kbd>space</kbd> plays, <kbd>C</kbd> crops the image, the arrows step through frames, <kbd>M</kbd> mutes the preview, <kbd>Ctrl</kbd>+<kbd>S</kbd> exports with whatever the panel has set, and <kbd>Esc</kbd> closes.</p>
+    <p>And to annotate: <kbd>1</kbd> arrow, <kbd>2</kbd> box, <kbd>3</kbd> text, <kbd>4</kbd> highlight, <kbd>5</kbd> numbered step and <kbd>6</kbd> mosaic. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the last one, and the steps number themselves.</p>
   </section>
 
-  <section id="ajustes">
+  <section id="ajustes" class="con-foto">
+  <div>
     <h2>Settings</h2>
     <p>Right click the tray icon: winshotx draws its own menu there, with the ring switch and every shortcut written next to what it does. From there, <b>Settings</b>. The two global shortcuts are changed by clicking the field and typing the new combination; if another application already holds it, the field turns red and says so.</p>
-    <p>Under them there is a switch that hands the <kbd>Impr Pant</kbd> key over from the Snipping Tool, and it says whether Windows actually let go of it.</p>
-    <p>It is four tabs, with nothing hidden three levels deep:</p>
-    <ul role="list">
-      <li><b>Capture.</b> The shortcut, how long it waits before capturing (none, 3 or 5 seconds), hiding the desktop icons while the shot lasts, the cursor, the magnifier, what happens when you let go of the mouse, and whether saving also copies.</li>
-      <li><b>Record.</b> The shortcut, the frame rate, system audio and microphone, opening the editor when it ends, and the whole <em>last few seconds</em> ring: how much it keeps, which screen, quality and smoothness.</li>
-      <li><b>Windows keys.</b> Taking <kbd>Impr Pant</kbd> and <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> away from the Snipping Tool, and removing the Snipping Tool if you want it gone for good.</li>
-      <li><b>The app.</b> Destination folder, recording cache, theme (automatic, light or dark), language (automatic, Spanish or English), the welcome screen, a six stop tour of the settings, and starting with Windows.</li>
+    <p>Under them there is a switch that hands the <kbd>Print Screen</kbd> key over from the Snipping Tool, and it says whether Windows actually let go of it.</p>
+    <p>Eight sections in a column of icons on the left, nothing hidden three levels deep, and a search box at the top (<kbd>Ctrl</kbd>+<kbd>F</kbd>) that takes you to any setting by its name:</p>
+    <ul class="lista">
+      <li><b>Capture.</b> The two shortcuts, how long it waits before capturing (none, 3 or 5 seconds), hiding the desktop icons while the shot lasts, the cursor and the magnifier.</li>
+      <li><b>After capturing.</b> What happens when you let go of the mouse, whether saving also copies, the corner thumbnail, the shutter sound and a background on shots.</li>
+      <li><b>Record.</b> The shortcut, the zoom key, the frame rate, opening the editor when it ends, system audio, the microphone, a sound on start and the webcam.</li>
+      <li><b>The last few seconds.</b> The ring that records all the time in memory: whether it is on, which screen, the key that keeps it, how much it keeps, quality and smoothness.</li>
+      <li><b>History.</b> What you saved, photos and videos, newest first: copy it again, show it in its folder or send it to the bin.</li>
+      <li><b>Windows keys.</b> Taking <kbd>Print Screen</kbd> and <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> away from the Snipping Tool, and removing the Snipping Tool if you want it gone for good.</li>
+      <li><b>The app.</b> Destination folder, recording cache, starting with Windows, theme (automatic, light or dark) and language (automatic, Spanish, English or Chinese).</li>
+      <li><b>Help and winshotx.</b> The welcome screen, the tour of the settings, the version, the coffee and the code.</li>
     </ul>
-    <p>Every row explains itself: leave the pointer on the icon beside its name and a bubble says what it does and when it is worth turning on. And a bar at the bottom, there in all four tabs, holds what gets touched often: theme, language, what happens on release, the tour, and updates, which when you are up to date is a green tick and nothing more.</p>
-    <p><a href="../#demo">You can click through all of it in the demo on the home page, without installing anything.</a></p>
+    <p>On the right, «How it will look» draws what you are setting before you try it. And a bar at the bottom, there in every section, holds what gets touched often: theme, language, what happens on release, the tour, updates and Support.</p>
+    <p>You can click through all of it in <a href="../#demo">the demo on the home page</a>, without installing anything.</p>
+  </div>
+    <figure><img src="../../img/ajustes-en.webp?v=9396ae44" width="900" height="723" loading="lazy" alt="The winshotx settings, on the Capture section"></figure>
   </section>
 
   <section id="agentes">
     <h2>For AI agents</h2>
     <p>An AI agent (Claude Code, Codex, Cursor or any other that speaks MCP) can use winshotx on its own: <b>record the screen, stop, export a finished MP4 or GIF and take screenshots</b>, and it is told where each file ended up. Nobody has to touch the mouse.</p>
-    <p>To add it to Claude Code, run this in PowerShell: <code>claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</code>. That is where the installer and winget put it, unless you picked another folder; with the portable build, use the folder you unzipped it into.</p>
+    <!-- La orden va en su propio bloque, que se copia con un clic (leer.js?v=69245323): dentro de la
+         frase se partía en cuatro renglones en el móvil. -->
+    <p>To add it to Claude Code, run this in PowerShell:</p>
+    <p class="orden-bloque"><code>claude mcp add --scope user winshotx -- "$env:LOCALAPPDATA\winshotx\winshotx.exe" mcp</code></p>
+    <p>That is where the installer and winget put it, unless you picked another folder; with the portable build, use the folder you unzipped it into.</p>
     <p>Without MCP, any script can do the same from a terminal with <code>winshotx.exe agent</code>: it answers with one line of JSON that says what happened and where the file is.</p>
-    <p class="nota"><b>A recording started by an agent looks exactly like one of yours</b>, with the red frame and the bar, so you always know when the screen is being recorded. And it makes no sound unless the agent asks for it.</p>
+    <p class="aparte"><svg aria-hidden="true"><use href="#i-info"/></svg><span><b>A recording started by an agent looks exactly like one of yours</b>, with the frame and the bar, so you always know when the screen is being recorded. And it makes no sound unless the agent asks for it.</span></p>
     <p><a href="https://github.com/Mun1to/winshotx/blob/main/docs/AGENTS-API.md">How to add it to each agent, and every command</a>.</p>
   </section>
 
   <section id="preguntas">
     <h2>Questions people actually ask</h2>
-
-    <h3>How do I record a GIF of my screen on Windows?</h3>
-    <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.</p>
-
-    <h3>Is this a free alternative to the Snipping Tool?</h3>
-    <p>Yes, MIT licensed and open source. Measured on the same machine it shows the selection already painted 114 ms after the shortcut with three screens (the one under the mouse; the other two by 233 ms), against the Windows one's 920 ms; and it uses 33 MB against 253 MB. The Windows one still wins at coming preinstalled and at speaking every language Windows speaks; covering up personal data on its own is something winshotx does from 0.3.0, and with a mosaic, which destroys the pixels instead of smudging them, and the comparison on the home page says so, point by point.</p>
-
-    <h3>Does it upload my screenshots anywhere?</h3>
-    <p>No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and it can be turned off.</p>
-
-    <h3>Can I change the keyboard shortcut?</h3>
-    <p>Yes, in <b>Ajustes</b>. Click the field and press the combination you want.</p>
-
-    <h3>Can I capture with the Print Screen key?</h3>
-    <p>Yes. In <b>Settings → Windows keys</b> a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is.</p>
-
-    <h3>How do I stop Win+Shift+S from opening the Snipping Tool?</h3>
-    <p>With the <b>Quedarme con Win+Mayús+S</b> switch, in <b>Settings → Windows keys</b>. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes <b>Win+S</b>, the search, with it. It does not apply until you sign out and back in, and turning it off puts everything back. It is a separate switch on purpose: freeing <kbd>Impr Pant</kbd> costs nothing, and nobody should lose their search as a side effect of that.</p>
-
-    <h3>How do I paste a GIF into Slack or Discord?</h3>
-    <p>Use <b>Copy</b> in the export panel. A still goes to the clipboard as an image, and a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead.</p>
-
-    <h3>Does it need administrator rights?</h3>
-    <p>No. It installs for your user only, so the administrator prompt never shows up.</p>
-
-    <h3>Does it work on macOS or Linux?</h3>
-    <p>Not yet. The code compiles on both, but every platform specific function is behind a Windows guard with a stub for the rest, so porting means filling those stubs in. Capture, recording, MP4 encoding, clipboard and autostart are the ones that matter.</p>
+    <div class="faq">
+      <details>
+        <summary><h3>How do I record a GIF of my screen on Windows?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>5</kbd>, drag over the area, and press it again to stop. The editor opens with every frame and the export panel writes the GIF. There is no FFmpeg to install.</p></div>
+      </details>
+      <details>
+        <summary><h3>Is this a free alternative to the Snipping Tool?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Yes, MIT licensed and open source. Measured on the same machine it shows the selection already painted 114 ms after the shortcut with three screens (the one under the mouse; the other two by 233 ms), against the Windows one's 920 ms; and it uses 33 MB against 253 MB. The Windows one still wins at coming preinstalled and at speaking every language Windows speaks; covering up personal data on its own is something winshotx does from 0.3.0, and with a mosaic, which destroys the pixels instead of smudging them, and the comparison on the home page says so, point by point.</p></div>
+      </details>
+      <details>
+        <summary><h3>Does it upload my screenshots anywhere?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>No. No account, no telemetry, no uploads. The only network call is checking GitHub for a new version, and the Microsoft Store version does not even do that.</p></div>
+      </details>
+      <details>
+        <summary><h3>Can I change the keyboard shortcut?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Yes, in <b>Ajustes</b>. Click the field and press the combination you want.</p></div>
+      </details>
+      <details>
+        <summary><h3>Can I capture with the Print Screen key?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Yes. In <b>Settings → Windows keys</b> a switch takes that key from the Snipping Tool and gives it to winshotx, and the app asks the first time you open it. It turns off the Windows setting that hands the key over, and turning the switch back off leaves it exactly as it was. Win+Shift+S is a different story: Windows attends that one before any program does and does not hand it to anybody, so it stays as it is.</p></div>
+      </details>
+      <details>
+        <summary><h3>How do I stop Win+Shift+S from opening the Snipping Tool?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>With the <b>Take Win+Shift+S</b> switch, in <b>Settings → Windows keys</b>. That key is attended by Windows before any program sees it, so no shortcut, keyboard hook or system policy can take it; the only thing that works is turning the S off in the Windows key shortcuts. It has a price and the switch says so before you flip it: that list goes by letter rather than by combination, so it takes <b>Win+S</b>, the search, with it. Its Apply button restarts File Explorer so it takes effect, and turning it off puts everything back. It is a separate switch on purpose: freeing <kbd>Print Screen</kbd> costs nothing, and nobody should lose their search as a side effect of that.</p></div>
+      </details>
+      <details>
+        <summary><h3>How do I paste a GIF into Slack or Discord?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Use <b>Copy</b> in the export panel. A PNG goes to the clipboard as an image, and a JPG, a GIF or an MP4 go as a file and as their written path at the same time: they paste straight into Slack, Discord or File Explorer, and into any text box the path comes out instead.</p></div>
+      </details>
+      <details>
+        <summary><h3>Does it need administrator rights?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>No. It installs for your user only, so the administrator prompt never shows up.</p></div>
+      </details>
+      <details>
+        <summary><h3>Does it work on macOS or Linux?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Not yet: today it is for Windows 10 and 11 only.</p></div>
+      </details>
+    </div>
   </section>
 
+      </div>
+    </div>
+  </div>
 </main>
 
-<footer>
+<footer class="pie">
   <div class="env">
-    <span class="marca"><svg class="chico"><use href="#marca"/></svg> winshotx · MIT</span>
-    <a href="../privacy/">Privacy</a>
-    <span>Made by <a href="https://munito.dev">Munir Torres</a> · <a href="https://github.com/Mun1to/winshotx/issues">report a problem</a></span>
-    <a class="cafe" href="https://buymeacoffee.com/munito" rel="noopener"><svg class="chico"><use href="#i-coffee"/></svg> <span>Buy me a coffee</span></a>
+    <div class="pie-rejilla">
+      <div class="quien">
+        <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
+        <p>Screenshots and screen recording for Windows. Free, open source and with no account.</p>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Product</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download</a></li>
+          <li><a href="../changelog/">What's new</a></li>
+          <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Portable version</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Help</h2>
+        <ul>
+          <li><a href="../support/">Support</a></li>
+          <li><a href="../docs/">Docs</a></li>
+          <li><a href="../#preguntas">Questions</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/issues" rel="noopener">Report a bug</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">Code</h2>
+        <ul>
+          <li><a href="https://github.com/Mun1to/winshotx" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/blob/main/LICENSE" rel="noopener">MIT licence</a></li>
+          <li><a href="../docs/#agentes">For AI agents</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="pie-titulo">More</h2>
+        <ul>
+          <li><a href="../privacy/">Privacy</a></li>
+          <li><a href="https://buymeacoffee.com/munito" rel="noopener">Buy me a coffee</a></li>
+          <li><a class="valvula sin-mov" href="?motion=off">Fewer animations</a><a class="valvula con-mov" href="./">All animations</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pie-abajo">
+      <span>© 2026 winshotx · Made by <a href="https://munito.dev">Munir Torres</a></span>
+      <span>No accounts, no cloud and no surprises</span>
+    </div>
   </div>
 </footer>
 
+<script src="../../leer.js?v=69245323"></script>
 </body>
 </html>

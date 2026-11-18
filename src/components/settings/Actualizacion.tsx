@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { Check, Download, RefreshCw, RotateCcw } from "lucide-react";
+import { Download, RefreshCw, RotateCcw } from "lucide-react";
 import { isStoreBuild } from "../../lib/ipc";
 import { EVENTS } from "../../lib/types";
 import { useT } from "../../lib/i18n";
@@ -29,8 +29,9 @@ export type Fase =
  * En una compilación de desarrollo no hay endpoint y `check()` falla; ahí se
  * queda callado, porque avisar de eso sería ruido en cada arranque.
  *
- * Va como gancho y no como fila porque esto vive ahora en la barra de abajo, que está
- * siempre a la vista: lo que hay que compartir es el estado, no una manera de pintarlo.
+ * Va como gancho y no como fila porque se pinta en dos sitios: el aviso de la cabecera, que
+ * está siempre a la vista, y la fila de la versión en «Ayuda y winshotx»; lo que hay que
+ * compartir es el estado, no una manera de pintarlo.
  */
 export function useActualizacion(version: string, recienActualizado = false) {
   const t = useT();
@@ -134,78 +135,60 @@ export function useActualizacion(version: string, recienActualizado = false) {
 }
 
 /**
- * Lo de actualizar en la barra de abajo, que casi siempre no tiene nada que decir.
+ * Lo de actualizar en la cabecera de los ajustes, que casi siempre no tiene nada que decir.
  *
- * **Estando al día es solo un tick**, sin la frase ni el botón: «estás en la última
- * versión» es la respuesta el 99 % de los días y se llevaba un cuarto de la barra para no
- * contar nada. El tick es además el botón: pulsarlo vuelve a mirar.
+ * **Estando al día no sale nada** (S36, 0.5): «Al día» con su tick era un «todo va bien» que
+ * no pide nada, y los gustos de Munito lo quitan de todas partes. Buscar a mano se hace desde
+ * la barra de abajo (desde S40), la fila de la versión en «Ayuda y winshotx» y el menú de la
+ * bandeja.
  *
  * Cuando SÍ hay algo que decir (hay versión nueva, se está bajando, falta reiniciar, ha
- * fallado), vuelven la frase y el botón entero: eso es justo lo que no puede pasar
- * desapercibido.
+ * fallado o se acaba de actualizar), sale la frase con su botón: eso es justo lo que no puede
+ * pasar desapercibido, y la cabecera es lo primero que se ve.
  */
-export function EstadoActualizacion({
+export function AvisoActualizacion({
   fase,
   texto,
-  alDia,
   instalar,
   mirar,
 }: {
   fase: Fase;
   texto: string;
-  alDia: boolean;
   instalar: (update: Update) => void;
   mirar: () => void;
 }) {
   const t = useT();
-  // En la Store no hay ni tick ni boton: no hay ninguna accion detras, y un control que
-  // no hace nada al pulsarlo se lee como que la app esta rota.
-  if (fase.tipo === "tienda") return null;
-
-  const callado = alDia || fase.tipo === "quieto" || fase.tipo === "mirando";
-
-  if (callado) {
-    return (
-      <button
-        type="button"
-        onClick={mirar}
-        disabled={fase.tipo === "mirando"}
-        title={texto || t("Buscar")}
-        aria-label={texto || t("Buscar")}
-        className={`flex h-7 items-center justify-center gap-1.5 rounded-lg transition-colors hover:bg-realce ${
-          alDia ? "px-2" : "w-7"
-        }`}
-      >
-        {alDia ? (
-          <>
-            <Check className="size-4 text-emerald-400" />
-            <span className="text-[11.5px] text-apagado">{t("Al día")}</span>
-          </>
-        ) : (
-          <RefreshCw
-            className={`size-3.5 text-apagado ${fase.tipo === "mirando" ? "animate-spin" : ""}`}
-          />
-        )}
-      </button>
-    );
+  if (fase.tipo === "tienda" || fase.tipo === "quieto" || fase.tipo === "mirando" || fase.tipo === "aldia") {
+    return null;
   }
-
+  // El fallo, en corto y con el detalle en el globo: el mensaje de error entero va en la fila
+  // de la versión, donde cabe, y aquí empujaría al buscador fuera de la cabecera.
+  const corto = fase.tipo === "error" ? t("No se pudo mirar si hay versión nueva") : texto;
   return (
-    <span className="flex min-w-0 items-center gap-2">
+    <span data-aviso-actualizacion className="flex items-center gap-3">
       <span
-        className={`truncate text-[11.5px] ${
-          fase.tipo === "error" ? "text-red-400/90" : "text-apagado"
+        title={fase.tipo === "error" ? texto : undefined}
+        className={`whitespace-nowrap text-[13px] ${
+          fase.tipo === "error"
+            ? "text-[color:light-dark(#b91c1c,#f87171)]"
+            : fase.tipo === "hay" || fase.tipo === "listo"
+              ? "font-semibold text-titulo"
+              : "text-apagado"
         }`}
       >
-        {texto}
+        {corto}
       </span>
-      <BotonActualizar fase={fase} instalar={instalar} mirar={mirar} />
+      {/* Recién actualizada no hay nada que pulsar: la frase dice por qué se ha abierto sola. */}
+      {fase.tipo !== "acabadeactualizarse" && <BotonActualizar fase={fase} instalar={instalar} mirar={mirar} />}
     </span>
   );
 }
 
 /**
  * El botón, que cambia con la fase: buscar, actualizar, la barra de descarga y reiniciar.
+ *
+ * Actualizar y reiniciar van rellenos del azul de la marca, que son la acción que se espera;
+ * buscar va como los demás botones de las filas.
  */
 export function BotonActualizar({
   fase,
@@ -218,16 +201,15 @@ export function BotonActualizar({
 }) {
   const t = useT();
   const base =
-    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50";
+    "flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition-colors disabled:opacity-50";
+  const lleno = `${base} border-transparent bg-marca text-white hover:brightness-110`;
+
+  if (fase.tipo === "tienda") return null;
 
   if (fase.tipo === "hay") {
     return (
-      <button
-        type="button"
-        onClick={() => instalar(fase.update)}
-        className={`${base} bg-blue-500 font-semibold text-white hover:bg-blue-400`}
-      >
-        <Download className="size-3.5" /> {t("Actualizar ahora")}
+      <button type="button" onClick={() => instalar(fase.update)} className={lleno}>
+        <Download className="size-4" /> {t("Actualizar ahora")}
       </button>
     );
   }
@@ -235,25 +217,21 @@ export function BotonActualizar({
   if (fase.tipo === "bajando") {
     return (
       <span className="flex items-center gap-2">
-        <span className="h-1 w-20 overflow-hidden rounded-full bg-realce">
+        <span className="h-1.5 w-24 overflow-hidden rounded-full bg-realce">
           <span
-            className="block h-full bg-blue-500 transition-[width] duration-150"
+            className="block h-full bg-marca transition-[width] duration-150"
             style={{ width: `${fase.pct}%` }}
           />
         </span>
-        <span className="text-[11px] tabular-nums text-apagado">{fase.pct} %</span>
+        <span className="text-[13px] tabular-nums text-apagado">{fase.pct} %</span>
       </span>
     );
   }
 
   if (fase.tipo === "listo") {
     return (
-      <button
-        type="button"
-        onClick={() => void relaunch()}
-        className={`${base} bg-emerald-500/15 font-semibold text-emerald-300 hover:bg-emerald-500/25`}
-      >
-        <RotateCcw className="size-3.5" /> {t("Reiniciar")}
+      <button type="button" onClick={() => void relaunch()} className={lleno}>
+        <RotateCcw className="size-4" /> {t("Reiniciar")}
       </button>
     );
   }
@@ -263,10 +241,10 @@ export function BotonActualizar({
       type="button"
       onClick={mirar}
       disabled={fase.tipo === "mirando"}
-      className={`${base} border border-linea-fuerte text-suave hover:bg-realce hover:text-titulo`}
+      className={`${base} border-linea bg-realce text-titulo hover:bg-activo`}
     >
-      <RefreshCw className={`size-3.5 ${fase.tipo === "mirando" ? "animate-spin" : ""}`} />
-      {t("Buscar")}
+      <RefreshCw className={`size-4 ${fase.tipo === "mirando" ? "animate-spin" : ""}`} />
+      {t("Buscar actualizaciones")}
     </button>
   );
 }

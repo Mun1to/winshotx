@@ -32,6 +32,7 @@ import { useT } from "../../lib/i18n";
 import { AjustesDelTrozo, AjustesDelZoom } from "./AjustesDeLaPista";
 import { AjustesDeLaTapa, PistaDeTapar } from "./PistaDeTapar";
 import { quitarTapa } from "../../lib/tapar";
+import { TECLA_CORTAR, conTecla } from "./teclas";
 
 /** Lo que se está arrastrando: una de las dos asas o el cabezal. */
 type Arrastre = "desde" | "hasta" | "cabezal" | null;
@@ -357,6 +358,33 @@ export function LineaDeTiempo({
     );
   const zoomElegido = elegido !== null && onZooms ? zooms[elegido] : undefined;
 
+  /** «Cortar aquí»: donde está el cabezal ahora, también mientras suena. */
+  const cortarAqui = () => {
+    if (!onPiezas) return;
+    const ms = ahora();
+    if (sePuedePartir(trozos, ms)) onPiezas(partir(trozos, ms));
+  };
+  const cortarConTecla = useRef(cortarAqui);
+  cortarConTecla.current = cortarAqui;
+
+  /**
+   * La B corta donde está el cabezal, igual que el botón; y Ctrl+B también, que es la de CapCut.
+   * Mientras se escribe un texto la B es una letra, no un corte.
+   */
+  const conCortes = Boolean(onPiezas);
+  useEffect(() => {
+    if (!conCortes) return;
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key.toUpperCase() !== TECLA_CORTAR || e.altKey || e.shiftKey || e.repeat) return;
+      const donde = e.target as HTMLElement | null;
+      if (donde?.tagName === "INPUT" || donde?.tagName === "TEXTAREA" || donde?.isContentEditable) return;
+      e.preventDefault();
+      cortarConTecla.current();
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [conCortes]);
+
   /** Un clic en la pista de zooms pone uno ahí; con uno elegido, primero lo suelta. */
   const pulsarPistaDeZoom = (clientX: number) => {
     if (!onZooms) return;
@@ -374,20 +402,14 @@ export function LineaDeTiempo({
   };
 
   return (
-    <section className="shrink-0 border-t border-white/8 bg-black/25 px-4 pt-3 pb-3">
-      <div className="flex items-start gap-2">
-        <div className="flex h-14 shrink-0 items-center gap-1.5">
-          {delante}
-          {/* Dónde está la vista previa. Mientras suena lo escribe el bucle de arriba. */}
-          <span
-            ref={reloj}
-            className="w-[58px] text-[14px] font-medium tabular-nums text-neutral-100"
-          >
-            {formatoTiempo(posicionMs)}
-          </span>
-        </div>
-
-        <div className="min-w-0 flex-1" style={{ paddingInline: ASA }}>
+    <section className="shrink-0 border-t border-linea px-4 pt-3 pb-3">
+      {/*
+        Las pistas, de lado a lado. El play iba a su izquierda, en una columna que solo llenaba
+        la fila de las miniaturas: debajo, junto a la pista de zooms y a la fila de botones,
+        quedaba un hueco vacío del ancho de los mandos (Munito, 16-nov: «lo que no me gusta es
+        que quede un huecazo aquí»). Ahora va en la fila de abajo, al principio.
+      */}
+        <div className="min-w-0" style={{ paddingInline: ASA }}>
           <div
             ref={pista}
             data-pista
@@ -398,7 +420,7 @@ export function LineaDeTiempo({
             }}
             className="relative h-14 cursor-pointer touch-none select-none"
           >
-            <div className="absolute inset-0 flex overflow-hidden rounded-[5px] bg-white/5">
+            <div className="absolute inset-0 flex overflow-hidden rounded-[5px] bg-linea-tenue">
               {muestras.map((indice, hueco) => {
                 const ruta = frames[indice]?.thumbPath;
                 return ruta ? (
@@ -415,7 +437,7 @@ export function LineaDeTiempo({
                   <div
                     key={hueco}
                     data-miniatura-pendiente
-                    className="h-full min-w-0 flex-1 animate-pulse border-r border-black/30 bg-white/5"
+                    className="h-full min-w-0 flex-1 animate-pulse border-r border-black/30 bg-linea-tenue"
                   />
                 );
               })}
@@ -456,7 +478,7 @@ export function LineaDeTiempo({
               style={{ left: pct(hastaMs) }}
             />
             <div
-              className="pointer-events-none absolute -inset-y-px border-y-[3px] border-blue-500"
+              className="pointer-events-none absolute -inset-y-px border-y-[3px] border-marca"
               style={{ left: pct(desdeMs), right: `calc(100% - ${pct(hastaMs)})` }}
             />
 
@@ -497,10 +519,10 @@ export function LineaDeTiempo({
                 if (e.button !== 0) return;
                 pulsarPistaDeZoom(e.clientX);
               }}
-              className="relative mt-2 h-9 cursor-copy touch-none rounded-[5px] bg-white/[0.04] select-none"
+              className="relative mt-2 h-9 cursor-copy touch-none rounded-[5px] bg-linea-tenue select-none"
             >
               {zooms.length === 0 && (
-                <span className="pointer-events-none absolute inset-0 flex items-center px-3 text-[13px] text-neutral-300">
+                <span className="pointer-events-none absolute inset-0 flex items-center px-3 text-[13px] text-suave">
                   {t("Haz clic aquí para poner un zoom")}
                 </span>
               )}
@@ -544,7 +566,20 @@ export function LineaDeTiempo({
             />
           )}
 
-          <div className="mt-2 flex min-h-8 items-center justify-between gap-3 text-[13px]">
+        </div>
+
+        <div className="mt-2 flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5">
+            {delante}
+            {/* Dónde está la vista previa. Mientras suena lo escribe el bucle de arriba. */}
+            <span
+              ref={reloj}
+              className="w-[58px] text-[14px] font-medium tabular-nums text-titulo"
+            >
+              {formatoTiempo(posicionMs)}
+            </span>
+          </div>
+          <div className="flex min-h-8 min-w-0 flex-1 items-center justify-between gap-3 text-[13px]">
             {zoomElegido ? (
               <div className="min-w-0 flex-1">
                 <AjustesDelZoom
@@ -585,9 +620,9 @@ export function LineaDeTiempo({
                       onCambio={(cambio) => onPiezas(cambiarPieza(trozos, bajoElCabezal, cambio))}
                     />
                   ) : entero ? (
-                    <span className="text-neutral-300">{t("Arrastra los bordes azules para recortar")}</span>
+                    <span className="text-suave">{t("Arrastra los bordes azules para recortar")}</span>
                   ) : (
-                    <span className="text-neutral-300">
+                    <span className="text-suave">
                       {t("Te quedas con {trozo} de {total}", {
                         trozo: formatoTiempo(sale),
                         total: formatoTiempo(total),
@@ -598,9 +633,12 @@ export function LineaDeTiempo({
                 <div className="flex shrink-0 items-center gap-2">
                   {onPiezas && (
                     <BotonDeLinea
-                      onClick={() => onPiezas(partir(trozos, ahora()))}
+                      onClick={cortarAqui}
                       apagado={!sePuedePartir(trozos, posicionMs)}
-                      titulo={t("Corta el vídeo donde está el cabezal: después puedes quitar o acelerar cada trozo")}
+                      titulo={conTecla(
+                        t("Corta el vídeo donde está el cabezal: después puedes quitar o acelerar cada trozo"),
+                        TECLA_CORTAR,
+                      )}
                     >
                       <Scissors className="size-4" />
                       {t("Cortar aquí")}
@@ -617,7 +655,7 @@ export function LineaDeTiempo({
                   )}
                   {bajoElCabezal >= 0 && (
                     // Con trozos, lo que dura el vídeo que va a salir, que ya no es la grabación.
-                    <span className="ml-1 whitespace-nowrap tabular-nums text-neutral-300">
+                    <span className="ml-1 whitespace-nowrap tabular-nums text-suave">
                       {t("Sale de {dura}", { dura: formatoTiempo(sale) })}
                     </span>
                   )}
@@ -625,19 +663,18 @@ export function LineaDeTiempo({
                     <button
                       type="button"
                       onClick={() => onTramo(0, total, "las dos")}
-                      className="rounded-md px-2.5 py-1 font-medium whitespace-nowrap text-neutral-200 transition-colors hover:bg-white/10 hover:text-white"
+                      className="rounded-md px-2.5 py-1 font-medium whitespace-nowrap text-texto transition-colors hover:bg-realce hover:text-titulo"
                     >
                       {t("Usar el vídeo entero")}
                     </button>
                   ) : (
-                    bajoElCabezal < 0 && <span className="ml-1 tabular-nums text-neutral-300">{formatoTiempo(total)}</span>
+                    bajoElCabezal < 0 && <span className="ml-1 tabular-nums text-suave">{formatoTiempo(total)}</span>
                   )}
                 </div>
               </>
             )}
           </div>
         </div>
-      </div>
     </section>
   );
 }
@@ -694,12 +731,12 @@ function BloqueDeZoom({
         onQuitar();
       }}
       style={{ left: izquierda, width: ancho }}
-      className={`group absolute inset-y-1 flex cursor-grab items-center overflow-hidden rounded-[4px] border-2 px-2 outline-none transition-colors focus-visible:border-blue-200 ${
-        elegido ? "border-blue-300 bg-blue-500/45" : "border-blue-400/55 bg-blue-500/25 hover:bg-blue-500/35"
+      className={`group absolute inset-y-1 flex cursor-grab items-center overflow-hidden rounded-[4px] border-2 px-2 outline-none transition-colors focus-visible:border-titulo ${
+        elegido ? "border-marca bg-marca/45" : "border-marca/55 bg-marca/25 hover:bg-marca/35"
       } ${arrastrando ? "cursor-grabbing" : ""}`}
     >
       {/* Corto, porque un bloque de dos segundos mide poco: el icono dice si es lupa o fijo. */}
-      <span className="pointer-events-none flex min-w-0 items-center gap-1 text-[12px] font-semibold whitespace-nowrap tabular-nums text-white">
+      <span className="pointer-events-none flex min-w-0 items-center gap-1 text-[12px] font-semibold whitespace-nowrap tabular-nums text-titulo">
         {zoom.lupa ? (
           <Search className="size-3.5 shrink-0" aria-hidden="true" />
         ) : (
@@ -732,7 +769,7 @@ function BotonDeLinea({
       onClick={onClick}
       disabled={apagado}
       title={titulo}
-      className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 text-[13px] font-medium whitespace-nowrap text-neutral-100 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-40"
+      className="flex h-8 items-center gap-1.5 rounded-lg bg-realce px-3 text-[13px] font-medium whitespace-nowrap text-titulo transition-colors hover:bg-activo hover:text-titulo disabled:opacity-40"
     >
       {children}
     </button>
@@ -776,9 +813,9 @@ function Asa({
       }}
       onKeyDown={onTecla}
       style={{ left, width: ASA }}
-      className={`absolute -inset-y-px z-10 flex cursor-ew-resize items-center justify-center bg-blue-500 outline-none transition-colors hover:bg-blue-400 focus-visible:bg-blue-400 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] ${
+      className={`absolute -inset-y-px z-10 flex cursor-ew-resize items-center justify-center bg-marca outline-none transition-colors hover:brightness-110 focus-visible:brightness-110 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] ${
         lado === "desde" ? "rounded-l-[5px]" : "rounded-r-[5px]"
-      } ${arrastrando ? "bg-blue-400" : ""}`}
+      } ${arrastrando ? "brightness-110" : ""}`}
     >
       <span className="h-5 w-[3px] rounded-full bg-white/90" />
       {/* Mientras se arrastra, el tiempo exacto del corte encima del asa. */}

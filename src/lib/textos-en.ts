@@ -7,30 +7,40 @@
  */
 export const EN: Record<string, string> = {
   // La cabecera y las cuatro secciones
-  Versión: "Version",
   Capturar: "Capture",
   Grabar: "Record",
   "Teclas de Windows": "Windows keys",
   "La app": "The app",
-  "Secciones de ajustes": "Settings sections",
   Guardado: "Saved",
   Salir: "Quit",
+  "Buscar un ajuste": "Search a setting",
+  "Apartados de los ajustes": "Settings sections",
+  "Ayuda y winshotx": "Help and winshotx",
+  "Los atajos y lo que pasa al pulsarlos.": "The shortcuts and what happens when you press them.",
+  "Qué se hace con la foto en cuanto la tienes.": "What happens to the shot as soon as you have it.",
+  "El atajo, la fluidez, el sonido y la cámara.": "The shortcut, the smoothness, the sound and the camera.",
+  "Graba siempre en memoria y te quedas con lo último cuando pasa algo.": "It is always recording in memory, and you keep the last bit when something happens.",
+  "Qué teclas del sistema abren winshotx en vez de Windows.": "Which system keys open winshotx instead of Windows.",
+  "Dónde guarda, cómo se ve y cuándo arranca.": "Where it saves, how it looks and when it starts.",
+  "La bienvenida, el tour y de dónde sale winshotx.": "The welcome, the tour and where winshotx comes from.",
+  "Los atajos": "Shortcuts",
+  "Al capturar": "While capturing",
+  "Sonido y cámara": "Sound and camera",
+  "Lo que guarda": "What it keeps",
+  "Qué hace este ajuste": "What this setting does",
+  "Así va a salir": "How it will look",
+  "Escribe lo que buscas: cursor, sonido, carpeta…": "Type what you are looking for: cursor, sound, folder…",
+  "Nada con «{consulta}». Prueba con otra palabra.": "Nothing for «{consulta}». Try another word.",
 
   // Capturar
-  "Al pulsar el atajo": "When you press the shortcut",
   "Capturar región": "Capture a region",
   "Capturar y abrir el editor": "Capture and open the editor",
   "La misma captura, pero al soltar el ratón se abre el editor en vez de la barra de siempre. Para la captura que hay que trabajar: señalar algo con una flecha, tapar un dato o recortar antes de mandarla.": "The same capture, but letting go of the mouse opens the editor instead of the usual toolbar. For the shot you have to work on: point at something with an arrow, cover up a detail, or crop before you send it.",
   "esa combinación está ocupada": "that combination is taken",
   "Esperar antes de capturar": "Wait before capturing",
-  "la pantalla se congela al pulsar el atajo": "the screen freezes the moment you press it",
-  "da tiempo a abrir el menú que quieres fotografiar":
-    "time enough to open the menu you want to shoot",
-  "Sin espera": "No wait",
   "3 segundos": "3 seconds",
   "5 segundos": "5 seconds",
   "Ocultar iconos del escritorio": "Hide the desktop icons",
-  "solo mientras dura el disparo": "only while the shot is taken",
 
   "La captura": "The shot",
   "Este Windows usa la captura antigua": "This Windows uses the old capture",
@@ -40,8 +50,6 @@ export const EN: Record<string, string> = {
   "Incluir el cursor": "Include the pointer",
   "Lupa de píxel": "Pixel magnifier",
   "Al soltar el ratón": "When you let go",
-  "va directa al portapapeles": "it goes straight to the clipboard",
-  "sale la barra para copiar, guardar o editar": "a bar appears: copy, save or edit",
   "Sale la barra": "Show the bar",
   "Se copia sola": "Copy it for me",
   "Copiar al guardar": "Copy when saving",
@@ -51,10 +59,8 @@ export const EN: Record<string, string> = {
   // Grabar
   "Cómo se graba": "How it records",
   "Grabar región": "Record a region",
-  "el mismo atajo la termina": "the same shortcut ends it",
   "Fotogramas por segundo": "Frames per second",
   "Audio del sistema": "System audio",
-  "lo que suene por los altavoces, dentro del vídeo": "whatever the speakers play, in the video",
   Velocidad: "Speed",
   "dura {n} veces menos, y sale sin sonido": "{n} times shorter, and it comes out silent",
   "dura el doble, y sale sin sonido": "twice as long, and it comes out silent",
@@ -69,35 +75,27 @@ export const EN: Record<string, string> = {
   // Los ultimos segundos
   "Los últimos segundos": "The last few seconds",
   "Grabar siempre lo último": "Always be recording",
-  "graba sin parar y tira lo viejo, para poder rescatar lo último":
-    "records non-stop and drops the old, so you can rescue what just happened",
   "Cuánto se guarda": "How much it keeps",
   "Quedarme con lo último": "Keep what just happened",
   "primero hay que encenderlo aquí arriba": "turn it on above first",
   "ahora mismo hay {n} s guardados": "{n} s kept right now",
   "Qué pantalla": "Which screen",
   "Ratón": "Mouse",
+  "{n}, la principal": "{n}, the main one",
   "pantalla {n} · {ancho} × {alto} · {ritmo}/s": "screen {n} · {ancho} × {alto} · {ritmo}/s",
   "{ancho} × {alto} · hasta {tamaño} en disco": "{ancho} × {alto} · up to {tamaño} on disk",
   Fluidez: "Smoothness",
-  "esta combinación midió el 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento":
-    "this combination measured 22% of a core with a quiet desktop, and up to 60% with the screen moving",
-  "esta combinación midió el 17% de un núcleo con el escritorio quieto":
-    "this combination measured 17% of a core with a quiet desktop",
+  "la más fluida; gasta más cuanto más se mueve la pantalla": "the smoothest; it uses more the more the screen moves",
+  "gasta poco con la pantalla quieta": "uses little while the screen is still",
   "Guardar en…": "Save to…",
   "Ctrl+Mayús+S": "Ctrl+Shift+S",
   "Elegir dónde guardar (Ctrl+Mayús+S)": "Choose where to save (Ctrl+Shift+S)",
   "fotogramas por segundo": "frames per second",
   Nativa: "Native",
-  "abre el editor con lo último, sin dejar de grabar":
-    "opens the editor with the last bit, and keeps recording",
 
   // Teclas de Windows
-  "Las teclas de captura de Windows": "Windows' own capture keys",
   "Impr Pant": "Print Screen",
   "Usar también Impr Pant": "Use Print Screen too",
-  "hoy abre la Herramienta de Recortes": "today it opens the Snipping Tool",
-  "ya es de winshotx": "it belongs to winshotx now",
   "cierra sesión para que Windows la suelte": "sign out so Windows lets go of it",
   "Win + Mayús + S": "Win + Shift + S",
   "Quedarme con Win+Mayús+S": "Take Win+Shift+S",
@@ -113,7 +111,6 @@ export const EN: Record<string, string> = {
 
   "La Herramienta de Recortes": "The Snipping Tool",
   "Herramienta de Recortes": "Snipping Tool",
-  "quitarla es lo único que la calla del todo": "removing it is the only way to silence it",
   "vuelve desde la Microsoft Store": "it comes back from the Microsoft Store",
   "quitándola…": "removing it…",
   "quitada, ya no abre nada": "removed, it opens nothing now",
@@ -135,9 +132,7 @@ export const EN: Record<string, string> = {
   sesiones: "sessions",
   Vaciar: "Empty it",
 
-  Aspecto: "Appearance",
   Tema: "Theme",
-  "sigue a Windows": "follows Windows",
   Automático: "Automatic",
   Claro: "Light",
   Oscuro: "Dark",
@@ -148,6 +143,7 @@ export const EN: Record<string, string> = {
 
   Actualizaciones: "Updates",
   "mirando si hay versión nueva…": "checking for a new version…",
+  "No se pudo mirar si hay versión nueva": "Could not check for a new version",
   "estás en la última versión": "you are on the latest version",
   "la Microsoft Store se encarga de actualizarla": "the Microsoft Store keeps this one updated",
   "actualizado a la {v}": "updated to {v}",
@@ -161,12 +157,12 @@ export const EN: Record<string, string> = {
   Bienvenida: "Welcome",
   "Ver otra vez": "Show it again",
   "Tour de los ajustes": "Tour of the settings",
-  "siete paradas, una por sección": "seven stops, one per section",
   Empezar: "Start",
   "Arrancar con Windows": "Start with Windows",
 
 
   // Las explicaciones largas, las que salen al dejar el ratón sobre el icono
+  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla.": "winshotx records the screen all the time and drops the old, so what just happened is still there even though you never pressed record. And it costs: the more frames and resolution you ask for, and the more the screen moves, the more it uses.",
   "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.": "Freezes the screen the moment you press it and lets you crop over that still picture, so whatever moves underneath stops getting in the way. Windows keeps some combinations for itself and those never reach here.",
   "La pantalla se congela justo al pulsar el atajo, así que un menú abierto se cierra antes de que dé tiempo a fotografiarlo. Con 3 o 5 segundos, pulsas primero, abres el menú y la foto se toma sola cuando ya está delante.": "The screen freezes the instant you press the shortcut, so an open menu closes before you can shoot it. With 3 or 5 seconds you press first, open the menu, and the shot is taken on its own once it is there.",
   "Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.": "The icons hide only for the shot itself, not while you pick the crop, and they come back even if the capture fails. It is for shooting the wallpaper, or a window with the desktop behind it, without your files showing.",
@@ -178,7 +174,6 @@ export const EN: Record<string, string> = {
   "Cuántas veces por segundo se mira la pantalla. 30 vale para casi todo; 60 es para movimiento rápido y cuesta el doble de disco y de máquina. El editor puede bajarlo después, pero lo que no se grabó no se inventa.": "How many times a second the screen is looked at. 30 is enough for almost everything; 60 is for fast movement and costs twice the disk and the machine. The editor can lower it afterwards, but what was not recorded cannot be invented.",
   "Graba lo que suena por los altavoces, dentro del mismo vídeo: la voz de una llamada, el audio de un vídeo, la alerta de un programa. No graba tu micrófono, eso es la fila de abajo.": "Records whatever comes out of the speakers, inside the same video: the voice on a call, the audio of a video, an app's alert. It does not record your microphone, that is the row below.",
   "Tu voz, en su propia pista: en el editor se sube, se baja o se quita sin tocar el sonido del sistema. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.": "Your voice, on its own track: in the editor you can turn it up, down or off without touching the system sound. It is what you need to explain something while you show it, and it can only be decided before recording.",
-  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva un 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento. Apagado, winshotx entera gasta el 2,9%.": "winshotx records the screen all the time and drops the old, so what just happened is still there even though you never pressed record. And it costs: measured on a machine with three screens, at 60 frames and native resolution it takes 22% of a core with a quiet desktop, and up to 60% with the screen moving. Turned off, the whole of winshotx uses 2.9%.",
   "Cuánto tiempo hacia atrás se puede rescatar. Más segundos es más memoria y más disco dando vueltas, y hasta que no pase ese tiempo desde que lo encendiste, lo que guardes durará menos de lo que pone aquí.": "How far back you can rescue. More seconds is more memory and more disk going around, and until that much time has passed since you turned it on, what you save will be shorter than what it says here.",
   "El anillo vigila UNA pantalla y no puede cambiar a mitad, porque mudarse se llevaría por delante lo grabado. Al elegir una, su número aparece un par de segundos en esa misma pantalla para que sepas cuál es.": "The ring watches ONE screen and cannot switch halfway, because moving would take what is already recorded with it. When you pick one, its number appears on that very screen for a couple of seconds so you know which it is.",
   "A qué tamaño se guarda lo que va entrando. Bajarlo de la resolución nativa ocupa mucho menos y se nota poco en pantalla, y aquí abajo tienes lo que puede llegar a ocupar en disco con lo que hayas elegido.": "The size everything is stored at. Below the native resolution it takes far less room and you hardly notice it on screen, and the line under here is how much it can end up taking on disk with what you picked.",
@@ -196,10 +191,61 @@ export const EN: Record<string, string> = {
   "Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.": "Walks this screen stopping at every block and saying what it is for. It is the quick way to see what is here without opening things to find out.",
   "winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "winshotx opens on its own when you turn the computer on and sits in the tray, with no window. Without this you have to open it by hand every time, and the capture keys do nothing while it is closed.",
 
-  // La barra de abajo
-  "Al soltar": "When you let go",
-  Barra: "Bar",
-  Copia: "Copy",
+  // Así va a salir: el dibujo de cada apartado de los ajustes (la barra de abajo se fue en la 0.5)
+  "**{atajo}** y eliges la zona con el ratón": "**{atajo}** and you pick the area with the mouse",
+  "Cuenta **{n} s** antes de hacer la foto": "Counts **{n} s** before taking the shot",
+  "La foto sale en cuanto sueltas": "The shot is taken as soon as you let go",
+  "Los iconos del escritorio **no salen** en la foto": "Desktop icons **do not show** in the shot",
+  "Los iconos del escritorio salen en la foto": "Desktop icons show in the shot",
+  "El cursor **sale** en la foto": "The pointer **shows** in the shot",
+  "El cursor **no sale** en la foto": "The pointer **does not show** in the shot",
+  "Una lupa al lado del ratón para afinar al píxel": "A magnifier next to the mouse to get it pixel perfect",
+  "Al soltar, la foto **se copia sola**": "When you let go, the shot **copies itself**",
+  "Al soltar, sale **la barra** para elegir qué hacer": "When you let go, **the bar** shows up so you choose what to do",
+  "Al guardarla, también se copia": "When you save it, it is copied too",
+  "Sin miniatura en la esquina": "No thumbnail in the corner",
+  "Se queda una miniatura en la esquina **{n} s**": "A thumbnail stays in the corner for **{n} s**",
+  "Se queda una miniatura en la esquina hasta que la cierres": "A thumbnail stays in the corner until you close it",
+  "Sale sobre un fondo **{fondo}**, con sombra y esquinas redondas": "It comes out on a **{fondo}** background, with a shadow and rounded corners",
+  "Sale tal cual, sin fondo": "It comes out as is, with no background",
+  "Suena el obturador": "The shutter sounds",
+  "Sin sonido de obturador": "No shutter sound",
+  "Con el sonido del PC y tu micrófono": "With the PC sound and your microphone",
+  "Con el sonido del PC, sin micrófono": "With the PC sound, no microphone",
+  "Con tu micrófono, sin el sonido del PC": "With your microphone, no PC sound",
+  "Sin sonido": "No sound",
+  "**{atajo}** y eliges qué grabar": "**{atajo}** and you pick what to record",
+  "A **{fps} fps**": "At **{fps} fps**",
+  "Con tu cámara en una esquina": "With your camera in a corner",
+  "Sin cámara": "No camera",
+  "Al terminar, se abre el editor": "When you stop, the editor opens",
+  "Al terminar, se guarda sin abrir nada": "When you stop, it is saved without opening anything",
+  "ahora": "now",
+  "hace {n} s": "{n} s ago",
+  "**Grabando siempre**, en memoria, sin guardar nada": "**Always recording**, in memory, saving nothing",
+  "**Apagado**: no graba nada hasta que lo enciendas": "**Off**: it records nothing until you turn it on",
+  "**{atajo}** y te quedas con los últimos **{n} s**": "**{atajo}** and you keep the last **{n} s**",
+  "A tamaño real, a {fps} fps": "At full size, at {fps} fps",
+  "A {alto}p, a {fps} fps": "At {alto}p, at {fps} fps",
+  "Lo que no guardas se borra solo": "What you do not keep is deleted on its own",
+  "Bloq Despl": "Scroll Lock",
+  "abre winshotx": "opens winshotx",
+  "abre la captura de Windows": "opens the Windows capture",
+  "Mayús": "Shift",
+  "abre la Herramienta de Recortes": "opens the Snipping Tool",
+  "**Impr Pant** abre winshotx": "**Print Screen** opens winshotx",
+  "**Impr Pant** sigue siendo de Windows": "**Print Screen** still belongs to Windows",
+  "**Win + Mayús + S** abre winshotx": "**Win + Shift + S** opens winshotx",
+  "**Win + Mayús + S** sigue siendo de Windows": "**Win + Shift + S** still belongs to Windows",
+  "Tus atajos de winshotx funcionan siempre, cojas estas o no": "Your winshotx shortcuts always work, whether you take these or not",
+  "Guarda en **{carpeta}**": "Saves to **{carpeta}**",
+  "Claro u oscuro, como Windows": "Light or dark, like Windows",
+  "Siempre en claro": "Always light",
+  "Siempre en oscuro": "Always dark",
+  "Arranca con Windows, en la bandeja": "Starts with Windows, in the tray",
+  "No arranca sola con Windows": "Does not start with Windows",
+  "En el idioma de Windows": "In the language Windows uses",
+  "En español": "In English",
 
   // El menu de la bandeja
   "Abrir la carpeta": "Open the shots folder",
@@ -217,36 +263,38 @@ export const EN: Record<string, string> = {
   Atrás: "Back",
   Siguiente: "Next",
   Listo: "Done",
-  "Todo está en estas cinco": "It is all in these five",
-  "No hay más pantallas ni menús escondidos: lo que se puede cambiar está repartido aquí, y cada una cabe entera sin bajar.":
-    "There are no other screens or hidden menus: everything you can change lives here, and each section fits without scrolling.",
   "La tecla que lo empieza todo": "The key that starts everything",
   "Congela la pantalla para que recortes con calma. Y puedes pedirle que espere 3 o 5 segundos: es la única forma de fotografiar un menú abierto, porque al pulsar el atajo se cierra.":
     "It freezes the screen so you can crop without hurrying. You can also ask it to wait 3 or 5 seconds: that is the only way to shoot an open menu, because pressing the shortcut closes it.",
   "Qué pasa al soltar el ratón": "What happens when you let go",
   "Con «Se copia sola» la imagen va al portapapeles y se acabó, cero clics. Con «Sale la barra» eliges cada vez entre copiar, guardar, editar o grabar.":
     "With «Copy it for me» the image goes to the clipboard and that is that, no clicks. With «Show the bar» you choose each time between copy, save, edit or record.",
-  "Lo mismo, pero en movimiento": "The same, but moving",
-  "El recorte se graba en GIF o en vídeo. Tiene su propio atajo, y el mismo que empieza la grabación es el que la termina.":
-    "The crop records to GIF or video. It has its own shortcut, and the one that starts the recording is the one that ends it.",
   "Quitarle las teclas a Windows": "Taking the keys off Windows",
   "Impr Pant es gratis. Win+Mayús+S cuesta perder Win+S, la búsqueda, y la fila te lo dice antes de que pulses nada.":
     "Print Screen is free. Win+Shift+S costs you Win+S, the search, and the row tells you before you press anything.",
-  "Dónde acaba lo que capturas": "Where what you capture ends up",
-  "La carpeta a la que van las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y nunca pisa uno que ya exista.":
-    "The folder the shots and videos you save go to. winshotx names them with the date and the time, and it never overwrites one that is already there.",
   "Ya está: así puedes ayudar": "That is it, and here is how you can help",
   "winshotx es gratis, sin cuentas y sin anuncios, y lo hago yo solo. Si te ahorra tiempo, un café es lo que lo mantiene en pie. Y si no, una estrella en GitHub o contar un fallo ayudan igual.":
     "winshotx is free, with no accounts and no ads, and I build it on my own. If it saves you time, a coffee is what keeps it going. If not, a star on GitHub or a bug report helps just as much.",
+  "Todo está en estos ocho": "It is all in these eight",
+  "Cada icono es un apartado: deja el ratón encima y te dice su nombre. No hay más pantallas ni menús escondidos, y cada apartado cabe entero sin bajar.": "Each icon is a section: rest the mouse on it and it tells you its name. There are no other screens or hidden menus, and each section fits without scrolling.",
+  "Este dibujo cambia en cuanto tocas un ajuste, y debajo te lo dice en frases: si apagas la lupa, desaparece de aquí.": "This drawing changes as soon as you touch a setting, and underneath it says so in words: turn the magnifier off and it disappears from here.",
+  "Si no sabes dónde está algo": "If you cannot find something",
+  "Pulsa aquí o Ctrl + F y escribe lo que buscas, como «cursor» o «sonido»: te lleva a su apartado y te ilumina la fila.": "Click here or press Ctrl + F and type what you are after, like «cursor» or «sound»: it takes you to its section and lights up the row.",
 
   // La bienvenida
+  "Tus teclas": "Your keys",
+  "Al soltar": "When you let go",
+  "Pasos de la bienvenida": "Welcome steps",
+  "Lo que vas a ver": "What you will see",
   "winshotx ya está en marcha": "winshotx is up and running",
   "Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.":
     "It lives in the system tray, next to the clock. There is no window to leave open: you call it with a key, it does its job and it is gone.",
-  "Estas son las dos teclas con las que se llama. Pulsa el campo y teclea la combinación que quieras si prefieres otras.":
-    "These are the two keys that call it. Click the field and type any combination you prefer.",
+  "Las dos teclas que lo llaman": "The two keys that call it",
   "Capturar una región": "Capture a region",
   "Grabar en GIF o vídeo": "Record to GIF or video",
+  "Haz clic en una y teclea la combinación que prefieras.": "Click one and type the combination you prefer.",
+  "Pulsas {atajo} y arrastras la zona": "Press {atajo} and drag over the area",
+  "Pulsas {atajo} y eliges qué grabar": "Press {atajo} and pick what to record",
   "Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.":
     "Everything stays on your computer: no account, no cloud, nothing uploaded.",
   "Esta la tiene otra aplicación. Prueba con otra.": "Another app has this one. Try a different one.",
@@ -256,12 +304,12 @@ export const EN: Record<string, string> = {
     "Both ways use the same shortcut and the same selection. What changes is what happens when you let go, and you can switch whenever you like in the settings.",
   "Con barra": "With a bar",
   "Seleccionas y eliges qué hacer.": "Select, then choose what to do.",
-  "La opción completa: de esa barra salen el editor, el GIF y el vídeo.":
-    "The full option: the editor, the GIF and the video all come out of that bar.",
   "Al vuelo": "On the fly",
   "Seleccionas y se copia sola.": "Select and it copies itself.",
-  "Para pegar en un chat sin pensar. Grabar va igual en las dos: empieza al soltar.":
-    "To paste into a chat without thinking. Recording works the same in both: it starts when you let go.",
+  "De esa barra salen el editor, el GIF y el vídeo": "The editor, the GIF and the video all come out of that bar",
+  "Para pegar en un chat sin pensar": "To paste into a chat without thinking",
+  "Grabar empieza al soltar, en las dos formas": "Recording starts when you let go, either way",
+  "Cómo va": "How it goes",
   "Pulsas el atajo": "You press the shortcut",
   "Arrastras la región": "You drag the region",
   "Copiar, guardar, editar o grabar": "Copy, save, edit or record",
@@ -270,33 +318,30 @@ export const EN: Record<string, string> = {
   "¿Le quitamos la tecla a la Herramienta de Recortes?": "Shall we take the key off the Snipping Tool?",
   "En Windows, la tecla Impr Pant abre la Herramienta de Recortes. Si quieres, winshotx se queda con ella y responde a ese mismo dedo, sin aprender ningún atajo nuevo.":
     "On Windows, the Print Screen key opens the Snipping Tool. If you want, winshotx takes it and answers to that same finger, with no new shortcut to learn.",
-  "Apaga el ajuste de Windows que le da esa tecla a la Herramienta de Recortes y se la pasa a winshotx. No te quita nada más.":
-    "It turns off the Windows setting that gives that key to the Snipping Tool and hands it to winshotx. It takes nothing else from you.",
+  "Impr Pant abre": "Print Screen opens",
   "La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.":
     "The Snipping Tool keeps Print Screen and winshotx answers to its own shortcut.",
-  "Impr Pant abre winshotx.": "Print Screen opens winshotx.",
   "Impr Pant no ha caído: hay otro programa que la tiene cogida.":
     "Print Screen did not come across: another program is holding it.",
   "Si Windows sigue abriendo la Herramienta de Recortes con Impr Pant, cierra sesión y vuelve a entrar.":
     "If Windows keeps opening the Snipping Tool with Print Screen, sign out and back in.",
-  "Sin cambios. Puedes activarlo más adelante en Ajustes, en “Teclas de Windows”.":
-    "Nothing changed. You can turn it on later in Settings, under “Windows keys”.",
-  "Win + Mayús + S es otra historia.": "Win + Shift + S is another story.",
-  "Esa la atiende Windows antes que cualquier programa y solo se le quita apagando la S de sus atajos, lo que apaga también Win + S, la búsqueda. Por eso va aparte, en Ajustes → Teclas de Windows, y no entra aquí de propina.":
-    "Windows answers that one before any program, and the only way to take it is to switch off the S in its own shortcuts, which also switches off Win + S, the search. That is why it sits apart, in Settings → Windows keys, and does not come along for the ride here.",
+  "Se queda en Windows: quitársela apaga también Win + S, la búsqueda. Si la quieres, está en Ajustes, en Teclas de Windows.":
+    "It stays with Windows: taking it also switches off Win + S, the search. If you want it, it is in Settings, under Windows keys.",
+  "Tus atajos de winshotx funcionan siempre, cojas esta tecla o no":
+    "Your winshotx shortcuts always work, whether you take this key or not",
 
   "Listo, ya puedes capturar": "That is it, you can start capturing",
   "Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja.":
     "This is how it is set up. You can change all of it later from the tray icon.",
+  "También con Impr Pant": "Also with Print Screen",
   "se copia al portapapeles": "it copies to the clipboard",
   "sale la barra para elegir": "a bar appears so you can choose",
   "se abre en la bandeja, sin ventana": "it opens in the tray, with no window",
-  "Pulsa el atajo cuando quieras. Con el botón derecho en el icono de la bandeja se abren los ajustes.":
-    "Press the shortcut whenever you like. Right-click the tray icon to open the settings.",
-  "Paso {n} de {total}": "Step {n} of {total}",
+  "Dónde se queda": "Where it lives",
+  "Pulsa el atajo cuando quieras": "Press the shortcut whenever you like",
+  "Con el botón derecho en el icono de la bandeja se abren los ajustes": "Right-click the tray icon to open the settings",
   "Todo listo": "All set",
   Estilo: "Style",
-  Hola: "Hello",
 
   // La barra de captura, la de grabacion y el editor
   "Salir sin capturar": "Leave without capturing",
@@ -306,6 +351,11 @@ export const EN: Record<string, string> = {
   "Preparando la captura… · Esc para salir": "Getting the capture ready… · Esc to leave",
   "Clic para": "Click to",
   "o clic para": "or click to",
+  "capturarla entera": "capture all of it",
+  "grabarla entera": "record all of it",
+  "grabarla entera en GIF": "record all of it as a GIF",
+  "para llevarte las {total} de una vez": "to take all {total} at once",
+  "la de antes": "the last one",
   Copiar: "Copy",
   Guardar: "Save",
   Editar: "Edit",
@@ -376,6 +426,9 @@ export const EN: Record<string, string> = {
   "Elegir qué hacer": "Choose what to do",
   "Al soltar, elegir qué hacer con el recorte · B":
     "On release, choose what to do with the crop · B",
+  "Proporción del recorte": "Crop aspect ratio",
+  "Proporción del recorte: {cual} · X": "Crop aspect ratio: {cual} · X",
+  libre: "free",
   "Ajustes de winshotx": "winshotx settings",
 
   // La tira de miniaturas del editor
@@ -386,7 +439,6 @@ export const EN: Record<string, string> = {
 
   // Sueltos de la bienvenida
   "o prueba": "or try",
-  "Dejarla como está": "Leave it alone",
 
   // La captura anclada
   Anclar: "Pin",
@@ -432,8 +484,6 @@ export const EN: Record<string, string> = {
 
   // El microfono
   Micrófono: "Microphone",
-  "tu voz, aparte del sonido del sistema": "your voice, apart from the system sound",
-  "tu voz, para narrar lo que se está grabando": "your voice, to narrate what you record",
 
   // Marcar los clics
   "Marcar los clics": "Mark the clicks",
@@ -452,6 +502,8 @@ export const EN: Record<string, string> = {
   "Escribe aquí": "Type here",
   "Silenciar la vista previa (M)": "Mute the preview (M)",
   "Oír la vista previa (M)": "Unmute the preview (M)",
+  "Volumen de la vista previa": "Preview volume",
+  "Volumen de la vista previa: {porCiento} % (↑ ↓)": "Preview volume: {porCiento}% (↑ ↓)",
   "Deshacer (Ctrl+Z)": "Undo (Ctrl+Z)",
   "Últimas capturas": "Latest shots",
   "Copiar {nombre}": "Copy {nombre}",
@@ -481,7 +533,9 @@ export const EN: Record<string, string> = {
   "Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.":
     "It is the only way to support winshotx: there is no paid version, no ads and no data to sell. You pay once, you choose how much, and no account is needed.",
   Invitar: "Buy one",
-  Apoyar: "Support",
+  "Llegó casi mudo (la app que sonaba estaba muy baja en el mezclador de Windows) y se subió {n} dB al grabar.":
+    "It arrived almost silent (the app that was playing was turned way down in the Windows volume mixer) and was raised {n} dB while recording.",
+  "El sonido del PC llegó casi mudo: lo he subido {n} dB": "The PC sound arrived almost silent: I raised it {n} dB",
   "No sonó nada en el PC mientras grababas.":
     "Nothing played on the PC while you were recording.",
   "Se grabó casi sin sonido: la app que sonaba estaba muy baja en el mezclador de Windows.":
@@ -510,7 +564,6 @@ export const EN: Record<string, string> = {
   "Solo el fotograma que estás viendo, sin perder nada.": "Just the frame you are looking at, with nothing lost.",
   "Solo el fotograma que estás viendo, mucho más ligero.": "Just the frame you are looking at, much lighter.",
   "Sonido": "Sound",
-  "Más ajustes": "More settings",
   "Tamaño": "Size",
   "La imagen tal cual, sin perder nada.": "The image as it is, with nothing lost.",
   "La misma imagen, mucho más ligera.": "The same image, much lighter.",
@@ -523,6 +576,21 @@ export const EN: Record<string, string> = {
   "Coral": "Coral",
   "Esquinas redondeadas": "Rounded corners",
   "rectas": "square",
+  // S39 (el editor de la 0.5): los grupos del panel y la barra de arriba
+  "Clics y teclas": "Clicks and keys",
+  "Cámara": "Camera",
+  "Calidad y tamaño": "Quality and size",
+  "Estilos": "Styles",
+  "Con sonido": "With sound",
+  "Color": "Colour",
+  "Tapar con mosaico": "Cover with a mosaic",
+  "Mayús+Supr": "Shift+Del",
+  // S25 (marco): la captura dentro de una ventana o de un portátil
+  "Marco": "Frame",
+  "Marco:": "Frame:",
+  "Ninguno": "None",
+  "Ventana": "Window",
+  "Portátil": "Laptop",
   "Puntero": "Pointer",
   "Movimiento suave": "Smooth movement",
   "Esconderlo cuando no se mueve": "Hide it when it stops",
@@ -571,7 +639,6 @@ export const EN: Record<string, string> = {
   // S2 (grabación)
   "Tecla de zoom": "Zoom key",
   "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "While you record, press it and the camera will move in to wherever your mouse is at that moment. It shows up as a zoom on the editor's timeline, which you can move or remove later. The key press also reaches the program you are recording: that's why it comes set to one hardly any program uses.",
-  "acerca el vídeo al ratón": "zooms the video to your mouse",
   "es la de grabar: al pulsarla pararías la grabación": "it's the record key: pressing it would stop the recording",
   "es la de capturar: al pulsarla abrirías una captura": "it's the capture key: pressing it would start a capture",
   "es la de los últimos segundos": "it's the last-seconds key",
@@ -580,7 +647,6 @@ export const EN: Record<string, string> = {
   "Grabar también la cámara": "Record the camera too",
   "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "Records your webcam at the same time, in its own file next to the video, so you can put it in a corner later from the editor. The camera light only comes on while you record. If another program is using it or Windows doesn't allow it (Privacy, Camera), the recording goes ahead without it.",
   "no hay ninguna cámara conectada": "no camera is connected",
-  "tu cara en su propio archivo": "your face in its own file",
   "Qué cámara": "Which camera",
   "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "The one you choose is recorded. If it isn't connected one day, the first one available is used.",
   // S3 (fondos)
@@ -625,10 +691,8 @@ export const EN: Record<string, string> = {
   "30 s": "30 sec",
   "Hasta cerrarla": "Until closed",
   "Fondo en las capturas": "Background on shots",
-  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
-    "Every shot you copy or save comes out on a background, with padding, a shadow and rounded corners, ready to post. They are the same backgrounds as the editor's Studio. It is not added when editing, pinning or reading text.",
-  "las capturas salen tal cual": "shots come out as they are",
-  "se pone al copiar y al guardar": "added when copying and saving",
+  "Cada foto que copias o guardas sale sobre un fondo, con aire alrededor, sombra y las esquinas redondeadas, lista para colgarla. Con marco, va dentro de una ventana de Windows 11 (clara u oscura, como las de winshotx) o de un portátil. Son los mismos fondos del Estudio del editor. No se pone al editar, al anclar ni al leer el texto.":
+    "Every shot you copy or save comes out on a background, with padding, a shadow and rounded corners, ready to post. With a frame, it sits inside a Windows 11 window (light or dark, like winshotx's own) or a laptop. They are the same backgrounds as the editor's Studio. It is not added when editing, pinning or reading text.",
   Poco: "Little",
   Mucho: "Lots",
   "Color del fondo": "Background color",
@@ -652,6 +716,16 @@ export const EN: Record<string, string> = {
   "Las fotos que guardes y los vídeos que exportes salen aquí, de lo más nuevo a lo más viejo.":
     "The shots you save and the videos you export show up here, newest first.",
   "ese archivo no es del historial": "that file is not in the history",
+  // S26: buscar en el historial por el texto de las fotos
+  "Buscar en el texto de las fotos": "Search the text in your shots",
+  "Borrar la búsqueda": "Clear the search",
+  "El texto se lee aquí, en tu PC, y no sale de él.": "The text is read here, on your PC, and never leaves it.",
+  "Ninguna foto lleva escrito «{texto}»": "No shot has “{texto}” written on it",
+  "Busca en el texto de las fotos, que se lee aquí, en tu PC, y no sale de él.":
+    "It searches the text in your shots, which is read here, on your PC, and never leaves it.",
+  "Queda 1 foto por leer: si lo lleva, saldrá aquí.": "1 shot left to read: if it has it, it will show up here.",
+  "Quedan {n} fotos por leer: las que lo lleven irán saliendo.":
+    "{n} shots left to read: the ones that have it will show up as they are read.",
   // S5 (scroll)
   "Captura con scroll": "Scrolling capture",
   "Captura con scroll: baja la página y la junta en una imagen · S": "Scrolling capture: scrolls the page and joins it into one image · S",
@@ -733,7 +807,6 @@ export const EN: Record<string, string> = {
   "Preparando el sonido…": "Preparing the sound…",
   "Sonido al empezar": "Sound when starting",
   "Una marimba corta justo antes de que empiece la grabación, para saber sin mirar que ya estás grabando. Suena y acaba antes de abrir el sonido, así que no queda dentro del vídeo.": "A short marimba right before the recording starts, so you know you are recording without looking. It plays and ends before the sound is opened, so it never ends up in the video.",
-  "antes de grabar, nunca dentro del vídeo": "before recording, never inside the video",
   // S11 (pistas)
   "Sonido del PC": "PC sound",
   "Redondeado": "Rounded",
@@ -744,13 +817,10 @@ export const EN: Record<string, string> = {
   "la tecla la elige el escritorio": "the desktop picks the key",
   "todavía sin tecla: pulsa «Cambiar»": "no key yet: press «Change»",
   "Sin tecla": "No key",
-  "seis paradas, una por sección": "six stops, one per section",
   "Arrancar al iniciar sesión": "Start when you log in",
   "winshotx se abre solo al entrar en tu sesión y se queda esperando, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "winshotx opens by itself when you log in and waits, with no window. Without this you have to open it by hand every time, and the capture keys do nothing while it is closed.",
   "Claro, oscuro, o lo que diga el sistema y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.": "Light, dark, or whatever the system says, changing along with it. It is only the colour of these windows; what you capture does not change.",
-  "sigue al sistema": "follows the system",
   "Español, inglés, o el del sistema si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.": "Spanish, English, or the system's language if winshotx speaks it. It changes right away and nothing needs restarting.",
-  "el del sistema": "the system's",
   "No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.": "There is no window to leave open: you call it with a key, it does its job and it is gone.",
   "Estas son las dos teclas con las que se llama. En Wayland las elige el escritorio: acepta las que te propone en su ventana, o cámbialas ahí con «Cambiar».": "These are the two keys that call it. On Wayland the desktop picks them: accept the ones it suggests in its window, or change them there with «Change».",
   "Esto es lo que queda configurado. Todo se cambia después en los ajustes, que se abren desde winshotx en el menú de aplicaciones.": "This is what is set up. Everything can be changed later in the settings, which open from winshotx in the applications menu.",
@@ -761,4 +831,18 @@ export const EN: Record<string, string> = {
   "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).": "Freezes the screen the moment you press it and lets you crop on top of that still shot. This desktop does not let apps ask for keys: put this command in its keyboard shortcuts (in Sway, a bindsym line in ~/.config/sway/config).",
   "ponla en los atajos del escritorio": "add it to the desktop's shortcuts",
   "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "This desktop does not let apps ask for their keys. Add them yourself in its keyboard shortcuts, with these two commands:",
+  // S43 (Linux en los ajustes de la 0.5)
+  "Todo está en estos siete": "It is all in these seven",
+  "Las tres pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.": "The three first-day screens again: what each key does and what to choose. It takes less than a minute and changes no settings.",
+  "Claro u oscuro, como el sistema": "Light or dark, like the system",
+  "Arranca al iniciar sesión": "Starts when you log in",
+  "No arranca sola al iniciar sesión": "Does not start by itself when you log in",
+  "En el idioma del sistema": "In the system language",
+  // S40 (la barra de abajo vuelve)
+  "Barra": "Bar",
+  "Copia": "Copy",
+  "Tour": "Tour",
+  "Buscando…": "Checking…",
+  "Ya tienes la última": "You have the latest",
+  "Apoyar": "Support",
 };

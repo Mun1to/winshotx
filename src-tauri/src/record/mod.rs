@@ -36,6 +36,11 @@ pub mod punteros;
 pub mod audio;
 #[cfg(test)]
 mod bench_anillo;
+#[cfg(all(test, windows))]
+pub(crate) mod banco_ventana;
+// TEMPORAL (S29): la captura de la 0.4.8 para medir antes y despues. Se borra al acabar.
+#[cfg(all(test, windows))]
+mod viejo_s29;
 mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
@@ -47,6 +52,8 @@ pub mod pistas;
 pub mod raton;
 pub mod realce;
 pub mod teclas;
+#[cfg(windows)]
+pub mod comparar_gpu;
 #[cfg(windows)]
 pub mod win;
 
@@ -283,6 +290,20 @@ impl FrameCache {
     /// Devuelve false cuando el fotograma es identico al anterior: en ese caso
     /// no se escribe nada y solo se alarga la duracion del ultimo, como ScreenToGif.
     pub fn push_rgba(&mut self, rgba: &[u8], width: u32, height: u32, ts_ms: u64) -> Result<bool> {
+        self.push_rgba_con_pistas(rgba, width, height, ts_ms, None)
+    }
+
+    /// Lo mismo, sabiendo que fuera de `pistas` nada ha cambiado desde el ultimo que se
+    /// empujo (S29: lo dice Windows). Con pistas solo se compara dentro de ellas; sin
+    /// pistas, el fotograma entero, como siempre.
+    pub fn push_rgba_con_pistas(
+        &mut self,
+        rgba: &[u8],
+        width: u32,
+        height: u32,
+        ts_ms: u64,
+        pistas: Option<&[Parche]>,
+    ) -> Result<bool> {
         // Que ha cambiado respecto al ultimo guardado, comparando filas enteras de memoria.
         // Esto sustituye al hash que habia antes, que leia un byte de cada cinco: comparar
         // de verdad cuesta lo mismo (una pasada por el fotograma) y no se le escapa nada.
@@ -295,7 +316,10 @@ impl FrameCache {
         // pantalla que los abarca. Ver `delta::zonas_cambiadas`.
         let zonas = match self.anterior.as_ref() {
             Some(previo) => {
-                let zonas = delta::zonas_cambiadas(previo, rgba, width, height);
+                let zonas = match pistas {
+                    Some(pistas) => delta::zonas_cambiadas_en(previo, rgba, width, height, pistas),
+                    None => delta::zonas_cambiadas(previo, rgba, width, height),
+                };
                 if zonas.is_empty() {
                     return Ok(false);
                 }
@@ -659,8 +683,46 @@ pub fn read_frame(session: &SessionData, index: usize) -> Result<RgbaImage> {
         .ok_or_else(|| AppError::Msg("fotograma corrupto en la caché".into()))
 }
 
+/// Las miniaturas propias que lleva una grabacion, como mucho, ademas de la del primer
+/// fotograma.
+///
+/// La tira del editor enseña las que caben, una cada 56 px de ancho por la proporcion de la
+/// grabacion y nunca de menos de 24 (`LineaDeTiempo.tsx`, `muestrasDeMiniaturas`): en un
+/// editor a pantalla completa en 4K y con una grabacion muy estrecha no llegan a 120. Antes
+/// se hacia una por FOTOGRAMA, 1800 con un minuto a 30 fps (3600 con el anillo a 60), y
+/// salian todas justo mientras el editor se abria, con todos los nucleos. Con 240 cada hueco
+/// de la tira enseña un fotograma a menos de 1/480 de la grabacion del que le toca.
+pub const MINIATURAS_MAXIMAS: usize = 240;
+
+/// Las posiciones (en `frames`) de los fotogramas que llevan miniatura propia: el primero,
+/// que es el cartel del video al abrir, y `MINIATURAS_MAXIMAS` repartidos por el tiempo igual
+/// que los reparte la tira (el fotograma que cubre el centro de cada trozo). Ordenadas y sin
+/// repetir. Con pocos fotogramas, todos.
+pub(crate) fn con_miniatura(frames: &[FrameEntry]) -> Vec<usize> {
+    if frames.len() <= MINIATURAS_MAXIMAS + 1 {
+        return (0..frames.len()).collect();
+    }
+    let ultimo = frames.last().expect("hay fotogramas");
+    let total = (ultimo.timestamp_ms + u64::from(ultimo.duration_ms)) as f64;
+    let mut elegidos = vec![0usize];
+    for k in 0..MINIATURAS_MAXIMAS {
+        let ms = ((k as f64 + 0.5) / MINIATURAS_MAXIMAS as f64 * total) as u64;
+        // El ultimo que empieza antes de ese instante: lo mismo que `indiceEn` de la tira.
+        let p = frames.partition_point(|f| f.timestamp_ms <= ms).saturating_sub(1);
+        if elegidos.last() != Some(&p) {
+            elegidos.push(p);
+        }
+    }
+    elegidos
+}
+
 /// Genera las miniaturas de la tira de tiempo. Se hace en paralelo porque es
 /// lo unico que separa al usuario del editor cuando para la grabacion.
+///
+/// Solo las de `con_miniatura`, y cada fotograma apunta a la mas cercana en el tiempo: la
+/// tira pide la de unos pocos fotogramas repartidos, y con video el cartel solo usa la del
+/// primero. Sin video el cabezal pide el fotograma entero (`frame_image`) y la miniatura
+/// solo se ve el instante que tarda en llegar.
 pub fn generate_thumbnails(session: &mut SessionData) -> Result<()> {
     let dir = session.dir.join("thumbs");
     std::fs::create_dir_all(&dir)?;
@@ -668,29 +730,35 @@ pub fn generate_thumbnails(session: &mut SessionData) -> Result<()> {
     let ratio = THUMB_HEIGHT as f32 / session.height.max(1) as f32;
     let thumb_width = ((session.width as f32 * ratio).round() as u32).max(1);
 
+    let elegidos = con_miniatura(&session.frames);
+    let mut lleva = vec![false; session.frames.len()];
+    for &p in &elegidos {
+        lleva[p] = true;
+    }
+    let ruta = |p: usize| dir.join(format!("{:06}.png", session.frames[p].index));
+
     // Ya no vale sacar cada miniatura por su cuenta: un fotograma guardado a parches
     // necesita los de delante. Se reparte por GRUPOS, cada uno empezando en un fotograma
     // entero, y dentro del grupo se va reconstruyendo en orden. Asi se sigue usando toda
     // la maquina, que es lo unico que separa a Munir del editor al parar de grabar.
-    let mut grupos: Vec<Vec<FrameEntry>> = Vec::new();
-    for entry in &session.frames {
-        if entry.patch.is_none() || grupos.is_empty() {
-            grupos.push(Vec::new());
+    let mut grupos: Vec<std::ops::Range<usize>> = Vec::new();
+    for (p, entry) in session.frames.iter().enumerate() {
+        match grupos.last_mut() {
+            Some(grupo) if entry.patch.is_some() => grupo.end = p + 1,
+            _ => grupos.push(p..p + 1),
         }
-        grupos
-            .last_mut()
-            .expect("acabamos de meter uno")
-            .push(entry.clone());
     }
 
+    let frames = &session.frames;
     let results: Vec<Result<()>> = grupos
         .par_iter()
         .map(|grupo| -> Result<()> {
-            let destinos: Vec<PathBuf> = grupo
-                .iter()
-                .map(|f| dir.join(format!("{:06}.png", f.index)))
-                .collect();
-            if destinos.iter().all(|p| p.exists()) {
+            // Hasta el ultimo que lleva miniatura: lo de detras no lo necesita nadie, y un
+            // grupo sin ninguna ni se abre.
+            let Some(hasta) = grupo.clone().rev().find(|&p| lleva[p]) else {
+                return Ok(());
+            };
+            if (grupo.start..=hasta).all(|p| !lleva[p] || ruta(p).exists()) {
                 return Ok(());
             }
             let mut file = File::open(&cache_path)?;
@@ -698,11 +766,12 @@ pub fn generate_thumbnails(session: &mut SessionData) -> Result<()> {
             let mut ancho = 0u32;
             let mut alto = 0u32;
             let mut lienzo: Vec<u8> = Vec::new();
-            for (entry, destino) in grupo.iter().zip(destinos) {
-                // Hay que pasar por todos aunque su miniatura ya exista: el siguiente
+            for p in grupo.start..=hasta {
+                // Hay que pasar por todos aunque no lleven miniatura: el siguiente
                 // fotograma se apoya en este.
-                lector.aplicar_en(entry, &mut ancho, &mut alto, &mut lienzo)?;
-                if destino.exists() {
+                lector.aplicar_en(&frames[p], &mut ancho, &mut alto, &mut lienzo)?;
+                let destino = ruta(p);
+                if !lleva[p] || destino.exists() {
                     continue;
                 }
                 // El lienzo se presta a la imagen y se recupera despues, sin copiarlo:
@@ -724,11 +793,18 @@ pub fn generate_thumbnails(session: &mut SessionData) -> Result<()> {
         result?;
     }
 
+    // Cada fotograma, la miniatura mas cercana en el tiempo.
+    let marcas: Vec<(u64, String)> = elegidos
+        .iter()
+        .map(|&p| (frames[p].timestamp_ms, ruta(p).to_string_lossy().to_string()))
+        .collect();
+    let mut k = 0;
     for frame in session.frames.iter_mut() {
-        frame.thumb_path = dir
-            .join(format!("{:06}.png", frame.index))
-            .to_string_lossy()
-            .to_string();
+        let t = frame.timestamp_ms;
+        while k + 1 < marcas.len() && marcas[k + 1].0.abs_diff(t) <= marcas[k].0.abs_diff(t) {
+            k += 1;
+        }
+        frame.thumb_path = marcas.get(k).map(|(_, r)| r.clone()).unwrap_or_default();
     }
     Ok(())
 }
@@ -1100,5 +1176,104 @@ mod tests {
         let frames = cache.finish(16_150, 30).expect("no se ha cerrado");
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(frames[1].duration_ms, 16_000, "el tramo quieto ha perdido tiempo");
+    }
+
+    /// Una grabacion de `cuantos` fotogramas distintos a 30 fps, pequenna para que vaya rapido.
+    fn grabacion_de(nombre: &str, cuantos: u32) -> SessionData {
+        let dir = std::env::temp_dir().join(format!("winshotx-tira-{nombre}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let (ancho, alto) = (96u32, 54u32);
+        let mut cache = FrameCache::new(&dir).unwrap();
+        for i in 0..cuantos {
+            cache.push_rgba(&pantalla(ancho, alto, i), ancho, alto, u64::from(i) * 1000 / 30).unwrap();
+        }
+        let frames = cache.finish(u64::from(cuantos) * 1000 / 30, 30).unwrap();
+        SessionData {
+            id: nombre.into(),
+            dir,
+            region: Rect { x: 0, y: 0, width: ancho, height: alto },
+            fps: 30,
+            format: "mp4".into(),
+            has_audio: false,
+            width: ancho,
+            height: alto,
+            mp4_path: None,
+            audio: None,
+            clics: Vec::new(),
+            teclas: Vec::new(),
+            cursor: Vec::new(),
+            cursor_capturado: false,
+            formas: Vec::new(),
+            punteros: Vec::new(),
+            cambios_puntero: Vec::new(),
+            marcas_zoom: Vec::new(),
+            camara: None,
+            escritura: Vec::new(),
+            pistas: None,
+            frames,
+        }
+    }
+
+    /// S29b: con un minuto, la tira ya no hace una miniatura por fotograma (eran 1800 PNG
+    /// justo al abrir el editor) sino las que puede enseñar, y cada fotograma apunta a una
+    /// que existe y es de un instante cercano.
+    #[test]
+    fn la_tira_de_un_minuto_no_hace_una_miniatura_por_fotograma() {
+        let mut session = grabacion_de("minuto", 1800);
+        assert_eq!(session.frames.len(), 1800, "los 1800 fotogramas son distintos");
+        generate_thumbnails(&mut session).unwrap();
+        let en_disco = std::fs::read_dir(session.dir.join("thumbs")).unwrap().count();
+        assert!(en_disco <= MINIATURAS_MAXIMAS + 1, "{en_disco} PNG para la tira");
+        assert!(en_disco >= MINIATURAS_MAXIMAS / 2, "solo {en_disco} PNG: la tira se queda corta");
+        let total = 1800.0 * 1000.0 / 30.0;
+        for frame in &session.frames {
+            assert!(Path::new(&frame.thumb_path).exists(), "{} sin miniatura", frame.index);
+            // Su miniatura es la de un fotograma a menos de medio trozo de la tira.
+            let suyo: usize = Path::new(&frame.thumb_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.parse().ok())
+                .unwrap();
+            let lejos = session.frames[suyo].timestamp_ms.abs_diff(frame.timestamp_ms) as f64;
+            assert!(lejos <= total / MINIATURAS_MAXIMAS as f64, "el {} enseña el {suyo}", frame.index);
+        }
+        // El primero lleva la suya: es el cartel del video al abrir.
+        assert!(session.frames[0].thumb_path.ends_with("000000.png"));
+        let _ = std::fs::remove_dir_all(&session.dir);
+    }
+
+    /// Lo que se ve no cambia: cada miniatura que se sigue haciendo es identica, pixel a
+    /// pixel, a la que hacia la tira de antes, que sacaba la de CADA fotograma reconstruyendolo
+    /// y reduciendolo igual (comparado con la 0.4.8 traida de git en S29b: 0 distintas).
+    #[test]
+    fn las_miniaturas_que_quedan_son_las_mismas_que_antes() {
+        let mut session = grabacion_de("igual", 600);
+        generate_thumbnails(&mut session).unwrap();
+        let ancho = ((session.width as f32 * THUMB_HEIGHT as f32 / session.height as f32).round() as u32).max(1);
+        let mut comparadas = 0;
+        for frame in &session.frames {
+            if !frame.thumb_path.ends_with(&format!("{:06}.png", frame.index)) {
+                continue;
+            }
+            let hecha = image::open(&frame.thumb_path).unwrap().to_rgba8();
+            let antes = crate::encode::escalar::miniatura(&read_frame(&session, frame.index as usize).unwrap(), ancho, THUMB_HEIGHT);
+            assert_eq!(hecha.dimensions(), antes.dimensions());
+            assert!(hecha.as_raw() == antes.as_raw(), "la miniatura de {} ha cambiado", frame.index);
+            comparadas += 1;
+        }
+        assert!(comparadas > MINIATURAS_MAXIMAS / 2, "solo {comparadas} comparadas");
+        let _ = std::fs::remove_dir_all(&session.dir);
+    }
+
+    /// Una grabacion corta sigue teniendo una miniatura por fotograma, como siempre.
+    #[test]
+    fn una_grabacion_corta_lleva_todas_sus_miniaturas() {
+        let mut session = grabacion_de("corta", 90);
+        generate_thumbnails(&mut session).unwrap();
+        for frame in &session.frames {
+            assert!(frame.thumb_path.ends_with(&format!("{:06}.png", frame.index)));
+            assert!(Path::new(&frame.thumb_path).exists());
+        }
+        let _ = std::fs::remove_dir_all(&session.dir);
     }
 }

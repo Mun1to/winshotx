@@ -56,3 +56,19 @@ describe("dónde se coloca", () => {
     expect(caja.className).toContain("pointer-events-none");
   });
 });
+
+/**
+ * La 0.5 (S37): la barra de abajo iba a 10 px y la tecla a 9. A 12 px las coordenadas y el
+ * color no caben en una línea de 132 px, así que van en dos, y la barra no ensancha la lupa.
+ */
+describe("la barra de abajo", () => {
+  it("a 12 px, en dos líneas y del ancho de la imagen", () => {
+    pintar({ px: 1919, py: 1079 });
+    const coordenadas = screen.getByText("1919, 1079");
+    const barra = coordenadas.parentElement!;
+    expect(barra.className).toContain("w-[132px]");
+    expect(barra.className).toContain("flex-col");
+    expect(barra.className).toContain("text-[12px]");
+    expect(screen.getByText("C").className).toContain("text-[12px]");
+  });
+});

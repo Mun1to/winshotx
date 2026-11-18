@@ -27,6 +27,7 @@ import { aplicarIdioma, useT } from "../../lib/i18n";
 import { aplicarTema } from "../../lib/tema";
 import { EVENTS, type CapturaReciente, type TrayMenuAction, type TrayMenuState } from "../../lib/types";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { Marca } from "../ui/Marca";
 
 /**
  * El menú del botón derecho de la bandeja, dibujado por winshotx.
@@ -189,10 +190,14 @@ export function TrayMenu() {
 
   return (
     <div ref={tarjeta} className="flex flex-col bg-flotante">
-      <header className="flex items-center gap-2 border-b border-linea px-3 py-2.5">
-        <Camera className="size-4 shrink-0 text-marca" />
-        <span className="flex-1 text-[13px] font-bold tracking-tight text-titulo">winshotx</span>
-        <span className="text-[10.5px] font-semibold text-tenue">{estado.version}</span>
+      {/*
+        El logo de verdad, no una cámara: las esquinas en su azul y la X del color del texto,
+        oscura en claro y clara en oscuro. Lo que se lee, a 15 y a 12 px como en los ajustes.
+      */}
+      <header className="flex items-center gap-2.5 border-b border-linea px-3 py-2.5 text-titulo">
+        <Marca className="size-5 shrink-0" x="currentColor" />
+        <span className="flex-1 text-[15px] font-semibold tracking-tight">winshotx</span>
+        <span className="text-[12px] text-apagado">{estado.version}</span>
       </header>
 
       <div className="p-1">
@@ -237,9 +242,9 @@ export function TrayMenu() {
         */}
         {recientes.length > 0 && (
           <>
-            <Separador />
+            {/* Una sola raya: la de encima ya separa las capturas de grabar. */}
             <div className="px-2 pb-1 pt-1.5">
-              <span className="px-1 text-[10.5px] font-semibold uppercase tracking-wide text-tenue">
+              <span className="px-1 text-[12.5px] font-semibold text-apagado">
                 {copiada ?? t("Últimas capturas")}
               </span>
               <div className="mt-1.5 flex gap-1.5">
@@ -292,7 +297,12 @@ function Separador() {
   return <div className="my-1 h-px bg-linea" />;
 }
 
-/** Una entrada normal: icono, nombre y, si lo tiene, su atajo a la derecha. */
+/**
+ * Una entrada normal: icono, nombre y, si lo tiene, su atajo a la derecha.
+ *
+ * Con 8 px de margen y de hueco, y no 10: el icono cae debajo del logo, y a 14 px «Keep what
+ * just happened» con su atajo cabe entero en los 284 px del menú (con 10 se cortaba 6 px).
+ */
 function Entrada({
   icono,
   texto,
@@ -310,14 +320,14 @@ function Entrada({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-start transition-colors hover:bg-realce ${
-        resalta ? "text-red-300" : "text-texto"
+      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start transition-colors hover:bg-realce ${
+        resalta ? "text-red-300 in-data-[tema=claro]:text-red-700" : "text-texto"
       }`}
     >
       <span className="shrink-0 text-apagado">{icono}</span>
-      <span className="flex-1 truncate text-[12.5px] font-medium">{texto}</span>
+      <span className="flex-1 truncate text-[14px] font-medium">{texto}</span>
       {atajo && (
-        <span className="shrink-0 text-[10.5px] tracking-wide text-tenue">
+        <span className="shrink-0 text-[12px] text-apagado">
           {partesDeAtajo(atajo).join("+")}
         </span>
       )}
@@ -343,10 +353,10 @@ function Interruptor({
       onClick={onClick}
       role="switch"
       aria-checked={puesto}
-      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-start text-texto transition-colors hover:bg-realce"
+      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-texto transition-colors hover:bg-realce"
     >
       <span className={`shrink-0 ${puesto ? "text-marca" : "text-apagado"}`}>{icono}</span>
-      <span className="flex-1 truncate text-[12.5px] font-medium">{texto}</span>
+      <span className="flex-1 truncate text-[14px] font-medium">{texto}</span>
       <span
         className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${
           puesto ? "bg-marca" : "bg-apagador"

@@ -16,12 +16,12 @@ beforeEach(() => aplicarIdioma("es"));
 
 describe("t, el traductor", () => {
   it("en espannol devuelve la clave tal cual, porque la clave ES la frase", () => {
-    expect(t("Al pulsar el atajo")).toBe("Al pulsar el atajo");
+    expect(t("Los atajos")).toBe("Los atajos");
   });
 
   it("en ingles devuelve lo que dice el catalogo", () => {
     aplicarIdioma("en");
-    expect(t("Al pulsar el atajo")).toBe("When you press the shortcut");
+    expect(t("Los atajos")).toBe("Shortcuts");
   });
 
   it("en chino devuelve lo que dice SU catalogo, no el ingles", () => {
@@ -29,7 +29,7 @@ describe("t, el traductor", () => {
     // existe porque un tercer idioma se rompe en silencio: si `t` se quedara mirando el
     // catalogo ingles, la aplicacion saldria en ingles sin que fallara nada.
     aplicarIdioma("zh");
-    expect(t("Al pulsar el atajo")).toBe("按下快捷键时");
+    expect(t("Los atajos")).toBe("快捷键");
     expect(t("Capturar región")).toBe("区域截图");
   });
 
@@ -135,7 +135,7 @@ describe("la salud del catalogo ingles", () => {
     const iguales = Object.entries(EN)
       .filter(([es, en]) => es === en)
       // Estas se escriben igual en los dos idiomas y no son un olvido.
-      .filter(([es]) => !["GIF", "MP4", "PNG", "FFmpeg", "winshotx", "Editor", "Zoom", "Normal", "Coral"].includes(es));
+      .filter(([es]) => !["GIF", "MP4", "PNG", "FFmpeg", "winshotx", "Editor", "Zoom", "Normal", "Coral", "Tour"].includes(es));
     expect(iguales).toEqual([]);
   });
 

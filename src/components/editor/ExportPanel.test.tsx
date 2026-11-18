@@ -69,13 +69,24 @@ async function guardarYEsperar() {
   return loExportado();
 }
 
-/** Lo que no se toca todos los días vive plegado en «Más ajustes». */
-const abrirMas = () => fireEvent.click(screen.getByRole("button", { name: "Más ajustes" }));
+/** El título de uno de los grupos plegables del panel («Fondo», «Calidad y tamaño»...). */
+const grupo = (nombre: string) =>
+  screen.getAllByRole("button", { name: nombre }).find((boton) => boton.hasAttribute("data-grupo"))!;
+
+/**
+ * Abre uno de los grupos plegables del panel, si estaba cerrado (S39): lo de un grupo cerrado
+ * no se puede pulsar, así que antes de buscar un mando hay que abrir el suyo, como haría una
+ * persona.
+ */
+const ir = (nombre: string) => {
+  const boton = grupo(nombre);
+  if (boton.getAttribute("aria-expanded") !== "true") fireEvent.click(boton);
+};
 
 beforeEach(() => {
   aplicarIdioma("es");
   alRecorte.mockClear();
-  localStorage.removeItem("winshotx.editor.masAjustes");
+  localStorage.removeItem("winshotx.editor.grupos");
 });
 
 describe("elegir el formato", () => {
@@ -110,28 +121,66 @@ describe("elegir el formato", () => {
   });
 });
 
-describe("lo de todos los días a la vista, lo demás plegado", () => {
-  it("la calidad y los fotogramas por segundo no se ven hasta abrir «Más ajustes»", () => {
+describe("una columna con sus grupos plegables, y guardar siempre a la vista", () => {
+  it("el formato va arriba, y debajo cada grupo con su título a la vista", () => {
     pintar();
+    const titulos = [...document.querySelectorAll("[data-grupo]")].map((boton) => boton.textContent);
+    expect(titulos).toEqual([
+      "Sonido",
+      "Fondo",
+      "Marco",
+      "Puntero",
+      "Clics y teclas",
+      "Zoom",
+      "Calidad y tamaño",
+      "Estilos",
+    ]);
+    // El formato, antes que el primer grupo.
+    const mp4 = screen.getByRole("button", { name: "MP4" });
+    expect(mp4.compareDocumentPosition(grupo("Sonido")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("abre con el fondo, y la calidad y los fotogramas plegados en «Calidad y tamaño»", () => {
+    pintar();
+    expect(grupo("Fondo")).toHaveAttribute("aria-expanded", "true");
+    expect(grupo("Sonido")).toHaveAttribute("aria-expanded", "false");
+    expect(grupo("Calidad y tamaño")).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("slider", { name: "Calidad" })).toBeNull();
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.getByRole("slider", { name: "Calidad" })).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "Fotogramas por segundo" })).toBeInTheDocument();
   });
 
-  it("y el zoom, el puntero y el sonido están a la vista sin abrir nada", () => {
+  it("el zoom, el puntero y el sonido, cada uno en su grupo", () => {
     pintar();
+    ir("Sonido");
+    expect(screen.getByRole("switch", { name: "Con sonido" })).toBeInTheDocument();
+    ir("Zoom");
     expect(screen.getByRole("slider", { name: "Acercarse a los clics" })).toBeInTheDocument();
+    ir("Puntero");
     expect(screen.getByRole("slider", { name: "Tamaño" })).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "Sonido" })).toBeInTheDocument();
   });
 
-  it("«Más ajustes» se queda como lo dejaste la próxima vez", () => {
+  it("una foto no lleva sonido, puntero, clics ni zoom", () => {
+    pintar({ format: "still", frameCount: 1 });
+    const titulos = [...document.querySelectorAll("[data-grupo]")].map((boton) => boton.textContent);
+    expect(titulos).toEqual(["Fondo", "Marco", "Calidad y tamaño", "Estilos"]);
+  });
+
+  it("cada grupo se queda abierto o cerrado como lo dejaste la próxima vez", () => {
     const { unmount } = pintar();
-    abrirMas();
+    ir("Calidad y tamaño");
+    fireEvent.click(grupo("Fondo"));
     unmount();
     pintar();
-    expect(screen.getByRole("button", { name: "Más ajustes" })).toHaveAttribute("aria-expanded", "true");
+    expect(grupo("Calidad y tamaño")).toHaveAttribute("aria-expanded", "true");
+    expect(grupo("Fondo")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("ya no hay riel ni resumen de «Lo que va a salir»", () => {
+    pintar();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(document.querySelector("[data-lo-que-sale]")).toBeNull();
   });
 
   it("los botones de guardar están siempre, con su nombre escrito", () => {
@@ -159,11 +208,12 @@ describe("el tramo de la línea de tiempo", () => {
   it("lo que va a pesar sale de lo que dura el tramo, en milisegundos", () => {
     // A la calidad de fábrica un MP4 son unos 1,2 MB por segundo. Los fotogramas 10 a 80
     // son 2,4 segundos a 30 fps; el tramo de 1 a 3 segundos son 2, y es lo que se guarda.
+    // En español, con coma y un espacio que no se parte entre la cifra y la unidad.
     const { unmount } = pintar();
-    expect(screen.getByText("≈ 2.8 MB")).toBeInTheDocument();
+    expect(screen.getByText("≈ 2,8\u00a0MB", { normalizer: (x) => x })).toBeInTheDocument();
     unmount();
     pintar({}, null, { desdeMs: 1_000, hastaMs: 3_000 });
-    expect(screen.getByText("≈ 2.3 MB")).toBeInTheDocument();
+    expect(screen.getByText("≈ 2,3\u00a0MB", { normalizer: (x) => x })).toBeInTheDocument();
   });
 });
 
@@ -204,10 +254,10 @@ describe("lo nuevo del plan (zooms a mano, tramos, fondos propios)", () => {
     expect(req).toMatchObject({ zooms: null, tramos: null, fondo: EDICION.fondo });
   });
 
-  /** El peso estimado, en bytes, tal como lo enseña el panel («≈ 2.4 MB»). */
+  /** El peso estimado, en bytes, tal como lo enseña el panel («≈ 2,4 MB» en español, «≈ 2.4 MB» en inglés). */
   function pesoEstimado() {
-    const [, numero, unidad] = /≈ ([\d.]+) (B|KB|MB|GB)/.exec(screen.getByText(/^≈ /).textContent ?? "") ?? [];
-    return Number(numero) * 1024 ** ["B", "KB", "MB", "GB"].indexOf(unidad);
+    const [, numero, unidad] = /≈ ([\d.,]+)\s(B|KB|MB|GB)/.exec(screen.getByText(/^≈ /).textContent ?? "") ?? [];
+    return Number(numero.replace(",", ".")) * 1024 ** ["B", "KB", "MB", "GB"].indexOf(unidad);
   }
 
   it("el peso cuenta solo lo que sale: lo quitado no pesa y un trozo al doble, la mitad", () => {
@@ -228,6 +278,7 @@ describe("lo nuevo del plan (zooms a mano, tramos, fondos propios)", () => {
         { desdeMs: 1_000, hastaMs: 2_000, velocidad: 2 },
       ],
     });
+    ir("Sonido");
     expect(screen.getByText("los trozos acelerados salen sin sonido")).toBeInTheDocument();
     expect(screen.queryByText("a otra velocidad el vídeo sale mudo")).toBeNull();
   });
@@ -290,27 +341,27 @@ describe("JPG, la captura que se puede mandar por correo", () => {
   it("lleva barra de calidad, que es su razon de existir", () => {
     pintar();
     fireEvent.click(screen.getByRole("button", { name: "JPG" }));
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.getByText("Calidad")).toBeInTheDocument();
   });
 
   it("y no lleva fotogramas por segundo, que una foto no tiene", () => {
     pintar();
     fireEvent.click(screen.getByRole("button", { name: "JPG" }));
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.queryByText("Fotogramas por segundo")).toBeNull();
   });
 
   it("el PNG sigue sin barra de calidad, porque no pierde nada", () => {
     pintar();
     fireEvent.click(screen.getByRole("button", { name: "PNG" }));
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.queryByText("Calidad")).toBeNull();
   });
 
   it("el video si lleva las dos barras", () => {
     pintar();
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.getByText("Calidad")).toBeInTheDocument();
     expect(screen.getByText("Fotogramas por segundo")).toBeInTheDocument();
   });
@@ -330,7 +381,8 @@ describe("lo que no debe colarse en una foto", () => {
 
   it("y si se apaga el sonido, el MP4 sale mudo", async () => {
     pintar();
-    fireEvent.click(screen.getByRole("switch", { name: "Sonido" }));
+    ir("Sonido");
+    fireEvent.click(screen.getByRole("switch", { name: "Con sonido" }));
     expect((await guardarYEsperar()).audio).toBe(false);
   });
 });
@@ -342,7 +394,7 @@ describe("recortar la imagen", () => {
     // Ensennar 800 x 600 despues de recortar la mitad seria ensennar el tamanno de algo
     // que ya no se va a exportar.
     pintar({}, MITAD_DERECHA);
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.getByLabelText("Ancho")).toHaveValue(400);
     expect(screen.getByLabelText("Alto")).toHaveValue(600);
   });
@@ -355,7 +407,7 @@ describe("recortar la imagen", () => {
   it("el 50 % es la mitad del trozo, no la mitad de la captura entera", async () => {
     // Con el recorte puesto, escalar sobre la captura entera estiraria el trozo al doble.
     pintar({}, MITAD_DERECHA);
-    abrirMas();
+    ir("Calidad y tamaño");
     fireEvent.click(screen.getByRole("button", { name: "50%" }));
     expect(screen.getByLabelText("Ancho")).toHaveValue(200);
     expect(screen.getByLabelText("Alto")).toHaveValue(300);
@@ -363,7 +415,7 @@ describe("recortar la imagen", () => {
 
   it("sin recorte se manda null y salen las medidas de la region grabada", async () => {
     pintar();
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.getByLabelText("Ancho")).toHaveValue(800);
     expect((await guardarYEsperar()).crop).toBeNull();
   });
@@ -373,6 +425,7 @@ describe("el zoom que se acerca a los clics", () => {
   it("sale con vídeo, apagado de fábrica", () => {
     // Encendido de fábrica sorprende: el vídeo se movería solo sin que nadie lo pida.
     pintar();
+    ir("Zoom");
     expect(screen.getByText("Acercarse a los clics")).toBeInTheDocument();
     expect(screen.getByText("sin zoom")).toBeInTheDocument();
   });
@@ -396,6 +449,7 @@ describe("el zoom que se acerca a los clics", () => {
 
   it("y en una foto se manda 1 aunque estuviera puesto", async () => {
     pintar();
+    ir("Zoom");
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "PNG" }));
     expect((await guardarYEsperar()).zoom).toBe(1);
@@ -403,6 +457,7 @@ describe("el zoom que se acerca a los clics", () => {
 
   it("puesto a 2 se manda 2", async () => {
     pintar();
+    ir("Zoom");
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     expect((await guardarYEsperar()).zoom).toBe(2);
   });
@@ -411,12 +466,14 @@ describe("el zoom que se acerca a los clics", () => {
 describe("el puntero dibujado", () => {
   it("viene encendido al tamanno normal, porque la grabacion ya no lo lleva cocido", () => {
     pintar({ cursorBaked: false, region: { x: 0, y: 0, width: 1920, height: 1080 } });
+    ir("Puntero");
     const barra = screen.getByRole("slider", { name: "Tamaño" }) as HTMLInputElement;
     expect(Number(barra.value)).toBe(43);
   });
 
   it("y en una grabacion vieja con el cursor cocido empieza apagado, para no ensennar dos", () => {
     pintar({ cursorBaked: true });
+    ir("Puntero");
     const barra = screen.getByRole("slider", { name: "Tamaño" }) as HTMLInputElement;
     expect(Number(barra.value)).toBe(0);
     expect(screen.getByText("el de Windows")).toBeInTheDocument();
@@ -424,6 +481,7 @@ describe("el puntero dibujado", () => {
 
   it("sale aunque la grabacion no tenga un solo clic: un video sin clics tambien tiene raton", () => {
     pintar({ hasClicks: false });
+    ir("Puntero");
     expect(screen.getByRole("slider", { name: "Tamaño" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Acercarse a los clics")).toBeNull();
   });
@@ -444,6 +502,7 @@ describe("el puntero dibujado", () => {
         onEstudio={(e) => avisos.push(e)}
       />,
     );
+    ir("Zoom");
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     const ultimo = avisos.at(-1) as { zoom: number; cursor: number };
     expect(ultimo.zoom).toBe(2);
@@ -457,19 +516,19 @@ describe("la velocidad", () => {
 
   it("empieza en 1x, que es como se grabo", () => {
     pintar();
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(boton("1")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("no sale en una foto, que no tiene tiempo dentro", () => {
     pintar({ format: "still", frameCount: 1 });
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.queryByText("Velocidad")).not.toBeInTheDocument();
   });
 
   it("a 2x viaja a Rust, y el video se queda sin sonido", async () => {
     pintar();
-    abrirMas();
+    ir("Calidad y tamaño");
     fireEvent.click(boton("2"));
     // Acelerar la pista sin cambiarle el tono es otro problema entero, y dejarla tal cual
     // la despegaría de la imagen desde el primer segundo. Se dice y se quita.
@@ -492,7 +551,7 @@ describe("la velocidad", () => {
         onEstudio={(e) => avisos.push(e)}
       />,
     );
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(avisos.at(-1)?.velocidad).toBe(1);
     fireEvent.click(boton("2"));
     expect(avisos.at(-1)?.velocidad).toBe(2);
@@ -500,7 +559,7 @@ describe("la velocidad", () => {
 
   it("y lo avisa antes de exportar, no despues", () => {
     pintar();
-    abrirMas();
+    ir("Calidad y tamaño");
     fireEvent.click(boton("2"));
     expect(screen.getAllByText(/sale sin sonido|sale mudo/).length).toBeGreaterThan(0);
   });
@@ -511,7 +570,7 @@ describe("la proporcion de un clic", () => {
     // Lo que se graba de un monitor sale apaisado SIEMPRE: para subir algo vertical hay
     // que recortar, y a ojo no se acierta un 9:16 exacto.
     pintar();
-    abrirMas();
+    ir("Calidad y tamaño");
     fireEvent.click(screen.getByRole("button", { name: "9:16" }));
     const puesto = alRecorte.mock.calls.at(-1)?.[0] as Recorte;
     // La sesion de prueba es de 800x600.
@@ -522,7 +581,7 @@ describe("la proporcion de un clic", () => {
   it("y el boton se queda marcado mientras ese recorte siga puesto", () => {
     const vertical = conProporcion(9 / 16, 800, 600);
     pintar({}, vertical);
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.getByRole("button", { name: "9:16" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "1:1" })).toHaveAttribute("aria-pressed", "false");
   });
@@ -531,14 +590,14 @@ describe("la proporcion de un clic", () => {
     // El fallo que esto evita: exportar un 9:16 con el ancho de la pantalla, que estira
     // la imagen hasta dejarla irreconocible.
     pintar({}, conProporcion(9 / 16, 800, 600));
-    abrirMas();
+    ir("Calidad y tamaño");
     expect(screen.getByLabelText("Ancho")).toHaveValue(338);
     expect(screen.getByLabelText("Alto")).toHaveValue(600);
   });
 
   it("y la × lo quita entero", () => {
     pintar({}, conProporcion(1, 800, 600));
-    abrirMas();
+    ir("Calidad y tamaño");
     fireEvent.click(screen.getByRole("button", { name: "Quitar el recorte" }));
     expect(alRecorte).toHaveBeenCalledWith(null);
   });
@@ -548,8 +607,9 @@ describe("en inglés", () => {
   it("el panel no se deja ni una palabra en español", () => {
     aplicarIdioma("en");
     pintar();
-    expect(screen.getByRole("button", { name: "More settings" })).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "Sound" })).toBeInTheDocument();
+    expect(grupo("Quality and size")).toBeInTheDocument();
+    ir("Sound");
+    expect(screen.getByRole("switch", { name: "With sound" })).toBeInTheDocument();
     expect(screen.getByText("Video with sound. Opens anywhere.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save to…" })).toBeInTheDocument();
@@ -557,10 +617,11 @@ describe("en inglés", () => {
 });
 
 describe("el estudio", () => {
-  it("viene abierto, con el fondo apagado y el movimiento suave en «Poco»", () => {
+  it("abre por el fondo, apagado, y el movimiento suave viene en «Poco»", () => {
     pintar();
-    expect(screen.getByRole("button", { name: "Estudio" })).toHaveAttribute("aria-expanded", "true");
+    expect(grupo("Fondo")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Sin fondo" })).toHaveAttribute("aria-pressed", "true");
+    ir("Puntero");
     // El suavizado de tres opciones sustituye al interruptor de antes: «Poco» es lo de siempre.
     expect(screen.queryByRole("switch", { name: /Movimiento suave/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Poco" })).toHaveAttribute("aria-pressed", "true");
@@ -587,8 +648,11 @@ describe("el estudio", () => {
       );
     }
     render(<ConEdicion />);
-    expect(screen.getByText("Estilo")).toBeInTheDocument();
+    ir("Estilos");
+    expect(screen.getByRole("button", { name: "Guardar estilo como…" })).toBeInTheDocument();
+    ir("Puntero");
     fireEvent.click(screen.getByRole("button", { name: "Mucho" }));
+    ir("Clics y teclas");
     fireEvent.click(screen.getByRole("switch", { name: /Una onda en cada clic/ }));
     expect(await guardarYEsperar()).toMatchObject({ suavizado: "mucho", ondaClic: true, smoothCursor: true });
   });
@@ -616,6 +680,7 @@ describe("el estudio", () => {
 
   it("el puntero suave y el que se esconde viajan a Rust, y en una foto no", async () => {
     const { unmount } = pintar();
+    ir("Puntero");
     fireEvent.click(screen.getByRole("switch", { name: /Esconderlo cuando no se mueve/ }));
     expect(await guardarYEsperar()).toMatchObject({ smoothCursor: true, hideIdleCursor: true });
     unmount();
@@ -627,6 +692,7 @@ describe("el estudio", () => {
 
   it("la velocidad del zoom solo sale con zoom, y viaja a Rust", async () => {
     pintar();
+    ir("Zoom");
     expect(screen.queryByText("Velocidad del zoom")).toBeNull();
     fireEvent.change(screen.getByLabelText("Acercarse a los clics"), { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Rápida" }));
@@ -635,6 +701,7 @@ describe("el estudio", () => {
 
   it("el volumen viaja a Rust en tanto por uno", async () => {
     pintar();
+    ir("Sonido");
     fireEvent.change(screen.getByRole("slider", { name: "Volumen" }), { target: { value: "50" } });
     expect(await guardarYEsperar()).toMatchObject({ volume: 0.5 });
   });
@@ -670,8 +737,9 @@ describe("el estudio", () => {
   it("en inglés tampoco queda nada en español", () => {
     aplicarIdioma("en");
     pintar();
-    expect(screen.getByRole("button", { name: "Studio" })).toBeInTheDocument();
+    expect(grupo("Background")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "No background" })).toBeInTheDocument();
+    ir("Pointer");
     expect(screen.getByText("Smooth movement")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Little" })).toBeInTheDocument();
   });
@@ -704,12 +772,17 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
         />
       );
     }
-    return render(<ConEdicion />);
+    const pintado = render(<ConEdicion />);
+    // Los mandos de las pistas viven en el grupo «Sonido», plegado de fábrica (y abierto si se
+    // dejó abierto en otra prueba de este mismo bloque).
+    const sonido = document.querySelector('[data-grupo="sonido"]')!;
+    if (sonido.getAttribute("aria-expanded") !== "true") fireEvent.click(sonido);
+    return pintado;
   }
 
   it("donde iba «Sonido» hay dos mandos, encendidos y a su volumen de grabación", () => {
     pintarConPistas();
-    expect(screen.queryByRole("switch", { name: "Sonido" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Con sonido" })).not.toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Sonido del PC" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("switch", { name: "Tu micrófono" })).toHaveAttribute("aria-checked", "true");
     const volumenes = screen.getAllByRole("slider", { name: "Volumen" });
@@ -764,6 +837,17 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
     expect(screen.queryByText(/sin sonido|no mandó nada|No sonó nada/)).not.toBeInTheDocument();
   });
 
+  // Revisión del 16-nov: al subirlo, el pico ya se oye y el aviso de casi mudo desaparecía, así
+  // que nadie sabía que el sonido se había tocado.
+  it("el sonido del PC subido al grabar lo dice debajo de su mando, con cuánto", () => {
+    pintarConPistas({ ...CON_PISTAS, picoPc: 0.49, subidaPc: 36.5 });
+    expect(
+      screen.getByText(
+        "Llegó casi mudo (la app que sonaba estaba muy baja en el mezclador de Windows) y se subió 37 dB al grabar.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("el PC en silencio exacto dice que no sonó nada", () => {
     pintarConPistas({ ...CON_PISTAS, picoPc: 0 });
     expect(screen.getByText("No sonó nada en el PC mientras grababas.")).toBeInTheDocument();
@@ -780,7 +864,7 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
 
   it("una grabación de antes, con todo junto, sigue con «Sonido» y su volumen de siempre", async () => {
     pintarConPistas({ sonidoPc: undefined, microfono: undefined });
-    expect(screen.getByRole("switch", { name: "Sonido" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Con sonido" })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Tu micrófono" })).not.toBeInTheDocument();
     const req = await guardarYEsperar();
     expect(req.audio).toBe(true);
@@ -790,8 +874,9 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
 
   it("a otra velocidad no hay volumen que tocar, y lo dice una vez", () => {
     pintarConPistas();
-    abrirMas();
+    ir("Calidad y tamaño");
     fireEvent.click(screen.getByRole("button", { name: "2×" }));
+    ir("Sonido");
     expect(screen.queryAllByRole("slider", { name: "Volumen" })).toHaveLength(0);
     expect(screen.getAllByText("a otra velocidad el vídeo sale mudo")).toHaveLength(1);
   });
@@ -806,5 +891,84 @@ describe("el sonido del PC y tu micrófono, por separado", () => {
     pintarConPistas();
     expect(screen.getByRole("switch", { name: "电脑声音" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "你的麦克风" })).toBeInTheDocument();
+  });
+});
+
+// S25 (marco): la captura dentro de una ventana de Windows 11 o de un portátil.
+describe("el marco de ventana o de portátil", () => {
+  beforeEach(() => {
+    localStorage.setItem("winshotx.tema", "claro");
+    // El marco va en su propio grupo plegable (S39): aquí se mira abierto.
+    localStorage.setItem("winshotx.editor.grupos", JSON.stringify({ marco: true }));
+  });
+
+  it("sale con sus tres opciones, en «Ninguno», y sin marco no viaja nada", async () => {
+    pintar();
+    for (const nombre of ["Ninguno", "Ventana", "Portátil"]) {
+      expect(screen.getByRole("button", { name: nombre })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Ninguno" })).toHaveAttribute("aria-pressed", "true");
+    expect((await guardarYEsperar()).carcasa).toBeNull();
+  });
+
+  it("elegir la ventana sin fondo pone el fondo, y viaja con el tema de winshotx", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    expect(screen.getByRole("button", { name: "Ventana" })).toHaveAttribute("aria-pressed", "true");
+    expect(await guardarYEsperar()).toMatchObject({ margin: 40, carcasa: { tipo: "ventana", oscura: false } });
+  });
+
+  it("con el tema oscuro, la ventana oscura", async () => {
+    localStorage.setItem("winshotx.tema", "oscuro");
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    expect(await guardarYEsperar()).toMatchObject({ carcasa: { tipo: "ventana", oscura: true } });
+  });
+
+  it("el portátil viaja como portátil, también en una foto", async () => {
+    pintar({ format: "still", frameCount: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "Portátil" }));
+    expect(await guardarYEsperar()).toMatchObject({ format: "png", carcasa: { tipo: "portatil" } });
+  });
+
+  it("con marco, las esquinas son las suyas: el deslizador se va y vuelve sin él", () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Océano" }));
+    expect(screen.getByRole("slider", { name: "Esquinas redondeadas" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Portátil" }));
+    expect(screen.queryByRole("slider", { name: "Esquinas redondeadas" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ninguno" }));
+    expect(screen.getByRole("slider", { name: "Esquinas redondeadas" })).toBeInTheDocument();
+  });
+
+  it("«Sin fondo» quita también el marco, y volver a poner un fondo no lo trae", async () => {
+    pintar();
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sin fondo" }));
+    expect(screen.getByRole("button", { name: "Ninguno" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Coral" }));
+    expect(await guardarYEsperar()).toMatchObject({ background: "coral", carcasa: null });
+  });
+
+  it("el peso que se estima cuenta con la barra de la ventana", () => {
+    pintar({ format: "still", frameCount: 1 });
+    const sin = screen.getByText(/≈/).textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Blanco" }));
+    const conFondo = screen.getByText(/≈/).textContent;
+    fireEvent.click(screen.getByRole("button", { name: "Ventana" }));
+    const conVentana = screen.getByText(/≈/).textContent;
+    expect(conFondo).not.toBe(sin);
+    expect(conVentana).not.toBe(conFondo);
+  });
+
+  it("en inglés y en chino", () => {
+    aplicarIdioma("en");
+    const { unmount } = pintar();
+    expect(screen.getByRole("button", { name: "Window" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Laptop" })).toBeInTheDocument();
+    unmount();
+    aplicarIdioma("zh");
+    pintar();
+    expect(screen.getByRole("button", { name: "笔记本电脑" })).toBeInTheDocument();
   });
 });

@@ -207,3 +207,86 @@ describe("lo dibujado, con el editor entero", () => {
     expect(container.querySelector('[data-agarre="1"] > rect')?.getAttribute("stroke")).toBe("#22c55e");
   });
 });
+
+// S39, segunda vuelta: cada botón de la barra de arriba dice su nombre y su tecla, y la tecla
+// hace lo que dice el botón.
+describe("la barra de arriba: cada botón con su tecla", () => {
+  const CON_TECLA: [string, string][] = [
+    ["Flecha", "Flecha (1)"],
+    ["Flecha curva", "Flecha curva (7)"],
+    ["Línea", "Línea (8)"],
+    ["Rectángulo", "Rectángulo (2)"],
+    ["Elipse", "Elipse (9)"],
+    ["Lápiz", "Lápiz (0)"],
+    ["Texto", "Texto (3)"],
+    ["Resaltar", "Resaltar (4)"],
+    ["Paso numerado", "Paso numerado (5)"],
+    ["Foco", "Foco (F)"],
+    ["Tapar con mosaico", "Tapar con mosaico (6)"],
+    ["Encuadrar", "Quedarse con un trozo de la imagen (C)"],
+    ["Tapar datos", "Tapar datos personales (D)"],
+    ["Copiar texto", "Copiar el texto de la imagen (T)"],
+    ["Deshacer (Ctrl+Z)", "Deshacer (Ctrl+Z)"],
+    ["Quitar todas", "Quitar todas (Mayús+Supr)"],
+  ];
+
+  it("al pasar el ratón, cada botón dice su nombre y su tecla", async () => {
+    await abrir();
+    for (const [nombre, titulo] of CON_TECLA) {
+      expect(screen.getByRole("button", { name: nombre }), nombre).toHaveAttribute("title", titulo);
+    }
+  });
+
+  it("la tecla de cada herramienta la elige, y otra vez la suelta", async () => {
+    await abrir();
+    for (const [nombre, titulo] of CON_TECLA.slice(0, 11)) {
+      const tecla = titulo.match(/\((.)\)$/)![1];
+      fireEvent.keyDown(window, { key: tecla.toLowerCase() });
+      expect(screen.getByRole("button", { name: nombre }), tecla).toHaveAttribute("aria-pressed", "true");
+      fireEvent.keyDown(window, { key: tecla.toLowerCase() });
+      expect(screen.getByRole("button", { name: nombre }), tecla).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  it("el mosaico va pegado a «Tapar datos», que es lo mismo hecho solo", async () => {
+    await abrir();
+    const mosaico = screen.getByRole("button", { name: "Tapar con mosaico" });
+    expect(mosaico.nextElementSibling).toBe(screen.getByRole("button", { name: "Tapar datos" }));
+  });
+
+  it("T copia el texto de la imagen y D tapa los datos, como sus botones", async () => {
+    responde("copiar_texto", "hola que tal");
+    responde("tapar_datos", { marcas: [], resumen: [] });
+    await abrir();
+    fireEvent.keyDown(window, { key: "t" });
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "copiar_texto")).toBe(true));
+    await screen.findByText(/Texto copiado/);
+    fireEvent.keyDown(window, { key: "d" });
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "tapar_datos")).toBe(true));
+  });
+
+  it("los colores plegados en uno se abren, eligen y se cierran; Escape los cierra sin cerrar el editor", async () => {
+    await abrir();
+    const plegados = screen.getByRole("button", { name: "Color" });
+    fireEvent.click(plegados);
+    expect(plegados).toHaveAttribute("aria-expanded", "true");
+    const cinco = screen.getByRole("group", { name: "Color" });
+    fireEvent.click(cinco.querySelector('[aria-label="#22c55e"]')!);
+    expect(screen.queryByRole("group", { name: "Color" })).toBeNull();
+    // El verde, puesto también en la fila de los cinco (la de la barra ancha).
+    expect(screen.getAllByRole("button", { name: "#22c55e" })[0]).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(plegados);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("group", { name: "Color" })).toBeNull();
+    expect(destruir).not.toHaveBeenCalled();
+  });
+
+  it("Mayús+Supr quita todas, y Ctrl+Z las devuelve", async () => {
+    const { container } = await abrir();
+    dibujarCaja(container);
+    fireEvent.keyDown(window, { key: "Delete", shiftKey: true });
+    expect(container.querySelector('[data-agarre="0"]')).toBeNull();
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect(container.querySelector('[data-agarre="0"]')).not.toBeNull();
+  });
+});

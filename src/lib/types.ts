@@ -47,6 +47,13 @@ export type CaptureMode = "still" | "video" | "gif";
 export interface OverlayPayload {
   monitor: MonitorInfo;
   /**
+   * Todas las pantallas de esta captura, la propia incluida, en pixeles fisicos del
+   * escritorio virtual: con ellas el recorte puede empezar en una y seguir en la de al lado
+   * (`lib/seleccionCompartida.ts`). Un payload viejo no la trae, y entonces el overlay se
+   * porta como con una sola pantalla, sin cruzar.
+   */
+  monitores?: MonitorInfo[];
+  /**
    * De que disparo del atajo es este payload. Se devuelve en `overlayListo` al tener la
    * imagen pintada, para que un aviso tardio de una captura ya cancelada no ensenne nada.
    */
@@ -64,6 +71,11 @@ export interface OverlayPayload {
    * globales porque puede ser de otro monitor: cada overlay mira si es suya.
    */
   lastRegion: Rect | null;
+  /**
+   * Si hay una grabación en marcha: entonces el overlay solo hace fotos, y la barra no
+   * ofrece Vídeo ni GIF (otra grabación daría «ya hay una grabación en curso»).
+   */
+  recording?: boolean;
 }
 
 export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text" | /* S4 (capturas) */ "qr";
@@ -123,6 +135,8 @@ export interface SessionInfo {
    * sesiones de antes de la 0.4.6 no lo traen. */
   picoPc?: number | null;
   picoMicrofono?: number | null;
+  /** Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo. */
+  subidaPc?: number | null;
 }
 
 /**
@@ -320,6 +334,8 @@ export interface ExportProgress {
   stage: "reading" | "palette" | "encoding" | "writing" | "done";
   done: number;
   total: number;
+  /** De qué sesión es: con dos editores abiertos, cada uno atiende solo al suyo. */
+  sessionId?: string;
 }
 
 export interface Settings {
@@ -385,7 +401,8 @@ export interface Settings {
    * ciento del lado corto (0 = sin fondo) y `fondo`, uno de los del Estudio. Opcional
    * aquí porque Rust siempre lo manda y unos ajustes viejos no lo traen.
    */
-  marcoCapturas?: { aire: number; fondo: Background; elegido?: FondoElegido | null };
+  // S25 (marco): `carcasa` es la ventana o el portátil alrededor de cada captura.
+  marcoCapturas?: { aire: number; fondo: Background; elegido?: FondoElegido | null; carcasa?: "ventana" | "portatil" | null };
   /** La miniatura de la esquina después de capturar una foto. */
   miniatura?: boolean;
   /** Cuántos segundos se queda la miniatura. 0 es hasta cerrarla. */
@@ -398,6 +415,12 @@ export interface Settings {
   // S10 (sonidos)
   /** La marimba al empezar a grabar. Rust siempre lo manda; sin él, encendido. */
   sonidoAlEmpezar?: boolean;
+  // S40 (tamaño fijo)
+  /**
+   * El tamaño de la ventana de ajustes si se ha estirado a mano, en px lógicos; null es el de
+   * serie. Solo lo cambia `guardarVentanaAjustes`: `setSettings` deja el que haya.
+   */
+  ventanaAjustes?: { ancho: number; alto: number } | null;
 }
 
 export interface ShortcutStatus {

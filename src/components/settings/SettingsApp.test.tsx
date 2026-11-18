@@ -1,13 +1,15 @@
 /**
  * La pantalla de ajustes, que es la unica de winshotx que se ve entera y con calma.
  *
- * Lo que se comprueba aqui es que las cuatro secciones existen, que cada una lleva lo suyo
- * y que **en ingles no se queda ni una frase en castellano**. Eso ultimo no lo puede ver
- * la prueba del diccionario: una frase puede estar traducida en `textos-en.ts` y salir en
+ * Desde la 0.5 (S36, la variación 9 que eligió Munito) son ocho apartados en un riel de
+ * iconos, uno a la vez, con el dibujo de «Así va a salir» a la derecha. Lo que se comprueba
+ * aqui es que los ocho existen, que cada uno lleva lo suyo, que el dibujo cambia con su
+ * ajuste, y que **en ingles no se queda ni una frase en castellano**. Eso ultimo no lo puede
+ * ver la prueba del diccionario: una frase puede estar traducida en `textos-en.ts` y salir en
  * espannol igual, porque el componente la escribio a pelo sin pasarla por `t()`. Ha pasado.
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { falla, llamadas, responde, ventana } from "../../test/preparar";
@@ -91,102 +93,232 @@ async function abrirAjustes(
   responde("captura_moderna", capturaModerna);
   render(<SettingsApp onVerBienvenida={vi.fn()} />);
   // La pantalla se pinta vacia y se rellena cuando contesta Rust.
-  await waitFor(() => expect(screen.getByRole("button", { name: /Capturar|Capture/ })).toBeInTheDocument());
+  await waitFor(() => expect(riel()).toBeInTheDocument());
 }
+
+/** El riel de la izquierda, con un icono por apartado. */
+const riel = () => screen.getByRole("navigation", { name: /Apartados de los ajustes|Settings sections/ });
+
+/** Pulsa un apartado del riel por su nombre (el `aria-label` del icono). */
+function ir(nombre: string | RegExp) {
+  fireEvent.click(within(riel()).getByRole("button", { name: nombre }));
+}
+
+/** El panel de «Así va a salir» del apartado que se ve. */
+const dibujo = () => document.querySelector<HTMLElement>("[data-dibujo-de]");
 
 beforeEach(() => aplicarIdioma("es"));
 
-describe("las cinco secciones", () => {
-  // S4 (capturas): la quinta es el historial de fotos y vídeos, al lado de Grabar.
-  it("estan las cinco, y ni una mas", async () => {
+describe("los ocho apartados", () => {
+  it("estan los ocho, en el orden del riel, y ni uno mas", async () => {
     await abrirAjustes();
-    const menu = screen.getByLabelText("Secciones de ajustes");
-    const nombres = within(menu)
+    const nombres = within(riel())
       .getAllByRole("button")
-      .map((b) => b.textContent);
-    expect(nombres).toEqual(["Capturar", "Grabar", "Historial", "Teclas de Windows", "La app"]);
+      .map((b) => b.getAttribute("aria-label"));
+    expect(nombres).toEqual([
+      "Capturar",
+      "Después de capturar",
+      "Grabar",
+      "Los últimos segundos",
+      "Historial",
+      "Teclas de Windows",
+      "La app",
+      "Ayuda y winshotx",
+    ]);
+  });
+
+  it("solo iconos, con el nombre en el globo del ratón", async () => {
+    await abrirAjustes();
+    for (const boton of within(riel()).getAllByRole("button")) {
+      // Ni una letra a la vista: el nombre va en el `title`, que es lo que sale al pasar.
+      expect(boton.textContent).toBe("");
+      expect(boton.getAttribute("title")).toBe(boton.getAttribute("aria-label"));
+    }
   });
 
   it("en ingles se llaman por su nombre ingles", async () => {
     aplicarIdioma("en");
     await abrirAjustes();
-    const menu = screen.getByLabelText("Settings sections");
-    const nombres = within(menu)
+    const nombres = within(riel())
       .getAllByRole("button")
-      .map((b) => b.textContent);
-    expect(nombres).toEqual(["Capture", "Record", "History", "Windows keys", "The app"]);
+      .map((b) => b.getAttribute("aria-label"));
+    expect(nombres).toEqual([
+      "Capture",
+      "After capturing",
+      "Record",
+      "The last few seconds",
+      "History",
+      "Windows keys",
+      "The app",
+      "Help and winshotx",
+    ]);
   });
 
   it("empieza por Capturar, que es lo que se viene a cambiar", async () => {
     await abrirAjustes();
-    expect(screen.getByText("Al pulsar el atajo")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Capturar" })).toBeInTheDocument();
+    expect(screen.getByText("Los atajos")).toBeInTheDocument();
+    expect(within(riel()).getByRole("button", { name: "Capturar" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("pulsar un icono enseña ese apartado, con su título y su frase", async () => {
+    await abrirAjustes();
+    ir("Teclas de Windows");
+    expect(screen.getByRole("heading", { level: 1, name: "Teclas de Windows" })).toBeInTheDocument();
+    expect(screen.getByText("Qué teclas del sistema abren winshotx en vez de Windows.")).toBeInTheDocument();
+    expect(within(riel()).getByRole("button", { name: "Teclas de Windows" })).toHaveAttribute("aria-current", "page");
+    expect(within(riel()).getByRole("button", { name: "Capturar" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("con las flechas se pasa de un apartado a otro", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(riel(), { key: "ArrowDown" });
+    expect(screen.getByRole("heading", { level: 1, name: "Después de capturar" })).toBeInTheDocument();
+    fireEvent.keyDown(riel(), { key: "ArrowUp" });
+    fireEvent.keyDown(riel(), { key: "ArrowUp" });
+    // Desde el primero, hacia arriba da la vuelta al último.
+    expect(screen.getByRole("heading", { level: 1, name: "Ayuda y winshotx" })).toBeInTheDocument();
+  });
+
+  it("el historial y la ayuda no llevan dibujo; los demás, sí", async () => {
+    await abrirAjustes();
+    for (const [nombre, conDibujo] of [
+      ["Capturar", true],
+      ["Después de capturar", true],
+      ["Grabar", true],
+      ["Los últimos segundos", true],
+      ["Historial", false],
+      ["Teclas de Windows", true],
+      ["La app", true],
+      ["Ayuda y winshotx", false],
+    ] as const) {
+      ir(nombre);
+      expect(Boolean(dibujo()), nombre).toBe(conDibujo);
+    }
+  });
+});
+
+describe("la cabecera", () => {
+  it("lleva el nombre y la versión, que es lo primero que se mira al contar un fallo", async () => {
+    await abrirAjustes();
+    const cabecera = screen.getByRole("banner");
+    expect(within(cabecera).getByText("winshotx")).toBeInTheDocument();
+    expect(within(cabecera).getByText(/^\d+\.\d+\.\d+$/)).toBeInTheDocument();
+  });
+
+  it("estando al día no dice nada: ni «Al día» ni un tick", async () => {
+    await abrirAjustes();
+    // Se espera a que haya preguntado; si no, pasaría igual antes de mirar.
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "is_store_build")).toBe(true));
+    expect(document.querySelector("[data-aviso-actualizacion]")).toBeNull();
+    expect(screen.queryByText(/Al día/)).toBeNull();
+  });
+
+  it("guardar un cambio no enseña ningún «Guardado» en verde: el interruptor ya lo dice", async () => {
+    await abrirAjustes();
+    fireEvent.click(screen.getByRole("switch", { name: "Lupa de píxel" }));
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "set_settings")).toBe(true));
+    expect(screen.queryByText("Guardado")).toBeNull();
+  });
+
+  it("la barra de abajo vuelve (S40) con el café, que abre buymeacoffee y nada más", async () => {
+    await abrirAjustes();
+    const barra = screen.getByRole("contentinfo");
+    expect(barra).toHaveAttribute("data-barra-abajo");
+    // Uno solo en toda la ventana: el de Ayuda se llama «Invitar» y vive en su fila.
+    const apoyar = screen.getByRole("button", { name: "Apoyar" });
+    expect(barra).toContainElement(apoyar);
+    expect(apoyar).toHaveAttribute("title", "buymeacoffee.com/munito");
+    const antes = llamadas.filter((l) => l.comando === "open_url").length;
+    fireEvent.click(apoyar);
+    await waitFor(() => expect(llamadas.filter((l) => l.comando === "open_url").length).toBe(antes + 1));
+    expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
+      url: "https://buymeacoffee.com/munito",
+    });
   });
 });
 
 describe("con la aplicacion en ingles", () => {
   /**
-   * Frases que delatan que algo se quedo sin traducir. Se buscan en el texto de la
-   * pantalla entera: si alguna aparece, hay un componente escribiendo espannol a pelo.
+   * Frases que delatan que algo se quedo sin traducir. Se buscan en el texto de cada
+   * apartado y en los nombres que solo oye el lector de pantalla: si alguna aparece, hay un
+   * componente escribiendo espannol a pelo.
    */
   const DELATORAS = [
-    "Al pulsar el atajo",
+    "Los atajos",
+    "Al capturar",
     "Sale la barra",
     "Se copia sola",
-    "Sin espera",
     "Automático",
     "segundos",
     "Carpeta",
     "Versión",
+    "Así va a salir",
+    "Buscar un ajuste",
+    "y eliges",
+    "en la foto",
+    "Sonido y cámara",
+    "Lo que guarda",
+    "Apagado",
+    "sigue siendo de Windows",
+    "Guarda en",
+    "Invítame",
+    "Apartados",
+    "Qué hace este ajuste",
   ];
 
-  it("no queda ni una frase en castellano por ningun rincon", async () => {
+  it("no queda ni una frase en castellano en ningún apartado", async () => {
     aplicarIdioma("en");
     await abrirAjustes();
-    const pantalla = document.body.textContent ?? "";
-    const coladas = DELATORAS.filter((frase) => pantalla.includes(frase));
-    expect(coladas).toEqual([]);
-  });
-
-  it("y la version se sigue leyendo, con su palabra delante", async () => {
-    aplicarIdioma("en");
-    await abrirAjustes();
-    expect(screen.getByText(/^Version /)).toBeInTheDocument();
+    const coladas = new Set<string>();
+    for (const boton of within(riel()).getAllByRole("button")) {
+      fireEvent.click(boton);
+      const textos = [
+        document.body.textContent ?? "",
+        ...[...document.querySelectorAll("[aria-label],[title]")].flatMap((el) => [
+          el.getAttribute("aria-label") ?? "",
+          el.getAttribute("title") ?? "",
+        ]),
+      ].join(" ");
+      for (const frase of DELATORAS) if (textos.includes(frase)) coladas.add(`${boton.getAttribute("aria-label")}: ${frase}`);
+    }
+    expect([...coladas]).toEqual([]);
   });
 });
 
-describe("lo que ensenna de la maquina, en «La app»", () => {
-  /** Los archivos y la version viven en la ultima seccion, no en la primera. */
-  async function irALaApp() {
-    await abrirAjustes();
-    fireEvent.click(screen.getByRole("button", { name: "La app" }));
-  }
-
+describe("lo que ensenna de la maquina", () => {
   it("dice cuanto ocupa la cache en unidades que se entienden", async () => {
-    await irALaApp();
+    await abrirAjustes();
+    ir("La app");
     // 12.345.678 bytes son 11,8 MB.
-    expect(screen.getByText(/11[,.]8 MB/)).toBeInTheDocument();
+    // Con el espacio que no se parte entre la cifra y la unidad (la lectura lo deja en uno normal).
+    expect(screen.getByText(/11,8 MB/)).toBeInTheDocument();
   });
 
   it("ensenna la carpeta donde caen las capturas", async () => {
-    await irALaApp();
+    await abrirAjustes();
+    ir("La app");
     expect(screen.getByText(/Pictures.winshotx/)).toBeInTheDocument();
   });
 
-  it("y el numero de version, que es lo primero que se mira al reportar un fallo", async () => {
-    await irALaApp();
-    expect(screen.getByText(/^Versión \d+\.\d+\.\d+$/)).toBeInTheDocument();
+  it("y en la ayuda, el numero de version", async () => {
+    await abrirAjustes();
+    ir("Ayuda y winshotx");
+    expect(screen.getByText(/^winshotx \d+\.\d+\.\d+$/)).toBeInTheDocument();
   });
 
   it("dice a donde lleva cada boton que saca de la app, antes de pulsarlo", async () => {
     // Un boton que abre el navegador y no dice a donde no se pulsa, y con razon. La unica
     // que no lo lleva escrito es la del codigo, que no tiene sitio con sus dos botones.
-    await irALaApp();
+    await abrirAjustes();
+    ir("Ayuda y winshotx");
     expect(screen.getByText("winshotx.com")).toBeInTheDocument();
     expect(screen.getByText("buymeacoffee.com/munito")).toBeInTheDocument();
   });
 
   it("invitar a un cafe abre buymeacoffee, y no otra cosa", async () => {
-    await irALaApp();
+    await abrirAjustes();
+    ir("Ayuda y winshotx");
     fireEvent.click(screen.getByRole("button", { name: "Invitar" }));
     await waitFor(() => {
       expect(llamadas.some((l) => l.comando === "open_url")).toBe(true);
@@ -195,22 +327,9 @@ describe("lo que ensenna de la maquina, en «La app»", () => {
     expect(abierta?.args).toEqual({ url: "https://buymeacoffee.com/munito" });
   });
 
-  it("el café también está en la barra de abajo, desde la primera sección, y dice a dónde va", async () => {
-    // Sin ir a «La app»: es la barra que se ve en todas las secciones.
-    await abrirAjustes();
-    const apoyar = screen.getByRole("button", { name: "Apoyar" });
-    expect(apoyar).toHaveAttribute("title", "buymeacoffee.com/munito");
-    expect(apoyar.closest("footer")).not.toBeNull();
-    fireEvent.click(apoyar);
-    await waitFor(() => {
-      expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
-        url: "https://buymeacoffee.com/munito",
-      });
-    });
-  });
-
   it("y los otros tres botones llevan a los otros tres sitios", async () => {
-    await irALaApp();
+    await abrirAjustes();
+    ir("Ayuda y winshotx");
     for (const [boton, url] of [
       ["La web", "https://winshotx.com"],
       ["El código", "https://github.com/Mun1to/winshotx"],
@@ -222,42 +341,181 @@ describe("lo que ensenna de la maquina, en «La app»", () => {
       });
     }
   });
+
+  it("buscar actualizaciones a mano contesta en la misma fila, y solo cuando se pide", async () => {
+    await abrirAjustes();
+    ir("Ayuda y winshotx");
+    // Mirar solo al abrir no cuenta nada: sin pedirlo, «estás en la última versión» sería un
+    // «todo va bien» que no pide nada.
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "is_store_build")).toBe(true));
+    expect(screen.queryByText("estás en la última versión")).toBeNull();
+    // El de la fila (la barra de abajo lleva otro, que tiene su propia prueba).
+    const fila = document.querySelector<HTMLElement>('[data-fila="appVersion"]')!;
+    fireEvent.click(within(fila).getByRole("button", { name: "Buscar actualizaciones" }));
+    await waitFor(() => expect(within(fila).getByText("estás en la última versión")).toBeInTheDocument());
+  });
 });
 
 /**
- * El tour se cierra donde se pide ayuda, y esa es la unica parada que tiene un boton que
- * saca de la aplicacion. Lo que se comprueba es que se llega hasta el final y que ese
- * boton lleva donde dice: el resto del recorrido se mira en foto, porque es colocacion.
+ * El buscador es una paleta que salta al ajuste y lo ilumina (la de la variación 8, que eligió
+ * Munito para la 9). Se prueba como lo usa una persona: con el teclado.
  */
-describe("el tour de los ajustes", () => {
-  async function hastaElFinal() {
-    await abrirAjustes();
-    fireEvent.click(screen.getByRole("button", { name: /Tour/ }));
-    // «Siguiente» hasta que el boton cambia a «Listo», que es como se sabe que es la
-    // ultima. Contar las paradas a mano dejaria la prueba pidiendo un numero cada vez que
-    // se anade una.
-    for (let i = 0; i < 20; i += 1) {
-      const siguiente = screen.queryByRole("button", { name: "Siguiente" });
-      if (!siguiente) break;
-      fireEvent.click(siguiente);
-    }
-    expect(screen.getByRole("button", { name: "Listo" })).toBeInTheDocument();
-  }
+describe("el buscador", () => {
+  const paleta = () => screen.queryByRole("dialog", { name: "Buscar un ajuste" });
+  const campo = () => within(paleta()!).getByRole("combobox");
+  const opciones = () => within(paleta()!).queryAllByRole("option");
 
-  it("acaba contando como se ayuda, y el boton lleva al cafe", async () => {
-    await hastaElFinal();
-    fireEvent.click(screen.getByRole("button", { name: /Invítame a un café/ }));
-    await waitFor(() => {
-      expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
-        url: "https://buymeacoffee.com/munito",
-      });
-    });
+  it("se abre con Ctrl + F y con el campo de la cabecera, y se cierra con Esc", async () => {
+    await abrirAjustes();
+    expect(paleta()).toBeNull();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    expect(paleta()).not.toBeNull();
+    await waitFor(() => expect(campo()).toHaveFocus());
+    fireEvent.keyDown(campo(), { key: "Escape" });
+    expect(paleta()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Buscar un ajuste/ }));
+    expect(paleta()).not.toBeNull();
   });
 
-  it("y ninguna otra parada pide nada", async () => {
+  it("dice qué escribir y, si no encuentra nada, lo dice", async () => {
     await abrirAjustes();
-    fireEvent.click(screen.getByRole("button", { name: /Tour/ }));
-    expect(screen.queryByRole("button", { name: /Invítame a un café/ })).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    expect(within(paleta()!).getByText(/Escribe lo que buscas/)).toBeInTheDocument();
+    fireEvent.change(campo(), { target: { value: "zzzz" } });
+    expect(within(paleta()!).getByText("Nada con «zzzz». Prueba con otra palabra.")).toBeInTheDocument();
+  });
+
+  it("cada resultado dice su nombre y su apartado, con las flechas se elige y Enter salta e ilumina la fila", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(campo(), { target: { value: "sonido" } });
+    const nombres = opciones().map((o) => o.textContent);
+    // Lo que se llama así va primero, cada uno con su apartado a la derecha.
+    expect(nombres[0]).toBe("Sonido de obturadorDespués de capturar");
+    expect(nombres[1]).toBe("Sonido al empezarGrabar");
+    expect(opciones()[0]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(campo(), { key: "ArrowDown" });
+    expect(opciones()[1]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(campo(), { key: "ArrowUp" });
+    fireEvent.keyDown(campo(), { key: "ArrowUp" });
+    expect(opciones()[0]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(campo(), { key: "ArrowDown" });
+    fireEvent.keyDown(campo(), { key: "Enter" });
+    // Se cierra, lleva a Grabar y la fila del sonido al empezar va encendida.
+    expect(paleta()).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Grabar" })).toBeInTheDocument();
+    const fila = document.querySelector('[data-fila="graSonido"]')!;
+    expect(fila.className).toContain("ring-marca/50");
+    expect(document.querySelectorAll('[data-fila][class*="ring-marca"]')).toHaveLength(1);
+  });
+
+  it("la luz se apaga en cuanto se toca otra cosa", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(campo(), { target: { value: "carpeta" } });
+    fireEvent.keyDown(campo(), { key: "Enter" });
+    const fila = () => document.querySelector('[data-fila="appCarpeta"]')!;
+    expect(fila().className).toContain("ring-marca/50");
+    // Se engancha un instante después de encenderse, para no cazar el mismo Enter.
+    await new Promise((r) => setTimeout(r, 10));
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(fila().className).not.toContain("ring-marca"));
+  });
+
+  it("busca en inglés aunque la app esté en español, y al revés", async () => {
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(campo(), { target: { value: "folder" } });
+    expect(opciones()[0].textContent).toContain("Carpeta de destino");
+  });
+
+  it("en inglés, los resultados salen en inglés", async () => {
+    aplicarIdioma("en");
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    fireEvent.change(within(screen.getByRole("dialog", { name: "Search a setting" })).getByRole("combobox"), {
+      target: { value: "cámara" },
+    });
+    const texto = screen.getByRole("dialog", { name: "Search a setting" }).textContent ?? "";
+    expect(texto).toContain("Record the camera too");
+    expect(texto).not.toContain("Grabar también");
+  });
+
+  it("cada ajuste que ofrece tiene su fila en su apartado, para poder iluminarla", async () => {
+    // Con tres pantallas, para que salga también la de elegir pantalla.
+    responde("list_cameras", []);
+    await abrirAjustes(undefined, TRES_PANTALLAS);
+    const { BUSCABLES } = await import("./mapaDeAjustes");
+    const sinFila: string[] = [];
+    for (const b of BUSCABLES.filter((x) => x.apartado !== "historial")) {
+      fireEvent.click(within(riel()).getByRole("button", { name: { capturar: "Capturar", despues: "Después de capturar", grabar: "Grabar", ultimos: "Los últimos segundos", historial: "Historial", teclas: "Teclas de Windows", app: "La app", ayuda: "Ayuda y winshotx" }[b.apartado] }));
+      await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument());
+      if (!document.querySelector(`[data-fila="${b.id}"]`)) sinFila.push(b.id);
+    }
+    expect(sinFila).toEqual([]);
+  });
+});
+
+/**
+ * «Así va a salir» se dibuja con los ajustes de verdad: lo que se comprueba es que cambie al
+ * tocar su fila, que es lo único que le da sentido. Si se quedara quieto, mentiría.
+ */
+describe("el dibujo de cada apartado", () => {
+  it("en Capturar, la lupa sale en el dibujo y se va al apagarla", async () => {
+    await abrirAjustes();
+    expect(dibujo()?.querySelector('[data-dibujo="lupa"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole("switch", { name: "Lupa de píxel" }));
+    await waitFor(() => expect(dibujo()?.querySelector('[data-dibujo="lupa"]')).toBeNull());
+  });
+
+  it("con espera, la cuenta atrás sale en el dibujo y en la frase", async () => {
+    await abrirAjustes();
+    fireEvent.click(within(screen.getByRole("group", { name: "Esperar antes de capturar" })).getByRole("button", { name: "3 s" }));
+    await waitFor(() => expect(dibujo()?.querySelector('[data-dibujo="cuenta"]')?.textContent).toBe("3"));
+    expect(dibujo()?.textContent).toContain("Cuenta 3 s antes de hacer la foto");
+  });
+
+  it("en Después, el cursor sale en la foto solo si se incluye", async () => {
+    await abrirAjustes(undefined, undefined, { captureCursor: true });
+    ir("Después de capturar");
+    expect(dibujo()?.querySelector('[data-dibujo="cursor"]')).not.toBeNull();
+    // Se apaga en Capturar, que es donde vive la fila, y el dibujo de Después lo refleja.
+    ir("Capturar");
+    fireEvent.click(screen.getByRole("switch", { name: "Incluir el cursor" }));
+    ir("Después de capturar");
+    expect(dibujo()?.querySelector('[data-dibujo="cursor"]')).toBeNull();
+  });
+
+  it("en Grabar, la cámara aparece en el dibujo al encenderla", async () => {
+    responde("list_cameras", [{ id: "a", nombre: "HP True Vision FHD Camera" }]);
+    await abrirAjustes();
+    ir("Grabar");
+    expect(dibujo()?.querySelector('[data-dibujo="camara"]')).toBeNull();
+    expect(dibujo()?.textContent).toContain("Sin cámara");
+    fireEvent.click(screen.getByRole("switch", { name: "Grabar también la cámara" }));
+    await waitFor(() => expect(dibujo()?.querySelector('[data-dibujo="camara"]')).not.toBeNull());
+    expect(dibujo()?.textContent).toContain("Con tu cámara en una esquina");
+  });
+
+  it("en Teclas, Impr Pant se ilumina al dársela a winshotx", async () => {
+    await abrirAjustes();
+    ir("Teclas de Windows");
+    const tecla = () => dibujo()?.querySelector('[data-dibujo="impr-pant"] [data-viva]');
+    expect(tecla()).toBeNull();
+    expect(dibujo()?.textContent).toContain("Impr Pant sigue siendo de Windows");
+    // Rust escribe el ajuste él mismo; la ventana lo vuelve a leer después.
+    responde("use_print_screen", { enabled: true, active: true });
+    responde("get_settings", { ...AJUSTES, printScreenCapture: true });
+    fireEvent.click(screen.getByRole("switch", { name: "Usar también Impr Pant" }));
+    await waitFor(() => expect(tecla()?.textContent).toBe("Impr Pant"));
+    expect(dibujo()?.textContent).toContain("Impr Pant abre winshotx");
+  });
+
+  it("las frases ponen en negrita lo que cambia, sin dejar los asteriscos", async () => {
+    await abrirAjustes();
+    const negrita = within(dibujo()!).getByText("no sale");
+    expect(negrita.tagName).toBe("STRONG");
+    expect(dibujo()?.textContent).not.toContain("**");
   });
 });
 
@@ -267,15 +525,10 @@ describe("el tour de los ajustes", () => {
  * encendido, sobre que pantalla y con cuanto guardado. Un interruptor mudo seria peor que
  * no tener la funcion.
  */
-describe("los ultimos segundos, en «Grabar»", () => {
-  async function irAGrabar(
-    replay?: ReplayStatus,
-    pantallas?: unknown[],
-    ajustes?: Partial<Settings>,
-  ) {
+describe("los ultimos segundos", () => {
+  async function irAUltimos(replay?: ReplayStatus, pantallas?: unknown[], ajustes?: Partial<Settings>) {
     await abrirAjustes(replay, pantallas, ajustes);
-    // El nombre del boton cambia con el idioma, y una de estas pruebas va en ingles.
-    fireEvent.click(screen.getByRole("button", { name: /^(Grabar|Record)$/ }));
+    ir(/^(Los últimos segundos|The last few seconds)$/);
   }
 
   const CORRIENDO: ReplayStatus = {
@@ -290,10 +543,9 @@ describe("los ultimos segundos, en «Grabar»", () => {
     bufferedMs: 30_000,
   };
 
-  it("apagado, explica lo que va a hacer antes de que nadie lo encienda", async () => {
-    await irAGrabar();
-    expect(screen.getByText("Los últimos segundos")).toBeInTheDocument();
-    expect(screen.getByText(/graba sin parar y tira lo viejo/)).toBeInTheDocument();
+  it("apagado, el dibujo dice lo que va a hacer antes de que nadie lo encienda", async () => {
+    await irAUltimos();
+    expect(dibujo()?.textContent).toContain("Apagado: no graba nada hasta que lo enciendas");
   });
 
   /**
@@ -301,25 +553,25 @@ describe("los ultimos segundos, en «Grabar»", () => {
    * quietos en cuanto el anillo se llena: es lo que le escribe al disco cada segundo, que
    * sigue pasando toda la tarde. Por eso la fila enseña las dos cosas y el tamaño real.
    */
-  it("encendido, dice de dónde graba, a qué tamaño y lo que le cuesta al disco", async () => {
-    await irAGrabar(CORRIENDO);
+  it("encendido, dice de dónde graba, a qué tamaño y lo que le cuesta al disco, en gris y no en verde", async () => {
+    await irAUltimos(CORRIENDO);
     // El número de pantalla, no el nombre que le pone Windows: «\.\DISPLAY3» no le
     // dice nada a nadie, y el número es el mismo que sale al elegirla para capturar.
-    expect(screen.getByText(/pantalla 2/)).toBeInTheDocument();
-    expect(screen.getByText(/1280 × 720/)).toBeInTheDocument();
-    expect(screen.getByText(/3[,.]2 MB\/s/)).toBeInTheDocument();
+    const dato = screen.getByText(/pantalla 2 · 1280 × 720 · 3,2 MB\/s/);
+    expect(dato.className).toContain("text-apagado");
+    expect(dato.className).not.toMatch(/emerald|green/);
   });
 
   it("si hay menos de lo que promete el ajuste, dice cuanto hay de verdad", async () => {
     // Pasa mientras se llena, y pasa para siempre en una pantalla que cambia tanto que el
     // tope de disco tira lo viejo antes de tiempo. Prometer treinta y dar ocho seria
     // mentir justo cuando alguien va a pulsar la tecla.
-    await irAGrabar({ ...CORRIENDO, bufferedMs: 8_400 });
+    await irAUltimos({ ...CORRIENDO, bufferedMs: 8_400 });
     expect(screen.getByText(/ahora mismo hay 8 s guardados/)).toBeInTheDocument();
   });
 
   it("apagado, la tecla no promete nada que no vaya a pasar", async () => {
-    await irAGrabar();
+    await irAUltimos();
     expect(screen.getByText("primero hay que encenderlo aquí arriba")).toBeInTheDocument();
   });
 
@@ -327,114 +579,41 @@ describe("los ultimos segundos, en «Grabar»", () => {
    * Munir tuvo el anillo semanas a 60 fotogramas y resolución nativa, que entonces era el
    * 86% de un núcleo todo el día, y lo que notó fue que el ordenador iba con lag y que el
    * atajo tardaba en abrir la captura. Nadie elige eso sabiendo lo que cuesta: se elige
-   * porque suena a mejor. Ahora lo dice la propia fila, y en rojo, con lo medido el 17 de
-   * septiembre de 2026 (22% quieto, hasta el 60% en movimiento).
+   * porque suena a mejor. Lo dice la propia fila, en ámbar; desde la 0.5, sin la cifra de
+   * septiembre, que ya no es la de ahora (S29 lo bajó), hasta medirlo otra vez.
    */
-  it("la combinación más cara dice lo que cuesta, y avisa", async () => {
-    await irAGrabar(undefined, undefined, { replayFps: 60, replayHeight: 0 });
-    const coste = screen.getByText(/22% de un núcleo.*60%/);
-    expect(coste).toBeInTheDocument();
-    expect(coste.className).toMatch(/amber|warn|yellow/);
+  it("la combinación más cara dice lo que cuesta, y avisa en ámbar, sin una cifra vieja", async () => {
+    await irAUltimos(undefined, undefined, { replayFps: 60, replayHeight: 0 });
+    const coste = screen.getByText("la más fluida; gasta más cuanto más se mueve la pantalla");
+    expect(coste.className).toContain("text-aviso");
+    expect(document.body.textContent).not.toMatch(/\d+ ?% de un núcleo/);
   });
 
   it("y la combinación de en medio dice la suya", async () => {
-    await irAGrabar(undefined, undefined, { replayFps: 30, replayHeight: 1080 });
-    expect(screen.getByText(/17% de un núcleo/)).toBeInTheDocument();
+    await irAUltimos(undefined, undefined, { replayFps: 30, replayHeight: 1080 });
+    expect(screen.getByText("gasta poco con la pantalla quieta")).toBeInTheDocument();
   });
 
-  /**
-   * Solo se midieron esas dos. Las otras siete saldrían de extrapolar dos puntos, o sea
-   * de inventarse un número y ponérselo delante a quien decide.
-   */
-  it("y de las que no se midieron no se inventa ninguna cifra", async () => {
-    await irAGrabar(undefined, undefined, { replayFps: 15, replayHeight: 720 });
-    expect(screen.getByText("fotogramas por segundo")).toBeInTheDocument();
-    expect(screen.queryByText(/% de un núcleo/)).toBeNull();
+  /** Solo se midieron esas dos: de las otras siete se diría algo que nadie ha comprobado. */
+  it("y de las que no se midieron no se dice nada", async () => {
+    await irAUltimos(undefined, undefined, { replayFps: 15, replayHeight: 720 });
+    expect(screen.queryByText(/fluida|gasta/)).toBeNull();
   });
 
   it("en ingles no se cuela ni una palabra en castellano", async () => {
     aplicarIdioma("en");
-    await irAGrabar(CORRIENDO);
+    await irAUltimos(CORRIENDO);
     const pantalla = document.body.textContent ?? "";
     const coladas = [
       "Los últimos segundos",
       "Grabar siempre",
       "Cuánto se guarda",
       "Quedarme con",
-      "vigilando",
+      "Grabando siempre",
+      "hace 30 s",
+      "ahora",
     ].filter((frase) => pantalla.includes(frase));
     expect(coladas).toEqual([]);
-  });
-});
-
-/**
- * La barra de abajo.
- *
- * Lo que la justifica es que esté SIEMPRE, así que lo que hay que comprobar no es que
- * exista, sino que siga ahí al cambiar de sección y que sus atajos cambien el ajuste de
- * verdad, y no solo se pinten.
- */
-describe("la barra de abajo", () => {
-  const barra = () => screen.getByRole("contentinfo");
-
-  it("está en las cuatro secciones, no solo en la primera", async () => {
-    await abrirAjustes();
-    expect(within(barra()).getByText("Al soltar")).toBeInTheDocument();
-
-    for (const nombre of ["Grabar", "Teclas de Windows", "La app"]) {
-      fireEvent.click(screen.getByRole("button", { name: nombre }));
-      expect(within(barra()).getByRole("group", { name: "Tema" })).toBeInTheDocument();
-    }
-  });
-
-  it("lo de actualizar está aquí y ya no dentro de una sección", async () => {
-    await abrirAjustes();
-    // Lo de actualizar vive en la barra, a la vista desde cualquier sitio, aunque estando
-    // al día sea solo un tick.
-    await waitFor(() =>
-      expect(
-        within(barra()).getByRole("button", { name: "estás en la última versión" }),
-      ).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "La app" }));
-    expect(screen.queryByText("Actualizaciones")).toBeNull();
-  });
-
-  it("estando al día no gasta sitio en decirlo: solo un tick", async () => {
-    // «Estás en la última versión» es la respuesta casi todos los días, y se llevaba un
-    // cuarto de la barra para no contar nada. La frase vuelve cuando hay algo que decir.
-    await abrirAjustes();
-    await waitFor(() =>
-      expect(
-        within(barra()).getByRole("button", { name: "estás en la última versión" }),
-      ).toBeInTheDocument(),
-    );
-    expect(within(barra()).queryByText("estás en la última versión")).toBeNull();
-    expect(within(barra()).queryByRole("button", { name: /Buscar/ })).toBeNull();
-  });
-
-  it("cambiar lo que pasa al soltar el ratón viaja hasta Rust", async () => {
-    await abrirAjustes();
-    fireEvent.click(within(barra()).getByRole("button", { name: "Copia" }));
-
-    await waitFor(() => {
-      const guardados = llamadas.filter((l) => l.comando === "set_settings");
-      expect(guardados.at(-1)?.args).toMatchObject({
-        settings: expect.objectContaining({ captureFlow: "instant" }),
-      });
-    });
-  });
-
-  it("y el idioma, que además se cambia en el acto", async () => {
-    await abrirAjustes();
-    fireEvent.click(within(barra()).getByRole("button", { name: "EN" }));
-
-    // Sin recargar nada: la propia barra ya está en inglés.
-    await waitFor(() => expect(within(barra()).getByText("When you let go")).toBeInTheDocument());
-    const guardados = llamadas.filter((l) => l.comando === "set_settings");
-    expect(guardados.at(-1)?.args).toMatchObject({
-      settings: expect.objectContaining({ language: "en" }),
-    });
   });
 });
 
@@ -446,25 +625,32 @@ const TRES_PANTALLAS = [
 ];
 
 describe("elegir pantalla y calidad", () => {
-  async function irAGrabar(pantallas: unknown[] = TRES_PANTALLAS) {
+  async function irAUltimos(pantallas: unknown[] = TRES_PANTALLAS) {
     await abrirAjustes(undefined, pantallas);
-    fireEvent.click(screen.getByRole("button", { name: /^(Grabar|Record)$/ }));
+    ir("Los últimos segundos");
   }
 
   it("con una sola pantalla no pregunta cuál: elegir entre una es ruido", async () => {
-    await irAGrabar([TRES_PANTALLAS[0]]);
+    await irAUltimos([TRES_PANTALLAS[0]]);
     expect(screen.queryByText("Qué pantalla")).not.toBeInTheDocument();
   });
 
   it("con tres, se elige, y de fábrica va donde esté el ratón", async () => {
-    await irAGrabar();
+    await irAUltimos();
     expect(screen.getByText("Qué pantalla")).toBeInTheDocument();
     const elegida = screen.getByRole("button", { name: "Ratón" });
     expect(elegida).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("la principal lleva su estrella dibujada y lo dice en su nombre, sin «★» de texto", async () => {
+    await irAUltimos();
+    const principal = screen.getByRole("button", { name: "1, la principal" });
+    expect(principal.querySelector("svg")).not.toBeNull();
+    expect(screen.getByRole("group", { name: "Qué pantalla" }).textContent).not.toContain("★");
+  });
+
   it("al elegir la segunda, viaja a Rust por su número interno", async () => {
-    await irAGrabar();
+    await irAUltimos();
     fireEvent.click(screen.getByRole("button", { name: "2" }));
     const ultima = [...llamadas].reverse().find((l) => l.comando === "set_settings");
     expect((ultima?.args as { settings: Record<string, unknown> }).settings).toMatchObject({
@@ -477,9 +663,9 @@ describe("elegir pantalla y calidad", () => {
    * escritorio. Este es el número que decide si alguien deja esto puesto o no.
    */
   it("la calidad dice cuánto disco puede llegar a comerse", async () => {
-    await irAGrabar();
+    await irAUltimos();
     // 30 s a 15 fps por 2,3 MB son unos 987 MB.
-    expect(screen.getByText(/hasta 98[0-9][,.]\d MB en disco/)).toBeInTheDocument();
+    expect(screen.getByText(/hasta 98[0-9],\d MB en disco/)).toBeInTheDocument();
   });
 
   /**
@@ -487,26 +673,23 @@ describe("elegir pantalla y calidad", () => {
    * pantalla es la única forma que no admite duda, y es lo que pidió Munir al verlo.
    */
   it("al elegir una pantalla, la enseña en la propia pantalla", async () => {
-    await irAGrabar();
+    await irAUltimos();
     fireEvent.click(screen.getByRole("button", { name: "2" }));
     const aviso = [...llamadas].reverse().find((l) => l.comando === "show_screen_number");
     expect(aviso?.args).toEqual({ screen: 1 });
   });
 
   it("y con «Ratón» no enseña nada, porque no hay ninguna que señalar", async () => {
-    await irAGrabar();
+    await irAUltimos();
     fireEvent.click(screen.getByRole("button", { name: "Ratón" }));
     expect(llamadas.filter((l) => l.comando === "show_screen_number")).toEqual([]);
   });
 
   /** Es el ajuste que más disco ahorra: 720p deja el fotograma en menos de la mitad. */
   it("la calidad se elige por tamaño, no por un número suelto", async () => {
-    await irAGrabar();
+    await irAUltimos();
     const grupo = screen.getByRole("group", { name: "Calidad" });
-    expect(within(grupo).getByRole("button", { name: "Nativa" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(within(grupo).getByRole("button", { name: "Nativa" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(within(grupo).getByRole("button", { name: "720p" }));
     const ultima = [...llamadas].reverse().find((l) => l.comando === "set_settings");
     expect((ultima?.args as { settings: Record<string, unknown> }).settings).toMatchObject({
@@ -515,9 +698,7 @@ describe("elegir pantalla y calidad", () => {
   });
 
   it("y ese número sube al subir la fluidez", async () => {
-    await irAGrabar();
-    // «60 fps» sale dos veces, los de grabar y los del anillo: por eso el grupo tiene
-    // nombre, que además es lo que oye quien usa un lector de pantalla.
+    await irAUltimos();
     const grupo = screen.getByRole("group", { name: "Fluidez" });
     fireEvent.click(within(grupo).getByRole("button", { name: "60" }));
     const ultima = [...llamadas].reverse().find((l) => l.comando === "set_settings");
@@ -566,13 +747,13 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
   async function irAGrabar(ajustes?: Partial<Settings>, camaras: unknown = []) {
     responde("list_cameras", camaras);
     await abrirAjustes(undefined, undefined, ajustes);
-    fireEvent.click(screen.getByRole("button", { name: "Grabar" }));
+    ir("Grabar");
   }
 
-  it("la tecla de zoom sale con la de fábrica, Ctrl + Mayús + 9", async () => {
+  it("la tecla de zoom sale con la de fábrica, sin aviso", async () => {
     await irAGrabar();
     expect(screen.getByText("Tecla de zoom")).toBeInTheDocument();
-    expect(screen.getByText("acerca el vídeo al ratón")).toBeInTheDocument();
+    expect(screen.queryByText(/es la de grabar/)).toBeNull();
   });
 
   it("avisa si la tecla de zoom es la de grabar, que la pararía", async () => {
@@ -611,9 +792,9 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
     aplicarIdioma("en");
     responde("list_cameras", []);
     await abrirAjustes();
-    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+    ir("Record");
     const pantalla = document.body.textContent ?? "";
-    for (const frase of ["Tecla de zoom", "La cámara", "Grabar también la cámara", "no hay ninguna cámara"]) {
+    for (const frase of ["Tecla de zoom", "Grabar también la cámara", "no hay ninguna cámara", "Sin cámara"]) {
       expect(pantalla).not.toContain(frase);
     }
     expect(pantalla).toContain("Zoom key");
@@ -626,25 +807,57 @@ describe("la tecla de zoom y la cámara, en Grabar", () => {
  * aquí: son las que ha puesto el escritorio, y «Cambiar» le pide su ventana.
  */
 describe("en Linux", () => {
-  it("no salen la pestaña de las teclas de Windows ni lo que solo hace Windows", async () => {
+  it("no salen el apartado de las teclas de Windows ni lo que solo hace Windows", async () => {
     responde("plataforma", { sistema: "linux", wayland: false });
     // Sin la captura moderna, en Windows saldría el aviso de la captura antigua.
     await abrirAjustes(undefined, undefined, undefined, false);
-    const menu = screen.getByLabelText("Secciones de ajustes");
-    const nombres = within(menu)
+    const nombres = within(riel())
       .getAllByRole("button")
-      .map((b) => b.textContent);
-    expect(nombres).toEqual(["Capturar", "Grabar", "Historial", "La app"]);
+      .map((b) => b.getAttribute("aria-label"));
+    expect(nombres).toEqual([
+      "Capturar",
+      "Después de capturar",
+      "Grabar",
+      "Los últimos segundos",
+      "Historial",
+      "La app",
+      "Ayuda y winshotx",
+    ]);
     expect(screen.queryByText("Ocultar iconos del escritorio")).not.toBeInTheDocument();
     expect(screen.queryByText("Este Windows usa la captura antigua")).not.toBeInTheDocument();
+  });
+
+  it("el buscador no ofrece lo de Windows y llama al arranque por su nombre", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrirAjustes();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    const campo = await screen.findByRole("combobox");
+    fireEvent.change(campo, { target: { value: "recortes" } });
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    fireEvent.change(campo, { target: { value: "arrancar" } });
+    expect(screen.getByRole("option")).toHaveTextContent("Arrancar al iniciar sesión");
+  });
+
+  it("el tour se salta las teclas de Windows y cuenta siete apartados", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrirAjustes();
+    fireEvent.click(within(document.querySelector<HTMLElement>("[data-barra-abajo]")!).getByRole("button", { name: /Tour/ }));
+    expect(await screen.findByRole("dialog", { name: "Todo está en estos siete" })).toBeInTheDocument();
+    for (let i = 0; i < 6; i += 1) {
+      expect(screen.queryByRole("dialog", { name: "Quitarle las teclas a Windows" })).not.toBeInTheDocument();
+      fireEvent.keyDown(window, { key: "ArrowRight" });
+    }
+    expect(await screen.findByRole("dialog", { name: "Ya está: así puedes ayudar" })).toBeInTheDocument();
   });
 
   it("arranca con la sesión, no con Windows", async () => {
     responde("plataforma", { sistema: "linux", wayland: false });
     await abrirAjustes();
-    fireEvent.click(screen.getByRole("button", { name: "La app" }));
+    ir("La app");
     expect(screen.getByText("Arrancar al iniciar sesión")).toBeInTheDocument();
     expect(screen.queryByText("Arrancar con Windows")).not.toBeInTheDocument();
+    expect(dibujo()).toHaveTextContent("No arranca sola al iniciar sesión");
+    expect(dibujo()).not.toHaveTextContent("Windows");
   });
 
   it("en Wayland enseña la tecla que puso el escritorio, y Cambiar le pide su ventana", async () => {
@@ -705,72 +918,143 @@ describe("en Linux", () => {
   it("en Windows sigue todo como estaba", async () => {
     await abrirAjustes();
     expect(screen.getByText("Ocultar iconos del escritorio")).toBeInTheDocument();
+    expect(within(riel()).getByRole("button", { name: "Teclas de Windows" })).toBeInTheDocument();
     expect(screen.queryByText("la tecla la elige el escritorio")).not.toBeInTheDocument();
   });
 });
 
 /**
- * S24: la ventana mide lo que mide su pestaña. Aquí no hay maquetación (happy-dom no mide
- * nada), así que se le dice cuánto mide cada pestaña y se mira qué pide la ventana. Lo de
- * medir de verdad se comprobó en Edge sin ventana (ver el Informe S24 del BUZON).
+ * S40: vuelve la barra de abajo, la de lo que se toca a menudo, a mano desde cualquier
+ * apartado. Que quepa y que se lea se mide en Edge (`scripts/probar-medida-ajustes.mjs`).
  */
-describe("la ventana a la medida de su pestaña", () => {
-  /** Lo que mide cada pestaña por dentro, sin la cabecera ni la barra de abajo. */
-  const MIDE: Record<string, number> = { capturar: 521, grabar: 650, teclas: 214 };
-  afterEach(() => vi.restoreAllMocks());
+describe("la barra de abajo", () => {
+  const barra = () => document.querySelector<HTMLElement>("[data-barra-abajo]")!;
+  const guardado = () =>
+    (llamadas.filter((l) => l.comando === "set_settings").at(-1)?.args as { settings: Settings } | undefined)?.settings;
 
-  function medirComoEdge() {
-    // Fuera del hueco (cabecera de 48 y barra de 44) van 92 px; el hueco es el resto.
-    const real = Element.prototype.getBoundingClientRect;
-    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-      if (!this.hasAttribute("data-contenido-ajustes")) return real.call(this);
-      const activa = document
-        .querySelector('[data-tour="secciones"] button[aria-pressed="true"]')
-        ?.textContent?.trim();
-      const alto = activa === "Grabar" ? MIDE.grabar : activa?.startsWith("Teclas") ? MIDE.teclas : MIDE.capturar;
-      return { x: 0, y: 48, top: 48, left: 0, right: 840, bottom: 48 + alto, width: 840, height: alto, toJSON: () => ({}) } as DOMRect;
-    });
-    vi.spyOn(document.documentElement, "clientHeight", "get").mockImplementation(() => ventana.dentro.height);
-    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
-      return this.hasAttribute("data-scroll-ajustes") ? ventana.dentro.height - 92 : 0;
-    });
-  }
-
-  it("abre con el alto de Capturar, sin el hueco de los 760 de antes", async () => {
-    medirComoEdge();
+  it("sale en todos los apartados, con el tema, el idioma, al soltar, el tour, buscar versión nueva y el café", async () => {
     await abrirAjustes();
-    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 840, height: 613 }));
+    for (const nombre of ["Capturar", "Historial", "Ayuda y winshotx"]) {
+      ir(nombre);
+      const b = within(barra());
+      expect(b.getByRole("group", { name: "Tema" })).toBeInTheDocument();
+      expect(b.getByRole("group", { name: "Idioma" })).toBeInTheDocument();
+      expect(b.getByRole("group", { name: "Al soltar el ratón" })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: /Tour/ })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: /Buscar actualizaciones/ })).toBeInTheDocument();
+      expect(b.getByRole("button", { name: "Apoyar" })).toBeInTheDocument();
+    }
   });
 
-  it("crece para Grabar y encoge para Teclas, sin mover el borde de arriba", async () => {
-    medirComoEdge();
+  it("cambia el tema, el idioma y lo que pasa al soltar, y lo guarda", async () => {
     await abrirAjustes();
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(613));
-    const posiciones = ventana.posiciones.length;
-    fireEvent.click(screen.getByRole("button", { name: "Grabar" }));
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(742));
-    fireEvent.click(screen.getByRole("button", { name: "Teclas de Windows" }));
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(306));
-    // La primera vez se recentra; después las pestañas se quedan debajo del ratón.
-    expect(ventana.posiciones.length).toBe(posiciones);
+    const b = within(barra());
+    fireEvent.click(b.getByRole("button", { name: "Oscuro" }));
+    await waitFor(() => expect(guardado()?.theme).toBe("oscuro"));
+    fireEvent.click(b.getByRole("button", { name: "Copia" }));
+    await waitFor(() => expect(guardado()?.captureFlow).toBe("instant"));
+    // Cada idioma con su nombre en ese idioma; el que se está viendo, marcado.
+    expect(b.getByRole("button", { name: "Español" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(b.getByRole("button", { name: "English" }));
+    await waitFor(() => expect(guardado()?.language).toBe("en"));
+    expect(within(barra()).getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("en una pantalla baja se queda dentro de la zona útil", async () => {
-    medirComoEdge();
-    ventana.escala = 1.25;
+  it("el tour se abre desde ella", async () => {
     await abrirAjustes();
-    fireEvent.click(screen.getByRole("button", { name: "Grabar" }));
-    // La pantalla de prueba tiene 1032 de zona útil y 40 de marco: a 125 %, 742 lógicos son
-    // 928 físicos, que caben. Lo que no cabe lo prueba `ventanaALaMedida.test.ts`.
-    await waitFor(() => expect(ventana.tamannos.at(-1)?.height).toBe(928));
+    fireEvent.click(within(barra()).getByRole("button", { name: /Tour/ }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+  });
+
+  it("al buscar versión nueva, contesta; sin preguntar, no dice nada", async () => {
+    await abrirAjustes();
+    // La ventana mira sola al abrirse: estando al día, la barra no lo cuenta.
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "is_store_build")).toBe(true));
+    expect(within(barra()).queryByText("Ya tienes la última")).not.toBeInTheDocument();
+    fireEvent.click(within(barra()).getByRole("button", { name: /Buscar actualizaciones/ }));
+    await waitFor(() => expect(within(barra()).getByText("Ya tienes la última")).toBeInTheDocument());
   });
 });
 
-/** S24: en cada parada del tour, la pestaña de su sección se ve encendida en la cabecera. */
-describe("el tour enciende la pestaña de cada parada", () => {
-  it("la primera ilumina la cabecera entera; las demás, lo suyo y su pestaña", async () => {
+/**
+ * S40: la ventana mide siempre lo mismo. La pone a su tamaño `App.tsx` al abrir
+ * (`ventanaFija.test.ts`); los ajustes no la tocan nunca, ni al cambiar de apartado ni con el
+ * historial lleno, y lo que no cabe baja con la rueda dentro (`scripts/probar-medida-ajustes.mjs`
+ * lo mide en Edge sin ventana).
+ */
+describe("la ventana con su tamaño fijo", () => {
+  it("pasar por los ocho apartados, ida y vuelta, no le cambia el tamaño ni la mueve", async () => {
     await abrirAjustes();
-    fireEvent.click(screen.getByRole("button", { name: /Tour/ }));
+    for (const nombre of [
+      "Capturar",
+      "Después de capturar",
+      "Grabar",
+      "Los últimos segundos",
+      "Historial",
+      "Teclas de Windows",
+      "La app",
+      "Ayuda y winshotx",
+      "Grabar",
+      "Capturar",
+    ]) {
+      ir(nombre);
+      await waitFor(() => expect(within(riel()).getByRole("button", { name: nombre })).toHaveAttribute("aria-current", "page"));
+    }
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ventana.tamannos).toEqual([]);
+    expect(ventana.posiciones).toEqual([]);
+  });
+});
+
+/**
+ * El tour se cierra donde se pide ayuda, y esa es la unica parada que tiene un boton que
+ * saca de la aplicacion. Lo que se comprueba es que se llega hasta el final, que en cada
+ * parada se ve en qué apartado se está, y que ese boton lleva donde dice: el resto del
+ * recorrido se mira en foto, porque es colocacion.
+ */
+describe("el tour de los ajustes", () => {
+  async function empezar() {
+    await abrirAjustes();
+    ir("Ayuda y winshotx");
+    fireEvent.click(screen.getByRole("button", { name: "Empezar" }));
+  }
+
+  async function hastaElFinal() {
+    await empezar();
+    // «Siguiente» hasta que el boton cambia a «Listo», que es como se sabe que es la
+    // ultima. Contar las paradas a mano dejaria la prueba pidiendo un numero cada vez que
+    // se anade una.
+    for (let i = 0; i < 20; i += 1) {
+      const siguiente = screen.queryByRole("button", { name: "Siguiente" });
+      if (!siguiente) break;
+      fireEvent.click(siguiente);
+    }
+    expect(screen.getByRole("button", { name: "Listo" })).toBeInTheDocument();
+  }
+
+  it("empieza en Capturar, aunque se abra desde la ayuda", async () => {
+    await empezar();
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Capturar" })).toBeInTheDocument());
+    expect(screen.getByRole("dialog", { name: "Todo está en estos ocho" })).toBeInTheDocument();
+  });
+
+  it("acaba contando como se ayuda, y el boton lleva al cafe", async () => {
+    await hastaElFinal();
+    fireEvent.click(screen.getByRole("button", { name: /Invítame a un café/ }));
+    await waitFor(() => {
+      expect(llamadas.filter((l) => l.comando === "open_url").at(-1)?.args).toEqual({
+        url: "https://buymeacoffee.com/munito",
+      });
+    });
+  });
+
+  it("y ninguna otra parada pide nada", async () => {
+    await empezar();
+    expect(screen.queryByRole("button", { name: /Invítame a un café/ })).not.toBeInTheDocument();
+  });
+
+  it("la primera ilumina el riel entero; las demás, lo suyo y su icono del riel", async () => {
+    await empezar();
     const agujeros = () =>
       [...document.querySelectorAll("[data-tour-velo] [data-agujero]")].map((a) => a.getAttribute("data-agujero"));
     await waitFor(() => expect(agujeros()).toEqual(["objetivo"]));

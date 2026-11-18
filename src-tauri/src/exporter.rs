@@ -126,6 +126,10 @@ struct ExportProgress {
     stage: String,
     done: usize,
     total: usize,
+    /// De qué sesión es. Desde el 16-nov puede haber dos editores abiertos (una captura hecha
+    /// grabando y la grabación al pararla), y el aviso va a todos: sin esto, el editor que no
+    /// exporta se quedaba con la barra puesta y sin poder guardar.
+    session_id: String,
 }
 
 /// Elige los fotogramas que tocan para el fps pedido y calcula sus retardos.
@@ -524,6 +528,8 @@ fn marco_de(request: &ExportRequest) -> marco::Marco {
         fondo: marco::Fondo::elegido(&request.background, request.edicion.fondo.as_ref()),
         sombra: request.shadow,
         esquinas: request.corners.min(400),
+        // S25 (marco)
+        carcasa: request.edicion.carcasa,
     }
 }
 
@@ -798,11 +804,14 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
                 stage: stage.to_string(),
                 done,
                 total,
+                session_id: request.session_id.clone(),
             },
         );
     };
 
     escribir(&session, &request, &path, &emit)?;
+    // S26: si es una foto de la carpeta de capturas, su texto se lee ya para el historial.
+    crate::historial_texto::avisar(app);
 
     emit("done", 1, 1);
 
@@ -1221,10 +1230,13 @@ impl Camara {
 
         // Menos de 1,05 no se ve y solo cuesta trabajo: es apagado, dicho con un numero.
         let con_clics = zoom >= 1.05;
+        let nivel = if con_clics { zoom.min(zoom::ESCALA_MAXIMA) } else { NIVEL_DE_LA_TECLA };
+        let ajustes = zoom::Ajustes::a_velocidad(nivel, velocidad);
         // La camara se acerca a los clics **y a los atajos**: quien pulsa Ctrl+C esta
         // mirando a algun lado, y ese lado es donde tiene el raton. Un atajo sin sitio
-        // propio dejaria la mitad de un tutorial sin acercarse a nada.
-        let mut puntos: Vec<zoom::Clic> = if con_clics {
+        // propio dejaria la mitad de un tutorial sin acercarse a nada. Los dos se quedan el
+        // rato corto de los clics.
+        let mut puntos: Vec<(zoom::Clic, u64)> = if con_clics {
             session
                 .clics
                 .iter()
@@ -1235,32 +1247,25 @@ impl Camara {
                     y: a.y,
                     derecho: false,
                 }))
+                .map(|c| (c, ajustes.quieto_clic_ms))
                 .collect()
         } else {
             Vec::new()
         };
-        // Y a las marcas de la tecla de zoom, que se pulso justo para eso.
-        puntos.extend(session.marcas_zoom.iter().map(|m| zoom::Clic {
-            ms: m.ms,
-            x: m.x,
-            y: m.y,
-            derecho: false,
+        // Y a las marcas de la tecla de zoom, que se pulso justo para eso: para mirar algo,
+        // asi que se quedan lo de siempre, no el rato corto de los clics (16-nov).
+        puntos.extend(session.marcas_zoom.iter().map(|m| {
+            let marca = zoom::Clic { ms: m.ms, x: m.x, y: m.y, derecho: false };
+            (marca, ajustes.quieto_ms)
         }));
         // Van mezclados en el tiempo, y agrupar en tramos exige que vengan en orden.
-        puntos.sort_by_key(|c| c.ms);
-        let clics: Vec<zoom::Clic> = puntos
+        puntos.sort_by_key(|(c, _)| c.ms);
+        let puntos: Vec<(zoom::Clic, u64)> = puntos
             .iter()
-            .map(|c| zoom::Clic {
-                ms: c.ms,
-                x: c.x - dx,
-                y: c.y - dy,
-                derecho: c.derecho,
-            })
-            .filter(|c| c.x >= 0 && c.y >= 0 && c.x < ancho as i32 && c.y < alto as i32)
+            .map(|&(c, quieto)| (zoom::Clic { ms: c.ms, x: c.x - dx, y: c.y - dy, derecho: c.derecho }, quieto))
+            .filter(|(c, _)| c.x >= 0 && c.y >= 0 && c.x < ancho as i32 && c.y < alto as i32)
             .collect();
-        let nivel = if con_clics { zoom.min(zoom::ESCALA_MAXIMA) } else { NIVEL_DE_LA_TECLA };
-        let ajustes = zoom::Ajustes::a_velocidad(nivel, velocidad);
-        camara(zoom::tramos(&clics, &ajustes), ajustes)
+        camara(zoom::tramos_con_su_rato(&puntos, &ajustes), ajustes)
     }
 }
 
@@ -1842,7 +1847,9 @@ mod tests {
         session.width = 400;
         session.height = 300;
         session.clics.push(zoom::Clic { ms: 600, x: 100, y: 150, derecho: false });
-        session.cursor = (0..=180u64).map(|k| (k * 16, 100 + k as i32, 150)).collect();
+        // A dos píxeles cada 16 ms: desde el 16-nov el zoom se queda 0,6 s quieto tras el clic
+        // (era 1,2), y a uno por paso el ratón no salía de la mitad que la cámara ya enseña.
+        session.cursor = (0..=180u64).map(|k| (k * 16, (100 + 2 * k as i32).min(399), 150)).collect();
         let muestras = muestras_de_camara(&session, 2.0, None, 1.0, None);
         let acercadas: Vec<&MuestraCamara> = muestras.iter().filter(|m| m.x2 - m.x1 < 0.9).collect();
         assert!(acercadas.len() > 20, "solo {} muestras acercadas", acercadas.len());
@@ -2223,6 +2230,7 @@ mod el_orden_de_exportar {
             fondo: marco::Fondo::desde("blanco"),
             sombra: false,
             esquinas: 0,
+            carcasa: None,
         }
     }
 
@@ -2394,6 +2402,7 @@ mod el_orden_de_exportar {
                 fondo: marco::Fondo::desde("blanco"),
                 sombra: false,
                 esquinas: 0,
+                carcasa: None,
             },
             &[],
             &[mitad_derecha()],
@@ -2769,7 +2778,7 @@ mod medir {
         };
         let indices: Vec<usize> = (0..cuantos).collect();
         let delays = vec![33u32; cuantos];
-        let marco = marco::Marco { margen: 0, fondo: marco::Fondo::desde("blanco"), sombra: false, esquinas: 0 };
+        let marco = marco::Marco { margen: 0, fondo: marco::Fondo::desde("blanco"), sombra: false, esquinas: 0, carcasa: None };
         let opciones = mp4::Mp4Options { width: ancho, height: alto, fps: 30, quality: 75 };
 
         let vestir = |imagen: image::RgbaImage| enmarcar_y_anotar(imagen, ancho, alto, marco, &[], &[], None);
@@ -3624,6 +3633,34 @@ mod la_linea_de_tiempo {
         }
     }
 
+    /// Lo mismo a velocidad «Lenta» (0,6): el acercamiento dura 750 ms y el rato quieto de un
+    /// clic 600, así que la rampa es más de un tercio del bloque, y los bloques no pueden
+    /// recortarla (revisión, 16-nov).
+    #[test]
+    fn a_velocidad_lenta_los_bloques_sacan_el_mismo_gif() {
+        let mut session = sesion("automaticos-lentos", &[(0, mitades())], 7_000);
+        session.clics = vec![
+            zoom::Clic { ms: 1_000, x: 30, y: 40, derecho: false },
+            zoom::Clic { ms: 4_500, x: 90, y: 20, derecho: false },
+        ];
+        session.cursor = (0..430u64).map(|k| (k * 16, 20 + (k as i32 % 80), 40)).collect();
+        let mut p = peticion(&session);
+        p.zoom = 2.0;
+        p.zoom_speed = 0.6;
+        let sin_pista = gif(&session, &p, "sin-pista");
+        let bloques = zooms_de_la_sesion(&session, p.zoom, p.crop, p.zoom_speed);
+        p.edicion.zooms = Some(bloques.clone());
+        let con_pista = gif(&session, &p, "con-pista");
+        let _ = std::fs::remove_dir_all(&session.dir);
+
+        assert_eq!(bloques.len(), 2, "un bloque por clic: {bloques:?}");
+        assert_eq!(sin_pista.len(), con_pista.len(), "los mismos fotogramas");
+        for (a, b) in sin_pista.iter().zip(&con_pista) {
+            assert_eq!((a.0, a.1), (b.0, b.1), "los mismos tiempos");
+            assert!(a.2 == b.2, "el fotograma de {} ms ha cambiado", a.0);
+        }
+    }
+
     /// A3 visto desde la pista: dos pulsaciones de la tecla de zoom son dos bloques, y se
     /// acercan aunque el panel tenga el zoom de los clics apagado.
     #[test]
@@ -3640,6 +3677,22 @@ mod la_linea_de_tiempo {
         assert_eq!(bloques[0].nivel, NIVEL_DE_LA_TECLA);
         assert!((bloques[1].x - 0.75).abs() < 1e-6 && (bloques[1].y - 0.2).abs() < 1e-6);
         assert!(bloques[0].desde_ms < 1_000 && bloques[0].hasta_ms > 1_000, "el bloque rodea la marca");
+    }
+
+    /// La tecla de zoom se pulsa adrede para mirar algo: con el zoom de los clics puesto, su
+    /// marca se queda lo de siempre (1,2 s) y solo el clic se va antes (revisión, 16-nov).
+    #[test]
+    fn la_marca_de_la_tecla_se_queda_lo_de_siempre_con_el_zoom_de_clics() {
+        let mut session = super::tests::session_with(&[8_000]);
+        session.width = 400;
+        session.height = 300;
+        session.marcas_zoom = vec![crate::contrato::MarcaZoom { ms: 1_000, x: 100, y: 150 }];
+        session.clics = vec![zoom::Clic { ms: 5_000, x: 300, y: 60, derecho: false }];
+        let a = zoom::Ajustes::a_velocidad(2.0, 1.0);
+        let bloques = zooms_de_la_sesion(&session, 2.0, None, 1.0);
+        assert_eq!(bloques.len(), 2, "{bloques:?}");
+        assert_eq!(bloques[0].hasta_ms, 1_000 + a.quieto_ms + a.transicion_ms, "la marca: {bloques:?}");
+        assert_eq!(bloques[1].hasta_ms, 5_000 + a.quieto_clic_ms + a.transicion_ms, "el clic: {bloques:?}");
     }
 
     /// A2, el criterio de «hecho»: con el ratón cruzando la pantalla, el centro de la

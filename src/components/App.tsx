@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings } from "../lib/ipc";
 import { aplicarTema } from "../lib/tema";
 import { aplicarIdioma } from "../lib/i18n";
+import { type Tamanno, useVentanaFija } from "../lib/ventanaFija";
 import { SettingsApp } from "./settings/SettingsApp";
 import { WelcomeApp } from "./welcome/WelcomeApp";
 
@@ -18,6 +19,12 @@ export function App() {
   // Solo cuando se acaba de terminar la bienvenida. Quien abre los ajustes de siempre no
   // quiere un tour delante: para eso esta el boton de repetirlo en "La app".
   const [tourAlEntrar, setTourAlEntrar] = useState(false);
+  // El tamaño que se le dio a mano la última vez, si se le dio (S40).
+  const [guardada, setGuardada] = useState<Tamanno | null>(null);
+
+  // Siempre el mismo tamaño, salvo que la estire quien la usa (`ventanaFija.ts`). Va aquí, que
+  // es quien tiene la ventana: la bienvenida y los ajustes se turnan dentro sin tocarla.
+  useVentanaFija(vista !== "cargando", guardada);
 
   useEffect(() => {
     void getSettings()
@@ -28,6 +35,7 @@ export function App() {
         // una maquina nueva o si alguien edito el archivo de ajustes a mano.
         aplicarTema(ajustes.theme);
         aplicarIdioma(ajustes.language);
+        setGuardada(ajustes.ventanaAjustes ?? null);
         setVista(ajustes.onboarded ? "ajustes" : "bienvenida");
       })
       .catch(() => setVista("ajustes"));
@@ -39,16 +47,13 @@ export function App() {
     void ventana.setTitle(
       vista === "bienvenida" ? "winshotx · bienvenida" : "winshotx · ajustes",
     );
-    // La bienvenida pide aqui su tamanno. Los ajustes no: desde S24 (14-nov-2026) miden
-    // lo que mide la pestanna que ensennan (`useVentanaALaMedida` en SettingsApp), porque
-    // con un alto fijo para todas, el de la mas larga, Capturar abria con 160 px vacios
-    // debajo. Lo que dice `tauri.conf.json` es solo el tamanno con el que nace la ventana.
-    //
-    // Historia del alto fijo, que explica la regla que sigue en pie: subio de 470 a 510 el
-    // 27 de agosto de 2026 al entrar el microfono, a 620 el 17 de octubre (el anillo) y a 760
-    // el 11 de noviembre (la tecla de zoom y la camara). Ninguna pantalla de ajustes lleva
-    // rueda: si el contenido no cabe, se agranda la ventana.
-    if (vista === "bienvenida") void ventana.setSize(new LogicalSize(840, 640));
+    // Ninguna de las dos pide aqui su tamanno: la ventana mide siempre lo mismo
+    // (`useVentanaFija`, arriba). Historia, para no volver atras: hasta la 0.4 era un alto fijo
+    // que subia con cada fila nueva (470, 510, 620, 760); de S24 a la 0.5.0 media lo que cada
+    // pestanna o paso, y crecia y encogia al pulsar el riel, con el historial estirandola hasta
+    // 760. Munito, el 15-nov-2026: «el tamaño siempre el mismo, a no ser que lo modifiques tú».
+    // Desde S40 es el de Grabar para todos, lo que no cabe baja con la rueda dentro, y lo que
+    // sobra lo llena el dibujo de la derecha.
   }, [vista]);
 
   if (vista === "cargando") return <div className="h-full bg-lienzo" />;

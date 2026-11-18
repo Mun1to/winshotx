@@ -93,6 +93,15 @@ describe("copiar lo que hay anclado", () => {
     expect(llamadas).toContainEqual({ comando: "copy_pinned", args: { path: RUTA } });
   });
 
+  // S37: el aviso iba en verde y a 11 px. Lo que va bien no lleva color.
+  it("el aviso de copiada va a 12 px y sin verde", async () => {
+    render(<PinWindow imagen={RUTA} />);
+    fireEvent.keyDown(window, { key: "c", ctrlKey: true });
+    const aviso = await screen.findByText("Copiada");
+    expect(aviso.className).toContain("text-[12px]");
+    expect(aviso.className).not.toMatch(/emerald|green/);
+  });
+
   it("Ctrl+C hace lo mismo sin ir al raton", async () => {
     render(<PinWindow imagen={RUTA} />);
     fireEvent.keyDown(window, { key: "c", ctrlKey: true });

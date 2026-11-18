@@ -1,225 +1,77 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
-  AppWindow,
-  BookOpen,
-  TriangleAlert,
-  Camera,
-  Compass,
-  Clipboard,
-  Coffee,
-  Crop,
-  EyeOff,
-  FolderOpen,
-  Gauge,
-  Github,
-  Monitor,
-  HardDrive,
-  History,
-  Keyboard,
-  Languages,
-  Info,
-  Mic,
-  // S10 (sonidos)
-  Bell,
-  MousePointer2,
-  Palette,
-  Power,
-  Scissors,
-  SquarePen,
-  Timer,
-  Video,
-  Volume2,
-  ZoomIn,
-} from "lucide-react";
-import {
   cacheStats,
   cambiarTeclasEnElEscritorio,
   capturaModerna,
   clearCache,
   getSettings,
   justUpdated,
-  openFolder,
-  openUrl,
-  openWindowsApps,
-  pickDirectory,
-  removeSnippingTool,
-  useWinShiftS,
   listScreens,
   printScreenState,
   quitApp,
+  removeSnippingTool,
   replayStatus,
-  showScreenNumber,
   restartShell,
   setSettings,
   shortcutStatus,
   usePrintScreen,
+  useWinShiftS,
   // S2 (grabación)
   listCameras,
   type CamaraConectada,
 } from "../../lib/ipc";
-// S2 (grabación)
-import { FilaTeclaZoom, SeccionCamara } from "./AjustesGrabacion";
-import { CAFE, FALLOS, REPO, WEB, comoSeLee } from "../../lib/enlaces";
-import { formatBytes } from "../../lib/format";
-import { aplicarTema } from "../../lib/tema";
-import { aplicarIdioma, useT } from "../../lib/i18n";
-// S4 (capturas)
-import { DespuesDeCapturar, FondoEnLasCapturas } from "./DespuesDeCapturar";
+import { useT } from "../../lib/i18n";
 import { Historial } from "../historial/Historial";
 import {
   EVENTS,
   type CacheStats,
-  type CaptureFlow,
   type PrintScreenState,
   type ReplayStatus,
   type Screen,
   type Settings,
-  type Theme,
-  type Language,
   type ShortcutStatus,
 } from "../../lib/types";
-import { Segmented } from "../ui/Segmented";
-import { Switch } from "../ui/Switch";
-import { Row, RowButton, Section } from "./Section";
-import { OtrosGrabadores } from "./OtrosGrabadores";
-import { SettingsHeader, type SeccionId } from "./SettingsHeader";
+import { useSobra } from "../../lib/ventanaFija";
+import { AvisoActualizacion, useActualizacion } from "./Actualizacion";
+import {
+  ApartadoApp,
+  ApartadoAyuda,
+  ApartadoCapturar,
+  ApartadoDespues,
+  ApartadoGrabar,
+  ApartadoTeclas,
+  ApartadoUltimos,
+  type DatosAjustes,
+} from "./Apartados";
+import { apartado as datosDe, type ApartadoId } from "./mapaDeAjustes";
+import { Cabecera } from "./Cabecera";
 import { GuidedTour } from "./GuidedTour";
+import { Paleta } from "./Paleta";
+import { FilaEncendida } from "./Section";
 import { BarraRapida } from "./BarraRapida";
-import { MarcaDeAgua } from "../ui/MarcaDeAgua";
-import { ShortcutField } from "./ShortcutField";
+import { Riel } from "./Riel";
+import { VistaPrevia } from "./VistaPrevia";
 // S21 (Linux): lo que solo es de Windows se esconde, y en Wayland las teclas las pone el escritorio.
 import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
-import { OrdenDelAtajo, TeclaPuesta } from "./TeclaDelEscritorio";
-import { useVentanaALaMedida } from "../../lib/ventanaALaMedida";
-
-/**
- * Lo más que crece la ventana en el historial, en px lógicos: lo que medía de alto cuando
- * todas las pestañas abrían igual (840 x 760). Con más fotos, baja con la rueda.
- */
-const ALTO_HISTORIAL = 760;
 
 /** La inyecta Vite desde package.json: escribirla a mano acababa en cuatro copias. */
 const VERSION = __VERSION__;
 
-const FPS_OPTIONS = [
-  { value: 15, label: "15 fps" },
-  { value: 30, label: "30 fps" },
-  { value: 60, label: "60 fps" },
-];
+/** Las filas que en Linux no salen, para que el buscador tampoco las ofrezca. */
+const SOLO_EN_WINDOWS = new Set(["capIconos", "tecImpr", "tecWinS", "tecRecortes"]);
 
-/**
- * Cuanto guarda hacia atras el anillo.
- *
- * Tres valores y no una casilla donde escribir un numero: aqui no se elige un numero, se
- * elige entre «lo que acaba de pasar», «la jugada entera» y «el minuto malo».
- */
-const SEGUNDOS_ATRAS = [
-  { value: 15, label: "15 s" },
-  { value: 30, label: "30 s" },
-  { value: 60, label: "60 s" },
-];
-
-/**
- * A cuántos fotogramas graba el anillo.
- *
- * Es el ajuste que de verdad decide lo que cuesta tenerlo puesto, porque aquí se graba todo
- * el rato: lo que vale un fotograma se paga toda la tarde. Por eso la fila enseña al lado
- * cuánto disco puede llegar a ocupar, en vez de dejar que se descubra solo.
- */
-const FPS_ANILLO = [
-  { value: 15, label: "15" },
-  { value: 30, label: "30" },
-  { value: 60, label: "60" },
-];
-
-/**
- * A qué tamaño guarda el anillo.
- *
- * Es el ajuste que más disco ahorra de los tres: bajar una pantalla de 1080p a 720p deja
- * el fotograma en menos de la mitad, y para «ver qué acaba de pasar» 720p se ve
- * perfectamente. El cero es el tamaño de la pantalla, sin tocar nada.
- */
-const ALTO_ANILLO = [
-  { value: 720, label: "720p" },
-  { value: 1080, label: "1080p" },
-  { value: 0, label: "Nativa" },
-];
-
-/**
- * Lo que puede llegar a ocupar el anillo, en bytes.
- *
- * Sale de lo mismo que el tope de Rust (`buffer::bytes_max`), y tiene que dar el mismo
- * número: 2,3 MB por cada dos millones de píxeles, que es lo que mide un fotograma cuando
- * la pantalla cambia entera, medido sobre una partida a 1920 × 1080. Un escritorio de
- * trabajo gasta una décima parte, así que esto es el techo y no lo normal.
- *
- * Cuenta con la resolución además de con los fotogramas: grabar a 720p desde una pantalla
- * de 1080p ocupa menos de la mitad, y decir lo contrario sería asustar de más.
- */
-const PEOR_POR_PIXEL = 2_300_000 / (1920 * 1080);
-const TECHO = 4 * 1024 * 1024 * 1024;
-const loQuePuedeOcupar = (segundos: number, fps: number, ancho: number, alto: number) =>
-  Math.min(ancho * alto * PEOR_POR_PIXEL * fps * segundos, TECHO);
-
-/**
- * Lo que cuesta el anillo, de las dos combinaciones que se midieron de verdad.
- *
- * Medido el 31 de agosto de 2026 en un equipo con tres pantallas, con la máquina en
- * reposo doce segundos: a 60 fotogramas y resolución nativa se llevaba el **86% de un
- * núcleo**, y a 30 con 1080 el **57%**. winshotx entera, con el anillo apagado, gasta
- * el 2,9%: o sea que esto era treinta veces el resto de la aplicación junta.
- *
- * Vuelto a medir el 17 de septiembre de 2026, con el anillo grabando de verdad
- * (`medir_el_anillo_con_pantalla`), después de reciclar los búferes y de guardar solo
- * las zonas que cambian: **22%** a 60 y nativa con el escritorio quieto (hasta el 60% con
- * la pantalla en movimiento), y **17%** a 30. Los textos de abajo llevan estos.
- *
- * Se dice porque nadie elige «60, nativa» sabiendo lo que cuesta; se elige porque suena
- * a mejor. Munir lo tuvo así semanas y lo que notó fue que el ordenador iba con lag y
- * que el atajo tardaba en abrir la captura.
- *
- * **Y solo se dicen esas dos**, que son las que se midieron. Las otras siete
- * combinaciones saldrían de extrapolar dos puntos, que es inventarse un número y
- * ponerlo en la cara de quien decide.
- */
-// Medido el 17 de septiembre de 2026 en una pantalla de 1080, con el anillo grabando de
-// verdad (`cargo test --release --lib medir_el_anillo_con_pantalla -- --ignored`). En agosto
-// la primera fila era el 86%: reciclar los búferes y guardar solo las zonas que cambian lo
-// bajó a esto.
-const LO_QUE_COSTO: Record<string, string> = {
-  "60|0": "esta combinación midió el 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento",
-  "30|1080": "esta combinación midió el 17% de un núcleo con el escritorio quieto",
+const APARTADO: Record<ApartadoId, (d: DatosAjustes) => React.ReactNode> = {
+  capturar: ApartadoCapturar,
+  despues: ApartadoDespues,
+  grabar: ApartadoGrabar,
+  ultimos: ApartadoUltimos,
+  // El historial no es una lista de filas: va aparte, a todo el ancho.
+  historial: () => null,
+  teclas: ApartadoTeclas,
+  app: ApartadoApp,
+  ayuda: ApartadoAyuda,
 };
-
-const FLUJOS: { value: CaptureFlow; label: string }[] = [
-  { value: "toolbar", label: "Sale la barra" },
-  { value: "instant", label: "Se copia sola" },
-];
-
-/** El automatico va primero porque es el de fabrica y el que acierta casi siempre. */
-const TEMAS: { value: Theme; label: string }[] = [
-  { value: "sistema", label: "Automático" },
-  { value: "claro", label: "Claro" },
-  { value: "oscuro", label: "Oscuro" },
-];
-
-/** Los idiomas que habla hoy. Anadir uno mas es una linea aqui y un archivo mas. */
-const IDIOMAS: { value: Language; label: string }[] = [
-  { value: "sistema", label: "Automático" },
-  { value: "es", label: "Español" },
-  { value: "en", label: "Inglés" },
-  // El nombre de cada idioma va en ESE idioma, que es como lo busca quien lo necesita:
-  // alguien que abre la aplicacion en chino no esta buscando la palabra «Chino».
-  { value: "zh", label: "中文" },
-];
-
-/** Tres opciones y ninguna más: un campo de números aquí solo sirve para escribir 47. */
-const ESPERAS = [
-  { value: 0, label: "Sin espera" },
-  { value: 3, label: "3 segundos" },
-  { value: 5, label: "5 segundos" },
-];
 
 interface SettingsAppProps {
   onVerBienvenida: () => void;
@@ -227,20 +79,23 @@ interface SettingsAppProps {
   arrancarTour?: boolean;
 }
 
+/**
+ * La ventana de ajustes (S36, la variación 9 que eligió Munito el 15-nov-2026).
+ *
+ * Arriba la cabecera (el nombre y la versión, el buscador y salir); a la izquierda el riel
+ * con un icono por apartado; en medio el apartado elegido, con su título, su frase y sus
+ * filas; y a la derecha, «Así va a salir», el dibujo de lo que va a pasar con lo que está
+ * elegido. Un apartado a la vez, y cada uno cabe entero: la ventana mide lo que mide él.
+ *
+ * Aquí vive el estado y lo que se habla con Rust; las filas están en `Apartados.tsx`.
+ */
 export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsAppProps) {
   const t = useT();
-  // Las tablas de opciones se guardan en espannol y se traducen al pintarlas: el `value`
-  // es lo que va al disco y ese no puede cambiar de idioma nunca.
-  const flujos = FLUJOS.map((o) => ({ ...o, label: t(o.label) }));
-  const temas = TEMAS.map((o) => ({ ...o, label: t(o.label) }));
-  const esperas = ESPERAS.map((o) => ({ ...o, label: t(o.label) }));
-  const idiomas = IDIOMAS.map((o) => ({ ...o, label: t(o.label) }));
-  // Que seccion se esta viendo. Es estado de la pantalla y no un ajuste: no tiene sentido
+  // Que apartado se esta viendo. Es estado de la pantalla y no un ajuste: no tiene sentido
   // guardarlo en disco ni que sobreviva a cerrar la ventana.
-  const [seccion, setSeccion] = useState<SeccionId>("capturar");
-  // Si esta ventana se ha abierto sola porque se acaba de actualizar, hay que llevarle
-  // a donde esta la noticia. Abrir en Capturar dejaria el aviso en otra pestanna, y la
-  // ventana se leeria como que ha aparecido porque si.
+  const [seccion, setSeccion] = useState<ApartadoId>("capturar");
+  // Si esta ventana se ha abierto sola porque se acaba de actualizar, hay que decir por que:
+  // el aviso de la cabecera lo cuenta, y se abre en «Ayuda y winshotx», donde esta la version.
   const [recienActualizado, setRecienActualizado] = useState(false);
   const [tour, setTour] = useState(arrancarTour);
   const [settings, setLocal] = useState<Settings | null>(null);
@@ -270,7 +125,6 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const [recortes, setRecortes] = useState<string | null>(null);
   /** Mientras se reinicia el Explorador, que son un par de segundos largos. */
   const [aplicando, setAplicando] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
    * Si las fotos van por la captura moderna. Arranca en `true` porque es lo normal: si
@@ -288,11 +142,46 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // Si «Cambiar» no abre nada (Hyprland, o un escritorio que winshotx no conoce), queda lo
   // mismo que donde no hay portal: poner la tecla a mano con la orden.
   const [sinVentanaDeTeclas, setSinVentanaDeTeclas] = useState(false);
-  const teclasAMano = enWayland && (teclasDelEscritorio?.aMano || sinVentanaDeTeclas);
+  const teclasAMano = enWayland && Boolean(teclasDelEscritorio?.aMano || sinVentanaDeTeclas);
   const ordenDeLaApp = teclasDelEscritorio?.orden ?? "winshotx";
   const cambiarTeclas = useCallback(() => {
     void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
   }, []);
+  const actualizacion = useActualizacion(VERSION, recienActualizado);
+  // El buscador: si la paleta está abierta, y la fila a la que se ha saltado, que se ilumina.
+  const [paleta, setPaleta] = useState(false);
+  const [encendida, setEncendida] = useState<string | null>(null);
+  const enTour = useRef(tour);
+  enTour.current = tour;
+
+  // Ctrl + F abre el buscador desde cualquier sitio de la ventana, como en un navegador.
+  // Con el tour delante no: el tour tapa la ventana y el buscador saldría debajo.
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "f" && !enTour.current) {
+        e.preventDefault();
+        setPaleta(true);
+      }
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, []);
+
+  // La luz de la fila se apaga en cuanto se toca otra cosa: ya ha dicho dónde está. Se
+  // engancha un instante después para no cazar el mismo Enter o clic que la encendió.
+  useEffect(() => {
+    if (!encendida) return;
+    const apagar = () => setEncendida(null);
+    const espera = window.setTimeout(() => {
+      window.addEventListener("pointerdown", apagar);
+      window.addEventListener("keydown", apagar);
+    }, 0);
+    return () => {
+      window.clearTimeout(espera);
+      window.removeEventListener("pointerdown", apagar);
+      window.removeEventListener("keydown", apagar);
+    };
+  }, [encendida]);
 
   const refrescar = useCallback(() => {
     void getSettings().then(setLocal);
@@ -332,7 +221,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
       .then((si) => {
         if (!si) return;
         setRecienActualizado(true);
-        setSeccion("app");
+        setSeccion("ayuda");
       })
       .catch(() => {
         // Una compilacion sin este comando: se abre donde siempre.
@@ -385,11 +274,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     setError(null);
     setLocal(next);
     void setSettings(next)
-      .then(() => {
-        setSaved(true);
-        window.setTimeout(() => setSaved(false), 1200);
-        return shortcutStatus().then(setShortcuts);
-      })
+      .then(() => shortcutStatus().then(setShortcuts))
       .catch((e) => {
         setError(String(e));
         // Rust puede haber rechazado parte del cambio (encender el anillo y no poder).
@@ -467,21 +352,35 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     }
   }, []);
 
-  // S24: la ventana mide lo que mide la pestaña que enseña (ver `ventanaALaMedida.ts`). El
-  // historial es lo único que no se ajusta del todo: con un año de capturas sería una ventana
-  // de la altura de la pantalla, así que se queda en lo que medían antes los ajustes y baja
-  // con la rueda, que en una galería de fotos es lo normal.
+  const vaciarCache = useCallback(() => {
+    void clearCache()
+      .then(setCache)
+      .catch((e) => setError(String(e)));
+  }, []);
+
+  // S40: la ventana mide siempre lo mismo (`ventanaFija.ts`, desde `App.tsx`) y lo que no
+  // cabe en ella (el historial lleno, una pantalla baja) baja con la rueda en este hueco, con
+  // la cabecera y el riel quietos.
   const hueco = useRef<HTMLDivElement>(null);
   const contenido = useRef<HTMLDivElement>(null);
-  const { sobra } = useVentanaALaMedida(hueco, contenido, {
-    // S21: hasta saber dónde corre tampoco se pinta nada.
-    listo: settings !== null && donde !== null,
-    maximo: seccion === "historial" ? ALTO_HISTORIAL : undefined,
-    // El cambio de pestaña ya lo ve el ResizeObserver, pero ese solo avisa al pintar: se pide
-    // también aquí para no depender de él. Y el aviso de error va fuera del hueco, así que
-    // tampoco lo vería.
-    otraVez: `${seccion}|${error ?? ""}`,
-  });
+  // S21: hasta saber dónde corre tampoco se pinta nada.
+  const sobra = useSobra(hueco, contenido, settings !== null && donde !== null);
+
+  // Al cambiar de apartado se empieza por arriba: el hueco con rueda es el mismo para todos,
+  // y sin esto el historial abría a media galería si se había bajado en otro apartado.
+  const ir = useCallback((id: ApartadoId) => {
+    setSeccion(id);
+    setEncendida(null);
+    hueco.current?.scrollTo?.({ top: 0 });
+  }, []);
+
+  // Elegir pantalla solo sale con más de una: el buscador no ofrece una fila que no está. Y en
+  // Linux tampoco lo que solo existe en Windows.
+  const hay = useCallback(
+    (id: string) =>
+      (id !== "ultPantalla" || pantallas.length > 1) && !(enLinux && SOLO_EN_WINDOWS.has(id)),
+    [pantallas, enLinux],
+  );
 
   // Hasta saber dónde corre no se pinta nada: en Linux se verían un instante las teclas de Windows.
   if (!settings || !donde) {
@@ -492,859 +391,142 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     );
   }
 
+  const datos: DatosAjustes = {
+    enLinux,
+    enWayland,
+    teclasDelEscritorio,
+    teclasAMano,
+    ordenDeLaApp,
+    cambiarTeclas,
+    settings,
+    patch,
+    shortcuts,
+    replay,
+    pantallas,
+    cache,
+    vaciarCache,
+    imprPant,
+    cambiarImprPant: (v) => void cambiarImprPant(v),
+    recortes,
+    quitarRecortes: () => void quitarRecortes(),
+    aplicando,
+    aplicarTecla: () => void aplicarTecla(),
+    cambiarWinShiftS: (v) => void cambiarWinShiftS(v),
+    modernaOk,
+    camaras,
+    medidaGrabada,
+    onVerBienvenida,
+    onTour: () => setTour(true),
+    version: VERSION,
+    actualizacion: {
+      fase: actualizacion.fase,
+      texto: actualizacion.texto,
+      instalar: actualizacion.instalar,
+      mirar: () => void actualizacion.mirar(true),
+    },
+  };
+
+  const actual = datosDe(seccion);
+  const Filas = APARTADO[seccion];
+
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-lienzo">
-      <SettingsHeader
-        activa={seccion}
-        onCambiar={setSeccion}
+      <Cabecera
         version={VERSION}
-        guardado={saved}
+        onBuscar={() => setPaleta(true)}
         onSalir={() => void quitApp()}
-        sinTeclasDeWindows={enLinux}
+        aviso={
+          <AvisoActualizacion
+            fase={actualizacion.fase}
+            texto={actualizacion.texto}
+            instalar={actualizacion.instalar}
+            mirar={() => void actualizacion.mirar(true)}
+          />
+        }
       />
 
-      <div className="relative min-h-0 flex-1">
-      <MarcaDeAgua />
-      {/* `relative` para que las tarjetas vayan por encima del logo de fondo, que va antes. */}
-      <div ref={hueco} className="relative h-full overflow-y-auto" data-scroll-ajustes>
-        {/* Dos columnas, que es para lo que se subio la navegacion arriba. Las columnas
-            de las secciones con cuatro bloques se escriben a mano (ver «grabar» y «la
-            app»): dejandoselo a la rejilla, los dos bloques largos caian del mismo lado
-            y se salian de la ventana con la otra columna a medio llenar.
-            Los márgenes van en este envoltorio y no en el hueco: lo que mide él es lo que
-            pide la ventana (S24). */}
-        <div ref={contenido} className="px-4 py-4" data-contenido-ajustes>
-        <div className="grid grid-cols-2 items-start gap-4">
+      <div className="flex min-h-0 flex-1">
+        <Riel activo={seccion} onIr={ir} sinTeclasDeWindows={enLinux} />
 
-            {seccion === "capturar" && (
-              <>
-                {/* S4 (capturas): la columna de la izquierda lleva además «Después de
-                    capturar», debajo del atajo, que es la más corta de las dos. */}
-                <div className="flex flex-col">
-                <Section title={t("Al pulsar el atajo")} tour="al-pulsar">
-                  <Row
-                    icon={<Camera className="size-4" />}
-                    label={t("Capturar región")}
-                    explicacion={
-                      teclasAMano
-                        ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).")
-                        : enWayland
-                        ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. En Wayland la tecla la elige el escritorio: winshotx le propone una, y la aceptas o la cambias en su ventana con «Cambiar».")
-                        : enLinux
-                          ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. El escritorio se reserva algunas combinaciones y esas no llegan hasta aquí.")
-                          : t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.")
-                    }
-                    hint={
-                      teclasAMano
-                        ? t("ponla en los atajos del escritorio")
-                        : enWayland
-                        ? teclasDelEscritorio?.capture
-                          ? t("la tecla la elige el escritorio")
-                          : t("todavía sin tecla: pulsa «Cambiar»")
-                        : shortcuts.capture
-                          ? undefined
-                          : t("esa combinación está ocupada")
-                    }
-                    tone={teclasAMano || (enWayland && teclasDelEscritorio?.capture) ? "normal" : "warn"}
-                    control={
-                      teclasAMano ? (
-                        <OrdenDelAtajo orden={ordenDeLaApp} accion="capture" />
-                      ) : enWayland ? (
-                        <span className="flex items-center gap-1.5">
-                          <TeclaPuesta tecla={teclasDelEscritorio?.capture ?? null} />
-                          <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
-                        </span>
-                      ) : (
-                        <ShortcutField
-                          value={settings.captureShortcut}
-                          active={shortcuts.capture}
-                          onChange={(v) => patch({ captureShortcut: v })}
-                        />
-                      )
-                    }
-                  />
-                  <Row
-                    icon={<SquarePen className="size-4" />}
-                    label={t("Capturar y abrir el editor")}
-                    explicacion={t(
-                      "La misma captura, pero al soltar el ratón se abre el editor en vez de la barra de siempre. Para la captura que hay que trabajar: señalar algo con una flecha, tapar un dato o recortar antes de mandarla.",
-                    )}
-                    hint={
-                      teclasAMano
-                        ? t("ponla en los atajos del escritorio")
-                        : enWayland
-                        ? teclasDelEscritorio?.edit
-                          ? t("la tecla la elige el escritorio")
-                          : t("todavía sin tecla: pulsa «Cambiar»")
-                        : shortcuts.edit
-                          ? undefined
-                          : t("esa combinación está ocupada")
-                    }
-                    tone={teclasAMano || (enWayland && teclasDelEscritorio?.edit) ? "normal" : "warn"}
-                    control={
-                      teclasAMano ? (
-                        <OrdenDelAtajo orden={ordenDeLaApp} accion="edit" />
-                      ) : enWayland ? (
-                        <span className="flex items-center gap-1.5">
-                          <TeclaPuesta tecla={teclasDelEscritorio?.edit ?? null} />
-                          <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
-                        </span>
-                      ) : (
-                        <ShortcutField
-                          value={settings.editShortcut}
-                          active={shortcuts.edit}
-                          onChange={(v) => patch({ editShortcut: v })}
-                        />
-                      )
-                    }
-                  />
-                  <Row
-                    icon={<Timer className="size-4" />}
-                    label={t("Esperar antes de capturar")}
-                    explicacion={t("La pantalla se congela justo al pulsar el atajo, así que un menú abierto se cierra antes de que dé tiempo a fotografiarlo. Con 3 o 5 segundos, pulsas primero, abres el menú y la foto se toma sola cuando ya está delante.")}
-                    hint={
-                      settings.captureDelaySeconds === 0
-                        ? t("la pantalla se congela al pulsar el atajo")
-                        : t("da tiempo a abrir el menú que quieres fotografiar")
-                    }
-                    stacked
-                    control={
-                      <Segmented
-                        value={settings.captureDelaySeconds}
-                        options={esperas}
-                        onChange={(v) => patch({ captureDelaySeconds: v })}
-                      />
-                    }
-                  />
-                  {/* Los iconos los esconde el Explorador de Windows; en Linux no hace nada. */}
-                  {!enLinux && (
-                    <Row
-                      icon={<EyeOff className="size-4" />}
-                      label={t("Ocultar iconos del escritorio")}
-                      explicacion={t("Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.")}
-                      hint={t("solo mientras dura el disparo")}
-                      control={
-                        <Switch
-                          checked={settings.hideDesktopIcons}
-                          onChange={(v) => patch({ hideDesktopIcons: v })}
-                          label={t("Ocultar iconos del escritorio")}
-                        />
-                      }
-                    />
+        <div className="relative min-w-0 flex-1">
+          <div ref={hueco} className="h-full overflow-y-auto" data-scroll-ajustes>
+            {/* Al menos el alto del hueco: así, en un apartado corto, el dibujo de la derecha
+                llega hasta abajo y no queda una franja vacía debajo de todo (S40). */}
+            <div ref={contenido} data-contenido-ajustes data-apartado={seccion} className="flex min-h-full flex-col">
+              {seccion === "historial" ? (
+                <div className="flex-1 px-5 py-5">
+                  <Historial carpeta={settings.saveDirectory} />
+                </div>
+              ) : (
+                <div className="flex flex-1 gap-7 px-6 pb-7 pt-6">
+                  <main className="min-w-0 flex-1">
+                    <div className="mb-4">
+                      <h1 className="text-[22px] font-bold leading-tight text-titulo">{t(actual.nombre)}</h1>
+                      <p className="mt-1 text-[14px] text-apagado">{t(actual.frase)}</p>
+                    </div>
+                    <FilaEncendida.Provider value={encendida}>
+                      <Filas {...datos} />
+                    </FilaEncendida.Provider>
+                  </main>
+                  {actual.dibujo && (
+                    // De arriba abajo, también en un apartado corto: la ventana mide siempre
+                    // lo mismo (S40) y así no queda una franja vacía debajo de todo. Lo de
+                    // dentro va centrado (con el nombre arriba y el dibujo en medio quedaba un
+                    // hueco entre los dos, mirado en foto).
+                    <aside
+                      data-tour="dibujo"
+                      data-dibujo-de={seccion}
+                      className="flex w-[290px] shrink-0 flex-col justify-center rounded-xl bg-tarjeta px-5 py-6"
+                    >
+                      <p className="mb-4 text-[15px] font-bold text-titulo">{t("Así va a salir")}</p>
+                      <VistaPrevia apartado={seccion} settings={settings} replay={replay} enLinux={enLinux} />
+                    </aside>
                   )}
-
-                </Section>
-                <DespuesDeCapturar settings={settings} patch={patch} />
                 </div>
-
-                <Section title={t("La captura")} tour="la-captura">
-                  {/* Solo cuando pasa, que es casi nunca: en un Windows al dia no sale.
-                      No es un ajuste y no se puede tocar nada, pero sin esto las fotos
-                      salen con trozos en negro y parece culpa de la app. */}
-                  {!modernaOk && !enLinux && (
-                    <Row
-                      icon={<TriangleAlert className="size-4" />}
-                      label={t("Este Windows usa la captura antigua")}
-                      explicacion={t(
-                        "winshotx hace las fotos con la captura moderna de Windows, que sí ve lo que dibuja la tarjeta gráfica. Esta versión de Windows no la admite, así que van por la de siempre y una ventana acelerada puede salir con trozos en negro. No hay nada que puedas tocar, y las grabaciones no se ven afectadas.",
-                      )}
-                      hint={t("Las fotos de ventanas con aceleración pueden salir con trozos en negro")}
-                      tone="warn"
-                      control={null}
-                    />
-                  )}
-                  <Row
-                    icon={<MousePointer2 className="size-4" />}
-                    label={t("Incluir el cursor")}
-                    explicacion={t("Si el puntero del ratón sale dentro de la captura. Para señalar un botón viene bien; para una captura limpia sobra, y hay que acordarse antes de disparar porque después ya no se puede quitar. Solo afecta a las fotos: en las grabaciones el puntero nunca va cocido, se anota por dónde va y el editor lo dibuja al exportar con su misma imagen, del tamaño que quieras.")}
-                    control={
-                      <Switch
-                        checked={settings.captureCursor}
-                        onChange={(v) => patch({ captureCursor: v })}
-                        label={t("Incluir el cursor")}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<ZoomIn className="size-4" />}
-                    label={t("Lupa de píxel")}
-                    explicacion={t("Mientras arrastras, una lupa de 6 aumentos con retícula te enseña el píxel exacto que hay bajo el cursor y su color en hexadecimal. Con la tecla C te llevas ese color al portapapeles sin capturar nada.")}
-                    control={
-                      <Switch
-                        checked={settings.showMagnifier}
-                        onChange={(v) => patch({ showMagnifier: v })}
-                        label={t("Lupa de píxel")}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<Crop className="size-4" />}
-                    label={t("Al soltar el ratón")}
-                    explicacion={t("Con la barra sales a decidir: copiar, guardar, editar, anclar encima de todo o leer el texto. Sin ella el recorte se va directo al portapapeles y el overlay desaparece, que es un clic menos cuando siempre haces lo mismo.")}
-                    hint={
-                      settings.captureFlow === "instant"
-                        ? t("va directa al portapapeles")
-                        : t("sale la barra para copiar, guardar o editar")
-                    }
-                    stacked
-                    control={
-                      <Segmented
-                        value={settings.captureFlow}
-                        options={flujos}
-                        onChange={(v) => patch({ captureFlow: v })}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<Clipboard className="size-4" />}
-                    label={t("Copiar al guardar")}
-                    explicacion={t("Guardar deja el archivo en tu carpeta, y con esto además lo deja pegable. Es para cuando quieres las dos cosas a la vez: el archivo para luego y la imagen para pegarla ahora mismo en un chat.")}
-                    control={
-                      <Switch
-                        checked={settings.copyAfterCapture}
-                        onChange={(v) => patch({ copyAfterCapture: v })}
-                        label={t("Copiar al guardar")}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<Volume2 className="size-4" />}
-                    label={t("Sonido de obturador")}
-                    explicacion={t("Un clic de cámara al capturar, como el de una réflex. Sirve para saber que la captura ha salido sin mirar la pantalla. Viene apagado: en una reunión o grabando un tutorial, un sonido que no esperas es peor que ninguno.")}
-                    control={
-                      <Switch
-                        checked={settings.playSound}
-                        onChange={(v) => patch({ playSound: v })}
-                        label={t("Sonido de obturador")}
-                      />
-                    }
-                  />
-                  {/* S4 (capturas): el fondo para todas las capturas (E1). */}
-                  <FondoEnLasCapturas settings={settings} patch={patch} />
-                </Section>
-              </>
-            )}
-
-            {seccion === "grabar" && (
-              <>
-                <div className="flex flex-col">
-                <Section title={t("Cómo se graba")} tour="como-se-graba">
-                  <Row
-                    icon={<Video className="size-4" />}
-                    label={t("Grabar región")}
-                    explicacion={t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. El mismo atajo lo termina, así que no hace falta ir a buscar ningún botón mientras grabas.")}
-                    hint={
-                      shortcuts.record ? t("el mismo atajo la termina") : t("esa combinación está ocupada")
-                    }
-                    tone={shortcuts.record ? "normal" : "warn"}
-                    control={
-                      <ShortcutField
-                        value={settings.recordShortcut}
-                        active={shortcuts.record}
-                        onChange={(v) => patch({ recordShortcut: v })}
-                      />
-                    }
-                  />
-                  {/* S2 (grabación): la tecla de zoom. */}
-                  <FilaTeclaZoom settings={settings} patch={patch} />
-                  <Row
-                    icon={<Gauge className="size-4" />}
-                    label={t("Fotogramas por segundo")}
-                    explicacion={t("Cuántas veces por segundo se mira la pantalla. 30 vale para casi todo; 60 es para movimiento rápido y cuesta el doble de disco y de máquina. El editor puede bajarlo después, pero lo que no se grabó no se inventa.")}
-                    stacked
-                    control={
-                      <Segmented
-                        value={settings.fps}
-                        options={FPS_OPTIONS}
-                        onChange={(v) => patch({ fps: v })}
-                      />
-                    }
-                  />
-                </Section>
-
-                {/* El sonido, en su bloque. Estaba dentro de «Cómo se graba» y con el
-                    micrófono al lado eran seis filas en una columna, que ya no cabían: la
-                    sección salía con rueda y la columna de al lado, vacía. */}
-                <Section title={t("El sonido")}>
-                  <Row
-                    icon={<Volume2 className="size-4" />}
-                    label={t("Audio del sistema")}
-                    explicacion={t("Graba lo que suena por los altavoces, dentro del mismo vídeo: la voz de una llamada, el audio de un vídeo, la alerta de un programa. No graba tu micrófono, eso es la fila de abajo.")}
-                    hint={t("lo que suene por los altavoces, dentro del vídeo")}
-                    control={
-                      <Switch
-                        checked={settings.recordAudio}
-                        onChange={(v) => patch({ recordAudio: v })}
-                        label={t("Audio del sistema")}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<Mic className="size-4" />}
-                    label={t("Micrófono")}
-                    explicacion={t("Tu voz, en su propia pista: en el editor se sube, se baja o se quita sin tocar el sonido del sistema. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.")}
-                    hint={
-                      settings.recordAudio
-                        ? t("tu voz, aparte del sonido del sistema")
-                        : t("tu voz, para narrar lo que se está grabando")
-                    }
-                    control={
-                      <Switch
-                        checked={settings.recordMicrophone}
-                        onChange={(v) => patch({ recordMicrophone: v })}
-                        label={t("Micrófono")}
-                      />
-                    }
-                  />
-                  {/* S10 (sonidos): la marimba al empezar a grabar. */}
-                  <Row
-                    icon={<Bell className="size-4" />}
-                    label={t("Sonido al empezar")}
-                    explicacion={t("Una marimba corta justo antes de que empiece la grabación, para saber sin mirar que ya estás grabando. Suena y acaba antes de abrir el sonido, así que no queda dentro del vídeo.")}
-                    hint={t("antes de grabar, nunca dentro del vídeo")}
-                    control={
-                      <Switch
-                        checked={settings.sonidoAlEmpezar ?? true}
-                        onChange={(v) => patch({ sonidoAlEmpezar: v })}
-                        label={t("Sonido al empezar")}
-                      />
-                    }
-                  />
-                </Section>
-
-
-                {/* Con las cortas, no debajo de los ultimos segundos: ahi no entraba
-                    en la ventana ni subiendola. */}
-                <Section title={t("Al terminar")}>
-                  <Row
-                    icon={<SquarePen className="size-4" />}
-                    label={t("Abrir el editor al terminar")}
-                    explicacion={t("Al parar una grabación, abrirla para recortarla y exportarla. Apagado, el vídeo o el GIF se guarda solo en tu carpeta, entero y tal cual se grabó, y tú sigues a lo tuyo. Lo que rescatas de los últimos segundos abre el editor igualmente: ahí todavía no hay ningún archivo hecho.")}
-                    control={
-                      <Switch
-                        checked={settings.openEditorAfterRecording}
-                        onChange={(v) => patch({ openEditorAfterRecording: v })}
-                        label={t("Abrir el editor al terminar")}
-                      />
-                    }
-                  />
-                </Section>
-                </div>
-                <div className="flex flex-col">
-                {/* Los ultimos segundos.
-
-                    Cinco filas en vez de tres y aun asi mas corta que antes: los controles
-                    van AL LADO de su nombre y no debajo, que era lo que obligaba a bajar
-                    con la rueda para ver la seccion entera.
-
-                    Va en la columna de la derecha, ella sola, porque es la mas alta de la
-                    pantalla: en la izquierda empujaba al resto fuera de la ventana. */}
-                <Section title={t("Los últimos segundos")}>
-                  <Row
-                    icon={<History className="size-4" />}
-                    label={t("Grabar siempre lo último")}
-                    explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: medido en un equipo con tres pantallas, a 60 fotogramas y resolución nativa se lleva un 22% de un núcleo con el escritorio quieto, y hasta el 60% con la pantalla en movimiento. Apagado, winshotx entera gasta el 2,9%.")}
-                    hint={
-                      replay.running
-                        ? // Lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño
-                          // y cuánto le escribe al disco cada segundo. Los megabytes
-                          // guardados se quedan quietos al llenarse el anillo; esto no.
-                          t("pantalla {n} · {ancho} × {alto} · {ritmo}/s", {
-                            n: replay.screen,
-                            ancho: replay.width,
-                            alto: replay.height,
-                            ritmo: formatBytes(replay.bytesPerSecond),
-                          })
-                        : t("graba sin parar y tira lo viejo, para poder rescatar lo último")
-                    }
-                    tone={replay.running ? "ok" : "normal"}
-                    control={
-                      <Switch
-                        checked={settings.replayEnabled}
-                        onChange={(v) => patch({ replayEnabled: v })}
-                        label={t("Grabar siempre lo último")}
-                      />
-                    }
-                  />
-                  <OtrosGrabadores />
-                  <Row
-                    icon={<Timer className="size-4" />}
-                    label={t("Cuánto se guarda")}
-                    explicacion={t("Cuánto tiempo hacia atrás se puede rescatar. Más segundos es más memoria y más disco dando vueltas, y hasta que no pase ese tiempo desde que lo encendiste, lo que guardes durará menos de lo que pone aquí.")}
-                    control={
-                      <Segmented
-                        ajustado
-                        etiqueta={t("Cuánto se guarda")}
-                        value={settings.replaySeconds}
-                        options={SEGUNDOS_ATRAS}
-                        onChange={(v) => patch({ replaySeconds: v })}
-                      />
-                    }
-                  />
-                  {/* Solo con más de una pantalla: elegir entre una es una fila de ruido. */}
-                  {pantallas.length > 1 && (
-                    <Row
-                      icon={<Monitor className="size-4" />}
-                      label={t("Qué pantalla")}
-                      explicacion={t("El anillo vigila UNA pantalla y no puede cambiar a mitad, porque mudarse se llevaría por delante lo grabado. Al elegir una, su número aparece un par de segundos en esa misma pantalla para que sepas cuál es.")}
-                      control={
-                        <Segmented
-                          ajustado
-                          etiqueta={t("Qué pantalla")}
-                          value={settings.replayScreen ?? -1}
-                          options={[
-                            { value: -1, label: t("Ratón") },
-                            ...pantallas.map((p) => ({
-                              value: p.id,
-                              label: `${p.id + 1}${p.isPrimary ? " ★" : ""}`,
-                            })),
-                          ]}
-                          onChange={(v) => {
-                            patch({ replayScreen: v === -1 ? null : v });
-                            // «La 2» no dice nada si no sabes cuál es la 2: se enseña el
-                            // número EN esa pantalla, que es la única forma sin dudas.
-                            if (v >= 0) void showScreenNumber(v).catch(() => {});
-                          }}
-                        />
-                      }
-                    />
-                  )}
-                  <Row
-                    icon={<ZoomIn className="size-4" />}
-                    label={t("Calidad")}
-                    explicacion={t("A qué tamaño se guarda lo que va entrando. Bajarlo de la resolución nativa ocupa mucho menos y se nota poco en pantalla, y aquí abajo tienes lo que puede llegar a ocupar en disco con lo que hayas elegido.")}
-                    hint={t("{ancho} × {alto} · hasta {tamaño} en disco", {
-                      ancho: medidaGrabada.ancho,
-                      alto: medidaGrabada.alto,
-                      "tamaño": formatBytes(
-                        loQuePuedeOcupar(
-                          settings.replaySeconds,
-                          settings.replayFps,
-                          medidaGrabada.ancho,
-                          medidaGrabada.alto,
-                        ),
-                      ),
-                    })}
-                    control={
-                      <Segmented
-                        ajustado
-                        etiqueta={t("Calidad")}
-                        value={settings.replayHeight}
-                        options={ALTO_ANILLO.map((o) => ({ ...o, label: t(o.label) }))}
-                        onChange={(v) => patch({ replayHeight: v })}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<Gauge className="size-4" />}
-                    label={t("Fluidez")}
-                    explicacion={t("Los fotogramas por segundo del anillo. 15 es suficiente para ver qué pasó y es el que menos molesta al ordenador; 60 se ve suave pero escribe cuatro veces más, y esto está corriendo toda la tarde.")}
-                    // Lo que cuesta la combinación elegida, cuando está medido. El aviso va
-                    // aquí y no en la explicación del icono porque hay que verlo sin buscarlo:
-                    // es lo que se paga toda la tarde, y 60 fps a alto nativo sigue siendo
-                    // la combinación que más cuesta aunque ya no sea el 86% de un núcleo.
-                    hint={
-                      LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`]
-                        ? t(LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`])
-                        : t("fotogramas por segundo")
-                    }
-                    tone={settings.replayFps === 60 && settings.replayHeight === 0 ? "warn" : "normal"}
-                    control={
-                      <Segmented
-                        ajustado
-                        etiqueta={t("Fluidez")}
-                        value={settings.replayFps}
-                        options={FPS_ANILLO}
-                        onChange={(v) => patch({ replayFps: v })}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<Video className="size-4" />}
-                    label={t("Quedarme con lo último")}
-                    explicacion={t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato.")}
-                    hint={
-                      !replay.running
-                        ? t("primero hay que encenderlo aquí arriba")
-                        : replay.bufferedMs < settings.replaySeconds * 1000
-                          ? t("ahora mismo hay {n} s guardados", {
-                              n: Math.floor(replay.bufferedMs / 1000),
-                            })
-                          : shortcuts.replay
-                            ? t("abre el editor con lo último, sin dejar de grabar")
-                            : t("esa combinación está ocupada")
-                    }
-                    tone={replay.running && !shortcuts.replay ? "warn" : "normal"}
-                    control={
-                      <ShortcutField
-                        value={settings.replayShortcut}
-                        // Con el anillo apagado la tecla NO se pide al sistema, así que
-                        // pintarla en rojo diría que está ocupada cuando solo está sin
-                        // usar. El rojo tiene que significar una sola cosa.
-                        active={shortcuts.replay || !replay.running}
-                        onChange={(v) => patch({ replayShortcut: v })}
-                      />
-                    }
-                  />
-                </Section>
-
-                {/* S2 (grabación): la webcam. Va en esta columna y no junto al sonido
-                    porque la de la izquierda ya llega al borde de la ventana: así las dos
-                    crecen lo mismo. */}
-                <SeccionCamara settings={settings} patch={patch} camaras={camaras} />
-                </div>
-              </>
-            )}
-
-            {/* S4 (capturas): el historial de fotos y vídeos, a lo ancho de las dos columnas. */}
-            {seccion === "historial" && (
-              <div className="col-span-2">
-                <Historial carpeta={settings.saveDirectory} />
-              </div>
-            )}
-
-            {seccion === "teclas" && (
-              <>
-                <Section title={t("Las teclas de captura de Windows")} tour="las-teclas">
-                  <Row
-                    icon={<Keyboard className="size-4" />}
-                    label={t("Impr Pant")}
-                    explicacion={t("Windows le tiene asignada la Herramienta de Recortes, y esto se la quita para dársela a winshotx. Si la tecla no responde, hay que cerrar sesión una vez para que Windows la suelte del todo.")}
-                    hint={
-                      imprPant?.enabled
-                        ? imprPant.active
-                          ? t("ya es de winshotx")
-                          : t("cierra sesión para que Windows la suelte")
-                        : t("hoy abre la Herramienta de Recortes")
-                    }
-                    tone={imprPant?.enabled ? (imprPant.active ? "ok" : "warn") : "normal"}
-                    control={
-                      <Switch
-                        checked={imprPant?.enabled ?? false}
-                        onChange={(v) => void cambiarImprPant(v)}
-                        label={t("Usar también Impr Pant")}
-                      />
-                    }
-                  />
-                  <Row
-                    icon={<AppWindow className="size-4" />}
-                    label={t("Win + Mayús + S")}
-                    explicacion={t("La otra tecla de captura de Windows. Cogerla cuesta Win+S, la búsqueda, porque las dos se registran juntas; y si el Explorador sigue abriendo lo suyo, con Aplicar se reinicia y la suelta.")}
-                    hint={
-                      !settings.takeWinShiftS
-                        ? t("cuesta Win+S, la búsqueda")
-                        : aplicando
-                          ? t("reiniciando el Explorador…")
-                          : shortcuts.winShiftS
-                            ? t("de winshotx, o pulsa Aplicar si Windows la sigue abriendo")
-                            : t("el escritorio todavía la tiene")
-                    }
-                    tone={
-                      !settings.takeWinShiftS ? "normal" : shortcuts.winShiftS ? "ok" : "warn"
-                    }
-                    control={
-                      <span className="flex items-center gap-1.5">
-                        {/*
-                          Cuando el atajo de captura del usuario ya es Win+Mayus+S, el backend lo
-                          marca como conseguido en cuanto RegisterHotKey tiene exito, sin poder
-                          saber si el Explorador (que intercepta esta combinacion antes que
-                          cualquier programa) ya releyo la lista de teclas apagadas o sigue con la
-                          de antes de activar el interruptor. El boton se deja siempre visible en
-                          vez de solo cuando el backend dice que falta: reiniciar el Explorador no
-                          hace dano de mas, y es la unica forma real de confirmarlo.
-                        */}
-                        {settings.takeWinShiftS && (
-                          <RowButton
-                            disabled={aplicando}
-                            onClick={() => void aplicarTecla()}
-                            title={t("Reinicia el Explorador para que Windows suelte la tecla. La barra de tareas parpadea un segundo y no se cierra nada más.")}
-                          >
-                            {aplicando ? t("Un momento…") : t("Aplicar")}
-                          </RowButton>
-                        )}
-                        <Switch
-                          checked={settings.takeWinShiftS}
-                          onChange={(v) => void cambiarWinShiftS(v)}
-                          label={t("Quedarme con Win+Mayús+S")}
-                        />
-                      </span>
-                    }
-                  />
-                </Section>
-                <Section title={t("La Herramienta de Recortes")}>
-                  <Row
-                    icon={<Scissors className="size-4" />}
-                    label={t("Herramienta de Recortes")}
-                    explicacion={t("Desactivar sus teclas no la calla del todo: sigue saliendo desde el menú de inicio y desde otras teclas. Quitarla es lo único definitivo, y se puede volver a instalar desde la Microsoft Store cuando quieras.")}
-                    hint={
-                      recortes === "confirmar"
-                        ? t("vuelve desde la Microsoft Store")
-                        : recortes === "quitando"
-                          ? t("quitándola…")
-                          : recortes === "quitada"
-                            ? t("quitada, ya no abre nada")
-                            : recortes === "ya no estaba"
-                              ? t("no estaba instalada")
-                              : t("quitarla es lo único que la calla del todo")
-                    }
-                    tone={
-                      recortes === "confirmar"
-                        ? "warn"
-                        : recortes === "quitada" || recortes === "ya no estaba"
-                          ? "ok"
-                          : "normal"
-                    }
-                    control={
-                      <span className="flex gap-1.5">
-                        {!recortes && (
-                          <RowButton onClick={() => void openWindowsApps()}>{t("Ver cómo")}</RowButton>
-                        )}
-                        <RowButton
-                          danger={recortes === "confirmar"}
-                          disabled={
-                            recortes === "quitando" ||
-                            recortes === "quitada" ||
-                            recortes === "ya no estaba"
-                          }
-                          onClick={() => void quitarRecortes()}
-                        >
-                          {recortes === "confirmar"
-                            ? t("Sí, quitarla")
-                            : recortes === "quitada" || recortes === "ya no estaba"
-                              ? t("Hecho")
-                              : t("Quitar")}
-                        </RowButton>
-                      </span>
-                    }
-                  />
-                </Section>
-              </>
-            )}
-
-            {seccion === "app" && (
-              <>
-                {/* Cuatro bloques en dos columnas, y cada pareja envuelta en su columna:
-                    en la rejilla, un bloque suelto abre fila nueva en vez de colocarse
-                    debajo del de arriba. El reparto no sigue el orden de lectura sino los
-                    altos, que es lo unico que decide si la seccion cabe sin rueda: los dos
-                    mas altos, "winshotx" y "Acerca de", van uno en cada columna. */}
-                <div className="flex flex-col">
-                <Section title={t("Archivos")} tour="archivos">
-                  <Row
-                    icon={<FolderOpen className="size-4" />}
-                    label={t("Carpeta de destino")}
-                    explicacion={t("Donde caen las capturas y los vídeos que guardas. El nombre lo pone winshotx con la fecha y la hora, y si ya existiera uno igual no lo pisa nunca.")}
-                    hint={settings.saveDirectory}
-                    control={
-                      <span className="flex gap-1.5">
-                        <RowButton onClick={() => void openFolder(settings.saveDirectory)}>
-                          {t("Abrir")}
-                        </RowButton>
-                        <RowButton
-                          onClick={() =>
-                            void pickDirectory().then((dir) => dir && patch({ saveDirectory: dir }))
-                          }
-                        >
-                          {t("Cambiar")}
-                        </RowButton>
-                      </span>
-                    }
-                  />
-                  <Row
-                    icon={<HardDrive className="size-4" />}
-                    label={t("Caché de grabaciones")}
-                    explicacion={t("Los fotogramas en crudo de lo que has grabado, que es lo que permite volver a exportar sin perder calidad. Vaciarlo no toca ni una captura guardada: solo tira lo que quedó a medias en el editor.")}
-                    hint={
-                      cache.sessions === 0
-                        ? t("vacía")
-                        : t("{tam} en {n} {palabra}", {
-                            tam: formatBytes(cache.bytes),
-                            n: cache.sessions,
-                            palabra: cache.sessions === 1 ? t("sesión") : t("sesiones"),
-                          })
-                    }
-                    control={
-                      <RowButton
-                        disabled={cache.sessions === 0}
-                        onClick={() =>
-                          void clearCache()
-                            .then(setCache)
-                            .catch((e) => setError(String(e)))
-                        }
-                      >
-                        {t("Vaciar")}
-                      </RowButton>
-                    }
-                  />
-                </Section>
-                <Section title={t("winshotx")}>
-                  <Row
-                    icon={<BookOpen className="size-4" />}
-                    label={t("Bienvenida")}
-                    explicacion={t("Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.")}
-                    control={<RowButton onClick={onVerBienvenida}>{t("Ver otra vez")}</RowButton>}
-                  />
-                  <Row
-                    icon={<Compass className="size-4" />}
-                    label={t("Tour de los ajustes")}
-                    explicacion={t("Recorre esta pantalla parándose en cada bloque y contando para qué sirve. Es la vía rápida para ver lo que hay aquí sin ir abriendo cosas a ver qué pasa.")}
-                    hint={enLinux ? t("seis paradas, una por sección") : t("siete paradas, una por sección")}
-                    control={<RowButton onClick={() => setTour(true)}>{t("Empezar")}</RowButton>}
-                  />
-                  <Row
-                    icon={<Power className="size-4" />}
-                    label={enLinux ? t("Arrancar al iniciar sesión") : t("Arrancar con Windows")}
-                    explicacion={
-                      enLinux
-                        ? t("winshotx se abre solo al entrar en tu sesión y se queda esperando, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")
-                        : t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")
-                    }
-                    control={
-                      <Switch
-                        checked={settings.startWithWindows}
-                        onChange={(v) => patch({ startWithWindows: v })}
-                        label={enLinux ? t("Arrancar al iniciar sesión") : t("Arrancar con Windows")}
-                      />
-                    }
-                  />
-                </Section>
-                </div>
-                <div className="flex flex-col">
-                <Section title={t("Aspecto")}>
-                  <Row
-                    icon={<Palette className="size-4" />}
-                    label={t("Tema")}
-                    explicacion={
-                      enLinux
-                        ? t("Claro, oscuro, o lo que diga el sistema y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")
-                        : t("Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")
-                    }
-                    hint={
-                      settings.theme === "sistema"
-                        ? enLinux
-                          ? t("sigue al sistema")
-                          : t("sigue a Windows")
-                        : undefined
-                    }
-                    control={
-                      <Segmented
-                        ajustado
-                        value={settings.theme}
-                        options={temas}
-                        onChange={(v) => {
-                          // Se pinta en el acto y se guarda despues: esperar a que Rust
-                          // conteste para cambiar de color hace que el boton parezca roto.
-                          aplicarTema(v);
-                          patch({ theme: v });
-                        }}
-                      />
-                    }
-                  />
-                  <Row
-                    stacked
-                    icon={<Languages className="size-4" />}
-                    label={t("Idioma")}
-                    explicacion={
-                      enLinux
-                        ? t("Español, inglés, o el del sistema si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")
-                        : t("Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")
-                    }
-                    hint={
-                      settings.language === "sistema"
-                        ? enLinux
-                          ? t("el del sistema")
-                          : t("el de Windows")
-                        : undefined
-                    }
-                    control={
-                      <Segmented
-                        value={settings.language}
-                        options={idiomas}
-                        onChange={(v) => {
-                          // Igual que el tema: se cambia el idioma en el acto y se guarda
-                          // despues. Los textos se repintan solos, sin recargar la ventana
-                          // ni perder por donde iba el usuario.
-                          aplicarIdioma(v);
-                          patch({ language: v });
-                        }}
-                      />
-                    }
-                  />
-                </Section>
-                {/* Lo unico que winshotx pide, y va al final del todo a proposito:
-                    primero la herramienta funcionando y solo despues quien la hace.
-                    Debajo de los dos botones que se llevan fuera va la direccion escrita,
-                    porque un boton que abre el navegador tiene que decir a donde antes de
-                    que lo pulsen. En la fila del codigo no cabe con los dos botones al
-                    lado, y ahi la dice el icono de GitHub. */}
-                <Section title={t("Acerca de")} tour="acerca">
-                  <Row
-                    icon={<Info className="size-4" />}
-                    label={t("winshotx {version}", { version: VERSION })}
-                    explicacion={t("Gratis, sin cuentas y sin anuncios, con licencia MIT. Lo hago yo solo, y ni las capturas ni los vídeos salen nunca de tu ordenador: aquí no hay servidor al que mandarlos.")}
-                    hint={comoSeLee(WEB)}
-                    control={<RowButton onClick={() => void openUrl(WEB)}>{t("La web")}</RowButton>}
-                  />
-                  <Row
-                    icon={<Coffee className="size-4" />}
-                    label={t("Invítame a un café")}
-                    explicacion={t("Es la única forma de apoyar winshotx: no hay versión de pago, ni anuncios, ni datos que vender. Se paga una vez, la cantidad la pones tú, y no hace falta cuenta.")}
-                    hint={comoSeLee(CAFE)}
-                    control={
-                      <RowButton onClick={() => void openUrl(CAFE)}>{t("Invitar")}</RowButton>
-                    }
-                  />
-                  <Row
-                    icon={<Github className="size-4" />}
-                    label={t("El código y los fallos")}
-                    explicacion={t("Ayuda igual que un café y es gratis: una estrella hace que lo encuentre más gente, y un fallo contado con lo que estabas haciendo es lo que hace que se arregle.")}
-                    hint={t("abierto, con licencia MIT")}
-                    control={
-                      <span className="flex gap-1.5">
-                        <RowButton onClick={() => void openUrl(REPO)}>{t("El código")}</RowButton>
-                        <RowButton onClick={() => void openUrl(FALLOS)}>
-                          {t("Contar un fallo")}
-                        </RowButton>
-                      </span>
-                    }
-                  />
-                </Section>
-                </div>
-              </>
-            )}
-        </div>
+              )}
+            </div>
+          </div>
+          {/* El desvanecido dice «esto sigue»: cortado a hueso, lo de abajo no se busca. Solo
+              cuando de verdad sigue: cabiendo, tapaba el borde de abajo de las filas. */}
+          {sobra && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-lienzo to-transparent" />
+          )}
         </div>
       </div>
-      {/* El desvanecido dice «esto sigue»: cortado a hueso, lo de abajo no se busca. Solo
-          cuando de verdad sigue: cabiendo, tapaba el borde de abajo de las tarjetas. */}
-      {sobra && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-lienzo to-transparent" />
-      )}
-      </div>
 
-      <BarraRapida
-        settings={settings}
-        patch={patch}
-        version={VERSION}
-        recienActualizado={recienActualizado}
-        onTour={() => setTour(true)}
-      />
-
-      {tour && (
-        <GuidedTour
-          onNavegar={setSeccion}
-          onCerrar={() => setTour(false)}
-          sinTeclasDeWindows={enLinux}
+      {paleta && (
+        <Paleta
+          version={VERSION}
+          hay={hay}
+          enLinux={enLinux}
+          onCerrar={() => setPaleta(false)}
+          onElegir={(b) => {
+            setPaleta(false);
+            ir(b.apartado);
+            // El historial es un apartado entero, sin una fila que iluminar.
+            if (b.apartado !== "historial") setEncendida(b.id);
+          }}
         />
       )}
 
-      {/* Fuera de la rejilla: un fallo escondido al final de una columna no se ve. */}
+      {tour && (
+        <GuidedTour onNavegar={ir} onCerrar={() => setTour(false)} sinTeclasDeWindows={enLinux} />
+      )}
+
+      {/* Fuera del hueco: un fallo escondido al final de una columna no se ve. */}
       {error && (
-        <p className="mx-4 mb-3 shrink-0 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+        <p className="mx-4 mb-3 shrink-0 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[13px] text-[color:light-dark(#b91c1c,#f87171)]">
           {error}
         </p>
       )}
 
+      {/* Lo que se toca a menudo, a mano desde cualquier apartado (vuelve en S40). */}
+      <BarraRapida
+        settings={settings}
+        patch={patch}
+        onTour={() => setTour(true)}
+        actualizacion={{ fase: actualizacion.fase, mirar: () => void actualizacion.mirar(true) }}
+      />
     </div>
   );
 }
