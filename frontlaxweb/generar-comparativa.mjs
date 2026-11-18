@@ -25,24 +25,24 @@ const IDIOMAS = ["es", "en"];
 // Cada texto se escribe en español y, si cambia, con su inglés en data-en, que es lo que lee
 // generar-en.mjs. El elemento que lleva data-en no puede llevar dentro otro de su misma
 // etiqueta: generar-en.mjs lo cierra en el primer cierre que encuentra.
-const escapar = (t) => t.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-function el(etiqueta, atributos, texto) {
+export const escapar = (t) => t.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+export function el(etiqueta, atributos, texto) {
   const { es, en } = texto;
   const marcas = /<[a-z]/i.test(es) || /<[a-z]/i.test(en);
   const ingles = es === en ? "" : `${marcas ? " data-html" : ""} data-en="${escapar(en)}"`;
   return `<${etiqueta}${atributos ? ` ${atributos}` : ""}${ingles}>${es}</${etiqueta}>`;
 }
 // Un texto hecho con una función de cada idioma: dos(L => ...) da { es, en }.
-const dos = (f) => Object.fromEntries(IDIOMAS.map((L) => [L, f(L)]));
+export const dos = (f) => Object.fromEntries(IDIOMAS.map((L) => [L, f(L)]));
 
-const nombre = (h, L, corto = false) => (corto && h.corto ? (L === "en" ? h.cortoEn : h.corto) : h[L]);
-const txt = (v, L) => v[L === "en" ? 2 : 1];
+export const nombre = (h, L, corto = false) => (corto && h.corto ? (L === "en" ? h.cortoEn : h.corto) : h[L]);
+export const txt = (v, L) => v[L === "en" ? 2 : 1];
 // Tras dos puntos va en minúscula, salvo un nombre propio o unas siglas: «Snagit: Mac», «PC».
 const PROPIOS = /^(Mac|Linux|Windows|Internet|Insiders|FFmpeg|WebSocket|[A-Z]{2,})\b/;
-const minuscula = (s) => (PROPIOS.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
+export const minuscula = (s) => (PROPIOS.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
 // Las listas de tres o más llevan punto y coma: sus cosas ya llevan comas dentro («una página
 // larga, bajando sola»), y con comas no se ve dónde acaba cada una.
-function lista(cosas, L) {
+export function lista(cosas, L) {
   if (cosas.length <= 1) return cosas.join("");
   if (cosas.length === 2) return cosas.join(L === "en" ? " and " : " y ");
   return cosas.slice(0, -1).join("; ") + (L === "en" ? "; and " : "; y ") + cosas.at(-1);
@@ -60,8 +60,9 @@ function cabeza() {
     </div>`;
 }
 
-// Las tres cifras medidas contra la Herramienta de Recortes, con sus barras.
-function medidas() {
+// Las tres cifras medidas contra la Herramienta de Recortes, con sus barras. En la portada
+// llevan el id con el que demo.js las llena al verse; en una página sin demo.js van ya llenas.
+export function medidas(enPortada = true) {
   const recortes = dos((L) => nombre(HERRAMIENTAS[1], L));
   const una = (x) => {
     const [dWx, dOtra] = x.dura ? x.dura.map((d) => `;--dura:${d}`) : ["", ""];
@@ -74,13 +75,14 @@ function medidas() {
             </div>
           </div>`;
   };
-  return `        <div class="medidas" id="medidas">
+  return `        <div ${enPortada ? 'class="medidas" id="medidas"' : 'class="medidas vistas"'}>
 ${TEXTOS.medidas.map(una).join("\n")}
         </div>
         ${el("p", 'class="fuentes"', TEXTOS.medido)}`;
 }
 
-function panel(rival) {
+/** Las filas repartidas frente a una herramienta: lo que gana cada una y lo que hacen las dos. */
+export function reparto(rival) {
   const id = rival.id;
   const gana = [], pierde = [], empatan = [];
   for (const f of FILAS) {
@@ -93,6 +95,13 @@ function panel(rival) {
   }
   // Lo que menos herramientas hacen, arriba; el precio, siempre primero.
   gana.sort((x, y) => (y.primero ? 1 : 0) - (x.primero ? 1 : 0) || cuantas(x) - cuantas(y));
+  return { gana, pierde, empatan };
+}
+
+/** Lo que pesa cada instalador y las dos listas: lo mismo en la portada y en la página de cada una. */
+export function frenteDos(rival) {
+  const id = rival.id;
+  const { gana, pierde, empatan } = reparto(rival);
   const TOPE = 6;
 
   const linea = (f, deLaOtra) => {
@@ -118,8 +127,7 @@ function panel(rival) {
     ? `\n        ${el("p", 'class="frente-empatan"', dos((L) => `<b>${TEXTOS.lasDos[L]}</b> ${lista(empatan.map((f) => minuscula(f[L])), L)}.`))}`
     : "";
 
-  return `      <div class="frente" id="frente-${id}">
-${id === "recortes" ? `${medidas()}\n` : ""}        <div class="frente-dos">
+  return `        <div class="frente-dos">
           <div class="frente-cifras">
 ${cifra(HERRAMIENTAS[0])}
 ${cifra(rival)}
@@ -137,7 +145,12 @@ ${gana.slice(0, TOPE).map((f) => linea(f, false)).join("\n")}
 ${pierde.map((f) => linea(f, true)).join("\n") || `              ${el("li", 'class="frente-nada"', TEXTOS.nada)}`}
             </ul>
           </div>
-        </div>${empate}
+        </div>${empate}`;
+}
+
+function panel(rival) {
+  return `      <div class="frente" id="frente-${rival.id}">
+${rival.id === "recortes" ? `${medidas()}\n` : ""}${frenteDos(rival)}
       </div>`;
 }
 
