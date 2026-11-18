@@ -1,5 +1,48 @@
 # packaging/linux
 
+**winshotx is not released for Linux yet.** There are no official packages and no download. The
+CI builds a .deb, an .rpm and an AppImage on Debian 12 only to test them. This page is for people
+packaging or building the app from source.
+
+## Building from source
+
+The system libraries, on Debian 12 (the base the CI builds on):
+
+```
+apt-get install pkg-config clang libclang-dev \
+  libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
+  libdbus-1-dev libpipewire-0.3-dev libgbm-dev libdrm-dev libwayland-dev \
+  libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
+  patchelf file xdg-utils
+```
+
+Then, with Rust, Node.js 24 and pnpm 11:
+
+```
+pnpm install --frozen-lockfile
+pnpm tauri build --bundles deb,rpm,appimage
+```
+
+The packages are signed for the updater, so that last command needs `TAURI_SIGNING_PRIVATE_KEY`
+in the environment.
+
+## What has been tested
+
+Everything below ran in a virtual session on Fedora 44, never on a physical machine.
+
+| Desktop | Result |
+|---|---|
+| GNOME 50, Wayland | Region capture, the editor, Esc, and both shortcuts through the GlobalShortcuts portal |
+| X11 with openbox or xfwm4 | Region capture, Esc and the thumbnail stack |
+
+Not tested yet: KDE Plasma, Hyprland, mouse input on Sway, screen recording, more than one
+monitor, display scaling, NVIDIA drivers and real hardware.
+
+On GNOME, the first launch asks to confirm the shortcuts ("Add Keyboard Shortcuts") and the first
+capture asks for permission ("Allow winshotx to Take Screenshots?").
+
+## How the app identifies itself
+
 On Linux the app presents itself to the desktop as `com.munir.winshotx` (the identifier in
 `tauri.conf.json`), not as the binary name:
 
