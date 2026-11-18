@@ -397,7 +397,14 @@ pub fn a_la_papelera(ruta: &Path) -> Result<()> {
     Ok(())
 }
 
-#[cfg(not(windows))]
+/// En Linux la papelera es la del escritorio (la de freedesktop, que es la que enseña el
+/// gestor de archivos): la lleva GIO, que ya viene con GTK.
+#[cfg(target_os = "linux")]
+pub fn a_la_papelera(ruta: &Path) -> Result<()> {
+    crate::platform::xdg::a_la_papelera(ruta)
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn a_la_papelera(_ruta: &Path) -> Result<()> {
     Err(AppError::Unsupported)
 }

@@ -252,6 +252,25 @@ pub fn ensennar(archivo: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Manda un archivo a la papelera del escritorio, de donde se puede recuperar.
+///
+/// Es la papelera de freedesktop (`~/.local/share/Trash`, o la del disco donde este el
+/// archivo), la misma que ensennan Archivos de GNOME, Dolphin y los demas. La lleva GIO, que
+/// ya viene con GTK, y se puede llamar desde cualquier hilo. Donde no hay papelera (una
+/// carpeta de red, un disco que no la admite) contesta con el motivo y el archivo se queda
+/// donde estaba: nunca se borra del todo.
+#[cfg(target_os = "linux")]
+pub fn a_la_papelera(archivo: &Path) -> crate::error::Result<()> {
+    use gtk::gio::prelude::*;
+    gtk::gio::File::for_path(archivo)
+        .trash(gtk::gio::Cancellable::NONE)
+        .map_err(|e| crate::error::AppError::Msg(format!("no se ha podido mandar a la papelera ({e})")))?;
+    if archivo.exists() {
+        return Err(crate::error::AppError::Msg("no se ha podido mandar a la papelera".into()));
+    }
+    Ok(())
+}
+
 /// Lo que mete el AppImage en el entorno para que winshotx encuentre SUS bibliotecas, y que
 /// no puede llegarle a otro programa: un navegador o un gestor de archivos arrancado con las
 /// bibliotecas de dentro del AppImage revienta o sale roto (le pasa a cualquier AppImage que
