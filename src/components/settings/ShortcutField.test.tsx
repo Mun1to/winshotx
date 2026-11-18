@@ -121,6 +121,77 @@ describe("la tecla Super en WebKitGTK", () => {
   });
 });
 
+describe("revisión del campo de atajos con Super en WebKitGTK", () => {
+  beforeEach(() => aplicarIdioma("es"));
+
+  const SUPER = { key: "Super", code: "OSLeft" };
+  const LETRA = { key: "K", code: "KeyK", shiftKey: true };
+
+  it("control: Super y la letra, sin que el padre se repinte", () => {
+    const guardado = vi.fn();
+    render(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={(v) => guardado(v)} />);
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.keyDown(window, LETRA);
+    expect(guardado).toHaveBeenCalledWith("Super+Shift+KeyK");
+  });
+
+  it("el padre se repinta entre Super y la letra (onChange es una flecha nueva)", () => {
+    const guardado = vi.fn();
+    const { rerender } = render(
+      <ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={(v) => guardado(v)} />,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.keyDown(window, SUPER);
+    rerender(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={(v) => guardado(v)} />);
+    fireEvent.keyDown(window, LETRA);
+    expect(guardado).toHaveBeenCalledWith("Super+Shift+KeyK");
+  });
+
+  it("tras repintarse, guarda con el onChange más reciente y no con el viejo", () => {
+    const viejo = vi.fn();
+    const nuevo = vi.fn();
+    const { rerender } = render(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={viejo} />);
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.keyDown(window, SUPER);
+    rerender(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={nuevo} />);
+    fireEvent.keyDown(window, LETRA);
+    expect(viejo).not.toHaveBeenCalled();
+    expect(nuevo).toHaveBeenCalledWith("Super+Shift+KeyK");
+  });
+
+  it("soltar Super antes de la letra no deja Super pegada", () => {
+    const guardado = vi.fn();
+    render(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={(v) => guardado(v)} />);
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.keyUp(window, SUPER);
+    fireEvent.keyDown(window, LETRA);
+    expect(guardado).toHaveBeenCalledWith("Shift+KeyK");
+  });
+
+  it("perder el foco con Super pulsada la olvida", () => {
+    const guardado = vi.fn();
+    render(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={(v) => guardado(v)} />);
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.blur(window);
+    fireEvent.keyDown(window, LETRA);
+    expect(guardado).toHaveBeenCalledWith("Shift+KeyK");
+  });
+
+  it("con las dos Super, soltar una deja la otra contando", () => {
+    const guardado = vi.fn();
+    render(<ShortcutField value="CmdOrCtrl+Shift+KeyS" active onChange={(v) => guardado(v)} />);
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.keyDown(window, SUPER);
+    fireEvent.keyDown(window, { key: "Super", code: "OSRight" });
+    fireEvent.keyUp(window, SUPER);
+    fireEvent.keyDown(window, LETRA);
+    expect(guardado).toHaveBeenCalledWith("Super+Shift+KeyK");
+  });
+});
+
 describe("la pista mientras escucha las teclas", () => {
   const EN_LINUX = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
   const EN_WINDOWS = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/142.0 Edg/142.0";

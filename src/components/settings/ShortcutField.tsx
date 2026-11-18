@@ -36,6 +36,10 @@ export function ShortcutField({ value, onChange, active }: Props) {
   const t = useT();
   const [recording, setRecording] = useState(false);
   const boxRef = useRef<HTMLButtonElement>(null);
+  // En un ref para que el efecto de las teclas no se rehaga: el padre manda una flecha nueva en
+  // cada repintado, y rehacerlo a media combinación olvidaba la Super que seguía apretada.
+  const guardar = useRef(onChange);
+  guardar.current = onChange;
 
   useEffect(() => {
     if (!recording) return;
@@ -74,7 +78,7 @@ export function ShortcutField({ value, onChange, active }: Props) {
       // Cerrar ANTES de guardar. Si el guardado se va por el desagüe, el campo se
       // quedaba pidiendo teclas para siempre y parecía que no se había enterado.
       setRecording(false);
-      onChange(parts.join("+"));
+      guardar.current(parts.join("+"));
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -91,7 +95,7 @@ export function ShortcutField({ value, onChange, active }: Props) {
       window.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("blur", onBlur);
     };
-  }, [recording, onChange]);
+  }, [recording]);
 
   useEffect(() => {
     if (!recording) return;
