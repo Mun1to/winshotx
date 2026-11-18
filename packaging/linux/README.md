@@ -32,11 +32,20 @@ Everything below ran in a virtual session on Fedora 44, never on a physical mach
 
 | Desktop | Result |
 |---|---|
-| GNOME 50, Wayland | Region capture, the editor, Esc, and both shortcuts through the GlobalShortcuts portal |
-| X11 with openbox or xfwm4 | Region capture, Esc and the thumbnail stack |
+| GNOME 50, Wayland | Region capture, copy and paste into another app, save to `~/Pictures/winshotx`, pin, the editor, the history (open, send to the trash), dragging the thumbnail into another app, Esc, both shortcuts through the GlobalShortcuts portal, and two monitors |
+| X11 with openbox or xfwm4 | Region capture, copy and paste into another app, save to `~/Pictures/winshotx`, pin, the editor, the history (open, send to the trash), dragging the thumbnail into another app, Esc and the thumbnail stack |
 
 Not tested yet: KDE Plasma, Hyprland, mouse input on Sway, screen recording, more than one
-monitor, display scaling, NVIDIA drivers and real hardware.
+monitor on X11, display scaling, NVIDIA drivers and real hardware.
+
+The packages the CI builds were installed in clean containers: the .deb on Debian 12 and 13 and
+on Ubuntu 24.04 and 26.04, the .rpm on Fedora 44 and 45, and the AppImage on Debian 12 and
+Ubuntu 24.04. They install without asking for anything else and the app starts. On Fedora 44 the
+AppImage opens a blank window (in that virtual session WebKitGTK cannot create its EGL display):
+use the .rpm there.
+
+On Wayland the desktop decides where windows go, so the thumbnail appears where the compositor
+puts it (centred on GNOME) and not in the bottom right corner.
 
 On GNOME, the first launch asks to confirm the shortcuts ("Add Keyboard Shortcuts") and the first
 capture asks for permission ("Allow winshotx to Take Screenshots?").
