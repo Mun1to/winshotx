@@ -69,12 +69,18 @@
     },
     "linux": {
       "deb": {
+        "depends": [
+          "xdg-utils"
+        ],
         "desktopTemplate": "../packaging/linux/winshotx.desktop.hbs",
         "files": {
           "/usr/share/applications/com.munir.winshotx.desktop": "../packaging/linux/com.munir.winshotx.desktop"
         }
       },
       "rpm": {
+        "depends": [
+          "xdg-utils"
+        ],
         "desktopTemplate": "../packaging/linux/winshotx.desktop.hbs",
         "files": {
           "/usr/share/applications/com.munir.winshotx.desktop": "../packaging/linux/com.munir.winshotx.desktop"

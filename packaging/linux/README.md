@@ -44,6 +44,10 @@ Ubuntu 24.04. They install without asking for anything else and the app starts. 
 AppImage opens a blank window (in that virtual session WebKitGTK cannot create its EGL display):
 use the .rpm there.
 
+Opening an entry of the history goes through `xdg-open`, so the .deb and the .rpm depend on
+`xdg-utils` (`bundle.linux.*.depends` in `tauri.conf.json`). The AppImage cannot depend on
+anything: it uses the `xdg-open` of the system.
+
 On Wayland the desktop decides where windows go, so the thumbnail appears where the compositor
 puts it (centred on GNOME) and not in the bottom right corner.
 
