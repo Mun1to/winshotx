@@ -44,6 +44,8 @@ fn texto_de(lineas: &[Vec<crate::sensibles::Palabra>]) -> String {
 ///   `OcrEngine::MaxImageDimension` píxeles de lado (10 000 en el Windows 11 de las pruebas,
 ///   y contesta «Image dimensions are too large!»): una captura con scroll larga se lee a
 ///   tiras que se solapan, y una más ancha que eso se reduce.
+/// - **Nada demasiado pequeño.** En una imagen de menos de unos 40 px de lado el motor no
+///   ve texto, y eso es justo la selección de una sola línea: se amplía antes de leerla.
 /// - **Cada línea, una vez.** Lo que cae en el solape de dos tiras lo ven las dos, y se queda
 ///   la que lo ve mejor (`Vista`): sale entero y no repetido.
 /// - **Las cajas, en píxeles de la imagen de verdad**, no de la reducida, ni de su tira, ni
@@ -66,14 +68,14 @@ fn lineas_de(
 
     let (ancho, alto) = (decodificador.PixelWidth()?, decodificador.PixelHeight()?);
     let maximo = maximo.max(SOLAPE_DE_TIRAS * 2);
-    let escala = (maximo as f64 / ancho.max(1) as f64).min(1.0);
-    let (ancho_leido, alto_leido) = if escala < 1.0 {
+    let escala = escala_de_lectura(ancho, alto, maximo);
+    let (ancho_leido, alto_leido) = if escala == 1.0 {
+        (ancho, alto)
+    } else {
         (
             ((ancho as f64 * escala).round() as u32).clamp(1, maximo),
             ((alto as f64 * escala).round() as u32).max(1),
         )
-    } else {
-        (ancho, alto)
     };
     // De los píxeles leídos a los de la imagen de verdad.
     let (kx, ky) = (ancho as f32 / ancho_leido as f32, alto as f32 / alto_leido as f32);
@@ -85,20 +87,20 @@ fn lineas_de(
     let mut de_antes: Vec<Vista> = Vec::new();
     let mut fondo_de_antes = 0.0;
     for &(y, alto_tira) in &lista {
-        let mapa = if lista.len() == 1 && escala >= 1.0 {
+        let mapa = if lista.len() == 1 && escala == 1.0 {
             decodificador
                 .GetSoftwareBitmapConvertedAsync(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied)?
                 .join()?
         } else {
             let transformacion = BitmapTransform::new()?;
-            if escala < 1.0 {
+            if escala != 1.0 {
                 transformacion.SetScaledWidth(ancho_leido)?;
                 transformacion.SetScaledHeight(alto_leido)?;
                 // De fábrica Windows reduce quedándose con un píxel de cada tantos, y eso
                 // deja la letra pequeña a medio dibujar. Promediando se sigue leyendo.
                 transformacion.SetInterpolationMode(BitmapInterpolationMode::Fant)?;
             }
-            // El recorte se aplica después de escalar, en los píxeles ya reducidos.
+            // El recorte se aplica después de escalar, en los píxeles ya escalados.
             transformacion.SetBounds(BitmapBounds { X: 0, Y: y, Width: ancho_leido, Height: alto_tira })?;
             decodificador
                 .GetSoftwareBitmapTransformedAsync(
@@ -154,10 +156,12 @@ fn lineas_de(
         .map(|vista| {
             let mut palabras = vista.palabras;
             for p in &mut palabras {
-                p.x *= kx;
-                p.y *= ky;
-                p.ancho *= kx;
-                p.alto *= ky;
+                // A píxeles de la imagen de verdad, y sin salirse de ella: la caja de una
+                // palabra girada puede asomar por el borde.
+                let (x1, y1) = ((p.x * kx).max(0.0), (p.y * ky).max(0.0));
+                let x2 = ((p.x + p.ancho) * kx).min(ancho as f32);
+                let y2 = ((p.y + p.alto) * ky).min(alto as f32);
+                (p.x, p.y, p.ancho, p.alto) = (x1, y1, (x2 - x1).max(0.0), (y2 - y1).max(0.0));
             }
             palabras
         })
@@ -246,6 +250,32 @@ impl Vista {
         let la_mas_baja = (self.y2 - self.y1).min(otra.y2 - otra.y1);
         comun >= la_mas_baja / 2.0 && self.x2.min(otra.x2) > self.x1.max(otra.x1)
     }
+}
+
+/// El lado por debajo del cual una imagen se amplía antes de leerla.
+///
+/// El lector de Windows no devuelve nada si la imagen mide menos de unos 40 px de alto o de
+/// ancho, por muy claro que esté el texto (medido el 19 de noviembre de 2026: un recorte de
+/// 121 x 30 no se lee y el mismo texto en 137 x 43 sí). Con algo de margen sobre esos 40.
+#[cfg_attr(not(windows), allow(dead_code))]
+const LADO_MINIMO: u32 = 48;
+
+/// Lo más que se amplía una imagen pequeña: con una línea de 12 px de alto ya llega.
+#[cfg_attr(not(windows), allow(dead_code))]
+const AMPLIACION_MAXIMA: u32 = 4;
+
+/// A cuánto se lee una imagen: reducida si es más ancha que lo que acepta el lector, y
+/// ampliada un número entero de veces si es tan pequeña que el lector no vería nada.
+///
+/// Lo alto no cuenta para reducir: una imagen más alta que el máximo se parte en tiras.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn escala_de_lectura(ancho: u32, alto: u32, maximo: u32) -> f64 {
+    let (ancho, alto) = (ancho.max(1), alto.max(1));
+    if ancho > maximo {
+        return maximo as f64 / ancho as f64;
+    }
+    let veces = LADO_MINIMO.div_ceil(ancho.min(alto)).min(AMPLIACION_MAXIMA).min(maximo / ancho);
+    veces.max(1) as f64
 }
 
 /// Lo que se solapan dos tiras seguidas de una foto demasiado alta, en píxeles: una línea
@@ -371,7 +401,33 @@ pub fn leer_palabras(_png: &[u8]) -> crate::error::Result<Vec<Vec<crate::sensibl
 
 #[cfg(test)]
 mod tiras_de_una_foto {
-    use super::tiras;
+    use super::{escala_de_lectura, tiras};
+
+    #[test]
+    fn una_imagen_normal_se_lee_a_su_tamano() {
+        assert_eq!(escala_de_lectura(1920, 1080, 10_000), 1.0);
+        assert_eq!(escala_de_lectura(10_000, 30_000, 10_000), 1.0, "lo alto va a tiras, no se reduce");
+        assert_eq!(escala_de_lectura(48, 48, 10_000), 1.0);
+    }
+
+    #[test]
+    fn una_imagen_mas_ancha_que_el_lector_se_reduce_a_lo_justo() {
+        assert_eq!(escala_de_lectura(15_000, 400, 10_000), 10_000.0 / 15_000.0);
+        assert_eq!(escala_de_lectura(3840, 2160, 2600), 2600.0 / 3840.0);
+    }
+
+    /// Veces enteras, las justas para llegar al lado mínimo, nunca más de cuatro, y sin
+    /// pasarse de lo que acepta el lector a lo ancho.
+    #[test]
+    fn una_imagen_pequena_se_amplia() {
+        assert_eq!(escala_de_lectura(300, 30, 10_000), 2.0);
+        assert_eq!(escala_de_lectura(88, 20, 10_000), 3.0);
+        assert_eq!(escala_de_lectura(80, 12, 10_000), 4.0);
+        assert_eq!(escala_de_lectura(1, 1, 10_000), 4.0);
+        assert_eq!(escala_de_lectura(30, 900, 10_000), 2.0, "también si lo estrecho es el ancho");
+        assert_eq!(escala_de_lectura(2000, 20, 2600), 1.0, "ampliada no cabría a lo ancho");
+        assert_eq!(escala_de_lectura(1200, 20, 2600), 2.0);
+    }
 
     #[test]
     fn una_foto_que_cabe_es_una_sola_tira() {
@@ -924,6 +980,41 @@ pub(crate) mod pruebas {
             let png = pintar_textos(&[(20, "arriba queda"), (y, "justo corte"), (980, "abajo queda")], 700, 1100);
             let texto = texto_de(&con_maximo(&png, 600));
             assert_eq!(texto, "arriba queda\njusto corte\nabajo queda", "con la línea a la altura {y}");
+        }
+    }
+
+    /// Seleccionar una sola línea, apurando, y pulsar T: lo que más se hace con «copiar el
+    /// texto». El lector de Windows no ve nada en una imagen de menos de unos 40 px de alto
+    /// (medido: 121 x 30 no, 137 x 43 sí), así que esa selección decía «No he encontrado
+    /// texto en esa captura» con el texto bien a la vista.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn una_seleccion_de_una_sola_linea_se_lee() {
+        for letra in [16, 20, 24, 32] {
+            let hoja = pintar_con_letra(&[(8, "Zaragoza 48213")], 400, 80, letra);
+            let hoja = image::load_from_memory(&hoja).expect("el PNG de prueba").to_rgba8();
+            // Dónde está la tinta, para recortar a su alrededor como lo haría una selección.
+            let tinta = || hoja.enumerate_pixels().filter(|(_, _, p)| p.0[0] < 128);
+            let (x1, x2) = (tinta().map(|p| p.0).min().unwrap(), tinta().map(|p| p.0).max().unwrap());
+            let (y1, y2) = (tinta().map(|p| p.1).min().unwrap(), tinta().map(|p| p.1).max().unwrap());
+            for margen in [4, 8] {
+                let (ancho, alto) = (x2 - x1 + 1 + margen * 2, y2 - y1 + 1 + margen * 2);
+                let recorte = image::imageops::crop_imm(&hoja, x1 - margen, y1 - margen, ancho, alto).to_image();
+                let png = crate::encode::png::to_bytes(&recorte).expect("el PNG de prueba");
+                let lineas = leer_palabras(&png).expect("leer");
+                assert_eq!(
+                    texto_de(&lineas),
+                    "Zaragoza 48213",
+                    "letra de {letra} px en un recorte de {ancho} x {alto}"
+                );
+                // Y las cajas, en los píxeles del recorte, no en los de la imagen ampliada.
+                for p in lineas.iter().flatten() {
+                    assert!(
+                        p.x >= 0.0 && p.y >= 0.0 && p.x + p.ancho <= ancho as f32 && p.y + p.alto <= alto as f32,
+                        "caja fuera del recorte de {ancho} x {alto}: {p:?}"
+                    );
+                }
+            }
         }
     }
 
