@@ -1019,6 +1019,28 @@ describe("en Linux", () => {
     expect(dibujo()?.textContent).toContain("Con el sonido del PC y tu micrófono");
   });
 
+  // La pastilla «0:12» del dibujo de Grabar es la barra de grabar. En Wayland no hay barra (una
+  // ventana no se puede dejar fuera del vídeo ni elegir dónde se pone): el dibujo no la pinta.
+  it("en Wayland, el dibujo de Grabar no lleva la barra de grabar", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.getAttribute("data-dibujo-de")).toBe("grabar"));
+    expect(dibujo()?.textContent).not.toContain("0:12");
+    expect(dibujo()?.querySelector('[data-dibujo="barra"]')).toBeNull();
+    // Lo demás del dibujo sigue: el marco de lo que se graba y sus frases.
+    expect(dibujo()?.querySelector('[data-dibujo="marco"]')).not.toBeNull();
+    expect(dibujo()?.textContent).toContain("fps");
+  });
+
+  it("en X11, que sí tiene barra fuera de lo grabado, el dibujo la lleva", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.querySelector('[data-dibujo="barra"]')).not.toBeNull());
+    expect(dibujo()?.textContent).toContain("0:12");
+  });
+
   it("con el sonido en su sitio, los interruptores de Linux van como siempre", async () => {
     responde("plataforma", { sistema: "linux", wayland: false });
     responde("sonido_disponible", { altavoz: true, microfono: true });

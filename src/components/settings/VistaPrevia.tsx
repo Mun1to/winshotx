@@ -197,7 +197,7 @@ function Despues({ s }: { s: Settings }) {
   );
 }
 
-function Grabar({ s, hay }: { s: Settings; hay: SonidoDisponible | null }) {
+function Grabar({ s, hay, conBarra }: { s: Settings; hay: SonidoDisponible | null; conBarra: boolean }) {
   const t = useT();
   // Lo que se va a grabar de verdad: lo encendido en los ajustes que además se pueda grabar
   // aquí. Donde el sistema no da el sonido (o no hay micrófono) el interruptor sale apagado
@@ -215,11 +215,22 @@ function Grabar({ s, hay }: { s: Settings; hay: SonidoDisponible | null }) {
   return (
     <>
       <Pantallita>
-        <div className="absolute rounded-[3px] border-2 border-red-500" style={{ left: "16%", top: "8%", width: "72%", height: "76%" }}>
-          <div className="absolute -top-[11px] left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-zinc-900/90 px-2 py-[2px] text-[10px] font-semibold tabular-nums text-white">
-            <span className="size-[6px] rounded-full bg-red-500" />
-            0:12
-          </div>
+        <div
+          data-dibujo="marco"
+          className="absolute rounded-[3px] border-2 border-red-500"
+          style={{ left: "16%", top: "8%", width: "72%", height: "76%" }}
+        >
+          {/* La barra de grabar, con su tiempo. En Wayland no la hay (una ventana no se puede
+              dejar fuera del vídeo ni elegir dónde se pone), así que allí no se dibuja. */}
+          {conBarra && (
+            <div
+              data-dibujo="barra"
+              className="absolute -top-[11px] left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-zinc-900/90 px-2 py-[2px] text-[10px] font-semibold tabular-nums text-white"
+            >
+              <span className="size-[6px] rounded-full bg-red-500" />
+              0:12
+            </div>
+          )}
           {s.recordCamera && (
             <div
               data-dibujo="camara"
@@ -423,12 +434,15 @@ export function VistaPrevia({
   apartado,
   settings,
   enLinux = false,
+  enWayland = false,
   sonido = null,
 }: {
   apartado: ApartadoId;
   settings: Settings;
   /** S21 (Linux): las frases que hablan de Windows hablan allí del sistema. */
   enLinux?: boolean;
+  /** S44 (Linux): en Wayland no hay barra de grabar, y el dibujo de Grabar no la pinta. */
+  enWayland?: boolean;
   /** S44 (Linux): qué sonido se puede grabar aquí. null donde no hay nada que avisar (Windows). */
   sonido?: SonidoDisponible | null;
   /** Para un dibujo que cuente lo que está grabando ahora el anillo (todavía no lo usa ninguno). */
@@ -440,7 +454,7 @@ export function VistaPrevia({
     case "despues":
       return <Despues s={settings} />;
     case "grabar":
-      return <Grabar s={settings} hay={sonido} />;
+      return <Grabar s={settings} hay={sonido} conBarra={!enWayland} />;
     case "ultimos":
       return <Ultimos s={settings} />;
     case "teclas":

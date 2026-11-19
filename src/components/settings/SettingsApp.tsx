@@ -504,6 +504,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                         settings={settings}
                         replay={replay}
                         enLinux={enLinux}
+                        enWayland={enWayland}
                         sonido={sonido}
                       />
                     </aside>
