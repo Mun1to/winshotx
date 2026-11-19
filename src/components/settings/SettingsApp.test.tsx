@@ -981,6 +981,44 @@ describe("en Linux", () => {
     expect(screen.queryByText("este sistema no da el sonido por PipeWire")).not.toBeInTheDocument();
   });
 
+  // El dibujo de «Así va a salir» cuenta lo que se va a grabar de verdad, no lo que pone en los
+  // ajustes: con los interruptores apagados por falta de sonido decía «Con el sonido del PC y
+  // tu micrófono».
+  it("donde PipeWire no lleva el sonido, el dibujo dice que se graba sin sonido", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: false, microfono: false });
+    await abrirAjustes(undefined, undefined, { recordAudio: true, recordMicrophone: true });
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Sin sonido"));
+    expect(dibujo()?.textContent).not.toContain("Con el sonido del PC");
+    expect(dibujo()?.textContent).not.toContain("micrófono");
+  });
+
+  it("sin micrófono, el dibujo no cuenta el micrófono aunque esté encendido en los ajustes", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: true, microfono: false });
+    await abrirAjustes(undefined, undefined, { recordAudio: true, recordMicrophone: true });
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Con el sonido del PC, sin micrófono"));
+  });
+
+  it("sin salida de sonido pero con micrófono, el dibujo solo cuenta el micrófono", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: false, microfono: true });
+    await abrirAjustes(undefined, undefined, { recordAudio: true, recordMicrophone: true });
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Con tu micrófono, sin el sonido del PC"));
+  });
+
+  it("con el sonido en su sitio, el dibujo cuenta lo que dicen los ajustes", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: true, microfono: true });
+    await abrirAjustes(undefined, undefined, { recordAudio: true, recordMicrophone: true });
+    ir("Grabar");
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "sonido_disponible")).toBe(true));
+    expect(dibujo()?.textContent).toContain("Con el sonido del PC y tu micrófono");
+  });
+
   it("con el sonido en su sitio, los interruptores de Linux van como siempre", async () => {
     responde("plataforma", { sistema: "linux", wayland: false });
     responde("sonido_disponible", { altavoz: true, microfono: true });

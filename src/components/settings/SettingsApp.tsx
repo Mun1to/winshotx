@@ -499,7 +499,13 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       className="flex w-[290px] shrink-0 flex-col justify-center rounded-xl bg-tarjeta px-5 py-6"
                     >
                       <p className="mb-4 text-[15px] font-bold text-titulo">{t("Así va a salir")}</p>
-                      <VistaPrevia apartado={seccion} settings={settings} replay={replay} enLinux={enLinux} />
+                      <VistaPrevia
+                        apartado={seccion}
+                        settings={settings}
+                        replay={replay}
+                        enLinux={enLinux}
+                        sonido={sonido}
+                      />
                     </aside>
                   )}
                 </div>

@@ -11,7 +11,7 @@
  */
 import type { ReactNode } from "react";
 
-import type { ReplayStatus, Settings } from "../../lib/types";
+import type { ReplayStatus, Settings, SonidoDisponible } from "../../lib/types";
 import { FONDOS } from "../../lib/fondos";
 import { partesDeAtajo } from "../../lib/teclas";
 import { useT } from "../../lib/i18n";
@@ -197,14 +197,19 @@ function Despues({ s }: { s: Settings }) {
   );
 }
 
-function Grabar({ s }: { s: Settings }) {
+function Grabar({ s, hay }: { s: Settings; hay: SonidoDisponible | null }) {
   const t = useT();
+  // Lo que se va a grabar de verdad: lo encendido en los ajustes que además se pueda grabar
+  // aquí. Donde el sistema no da el sonido (o no hay micrófono) el interruptor sale apagado
+  // aunque el ajuste siga encendido, y esta frase tiene que decir lo mismo que él.
+  const conPc = s.recordAudio && (hay === null || hay.altavoz);
+  const conMicro = s.recordMicrophone && (hay === null || hay.microfono);
   const sonido =
-    s.recordAudio && s.recordMicrophone
+    conPc && conMicro
       ? t("Con el sonido del PC y tu micrófono")
-      : s.recordAudio
+      : conPc
         ? t("Con el sonido del PC, sin micrófono")
-        : s.recordMicrophone
+        : conMicro
           ? t("Con tu micrófono, sin el sonido del PC")
           : t("Sin sonido");
   return (
@@ -418,11 +423,14 @@ export function VistaPrevia({
   apartado,
   settings,
   enLinux = false,
+  sonido = null,
 }: {
   apartado: ApartadoId;
   settings: Settings;
   /** S21 (Linux): las frases que hablan de Windows hablan allí del sistema. */
   enLinux?: boolean;
+  /** S44 (Linux): qué sonido se puede grabar aquí. null donde no hay nada que avisar (Windows). */
+  sonido?: SonidoDisponible | null;
   /** Para un dibujo que cuente lo que está grabando ahora el anillo (todavía no lo usa ninguno). */
   replay?: ReplayStatus;
 }) {
@@ -432,7 +440,7 @@ export function VistaPrevia({
     case "despues":
       return <Despues s={settings} />;
     case "grabar":
-      return <Grabar s={settings} />;
+      return <Grabar s={settings} hay={sonido} />;
     case "ultimos":
       return <Ultimos s={settings} />;
     case "teclas":
