@@ -468,6 +468,33 @@ describe("la tecla que captura y abre el editor", () => {
   });
 });
 
+// La ventana de la captura se crea al arrancar y se reutiliza en cada captura: lo que recuerda
+// el navegador es el idioma de cuando nació. El de ahora viene en los ajustes de cada captura.
+describe("el idioma de la pantalla de captura", () => {
+  const EN_INGLES = { ...PAYLOAD, settings: { ...AJUSTES, language: "en" } as Settings };
+
+  it("es el de los ajustes que trae la captura, no el que recordaba la ventana", async () => {
+    responde("overlay_bootstrap", EN_INGLES);
+    render(<SelectionCanvas monitorId={1} />);
+    expect(await screen.findByLabelText("Photo")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Foto")).toBeNull();
+  });
+
+  it("si se cambia entre dos capturas, la ventana reutilizada sale en el nuevo", async () => {
+    await abrir();
+    emite(EVENTS.overlayShow, { ...EN_INGLES, generation: 2 });
+    expect(await screen.findByLabelText("Photo")).toBeInTheDocument();
+    emite(EVENTS.overlayShow, { ...PAYLOAD, settings: { ...AJUSTES, language: "es" } as Settings, generation: 3 });
+    expect(await screen.findByLabelText("Foto")).toBeInTheDocument();
+  });
+
+  it("unos ajustes sin idioma (una versión vieja) dejan el que había", async () => {
+    aplicarIdioma("en");
+    render(<SelectionCanvas monitorId={1} />);
+    expect(await screen.findByLabelText("Photo")).toBeInTheDocument();
+  });
+});
+
 describe("la lupa no se pone encima de lo que estas mirando", () => {
   /**
    * Munir, el 9 de septiembre de 2026: «cuando capturas una esquina de la pantalla no ves

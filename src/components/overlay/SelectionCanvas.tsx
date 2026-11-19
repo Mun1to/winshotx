@@ -30,7 +30,7 @@ import {
   type Proporcion,
 } from "../../lib/proporcion";
 import { clamp } from "../../lib/format";
-import { useT } from "../../lib/i18n";
+import { aplicarIdioma, useT } from "../../lib/i18n";
 import {
   aPantalla,
   aVirtual,
@@ -662,6 +662,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       // nadie nos lo ha dado, se pide.
       const data = payloadListo ?? (await overlayBootstrap(monitorId));
       if (!vigente()) return;
+      // El idioma, el de los ajustes de ESTA captura. Esta ventana se crea al arrancar y se
+      // reutiliza, así que lo que leyó del navegador al nacer es el idioma de entonces: con
+      // un perfil nuevo, o cambiando de idioma en los ajustes, salía en el anterior hasta
+      // volver a arrancar winshotx.
+      if (data.settings.language) aplicarIdioma(data.settings.language);
       setPayload(data);
       numeroPantalla.current = data.screenNumber;
       // Donde esta el raton al abrir: si se queda quieto no llega ningun `pointermove`, y
