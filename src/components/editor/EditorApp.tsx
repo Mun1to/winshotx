@@ -722,12 +722,21 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     const reloj = window.setInterval(() => {
       void sessionInfo(sessionId)
         .then((info) => {
-          if (info.mp4Path) setSession(info);
+          if (info.mp4Path || info.previaFallida) setSession(info);
         })
         .catch(() => undefined);
     }, 2000);
     return () => window.clearInterval(reloj);
   }, [session, sessionId, previaFallida]);
+  /**
+   * Y lo mismo con el aviso de que NO va a salir: la sesión lo dice cuando se le pregunta.
+   *
+   * Donde la vista previa falla en el acto (en Linux todavía no existe), el evento sale antes
+   * de que esta ventana exista, y el editor se quedaba en «Preparando el vídeo…» para siempre.
+   */
+  useEffect(() => {
+    if (session?.previaFallida) setPreviaFallida(true);
+  }, [session]);
 
   /**
    * Las miniaturas de la tira llegan DESPUÉS de que el editor abra: al parar se abre

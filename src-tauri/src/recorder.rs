@@ -102,6 +102,9 @@ pub struct SessionInfo {
     /// Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo
     /// (`pistas::nivelar_si_casi_muda`), para que el editor lo diga. Sin subir, `None`.
     pub subida_pc: Option<f32>,
+    /// La vista previa se intento escribir y no salio (`replay::previa_fallida`): el editor
+    /// deja de esperarla aunque se haya perdido el aviso.
+    pub previa_fallida: bool,
 }
 
 impl From<&SessionData> for SessionInfo {
@@ -135,6 +138,7 @@ impl From<&SessionData> for SessionInfo {
             pico_pc,
             pico_microfono,
             subida_pc,
+            previa_fallida: crate::replay::previa_fallida(&data.id),
         }
     }
 }
@@ -815,6 +819,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         pico_pc: None,
         pico_microfono: None,
         subida_pc: None,
+        previa_fallida: false,
     };
 
     *state.recording.lock() = Some(recording);

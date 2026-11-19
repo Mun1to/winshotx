@@ -137,6 +137,8 @@ export interface SessionInfo {
   picoMicrofono?: number | null;
   /** Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo. */
   subidaPc?: number | null;
+  /** La vista previa se intentó escribir y no salió: no hay que seguir esperándola. */
+  previaFallida?: boolean;
 }
 
 /**

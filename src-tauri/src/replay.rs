@@ -746,6 +746,48 @@ fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
     Ok(info)
 }
 
+/// Las sesiones cuya vista previa se intento escribir y no salio.
+///
+/// El aviso de que ha fallado viaja por un evento, y el que sale antes de que el editor monte
+/// su escucha no lo recoge nadie. Donde la vista previa falla en el acto (en Linux todavia no
+/// existe) el editor se quedaba en «Preparando el video…» para siempre, medido por S44 en el
+/// laboratorio. Con esta lista, la sesion lo dice tambien cuando el editor le pregunta
+/// (`SessionInfo::previa_fallida`).
+static PREVIAS_FALLIDAS: parking_lot::Mutex<Vec<String>> = parking_lot::Mutex::new(Vec::new());
+
+/// Si la vista previa de esa sesion se intento escribir y no salio.
+pub(crate) fn previa_fallida(id: &str) -> bool {
+    PREVIAS_FALLIDAS.lock().iter().any(|otra| otra == id)
+}
+
+fn apuntar_previa_fallida(id: &str) {
+    let mut fallidas = PREVIAS_FALLIDAS.lock();
+    if !fallidas.iter().any(|otra| otra == id) {
+        fallidas.push(id.to_string());
+    }
+}
+
+fn olvidar_previa_fallida(id: &str) {
+    PREVIAS_FALLIDAS.lock().retain(|otra| otra != id);
+}
+
+#[cfg(test)]
+mod pruebas_de_las_fallidas {
+    use super::*;
+
+    #[test]
+    fn una_vista_previa_que_falla_se_recuerda_hasta_que_se_vuelve_a_intentar() {
+        assert!(!previa_fallida("s44-una"));
+        apuntar_previa_fallida("s44-una");
+        apuntar_previa_fallida("s44-una");
+        assert!(previa_fallida("s44-una"));
+        assert!(!previa_fallida("s44-otra"), "cada sesion lleva lo suyo");
+        // Al volver a intentarlo se empieza de cero: la primera linea de `preparar_por_detras`.
+        olvidar_previa_fallida("s44-una");
+        assert!(!previa_fallida("s44-una"));
+    }
+}
+
 /// Escribe POR DETRAS lo que el editor no necesita para abrirse: el MP4 de la vista
 /// previa primero y las miniaturas de la tira despues.
 ///
@@ -773,7 +815,9 @@ fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
 ///
 /// El aviso sale **pase lo que pase**, tambien cuando falla: un editor esperando para
 /// siempre a algo que no viene es peor que un editor que dice que no va a venir.
+/// Y el fallo, ademas de avisarse, se apunta (`previa_fallida`).
 pub(crate) fn preparar_por_detras(app: &AppHandle, id: String) {
+    olvidar_previa_fallida(&id);
     let app = app.clone();
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
@@ -794,6 +838,7 @@ pub(crate) fn preparar_por_detras(app: &AppHandle, id: String) {
             // Sin vista previa la sesion sigue siendo buena: se ve y se exporta igual, solo
             // que sin reproducir. Mucho mejor eso que perder lo que se acaba de rescatar.
             eprintln!("[replay] sin vista previa: {error}");
+            apuntar_previa_fallida(&id);
             let _ = app.emit(crate::EVENT_SESSION_PREVIEW, AvisoVistaPrevia::fallida(&id));
             return;
         }
