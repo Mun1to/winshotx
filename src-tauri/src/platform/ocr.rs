@@ -44,8 +44,8 @@ fn texto_de(lineas: &[Vec<crate::sensibles::Palabra>]) -> String {
 ///   `OcrEngine::MaxImageDimension` píxeles de lado (10 000 en el Windows 11 de las pruebas,
 ///   y contesta «Image dimensions are too large!»): una captura con scroll larga se lee a
 ///   tiras que se solapan, y una más ancha que eso se reduce.
-/// - **Cada línea, una vez.** De lo que cae en el solape de dos tiras se queda la tira que
-///   tiene el centro de la línea más lejos de su borde, así que sale entera y no repetida.
+/// - **Cada línea, una vez.** Lo que cae en el solape de dos tiras lo ven las dos, y se queda
+///   la que lo ve mejor (`Vista`): sale entero y no repetido.
 /// - **Las cajas, en píxeles de la imagen de verdad**, no de la reducida ni de su tira: con
 ///   ellas se tapa un correo, y una caja corrida tapa otra cosa.
 ///
@@ -78,8 +78,12 @@ fn lineas_de(
     let (kx, ky) = (ancho as f32 / ancho_leido as f32, alto as f32 / alto_leido as f32);
 
     let lista = tiras(alto_leido, maximo, SOLAPE_DE_TIRAS);
-    let mut lineas = Vec::new();
-    for (i, &(y, alto_tira)) in lista.iter().enumerate() {
+    let mut vistas: Vec<Vista> = Vec::new();
+    // Las líneas de la tira anterior, que todavía puede perder alguna contra esta, y dónde
+    // acababa esa tira.
+    let mut de_antes: Vec<Vista> = Vec::new();
+    let mut fondo_de_antes = 0.0;
+    for &(y, alto_tira) in &lista {
         let mapa = if lista.len() == 1 && escala >= 1.0 {
             decodificador
                 .GetSoftwareBitmapConvertedAsync(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied)?
@@ -107,13 +111,7 @@ fn lineas_de(
         };
         let resultado = motor.RecognizeAsync(&mapa)?.join()?;
 
-        // La franja de la que esta tira se queda las líneas: del centro de su solape de
-        // arriba al centro del de abajo.
-        let desde = if i == 0 { f32::MIN } else { (y + SOLAPE_DE_TIRAS / 2) as f32 };
-        let hasta = match lista.get(i + 1) {
-            Some(&(siguiente, _)) => (siguiente + SOLAPE_DE_TIRAS / 2) as f32,
-            None => f32::MAX,
-        };
+        let mut de_esta = Vec::new();
         for linea in resultado.Lines()? {
             let mut palabras = Vec::new();
             for palabra in linea.Words()? {
@@ -126,24 +124,81 @@ fn lineas_de(
                     alto: caja.Height,
                 });
             }
-            let Some(arriba) = palabras.iter().map(|p| p.y).reduce(f32::min) else {
+            let Some(nueva) = Vista::de(palabras) else {
                 continue;
             };
-            let abajo = palabras.iter().map(|p| p.y + p.alto).fold(arriba, f32::max);
-            let centro = (arriba + abajo) / 2.0;
-            if centro < desde || centro >= hasta {
-                continue;
+            // Si la tira de antes ya vio esta línea, se queda una: la que tiene su centro más
+            // lejos del borde por el que su tira la corta, que es la que más ve de ella.
+            let holgura = nueva.centro() - y as f32;
+            let gana = de_antes
+                .iter()
+                .filter(|vieja| vieja.es_la_misma(&nueva))
+                .all(|vieja| fondo_de_antes - vieja.centro() < holgura);
+            if gana {
+                de_antes.retain(|vieja| !vieja.es_la_misma(&nueva));
+                de_esta.push(nueva);
             }
+        }
+        vistas.append(&mut de_antes);
+        de_antes = de_esta;
+        fondo_de_antes = (y + alto_tira) as f32;
+    }
+    vistas.append(&mut de_antes);
+
+    Ok(vistas
+        .into_iter()
+        .map(|vista| {
+            let mut palabras = vista.palabras;
             for p in &mut palabras {
                 p.x *= kx;
                 p.y *= ky;
                 p.ancho *= kx;
                 p.alto *= ky;
             }
-            lineas.push(palabras);
-        }
+            palabras
+        })
+        .collect())
+}
+
+/// Una línea tal como la ha visto una tira: sus palabras y el rectángulo que las envuelve,
+/// en píxeles leídos y contados desde arriba de la imagen entera.
+///
+/// Dos tiras seguidas ven las dos lo que cae en su solape, y no siempre en el mismo sitio
+/// exacto: el lector da cajas un poco distintas según lo que haya alrededor. Repartir por
+/// «a qué lado de una raya cae el centro» deja que cada tira se la quede por su lado y salga
+/// dos veces, o que ninguna se la quede. Se comparan las dos vistas una con otra.
+#[cfg(windows)]
+struct Vista {
+    palabras: Vec<crate::sensibles::Palabra>,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+}
+
+#[cfg(windows)]
+impl Vista {
+    /// `None` si la línea no trae palabras.
+    fn de(palabras: Vec<crate::sensibles::Palabra>) -> Option<Self> {
+        let x1 = palabras.iter().map(|p| p.x).reduce(f32::min)?;
+        let y1 = palabras.iter().map(|p| p.y).fold(f32::MAX, f32::min);
+        let x2 = palabras.iter().map(|p| p.x + p.ancho).fold(x1, f32::max);
+        let y2 = palabras.iter().map(|p| p.y + p.alto).fold(y1, f32::max);
+        Some(Self { palabras, x1, y1, x2, y2 })
     }
-    Ok(lineas)
+
+    fn centro(&self) -> f32 {
+        (self.y1 + self.y2) / 2.0
+    }
+
+    /// Si es la misma línea de la imagen que `otra`: comparten al menos la mitad del alto de
+    /// la más baja de las dos, y algo a lo ancho. Dos renglones seguidos apenas se rozan, y
+    /// dos columnas a la misma altura no comparten nada a lo ancho.
+    fn es_la_misma(&self, otra: &Vista) -> bool {
+        let comun = self.y2.min(otra.y2) - self.y1.max(otra.y1);
+        let la_mas_baja = (self.y2 - self.y1).min(otra.y2 - otra.y1);
+        comun >= la_mas_baja / 2.0 && self.x2.min(otra.x2) > self.x1.max(otra.x1)
+    }
 }
 
 /// Lo que se solapan dos tiras seguidas de una foto demasiado alta, en píxeles: una línea
@@ -804,6 +859,24 @@ pub(crate) mod pruebas {
                 .filter(|palabra| texto.split_whitespace().any(|leida| leida == *palabra))
                 .count();
             assert!(leidas >= 9, "{ancho} px leídos a {maximo}: {leidas} palabras de 10 en {texto:?}");
+        }
+    }
+
+    /// La misma línea, bajando píxel a píxel por el corte entre dos tiras: sale una vez, esté
+    /// a la altura que esté.
+    ///
+    /// Las dos tiras la ven, y no siempre en el mismo sitio: a tres de estas alturas el lector
+    /// dice que la primera tira está torcida dos grados (no lo está) y da sus cajas corridas
+    /// una docena de píxeles. Repartiendo por dónde cae el centro, cada tira se la quedaba
+    /// por su lado y salía dos veces.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn la_linea_del_corte_sale_una_vez_a_cualquier_altura() {
+        // 700 px de ancho leídos a 600: se reduce y se parte en tres tiras.
+        for y in 560..=620 {
+            let png = pintar_textos(&[(20, "arriba queda"), (y, "justo corte"), (980, "abajo queda")], 700, 1100);
+            let texto = texto_de(&con_maximo(&png, 600));
+            assert_eq!(texto, "arriba queda\njusto corte\nabajo queda", "con la línea a la altura {y}");
         }
     }
 
