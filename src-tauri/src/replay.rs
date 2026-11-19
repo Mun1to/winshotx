@@ -1050,7 +1050,9 @@ fn a_ritmo(duraciones_origen: &[u32], fps: u32) -> (Vec<usize>, Vec<u32>) {
 /// y tardaban veintiun segundos en escribirse, veintiun segundos con el boton de play
 /// apagado. A 720p y 30 por segundo se ve igual de bien en el hueco del editor y esta listo
 /// en un tercio del tiempo.
-#[cfg(windows)]
+///
+/// En Linux es el mismo camino, con el GStreamer del sistema en vez de Media Foundation.
+#[cfg(any(windows, target_os = "linux"))]
 fn escribir_vista_previa(
     session: &mut SessionData,
     mut avisar: impl FnMut(usize, usize),
@@ -1071,6 +1073,11 @@ fn escribir_vista_previa(
             datos,
         })
     });
+    // En Linux puede faltar el codificador de AAC. La vista previa sale entonces muda en vez
+    // de no salir: alli el editor hace sonar las pistas por su cuenta, y sin vista previa no
+    // habria ni boton de reproducir.
+    #[cfg(target_os = "linux")]
+    let sonido = sonido.filter(|_| crate::encode::gst::codificadores().sonido.is_some());
 
     // En orden y sin volver a empezar: los fotogramas se piden del primero al ultimo, que
     // es justo el caso para el que existe `LectorEnOrden`. El encogido va aqui y no dentro
@@ -1115,7 +1122,7 @@ fn escribir_vista_previa(
     Ok(())
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 fn escribir_vista_previa(
     _session: &mut SessionData,
     _avisar: impl FnMut(usize, usize),
