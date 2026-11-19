@@ -95,8 +95,11 @@ is not supported yet.
 GStreamer, which cannot open Tauri's `asset:` protocol: without help the sound tracks of a
 recording never load in the editor. So on Linux the editor asks a small HTTP server inside
 winshotx for them. It listens on 127.0.0.1 on a random port, only answers requests for its own
-`Host`, needs a random token in the path (never logged), and only serves files under the app's
-session cache. What the page still fails to load is written to the app log.
+`Host`, needs a random token in the path (never logged, also stripped from any error message
+the page reports), and only serves video and audio files from two folders: the recordings in
+the app's cache and the animated backgrounds the user imported. It lives as long as winshotx
+does, with one token per launch. A request has five seconds in total to arrive, and at most 32
+are served at once. What the page still fails to load is written to the app log.
 
 **What was tried**, in the same virtual session on Fedora 44:
 
@@ -112,7 +115,9 @@ session cache. What the page still fails to load is written to the app log.
 Not tried: KDE Plasma, Sway and Hyprland, more than one monitor, display scaling, 30-bit
 screens, real sound hardware, and PulseAudio-only systems (Ubuntu 22.04, Linux Mint 21) beyond
 a PipeWire without audio devices. The sound tracks load in the editor but cannot be played
-there yet: without an MP4 there is no preview to play.
+there yet: without an MP4 there is no preview to play. Animated backgrounds cannot be imported
+on Linux yet either (the import needs the same video encoder), so serving them is only covered
+by unit tests.
 
 ## How the app identifies itself
 
