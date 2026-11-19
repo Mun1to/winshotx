@@ -103,6 +103,11 @@ function prepararFoto() {
   responde("ffmpeg_available", false);
 }
 
+const DOS_MOSAICOS = [
+  { kind: "blur", x1: 0.1, y1: 0.2, x2: 0.4, y2: 0.25, color: "#ef4444", text: "" },
+  { kind: "blur", x1: 0.1, y1: 0.4, x2: 0.3, y2: 0.45, color: "#ef4444", text: "" },
+];
+
 it("el aviso del editor lleva letra blanca sobre su fondo negro, también con el tema claro", async () => {
   prepararFoto();
   responde("tapar_datos", { marcas: [], resumen: [] });
@@ -113,4 +118,20 @@ it("el aviso del editor lleva letra blanca sobre su fondo negro, también con el
   // Con la letra del tema (`text-titulo`), en claro salía casi negra sobre negro.
   expect(aviso.className).toContain("text-white");
   expect(aviso.className).not.toContain("text-titulo");
+});
+
+it("en una captura dice qué ha tapado, y en inglés también las clases de dato", async () => {
+  prepararFoto();
+  responde("tapar_datos", { marcas: DOS_MOSAICOS, resumen: [["correo", 1], ["teléfono", 1]] });
+  const vista = render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+  fireEvent.keyDown(window, { key: "d" });
+  expect(await screen.findByText("Tapado: 1 correo, 1 teléfono")).toBeInTheDocument();
+  vista.unmount();
+
+  aplicarIdioma("en");
+  render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(llamadas.filter((l) => l.comando === "session_frames")).toHaveLength(2));
+  fireEvent.keyDown(window, { key: "d" });
+  expect(await screen.findByText("Covered up: 1 email, 1 phone")).toBeInTheDocument();
 });

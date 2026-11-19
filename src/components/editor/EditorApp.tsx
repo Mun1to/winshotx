@@ -485,7 +485,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       }
       // Todas de una vez: un Ctrl+Z quita lo que tapó este botón entero.
       cambiarMarcas({ tipo: "anadir", marcas });
-      const detalle = resumen.map(([clase, cuantos]) => `${cuantos} ${clase}`).join(", ");
+      const detalle = resumen.map(([clase, cuantos]) => `${cuantos} ${t(clase)}`).join(", ");
       setAviso(t("Tapado: {detalle}", { detalle }));
     } catch (e) {
       setAviso(String(e));
