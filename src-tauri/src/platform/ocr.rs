@@ -59,8 +59,8 @@ fn lineas_de(
     maximo: u32,
 ) -> Result<Vec<Vec<crate::sensibles::Palabra>>> {
     use windows::Graphics::Imaging::{
-        BitmapAlphaMode, BitmapBounds, BitmapPixelFormat, BitmapTransform, ColorManagementMode,
-        ExifOrientationMode,
+        BitmapAlphaMode, BitmapBounds, BitmapInterpolationMode, BitmapPixelFormat, BitmapTransform,
+        ColorManagementMode, ExifOrientationMode,
     };
 
     let (ancho, alto) = (decodificador.PixelWidth()?, decodificador.PixelHeight()?);
@@ -89,6 +89,9 @@ fn lineas_de(
             if escala < 1.0 {
                 transformacion.SetScaledWidth(ancho_leido)?;
                 transformacion.SetScaledHeight(alto_leido)?;
+                // De fábrica Windows reduce quedándose con un píxel de cada tantos, y eso
+                // deja la letra pequeña a medio dibujar. Promediando se sigue leyendo.
+                transformacion.SetInterpolationMode(BitmapInterpolationMode::Fant)?;
             }
             // El recorte se aplica después de escalar, en los píxeles ya reducidos.
             transformacion.SetBounds(BitmapBounds { X: 0, Y: y, Width: ancho_leido, Height: alto_tira })?;
@@ -781,6 +784,26 @@ pub(crate) mod pruebas {
                     "{frase:?}, caja fuera en y: {p:?}"
                 );
             }
+        }
+    }
+
+    /// Una captura más ancha que el lector se reduce, y la letra de una interfaz tiene que
+    /// seguir leyéndose después. Con la interpolación de fábrica de Windows (el vecino más
+    /// cercano, que tira píxeles enteros) de estas diez palabras se leían cinco y tres.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn la_letra_de_interfaz_de_una_captura_ancha_se_lee() {
+        let frases = ["Pedido 48213 para Zaragoza", "Sale martes desde Bilbao", "Contacto munir@example.com"];
+        // Una pantalla 4K con un lector que acepte 2600 px, y tres 4K con el de Windows 11.
+        for (ancho, maximo) in [(3840, 2600), (11_520, 10_000)] {
+            let png = pintar_con_letra(&[(40, frases[0]), (140, frases[1]), (240, frases[2])], ancho, 400, 24);
+            let texto = texto_de(&con_maximo(&png, maximo));
+            let leidas = frases
+                .iter()
+                .flat_map(|f| f.split(' '))
+                .filter(|palabra| texto.split_whitespace().any(|leida| leida == *palabra))
+                .count();
+            assert!(leidas >= 9, "{ancho} px leídos a {maximo}: {leidas} palabras de 10 en {texto:?}");
         }
     }
 
