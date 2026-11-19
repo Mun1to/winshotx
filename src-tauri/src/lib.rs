@@ -143,6 +143,11 @@ pub fn run() {
     if let Some(codigo) = agente::desde_la_linea_de_ordenes() {
         std::process::exit(codigo);
     }
+    // Y la que lanza el desinstalador para devolverle a Windows Impr Pant y Win+Mayús+S
+    // (`teclas_windows`, `src-tauri/windows/hooks.nsh`). Tampoco abre nada.
+    if let Some(codigo) = teclas_windows::desde_la_linea_de_ordenes() {
+        std::process::exit(codigo);
+    }
     // Antes que nada, y antes de crear una sola ventana: sin WebView2 la ventana se abriria
     // igual y dentro saldria la pagina de error del navegador, que no dice ni que ha pasado
     // ni que hacer. Es por lo que la Microsoft Store rechazo el envio el 1 de septiembre de
