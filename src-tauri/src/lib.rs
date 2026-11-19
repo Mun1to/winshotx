@@ -42,6 +42,8 @@ mod agente;
 mod arranque;
 // S26 (buscar en el historial)
 mod historial_texto;
+// Las teclas de Windows: quitárselas y devolvérselas (también al desinstalar).
+mod teclas_windows;
 
 use std::time::{Duration, SystemTime};
 

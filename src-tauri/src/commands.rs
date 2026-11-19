@@ -1039,6 +1039,7 @@ pub async fn print_screen_state(state: State<'_, AppState>) -> Result<PrintScree
 #[tauri::command]
 pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScreenState> {
     use crate::platform::snipping;
+    use crate::teclas_windows::{devolver_impr_pant, tomar_impr_pant, RegistroDeVerdad};
 
     let state = app.state::<AppState>();
     let mut settings = state.settings.read().clone();
@@ -1047,21 +1048,10 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
         // Desde la Store, lo que se escribe aqui no lo veria Windows: se dice y no se toca
         // nada. Apagarlo si se deja, para que quien lo encendio antes pueda limpiarlo.
         snipping::comprobar_que_windows_lo_ve(snipping::windows_ve_el_registro())?;
-        // Solo la primera vez: si ya estaba activo, lo guardado es el 0 que pusimos
-        // nosotros y machacarlo seria perder el valor original del usuario.
-        if !settings.print_screen_capture {
-            settings.snipping_key_restore = snipping::read();
-            settings.disabled_hotkeys_restore = snipping::read_disabled_hotkeys();
-        }
-        snipping::write(0)?;
-        settings.print_screen_capture = true;
+        tomar_impr_pant(&mut RegistroDeVerdad, &mut settings)?;
     } else {
-        // Se deja el registro como estaba, incluido el caso de que no hubiera valor.
-        match settings.snipping_key_restore.take() {
-            Some(previo) => snipping::write(previo)?,
-            None => snipping::remove()?,
-        }
-        settings.print_screen_capture = false;
+        // El mismo camino que el desinstalador (`teclas_windows::al_desinstalar`).
+        devolver_impr_pant(&mut RegistroDeVerdad, &mut settings)?;
     }
 
     *state.settings.write() = settings.clone();
@@ -1083,26 +1073,17 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
 #[tauri::command]
 pub async fn use_win_shift_s(app: AppHandle, enabled: bool) -> Result<bool> {
     use crate::platform::snipping;
+    use crate::teclas_windows::{devolver_win_shift_s, tomar_win_shift_s, RegistroDeVerdad};
 
     let state = app.state::<AppState>();
     let mut settings = state.settings.read().clone();
 
     if enabled {
         snipping::comprobar_que_windows_lo_ve(snipping::windows_ve_el_registro())?;
-        if !settings.take_win_shift_s {
-            settings.disabled_hotkeys_restore = snipping::read_disabled_hotkeys();
-        }
-        // Se anade a lo que hubiera en vez de sustituirlo: quien tuviera otras letras
-        // apagadas las conserva.
-        let previas = settings.disabled_hotkeys_restore.clone().unwrap_or_default();
-        if !previas.to_uppercase().contains('S') {
-            snipping::write_disabled_hotkeys(Some(&format!("{previas}S")))?;
-        }
-        settings.take_win_shift_s = true;
+        tomar_win_shift_s(&mut RegistroDeVerdad, &mut settings)?;
     } else {
-        let previas = settings.disabled_hotkeys_restore.take();
-        snipping::write_disabled_hotkeys(previas.as_deref())?;
-        settings.take_win_shift_s = false;
+        // El mismo camino que el desinstalador (`teclas_windows::al_desinstalar`).
+        devolver_win_shift_s(&mut RegistroDeVerdad, &mut settings)?;
     }
 
     *state.settings.write() = settings.clone();
