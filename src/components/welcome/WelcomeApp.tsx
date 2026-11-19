@@ -626,7 +626,10 @@ function TeclaImprPant({
   onElegir: (quiere: boolean) => void;
 }) {
   const t = useT();
-  const deWinshotx = estado?.enabled === true;
+  // Desde la Microsoft Store no se ofrece: Windows no ve lo que esa copia cambia en sus
+  // ajustes, y pedirla desde aquí diría que sí sin que la tecla cambie nunca (19-nov).
+  const tienda = estado?.storeBuild === true;
+  const deWinshotx = !tienda && estado?.enabled === true;
   const pista = !deWinshotx
     ? t("La Herramienta de Recortes se queda con Impr Pant y winshotx se llama con su atajo.")
     : estado?.active
@@ -651,7 +654,11 @@ function TeclaImprPant({
           debajo
           pista={
             <span aria-live="polite">
-              {deWinshotx && !estado?.active ? (
+              {tienda ? (
+                <span className="text-aviso">
+                  {t("La versión de la Microsoft Store no puede quitarle Impr Pant a Windows. Para usarla, instala winshotx desde winshotx.com o con winget.")}
+                </span>
+              ) : deWinshotx && !estado?.active ? (
                 <span className="text-aviso">
                   {t("Impr Pant no ha caído: hay otro programa que la tiene cogida.")}
                 </span>
@@ -661,6 +668,7 @@ function TeclaImprPant({
             </span>
           }
           control={
+            tienda ? undefined : (
             <Segmented
               etiqueta={t("Impr Pant abre")}
               value={deWinshotx ? "winshotx" : "recortes"}
@@ -672,12 +680,17 @@ function TeclaImprPant({
                 if ((v === "winshotx") !== deWinshotx) onElegir(v === "winshotx");
               }}
             />
+            )
           }
         />
         <Fila
           icono={<AppWindow className="size-4" />}
           nombre={t("Win + Mayús + S")}
-          pista={t("Se queda en Windows: quitársela apaga también Win + S, la búsqueda. Si la quieres, está en Ajustes, en Teclas de Windows.")}
+          pista={
+            tienda
+              ? t("Se queda en Windows: la versión de la Microsoft Store tampoco puede quitársela.")
+              : t("Se queda en Windows: quitársela apaga también Win + S, la búsqueda. Si la quieres, está en Ajustes, en Teclas de Windows.")
+          }
         />
       </Bloque>
     </Paso>

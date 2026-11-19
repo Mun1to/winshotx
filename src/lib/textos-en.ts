@@ -97,6 +97,12 @@ export const EN: Record<string, string> = {
   "Impr Pant": "Print Screen",
   "Usar también Impr Pant": "Use Print Screen too",
   "cierra sesión para que Windows la suelte": "sign out so Windows lets go of it",
+  "la versión de la Microsoft Store no puede quitársela a Windows":
+    "the Microsoft Store version can't take it from Windows",
+  "Bajar de winshotx.com": "Get it from winshotx.com",
+  "tampoco desde la Store: hace falta la de winshotx.com": "not from the Store either: you need the winshotx.com one",
+  "Windows guarda aparte lo que la versión de la Microsoft Store cambia en sus ajustes, y su tecla no se entera. La versión de winshotx.com, o la de winget, sí puede quedársela.":
+    "Windows keeps whatever the Microsoft Store version changes in its settings apart, so its key never finds out. The winshotx.com version, or the winget one, can take it.",
   "Win + Mayús + S": "Win + Shift + S",
   "Quedarme con Win+Mayús+S": "Take Win+Shift+S",
   "cuesta Win+S, la búsqueda": "it costs you Win+S, the search",
@@ -327,6 +333,10 @@ export const EN: Record<string, string> = {
     "If Windows keeps opening the Snipping Tool with Print Screen, sign out and back in.",
   "Se queda en Windows: quitársela apaga también Win + S, la búsqueda. Si la quieres, está en Ajustes, en Teclas de Windows.":
     "It stays with Windows: taking it also switches off Win + S, the search. If you want it, it is in Settings, under Windows keys.",
+  "La versión de la Microsoft Store no puede quitarle Impr Pant a Windows. Para usarla, instala winshotx desde winshotx.com o con winget.":
+    "The Microsoft Store version can't take Print Screen from Windows. To use it, install winshotx from winshotx.com or with winget.",
+  "Se queda en Windows: la versión de la Microsoft Store tampoco puede quitársela.":
+    "It stays with Windows: the Microsoft Store version can't take it either.",
   "Tus atajos de winshotx funcionan siempre, cojas esta tecla o no":
     "Your winshotx shortcuts always work, whether you take this key or not",
 

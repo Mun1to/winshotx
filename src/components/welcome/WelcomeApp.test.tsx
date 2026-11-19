@@ -20,7 +20,7 @@ const AJUSTES = {
   onboarded: false,
 } as unknown as Settings;
 
-async function abrir(imprPant = { enabled: false, active: false, takenByWindows: true }) {
+async function abrir(imprPant = { enabled: false, active: false, takenByWindows: true, storeBuild: false }) {
   responde("get_settings", AJUSTES);
   responde("set_settings", null);
   responde("shortcut_status", { capture: true, record: true, replay: false, printScreen: false, winShiftS: false });
@@ -135,8 +135,22 @@ describe("lo que hace cada paso", () => {
     expect(document.querySelector('[data-dibujo="impr-pant-winshotx"]')).not.toBeNull();
   });
 
+  it("Impr Pant: desde la Store no se ofrece y se dice qué hacer", async () => {
+    await abrir({ enabled: false, active: false, takenByWindows: true, storeBuild: true });
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Impr Pant" }));
+    await screen.findByRole("heading", { name: "¿Le quitamos la tecla a la Herramienta de Recortes?" });
+    // Nada que pulsar: pedirla desde aquí diría que sí sin que Windows lo vea nunca.
+    expect(screen.queryByRole("group", { name: "Impr Pant abre" })).toBeNull();
+    const aviso = screen.getByText(
+      "La versión de la Microsoft Store no puede quitarle Impr Pant a Windows. Para usarla, instala winshotx desde winshotx.com o con winget.",
+    );
+    expect(aviso).toHaveClass("text-aviso");
+    expect(screen.getByText("Se queda en Windows: la versión de la Microsoft Store tampoco puede quitársela.")).toBeInTheDocument();
+    expect(llamadas.some((l) => l.comando === "use_print_screen")).toBe(false);
+  });
+
   it("el final cuenta lo que queda y arrancar con Windows se guarda", async () => {
-    await abrir({ enabled: true, active: true, takenByWindows: false });
+    await abrir({ enabled: true, active: true, takenByWindows: false, storeBuild: false });
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Listo" }));
     await screen.findByRole("heading", { name: "Listo, ya puedes capturar" });
     expect(screen.getByText("También con Impr Pant")).toBeInTheDocument();

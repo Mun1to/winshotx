@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { llamadas, responde, ventana } from "../../test/preparar";
-import type { ReplayStatus, Settings } from "../../lib/types";
+import type { PrintScreenState, ReplayStatus, Settings } from "../../lib/types";
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: () => Promise.resolve(null),
@@ -76,6 +76,7 @@ async function abrirAjustes(
   pantallas?: unknown[],
   ajustes?: Partial<Settings>,
   capturaModerna = true,
+  imprPant: PrintScreenState = { enabled: false, active: false, takenByWindows: true, storeBuild: false },
 ) {
   responde("get_settings", { ...AJUSTES, ...ajustes });
   responde("shortcut_status", {
@@ -86,7 +87,7 @@ async function abrirAjustes(
     winShiftS: false,
   });
   responde("cache_stats", { bytes: 12_345_678, sessions: 3 });
-  responde("print_screen_state", { enabled: false, active: false });
+  responde("print_screen_state", imprPant);
   responde("just_updated", false);
   responde("replay_status", replay ?? PARADO);
   responde("list_screens", pantallas ?? []);
@@ -509,6 +510,47 @@ describe("el dibujo de cada apartado", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Usar también Impr Pant" }));
     await waitFor(() => expect(tecla()?.textContent).toBe("Impr Pant"));
     expect(dibujo()?.textContent).toContain("Impr Pant abre winshotx");
+  });
+
+  /**
+   * El PC de clase de Munito (19-nov-2026): con la copia de la Microsoft Store, Windows no ve lo
+   * que winshotx cambia en sus ajustes, y aun así los ajustes dejaban pedir las dos teclas y
+   * reiniciar el Explorador. Ahora no dejan, lo dicen en llano y llevan a la otra versión.
+   */
+  it("en Teclas, desde la Store no deja pedir ninguna tecla y dice qué hacer", async () => {
+    await abrirAjustes(undefined, undefined, { printScreenCapture: true, takeWinShiftS: true }, true, {
+      enabled: false,
+      active: false,
+      takenByWindows: true,
+      storeBuild: true,
+    });
+    ir("Teclas de Windows");
+    const impr = screen.getByRole("switch", { name: "Usar también Impr Pant" });
+    const winS = screen.getByRole("switch", { name: "Quedarme con Win+Mayús+S" });
+    expect(impr).toBeDisabled();
+    expect(impr).toHaveAttribute("aria-checked", "false");
+    expect(winS).toBeDisabled();
+    expect(winS).toHaveAttribute("aria-checked", "false");
+    // Reiniciar el Explorador no serviría de nada: el nuevo leería el registro sin la S.
+    expect(screen.queryByRole("button", { name: "Aplicar" })).toBeNull();
+    expect(screen.getByText("la versión de la Microsoft Store no puede quitársela a Windows")).toBeInTheDocument();
+    expect(screen.getByText("tampoco desde la Store: hace falta la de winshotx.com")).toBeInTheDocument();
+    responde("open_url", null);
+    fireEvent.click(screen.getByRole("button", { name: "Bajar de winshotx.com" }));
+    await waitFor(() =>
+      expect(llamadas.find((l) => l.comando === "open_url")?.args).toEqual({ url: "https://winshotx.com" }),
+    );
+  });
+
+  it("en Teclas, Impr Pant pedida pero aún de Windows lo dice, aunque se haya registrado", async () => {
+    await abrirAjustes(undefined, undefined, { printScreenCapture: true }, true, {
+      enabled: true,
+      active: true,
+      takenByWindows: true,
+      storeBuild: false,
+    });
+    ir("Teclas de Windows");
+    expect(screen.getByText("cierra sesión para que Windows la suelte")).toBeInTheDocument();
   });
 
   it("las frases ponen en negrita lo que cambia, sin dejar los asteriscos", async () => {
