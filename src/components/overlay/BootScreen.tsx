@@ -21,13 +21,27 @@ async function salir() {
  * llega nunca. El overlay ocupa la pantalla entera y es opaco: dejarlo en negro
  * mudo equivale a secuestrar el escritorio, asi que aqui siempre hay un texto,
  * una salida a mano y un cierre automatico de rescate.
+ *
+ * `generacion` es la captura que esta ventana tiene entre manos (`OverlayPayload.generation`),
+ * o `null` si no tiene ninguna. El rescate solo corre con una, y cuenta desde que llega. Las
+ * ventanas del overlay se crean al arrancar la app, sin captura, y esta pantalla es lo que
+ * pintan mientras tanto: con el plazo contado desde que nacian, a los 8 segundos de arrancar
+ * se cerraba lo que hubiera, y una primera captura pedida justo entonces no se abria, sin
+ * ningun error (medido en X11 el 19 de noviembre de 2026).
  */
-export function BootScreen({ error }: { error: string | null }) {
+export function BootScreen({
+  error,
+  generacion,
+}: {
+  error: string | null;
+  generacion: number | null;
+}) {
   const t = useT();
   useEffect(() => {
+    if (generacion === null) return;
     const rescate = window.setTimeout(() => void salir(), RESCATE_MS);
     return () => window.clearTimeout(rescate);
-  }, []);
+  }, [generacion]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -1364,7 +1364,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   };
 
   if (!payload || !fondoListo) {
-    return <BootScreen error={bootError} />;
+    return <BootScreen error={bootError} generacion={payload?.generation ?? null} />;
   }
 
   const active =
