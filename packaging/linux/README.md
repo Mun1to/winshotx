@@ -181,6 +181,78 @@ test with a real file: clicks are not recorded on Linux yet, so there is nothing
 An AppImage built from this code has not been run: what is said about it comes from the one CI
 built before, unpacked, and from its GStreamer core loaded by itself.
 
+## Webcam
+
+"Record the camera too" (off by default) records the webcam into its own file next to the
+recording, `camara.mp4`, like on Windows. The editor puts it in a corner and the saved MP4
+carries it.
+
+**Where the camera comes from.** winshotx does not open `/dev/video0` itself. It asks GStreamer
+which video sources there are (`GstDeviceMonitor`, class `Video/Source`) and lets it build the
+element that reads the chosen one: `pipewiresrc` where cameras go through PipeWire, `v4l2src`
+where they do not. When both see the same camera, PipeWire's provider hides the V4L2 one, so it
+is not listed twice. In PipeWire a screen being shared is a video source too (winshotx's own,
+while it records on Wayland), so only what PipeWire marks as a camera (`media.role=Camera`, set
+by PipeWire itself since at least 0.3.48) is listed. The Camera portal is not used: it is for
+sandboxed apps, and outside a sandbox the PipeWire session already shows the cameras.
+
+**The path.** The camera is asked for its format closest to 720p at 30 frames per second, the
+same rule as on Windows; MJPEG is decompressed with `jpegdec`. Frames are converted to RGBA, at
+most 1080 pixels high, and encoded with the same system H.264 encoder that writes the preview.
+A camera that refuses to start in the chosen format, or that does not say which formats it has,
+is read in whatever it gives (`decodebin`). As on Windows, the camera is turned on before the
+recording starts and the recording waits for its first frame, three seconds at most. Without a
+camera, or if it cannot be turned on, the recording goes on without it and the app log says
+why. Without an H.264 encoder there is no camera file, just as there is no MP4, so **the
+AppImage records no camera**.
+
+**The packages.** `v4l2src` and `jpegdec` are in the GStreamer "good" plugins, which the
+packages already recommend. `pipewiresrc` is in PipeWire's own GStreamer plugin:
+
+| | Package | Recommended by winshotx |
+|---|---|---|
+| .rpm | `pipewire-gstreamer` | yes |
+| .deb | `gstreamer1.0-pipewire` | no |
+
+GNOME Shell depends on that plugin (checked for Debian 12 and 13, Ubuntu 22.04 and 24.04 and
+Fedora 44), so on GNOME it is already installed. Measured in clean containers, on top of what
+winshotx already installs: on Fedora 44 and 45, where PipeWire is always there, the plugin adds
+85 KiB of download and 185 KiB of disk. On Ubuntu 22.04, where the PipeWire daemon already comes
+with what winshotx installs, 45 kB and 154 kB. On Debian 12 and 13 and Ubuntu 24.04 and 26.04 the
+container had no PipeWire daemon, the plugin depends on it, and `apt` brought 15 to 23 packages
+(1.9 to 4.6 MB of download, 8.5 to 18.9 MB of disk), WirePlumber and `pipewire-pulse` among
+them. A screenshot tool should not be what installs a second sound server on a PulseAudio
+system, so the .deb does not recommend it. Without the plugin, cameras are read straight
+through V4L2; a camera that only libcamera can drive needs
+`sudo apt install gstreamer1.0-pipewire`.
+
+**What was tried**, in the same virtual session on Fedora 44. Its kernel (WSL2) has no V4L2, so
+the camera was a GStreamer test source published in PipeWire as one (`pipewiresink
+mode=provide`, `media.class=Video/Source`, `media.role=Camera`): colour bars, 640x480 at 30
+frames per second.
+
+- X11 (openbox) and GNOME 50 on Wayland: a region recorded as video with the setting on.
+  `camara.mp4` is in the session, 640x480 in H.264, and lasts as long as the recording (10,033
+  ms against 9,999 on X11; 7,199 against 7,169 on GNOME). The session points at it with an
+  offset of 32 and 11 ms. The editor shows it in the corner and the saved MP4 carries it, seen
+  in a frame read back from the file.
+- The same steps with the build from before: no camera file, and nothing in the saved MP4.
+- X11, with the setting on and no camera: the recording is saved without it and the log says
+  that no camera is connected.
+- The settings window on X11: the row shows the name of the camera, or that none is connected.
+- Rust tests where a GStreamer source acts as the camera: one that gives MJPEG, one that lets
+  the size and the rate be chosen, one that refuses the chosen format, one that does not say
+  its formats, a pause that must not be in the file, a recording that never starts, and a
+  camera that fails.
+- In clean containers of Debian 13, Ubuntu 22.04 and 26.04 and Fedora 45: GStreamer has
+  `v4l2src` and its device provider without the PipeWire plugin, and `pipewiresrc` and its
+  provider with it; asking for cameras with no PipeWire running and no camera ends at once.
+
+Not tried: a real camera, the V4L2 path (`v4l2src`), a camera driven by libcamera, more than
+one camera, a camera unplugged while recording, a camera another program is using, PipeWire
+older than 1.6 (the code was read for 0.3.48, 0.3.65 and 1.0.5, not run), and a package built
+with the new `Recommends` (CI has to build it).
+
 ## Reading text
 
 On Windows the text reader comes with the system. Linux has none, and one bundled inside would

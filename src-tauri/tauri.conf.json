@@ -91,6 +91,7 @@
           "gstreamer1-plugins-good",
           "gstreamer1-plugins-bad-free",
           "gstreamer1-plugin-openh264",
+          "pipewire-gstreamer",
           "tesseract",
           "tesseract-langpack-spa"
         ],
