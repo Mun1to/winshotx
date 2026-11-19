@@ -13,6 +13,7 @@ use crate::error::{AppError, Result};
 pub mod anotador;
 #[cfg(windows)]
 pub mod camara;
+pub mod camara_comun;
 /// Fuera de Windows todavía no se sabe abrir una cámara: los ajustes la ven vacía.
 #[cfg(not(windows))]
 pub mod camara {
@@ -53,6 +54,7 @@ pub mod pastilla;
 pub mod pistas;
 pub mod raton;
 pub mod realce;
+pub mod reloj;
 pub mod teclas;
 #[cfg(windows)]
 pub mod comparar_gpu;

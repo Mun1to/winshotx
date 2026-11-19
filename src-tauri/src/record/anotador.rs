@@ -16,10 +16,14 @@
 #![cfg(windows)]
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+#[cfg(test)]
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+#[cfg(test)]
+use std::time::Instant;
 
 use image::RgbaImage;
 use parking_lot::Mutex;
@@ -286,20 +290,8 @@ fn opacidad_de(atajo: &teclas::Atajo, ts_ms: u64) -> f32 {
     pastilla::opacidad(ts_ms.saturating_sub(atajo.ms), teclas::DURACION_MS)
 }
 
-/// El reloj de la grabacion: lo que ha pasado desde el cero de los fotogramas, sin las
-/// pausas. Es el mismo con el que se marcan los fotogramas (`win.rs`), a proposito.
-#[derive(Clone)]
-pub struct Reloj {
-    pub start: Instant,
-    pub paused_ms: Arc<AtomicU64>,
-}
-
-impl Reloj {
-    pub fn ms(&self) -> u64 {
-        (self.start.elapsed().as_millis() as u64)
-            .saturating_sub(self.paused_ms.load(Ordering::Relaxed))
-    }
-}
+// El reloj de la grabacion vive en `reloj.rs`, que tambien lo usa la camara de Linux.
+pub use super::reloj::Reloj;
 
 /// Donde esta ahora la esquina de arriba a la izquierda de esa ventana.
 ///
