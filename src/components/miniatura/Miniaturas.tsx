@@ -145,8 +145,13 @@ function Carta({ miniatura, segundos }: { miniatura: MiniaturaVista; segundos: n
     e.stopPropagation();
     e.preventDefault();
   };
+  // El arrastre del sistema, cuando llega a empezar, se queda con el soltar (el de Windows y el
+  // de GTK). Si la página ve subir el botón es que el gesto ha sido más corto que la orden y
+  // no se está arrastrando nada: sin esto el letrero de «Suéltala» se quedaba puesto hasta
+  // mover el ratón (visto en X11 el 18 de noviembre de 2026).
   const alSoltar = () => {
     inicio.current = null;
+    setArrastrando(false);
   };
   /**
    * En Linux el arrastre es el de GTK, que se queda con el soltar: WebKitGTK no ve subir el

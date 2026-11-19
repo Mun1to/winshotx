@@ -140,6 +140,19 @@ describe("arrastrar a otra app", () => {
     fireEvent.click(copiar);
     expect(pedidas("miniatura_copiar")).toHaveLength(0);
   });
+
+  it("si el botón sube antes de que el arrastre de verdad empiece, el letrero se quita", async () => {
+    // Un gesto corto: pulsar, moverse y soltar seguidos. El arrastre del sistema, cuando llega
+    // a empezar, se queda con el soltar y la página no lo ve. Si la página SÍ ve subir el
+    // botón es que no ha empezado: aquí ya no se está arrastrando nada.
+    await pintar();
+    const c = carta(7);
+    fireEvent.pointerDown(c, { button: 0, buttons: 1, clientX: 50, clientY: 50 });
+    fireEvent.pointerMove(c, { buttons: 1, clientX: 70, clientY: 62 });
+    expect(c.textContent).toContain("Suéltala en cualquier app");
+    fireEvent.pointerUp(c, { button: 0, buttons: 0, clientX: 70, clientY: 62 });
+    expect(c.textContent).not.toContain("Suéltala en cualquier app");
+  });
 });
 
 /**
