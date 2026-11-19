@@ -31,8 +31,9 @@
 //! **Sin tildes ni mayúsculas**: «camion» encuentra «Camión», y «CAMIÓN» también. Varias
 //! palabras tienen que estar todas, en cualquier orden.
 
-// En Linux no hay lector (S21): el hilo no arranca y casi todo esto se queda sin usar.
-#![cfg_attr(not(windows), allow(dead_code))]
+// Donde no hay lector (ni Windows ni Linux) el hilo no arranca y casi todo esto se queda sin
+// usar. En Linux lee el Tesseract del sistema (S45).
+#![cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
 
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
@@ -356,14 +357,14 @@ pub fn arrancar(app: &AppHandle) {
         aviso: Mutex::new(aviso),
         disponible: AtomicBool::new(false),
     });
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
         let app = app.clone();
         let _ = std::thread::Builder::new()
             .name("texto-del-historial".into())
             .spawn(move || trabajar(app, avisos));
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     drop(avisos);
 }
 
@@ -403,7 +404,7 @@ fn esperar(avisos: &Receiver<Aviso>, cuanto: Duration, mirar: &mut bool) -> bool
 }
 
 /// El lector: mira la carpeta, lee la foto más nueva que falte, descansa, y vuelta.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 fn trabajar(app: AppHandle, avisos: Receiver<Aviso>) {
     use crate::state::AppState;
 
@@ -414,12 +415,22 @@ fn trabajar(app: AppHandle, avisos: Receiver<Aviso>) {
         }
         *buscador.indice.lock() = Indice::cargar(archivo);
     }
-    let lector = match crate::platform::ocr::Lector::nuevo() {
-        Ok(lector) => lector,
-        Err(e) => {
-            // Sin lector no hay nada que buscar: la caja no sale y el historial sigue igual.
-            eprintln!("[historial] sin lector de texto: {e}");
-            return;
+    let lector = loop {
+        match crate::platform::ocr::Lector::nuevo() {
+            Ok(lector) => break lector,
+            Err(e) => {
+                // Sin lector no hay nada que buscar: la caja no sale y el historial sigue igual.
+                eprintln!("[historial] sin lector de texto: {e}");
+                // En Windows el lector es del sistema: si no está, no va a aparecer.
+                #[cfg(windows)]
+                return;
+                // En Linux es un programa que se instala cuando la app dice que falta: se
+                // vuelve a mirar cada vez que alguien guarda una foto o abre el historial.
+                #[cfg(not(windows))]
+                if avisos.recv().is_err() {
+                    return;
+                }
+            }
         }
     };
     buscador.disponible.store(true, Ordering::Relaxed);
