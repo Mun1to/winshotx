@@ -509,8 +509,11 @@ pub async fn miniatura_arrastrar(app: AppHandle, id: u64) -> Result<()> {
                     }
                 },
             );
-            if let Err(e) = empezado {
-                eprintln!("[winshotx] {e}");
+            match empezado {
+                Ok(true) => {}
+                // El gesto ha sido más corto que la orden: no se ha empezado nada.
+                Ok(false) => eprintln!("[miniatura] no se arrastra: el botón ya estaba suelto"),
+                Err(e) => eprintln!("[winshotx] {e}"),
             }
         })
         .map_err(|e| AppError::Msg(e.to_string()))?;

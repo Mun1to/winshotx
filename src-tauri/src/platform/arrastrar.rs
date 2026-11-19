@@ -110,6 +110,8 @@ const COMO_TEXTO: u32 = 1;
 /// el hilo de GTK. A diferencia del de Windows, vuelve en el acto: el arrastre sigue por su
 /// cuenta y `al_acabar` dice al final si alguien lo recogió.
 ///
+/// Devuelve `false`, sin empezar nada, si el botón ya no está abajo: ver `sigue_pulsado`.
+///
 /// Se ofrece copiar, nunca mover, por lo mismo que en Windows: nadie ha pedido que el archivo
 /// desaparezca de la carpeta de capturas por arrastrarlo. `icono` es la imagen que va con el
 /// ratón mientras se arrastra (la vista pequeña de la captura).
@@ -119,12 +121,15 @@ pub fn arrastrar_en_gtk(
     ruta: &Path,
     icono: Option<&Path>,
     al_acabar: impl Fn(bool) + 'static,
-) -> Result<()> {
+) -> Result<bool> {
     use gtk::prelude::*;
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
 
     let (uri, texto) = lo_que_se_ofrece(ruta)?;
+    if !sigue_pulsado(ventana) {
+        return Ok(false);
+    }
     let formatos = gtk::TargetList::new(&[]);
     formatos.add_uri_targets(COMO_ARCHIVO);
     formatos.add_text_targets(COMO_TEXTO);
@@ -173,7 +178,32 @@ pub fn arrastrar_en_gtk(
     if let Some(imagen) = icono.and_then(|i| gtk::gdk_pixbuf::Pixbuf::from_file_at_size(i, 160, 100).ok()) {
         contexto.drag_set_icon_pixbuf(&imagen, imagen.width() / 2, imagen.height() / 2);
     }
-    Ok(())
+    Ok(true)
+}
+
+/// Si el botón principal del ratón sigue abajo ahora mismo.
+///
+/// La orden de arrastrar viene de la página y tarda unos milisegundos en llegar al hilo de GTK.
+/// En un gesto corto (pulsar, moverse y soltar seguidos, o un clic con el pulso movido) el botón
+/// ya está arriba cuando llega, y un arrastre de GTK empezado así no lo acaba nadie: GTK espera
+/// un soltar que ya pasó. Medido el 18-nov-2026 en X11 con el gesto entero en 9 ms: la imagen de
+/// la captura se quedaba colgando del ratón sin ningún botón pulsado, y el clic siguiente, en
+/// cualquier sitio, soltaba el archivo allí.
+///
+/// En X11 se le pregunta al servidor; en Wayland GDK contesta con lo último que le ha contado
+/// el escritorio, que en este hilo ya incluye el soltar.
+#[cfg(target_os = "linux")]
+fn sigue_pulsado(ventana: &gtk::ApplicationWindow) -> bool {
+    use gtk::prelude::*;
+
+    let Some(suya) = ventana.window() else {
+        return false;
+    };
+    let Some(puntero) = suya.display().default_seat().and_then(|asiento| asiento.pointer()) else {
+        return false;
+    };
+    let (_, _, _, botones) = suya.device_position(&puntero);
+    botones.contains(gtk::gdk::ModifierType::BUTTON1_MASK)
 }
 
 /// Le cuenta a la página que el botón ya se soltó y que el ratón salió de ella.
