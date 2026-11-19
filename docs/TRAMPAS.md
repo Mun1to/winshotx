@@ -1483,3 +1483,26 @@ se oye, para no taparla. Queda abierto que se decide por UN pico (una notificaci
 duplicacion de escritorio) y tambien de `PrintWindow` con `PW_RENDERFULLCONTENT`: la prueba del marco, que fotografia sus
 tiras asi, se quedo sin dibujo al apartar el marco de las fotos. La prueba ahora le devuelve la afinidad un momento para
 fotografiarlo, y comprueba aparte con `GetWindowDisplayAffinity` que este fuera.
+
+## 54. Desde la Microsoft Store, lo que winshotx escribe en el registro no lo ve Windows
+
+**Lo que paso.** En un PC de clase (19 de noviembre de 2026), con Impr Pant y Win+Mayus+S pedidos y el Explorador
+reiniciado con Aplicar, Win+Mayus+S seguia abriendo la Herramienta de Recortes.
+
+**Causa.** Un paquete MSIX de escritorio guarda en una copia privada todo lo que escribe en HKEY_CURRENT_USER: «All writes
+under HKCU are copied on write to a private per-user, per-app location» ([Microsoft, apartado Registry](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes#registry)).
+Es lo mismo que paso con la clave Run del arranque (por eso existe `StartupTask`), pero aqui tambien vale para
+`Control Panel\Keyboard`, que no esta bajo `Software`. La app lee su propia copia y cree que ha cambiado
+`DisabledHotkeys` y `PrintScreenKeyForSnippingEnabled`; el Explorador lee el registro de verdad y no ve nada.
+
+**Medido el 19 de noviembre:** en Windows 11 25H2, un paquete de prueba con el mismo manifiesto que el de la Store escribe
+«sin error» en las dos claves, se lee desde dentro y desde fuera no esta. En Windows Sandbox (24H2), con el Explorador
+reiniciado: desde el paquete, `DisabledHotkeys` se lee `S` y aun asi `RegisterHotKey(Win+Mayus+S)` falla y la pulsacion
+no llega; suelta, la misma escritura deja la S en el registro de verdad y la tecla pasa a ser suya. Y `RegisterHotKey` de
+Impr Pant dice que si aunque la tenga la Herramienta de Recortes, asi que eso solo nunca demostro nada.
+
+**Arreglo.** `snipping::windows_ve_el_registro` es `false` en la Store: no se piden las dos teclas, ni se reinicia el
+Explorador, y los ajustes y la bienvenida lo dicen y llevan a winshotx.com. La salida de verdad seria la capacidad
+restringida `unvirtualizedResources` con `virtualization:ExcludedKeys` (probado: funciona), pero Microsoft dice que es
+para juegos suyos y de socios, asi que pedirla en la Store es decision de Munito. Para mirar un equipo concreto:
+`scripts/diagnostico-teclas.ps1`, que solo lee.
