@@ -243,12 +243,45 @@ pub(crate) fn motor() -> Result<windows::Media::Ocr::OcrEngine> {
     })
 }
 
-#[cfg(not(windows))]
+// En Linux lee el Tesseract del sistema (`platform::tesseract`), por las mismas tres puertas
+// que el lector de Windows: el texto de una imagen, sus palabras con caja, y un lector para
+// muchas fotos seguidas.
+#[cfg(target_os = "linux")]
+pub fn leer_texto(png: &[u8]) -> crate::error::Result<String> {
+    Ok(super::tesseract::texto_de(&leer_palabras(png)?))
+}
+
+#[cfg(target_os = "linux")]
+pub fn leer_palabras(png: &[u8]) -> crate::error::Result<Vec<Vec<crate::sensibles::Palabra>>> {
+    let imagen = image::load_from_memory(png)?.to_rgba8();
+    super::tesseract::Motor::nuevo()?.leer(&imagen)
+}
+
+/// El lector del historial en Linux. Lee de fondo, con un solo hilo: nadie lo espera.
+#[cfg(target_os = "linux")]
+pub struct Lector {
+    motor: super::tesseract::Motor,
+}
+
+#[cfg(target_os = "linux")]
+impl Lector {
+    pub fn nuevo() -> crate::error::Result<Self> {
+        Ok(Self { motor: super::tesseract::Motor::nuevo()?.de_fondo() })
+    }
+
+    /// Lee una foto del disco (PNG o JPEG, que es lo que guarda winshotx) y devuelve su texto.
+    pub fn leer_archivo(&self, ruta: &std::path::Path) -> crate::error::Result<String> {
+        let imagen = image::open(ruta)?.to_rgba8();
+        Ok(super::tesseract::texto_de(&self.motor.leer(&imagen)?))
+    }
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn leer_texto(_png: &[u8]) -> crate::error::Result<String> {
     Err(crate::error::AppError::Unsupported)
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn leer_palabras(_png: &[u8]) -> crate::error::Result<Vec<Vec<crate::sensibles::Palabra>>> {
     Err(crate::error::AppError::Unsupported)
 }

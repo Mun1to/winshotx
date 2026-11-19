@@ -276,7 +276,7 @@ pub fn a_la_papelera(archivo: &Path) -> crate::error::Result<()> {
 /// bibliotecas de dentro del AppImage revienta o sale roto (le pasa a cualquier AppImage que
 /// abre enlaces). Fuera de un AppImage no se toca nada.
 #[cfg(target_os = "linux")]
-fn sin_el_entorno_del_appimage(orden: &mut std::process::Command) {
+pub(crate) fn sin_el_entorno_del_appimage(orden: &mut std::process::Command) {
     let Some(dentro) = std::env::var_os("APPDIR") else {
         return;
     };

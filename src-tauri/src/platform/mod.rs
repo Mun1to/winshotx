@@ -35,6 +35,8 @@ pub mod arrastrar;
 // S25 (marco)
 pub mod tema;
 // S5 (scroll)
+// S45 (Linux): leer el texto con el Tesseract del sistema. Lo usa `ocr` en Linux.
+pub mod tesseract;
 
 use std::path::Path;
 

@@ -44,7 +44,7 @@ mod viejo_s29;
 mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
-mod letras;
+pub(crate) mod letras;
 #[cfg(target_os = "linux")]
 pub mod linux;
 pub mod mezcla;
