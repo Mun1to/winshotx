@@ -98,7 +98,7 @@ winshotx for them. It listens on 127.0.0.1 on a random port, only answers reques
 `Host`, needs a random token in the path (never logged, also stripped from any error message
 the page reports), and only serves video and audio files from two folders: the recordings in
 the app's cache and the animated backgrounds the user imported. It lives as long as winshotx
-does, with one token per launch. A request has five seconds in total to arrive, and at most 32
+does, with one token per launch. A request has two seconds in total to arrive, and at most 32
 are served at once. What the page still fails to load is written to the app log.
 
 **What was tried**, in the same virtual session on Fedora 44:

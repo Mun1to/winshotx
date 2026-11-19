@@ -46,7 +46,11 @@ use std::time::{Duration, Instant};
 /// lo dice letra a letra, no se queda con un hilo. Es un plazo para todas las lecturas juntas
 /// y no para cada una: con uno por lectura, treinta y dos conexiones que mandan una letra
 /// cada pocos segundos ocupaban todos los hilos y el editor se quedaba sin video.
-const ESPERA_AL_LEER: Duration = Duration::from_secs(5);
+///
+/// Dos segundos y no cinco: quien pide de verdad es el reproductor de esta misma maquina, que
+/// manda su peticion entera al conectar. Con cinco, otro usuario del equipo que reabriese
+/// conexiones vacias tenia casi siempre llenos los treinta y dos huecos.
+const ESPERA_AL_LEER: Duration = Duration::from_secs(2);
 /// Lo que se descansa cuando aceptar una conexion falla. Si al proceso no le quedan
 /// descriptores, `accept` falla al instante una vez tras otra: sin pausa, el hilo giraria al
 /// 100 % de un nucleo hasta que se liberase alguno.
@@ -735,6 +739,25 @@ mod tests {
         conexion.read_to_end(&mut todo).expect("leer");
         let corte = todo.windows(4).position(|v| v == b"\r\n\r\n").expect("fin de las cabeceras");
         (String::from_utf8_lossy(&todo[..corte]).to_ascii_lowercase(), todo[corte + 4..].to_vec())
+    }
+
+    #[test]
+    fn el_servidor_de_verdad_suelta_a_los_dos_segundos_a_quien_abre_y_calla() {
+        let c = Carpetas::nuevas("callado");
+        let (_, puerto) = arrancar(&[c.raiz.clone()]).expect("servidor");
+        let mut conexion = TcpStream::connect(("127.0.0.1", puerto)).expect("conectar");
+        conexion.set_read_timeout(Some(Duration::from_secs(10))).expect("espera");
+        let empieza = Instant::now();
+        // Sin pedir nada: cuando al servidor se le acaba el plazo cierra, y aqui se ve como
+        // el final de la conexion.
+        let mut resto = Vec::new();
+        let _ = conexion.read_to_end(&mut resto);
+        let tardo = empieza.elapsed();
+        assert!(resto.is_empty(), "a quien no pide nada no se le contesta nada");
+        assert!(tardo >= Duration::from_millis(1500), "ha soltado antes de tiempo: {tardo:?}");
+        // Con cinco segundos, quien reabria conexiones vacias tenia casi siempre ocupados los
+        // treinta y dos huecos: a dos segundos cada una, le cuesta mucho mas llenarlos.
+        assert!(tardo < Duration::from_millis(3500), "un hueco ocupado sin pedir nada tanto rato: {tardo:?}");
     }
 
     #[test]
