@@ -215,6 +215,11 @@ addresses are taken from it.
 | .deb | `tesseract-ocr` (brings English), `tesseract-ocr-spa` |
 | .rpm | `tesseract` (brings English), `tesseract-langpack-spa` |
 
+Measured in clean containers, on top of what winshotx already installs (WebKitGTK and the
+GStreamer plugins, some 300 MB of download): 9 to 10 MB of download and 25 to 28 MB of disk on
+Debian 12 and 13 and Ubuntu 22.04, 24.04 and 26.04 (10 MB of it is `tesseract-ocr-osd`, which
+`tesseract-ocr` depends on), and 5 MiB and 13 MiB on Fedora 44 and 45.
+
 **When it is missing**, the app says so where the text was asked for, with the command for that
 distribution and the language of the system (`sudo apt install tesseract-ocr tesseract-ocr-spa`,
 `sudo dnf install tesseract tesseract-langpack-spa`); on other distributions it names the
@@ -222,7 +227,12 @@ package. The history has no search box until Tesseract is there: it looks again 
 capture is saved or the history is opened, and then reads what was saved in the meantime.
 
 **The AppImage uses the system's Tesseract too.** Nothing travels inside it. The command is
-started without the AppImage's own library paths, like `xdg-open`.
+started without the AppImage's own library paths, like `xdg-open`. Measured with the AppImage
+CI built, unpacked, and a probe in the place of its binary: with the environment its `AppRun`
+leaves, the system's `tesseract` loads 13 to 32 libraries from inside the AppImage, and on
+Ubuntu 26.04 it does not even start (`libsystemd.so.0: version 'LIBSYSTEMD_254' not found`).
+Without those variables it loads none, and reads the same image the same way on the seven
+distributions.
 
 **What was tried**, in the same virtual session on Fedora 44 (Tesseract 5.5.4):
 
@@ -232,22 +242,21 @@ started without the AppImage's own library paths, like `xdg-open`.
   address and the phone number are not), and across a recording, whose MP4 was read back frame
   by frame. The history reads the saved captures and its search box finds one by a word typed
   without its accent.
-- GNOME 50 on Wayland, with the system in English: the same gestures on a screenshot. That was
-  before the second pass existed; with English alone there is none.
-- Without `tesseract` in the app's `PATH`, on X11: every gesture shows the sentence and the
-  whole command (Fedora's, and Ubuntu's with a borrowed `os-release`), and the history has no
-  search box. With the command made available while the app is running, opening the history
-  again reads the two captures saved without it and shows the box. On GNOME the region picker
-  and the editor show the sentence; the pinned capture was only seen there before its notice
-  stopped being cut.
+- GNOME 50 on Wayland, with the system in English: the same gestures on a screenshot. With
+  English alone there is no second pass.
+- Without `tesseract` in the app's `PATH`, on X11 and on GNOME: the region picker, the pinned
+  capture and the editor show the sentence and the whole command (Fedora's, and on X11 also
+  Ubuntu's with a borrowed `os-release`), and the history has no search box. On X11, with the
+  command made available while the app is running, opening the history again reads the two
+  captures saved without it and shows the box.
 - The command itself, in clean containers of the seven distributions above: it reads from
   standard input, answers the same twelve `tsv` columns, and fails with a clear message when a
   language is missing.
 
-Not tried: a package built with the new `Recommends` (CI has to build it), the AppImage calling
-the system's Tesseract, how much Tesseract adds on top of what WebKitGTK already installs, the
-app with Tesseract 4 (only the command was run there), and text in Chinese, Japanese or
-right-to-left scripts.
+Not tried: a package built with the new `Recommends` (CI has to build it), an AppImage built
+from this code reading text (what ran inside the one CI built before was a probe, not
+winshotx), the app with Tesseract 4 (only the command was run there), and text in Chinese,
+Japanese or right-to-left scripts.
 
 ## How the app identifies itself
 
