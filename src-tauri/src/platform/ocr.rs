@@ -37,8 +37,9 @@ fn texto_de(lineas: &[Vec<crate::sensibles::Palabra>]) -> String {
 /// El único camino por el que una imagen llega al lector de Windows (issue #16): la tecla T,
 /// la captura anclada, el fotograma del editor, tapar datos y el texto del historial.
 ///
-/// - **Siempre en BGRA de 8 bits.** Un PNG de 16 bits por canal sale del decodificador en un
-///   formato que el motor no acepta.
+/// - **Siempre en BGRA de 8 bits**, se abra lo que se abra (un PNG de 16 bits por canal, uno
+///   gris, un JPEG). Medido: el decodificador ya lo entregaba así sin pedírselo, y ninguno de
+///   esos formatos fallaba; pedirlo quita la duda y hace que todos los caminos lean lo mismo.
 /// - **Nada más grande que `maximo`.** El motor no lee imágenes de más de
 ///   `OcrEngine::MaxImageDimension` píxeles de lado (10 000 en el Windows 11 de las pruebas,
 ///   y contesta «Image dimensions are too large!»): una captura con scroll larga se lee a
@@ -420,6 +421,12 @@ pub(crate) mod pruebas {
     /// Lo mismo, con cada línea a la altura que se le diga: para pintar una captura muy alta
     /// con texto arriba, abajo y justo en el corte entre dos tiras (S26).
     pub(crate) fn pintar_textos(lineas: &[(i32, &str)], ancho: i32, alto: i32) -> Vec<u8> {
+        pintar_con_letra(lineas, ancho, alto, 64)
+    }
+
+    /// Lo mismo, con la letra del alto que se diga: 64 es la de las demás pruebas, 24 la de
+    /// una interfaz en una pantalla al 150 %, y 240 la de un titular.
+    fn pintar_con_letra(lineas: &[(i32, &str)], ancho: i32, alto: i32, letra: i32) -> Vec<u8> {
         use windows::Win32::Foundation::COLORREF;
         use windows::Win32::Graphics::Gdi::*;
         use windows::core::HSTRING;
@@ -452,7 +459,7 @@ pub(crate) mod pruebas {
             // Una letra bien grande: a tamaño de interfaz el OCR también lee, pero una
             // prueba que falla por dos píxeles no dice nada útil.
             let fuente = CreateFontW(
-                64, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
+                letra, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0,
                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                 CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                 (DEFAULT_PITCH.0 | FF_DONTCARE.0) as u32,
@@ -591,34 +598,203 @@ pub(crate) mod pruebas {
         }
     }
 
-    /// Un PNG de 16 bits por canal (el de algunas herramientas de diseño, si se ancla) se lee
-    /// igual que uno de 8: el lector de Windows no acepta su formato tal cual.
+    /// Una imagen en cualquiera de los formatos que puede haber en la carpeta de capturas o
+    /// anclarse se lee igual: PNG de 8 y de 16 bits por canal, en color, en gris y con
+    /// transparencia, JPEG y BMP.
+    ///
+    /// Medido el 19 de noviembre de 2026 en Windows 11 (26200): con todos ellos el
+    /// decodificador ya entregaba BGRA de 8 bits también sin pedírselo
+    /// (`GetSoftwareBitmapAsync()` a secas), así que ninguno fallaba antes de la issue #16.
+    /// Pedirlo siempre igual solo quita la duda.
     #[test]
     #[ignore = "necesita el lector de texto de Windows instalado"]
-    fn un_png_de_16_bits_se_lee() {
-        let png8 = pintar_lineas(&["winshotx lee dieciseis bits"], 1100, 160);
-        let imagen = image::load_from_memory(&png8).expect("el PNG de prueba").to_rgba16();
-        let mut png16 = std::io::Cursor::new(Vec::new());
-        image::DynamicImage::ImageRgba16(imagen)
-            .write_to(&mut png16, image::ImageFormat::Png)
-            .expect("el PNG de 16 bits");
-        let texto = leer_texto(png16.get_ref()).expect("el motor de OCR");
-        println!("el lector ha visto: {texto:?}");
-        assert!(texto.to_lowercase().contains("winshotx"), "no ha leído la frase: {texto:?}");
+    fn cualquier_formato_de_imagen_se_lee() {
+        use image::DynamicImage as D;
+        use image::ImageFormat::{Bmp, Jpeg, Png};
+        let png8 = pintar_lineas(&["winshotx lee formatos"], 1100, 160);
+        let base = image::load_from_memory(&png8).expect("el PNG de prueba");
+        let variantes = [
+            ("PNG de 8 bits sin alfa", D::ImageRgb8(base.to_rgb8()), Png),
+            ("PNG gris de 8 bits", D::ImageLuma8(base.to_luma8()), Png),
+            ("PNG gris con alfa", D::ImageLumaA8(base.to_luma_alpha8()), Png),
+            ("PNG de 16 bits", D::ImageRgba16(base.to_rgba16()), Png),
+            ("PNG de 16 bits sin alfa", D::ImageRgb16(base.to_rgb16()), Png),
+            ("PNG gris de 16 bits", D::ImageLuma16(base.to_luma16()), Png),
+            ("JPEG", D::ImageRgb8(base.to_rgb8()), Jpeg),
+            ("JPEG gris", D::ImageLuma8(base.to_luma8()), Jpeg),
+            ("BMP", D::ImageRgb8(base.to_rgb8()), Bmp),
+        ];
+        for (nombre, imagen, formato) in variantes {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            imagen.write_to(&mut bytes, formato).expect("la imagen de prueba");
+            let texto = leer_texto(bytes.get_ref()).unwrap_or_else(|e| panic!("{nombre}: {e}"));
+            assert_eq!(texto, "winshotx lee formatos", "{nombre}");
+        }
     }
 
-    /// Un hilo nuevo, sin iniciar nada de COM ni de WinRT, lee igual: `windows-core` mete el
-    /// hilo en el apartamento MTA del proceso la primera vez que pide una clase de WinRT
-    /// (`CoIncrementMTAUsage`, en `imp/factory_cache.rs`). Es lo que hace el hilo del
-    /// historial y cada comando de Tauri, que corren en hilos de tokio.
+    /// En qué apartamento de COM está este hilo: `None` si en ninguno, o su tipo y su matiz.
+    fn apartamento() -> Option<(i32, i32)> {
+        use windows::Win32::System::Com::{APTTYPE, APTTYPEQUALIFIER, CoGetApartmentType};
+        let (mut tipo, mut matiz) = (APTTYPE(0), APTTYPEQUALIFIER(0));
+        unsafe { CoGetApartmentType(&mut tipo, &mut matiz) }.ok().map(|()| (tipo.0, matiz.0))
+    }
+
+    /// Un hilo nuevo, sin iniciar nada de COM ni de WinRT, lee igual (issue #16, punto 1).
+    ///
+    /// `windows-core` mete el hilo en el apartamento MTA del proceso la primera vez que pide
+    /// una clase de WinRT y Windows contesta `CO_E_NOTINITIALIZED` (`CoIncrementMTAUsage`, en
+    /// `imp/factory_cache.rs`), y desde ahí todo hilo que no haya iniciado COM está en ese
+    /// MTA «implícito». Es lo que hace el hilo del historial y cada comando de Tauri, que
+    /// corren en hilos de tokio. Sola en su proceso
+    /// (`cargo test --lib un_hilo_recien_creado -- --ignored --nocapture`) enseña el antes:
+    /// «sin apartamento».
     #[test]
     #[ignore = "necesita el lector de texto de Windows instalado"]
     fn un_hilo_recien_creado_lee_sin_iniciar_nada() {
+        use windows::Win32::System::Com::{APTTYPE_MTA, APTTYPEQUALIFIER_IMPLICIT_MTA};
         let png = pintar_lineas(&["winshotx lee en otro hilo"], 1100, 160);
-        let texto = std::thread::spawn(move || leer_texto(&png))
+        let (antes, texto, despues) = std::thread::spawn(move || (apartamento(), leer_texto(&png), apartamento()))
+            .join()
+            .expect("el hilo");
+        println!("apartamento del hilo: antes {antes:?}, después {despues:?}");
+        assert!(texto.expect("el motor de OCR").to_lowercase().contains("hilo"));
+        assert_eq!(
+            despues,
+            Some((APTTYPE_MTA.0, APTTYPEQUALIFIER_IMPLICIT_MTA.0)),
+            "el hilo tiene que acabar en el MTA del proceso sin haberlo iniciado él"
+        );
+    }
+
+    /// Y un hilo que sí tiene su apartamento, de un solo hilo (como el de la ventana) o de
+    /// varios, lee igual: el motor es ágil y vale desde cualquiera.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn un_hilo_con_su_apartamento_tambien_lee() {
+        use windows::Win32::System::Com::{
+            COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize,
+        };
+        for modelo in [COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED] {
+            let png = pintar_lineas(&["winshotx lee con apartamento"], 1100, 160);
+            let texto = std::thread::spawn(move || unsafe {
+                CoInitializeEx(None, modelo).ok().expect("iniciar COM");
+                let texto = leer_texto(&png);
+                CoUninitialize();
+                texto
+            })
             .join()
             .expect("el hilo")
             .expect("el motor de OCR");
-        assert!(texto.to_lowercase().contains("hilo"), "no ha leído la frase: {texto:?}");
+            assert!(texto.to_lowercase().contains("apartamento"), "{modelo:?}: {texto:?}");
+        }
+    }
+
+    /// Varios hilos leen a la vez, cada uno con su motor: la tecla T no falla porque el
+    /// historial esté leyendo una foto en ese momento.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn varios_hilos_leen_a_la_vez() {
+        let png = std::sync::Arc::new(pintar_lineas(&["winshotx lee a la vez"], 1100, 160));
+        let hilos: Vec<_> = (0..8)
+            .map(|_| {
+                let png = png.clone();
+                std::thread::spawn(move || {
+                    let lector = Lector::nuevo().expect("el lector");
+                    let ruta = std::env::temp_dir()
+                        .join(format!("winshotx-a-la-vez-{:?}.png", std::thread::current().id()));
+                    std::fs::write(&ruta, &*png).expect("la foto de prueba");
+                    for _ in 0..5 {
+                        assert_eq!(leer_texto(&png).expect("leer_texto"), "winshotx lee a la vez");
+                        assert_eq!(lector.leer_archivo(&ruta).expect("leer_archivo"), "winshotx lee a la vez");
+                    }
+                    let _ = std::fs::remove_file(&ruta);
+                })
+            })
+            .collect();
+        for hilo in hilos {
+            hilo.join().expect("un hilo ha fallado");
+        }
+    }
+
+    // Lo que se ha intentado romper después (sesión ocr-16).
+
+    /// Lee con el máximo que se diga en vez del de este Windows, para probar el reparto en
+    /// tiras con imágenes pequeñas (y lo que pasaría con un lector que acepte menos).
+    fn con_maximo(png: &[u8], maximo: u32) -> Vec<Vec<crate::sensibles::Palabra>> {
+        lineas_de(&decodificador(png).expect("abrir"), &motor().expect("el motor"), maximo).expect("leer")
+    }
+
+    /// Justo en el máximo y un píxel por encima, a lo ancho y a lo alto: se lee igual.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn justo_en_el_maximo_y_un_pixel_por_encima() {
+        let maximo = maximo();
+        for (ancho, alto) in [(maximo, 200), (maximo + 1, 200), (1200, maximo), (1200, maximo + 1)] {
+            let png = lienzo_con_frases(ancho, alto, &[(20, 40, "justo en el limite")]);
+            let texto = leer_texto(&png).unwrap_or_else(|e| panic!("{ancho} x {alto}: {e}"));
+            assert_eq!(texto, "justo en el limite", "{ancho} x {alto}");
+        }
+    }
+
+    /// Lo más pequeño que hay, un píxel, y otras imágenes sin sitio para una letra: no hay
+    /// texto, y se dice con una cadena vacía, no con un error.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn una_imagen_de_un_pixel_no_tiene_texto() {
+        for (ancho, alto) in [(1, 1), (1, 200), (200, 1), (8, 8)] {
+            let blanca = image::RgbaImage::from_pixel(ancho, alto, image::Rgba([255, 255, 255, 255]));
+            let png = crate::encode::png::to_bytes(&blanca).expect("el PNG de prueba");
+            assert_eq!(leer_texto(&png).unwrap_or_else(|e| panic!("{ancho} x {alto}: {e}")), "");
+            assert!(leer_palabras(&png).expect("leer_palabras").is_empty());
+        }
+    }
+
+    /// Ancha Y alta a la vez (se reduce y además se parte en tiras): cada frase sale una vez,
+    /// en orden, y su caja cae sobre ella en la imagen de verdad.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn una_captura_ancha_y_alta_a_la_vez() {
+        let (ancho, alto, maximo) = (4000u32, 9000u32, 2600u32);
+        let nombres =
+            ["uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce"];
+        let frases: Vec<(u32, u32, String)> = nombres
+            .iter()
+            .enumerate()
+            .map(|(i, n)| ((i as u32 % 3) * 1400 + 30, i as u32 * 740 + 20, format!("frase numero {n} aqui")))
+            .collect();
+        let sitios: Vec<(u32, u32, &str)> = frases.iter().map(|(x, y, f)| (*x, *y, f.as_str())).collect();
+        let lineas = con_maximo(&lienzo_con_frases(ancho, alto, &sitios), maximo);
+        let leido: Vec<String> = lineas
+            .iter()
+            .map(|l| l.iter().map(|p| p.texto.as_str()).collect::<Vec<_>>().join(" "))
+            .collect();
+        let esperado: Vec<&str> = frases.iter().map(|(_, _, f)| f.as_str()).collect();
+        assert_eq!(leido, esperado);
+        for (linea, (x, y, frase)) in lineas.iter().zip(&frases) {
+            for p in linea {
+                // La frase se pinta en un trozo de 1100 x 110 puesto en (x, y).
+                assert!(
+                    p.x >= *x as f32 && p.x + p.ancho <= (x + 1100) as f32,
+                    "{frase:?}, caja fuera en x: {p:?}"
+                );
+                assert!(
+                    p.y >= *y as f32 && p.y + p.alto <= (y + 110) as f32,
+                    "{frase:?}, caja fuera en y: {p:?}"
+                );
+            }
+        }
+    }
+
+    /// Un titular más alto que lo que se solapan dos tiras no cabe entero en ninguna de las
+    /// dos cuando cae en el corte: aun así sale una vez, y bien leído.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn un_titular_mas_alto_que_el_solape_sale_una_vez() {
+        for letra in [180, 320] {
+            for y in (600..1000).step_by(16) {
+                let png = pintar_con_letra(&[(y, "Titular Grande")], 1800, 1800, letra);
+                let texto = texto_de(&con_maximo(&png, 1000));
+                assert_eq!(texto, "Titular Grande", "letra de {letra} px a la altura {y}");
+            }
+        }
     }
 }
