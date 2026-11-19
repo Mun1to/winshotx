@@ -35,8 +35,8 @@ Everything below ran in a virtual session on Fedora 44, never on a physical mach
 | GNOME 50, Wayland | Region capture, copy and paste into another app, save to `~/Pictures/winshotx`, pin, the editor, the history (open, send to the trash), dragging the thumbnail into another app, Esc, both shortcuts through the GlobalShortcuts portal, and two monitors |
 | X11 with openbox or xfwm4 | Region capture, copy and paste into another app, save to `~/Pictures/winshotx`, pin, the editor, the history (open, send to the trash), dragging the thumbnail into another app, Esc and the thumbnail stack |
 
-Not tested yet: KDE Plasma, Hyprland, mouse input on Sway, screen recording, more than one
-monitor on X11, display scaling, NVIDIA drivers and real hardware.
+Not tested yet: KDE Plasma, Hyprland, mouse input on Sway, more than one monitor on X11, display
+scaling, NVIDIA drivers and real hardware. Screen recording has its own list below.
 
 The packages the CI builds were installed in clean containers: the .deb on Debian 12 and 13 and
 on Ubuntu 24.04 and 26.04, the .rpm on Fedora 44 and 45, and the AppImage on Debian 12 and
@@ -53,6 +53,66 @@ puts it (centred on GNOME) and not in the bottom right corner.
 
 On GNOME, the first launch asks to confirm the shortcuts ("Add Keyboard Shortcuts") and the first
 capture asks for permission ("Allow winshotx to Take Screenshots?").
+
+## Screen recording
+
+Frames come from MIT-SHM on X11, and from the ScreenCast portal plus PipeWire on Wayland. Both
+feed the same frame cache as on Windows, so the editor, trimming and the GIF export are the same
+code. There is no MP4 on Linux yet: a recording made as video opens the editor without a preview.
+
+**The desktop asks once.** On Wayland the desktop asks which screen to share. winshotx keeps the
+restore token the portal returns in `screencast-token`, in the app's config directory, so the
+next recording starts without the question. The file is created with mode 600 and the token is
+never written to a log: whoever has it can record the screen without being asked. If the desktop
+rejects the token it asks again; winshotx then stores the new token, or deletes the file if the
+question is cancelled. On GNOME there is only a token when "Remember this selection" is ticked
+in the dialog; without it GNOME asks on every recording.
+
+**There is not always a recording bar.** Linux has no way to keep a window out of a recording, so
+on X11 the bar is placed outside the recorded area, and there is no bar at all when the whole
+screen is recorded or on Wayland (where a window cannot choose its position). Such a recording
+is stopped with the record shortcut, from the tray icon, with `winshotx --record`, or from the
+desktop's own screen sharing indicator (GNOME, KDE).
+
+**How to stop is said before recording, not during.** Anything winshotx showed while recording
+(a notification, a window) would end up in the video, so it shows nothing. Instead the region
+picker says how to stop, in one line under the mode bar, whenever video or GIF is selected. The
+line names only what that desktop has: no tray on stock GNOME, no shortcut if the desktop has not
+set one, and `winshotx --record` when there is neither.
+
+**No screenshots while recording.** On Windows the capture screen and its thumbnail are kept out
+of the video, so a screenshot can be taken in the middle of a recording. Linux cannot do that:
+while a recording is running the capture shortcut does nothing, and a thumbnail that was on
+screen is closed when the recording starts.
+
+**Sound needs PipeWire.** System audio and the microphone are captured through PipeWire, the
+library that already brings the Wayland frames. Where PipeWire runs but does not carry audio
+(Ubuntu 22.04 and Linux Mint 21 use PulseAudio for sound), recording works without sound, and
+the two switches in Settings are off with a line that says why. Sound on PulseAudio-only systems
+is not supported yet.
+
+**The editor plays media from a local server.** WebKitGTK plays video and audio through
+GStreamer, which cannot open Tauri's `asset:` protocol: without help the sound tracks of a
+recording never load in the editor. So on Linux the editor asks a small HTTP server inside
+winshotx for them. It listens on 127.0.0.1 on a random port, only answers requests for its own
+`Host`, needs a random token in the path (never logged), and only serves files under the app's
+session cache. What the page still fails to load is written to the app log.
+
+**What was tried**, in the same virtual session on Fedora 44:
+
+- X11 (openbox): a region and the whole screen to GIF, a region to video with the editor
+  opening afterwards, the bar outside the recorded area, the pointer drawn by the exporter.
+- GNOME 50 on Wayland: a region to GIF, with the desktop's question the first time and without
+  it the second; a token the desktop rejects, with the question cancelled and answered; and
+  stopping from GNOME's screen sharing indicator, which saves the recording.
+- Sound, with a virtual output and a virtual microphone: each lands in its own track and lasts
+  as long as the video. Without audio devices, and without PipeWire running, the recording is
+  saved without sound.
+
+Not tried: KDE Plasma, Sway and Hyprland, more than one monitor, display scaling, 30-bit
+screens, real sound hardware, and PulseAudio-only systems (Ubuntu 22.04, Linux Mint 21) beyond
+a PipeWire without audio devices. The sound tracks load in the editor but cannot be played
+there yet: without an MP4 there is no preview to play.
 
 ## How the app identifies itself
 
@@ -85,6 +145,7 @@ the welcome screen and the settings show the commands to bind by hand instead:
 ```
 winshotx --capture   # capture a region
 winshotx --edit      # capture and open the editor
+winshotx --record    # record a region, or stop the recording in progress
 ```
 
 A second `winshotx` started with one of those flags hands it to the running one and exits, so
@@ -95,6 +156,7 @@ first line of this example starts it with the session (`~/.config/sway/config`):
 exec winshotx --autostart
 bindsym Print exec winshotx --capture
 bindsym Shift+Print exec winshotx --edit
+bindsym Ctrl+Print exec winshotx --record
 ```
 
 For the AppImage, use the path of the `.AppImage` file instead of `winshotx`; the app shows the
