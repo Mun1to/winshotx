@@ -176,6 +176,14 @@ impl OverlayIntent {
     pub fn es_foto(self) -> bool {
         self != Self::Record
     }
+
+    /// Si se puede abrir con una grabacion en marcha. Otra grabacion, nunca: el atajo de
+    /// grabar ya la para. Una foto, solo donde las ventanas de la captura se pueden sacar
+    /// del video: en Windows si (`fuera_de_la_captura`); en Linux no hay forma, ni en X11 ni
+    /// en Wayland, y la seleccion y la miniatura saldrian dentro de lo grabado.
+    pub fn se_abre_grabando(self) -> bool {
+        self.es_foto() && cfg!(windows)
+    }
 }
 
 /// Punto de entrada del atajo de captura: prepara la pantalla y abre la seleccion.
@@ -191,8 +199,13 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     // `hotkeys.rs`). Una foto si: Munir, 16-nov-2026, «puedes hacer que cuando grabas puedas
     // tomar capturas». Antes esto volvia sin hacer nada y el atajo parecia roto. Las ventanas
     // de la captura (la seleccion, la cuenta atras y la miniatura) se sacan del video con
-    // `fuera_de_la_captura`, asi que en lo grabado no sale nada de esto.
-    if state.is_recording() && !intent.es_foto() {
+    // `fuera_de_la_captura`, asi que en lo grabado no sale nada de esto. En Linux esas
+    // ventanas no se pueden sacar del video, asi que grabando tampoco se abre una foto.
+    if state.is_recording() && !intent.se_abre_grabando() {
+        #[cfg(target_os = "linux")]
+        if intent.es_foto() {
+            eprintln!("[grabar] grabando no se hacen fotos: la captura saldría en el vídeo");
+        }
         return Ok(());
     }
     // Si el atajo se pulsa dos veces muy seguidas, la segunda pulsacion se ignora en vez
@@ -1374,6 +1387,15 @@ fn force_foreground(window: &tauri::WebviewWindow) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Grabando no se abre otra grabacion en ningun sitio. Una foto si, pero solo donde su
+    /// pantalla no sale en el video: en Linux no se puede sacar, asi que no se abre.
+    #[test]
+    fn grabando_solo_se_abre_una_foto_y_solo_donde_no_sale_en_el_video() {
+        assert!(!OverlayIntent::Record.se_abre_grabando());
+        assert_eq!(OverlayIntent::Capture.se_abre_grabando(), cfg!(windows));
+        assert_eq!(OverlayIntent::Edit.se_abre_grabando(), cfg!(windows));
+    }
 
     #[test]
     fn el_editor_abre_a_tres_cuartos_de_una_pantalla_de_1920() {

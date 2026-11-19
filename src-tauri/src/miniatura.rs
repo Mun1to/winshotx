@@ -304,6 +304,21 @@ pub fn fuera_de_la_grabacion(grabando: bool) {
     let _ = grabando;
 }
 
+/// En Linux una ventana no se puede sacar de un video: al empezar a grabar, las miniaturas
+/// que hubiera a la vista se cierran, o saldrian en los primeros segundos. Sus fotos no se
+/// pierden: la copiada sigue en el portapapeles y la guardada, en su carpeta.
+#[cfg(target_os = "linux")]
+pub fn cerrar_todas(app: &AppHandle) {
+    {
+        let mut pila = PILA.lock();
+        if pila.is_empty() {
+            return;
+        }
+        pila.clear();
+    }
+    ensennar(app, segundos(app));
+}
+
 /// Crea la ventana la primera vez, y las siguientes la devuelve tal cual.
 fn ventana(app: &AppHandle) -> Result<tauri::WebviewWindow> {
     if let Some(existente) = app.get_webview_window(ETIQUETA) {
@@ -346,6 +361,12 @@ const APARCADA: i32 = -20000;
 /// Coloca la ventana para lo que haya en la pila, avisa a la página y la enseña. Con la
 /// pila vacía, la esconde.
 fn ensennar(app: &AppHandle, segundos: u32) {
+    // En Linux la miniatura no se puede sacar del video: grabando no se ensenna ninguna, ni
+    // la de una foto hecha justo antes de empezar y que llega ahora.
+    #[cfg(target_os = "linux")]
+    if app.state::<AppState>().is_recording() {
+        PILA.lock().clear();
+    }
     let cuantas = PILA.lock().len();
     let Ok(window) = ventana(app) else { return };
     let _ = app.emit_to(ETIQUETA, EVENTO, vista_de_la_pila(segundos));

@@ -45,6 +45,8 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     }
 
     windows_mgr::close_overlays(app);
+    // Una miniatura que estuviera a la vista saldria en el video: aqui no se puede excluir.
+    crate::miniatura::cerrar_todas(app);
     let fps = options.fps.clamp(5, 60);
     // Aqui se abre lo que haga falta, y en Wayland se espera a que la persona conteste al
     // escritorio: el reloj no empieza hasta despues.
