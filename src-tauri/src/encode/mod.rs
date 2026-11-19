@@ -8,6 +8,9 @@ pub mod escalar;
 pub mod estudio;
 pub mod ffmpeg;
 pub mod gif;
+// El GStreamer del sistema: el MP4 de Linux (Fase 3 del plan de Linux).
+#[cfg(target_os = "linux")]
+pub mod gst;
 pub mod jpg;
 pub mod marco;
 pub mod mp4;

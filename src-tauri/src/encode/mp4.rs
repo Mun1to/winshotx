@@ -227,7 +227,133 @@ where
     Ok(())
 }
 
-#[cfg(not(windows))]
+/// Lo que puede faltar en un Linux para escribir un MP4. En Windows no falta nunca: el
+/// codificador es del sistema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub enum Falta {
+    /// El codificador de H.264 (`openh264enc`) o lo que lo mete en el MP4.
+    Video,
+    /// Un codificador de AAC.
+    Sonido,
+}
+
+/// La orden que instala lo que falta, segun lo que diga `/etc/os-release`.
+///
+/// Solo estan las distribuciones donde se ha comprobado en un contenedor limpio que ese
+/// paquete trae el codificador: de las demas no se dice ninguna orden, que una orden
+/// inventada es peor que ninguna.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn orden_para(os_release: &str, falta: Falta) -> Option<&'static str> {
+    let campo = |nombre: &str| {
+        os_release
+            .lines()
+            .find_map(|linea| linea.strip_prefix(nombre)?.strip_prefix('='))
+            .map(|valor| valor.trim().trim_matches('"').to_ascii_lowercase())
+            .unwrap_or_default()
+    };
+    let familia = format!("{} {}", campo("ID"), campo("ID_LIKE"));
+    let es = |nombre: &str| familia.split_whitespace().any(|f| f == nombre);
+    if es("debian") || es("ubuntu") {
+        // El mismo paquete trae los dos: `openh264enc` y `voaacenc`.
+        Some("sudo apt install gstreamer1.0-plugins-bad")
+    } else if es("fedora") {
+        Some(match falta {
+            Falta::Video => "sudo dnf install gstreamer1-plugin-openh264",
+            Falta::Sonido => "sudo dnf install gstreamer1-plugins-bad-free",
+        })
+    } else {
+        None
+    }
+}
+
+/// Lo que se le dice a quien quiere un MP4 y no tiene con que escribirlo: que falta y, si
+/// se sabe, la orden que lo instala. El GIF no lo necesita.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn que_falta(falta: Falta) -> String {
+    let os_release = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
+    frase_de_lo_que_falta(falta, orden_para(&os_release, falta))
+}
+
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn frase_de_lo_que_falta(falta: Falta, orden: Option<&str>) -> String {
+    let que = match falta {
+        Falta::Video => "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema (openh264, de GStreamer).",
+        Falta::Sonido => "Para guardar un MP4 con sonido falta un codificador de AAC del sistema (de GStreamer).",
+    };
+    match orden {
+        Some(orden) => format!("{que} Se instala con: {orden}"),
+        None => format!("{que} Instala los plugins «bad» de GStreamer de tu distribución."),
+    }
+}
+
+/// En Linux escribe el GStreamer del sistema (`encode::gst`). Hace lo mismo que la de
+/// Windows, con una diferencia que la simplifica: aqui cada fotograma se manda con lo que
+/// dura, asi que una pantalla quieta no hay que mandarla dos veces para que llegue al final.
+#[cfg(target_os = "linux")]
+pub fn encode<L, P>(
+    indices: &[usize],
+    delays_ms: &[u32],
+    loader: &mut L,
+    path: &Path,
+    options: &Mp4Options,
+    audio: Option<Pista>,
+    mut progress: P,
+) -> Result<()>
+where
+    L: FnMut(usize) -> Result<RgbaImage>,
+    P: FnMut(&str, usize, usize),
+{
+    use crate::encode::gst::{Escritor, Medidas};
+
+    if indices.is_empty() {
+        return Err(AppError::Msg("no hay fotogramas que exportar".into()));
+    }
+    let (width, height) = medida_que_acepta((options.width / 2) * 2, (options.height / 2) * 2);
+    let medidas = Medidas { ancho: width, alto: height, fps: options.fps.max(1), bitrate: options.bitrate() };
+    let mut escritor = Escritor::abrir(path, &medidas, audio.as_ref().map(|p| (p.channels, p.sample_rate)))?;
+
+    let total = indices.len();
+    let mut desde_ms: u64 = 0;
+    let mut enviado: usize = 0;
+    for (position, index) in indices.iter().enumerate() {
+        progress("encoding", position, total);
+        let frame = loader(*index)?;
+        let frame = if frame.width() == width && frame.height() == height {
+            frame
+        } else {
+            crate::encode::escalar::a_medida(&frame, width, height)
+        };
+        let dura = delays_ms.get(position).copied().unwrap_or(33);
+        escritor.imagen(frame.into_raw(), desde_ms, u64::from(dura))?;
+        desde_ms += u64::from(dura);
+
+        // El sonido va detras de cada fotograma, en el trozo que le toca por duracion.
+        if let Some(pista) = audio.as_ref() {
+            let hasta = (enviado + pista.bytes_de(dura)).min(pista.datos.len());
+            if hasta > enviado {
+                escritor.sonido(&pista.datos[enviado..hasta])?;
+                enviado = hasta;
+            }
+            // Si el sonido se acaba antes que la imagen, se dice ya: quien los junta espera
+            // a los dos, y esperaria a un sonido que no va a llegar.
+            if enviado >= pista.datos.len() {
+                escritor.fin_del_sonido();
+            }
+        }
+    }
+    // Y lo que quede sonando cuando ya no hay mas fotogramas.
+    if let Some(pista) = audio.as_ref() {
+        if enviado < pista.datos.len() {
+            escritor.sonido(&pista.datos[enviado..])?;
+        }
+    }
+    escritor.cerrar()?;
+    progress("done", total, total);
+    Ok(())
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn encode<L, P>(
     _indices: &[usize],
     _delays_ms: &[u32],
@@ -277,6 +403,96 @@ mod tests {
     fn y_lo_que_ya_vale_no_se_toca() {
         assert_eq!(medida_que_acepta(1920, 1080), (1920, 1080));
         assert_eq!(medida_que_acepta(64, 64), (64, 64));
+    }
+
+    #[test]
+    fn a_cada_distribucion_se_le_dice_el_paquete_que_trae_su_codificador() {
+        let debian = "PRETTY_NAME=\"Debian GNU/Linux 12 (bookworm)\"\nID=debian\n";
+        let ubuntu = "NAME=\"Ubuntu\"\nID=ubuntu\nID_LIKE=debian\n";
+        let mint = "NAME=\"Linux Mint\"\nID=linuxmint\nID_LIKE=\"ubuntu debian\"\n";
+        let fedora = "NAME=\"Fedora Linux\"\nVERSION_ID=44\nID=fedora\n";
+        for de_apt in [debian, ubuntu, mint] {
+            for falta in [Falta::Video, Falta::Sonido] {
+                assert_eq!(orden_para(de_apt, falta), Some("sudo apt install gstreamer1.0-plugins-bad"));
+            }
+        }
+        assert_eq!(orden_para(fedora, Falta::Video), Some("sudo dnf install gstreamer1-plugin-openh264"));
+        assert_eq!(orden_para(fedora, Falta::Sonido), Some("sudo dnf install gstreamer1-plugins-bad-free"));
+        // De donde no se ha comprobado no se inventa ninguna orden.
+        assert_eq!(orden_para("ID=arch\n", Falta::Video), None);
+        assert_eq!(orden_para("", Falta::Sonido), None);
+        // Y solo cuentan `ID` e `ID_LIKE`, no cualquier linea que acabe igual.
+        assert_eq!(orden_para("BUILD_ID=debian\nVERSION_ID=fedora\n", Falta::Video), None);
+    }
+
+    #[test]
+    fn lo_que_falta_se_dice_en_llano_y_con_la_orden_si_se_sabe() {
+        let con = frase_de_lo_que_falta(Falta::Video, Some("sudo apt install gstreamer1.0-plugins-bad"));
+        assert_eq!(
+            con,
+            "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema (openh264, de GStreamer). Se instala con: sudo apt install gstreamer1.0-plugins-bad"
+        );
+        let sin = frase_de_lo_que_falta(Falta::Sonido, None);
+        assert!(sin.starts_with("Para guardar un MP4 con sonido falta un codificador de AAC"), "{sin}");
+        assert!(sin.contains("GStreamer") && !sin.contains("sudo"), "{sin}");
+    }
+
+    /// El camino entero de exportar un MP4 en Linux: `encode` lo escribe y se vuelve a leer,
+    /// con su sonido.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn en_linux_el_mp4_sale_con_cada_fotograma_en_su_tiempo_y_con_su_sonido() {
+        let dir = std::env::temp_dir().join(format!("winshotx-mp4-linux-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let ruta = dir.join("salida.mp4");
+        let colores = [[230u8, 20, 20], [20, 200, 20], [20, 20, 230]];
+        let duraciones = [1500u32, 500, 1000];
+        // El segundo llega al doble de grande: se encoge al tamanno pedido.
+        let mut cargar = |i: usize| -> Result<RgbaImage> {
+            let lado = if i == 1 { 2 } else { 1 };
+            let [r, g, b] = colores[i];
+            Ok(RgbaImage::from_pixel(320 * lado, 240 * lado, Rgba([r, g, b, 255])))
+        };
+        // Tres segundos de tono, lo mismo que duran los tres fotogramas.
+        let datos: Vec<u8> = (0..48_000u32 * 3)
+            .flat_map(|n| {
+                let v = ((n as f32 * 440.0 * std::f32::consts::TAU / 48_000.0).sin() * 12_000.0) as i16;
+                [v.to_le_bytes(), v.to_le_bytes()].concat()
+            })
+            .collect();
+        let mut fases = Vec::new();
+        encode(
+            &[0, 1, 2],
+            &duraciones,
+            &mut cargar,
+            &ruta,
+            // 321 de ancho: los lados impares se quedan en pares.
+            &Mp4Options { width: 321, height: 240, fps: 30, quality: 75 },
+            Some(Pista { channels: 2, sample_rate: 48_000, datos }),
+            |fase, hechos, total| fases.push((fase.to_string(), hechos, total)),
+        )
+        .expect("el MP4 no ha salido");
+        assert_eq!(fases.last(), Some(&("done".to_string(), 3, 3)));
+
+        use crate::encode::fondo_video::Lector;
+        let mut lector = crate::encode::gst::LectorVideo::abrir(&ruta).expect("leer el MP4");
+        let mut desde = 0u64;
+        for (color, dura) in colores.iter().zip(duraciones) {
+            let cuadro = lector.siguiente().expect("fotograma").expect("faltan fotogramas");
+            assert_eq!(cuadro.imagen.dimensions(), (320, 240));
+            let visto = cuadro.imagen.get_pixel(160, 120).0;
+            assert!(color.iter().zip(visto).all(|(a, b)| a.abs_diff(b) < 40), "se esperaba {color:?} y se lee {visto:?}");
+            assert!(cuadro.desde_ms.abs_diff(desde) <= 2, "empieza en {} y no en {desde}", cuadro.desde_ms);
+            assert!(cuadro.dura_ms.abs_diff(u64::from(dura)) <= 2, "dura {} y no {dura}", cuadro.dura_ms);
+            desde += u64::from(dura);
+        }
+        assert!(lector.siguiente().expect("el final").is_none(), "sobran fotogramas");
+
+        let (muestras, frecuencia) = crate::encode::gst::leer_sonido(&ruta, 10.0).expect("leer el sonido");
+        let segundos = muestras.len() as f64 / f64::from(frecuencia);
+        assert!((segundos - 3.0).abs() < 0.1, "el sonido dura {segundos} s");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

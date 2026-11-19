@@ -102,6 +102,12 @@ libc = "0.2"
 # - pipewire: los fotogramas de Wayland (el nodo que da el portal ScreenCast) y el sonido.
 #   Es la misma version que ya trae xcap.
 pipewire = "0.10"
+# El MP4 (Fase 3 del plan de Linux): se escribe y se lee con el GStreamer del sistema, que ya
+# esta en cualquier equipo con WebKitGTK. Asi no se reparte ningun codificador H.264.
+# - La linea 0.21 es la de glib 0.18, la misma que el gtk de Tauri: no entra un segundo glib.
+# - Sin las features v1_22 ni v1_24: Ubuntu 22.04 trae GStreamer 1.20.
+gstreamer = "0.21"
+gstreamer-app = "0.21"
 
 # El binario tiene que caber en unos pocos MB: nada de simbolos ni unidades sueltas.
 [profile.release]
