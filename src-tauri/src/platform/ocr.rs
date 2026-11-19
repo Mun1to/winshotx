@@ -46,7 +46,8 @@ fn texto_de(lineas: &[Vec<crate::sensibles::Palabra>]) -> String {
 ///   tiras que se solapan, y una más ancha que eso se reduce.
 /// - **Cada línea, una vez.** Lo que cae en el solape de dos tiras lo ven las dos, y se queda
 ///   la que lo ve mejor (`Vista`): sale entero y no repetido.
-/// - **Las cajas, en píxeles de la imagen de verdad**, no de la reducida ni de su tira: con
+/// - **Las cajas, en píxeles de la imagen de verdad**, no de la reducida, ni de su tira, ni
+///   de la que el lector endereza por su cuenta cuando ve el texto torcido (`Giro`): con
 ///   ellas se tapa un correo, y una caja corrida tapa otra cosa.
 ///
 /// `join` espera a que cada operación de WinRT termine sin montar ningún runtime asíncrono.
@@ -110,18 +111,21 @@ fn lineas_de(
                 .join()?
         };
         let resultado = motor.RecognizeAsync(&mapa)?.join()?;
+        let grados = resultado.TextAngle().and_then(|angulo| angulo.Value()).unwrap_or(0.0);
+        let giro = Giro::nuevo(grados, ancho_leido, alto_tira);
 
         let mut de_esta = Vec::new();
         for linea in resultado.Lines()? {
             let mut palabras = Vec::new();
             for palabra in linea.Words()? {
                 let caja = palabra.BoundingRect()?;
+                let (x, y_en_la_tira, ancho, alto) = giro.caja(caja.X, caja.Y, caja.Width, caja.Height);
                 palabras.push(crate::sensibles::Palabra {
                     texto: palabra.Text()?.to_string_lossy(),
-                    x: caja.X,
-                    y: caja.Y + y as f32,
-                    ancho: caja.Width,
-                    alto: caja.Height,
+                    x,
+                    y: y_en_la_tira + y as f32,
+                    ancho,
+                    alto,
                 });
             }
             let Some(nueva) = Vista::de(palabras) else {
@@ -158,6 +162,49 @@ fn lineas_de(
             palabras
         })
         .collect())
+}
+
+/// El giro con el que el lector ha enderezado una imagen antes de leerla.
+///
+/// Cuando ve el texto torcido (`OcrResult::TextAngle`, en grados y en el sentido de las
+/// agujas), el lector gira la imagen alrededor de su centro y da las cajas de las palabras
+/// **en la imagen enderezada**. Para saber dónde está cada palabra en la que se le pasó hay
+/// que deshacer ese giro; el ejemplo de OCR de Microsoft lo hace girando su capa de cajas
+/// ese mismo ángulo alrededor del centro. Medido con texto girado a propósito: sin esto las
+/// cajas caían a 30 px de su palabra a tres grados y a 68 a seis; con esto, a uno.
+///
+/// Pasa también con texto recto: en alguna tira el lector dice dos grados donde no los hay.
+#[cfg(windows)]
+struct Giro {
+    seno: f32,
+    coseno: f32,
+    cx: f32,
+    cy: f32,
+}
+
+#[cfg(windows)]
+impl Giro {
+    fn nuevo(grados: f64, ancho: u32, alto: u32) -> Self {
+        let (seno, coseno) = (grados as f32).to_radians().sin_cos();
+        Self { seno, coseno, cx: ancho as f32 / 2.0, cy: alto as f32 / 2.0 }
+    }
+
+    /// La caja de una palabra en la imagen que se le pasó al lector: el rectángulo recto que
+    /// envuelve a la suya ya girada. Sin giro es la misma, sin tocar.
+    fn caja(&self, x: f32, y: f32, ancho: f32, alto: f32) -> (f32, f32, f32, f32) {
+        if self.seno == 0.0 {
+            return (x, y, ancho, alto);
+        }
+        let esquinas = [(x, y), (x + ancho, y), (x, y + alto), (x + ancho, y + alto)].map(|(px, py)| {
+            let (dx, dy) = (px - self.cx, py - self.cy);
+            (self.cx + dx * self.coseno - dy * self.seno, self.cy + dx * self.seno + dy * self.coseno)
+        });
+        let x1 = esquinas.iter().map(|e| e.0).fold(f32::MAX, f32::min);
+        let y1 = esquinas.iter().map(|e| e.1).fold(f32::MAX, f32::min);
+        let x2 = esquinas.iter().map(|e| e.0).fold(f32::MIN, f32::max);
+        let y2 = esquinas.iter().map(|e| e.1).fold(f32::MIN, f32::max);
+        (x1, y1, x2 - x1, y2 - y1)
+    }
 }
 
 /// Una línea tal como la ha visto una tira: sus palabras y el rectángulo que las envuelve,
@@ -877,6 +924,81 @@ pub(crate) mod pruebas {
             let png = pintar_textos(&[(20, "arriba queda"), (y, "justo corte"), (980, "abajo queda")], 700, 1100);
             let texto = texto_de(&con_maximo(&png, 600));
             assert_eq!(texto, "arriba queda\njusto corte\nabajo queda", "con la línea a la altura {y}");
+        }
+    }
+
+    /// Gira una imagen los grados que se digan, en el sentido de las agujas y alrededor de su
+    /// centro, sobre blanco: la foto de un papel que no se puso recto.
+    fn girar(imagen: &image::RgbaImage, grados: f64) -> image::RgbaImage {
+        let (ancho, alto) = imagen.dimensions();
+        let (cx, cy) = (ancho as f64 / 2.0, alto as f64 / 2.0);
+        let (seno, coseno) = grados.to_radians().sin_cos();
+        let gris = |x: f64, y: f64| -> f64 {
+            if x < 0.0 || y < 0.0 || x >= ancho as f64 || y >= alto as f64 {
+                255.0
+            } else {
+                imagen.get_pixel(x as u32, y as u32).0[0] as f64
+            }
+        };
+        image::RgbaImage::from_fn(ancho, alto, |x, y| {
+            // De dónde sale este píxel: el giro al revés, mezclando los cuatro de alrededor.
+            let (dx, dy) = (x as f64 + 0.5 - cx, y as f64 + 0.5 - cy);
+            let (ox, oy) = (cx + dx * coseno + dy * seno - 0.5, cy - dx * seno + dy * coseno - 0.5);
+            let (x0, y0) = (ox.floor(), oy.floor());
+            let (fx, fy) = (ox - x0, oy - y0);
+            let v = gris(x0, y0) * (1.0 - fx) * (1.0 - fy)
+                + gris(x0 + 1.0, y0) * fx * (1.0 - fy)
+                + gris(x0, y0 + 1.0) * (1.0 - fx) * fy
+                + gris(x0 + 1.0, y0 + 1.0) * fx * fy;
+            let v = v.round() as u8;
+            image::Rgba([v, v, v, 255])
+        })
+    }
+
+    /// Cuando el texto está torcido (la foto de un papel, anclada), el lector endereza la
+    /// imagen antes de leerla y da las cajas en la enderezada, no en la que se le pasó: a
+    /// seis grados caían a más de 60 px de su palabra, y la tapa de un correo tapaba otra
+    /// cosa. La caja tiene que caer sobre la palabra en la imagen de verdad.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn las_cajas_de_un_texto_torcido_caen_sobre_su_palabra() {
+        let (ancho, alto) = (1400u32, 800u32);
+        let png = pintar_textos(
+            &[
+                (60, "Factura numero 2026 para Zaragoza"),
+                (330, "Contacto munir@example.com"),
+                (600, "Pedido 48213 sale martes Bilbao"),
+            ],
+            ancho as i32,
+            alto as i32,
+        );
+        let recta = image::load_from_memory(&png).expect("el PNG de prueba").to_rgba8();
+        let en_su_sitio: Vec<_> = leer_palabras(&png).expect("leer").into_iter().flatten().collect();
+        assert_eq!(en_su_sitio.len(), 12, "la imagen recta: {en_su_sitio:?}");
+
+        let (cx, cy) = (ancho as f32 / 2.0, alto as f32 / 2.0);
+        for grados in [-6.0f32, -3.0, 3.0, 6.0] {
+            let torcida = crate::encode::png::to_bytes(&girar(&recta, grados as f64)).expect("el PNG");
+            let palabras: Vec<_> = leer_palabras(&torcida).expect("leer").into_iter().flatten().collect();
+            assert_eq!(palabras.len(), en_su_sitio.len(), "a {grados} grados: {palabras:?}");
+            let (seno, coseno) = grados.to_radians().sin_cos();
+            for (p, recta) in palabras.iter().zip(&en_su_sitio) {
+                // Dónde ha ido a parar el centro de esta palabra al girar la imagen.
+                let (dx, dy) = (recta.x + recta.ancho / 2.0 - cx, recta.y + recta.alto / 2.0 - cy);
+                let (x, y) = (cx + dx * coseno - dy * seno, cy + dx * seno + dy * coseno);
+                assert!(
+                    x >= p.x && x <= p.x + p.ancho && y >= p.y && y <= p.y + p.alto,
+                    "a {grados} grados, {:?} está en ({x:.0}, {y:.0}) y su caja es {p:?}",
+                    recta.texto
+                );
+                let (ex, ey) = (p.x + p.ancho / 2.0 - x, p.y + p.alto / 2.0 - y);
+                assert!(
+                    ex.hypot(ey) < 15.0,
+                    "a {grados} grados, la caja de {:?} está a {:.0} px de su palabra",
+                    recta.texto,
+                    ex.hypot(ey)
+                );
+            }
         }
     }
 
