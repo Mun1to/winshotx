@@ -444,6 +444,18 @@ export interface Plataforma {
   wayland: boolean;
 }
 
+/**
+ * Qué sonido se puede grabar en este sistema (el comando `sonido_disponible`). Solo existe en
+ * Linux, donde el sonido llega por PipeWire y hay sistemas en los que PipeWire no lo lleva
+ * (Ubuntu 22.04, Linux Mint 21): ahí se graba sin sonido, y los ajustes lo dicen.
+ */
+export interface SonidoDisponible {
+  /** Hay una salida de sonido: se puede grabar lo que suena. */
+  altavoz: boolean;
+  /** Hay una entrada: se puede grabar el micrófono. */
+  microfono: boolean;
+}
+
 /** Una tecla que ha puesto el escritorio en Wayland. */
 export interface TeclaDelEscritorio {
   /** Tal cual la escribe el escritorio («Press <Shift><Control>2» en GNOME). */
@@ -452,10 +464,12 @@ export interface TeclaDelEscritorio {
   atajo: string | null;
 }
 
-/** Lo que el escritorio ha puesto en los dos atajos que se le piden en Wayland. */
+/** Lo que el escritorio ha puesto en los atajos que se le piden en Wayland. */
 export interface TeclasDelEscritorio {
   capture: TeclaDelEscritorio | null;
   edit: TeclaDelEscritorio | null;
+  /** La de grabar, que es también la de parar: en Wayland no hay barra de grabar. */
+  record?: TeclaDelEscritorio | null;
   /**
    * Que este escritorio no deja pedirle atajos (Sway y los demás de wlroots): la tecla se pone
    * a mano en su configuración, con `orden` y `--capture` o `--edit`.

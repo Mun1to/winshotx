@@ -832,6 +832,11 @@ export const ZH: Record<string, string> = {
   "En Sway, por ejemplo, van en ~/.config/sway/config:": "例如在 Sway 中，写在 ~/.config/sway/config 里：",
   "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).": "按下的那一刻冻结屏幕，让你在这张静止的画面上裁剪。这个桌面不允许应用申请按键：请把这条命令加到它的键盘快捷键里（在 Sway 中，是 ~/.config/sway/config 里的一行 bindsym）。",
   "ponla en los atajos del escritorio": "请加到桌面的快捷键里",
+  // S44 (Linux, grabar): la tecla de grabar de Wayland y el sonido que no hay.
+  "Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.": "框选方式和截图一样，但输出的是视频。在 Wayland 上没有录制栏，因为无法把它排除在视频之外：停止录制用的就是这个按键。",
+  "este sistema no da el sonido por PipeWire": "此系统不通过 PipeWire 提供声音",
+  "no hay ninguna salida de sonido": "未找到声音输出",
+  "no hay ningún micrófono conectado": "未连接麦克风",
   "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "这个桌面不允许应用申请按键。请用下面两条命令，自己加到它的键盘快捷键里：",
   // S43 (Linux en los ajustes de la 0.5)
   "Todo está en estos siete": "全都在这七项里",

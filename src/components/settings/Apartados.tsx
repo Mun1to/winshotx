@@ -65,6 +65,7 @@ import type {
   Screen,
   Settings,
   ShortcutStatus,
+  SonidoDisponible,
   TeclasDelEscritorio,
   Theme,
 } from "../../lib/types";
@@ -91,6 +92,8 @@ export interface DatosAjustes {
   /** La orden que lanza winshotx, para ponerla a mano en los atajos del escritorio. */
   ordenDeLaApp: string;
   cambiarTeclas: () => void;
+  /** S44 (Linux): qué sonido se puede grabar aquí. null en Windows y mientras contesta. */
+  sonido: SonidoDisponible | null;
   settings: Settings;
   patch: (partial: Partial<Settings>) => void;
   shortcuts: ShortcutStatus;
@@ -235,6 +238,26 @@ const ESPERAS = [
   { value: 5, label: "5 s" },
 ];
 
+/**
+ * S21 (Linux): la línea de debajo de un atajo, y su tono. En Wayland no se habla de
+ * combinaciones ocupadas: la tecla la pone el escritorio, o se pone a mano donde no deja pedirla.
+ */
+function usePistaDeAtajo({ teclasAMano, enWayland }: Pick<DatosAjustes, "teclasAMano" | "enWayland">) {
+  const t = useT();
+  const pista = (libre: boolean, puesta: boolean) =>
+    teclasAMano
+      ? t("ponla en los atajos del escritorio")
+      : enWayland
+        ? puesta
+          ? t("la tecla la elige el escritorio")
+          : t("todavía sin tecla: pulsa «Cambiar»")
+        : libre
+          ? undefined
+          : t("esa combinación está ocupada");
+  const tono = (puesta: boolean): "dato" | "aviso" => (teclasAMano || (enWayland && puesta) ? "dato" : "aviso");
+  return { pista, tono };
+}
+
 /* ------------------------------------------------------------------ Capturar */
 
 export function ApartadoCapturar({
@@ -252,19 +275,7 @@ export function ApartadoCapturar({
   const t = useT();
   // «3 s» y «5 s» se escriben igual en los tres idiomas: solo se traduce el «No».
   const esperas = ESPERAS.map((o) => (o.value === 0 ? { ...o, label: t(o.label) } : o));
-  // S21 (Linux): la línea de debajo de un atajo. En Wayland no se habla de combinaciones
-  // ocupadas: la tecla la pone el escritorio, o se pone a mano donde no deja pedirla.
-  const pistaDeAtajo = (libre: boolean, puesta: boolean) =>
-    teclasAMano
-      ? t("ponla en los atajos del escritorio")
-      : enWayland
-        ? puesta
-          ? t("la tecla la elige el escritorio")
-          : t("todavía sin tecla: pulsa «Cambiar»")
-        : libre
-          ? undefined
-          : t("esa combinación está ocupada");
-  const tonoDeAtajo = (puesta: boolean) => (teclasAMano || (enWayland && puesta) ? "dato" : "aviso");
+  const { pista: pistaDeAtajo, tono: tonoDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
   return (
     <>
       <Grupo title={t("Los atajos")} tour="al-pulsar">
@@ -461,8 +472,36 @@ export function ApartadoDespues({ settings, patch }: DatosAjustes) {
 
 /* ------------------------------------------------------------------ Grabar */
 
-export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAjustes) {
+export function ApartadoGrabar({
+  settings,
+  patch,
+  shortcuts,
+  camaras,
+  enWayland,
+  teclasDelEscritorio,
+  teclasAMano,
+  ordenDeLaApp,
+  cambiarTeclas,
+  sonido,
+}: DatosAjustes) {
   const t = useT();
+  const { pista: pistaDeAtajo, tono: tonoDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
+  const teclaDeGrabar = teclasDelEscritorio?.record ?? null;
+  // S44 (Linux): donde PipeWire no lleva el sonido (Ubuntu 22.04, Linux Mint 21) se graba sin
+  // sonido. El interruptor sale apagado y dice por qué: nunca en silencio.
+  const sinSonidoAqui = sonido !== null && !sonido.altavoz && !sonido.microfono;
+  const porQueSinAltavoz =
+    sonido === null || sonido.altavoz
+      ? undefined
+      : sinSonidoAqui
+        ? t("este sistema no da el sonido por PipeWire")
+        : t("no hay ninguna salida de sonido");
+  const porQueSinMicro =
+    sonido === null || sonido.microfono
+      ? undefined
+      : sinSonidoAqui
+        ? t("este sistema no da el sonido por PipeWire")
+        : t("no hay ningún micrófono conectado");
   return (
     <>
       <Grupo title={t("Cómo se graba")} tour="como-se-graba">
@@ -470,15 +509,28 @@ export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAju
           id="graRegion"
           icon={<Video className="size-4" />}
           label={t("Grabar región")}
-          explicacion={t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. El mismo atajo lo termina, así que no hace falta ir a buscar ningún botón mientras grabas.")}
-          hint={shortcuts.record ? undefined : t("esa combinación está ocupada")}
-          tone="aviso"
+          explicacion={
+            enWayland
+              ? t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.")
+              : t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. El mismo atajo lo termina, así que no hace falta ir a buscar ningún botón mientras grabas.")
+          }
+          hint={pistaDeAtajo(shortcuts.record, Boolean(teclaDeGrabar))}
+          tone={tonoDeAtajo(Boolean(teclaDeGrabar))}
           control={
-            <ShortcutField
-              value={settings.recordShortcut}
-              active={shortcuts.record}
-              onChange={(v) => patch({ recordShortcut: v })}
-            />
+            teclasAMano ? (
+              <OrdenDelAtajo orden={ordenDeLaApp} accion="record" />
+            ) : enWayland ? (
+              <span className="flex items-center gap-1.5">
+                <TeclaPuesta tecla={teclaDeGrabar} />
+                <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
+              </span>
+            ) : (
+              <ShortcutField
+                value={settings.recordShortcut}
+                active={shortcuts.record}
+                onChange={(v) => patch({ recordShortcut: v })}
+              />
+            )
           }
         />
         {/* S2 (grabación): la tecla de zoom. */}
@@ -518,9 +570,12 @@ export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAju
           icon={<Volume2 className="size-4" />}
           label={t("Audio del sistema")}
           explicacion={t("Graba lo que suena por los altavoces, dentro del mismo vídeo: la voz de una llamada, el audio de un vídeo, la alerta de un programa. No graba tu micrófono, eso es la fila de abajo.")}
+          hint={porQueSinAltavoz}
+          tone="aviso"
           control={
             <Switch
-              checked={settings.recordAudio}
+              checked={settings.recordAudio && !porQueSinAltavoz}
+              disabled={Boolean(porQueSinAltavoz)}
               onChange={(v) => patch({ recordAudio: v })}
               label={t("Audio del sistema")}
             />
@@ -531,9 +586,12 @@ export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAju
           icon={<Mic className="size-4" />}
           label={t("Micrófono")}
           explicacion={t("Tu voz, en su propia pista: en el editor se sube, se baja o se quita sin tocar el sonido del sistema. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.")}
+          hint={porQueSinMicro}
+          tone="aviso"
           control={
             <Switch
-              checked={settings.recordMicrophone}
+              checked={settings.recordMicrophone && !porQueSinMicro}
+              disabled={Boolean(porQueSinMicro)}
               onChange={(v) => patch({ recordMicrophone: v })}
               label={t("Micrófono")}
             />

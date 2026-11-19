@@ -954,6 +954,33 @@ pub fn plataforma() -> Plataforma {
     Plataforma { sistema, wayland }
 }
 
+/// Que sonido se puede grabar en este sistema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SonidoDisponible {
+    pub altavoz: bool,
+    pub microfono: bool,
+}
+
+/// Que sonido se puede grabar aqui, o `null` donde no hay nada que avisar (Windows).
+///
+/// En Linux el sonido llega por PipeWire, y hay sistemas donde PipeWire esta pero no lo lleva
+/// (Ubuntu 22.04, Linux Mint 21: lo lleva PulseAudio). Alli se graba sin sonido, y los
+/// ajustes lo dicen con esto en vez de dejar un interruptor que no hace nada.
+#[tauri::command]
+pub async fn sonido_disponible() -> Option<SonidoDisponible> {
+    #[cfg(target_os = "linux")]
+    {
+        // Pregunta a PipeWire y espera su lista (con tope): fuera del hilo de las ventanas.
+        let hay = tauri::async_runtime::spawn_blocking(crate::record::linux::sonido::disponible).await.ok()?;
+        Some(SonidoDisponible { altavoz: hay.altavoz, microfono: hay.microfono })
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
 /// Las teclas que el escritorio ha dado a los atajos de Wayland, o `null` si los atajos los
 /// pone winshotx (Windows y X11): ahi mandan los ajustes.
 #[tauri::command]
@@ -989,6 +1016,7 @@ pub async fn copiar_orden_del_atajo(accion: String) -> Result<()> {
     let bandera = match accion.as_str() {
         "capture" => "--capture",
         "edit" => "--edit",
+        "record" => "--record",
         _ => return Err(AppError::Msg("ese atajo no existe".into())),
     };
     #[cfg(target_os = "linux")]

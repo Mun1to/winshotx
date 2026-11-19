@@ -22,6 +22,7 @@ import type {
   StillAction,
   StillResult,
   StudioData,
+  SonidoDisponible,
   TeclasDelEscritorio,
 } from "./types";
 import type { Anotacion } from "./anotaciones";
@@ -207,9 +208,12 @@ export const teclasDelEscritorio = () => invoke<TeclasDelEscritorio | null>("tec
 /** Que el escritorio enseñe su ventana para cambiar las teclas de winshotx (Wayland). */
 export const cambiarTeclasEnElEscritorio = () => invoke<void>("cambiar_teclas_en_el_escritorio");
 
-/** Copia `winshotx --capture` o `winshotx --edit`, para ponerla a mano en el escritorio. */
-export const copiarOrdenDelAtajo = (accion: "capture" | "edit") =>
+/** Copia `winshotx --capture`, `--edit` o `--record`, para ponerla a mano en el escritorio. */
+export const copiarOrdenDelAtajo = (accion: "capture" | "edit" | "record") =>
   invoke<void>("copiar_orden_del_atajo", { accion });
+
+/** Qué sonido se puede grabar aquí, o null donde no hay nada que avisar (Windows). */
+export const sonidoDisponible = () => invoke<SonidoDisponible | null>("sonido_disponible");
 
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
 

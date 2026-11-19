@@ -15,6 +15,7 @@ import {
   restartShell,
   setSettings,
   shortcutStatus,
+  sonidoDisponible,
   usePrintScreen,
   useWinShiftS,
   // S2 (grabación)
@@ -31,6 +32,7 @@ import {
   type Screen,
   type Settings,
   type ShortcutStatus,
+  type SonidoDisponible,
 } from "../../lib/types";
 import { useSobra } from "../../lib/ventanaFija";
 import { AvisoActualizacion, useActualizacion } from "./Actualizacion";
@@ -147,6 +149,23 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const cambiarTeclas = useCallback(() => {
     void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
   }, []);
+  // S44 (Linux): qué sonido se puede grabar aquí. Se vuelve a mirar al volver a la ventana,
+  // por si entretanto se ha enchufado un micrófono.
+  const [sonido, setSonido] = useState<SonidoDisponible | null>(null);
+  useEffect(() => {
+    if (!enLinux) return;
+    let vivo = true;
+    const mirar = () =>
+      void sonidoDisponible()
+        .then((hay) => vivo && setSonido(hay ?? null))
+        .catch(() => undefined);
+    mirar();
+    window.addEventListener("focus", mirar);
+    return () => {
+      vivo = false;
+      window.removeEventListener("focus", mirar);
+    };
+  }, [enLinux]);
   const actualizacion = useActualizacion(VERSION, recienActualizado);
   // El buscador: si la paleta está abierta, y la fila a la que se ha saltado, que se ilumina.
   const [paleta, setPaleta] = useState(false);
@@ -398,6 +417,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     teclasAMano,
     ordenDeLaApp,
     cambiarTeclas,
+    sonido,
     settings,
     patch,
     shortcuts,

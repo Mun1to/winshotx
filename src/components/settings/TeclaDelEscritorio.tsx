@@ -10,7 +10,7 @@ import type { TeclaDelEscritorio } from "../../lib/types";
  * (Sway y los demás de wlroots no tienen el portal), con un botón para copiarla. Va en el
  * sitio de la tecla y con su misma altura. La copia la hace Rust, que monta la orden él.
  */
-export function OrdenDelAtajo({ orden, accion }: { orden: string; accion: "capture" | "edit" }) {
+export function OrdenDelAtajo({ orden, accion }: { orden: string; accion: "capture" | "edit" | "record" }) {
   const t = useT();
   const [copiada, setCopiada] = useState(false);
   useEffect(() => {
@@ -42,10 +42,10 @@ export function OrdenDelAtajo({ orden, accion }: { orden: string; accion: "captu
 }
 
 /**
- * Cómo se ponen las dos teclas a mano en Sway, que es el escritorio más común sin el portal:
+ * Cómo se ponen las teclas a mano en Sway, que es el escritorio más común sin el portal:
  * en su configuración, con la primera línea para que winshotx arranque con la sesión (Sway no
  * lee las entradas de arranque de los demás escritorios, y sin winshotx abierto la tecla solo
- * lo abriría).
+ * lo abriría). La de grabar es también la de parar: en Wayland no hay barra de grabar.
  */
 export function EjemploDeSway({ orden }: { orden: string }) {
   const t = useT();
@@ -54,7 +54,7 @@ export function EjemploDeSway({ orden }: { orden: string }) {
     <div className="text-[11px] text-tenue">
       <p>{t("En Sway, por ejemplo, van en ~/.config/sway/config:")}</p>
       <pre className="mt-1.5 overflow-x-auto rounded-lg border border-linea bg-hueco px-3 py-2 font-mono text-[11px] leading-relaxed text-suave">
-        {`exec ${app} --autostart\nbindsym Print exec ${app} --capture\nbindsym Shift+Print exec ${app} --edit`}
+        {`exec ${app} --autostart\nbindsym Print exec ${app} --capture\nbindsym Shift+Print exec ${app} --edit\nbindsym Ctrl+Print exec ${app} --record`}
       </pre>
     </div>
   );

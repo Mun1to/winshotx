@@ -445,6 +445,7 @@ pub fn run() {
             commands::pedir_permiso_de_capturas,
             commands::plataforma,
             commands::teclas_del_escritorio,
+            commands::sonido_disponible,
             commands::cambiar_teclas_en_el_escritorio,
             commands::copiar_orden_del_atajo,
             commands::list_screens,

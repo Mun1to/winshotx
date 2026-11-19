@@ -915,6 +915,90 @@ describe("en Linux", () => {
     expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
   });
 
+  it("en Wayland la tecla de grabar es la del escritorio, y dice que también para", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", {
+      capture: null,
+      edit: null,
+      record: { texto: "Press <Shift><Control>5", atajo: "CmdOrCtrl+Shift+Digit5" },
+    });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(screen.getByText("la tecla la elige el escritorio")).toBeInTheDocument());
+    // No hay campo para escribir una tecla: ahí no la decide winshotx.
+    expect(screen.queryByText("Sin tecla")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }));
+    expect(llamadas.some((l) => l.comando === "cambiar_teclas_en_el_escritorio")).toBe(true);
+  });
+
+  it("en Wayland, si el escritorio no ha puesto la tecla de grabar, se dice", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, record: null });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(screen.getByText("todavía sin tecla: pulsa «Cambiar»")).toBeInTheDocument());
+    expect(screen.getByText("Sin tecla")).toBeInTheDocument();
+  });
+
+  it("donde no se pueden pedir teclas (Sway), grabar enseña su orden y la copia", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, record: null, aMano: true, orden: "winshotx" });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(screen.getByText("winshotx --record")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Copiar la orden" }));
+    await waitFor(() =>
+      expect(llamadas.filter((l) => l.comando === "copiar_orden_del_atajo").at(-1)?.args).toEqual({
+        accion: "record",
+      }),
+    );
+  });
+
+  it("donde PipeWire no lleva el sonido, los dos interruptores salen apagados y dicen por qué", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: false, microfono: false });
+    await abrirAjustes(undefined, undefined, { recordAudio: true, recordMicrophone: true });
+    ir("Grabar");
+    await waitFor(() =>
+      expect(screen.getAllByText("este sistema no da el sonido por PipeWire")).toHaveLength(2),
+    );
+    for (const nombre of ["Audio del sistema", "Micrófono"]) {
+      const interruptor = screen.getByRole("switch", { name: nombre });
+      // Aunque en los ajustes esté encendido: aquí no se va a grabar, y no se enseña como que sí.
+      expect(interruptor).toHaveAttribute("aria-checked", "false");
+      expect(interruptor).toBeDisabled();
+    }
+  });
+
+  it("con sonido pero sin micrófono, solo se apaga el del micrófono", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: true, microfono: false });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(screen.getByText("no hay ningún micrófono conectado")).toBeInTheDocument());
+    expect(screen.getByRole("switch", { name: "Micrófono" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Audio del sistema" })).not.toBeDisabled();
+    expect(screen.queryByText("este sistema no da el sonido por PipeWire")).not.toBeInTheDocument();
+  });
+
+  it("con el sonido en su sitio, los interruptores de Linux van como siempre", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: true, microfono: true });
+    await abrirAjustes();
+    ir("Grabar");
+    const micro = await screen.findByRole("switch", { name: "Micrófono" });
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "sonido_disponible")).toBe(true));
+    expect(micro).not.toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Audio del sistema" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(micro);
+    await waitFor(() =>
+      expect(
+        (llamadas.filter((l) => l.comando === "set_settings").at(-1)?.args as { settings: Settings } | undefined)
+          ?.settings.recordMicrophone,
+      ).toBe(true),
+    );
+  });
+
   it("en Windows sigue todo como estaba", async () => {
     await abrirAjustes();
     expect(screen.getByText("Ocultar iconos del escritorio")).toBeInTheDocument();

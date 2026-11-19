@@ -832,6 +832,11 @@ export const EN: Record<string, string> = {
   "En Sway, por ejemplo, van en ~/.config/sway/config:": "In Sway, for example, they go in ~/.config/sway/config:",
   "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).": "Freezes the screen the moment you press it and lets you crop on top of that still shot. This desktop does not let apps ask for keys: put this command in its keyboard shortcuts (in Sway, a bindsym line in ~/.config/sway/config).",
   "ponla en los atajos del escritorio": "add it to the desktop's shortcuts",
+  // S44 (Linux, grabar): la tecla de grabar de Wayland y el sonido que no hay.
+  "Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.": "You crop the same way as for a screenshot, but what comes out is a video. On Wayland there is no recording bar, because it can't be kept out of the video: this same key is the one that stops it.",
+  "este sistema no da el sonido por PipeWire": "this system doesn't provide sound through PipeWire",
+  "no hay ninguna salida de sonido": "no sound output found",
+  "no hay ningún micrófono conectado": "no microphone connected",
   "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "This desktop does not let apps ask for their keys. Add them yourself in its keyboard shortcuts, with these two commands:",
   // S43 (Linux en los ajustes de la 0.5)
   "Todo está en estos siete": "It is all in these seven",
