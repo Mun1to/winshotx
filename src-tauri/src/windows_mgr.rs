@@ -28,6 +28,10 @@ struct Pendientes {
     ventanas: Vec<(u32, String, MonitorInfo)>,
     cursor: Option<(i32, i32)>,
     con_foco: bool,
+    /// Los monitores cuya ventana ensenno el rescate de `ESPERA_MAXIMA` sin que hubiera
+    /// avisado de que tiene su imagen, y que siguen sin avisar. Mientras quede alguno hay una
+    /// ventana a la vista, tapando la pantalla entera, que no ensenna la captura: ver `RESCATE`.
+    sin_pintar: Vec<u32>,
 }
 
 static PENDIENTES: Mutex<Pendientes> = Mutex::new(Pendientes {
@@ -35,12 +39,64 @@ static PENDIENTES: Mutex<Pendientes> = Mutex::new(Pendientes {
     ventanas: Vec::new(),
     cursor: None,
     con_foco: false,
+    sin_pintar: Vec::new(),
 });
+
+impl Pendientes {
+    /// El rescate de `ESPERA_MAXIMA`: saca todo lo que no ha avisado, con su foco decidido, y
+    /// lo deja apuntado como ensennado sin pintar. Vacio si la captura ya es otra.
+    fn sacar_las_que_falten(&mut self, generacion: u64) -> Vec<(u32, String, MonitorInfo, bool)> {
+        if self.generacion != generacion {
+            return Vec::new();
+        }
+        let cursor = self.cursor;
+        let mut lista = Vec::new();
+        for (id, label, monitor) in std::mem::take(&mut self.ventanas) {
+            let con_foco = !self.con_foco && cursor.is_some_and(|(x, y)| monitor.contains(x, y));
+            if con_foco {
+                self.con_foco = true;
+            }
+            lista.push((id, label, monitor, con_foco));
+        }
+        // Si el raton no estaba en ninguna, el foco a la primera que quede.
+        if !self.con_foco {
+            if let Some(primera) = lista.first_mut() {
+                primera.3 = true;
+                self.con_foco = true;
+            }
+        }
+        self.sin_pintar.extend(lista.iter().map(|(id, ..)| *id));
+        lista
+    }
+
+    /// Ese monitor avisa de que tiene su imagen cuando el rescate ya lo habia ensennado.
+    fn pintada_tarde(&mut self, monitor_id: u32, generacion: u64) {
+        if self.generacion == generacion {
+            self.sin_pintar.retain(|id| *id != monitor_id);
+        }
+    }
+
+    /// Si de ESA captura sigue a la vista alguna ventana que no ha pintado su imagen.
+    fn queda_sin_pintar(&self, generacion: u64) -> bool {
+        self.generacion == generacion && !self.sin_pintar.is_empty()
+    }
+}
 
 /// Cuanto se espera a que un overlay avise de que esta pintado antes de ensennarlo igual.
 /// Si el frontend no llega a avisar (porque ha fallado y esta ensennando su error), el
 /// usuario tiene que poder ver ese error y salir con Escape, no quedarse sin nada.
 const ESPERA_MAXIMA: std::time::Duration = std::time::Duration::from_millis(900);
+
+/// Cuanto puede estar a la vista un overlay que no ha avisado de que tiene su imagen antes de
+/// que la captura se cierre sola.
+///
+/// La ventana ocupa la pantalla entera y va por encima de todo. Si su pagina no tiene la
+/// captura (no le llego, o su navegador se ha quedado colgado), lo que tapa el escritorio es
+/// la pantalla de carga o la foto de la captura anterior, y puede no tener ni el foco para el
+/// Escape. La pagina lleva su propio rescate (`BootScreen`), pero solo puede contar desde que
+/// le llega una captura. Quien sabe que una ventana se ha ensennado sin pintar es esta parte,
+/// asi que este reloj esta aqui, y una ventana aparcada sin captura no lo arranca nunca.
+const RESCATE: std::time::Duration = std::time::Duration::from_secs(8);
 
 /// El numero de la captura en curso: viaja en el payload y vuelve en `overlay_listo`.
 pub fn generacion_actual() -> u64 {
@@ -219,6 +275,7 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
         let mut pendientes = PENDIENTES.lock();
         pendientes.generacion += 1;
         pendientes.ventanas.clear();
+        pendientes.sin_pintar.clear();
         pendientes.cursor = cursor;
         pendientes.con_foco = false;
         pendientes.generacion
@@ -377,7 +434,9 @@ pub fn overlay_listo(app: &AppHandle, monitor_id: u32, generacion: u64) {
     let dentro = app.clone();
     let _ = app.run_on_main_thread(move || {
         let Some((label, monitor, con_foco)) = sacar_pendiente(monitor_id, generacion) else {
-            // De una captura anterior, o ya ensennada por el rescate: no hay nada que hacer.
+            // De una captura anterior, o ya ensennada por el rescate: no hay nada que ensennar.
+            // Si es de esta, ya tiene su imagen y `RESCATE` no tiene por que cerrarla.
+            PENDIENTES.lock().pintada_tarde(monitor_id, generacion);
             return;
         };
         ensennar_overlay(&dentro, &label, &monitor, con_foco);
@@ -453,34 +512,37 @@ fn ensennar_overlay(app: &AppHandle, label: &str, monitor: &MonitorInfo, con_foc
 
 /// El rescate: pasado el plazo, se ensenna lo que no haya avisado, sea lo que sea.
 fn mostrar_las_que_falten(app: &AppHandle, generacion: u64) {
-    let que_faltan: Vec<(u32, String, MonitorInfo, bool)> = {
-        let mut pendientes = PENDIENTES.lock();
-        if pendientes.generacion != generacion {
-            return;
-        }
-        let cursor = pendientes.cursor;
-        let mut lista = Vec::new();
-        for (id, label, monitor) in std::mem::take(&mut pendientes.ventanas) {
-            let con_foco = !pendientes.con_foco
-                && cursor.is_some_and(|(x, y)| monitor.contains(x, y));
-            if con_foco {
-                pendientes.con_foco = true;
-            }
-            lista.push((id, label, monitor, con_foco));
-        }
-        // Si el raton no estaba en ninguna, el foco a la primera que quede.
-        if !pendientes.con_foco {
-            if let Some(primera) = lista.first_mut() {
-                primera.3 = true;
-                pendientes.con_foco = true;
-            }
-        }
-        lista
-    };
+    let que_faltan = PENDIENTES.lock().sacar_las_que_falten(generacion);
+    if que_faltan.is_empty() {
+        return;
+    }
     for (id, label, monitor, con_foco) in que_faltan {
         ensennar_overlay(app, &label, &monitor, con_foco);
         crate::crono::marca(&format!("mostrada-{id}-tarde"));
     }
+    // Estan a la vista sin su imagen: si pasado `RESCATE` alguna sigue sin avisar, se cierra.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(RESCATE);
+        let dentro = app.clone();
+        let _ = app.run_on_main_thread(move || cerrar_si_queda_sin_pintar(&dentro, generacion));
+    });
+}
+
+/// El rescate de `RESCATE`: cierra la captura si alguna de sus ventanas sigue a la vista sin
+/// haber pintado su imagen. Si la captura ya es otra, o todas han avisado, no hace nada.
+fn cerrar_si_queda_sin_pintar(app: &AppHandle, generacion: u64) {
+    // El candado se suelta antes de cerrar: `close_overlays` lo vuelve a coger.
+    let queda = PENDIENTES.lock().queda_sin_pintar(generacion);
+    if !queda {
+        return;
+    }
+    crate::crono::marca("rescate-sin-pintar");
+    eprintln!(
+        "[overlay] una ventana lleva {} s a la vista sin su imagen: se cierra la captura",
+        RESCATE.as_secs()
+    );
+    close_overlays(app);
 }
 
 /// Ensenna los segundos que faltan, abajo a la derecha de la pantalla donde esta el raton.
@@ -790,6 +852,7 @@ pub fn close_overlays(app: &AppHandle) {
         let mut pendientes = PENDIENTES.lock();
         pendientes.generacion += 1;
         pendientes.ventanas.clear();
+        pendientes.sin_pintar.clear();
     }
     let monitores = capture::monitors().unwrap_or_default();
     for (label, window) in app.webview_windows() {
@@ -1480,5 +1543,97 @@ mod tests {
         assert_eq!(distancia_entre((0, 0, 10, 10), (10, 0, 20, 10)), 0);
         assert_eq!(distancia_entre((0, 0, 10, 10), (20, 0, 30, 10)), 100);
         assert_eq!(distancia_entre((0, 0, 10, 10), (13, 14, 30, 30)), 9 + 16);
+    }
+
+    /// Una captura en marcha, la numero `generacion`, con esas pantallas esperando a ensennarse.
+    fn pendientes_de(generacion: u64, monitores: &[u32]) -> Pendientes {
+        Pendientes {
+            generacion,
+            ventanas: monitores
+                .iter()
+                .map(|&id| {
+                    let pantalla = MonitorInfo {
+                        id,
+                        label: format!("pantalla {id}"),
+                        x: id as i32 * 1920,
+                        y: 0,
+                        width: 1920,
+                        height: 1080,
+                        scale: 1.0,
+                        is_primary: id == 0,
+                    };
+                    (id, format!("{OVERLAY_PREFIX}{id}"), pantalla)
+                })
+                .collect(),
+            cursor: None,
+            con_foco: false,
+            sin_pintar: Vec::new(),
+        }
+    }
+
+    /// Lo que vio la coordinadora el 19 de noviembre de 2026: a una ventana no le llega su
+    /// captura, el rescate de los 900 ms la ensenna igual, y ya nadie la cierra. Tiene que
+    /// quedar apuntada para que `RESCATE` la cierre.
+    #[test]
+    fn una_ventana_ensennada_sin_avisar_se_cierra_sola() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        let ensennadas = pendientes.sacar_las_que_falten(3);
+        assert_eq!(ensennadas.len(), 1);
+        assert!(ensennadas[0].3, "la unica que hay se lleva el foco");
+        assert!(pendientes.queda_sin_pintar(3));
+    }
+
+    /// La que solo iba lenta: el rescate la ensenna, y cuando su imagen llega no se cierra nada.
+    #[test]
+    fn si_avisa_despues_de_ensennarse_no_se_cierra() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        pendientes.sacar_las_que_falten(3);
+        pendientes.pintada_tarde(0, 3);
+        assert!(!pendientes.queda_sin_pintar(3));
+    }
+
+    #[test]
+    fn el_aviso_de_una_captura_anterior_no_la_da_por_pintada() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        pendientes.sacar_las_que_falten(3);
+        pendientes.pintada_tarde(0, 2);
+        assert!(pendientes.queda_sin_pintar(3));
+    }
+
+    #[test]
+    fn con_dos_pantallas_basta_una_sin_pintar() {
+        let mut pendientes = pendientes_de(3, &[0, 1]);
+        assert_eq!(pendientes.sacar_las_que_falten(3).len(), 2);
+        pendientes.pintada_tarde(1, 3);
+        assert!(pendientes.queda_sin_pintar(3), "la pantalla 0 sigue sin su imagen");
+        pendientes.pintada_tarde(0, 3);
+        assert!(!pendientes.queda_sin_pintar(3));
+    }
+
+    /// El reloj de una captura no puede cerrar la siguiente: es el fallo de la primera captura
+    /// que no abria (el rescate de la pantalla de carga), que aqui no se puede repetir.
+    #[test]
+    fn el_reloj_de_una_captura_no_cierra_la_siguiente() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        pendientes.sacar_las_que_falten(3);
+        // Se cierra la captura y se abre otra, como hacen `close_overlays` y `congelar_y_abrir`.
+        pendientes.generacion = 5;
+        pendientes.sin_pintar.clear();
+        assert!(!pendientes.queda_sin_pintar(3));
+        assert!(!pendientes.queda_sin_pintar(5));
+    }
+
+    /// Las ventanas aparcadas sin captura no estan en la lista: no hay nada que ensennar ni
+    /// nada que cerrar, y un rescate que llega de una captura vieja no saca las de la nueva.
+    #[test]
+    fn sin_ventanas_esperando_no_hay_nada_que_cerrar() {
+        let mut vacia = pendientes_de(3, &[]);
+        assert!(vacia.sacar_las_que_falten(3).is_empty());
+        assert!(!vacia.queda_sin_pintar(3));
+
+        let mut nueva = pendientes_de(5, &[0]);
+        assert!(nueva.sacar_las_que_falten(3).is_empty());
+        assert_eq!(nueva.ventanas.len(), 1, "la captura nueva sigue esperando su aviso");
+        assert!(!nueva.queda_sin_pintar(5));
     }
 }

@@ -28,6 +28,10 @@ async function salir() {
  * pintan mientras tanto: con el plazo contado desde que nacian, a los 8 segundos de arrancar
  * se cerraba lo que hubiera, y una primera captura pedida justo entonces no se abria, sin
  * ningun error (medido en X11 el 19 de noviembre de 2026).
+ *
+ * Una ventana que se ensenna SIN captura (no le llego, o el navegador se quedo colgado) no la
+ * puede rescatar esta pantalla, que no sabe si esta a la vista: la cierra Rust, que es quien la
+ * ensenno (`RESCATE` en `windows_mgr.rs`).
  */
 export function BootScreen({
   error,
