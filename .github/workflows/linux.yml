@@ -54,6 +54,7 @@ jobs:
             libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+            tesseract-ocr tesseract-ocr-spa \
             fonts-dejavu-core
 
       # The Rust tests do not use the interface, but Tauri needs the `dist` folder to exist.
