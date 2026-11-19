@@ -10,6 +10,10 @@
 pub mod autostart;
 pub mod empaquetado;
 pub mod marco;
+// La figura del marco y su dibujo, que no dependen del sistema. Las ventanas las pone
+// `marco` en Windows.
+#[cfg(any(windows, test))]
+pub mod marco_comun;
 pub mod clipboard;
 pub mod desktop_icons;
 pub mod guardia;
