@@ -1506,3 +1506,39 @@ Explorador, y los ajustes y la bienvenida lo dicen y llevan a winshotx.com. La s
 restringida `unvirtualizedResources` con `virtualization:ExcludedKeys` (probado: funciona), pero Microsoft dice que es
 para juegos suyos y de socios, asi que pedirla en la Store es decision de Munito. Para mirar un equipo concreto:
 `scripts/diagnostico-teclas.ps1`, que solo lee.
+
+## 55. El desinstalador de NSIS también corre cuando se pone otra versión encima, y Tauri no lo cuenta
+
+**Lo que pasaba.** Quien desinstalaba la versión del instalador (GitHub o winget) con Win+Mayús+S cogida se quedaba
+sin Win+S, la búsqueda de Windows: la S seguía en `DisabledHotkeys`. Y con Impr Pant cogida,
+`PrintScreenKeyForSnippingEnabled` se quedaba a 0. Nadie devolvía nada al desinstalar.
+
+**La trampa.** Lo natural es un gancho `NSIS_HOOK_PREUNINSTALL` (`bundle > windows > nsis > installerHooks`), pero la
+documentación de Tauri (https://v2.tauri.app/distribute/windows-installer/, mirada el 19 de noviembre de 2026) solo dice
+cuándo corre cada gancho, no que el desinstalador corre también sin que nadie desinstale. Mirado en la plantilla del
+CLI 2.11.4 (`installer.nsi`, va dentro del binario del CLI) y en `tauri-plugin-updater` 2.10.1 (`updater.rs`):
+- El actualizador de la app lanza el instalador nuevo con `/P /UPDATE`, y `/UPDATE` pone `$UpdateMode` a 1.
+- Un instalador que encuentra otra copia (otra versión a mano, con la opción de serie «desinstalar antes», o la misma
+  versión en modo pasivo) lanza el desinstalador viejo con `uninstall.exe [/P] _?=<carpeta>`. Con `_?=` NSIS no se copia
+  a la carpeta temporal («stops the uninstaller from copying itself to the temporary directory», manual de NSIS, 3.2.2),
+  así que corre desde `$INSTDIR`. Desinstalar desde Configuración o con winget lanza `uninstall.exe` sin `_?=`, y NSIS se
+  copia a `%TEMP%\~nsuN.tmp\Un.exe` antes de empezar.
+
+Devolver las teclas en esos dos casos haría que una actualización le quitara las teclas a quien las tenía puestas.
+
+**Arreglo.** `src-tauri/windows/hooks.nsh`: solo con `$UpdateMode <> 1` y `$EXEDIR != $INSTDIR`, cierra winshotx
+(la misma pregunta que hace Tauri) y llama a `winshotx.exe --restore-windows-keys`, más `--tell` si hay alguien delante
+(ni `/S` ni `/P`). La orden (`teclas_windows.rs`) devuelve las dos teclas por el mismo camino que apagar los interruptores:
+solo lo que cogió winshotx, la S solo si no estaba antes, e Impr Pant a su valor de antes (o borrado si no había). Los
+ajustes no se tocan: si alguien reinstala con sus datos, winshotx vuelve a coger las teclas al arrancar, como cuando una
+actualización de Windows se las devuelve a la Herramienta de Recortes. El Explorador NO se reinicia (cerraría las carpetas
+abiertas sin preguntar, y desde un winget como administrador `taskkill` alcanzaría a otras sesiones): Win+S vuelve al
+cerrar sesión, y el aviso lo dice.
+
+**Medido el 19 de noviembre en Windows Sandbox (24H2, 26100), con el instalador de verdad:** desinstalar con
+`UninstallString` más `/S` (lo que hace winget; Tauri no escribe `QuietUninstallString`) deja `Q` y `1` donde winshotx
+tenía `QS` y `0`, sin reiniciar el Explorador, y al releerlo Win+Mayús+S vuelve a ser de Windows; `setup.exe /P` encima de
+la misma versión lanza `uninstall.exe /P _?=<carpeta>` y no devuelve nada; `/S _?=` a mano y `/S /UPDATE` tampoco; sin
+`/S`, el desinstalador pregunta si cierra winshotx, devuelve las dos y sale el aviso en español; con los interruptores
+apagados no toca la S ni el 0 del usuario; y la S que ya estaba antes se queda. El guion es
+`scripts/sandbox-teclas/probar.ps1`.
