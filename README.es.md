@@ -21,7 +21,7 @@ píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selecci�
 
 </div>
 
-<p align="center"><a href="https://winshotx.com/video/winshotx-0.5.mp4"><img src=".github/readme/video-es.png" alt="Mira el vídeo de winshotx en 45 segundos: recorta la pantalla antes de que parpadees"></a></p>
+https://github.com/user-attachments/assets/d8c29d23-d987-4faf-aee5-393ba5aaf075
 
 ## Cómo funciona
 
