@@ -110,12 +110,32 @@ pub fn codificadores() -> Codificadores {
             hay.sonido = DE_SONIDO.iter().copied().find(|s| sonda(video, Some(s)));
         }
     }
-    eprintln!(
-        "[mp4] codificadores del sistema: video={} sonido={}",
-        hay.video.unwrap_or("ninguno"),
-        hay.sonido.unwrap_or("ninguno")
-    );
+    // Una vez, y otra cada vez que cambie: mientras falte algo esto se mira a menudo (cada vez
+    // que el editor coge el foco), y repetir la misma linea solo llenaria el registro.
+    static DICHO: parking_lot::Mutex<Option<Codificadores>> = parking_lot::Mutex::new(None);
+    let mut dicho = DICHO.lock();
+    if *dicho != Some(*hay) {
+        *dicho = Some(*hay);
+        eprintln!(
+            "[mp4] codificadores del sistema: video={} sonido={}{}",
+            hay.video.unwrap_or("ninguno"),
+            hay.sonido.unwrap_or("ninguno"),
+            if appimage_a_ciegas() { " (AppImage: su GStreamer no carga los plugins del sistema)" } else { "" }
+        );
+    }
     *hay
+}
+
+/// Si esto es un AppImage cuyo GStreamer no carga los plugins del sistema.
+///
+/// El AppImage lleva su propio `libgstreamer`, el de la distribucion donde se empaqueto. Un
+/// GStreamer no carga plugins hechos para uno mas nuevo, ni los busca en la carpeta de otra
+/// distribucion: en casi todos los sistemas no ve ninguno, y entonces instalar el
+/// codificador no arregla nada. Se nota en que tampoco esta `videoconvert`, que es de los
+/// plugins base y lo tiene cualquier sistema con GStreamer.
+pub fn appimage_a_ciegas() -> bool {
+    std::env::var_os("APPIMAGE").is_some()
+        && (encender().is_err() || gst::ElementFactory::find("videoconvert").is_none())
 }
 
 /// Escribe tres fotogramas (y un instante de silencio) con esos codificadores.

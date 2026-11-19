@@ -451,6 +451,7 @@ pub fn run() {
             commands::plataforma,
             commands::teclas_del_escritorio,
             commands::sonido_disponible,
+            commands::falta_para_el_mp4,
             commands::apuntar_del_editor,
             commands::cambiar_teclas_en_el_escritorio,
             commands::copiar_orden_del_atajo,

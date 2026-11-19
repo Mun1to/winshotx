@@ -23,6 +23,7 @@ import type {
   StillResult,
   StudioData,
   SonidoDisponible,
+  FaltaParaElMp4,
   TeclasDelEscritorio,
 } from "./types";
 import type { Anotacion } from "./anotaciones";
@@ -221,6 +222,9 @@ export const apuntarDelEditor = (texto: string) =>
 
 /** Qué sonido se puede grabar aquí, o null donde no hay nada que avisar (Windows). */
 export const sonidoDisponible = () => invoke<SonidoDisponible | null>("sonido_disponible");
+
+/** Lo que falta para guardar un MP4, o null si no falta nada (en Windows, siempre). */
+export const faltaParaElMp4 = () => invoke<FaltaParaElMp4 | null>("falta_para_el_mp4");
 
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
 

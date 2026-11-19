@@ -455,6 +455,15 @@ export const ZH: Record<string, string> = {
   "Acercarse a los clics": "点击时缩放",
   "sin zoom": "不缩放",
 
+  "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema.":
+    "要保存为 MP4，系统缺少 H.264 视频编码器。",
+  "Falta un codificador de sonido AAC en el sistema: el MP4 se guardará sin sonido.":
+    "系统缺少 AAC 音频编码器：MP4 将不带声音保存。",
+  "Se instala con:": "安装命令：",
+  "Esta AppImage no puede usar los codificadores de tu sistema, y sin ellos no hay MP4. Instala winshotx con el paquete .deb o .rpm.":
+    "此 AppImage 无法使用系统的编码器，因此无法保存 MP4。请通过 .deb 或 .rpm 软件包安装 winshotx。",
+  "Instala los plugins «bad» de GStreamer de tu distribución.":
+    "请安装你的发行版提供的 GStreamer “bad” 插件。",
   // 绘制的指针
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "此录制已包含 Windows 光标：你会看到两个。",

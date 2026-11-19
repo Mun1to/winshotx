@@ -461,6 +461,15 @@ export const EN: Record<string, string> = {
   "sin zoom": "no zoom",
 
   // El puntero dibujado
+  "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema.":
+    "To save as MP4, the system's H.264 video encoder is missing.",
+  "Falta un codificador de sonido AAC en el sistema: el MP4 se guardará sin sonido.":
+    "The system has no AAC audio encoder: the MP4 will be saved without sound.",
+  "Se instala con:": "Install it with:",
+  "Esta AppImage no puede usar los codificadores de tu sistema, y sin ellos no hay MP4. Instala winshotx con el paquete .deb o .rpm.":
+    "This AppImage cannot use your system's encoders, and without them there is no MP4. Install winshotx from the .deb or .rpm package.",
+  "Instala los plugins «bad» de GStreamer de tu distribución.":
+    "Install your distribution's GStreamer \"bad\" plugins.",
   // «el de Windows» ya está arriba, en el idioma: la clave es la frase, así que sirve.
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "This recording already has the Windows cursor baked in: you will see two.",

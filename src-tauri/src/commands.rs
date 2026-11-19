@@ -1001,6 +1001,53 @@ pub async fn sonido_disponible() -> Option<SonidoDisponible> {
     }
 }
 
+/// Lo que le falta a este equipo para guardar un MP4.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FaltaParaElMp4 {
+    /// `video`: no hay codificador de H.264 y el MP4 no sale. `sonido`: no hay de AAC y sale
+    /// sin sonido.
+    pub que: &'static str,
+    /// La orden que lo instala, donde se sabe cual es.
+    pub orden: Option<&'static str>,
+    /// Es un AppImage cuyo GStreamer no carga los plugins del sistema: instalar el
+    /// codificador no lo arregla, y lo que se dice es que se use el paquete .deb o .rpm.
+    pub appimage: bool,
+}
+
+/// Lo que falta para guardar un MP4, o `null` si no falta nada (en Windows, siempre).
+///
+/// En Linux winshotx no lleva codificador: escribe con el GStreamer del sistema, y hay
+/// distribuciones que no traen de serie el plugin de H.264 (Ubuntu). El editor lo dice antes
+/// de guardar, con la orden que lo instala, en vez de fallar despues.
+#[tauri::command]
+pub async fn falta_para_el_mp4() -> Option<FaltaParaElMp4> {
+    #[cfg(target_os = "linux")]
+    {
+        use crate::encode::mp4::{Arreglo, Falta};
+        // Mirarlo escribe un MP4 diminuto de prueba: fuera del hilo de las ventanas.
+        let hay = tauri::async_runtime::spawn_blocking(crate::encode::gst::codificadores).await.ok()?;
+        let (falta, que) = match (hay.video, hay.sonido) {
+            (None, _) => (Falta::Video, "video"),
+            (Some(_), None) => (Falta::Sonido, "sonido"),
+            (Some(_), Some(_)) => return None,
+        };
+        let arreglo = crate::encode::mp4::arreglo(falta);
+        Some(FaltaParaElMp4 {
+            que,
+            orden: match arreglo {
+                Arreglo::Orden(orden) => Some(orden),
+                Arreglo::Plugins | Arreglo::OtroPaquete => None,
+            },
+            appimage: arreglo == Arreglo::OtroPaquete,
+        })
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
 /// Las teclas que el escritorio ha dado a los atajos de Wayland, o `null` si los atajos los
 /// pone winshotx (Windows y X11): ahi mandan los ajustes.
 #[tauri::command]

@@ -267,23 +267,60 @@ pub fn orden_para(os_release: &str, falta: Falta) -> Option<&'static str> {
     }
 }
 
-/// Lo que se le dice a quien quiere un MP4 y no tiene con que escribirlo: que falta y, si
-/// se sabe, la orden que lo instala. El GIF no lo necesita.
+/// Como se arregla lo que falta.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-pub fn que_falta(falta: Falta) -> String {
+pub enum Arreglo {
+    /// Con esta orden.
+    Orden(&'static str),
+    /// Con los plugins de GStreamer de la distribucion, sin saber decir cuales.
+    Plugins,
+    /// Instalando nada: es un AppImage cuyo GStreamer no carga los plugins del sistema
+    /// (`gst::appimage_a_ciegas`). Lo que lo arregla es el paquete .deb o .rpm.
+    OtroPaquete,
+}
+
+/// Lo que arregla lo que falta, segun la distribucion y segun si esto es un AppImage que no
+/// ve los plugins del sistema: ahi la orden de instalar no cambiaria nada, y decirla seria
+/// mandar a alguien a instalar algo para nada.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn arreglo_para(os_release: &str, falta: Falta, appimage_a_ciegas: bool) -> Arreglo {
+    if appimage_a_ciegas {
+        return Arreglo::OtroPaquete;
+    }
+    match orden_para(os_release, falta) {
+        Some(orden) => Arreglo::Orden(orden),
+        None => Arreglo::Plugins,
+    }
+}
+
+/// Lo que arregla lo que falta en este equipo.
+#[cfg(target_os = "linux")]
+pub fn arreglo(falta: Falta) -> Arreglo {
     let os_release = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
-    frase_de_lo_que_falta(falta, orden_para(&os_release, falta))
+    arreglo_para(&os_release, falta, super::gst::appimage_a_ciegas())
+}
+
+/// Lo que se le dice a quien quiere un MP4 y no tiene con que escribirlo: que falta y como
+/// se arregla. El GIF no lo necesita.
+#[cfg(target_os = "linux")]
+pub fn que_falta(falta: Falta) -> String {
+    frase_de_lo_que_falta(falta, arreglo(falta))
 }
 
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-fn frase_de_lo_que_falta(falta: Falta, orden: Option<&str>) -> String {
+fn frase_de_lo_que_falta(falta: Falta, arreglo: Arreglo) -> String {
     let que = match falta {
         Falta::Video => "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema (openh264, de GStreamer).",
         Falta::Sonido => "Para guardar un MP4 con sonido falta un codificador de AAC del sistema (de GStreamer).",
     };
-    match orden {
-        Some(orden) => format!("{que} Se instala con: {orden}"),
-        None => format!("{que} Instala los plugins «bad» de GStreamer de tu distribución."),
+    match arreglo {
+        Arreglo::Orden(orden) => format!("{que} Se instala con: {orden}"),
+        Arreglo::Plugins => format!("{que} Instala los plugins «bad» de GStreamer de tu distribución."),
+        Arreglo::OtroPaquete => {
+            "Esta AppImage no puede usar los codificadores del sistema, y sin ellos no hay MP4. Instala winshotx con el paquete .deb o .rpm."
+                .to_string()
+        }
     }
 }
 
@@ -427,14 +464,36 @@ mod tests {
 
     #[test]
     fn lo_que_falta_se_dice_en_llano_y_con_la_orden_si_se_sabe() {
-        let con = frase_de_lo_que_falta(Falta::Video, Some("sudo apt install gstreamer1.0-plugins-bad"));
+        let con = frase_de_lo_que_falta(Falta::Video, Arreglo::Orden("sudo apt install gstreamer1.0-plugins-bad"));
         assert_eq!(
             con,
             "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema (openh264, de GStreamer). Se instala con: sudo apt install gstreamer1.0-plugins-bad"
         );
-        let sin = frase_de_lo_que_falta(Falta::Sonido, None);
+        let sin = frase_de_lo_que_falta(Falta::Sonido, Arreglo::Plugins);
         assert!(sin.starts_with("Para guardar un MP4 con sonido falta un codificador de AAC"), "{sin}");
         assert!(sin.contains("GStreamer") && !sin.contains("sudo"), "{sin}");
+    }
+
+    /// El AppImage lleva su propio GStreamer, y si ese no carga los plugins del sistema,
+    /// instalar el codificador no cambia nada: no se dice ninguna orden, se dice lo que si
+    /// lo arregla. Donde si los carga (o fuera de un AppImage), la orden de siempre.
+    #[test]
+    fn en_un_appimage_que_no_ve_los_plugins_del_sistema_no_se_manda_instalar_nada() {
+        let ubuntu = "NAME=\"Ubuntu\"\nID=ubuntu\nID_LIKE=debian\n";
+        let fedora = "ID=fedora\n";
+        for os_release in [ubuntu, fedora, "ID=arch\n", ""] {
+            for falta in [Falta::Video, Falta::Sonido] {
+                assert_eq!(arreglo_para(os_release, falta, true), Arreglo::OtroPaquete, "{os_release:?}");
+            }
+        }
+        assert_eq!(
+            arreglo_para(ubuntu, Falta::Video, false),
+            Arreglo::Orden("sudo apt install gstreamer1.0-plugins-bad")
+        );
+        assert_eq!(arreglo_para("ID=arch\n", Falta::Video, false), Arreglo::Plugins);
+        let frase = frase_de_lo_que_falta(Falta::Video, Arreglo::OtroPaquete);
+        assert!(frase.contains("AppImage") && frase.contains(".deb o .rpm"), "{frase}");
+        assert!(!frase.contains("sudo") && !frase.contains("Se instala con"), "{frase}");
     }
 
     /// El camino entero de exportar un MP4 en Linux: `encode` lo escribe y se vuelve a leer,

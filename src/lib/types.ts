@@ -473,6 +473,22 @@ export interface SonidoDisponible {
   microfono: boolean;
 }
 
+/**
+ * Lo que le falta a este equipo para guardar un MP4 (el comando `falta_para_el_mp4`). Solo pasa
+ * en Linux, donde el MP4 lo escribe el GStreamer del sistema y winshotx no lleva codificador.
+ */
+export interface FaltaParaElMp4 {
+  /** `video`: no hay codificador de H.264 y el MP4 no sale. `sonido`: no hay de AAC y sale mudo. */
+  que: "video" | "sonido";
+  /** La orden que lo instala, donde se sabe cuál es. */
+  orden: string | null;
+  /**
+   * Es un AppImage cuyo GStreamer no carga los plugins del sistema: instalar el codificador no lo
+   * arregla, y lo que se dice es que se use el paquete .deb o .rpm.
+   */
+  appimage?: boolean;
+}
+
 /** Una tecla que ha puesto el escritorio en Wayland. */
 export interface TeclaDelEscritorio {
   /** Tal cual la escribe el escritorio («Press <Shift><Control>2» en GNOME). */
