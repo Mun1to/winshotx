@@ -666,6 +666,7 @@ export const ZH: Record<string, string> = {
   "La cámara": "摄像头",
   "Grabar también la cámara": "同时录制摄像头",
   "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "同时录制你的摄像头，单独保存为一个文件放在视频旁边，之后可以在编辑器里把它放到角落。摄像头指示灯只在录制时亮起。如果其他程序正在使用它，或 Windows 不允许（隐私，摄像头），则在没有摄像头的情况下继续录制。",
+  "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si no se puede encender, se graba sin ella.": "同时录制你的摄像头，单独保存为一个文件放在视频旁边，之后可以在编辑器里把它放到角落。摄像头指示灯只在录制时亮起。如果摄像头无法开启，则在没有摄像头的情况下继续录制。",
   "no hay ninguna cámara conectada": "没有连接摄像头",
   "Qué cámara": "使用哪个摄像头",
   "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "录制你选择的那个。如果某天它没有连接，就使用第一个可用的。",

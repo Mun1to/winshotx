@@ -860,6 +860,20 @@ describe("en Linux", () => {
     expect(dibujo()).not.toHaveTextContent("Windows");
   });
 
+  // S45 (cámara): en Linux la cámara no tiene ajuste de privacidad que mirar, y el de Windows
+  // no existe.
+  it("la explicación de la cámara no manda a los ajustes de Windows", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("list_cameras", []);
+    await abrirAjustes();
+    ir("Grabar");
+    const fila = document.querySelector<HTMLElement>('[data-fila="graCamara"]')!;
+    fireEvent.pointerEnter(within(fila).getByRole("button", { name: "Qué hace este ajuste" }));
+    const globo = screen.getByRole("tooltip");
+    expect(globo).toHaveTextContent("Si no se puede encender, se graba sin ella.");
+    expect(globo).not.toHaveTextContent("Windows");
+  });
+
   it("en Wayland enseña la tecla que puso el escritorio, y Cambiar le pide su ventana", async () => {
     responde("plataforma", { sistema: "linux", wayland: true });
     responde("teclas_del_escritorio", {

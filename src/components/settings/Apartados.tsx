@@ -477,6 +477,7 @@ export function ApartadoGrabar({
   patch,
   shortcuts,
   camaras,
+  enLinux,
   enWayland,
   teclasDelEscritorio,
   teclasAMano,
@@ -612,7 +613,7 @@ export function ApartadoGrabar({
           }
         />
         {/* S2 (grabación): la webcam. */}
-        <FilasCamara settings={settings} patch={patch} camaras={camaras} />
+        <FilasCamara settings={settings} patch={patch} camaras={camaras} enLinux={enLinux} />
       </Grupo>
     </>
   );

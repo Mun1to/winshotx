@@ -665,6 +665,7 @@ export const EN: Record<string, string> = {
   "La cámara": "The camera",
   "Grabar también la cámara": "Record the camera too",
   "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "Records your webcam at the same time, in its own file next to the video, so you can put it in a corner later from the editor. The camera light only comes on while you record. If another program is using it or Windows doesn't allow it (Privacy, Camera), the recording goes ahead without it.",
+  "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si no se puede encender, se graba sin ella.": "Records your webcam at the same time, in its own file next to the video, so you can put it in a corner later from the editor. The camera light only comes on while you record. If it can't be turned on, the recording goes ahead without it.",
   "no hay ninguna cámara conectada": "no camera is connected",
   "Qué cámara": "Which camera",
   "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "The one you choose is recorded. If it isn't connected one day, the first one available is used.",

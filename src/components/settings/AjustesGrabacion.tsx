@@ -54,7 +54,7 @@ export function FilaTeclaZoom({ settings, patch }: Props) {
  * Grabar también la webcam y, si hay más de una, cuál. Son filas sueltas: van al final de
  * «Sonido y cámara», en el apartado Grabar.
  */
-export function FilasCamara({ settings, patch, camaras }: Props & { camaras: CamaraConectada[] }) {
+export function FilasCamara({ settings, patch, camaras, enLinux }: Props & { camaras: CamaraConectada[]; enLinux: boolean }) {
   const t = useT();
   // Si la guardada ya no está, se graba la primera: es lo que hace Rust.
   const elegida = camaras.find((c) => c.id === settings.cameraDevice) ?? camaras[0];
@@ -65,9 +65,16 @@ export function FilasCamara({ settings, patch, camaras }: Props & { camaras: Cam
         id="graCamara"
         icon={<Webcam className="size-4" />}
         label={t("Grabar también la cámara")}
-        explicacion={t(
-          "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.",
-        )}
+        // El ajuste de privacidad de la cámara es de Windows: en Linux no hay a dónde mandar.
+        explicacion={
+          enLinux
+            ? t(
+                "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si no se puede encender, se graba sin ella.",
+              )
+            : t(
+                "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.",
+              )
+        }
         // El nombre de la cámara es un dato (cuál va a grabar); que no haya ninguna es un
         // aviso solo si está encendida, que es cuando se va a echar de menos.
         hint={
