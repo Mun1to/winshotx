@@ -30,6 +30,39 @@ const HOTKEYS_PATH: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\
 #[cfg(windows)]
 const HOTKEYS_VALUE: &str = "DisabledHotkeys";
 
+/// Lo que se le dice a quien tiene la copia de la Microsoft Store y pide una de las dos teclas.
+pub const SOLO_FUERA_DE_LA_STORE: &str = "La versión de la Microsoft Store no puede quitarle esta tecla a Windows: Windows no ve los cambios que hace en sus ajustes. Para usarla, instala winshotx desde winshotx.com o con winget.";
+
+/// Si Windows ve lo que winshotx escribe en el registro del usuario.
+///
+/// Desde la Microsoft Store, NO. Un paquete MSIX de escritorio guarda todo lo que escribe en
+/// HKEY_CURRENT_USER en una copia privada suya: «All writes under HKCU are copied on write to a
+/// private per-user, per-app location» (Microsoft, «Understanding how packaged desktop apps run
+/// on Windows», apartado Registry). La app se lee a sí misma y cree que lo ha cambiado, pero el
+/// Explorador lee el registro de verdad y no ve ni la S de `DisabledHotkeys` ni el 0 de Impr Pant.
+/// Así que reiniciarlo no suelta nada y la tecla sigue abriendo la Herramienta de Recortes.
+///
+/// Medido el 19 de noviembre de 2026 en Windows 11 25H2 (26200), con un paquete de prueba con
+/// el mismo manifiesto que el de la Store: escribe «sin error», se lee desde dentro y desde fuera
+/// no está; y en Windows Sandbox, reiniciado el Explorador, `Win+Mayús+S` sigue siendo suya.
+/// Saltárselo pide la capacidad restringida `unvirtualizedResources`, que Microsoft dice que es
+/// para juegos suyos y de sus socios.
+pub fn windows_ve_el_registro() -> bool {
+    !crate::platform::empaquetado::es_msix()
+}
+
+/// Para cortar antes de tocar nada cuando lo que se va a escribir no lo vería Windows.
+///
+/// Se prueba aparte de `windows_ve_el_registro` porque eso depende de cómo se ha instalado
+/// la copia que corre la prueba.
+pub fn comprobar_que_windows_lo_ve(ve_el_registro: bool) -> crate::error::Result<()> {
+    if ve_el_registro {
+        Ok(())
+    } else {
+        Err(crate::error::AppError::Msg(SOLO_FUERA_DE_LA_STORE.into()))
+    }
+}
+
 #[cfg(windows)]
 fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
@@ -406,6 +439,17 @@ mod pruebas {
 
     const PLAZO: Duration = Duration::from_millis(60);
     const PASO: Duration = Duration::from_millis(5);
+
+    /// Lo que pasó en el PC de clase si estaba instalado desde la Store: winshotx se lee a sí
+    /// mismo, dice que ya es suya y la tecla sigue abriendo la Herramienta de Recortes.
+    #[test]
+    fn desde_la_store_no_se_toca_ninguna_tecla() {
+        let error = comprobar_que_windows_lo_ve(false).expect_err("en la Store tiene que decir que no");
+        let texto = error.to_string();
+        assert!(texto.contains("Microsoft Store"), "{texto}");
+        assert!(texto.contains("winshotx.com"), "tiene que decir qué hacer: {texto}");
+        assert!(comprobar_que_windows_lo_ve(true).is_ok());
+    }
 
     /// Si `taskkill` no puede (un PC con políticas, un Explorador que no es nuestro), el
     /// escritorio de antes sigue ahí. Eso no es haberlo reiniciado, y tampoco se abre otro

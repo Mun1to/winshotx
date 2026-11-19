@@ -227,8 +227,12 @@ pub fn run() {
             // arranque: una actualizacion de Windows o un paseo por Configuracion se la
             // devuelven a la Herramienta de Recortes sin avisar, y entonces el atajo se
             // registra igual pero no llega ni una pulsacion.
+            //
+            // Desde la Store no: lo escrito se quedaria en su copia privada del registro.
             #[cfg(windows)]
-            if config.print_screen_capture {
+            let windows_lo_ve = platform::snipping::windows_ve_el_registro();
+            #[cfg(windows)]
+            if config.print_screen_capture && windows_lo_ve {
                 let _ = platform::snipping::write(0);
 
             }
@@ -236,7 +240,7 @@ pub fn run() {
             // Y la S fuera de los atajos del escritorio, solo si se pidio esa opcion
             // aparte: es la que cuesta perder Win+S.
             #[cfg(windows)]
-            if config.take_win_shift_s {
+            if config.take_win_shift_s && windows_lo_ve {
                 let actuales = platform::snipping::read_disabled_hotkeys().unwrap_or_default();
                 if !actuales.to_uppercase().contains('S') {
                     let _ =

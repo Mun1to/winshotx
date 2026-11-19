@@ -130,7 +130,11 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     // la queda la Herramienta de Recortes. Si ese ajuste sigue puesto, esto se registra
     // sin quejarse y luego no llega ninguna pulsacion: por eso se apaga antes, en
     // `commands::use_print_screen`, y no aqui.
-    if settings.print_screen_capture {
+    //
+    // Desde la Store no se pide: Windows no ve el ajuste apagado (`snipping::windows_ve_el_registro`)
+    // y `RegisterHotKey` la da por buena igual, asi que pedirla seria decir que es nuestra sin serlo.
+    let windows_lo_ve = crate::platform::snipping::windows_ve_el_registro();
+    if settings.print_screen_capture && windows_lo_ve {
         match PRINT_SCREEN.parse::<Shortcut>() {
             Err(error) => eprintln!("la tecla Impr Pant no se entiende: {error}"),
             Ok(shortcut) => {
@@ -207,7 +211,7 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     // otra vez falla con "ya registrada", que es exactamente el mismo error que devuelve
     // cuando la tiene el escritorio. Sin distinguirlos, los ajustes decian "el escritorio
     // todavia la tiene" sobre una tecla que estaba funcionando.
-    if settings.take_win_shift_s {
+    if settings.take_win_shift_s && windows_lo_ve {
         if let Ok(shortcut) = WIN_SHIFT_S.parse::<Shortcut>() {
             if puestos.contains(&shortcut) {
                 status.win_shift_s = true;
