@@ -53,7 +53,8 @@ pub trait Lector {
     fn leido(&self) -> f32;
 }
 
-/// Abre un vídeo o un GIF. El GIF por su extensión; lo demás se lo pregunta a Windows.
+/// Abre un vídeo o un GIF. El GIF por su extensión; lo demás se lo pregunta a Windows, o en
+/// Linux al GStreamer del sistema (`encode::gst`).
 ///
 /// Los `return` de los bloques `cfg` se quedan, como en `platform`: con un solo cuerpo por
 /// sistema, quitarlos haría que una línea añadida detrás cambiara lo que se devuelve.
@@ -70,7 +71,11 @@ pub fn abrir(ruta: &Path) -> Result<Box<dyn Lector>> {
     {
         return Ok(Box::new(mf::LectorMf::abrir(ruta)?));
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        return Ok(Box::new(super::gst::LectorVideo::abrir(ruta)?));
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         return Err(AppError::Unsupported);
     }
@@ -543,7 +548,97 @@ pub fn importar(
     })
 }
 
-#[cfg(not(windows))]
+/// Lo mismo en Linux, con el GStreamer del sistema. Aqui cada fotograma se manda con lo que
+/// dura, asi que se espera al siguiente que se queda para saber cuanto dura el anterior.
+#[cfg(target_os = "linux")]
+pub fn importar(
+    origen: &Path,
+    destino: &Path,
+    cancelar: &AtomicBool,
+    progreso: &mut dyn FnMut(f32),
+) -> Result<Importado> {
+    use super::gst::{Escritor, Medidas};
+
+    if let Some(carpeta) = destino.parent() {
+        std::fs::create_dir_all(carpeta)?;
+    }
+    let parcial = destino.with_extension("parcial.mp4");
+    let vista = destino.with_extension("jpg");
+    let _ = std::fs::remove_file(&parcial);
+
+    let mut lector = abrir(origen)?;
+    let Some(primero) = lector.siguiente()? else {
+        return Err(AppError::Msg("ese archivo no tiene ni un fotograma".into()));
+    };
+    let (ancho, alto) = medida_importada(primero.imagen.width(), primero.imagen.height());
+    let opciones = crate::encode::mp4::Mp4Options { width: ancho, height: alto, fps: FPS, quality: 60 };
+
+    // Todo lo que puede fallar a medias va aquí dentro, para borrar el `.parcial` al salir
+    // por donde sea: cancelado, un fotograma roto o el disco lleno.
+    let escrito = (|| -> Result<u64> {
+        let medidas = Medidas { ancho, alto, fps: FPS, bitrate: opciones.bitrate() };
+        let mut escritor = Escritor::abrir(&parcial, &medidas, None)?;
+        let paso_ms = 1000.0 / f64::from(FPS);
+        let origen_ms = primero.desde_ms;
+        let mut siguiente_ms = 0.0f64;
+        // El que se queda, esperando a saber cuánto dura: hasta que llega el siguiente.
+        let mut pendiente: Option<(Vec<u8>, u64)> = None;
+        let mut fin_ms = 0u64;
+        let mut cuadro = Some(primero);
+        let mut vista_hecha = false;
+        while let Some(c) = cuadro {
+            if cancelar.load(Ordering::Relaxed) {
+                return Err(AppError::Msg(CANCELADO.into()));
+            }
+            let ms = c.desde_ms.saturating_sub(origen_ms);
+            fin_ms = fin_ms.max(ms + c.dura_ms);
+            // A 30 por segundo como mucho: de un vídeo a 60 se queda uno de cada dos.
+            if ms as f64 + 0.5 >= siguiente_ms {
+                let imagen = crate::encode::escalar::a_medida(&c.imagen, ancho, alto);
+                if !vista_hecha {
+                    crate::encode::jpg::save(&imagen, &vista, ancho, alto, 85)?;
+                    vista_hecha = true;
+                }
+                if let Some((anterior, desde)) = pendiente.take() {
+                    escritor.imagen(anterior, desde, ms.saturating_sub(desde).max(1))?;
+                }
+                pendiente = Some((imagen.into_raw(), ms));
+                while siguiente_ms <= ms as f64 + 0.5 {
+                    siguiente_ms += paso_ms;
+                }
+            }
+            progreso(lector.leido());
+            cuadro = lector.siguiente()?;
+        }
+        // El último dura hasta donde acaba el vídeo.
+        if let Some((ultimo, desde)) = pendiente {
+            escritor.imagen(ultimo, desde, fin_ms.saturating_sub(desde).max(1))?;
+        }
+        escritor.cerrar()?;
+        Ok(fin_ms)
+    })();
+
+    let dura_ms = match escrito {
+        Ok(ms) => ms,
+        Err(e) => {
+            borrar_con_paciencia(&parcial);
+            let _ = std::fs::remove_file(&vista);
+            return Err(e);
+        }
+    };
+    let _ = std::fs::remove_file(destino);
+    std::fs::rename(&parcial, destino)?;
+    progreso(1.0);
+    Ok(Importado {
+        ruta: destino.to_string_lossy().to_string(),
+        vista: vista.to_string_lossy().to_string(),
+        ancho,
+        alto,
+        dura_ms,
+    })
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn importar(
     _origen: &Path,
     _destino: &Path,

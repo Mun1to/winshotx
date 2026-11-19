@@ -158,7 +158,7 @@ fn un_fondo_animado_se_mueve_en_el_gif_aunque_la_pantalla_este_quieta() {
 
 /// Un MP4 de prueba hecho con el codificador de casa: `fotogramas` a 30 por segundo, cada uno
 /// de un color que va girando, para que el fondo cambie de verdad.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 fn video_de_prueba(ruta: &Path, ancho: u32, alto: u32, fotogramas: usize) {
     let indices: Vec<usize> = (0..fotogramas).collect();
     let retardos = vec![33u32; fotogramas];
@@ -184,9 +184,11 @@ fn video_de_prueba(ruta: &Path, ancho: u32, alto: u32, fotogramas: usize) {
 /// escribe), exportar con él de fondo, y leer el MP4 exportado para ver que el fondo cambia.
 ///
 ///     cargo test --lib exporter::pruebas_de_fondos -- --ignored --nocapture
+///
+/// En Linux corre siempre, con el GStreamer del sistema: importar, exportar y volver a leer.
 #[test]
-#[cfg(windows)]
-#[ignore = "necesita el codificador y el lector de Windows: se corre a mano"]
+#[cfg(any(windows, target_os = "linux"))]
+#[cfg_attr(windows, ignore = "necesita el codificador y el lector de Windows: se corre a mano")]
 fn un_video_importado_se_mueve_en_el_mp4() {
     let session = sesion_quieta("mp4-animado", 2_000);
     let origen = session.dir.join("origen.mp4");
@@ -225,8 +227,8 @@ fn un_video_importado_se_mueve_en_el_mp4() {
 
 /// Cancelar a medias no deja nada: ni el `.parcial`, ni la vista, ni el MP4.
 #[test]
-#[cfg(windows)]
-#[ignore = "necesita el codificador y el lector de Windows: se corre a mano"]
+#[cfg(any(windows, target_os = "linux"))]
+#[cfg_attr(windows, ignore = "necesita el codificador y el lector de Windows: se corre a mano")]
 fn cancelar_la_importacion_a_medias_no_deja_archivos() {
     let dir = std::env::temp_dir().join(format!("winshotx-s3-cancelar-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
