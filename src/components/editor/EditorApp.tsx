@@ -1162,10 +1162,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             </div>
             </div>
             </div>
-            {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo. */}
+            {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo.
+                La letra es blanca y no la del tema: el fondo es negro también con el tema claro. */}
             {aviso && (
               <div className="pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2">
-                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-titulo shadow-lg backdrop-blur-md">
+                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-white shadow-lg backdrop-blur-md">
                   {aviso}
                 </span>
               </div>

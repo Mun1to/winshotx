@@ -85,3 +85,32 @@ it("si no encuentra nada, lo dice y no pone nada", async () => {
   expect(await screen.findByText("No he encontrado datos personales en el vídeo")).toBeInTheDocument();
   expect(container.querySelector("[data-pista-tapar]")).toBeNull();
 });
+
+/** Una captura suelta: una sesión sin tiempo dentro. */
+function prepararFoto() {
+  responde("session_info", {
+    id: "s1",
+    region: { x: 0, y: 0, width: 800, height: 400 },
+    fps: 30,
+    frameCount: 1,
+    durationMs: 0,
+    hasAudio: false,
+    format: "still",
+    mp4Path: null,
+  });
+  responde("session_frames", [{ index: 0, timestampMs: 0, durationMs: 33, thumbPath: "C:\t\0.png" }]);
+  responde("get_settings", { saveDirectory: "C:\capturas", theme: "oscuro", language: "es" });
+  responde("ffmpeg_available", false);
+}
+
+it("el aviso del editor lleva letra blanca sobre su fondo negro, también con el tema claro", async () => {
+  prepararFoto();
+  responde("tapar_datos", { marcas: [], resumen: [] });
+  render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+  fireEvent.keyDown(window, { key: "d" });
+  const aviso = await screen.findByText("No he encontrado datos personales en esta imagen");
+  // Con la letra del tema (`text-titulo`), en claro salía casi negra sobre negro.
+  expect(aviso.className).toContain("text-white");
+  expect(aviso.className).not.toContain("text-titulo");
+});
