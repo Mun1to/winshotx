@@ -163,11 +163,27 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     let preparada = record::linux::preparar(region.to_even(), fps, opciones)?;
     let region = preparada.region();
     let raton_cocido = preparada.raton_cocido();
-    std::thread::sleep(QUE_SE_VAYA_EL_OVERLAY);
 
     let id = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
     let dir = state.session_dir(&id);
     std::fs::create_dir_all(&dir)?;
+    // La webcam se enciende en cuanto se sabe que se va a grabar (en Wayland, cuando la
+    // persona ya ha contestado al escritorio: antes tendria la luz encendida delante de una
+    // pregunta), y lee y tira imagenes en su hilo hasta que se le manda grabar. Como en
+    // Windows, la pantalla y el reloj no arrancan hasta que da su primera imagen, y como
+    // mucho `TOPE_DE_LA_CAMARA`: si no la da para entonces se graba igual, y entra cuando
+    // llegue. Que venga en `options` (un agente) manda sobre los ajustes.
+    let camara_pedida = {
+        let ajustes = state.settings.read();
+        options.camara.unwrap_or(ajustes.record_camera).then(|| ajustes.camera_device.clone())
+    };
+    let encendida_en = Instant::now();
+    let mut camara = camara_pedida.map(|dispositivo| record::camara::Encendida::encender(dispositivo, &dir));
+    std::thread::sleep(QUE_SE_VAYA_EL_OVERLAY);
+    if let Some(camara) = camara.as_mut() {
+        let estado = camara.esperar_imagen(super::falta_por_la_camara(encendida_en.elapsed()));
+        eprintln!("[grabar] la cámara a los {} ms de encenderla: {estado:?}", encendida_en.elapsed().as_millis());
+    }
 
     let session_seed = SessionData {
         id: id.clone(),
@@ -226,6 +242,11 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         fin_ms.clone(),
     );
     let en_marcha = preparada.grabar(marcha, sender, reciclados.clone());
+    // La webcam, ya encendida, empieza a guardar en su archivo con el mismo reloj: lo que
+    // saco antes del cero no entra (`camara_comun::Toma`).
+    let camara = camara.map(|camara| {
+        camara.grabar(record::reloj::Reloj { start: reloj_inicio, paused_ms: paused_ms.clone() }, pause.clone())
+    });
 
     let writer_frames = frames_counter.clone();
     let writer_bytes = bytes_counter.clone();
@@ -240,7 +261,16 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         let mut last_ts = 0u64;
         // El fin no puede depender de que el canal se cierre: con la pantalla quieta no
         // llegan fotogramas y el hilo se quedaria esperando.
+        let mut parado = false;
         loop {
+            // Al parar, la camara se avisa YA y no cuando este hilo acabe su cola de
+            // fotogramas: mientras tanto seguiria grabando, con su luz encendida.
+            if !parado && writer_stop.load(Ordering::Relaxed) {
+                if let Some(camara) = camara.as_ref() {
+                    camara.avisar();
+                }
+                parado = true;
+            }
             let mut frame = match receiver.recv_timeout(Duration::from_millis(200)) {
                 Ok(frame) => frame,
                 Err(RecvTimeoutError::Timeout) => {
@@ -264,6 +294,10 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
                 }
             }
             reciclados.devolver(frame.rgba);
+        }
+        // La camara va cerrando su archivo mientras aqui se cierra el resto.
+        if let Some(camara) = camara.as_ref() {
+            camara.avisar();
         }
         // Cuanto se grabo de verdad, y no el instante del ultimo fotograma: con el final
         // quieto no llega ninguno, y el video se cortaria donde llego el ultimo.
@@ -301,6 +335,18 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
                     archivo: archivo.to_string_lossy().to_string(),
                 });
             }
+        }
+        // La camara se espera aqui, antes de mirar si se descarta: si no, su hilo seguiria
+        // escribiendo en una carpeta que se esta borrando.
+        if let Some(pista) = camara.and_then(record::camara::Grabadora::terminar) {
+            let primer_fotograma = session.frames.first().map_or(0, |f| f.timestamp_ms);
+            session.camara = Some(crate::contrato::CamaraGrabada {
+                archivo: pista.archivo,
+                ancho: pista.ancho,
+                alto: pista.alto,
+                desfase_ms: record::camara::desfase(pista.primer_ms, primer_fotograma),
+            });
+            eprintln!("[grabar] cámara: {}x{}", pista.ancho, pista.alto);
         }
         if writer_descartar.load(Ordering::Relaxed) {
             return Ok(session);

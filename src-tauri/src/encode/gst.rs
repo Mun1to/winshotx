@@ -38,7 +38,7 @@ const PACIENCIA: Duration = Duration::from_secs(60);
 /// Lo que se espera al siguiente fotograma de un video que se lee.
 const PACIENCIA_AL_LEER: Duration = Duration::from_secs(30);
 
-fn encender() -> Result<()> {
+pub(crate) fn encender() -> Result<()> {
     static HECHO: OnceLock<std::result::Result<(), String>> = OnceLock::new();
     HECHO
         .get_or_init(|| gst::init().map_err(|e| format!("GStreamer no arranca: {e}")))
@@ -46,12 +46,12 @@ fn encender() -> Result<()> {
         .map_err(AppError::Msg)
 }
 
-fn mal(texto: impl Into<String>) -> AppError {
+pub(crate) fn mal(texto: impl Into<String>) -> AppError {
     AppError::Msg(texto.into())
 }
 
 /// El error que haya dejado la tuberia, si ha dejado alguno.
-fn error_de(bus: &gst::Bus) -> Option<String> {
+pub(crate) fn error_de(bus: &gst::Bus) -> Option<String> {
     let mensaje = bus.pop_filtered(&[gst::MessageType::Error])?;
     match mensaje.view() {
         gst::MessageView::Error(e) => Some(e.error().to_string()),
@@ -67,7 +67,7 @@ fn monta(texto: &str) -> Result<gst::Pipeline> {
         .map_err(|_| mal("GStreamer no ha devuelto una tuberia"))
 }
 
-fn pieza<T: IsA<gst::Element>>(tuberia: &gst::Pipeline, nombre: &str) -> Result<T> {
+pub(crate) fn pieza<T: IsA<gst::Element>>(tuberia: &gst::Pipeline, nombre: &str) -> Result<T> {
     tuberia
         .by_name(nombre)
         .and_then(|e| e.downcast::<T>().ok())

@@ -14,8 +14,11 @@ pub mod anotador;
 #[cfg(windows)]
 pub mod camara;
 pub mod camara_comun;
-/// Fuera de Windows todavía no se sabe abrir una cámara: los ajustes la ven vacía.
-#[cfg(not(windows))]
+/// La cámara de Linux: la da el GStreamer del sistema.
+#[cfg(target_os = "linux")]
+pub use linux::camara;
+/// En los demás sistemas no se sabe abrir una cámara: los ajustes la ven vacía.
+#[cfg(not(any(windows, target_os = "linux")))]
 pub mod camara {
     /// Una cámara conectada, para elegirla en los ajustes.
     #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
