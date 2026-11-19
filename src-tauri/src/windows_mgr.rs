@@ -764,7 +764,7 @@ fn esconder_cuenta_atras(app: &AppHandle) {
 
 fn build_overlay_window(app: &AppHandle, label: &str, monitor_id: u32) -> Result<tauri::WebviewWindow> {
     let url = WebviewUrl::App(format!("overlay.html?monitor={monitor_id}").into());
-    Ok(WebviewWindowBuilder::new(app, label, url)
+    let constructor = WebviewWindowBuilder::new(app, label, url)
         .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx")
         .decorations(false)
@@ -774,9 +774,23 @@ fn build_overlay_window(app: &AppHandle, label: &str, monitor_id: u32) -> Result
         .maximizable(false)
         .minimizable(false)
         .shadow(false)
-        .visible(false)
-        .build()?)
+        .visible(false);
+    // En Linux la ventana se crea escondida (no se puede aparcar fuera de la pantalla, ver
+    // `SE_PUEDE_APARCAR`), y una ventana escondida de WebKitGTK no pinta: la primera vez que
+    // se ensenna, su primer cuadro se paga ya a la vista. Hasta que llega, lo que tapa la
+    // pantalla entera es el fondo de la ventana, que de fabrica es el gris claro de GTK.
+    // Medido con el binario de release y la pantalla pintada por CPU: 1,7 s en X11 y 1,5 s en
+    // GNOME en la primera captura tras arrancar (en las siguientes, con la ventana ya pintada,
+    // ni un cuadro). Con el oscuro de la pantalla de carga (`BootScreen`) no hay fogonazo.
+    #[cfg(target_os = "linux")]
+    let constructor = constructor.background_color(FONDO_DEL_OVERLAY);
+    Ok(constructor.build()?)
 }
+
+/// El fondo de la ventana de la captura en Linux mientras no ha pintado: el `#111113` de la
+/// pantalla de carga del overlay (`BootScreen.tsx`).
+#[cfg(target_os = "linux")]
+const FONDO_DEL_OVERLAY: tauri::window::Color = tauri::window::Color(0x11, 0x11, 0x13, 0xff);
 
 /// Crea de antemano las ventanas overlay de los monitores actuales, aparcadas, sin esperar
 /// a la primera captura del dia. Se llama una vez al arrancar la app: en ese momento no
