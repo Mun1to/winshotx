@@ -69,11 +69,32 @@ impl Pendientes {
         lista
     }
 
-    /// Ese monitor avisa de que tiene su imagen cuando el rescate ya lo habia ensennado.
-    fn pintada_tarde(&mut self, monitor_id: u32, generacion: u64) {
-        if self.generacion == generacion {
-            self.sin_pintar.retain(|id| *id != monitor_id);
+    /// La pagina de ese monitor avisa de que tiene su imagen pintada (`overlay_listo`).
+    ///
+    /// Si su ventana seguia esperando, la saca de la lista para ensennarla y decide si le toca
+    /// el foco: a la pantalla del raton, o a la ultima que quede si el raton no esta en
+    /// ninguna. Si el rescate ya la habia ensennado (una ventana lenta), deja de contar como
+    /// sin pintar, y `RESCATE` no la cierra. Un aviso de otra captura no hace nada.
+    fn avisa(&mut self, monitor_id: u32, generacion: u64) -> Option<(String, MonitorInfo, bool)> {
+        if self.generacion != generacion {
+            return None;
         }
+        let Some(posicion) = self.ventanas.iter().position(|(id, _, _)| *id == monitor_id) else {
+            self.sin_pintar.retain(|id| *id != monitor_id);
+            return None;
+        };
+        let (_, label, monitor) = self.ventanas.remove(posicion);
+        let cursor = self.cursor;
+        let es_la_del_raton = cursor.is_some_and(|(x, y)| monitor.contains(x, y));
+        let otra_lo_tendra = self
+            .ventanas
+            .iter()
+            .any(|(_, _, m)| cursor.is_some_and(|(x, y)| m.contains(x, y)));
+        let con_foco = !self.con_foco && (es_la_del_raton || !otra_lo_tendra);
+        if con_foco {
+            self.con_foco = true;
+        }
+        Some((label, monitor, con_foco))
     }
 
     /// Si de ESA captura sigue a la vista alguna ventana que no ha pintado su imagen.
@@ -433,38 +454,15 @@ fn esperar_a_que_se_vea(monitor_id: u32, generacion: u64) {
 pub fn overlay_listo(app: &AppHandle, monitor_id: u32, generacion: u64) {
     let dentro = app.clone();
     let _ = app.run_on_main_thread(move || {
-        let Some((label, monitor, con_foco)) = sacar_pendiente(monitor_id, generacion) else {
+        // El candado se suelta al acabar esta linea: ensennar una ventana no lo necesita.
+        let Some((label, monitor, con_foco)) = PENDIENTES.lock().avisa(monitor_id, generacion)
+        else {
             // De una captura anterior, o ya ensennada por el rescate: no hay nada que ensennar.
-            // Si es de esta, ya tiene su imagen y `RESCATE` no tiene por que cerrarla.
-            PENDIENTES.lock().pintada_tarde(monitor_id, generacion);
             return;
         };
         ensennar_overlay(&dentro, &label, &monitor, con_foco);
         crate::crono::marca(&format!("mostrada-{monitor_id}"));
     });
-}
-
-/// Saca de la lista de pendientes la ventana de ese monitor, si es de esta captura, y
-/// decide si le toca el foco: a la pantalla del raton, o a la ultima que quede si el raton
-/// no esta en ninguna.
-fn sacar_pendiente(monitor_id: u32, generacion: u64) -> Option<(String, MonitorInfo, bool)> {
-    let mut pendientes = PENDIENTES.lock();
-    if pendientes.generacion != generacion {
-        return None;
-    }
-    let posicion = pendientes.ventanas.iter().position(|(id, _, _)| *id == monitor_id)?;
-    let (_, label, monitor) = pendientes.ventanas.remove(posicion);
-    let cursor = pendientes.cursor;
-    let es_la_del_raton = cursor.is_some_and(|(x, y)| monitor.contains(x, y));
-    let otra_lo_tendra = pendientes
-        .ventanas
-        .iter()
-        .any(|(_, _, m)| cursor.is_some_and(|(x, y)| m.contains(x, y)));
-    let con_foco = !pendientes.con_foco && (es_la_del_raton || !otra_lo_tendra);
-    if con_foco {
-        pendientes.con_foco = true;
-    }
-    Some((label, monitor, con_foco))
 }
 
 /// La coloca en su pantalla y la ensenna. Siempre desde el hilo principal.
@@ -1588,7 +1586,18 @@ mod tests {
     fn si_avisa_despues_de_ensennarse_no_se_cierra() {
         let mut pendientes = pendientes_de(3, &[0]);
         pendientes.sacar_las_que_falten(3);
-        pendientes.pintada_tarde(0, 3);
+        assert!(pendientes.avisa(0, 3).is_none(), "ya esta a la vista: no hay nada que ensennar");
+        assert!(!pendientes.queda_sin_pintar(3));
+    }
+
+    /// El camino de siempre: avisa antes del rescate, se ensenna con el foco y no queda apuntada.
+    #[test]
+    fn la_que_avisa_a_tiempo_se_ensenna_y_no_hay_nada_que_cerrar() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        let (label, _, con_foco) = pendientes.avisa(0, 3).expect("estaba esperando su aviso");
+        assert_eq!(label, format!("{OVERLAY_PREFIX}0"));
+        assert!(con_foco, "la unica que hay se lleva el foco");
+        assert!(pendientes.sacar_las_que_falten(3).is_empty());
         assert!(!pendientes.queda_sin_pintar(3));
     }
 
@@ -1596,7 +1605,7 @@ mod tests {
     fn el_aviso_de_una_captura_anterior_no_la_da_por_pintada() {
         let mut pendientes = pendientes_de(3, &[0]);
         pendientes.sacar_las_que_falten(3);
-        pendientes.pintada_tarde(0, 2);
+        assert!(pendientes.avisa(0, 2).is_none());
         assert!(pendientes.queda_sin_pintar(3));
     }
 
@@ -1604,9 +1613,9 @@ mod tests {
     fn con_dos_pantallas_basta_una_sin_pintar() {
         let mut pendientes = pendientes_de(3, &[0, 1]);
         assert_eq!(pendientes.sacar_las_que_falten(3).len(), 2);
-        pendientes.pintada_tarde(1, 3);
+        pendientes.avisa(1, 3);
         assert!(pendientes.queda_sin_pintar(3), "la pantalla 0 sigue sin su imagen");
-        pendientes.pintada_tarde(0, 3);
+        pendientes.avisa(0, 3);
         assert!(!pendientes.queda_sin_pintar(3));
     }
 
