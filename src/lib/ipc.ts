@@ -212,6 +212,13 @@ export const cambiarTeclasEnElEscritorio = () => invoke<void>("cambiar_teclas_en
 export const copiarOrdenDelAtajo = (accion: "capture" | "edit" | "record") =>
   invoke<void>("copiar_orden_del_atajo", { accion });
 
+/**
+ * Deja en el registro de la app algo que le ha pasado al editor y que no se enseña en pantalla.
+ * Nunca falla hacia fuera: apuntar algo no puede romper lo que se estaba haciendo.
+ */
+export const apuntarDelEditor = (texto: string) =>
+  void invoke<void>("apuntar_del_editor", { texto }).catch(() => undefined);
+
 /** Qué sonido se puede grabar aquí, o null donde no hay nada que avisar (Windows). */
 export const sonidoDisponible = () => invoke<SonidoDisponible | null>("sonido_disponible");
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type RefObject } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { urlDeMedio } from "../../lib/medios";
 import type { VolumenDePista } from "../../lib/contrato";
 import { seguirAlVideo, volumenEnVista, type EstadoDePista } from "../../lib/pistas";
 
@@ -85,8 +85,8 @@ export function SonidoPorPistas({
     };
   }, [videoRef]);
 
-  const urlPc = useMemo(() => (sonidoPc ? convertFileSrc(sonidoPc) : null), [sonidoPc]);
-  const urlVoz = useMemo(() => (microfono ? convertFileSrc(microfono) : null), [microfono]);
+  const urlPc = useMemo(() => (sonidoPc ? urlDeMedio(sonidoPc) : null), [sonidoPc]);
+  const urlVoz = useMemo(() => (microfono ? urlDeMedio(microfono) : null), [microfono]);
   const fallo = (cual: string) => (e: React.SyntheticEvent<HTMLAudioElement>) =>
     onFallo?.(`${cual}: ${e.currentTarget.error?.message || "no se puede abrir"}`);
 

@@ -9,13 +9,14 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { FondoElegido } from "../../lib/contrato";
 import { vistaDelVideo } from "../../lib/fondos";
+import { urlDeMedio } from "../../lib/medios";
 
 export function FondoVivo({ elegido }: { elegido?: FondoElegido | null }) {
   if (elegido?.tipo !== "video") return null;
   return (
     <video
       key={elegido.ruta}
-      src={convertFileSrc(elegido.ruta)}
+      src={urlDeMedio(elegido.ruta)}
       poster={convertFileSrc(vistaDelVideo(elegido.ruta))}
       autoPlay
       loop

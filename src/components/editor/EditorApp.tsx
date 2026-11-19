@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Pause, Play, VideoOff, Volume1, Volume2, VolumeX } from "lucide-react";
 import {
+  apuntarDelEditor,
   discardSession,
   ffmpegAvailable,
   frameImage,
@@ -21,6 +22,7 @@ import {
   tapaDatos,
 } from "../../lib/ipc";
 import { formatTimecode } from "../../lib/format";
+import { urlDeMedio } from "../../lib/medios";
 import {
   EVENTS,
   type AvisoVistaPrevia,
@@ -677,7 +679,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca, hayVideo, cambiarVista, copiarTexto, taparDatos]);
 
   const videoUrl = useMemo(
-    () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
+    () => (session?.mp4Path ? urlDeMedio(session.mp4Path) : null),
     [session],
   );
 
@@ -1102,6 +1104,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   msParado={posicionMs}
                   onFallo={(motivo) => {
                     console.warn(`[winshotx] la pista no suena en la vista previa (${motivo}): suena el vídeo`);
+                    // Al registro de la app también: la consola de la página no la ve nadie.
+                    apuntarDelEditor(`la pista no suena en la vista previa (${motivo})`);
                     setPistasRotas(true);
                   }}
                 />

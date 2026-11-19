@@ -8,6 +8,8 @@ pub mod enlaces;
 pub mod error;
 mod exporter;
 mod hotkeys;
+// S44 (Linux, grabar): el servidor de 127.0.0.1 por el que el editor lee el video y el sonido.
+mod medios;
 mod platform;
 pub mod record;
 mod recorder;
@@ -449,6 +451,7 @@ pub fn run() {
             commands::plataforma,
             commands::teclas_del_escritorio,
             commands::sonido_disponible,
+            commands::apuntar_del_editor,
             commands::cambiar_teclas_en_el_escritorio,
             commands::copiar_orden_del_atajo,
             commands::list_screens,

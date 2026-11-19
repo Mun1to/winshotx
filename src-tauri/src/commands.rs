@@ -960,6 +960,19 @@ pub fn plataforma() -> Plataforma {
     Plataforma { sistema, wayland }
 }
 
+/// Deja en el registro de la app algo que le ha pasado a la pagina del editor y que no se
+/// ensenna en pantalla (una pista de sonido que no abre). Sin esto solo quedaba en la consola
+/// de la pagina, que en una app instalada no ve nadie.
+#[tauri::command]
+pub fn apuntar_del_editor(texto: String) {
+    eprintln!("[editor] {}", linea_del_editor(&texto));
+}
+
+/// Lo que se apunta de lo que manda la pagina: una sola linea y corta, venga lo que venga.
+fn linea_del_editor(texto: &str) -> String {
+    texto.chars().map(|c| if c.is_control() { ' ' } else { c }).take(300).collect()
+}
+
 /// Que sonido se puede grabar en este sistema.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1527,5 +1540,19 @@ mod pruebas_de_tapar {
         let linea = vec![palabra("hola", 0.0, 0.0, 10.0, 10.0)];
         assert!(caja_de(&linea, &[7], 100.0, 100.0).is_none(), "un índice que no existe");
         assert!(caja_de(&linea, &[0], 0.0, 100.0).is_none(), "una imagen sin ancho");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_del_registro_del_editor {
+    use super::linea_del_editor;
+
+    /// Lo que manda la pagina va a una sola linea del registro: ni saltos que se hagan pasar
+    /// por otras lineas, ni un texto sin fin.
+    #[test]
+    fn lo_que_apunta_el_editor_es_una_linea_corta() {
+        assert_eq!(linea_del_editor("la pista no suena (pc: no se puede abrir)"), "la pista no suena (pc: no se puede abrir)");
+        assert_eq!(linea_del_editor("uno\n[grabar] mentira\r\tdos"), "uno [grabar] mentira  dos");
+        assert_eq!(linea_del_editor(&"a".repeat(5000)).chars().count(), 300);
     }
 }

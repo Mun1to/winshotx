@@ -1220,7 +1220,7 @@ fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Re
     );
     let url = WebviewUrl::App(format!("editor.html?session={session_id}").into());
     let (ancho, alto) = medida_del_editor(app);
-    let window = WebviewWindowBuilder::new(app, &label, url)
+    let constructor = WebviewWindowBuilder::new(app, &label, url)
         .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx · editor")
         .decorations(true)
@@ -1228,8 +1228,18 @@ fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Re
         .inner_size(ancho, alto)
         .min_inner_size(760.0, 520.0)
         .center()
-        .visible(true)
-        .build()?;
+        .visible(true);
+    // En Linux el video y el sonido no se pueden leer por `asset:` (los reproduce GStreamer,
+    // que no conoce ese protocolo): el editor los pide a un servidor de 127.0.0.1, y se le
+    // dice por donde antes de que cargue la pagina (`src/lib/medios.ts`).
+    #[cfg(target_os = "linux")]
+    let constructor = match crate::medios::base(&app.state::<AppState>().temp_root) {
+        // La direccion la hace Rust con un puerto y una ficha en hexadecimal: no lleva nada
+        // que haya que escapar dentro de las comillas.
+        Some(base) => constructor.initialization_script(&format!("window.__WINSHOTX_MEDIOS__ = \"{base}\";")),
+        None => constructor,
+    };
+    let window = constructor.build()?;
     // Sin `rounded_corners`: eso es para las ventanas sin marco. El marco del sistema ya
     // trae las esquinas que Windows quiere, y forzarlas encima deja un borde raro.
     let _ = window.set_min_size(Some(LogicalSize::new(760.0, 520.0)));
