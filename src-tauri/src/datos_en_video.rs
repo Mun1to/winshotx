@@ -590,17 +590,21 @@ pub fn lector_de_windows() -> Result<impl FnMut(&RgbaImage, Franja) -> Result<Ve
             trozo.height() as i32,
         )?;
         let resultado = motor.RecognizeAsync(&mapa)?.join()?;
+        // Si el lector ve el texto torcido, sus cajas vienen en la imagen que él endereza y
+        // no en la que se le pasó: sin deshacer ese giro, la tapa cae al lado del dato.
+        let giro = crate::platform::ocr::Giro::de(&resultado, trozo.width(), trozo.height());
         let mut datos = Vec::new();
         for linea in resultado.Lines()? {
             let mut palabras = Vec::new();
             for palabra in linea.Words()? {
                 let caja = palabra.BoundingRect()?;
+                let (x, y, ancho_de_la_caja, alto_de_la_caja) = giro.caja(caja.X, caja.Y, caja.Width, caja.Height);
                 palabras.push(crate::sensibles::Palabra {
                     texto: palabra.Text()?.to_string_lossy(),
-                    x: caja.X,
-                    y: caja.Y,
-                    ancho: caja.Width,
-                    alto: caja.Height,
+                    x,
+                    y,
+                    ancho: ancho_de_la_caja,
+                    alto: alto_de_la_caja,
                 });
             }
             datos.extend(datos_de_linea(&palabras, franja.y1 as f32, escala));

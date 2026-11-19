@@ -115,8 +115,7 @@ fn lineas_de(
                 .map_err(no_se_abre)?
         };
         let resultado = motor.RecognizeAsync(&mapa)?.join()?;
-        let grados = resultado.TextAngle().and_then(|angulo| angulo.Value()).unwrap_or(0.0);
-        let giro = Giro::nuevo(grados, ancho_leido, alto_tira);
+        let giro = Giro::de(&resultado, ancho_leido, alto_tira);
 
         let mut de_esta = Vec::new();
         for linea in resultado.Lines()? {
@@ -180,8 +179,10 @@ fn lineas_de(
 /// cajas caían a 30 px de su palabra a tres grados y a 68 a seis; con esto, a uno.
 ///
 /// Pasa también con texto recto: en alguna tira el lector dice dos grados donde no los hay.
+///
+/// Lo usa también `datos_en_video::lector_de_windows`, que lee los fotogramas por su cuenta.
 #[cfg(windows)]
-struct Giro {
+pub(crate) struct Giro {
     seno: f32,
     coseno: f32,
     cx: f32,
@@ -190,14 +191,16 @@ struct Giro {
 
 #[cfg(windows)]
 impl Giro {
-    fn nuevo(grados: f64, ancho: u32, alto: u32) -> Self {
+    /// El giro de una lectura, sobre la imagen de `ancho` x `alto` que se le pasó al lector.
+    pub(crate) fn de(resultado: &windows::Media::Ocr::OcrResult, ancho: u32, alto: u32) -> Self {
+        let grados = resultado.TextAngle().and_then(|angulo| angulo.Value()).unwrap_or(0.0);
         let (seno, coseno) = (grados as f32).to_radians().sin_cos();
         Self { seno, coseno, cx: ancho as f32 / 2.0, cy: alto as f32 / 2.0 }
     }
 
     /// La caja de una palabra en la imagen que se le pasó al lector: el rectángulo recto que
     /// envuelve a la suya ya girada. Sin giro es la misma, sin tocar.
-    fn caja(&self, x: f32, y: f32, ancho: f32, alto: f32) -> (f32, f32, f32, f32) {
+    pub(crate) fn caja(&self, x: f32, y: f32, ancho: f32, alto: f32) -> (f32, f32, f32, f32) {
         if self.seno == 0.0 {
             return (x, y, ancho, alto);
         }
@@ -1199,6 +1202,62 @@ pub(crate) mod pruebas {
                     "a {grados} grados, la caja de {:?} está a {:.0} px de su palabra",
                     recta.texto,
                     ex.hypot(ey)
+                );
+            }
+        }
+    }
+
+    /// Tapar datos en un vídeo lee por su cuenta (`datos_en_video::lector_de_windows`, en gris
+    /// y sin pasar por PNG) y tampoco deshacía el giro del lector: en un fotograma con el
+    /// texto torcido, la tapa del correo caía a decenas de píxeles del correo. Tiene que
+    /// cubrirlo entero, de esquina a esquina. Vive aquí porque el giro es de este archivo.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn la_tapa_de_un_fotograma_torcido_cubre_su_dato() {
+        use crate::datos_en_video::{Franja, lector_de_windows};
+        let (ancho, alto) = (1800u32, 700u32);
+        let png = pintar_textos(
+            &[(80, "Factura numero 2026 para Zaragoza"), (300, "munir@example.com es el contacto")],
+            ancho as i32,
+            alto as i32,
+        );
+        let recta = image::load_from_memory(&png).expect("el PNG de prueba").to_rgba8();
+        let correo = leer_palabras(&png)
+            .expect("leer")
+            .into_iter()
+            .flatten()
+            .find(|p| p.texto.contains('@'))
+            .expect("el correo en la imagen recta");
+
+        let mut leer = lector_de_windows().expect("el lector de Windows");
+        let (cx, cy) = (ancho as f32 / 2.0, alto as f32 / 2.0);
+        for grados in [-6.0f32, -3.0, 3.0, 6.0] {
+            let torcida = girar(&recta, grados as f64);
+            let datos = leer(&torcida, Franja { y1: 0, y2: alto }).expect("leer el fotograma");
+            let tapa = datos
+                .iter()
+                .find(|d| d.clase == crate::sensibles::Clase::Correo)
+                .unwrap_or_else(|| panic!("a {grados} grados no ha encontrado el correo: {datos:?}"))
+                .caja;
+            let (seno, coseno) = grados.to_radians().sin_cos();
+            let esquinas = [
+                (correo.x, correo.y),
+                (correo.x + correo.ancho, correo.y),
+                (correo.x, correo.y + correo.alto),
+                (correo.x + correo.ancho, correo.y + correo.alto),
+            ];
+            for (x, y) in esquinas {
+                // Dónde ha ido a parar esta esquina del correo al girar el fotograma.
+                let (dx, dy) = (x - cx, y - cy);
+                let (x, y) = (cx + dx * coseno - dy * seno, cy + dx * seno + dy * coseno);
+                assert!(
+                    x >= tapa.x1 - 3.0 && x <= tapa.x2 + 3.0 && y >= tapa.y1 - 3.0 && y <= tapa.y2 + 3.0,
+                    "a {grados} grados, una esquina del correo está en ({x:.0}, {y:.0}) y la tapa va de \
+                     ({:.0}, {:.0}) a ({:.0}, {:.0})",
+                    tapa.x1,
+                    tapa.y1,
+                    tapa.x2,
+                    tapa.y2
                 );
             }
         }
