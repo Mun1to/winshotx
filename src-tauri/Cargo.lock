@@ -6306,6 +6306,7 @@ dependencies = [
  "gif",
  "gtk",
  "image",
+ "libc",
  "parking_lot",
  "qoi",
  "quircs",
@@ -6325,6 +6326,7 @@ dependencies = [
  "windows 0.62.2",
  "windows-capture",
  "windows-future 0.3.2",
+ "x11rb",
  "xcap",
 ]
 

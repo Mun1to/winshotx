@@ -850,7 +850,16 @@ fn escala_del_marco(region: Rect) -> f64 {
         .unwrap_or(1.0)
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+mod linux;
+
+/// En Linux los fotogramas salen de X11 o del portal de Wayland: ver `recorder/linux.rs`.
+#[cfg(target_os = "linux")]
+pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<SessionInfo> {
+    linux::start(app, region, options)
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn start(_app: &AppHandle, _region: Rect, _options: RecordOptions) -> Result<SessionInfo> {
     Err(AppError::Unsupported)
 }
@@ -998,6 +1007,8 @@ pub fn stop(app: &AppHandle) -> Result<()> {
     avisar_barra(app, tick_de(&recording, true));
     crate::tray_menu::fuera_de_la_grabacion(app, false);
     crate::miniatura::fuera_de_la_grabacion(false);
+    #[cfg(target_os = "linux")]
+    crate::tray::al_cambiar_la_grabacion(app);
     let open_editor = state.settings.read().open_editor_after_recording;
     let barra = recording.barra.clone();
 
@@ -1198,6 +1209,8 @@ pub fn parar_sin_editor(app: &AppHandle, solo: Option<&str>) -> Result<SessionDa
     avisar_barra(app, tick_de(&recording, true));
     crate::tray_menu::fuera_de_la_grabacion(app, false);
     crate::miniatura::fuera_de_la_grabacion(false);
+    #[cfg(target_os = "linux")]
+    crate::tray::al_cambiar_la_grabacion(app);
     let barra = recording.barra.clone();
     let resultado = terminar(recording);
     cerrar_esta_barra(app, barra.as_deref());
@@ -1288,6 +1301,8 @@ pub fn cancel(app: &AppHandle) -> Result<()> {
     recording.descartar.store(true, Ordering::Relaxed);
     crate::tray_menu::fuera_de_la_grabacion(app, false);
     crate::miniatura::fuera_de_la_grabacion(false);
+    #[cfg(target_os = "linux")]
+    crate::tray::al_cambiar_la_grabacion(app);
     cerrar_barra(app, recording.barra.clone());
     std::thread::spawn(move || match terminar(recording) {
         Ok(session) => {

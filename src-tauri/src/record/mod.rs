@@ -45,6 +45,8 @@ mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
 mod letras;
+#[cfg(target_os = "linux")]
+pub mod linux;
 pub mod mezcla;
 pub mod pastilla;
 // S11 (pistas)

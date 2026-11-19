@@ -71,6 +71,13 @@ pub fn al_cambiar_los_ajustes(app: &AppHandle) {
     let _ = app;
 }
 
+/// Al empezar y al acabar una grabacion: la entrada de grabar del menu pasa a decir «parar», y
+/// vuelta. El menu del sistema no se puede dibujar al abrirse, asi que se rehace aqui.
+#[cfg(target_os = "linux")]
+pub fn al_cambiar_la_grabacion(app: &AppHandle) {
+    al_cambiar_los_ajustes(app);
+}
+
 /// El idioma en que habla la app fuera de sus ventanas (el menu de la bandeja, lo que se le
 /// cuenta al escritorio): el de los ajustes, o el del sistema si ahi pone «el del sistema».
 #[cfg(target_os = "linux")]
@@ -104,6 +111,8 @@ mod linux {
     /// (`src/lib/textos-en.ts` y `textos-zh.ts`).
     struct Textos {
         capturar: &'static str,
+        grabar: &'static str,
+        parar: &'static str,
         carpeta: &'static str,
         ajustes: &'static str,
         actualizar: &'static str,
@@ -114,6 +123,8 @@ mod linux {
         match idioma {
             "es" => Textos {
                 capturar: "Capturar región",
+                grabar: "Grabar región",
+                parar: "Parar la grabación",
                 carpeta: "Abrir la carpeta",
                 ajustes: "Ajustes",
                 actualizar: "Buscar actualizaciones",
@@ -121,6 +132,8 @@ mod linux {
             },
             "zh" => Textos {
                 capturar: "区域截图",
+                grabar: "录制区域",
+                parar: "停止录制",
                 carpeta: "打开截图文件夹",
                 ajustes: "设置",
                 actualizar: "检查更新",
@@ -128,6 +141,8 @@ mod linux {
             },
             _ => Textos {
                 capturar: "Capture a region",
+                grabar: "Record a region",
+                parar: "Stop recording",
                 carpeta: "Open the shots folder",
                 ajustes: "Settings",
                 actualizar: "Check for updates",
@@ -150,14 +165,16 @@ mod linux {
         }
     }
 
-    /// Grabar no esta todavia: en Linux `recorder::start` contesta que no se puede (Fase 2
-    /// del plan de Linux). Una entrada que no hace nada al pulsarla es peor que no tenerla.
+    /// La entrada de grabar dice lo que va a hacer: con una grabacion en marcha, pararla. Es
+    /// la manera de parar cuando la barra no cabe fuera de lo que se graba (`recorder/linux.rs`).
     pub fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         let t = textos(idioma(app));
+        let grabar = if app.state::<AppState>().is_recording() { t.parar } else { t.grabar };
         Menu::with_items(
             app,
             &[
                 &MenuItem::with_id(app, "capture", t.capturar, true, None::<&str>)?,
+                &MenuItem::with_id(app, "record", grabar, true, None::<&str>)?,
                 &PredefinedMenuItem::separator(app)?,
                 &MenuItem::with_id(app, "folder", t.carpeta, true, None::<&str>)?,
                 &MenuItem::with_id(app, "settings", t.ajustes, true, None::<&str>)?,

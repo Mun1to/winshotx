@@ -1057,6 +1057,78 @@ fn sitio_de_la_barra(region: Rect, monitor: Option<MonitorSitio>) -> (i32, i32) 
     (x, y)
 }
 
+/// La barra de grabar en Linux, donde no se puede sacar del video: FUERA de lo que se graba,
+/// o no hay barra (`None`) si no cabe fuera, que es lo que pasa grabando la pantalla entera.
+/// Entonces se para con el atajo de grabar o desde la bandeja.
+#[cfg(target_os = "linux")]
+pub fn open_recorder_fuera(app: &AppHandle, region: Rect) -> Result<Option<String>> {
+    close_recorder(app);
+    let centro = (
+        region.x + region.width as i32 / 2,
+        region.y + region.height as i32 / 2,
+    );
+    let Some((x, y)) = monitor_de(centro.0, centro.1).and_then(|m| sitio_fuera_de_la_region(region, m)) else {
+        return Ok(None);
+    };
+    let label = format!(
+        "{RECORDER_PREFIX}{}",
+        OVERLAY_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    );
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("recorder.html".into()))
+        .title("winshotx")
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        // En GTK una ventana que no se puede estirar no hace caso del tamanno que se le pide:
+        // se queda con el que pide su contenido, y la barra salia de 200 de alto en vez de 52
+        // (medido en el laboratorio de S44). Con el minimo y el maximo iguales mide lo suyo y
+        // tampoco se puede estirar.
+        .resizable(true)
+        .visible(false)
+        .inner_size(BARRA_ANCHO, BARRA_ALTO)
+        .min_inner_size(BARRA_ANCHO, BARRA_ALTO)
+        .max_inner_size(BARRA_ANCHO, BARRA_ALTO)
+        .build()?;
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+    window.show()?;
+    Ok(Some(label))
+}
+
+/// Donde cabe la barra entera sin pisar lo que se graba: debajo, encima, a la derecha o a la
+/// izquierda de la region, por ese orden, y siempre dentro de su pantalla. `None` si no cabe
+/// en ningun lado.
+///
+/// Entre la barra y la region queda un hueco: con un compositor, la sombra de la ventana se
+/// sale unos pixeles de ella, y tambien saldria en el video.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn sitio_fuera_de_la_region(region: Rect, m: MonitorSitio) -> Option<(i32, i32)> {
+    let ancho = (BARRA_ANCHO * m.escala).ceil() as i32;
+    let alto = (BARRA_ALTO * m.escala).ceil() as i32;
+    let hueco = (24.0 * m.escala) as i32;
+    let margen = (8.0 * m.escala) as i32;
+    let (izquierda, arriba) = (m.x + margen, m.y + margen);
+    let (derecha, abajo) = (m.x + m.ancho - margen, m.y + m.alto - margen);
+    if derecha - izquierda < ancho || abajo - arriba < alto {
+        return None;
+    }
+    let (rx0, ry0) = (region.x, region.y);
+    let (rx1, ry1) = (region.x + region.width as i32, region.y + region.height as i32);
+    // Centrada con la region en el otro eje, sin salirse de la pantalla.
+    let x_centrada = (rx0 + (rx1 - rx0 - ancho) / 2).clamp(izquierda, derecha - ancho);
+    let y_centrada = (ry0 + (ry1 - ry0 - alto) / 2).clamp(arriba, abajo - alto);
+    if ry1 + hueco + alto <= abajo {
+        Some((x_centrada, ry1 + hueco))
+    } else if ry0 - hueco - alto >= arriba {
+        Some((x_centrada, ry0 - hueco - alto))
+    } else if rx1 + hueco + ancho <= derecha {
+        Some((rx1 + hueco, y_centrada))
+    } else if rx0 - hueco - ancho >= izquierda {
+        Some((rx0 - hueco - ancho, y_centrada))
+    } else {
+        None
+    }
+}
+
 /// Ancho y alto de la barra de grabacion, en pixeles logicos. Los mismos que pide el
 /// constructor de la ventana: si se separan, la barra deja de quedar centrada.
 const BARRA_ANCHO: f64 = 360.0;
@@ -1397,6 +1469,62 @@ mod tests {
         let (x, _) = sitio_de_la_barra(region(1930, 10, 380, 200), Some(estrecho));
         assert!(x >= 1928, "se sale por la izquierda: {x}");
         assert!(x + 360 <= 1920 + 400 - 8, "se sale por la derecha: {x}");
+    }
+
+    /// Si la barra en ese sitio pisa la region (360 x 52, la escala de las pruebas es 1).
+    fn pisa(sitio: (i32, i32), r: Rect) -> bool {
+        sitio.0 < r.x + r.width as i32 && r.x < sitio.0 + 360 && sitio.1 < r.y + r.height as i32 && r.y < sitio.1 + 52
+    }
+
+    /// En Linux la barra no se puede sacar del video: va fuera de lo que se graba.
+    #[test]
+    fn en_linux_la_barra_va_debajo_si_cabe() {
+        let r = region(400, 200, 800, 400);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("debajo cabe");
+        assert!(sitio.1 >= 600, "debajo de la región: {sitio:?}");
+        assert!(!pisa(sitio, r));
+    }
+
+    #[test]
+    fn en_linux_la_barra_se_sube_si_debajo_no_cabe() {
+        let r = region(400, 500, 800, 570);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("encima cabe");
+        assert!(sitio.1 + 52 <= 500, "encima de la región: {sitio:?}");
+        assert!(!pisa(sitio, r));
+    }
+
+    #[test]
+    fn en_linux_la_barra_va_a_un_lado_si_la_region_ocupa_todo_el_alto() {
+        let r = region(0, 0, 1200, 1080);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("a la derecha cabe");
+        assert!(sitio.0 >= 1200, "a la derecha de la región: {sitio:?}");
+        assert!(!pisa(sitio, r));
+        let r = region(720, 0, 1200, 1080);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("a la izquierda cabe");
+        assert!(sitio.0 + 360 <= 720, "a la izquierda de la región: {sitio:?}");
+    }
+
+    /// Grabando la pantalla entera no hay sitio fuera: no hay barra, y se para con el atajo
+    /// o desde la bandeja.
+    #[test]
+    fn en_linux_grabando_la_pantalla_entera_no_hay_barra() {
+        let principal = monitor(0, 0, 1920, 1080);
+        assert_eq!(sitio_fuera_de_la_region(region(0, 0, 1920, 1080), principal), None);
+        assert_eq!(sitio_fuera_de_la_region(region(10, 10, 1900, 1060), principal), None);
+    }
+
+    /// En cualquier sitio que se le de, la barra queda entera en su pantalla y sin tocar lo
+    /// que se graba: tambien en una pantalla colocada a la izquierda, en negativo.
+    #[test]
+    fn en_linux_la_barra_nunca_pisa_la_region_ni_se_sale_de_la_pantalla() {
+        let pantalla = monitor(-1920, 483, 1920, 1080);
+        for (x, y, w, h) in [(-1900, 500, 300, 200), (-700, 1300, 600, 250), (-1920, 483, 1500, 1080), (-1000, 483, 1000, 1000)] {
+            let r = region(x, y, w, h);
+            let Some(sitio) = sitio_fuera_de_la_region(r, pantalla) else { continue };
+            assert!(!pisa(sitio, r), "{sitio:?} pisa {x},{y} {w}x{h}");
+            assert!(sitio.0 >= -1920 && sitio.0 + 360 <= 0, "fuera por los lados: {sitio:?}");
+            assert!(sitio.1 >= 483 && sitio.1 + 52 <= 483 + 1080, "fuera por arriba o abajo: {sitio:?}");
+        }
     }
 
     /// Lo que hace que anclar se entienda sin explicarlo: la captura aparece EXACTAMENTE
