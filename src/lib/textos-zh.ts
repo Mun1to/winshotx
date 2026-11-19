@@ -447,6 +447,14 @@ export const ZH: Record<string, string> = {
   // 复制截图中的文字
   "Copiar el texto": "复制文字",
   "No he encontrado texto en esa captura.": "未在截图中找到文字。",
+  // En Linux el texto lo lee el Tesseract del sistema. Detrás va «Se instala con:» y la orden.
+  "Para leer el texto falta Tesseract.": "读取文字需要 Tesseract。",
+  "Tesseract no tiene ningún idioma instalado.": "Tesseract 没有安装任何语言。",
+  "Para leer el texto falta Tesseract. Instala el paquete tesseract de tu distribución.":
+    "读取文字需要 Tesseract。请安装发行版中的 tesseract 软件包。",
+  "Tesseract no tiene ningún idioma instalado. Instala el de tu idioma con los paquetes de tu distribución.":
+    "Tesseract 没有安装任何语言。请用发行版的软件包安装你的语言。",
+  "Tesseract ha tardado demasiado en leer la imagen": "Tesseract 读取图片超时",
 
   // 光标下的颜色
   copiado: "已复制",

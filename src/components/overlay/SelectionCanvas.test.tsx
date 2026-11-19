@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SelectionCanvas } from "./SelectionCanvas";
 import { aplicarIdioma } from "../../lib/i18n";
-import { emite, emitidos, escuchas, llamadas, responde, ventana } from "../../test/preparar";
+import { emite, emitidos, escuchas, falla, llamadas, responde, ventana } from "../../test/preparar";
 import { EVENTO_PROPORCION, type Proporcion } from "../../lib/proporcion";
 import { EVENTO_SELECCION, type SeleccionCompartida } from "../../lib/seleccionCompartida";
 import {
@@ -306,6 +306,30 @@ describe("el interruptor de la barra de acciones", () => {
     );
     const accion = (llamadas.find((l) => l.comando === "capture_still")?.args as { action: string }).action;
     expect(accion).toBe("save_as");
+  });
+
+  it("la T sin lector de texto dice con qué orden se instala, y la orden no se parte por un guion", async () => {
+    // En Linux el lector es el Tesseract del sistema, y puede no estar (S45). Suelta en el
+    // renglón, la orden se partía en «tesseract-langpack-» y debajo «spa».
+    falla(
+      "capture_still",
+      "Para leer el texto falta Tesseract. Se instala con: sudo dnf install tesseract tesseract-langpack-spa",
+    );
+    const lienzo = await abrir();
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: true });
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    await screen.findByLabelText("Copiar");
+
+    fireEvent.keyDown(window, { key: "t" });
+    const orden = await screen.findByText(
+      (_, el) => el?.tagName === "CODE" && el.textContent === "sudo dnf install tesseract tesseract-langpack-spa",
+    );
+    const palabras = [...orden.querySelectorAll("span")];
+    expect(palabras.map((p) => p.textContent)).toEqual(["sudo", "dnf", "install", "tesseract", "tesseract-langpack-spa"]);
+    for (const p of palabras) expect(p.className).toContain("whitespace-nowrap");
+    expect(orden.parentElement).toHaveTextContent("Para leer el texto falta Tesseract. Se instala con:");
+    // Debajo de la barra de modos, que acaba a 74 px.
+    expect(orden.parentElement?.parentElement?.className).toContain("top-[84px]");
   });
 
   it("encendido, soltar el recorte saca la barra y no captura nada todavia", async () => {

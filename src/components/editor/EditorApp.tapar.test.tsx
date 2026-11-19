@@ -6,7 +6,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, expect, it, vi } from "vitest";
 import { EditorApp } from "./EditorApp";
 import { aplicarIdioma } from "../../lib/i18n";
-import { emite, llamadas, responde } from "../../test/preparar";
+import { emite, falla, llamadas, responde } from "../../test/preparar";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -134,4 +134,54 @@ it("en una captura dice qué ha tapado, y en inglés también las clases de dato
   await waitFor(() => expect(llamadas.filter((l) => l.comando === "session_frames")).toHaveLength(2));
   fireEvent.keyDown(window, { key: "d" });
   expect(await screen.findByText("Covered up: 1 email, 1 phone")).toBeInTheDocument();
+});
+
+it("si falta el lector de texto, dice con qué orden se instala, y la orden no se traduce", async () => {
+  // En Linux el lector es el Tesseract del sistema, y puede no estar (S45).
+  prepararFoto();
+  const falta = "Para leer el texto falta Tesseract. Se instala con: sudo apt install tesseract-ocr tesseract-ocr-spa";
+  falla("copiar_texto", falta);
+  falla("tapar_datos", falta);
+  aplicarIdioma("en");
+  render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+  fireEvent.keyDown(window, { key: "t" });
+  const aviso = (await ordenDelAviso("sudo apt install tesseract-ocr tesseract-ocr-spa")).parentElement!;
+  expect(aviso).toHaveTextContent("Reading text needs Tesseract. Install it with:");
+});
+
+/** La orden de un aviso: va en su renglón y partida en palabras, para que no se corte por un guion. */
+const ordenDelAviso = (texto: string) =>
+  screen.findByText((_, el) => el?.tagName === "CODE" && el.textContent === texto);
+
+it("el aviso con la orden de instalar no se corta y da tiempo a copiarla; los demás se van a los 5 s", async () => {
+  prepararFoto();
+  falla("copiar_texto", "Para leer el texto falta Tesseract. Se instala con: sudo dnf install tesseract tesseract-langpack-spa");
+  responde("tapar_datos", { marcas: [], resumen: [] });
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+    fireEvent.keyDown(window, { key: "t" });
+    const orden = await ordenDelAviso("sudo dnf install tesseract tesseract-langpack-spa");
+    const palabras = [...orden.querySelectorAll("span")];
+    expect(palabras.map((p) => p.textContent)).toEqual(["sudo", "dnf", "install", "tesseract", "tesseract-langpack-spa"]);
+    for (const p of palabras) expect(p.className).toContain("whitespace-nowrap");
+    expect(orden.parentElement!.className).not.toContain("truncate");
+    // Que React eche a andar el reloj del aviso antes de mover el tiempo.
+    await act(async () => {});
+    act(() => void vi.advanceTimersByTime(12_000));
+    expect(screen.queryByText(/Se instala con:/)).not.toBeNull();
+    act(() => void vi.advanceTimersByTime(12_000));
+    expect(screen.queryByText(/Se instala con:/)).toBeNull();
+
+    fireEvent.keyDown(window, { key: "d" });
+    const corto = await screen.findByText("No he encontrado datos personales en esta imagen");
+    expect(corto.className).toContain("truncate");
+    await act(async () => {});
+    act(() => void vi.advanceTimersByTime(5_500));
+    expect(screen.queryByText("No he encontrado datos personales en esta imagen")).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
 });

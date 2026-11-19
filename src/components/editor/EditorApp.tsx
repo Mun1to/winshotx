@@ -50,7 +50,8 @@ import { FondoVivo } from "./FondoVivo";
 import { CarcasaVista } from "./CarcasaVista";
 import { CapaCamara } from "./CapaCamara";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
-import { useT } from "../../lib/i18n";
+import { DURA_CON_ORDEN, partirOrden, tError, useT } from "../../lib/i18n";
+import { TextoDeAviso } from "../ui/Orden";
 import { aplicarTema } from "../../lib/tema";
 import {
   duracionDe,
@@ -488,7 +489,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       const detalle = resumen.map(([clase, cuantos]) => `${cuantos} ${t(clase)}`).join(", ");
       setAviso(t("Tapado: {detalle}", { detalle }));
     } catch (e) {
-      setAviso(String(e));
+      setAviso(tError(e));
     } finally {
       setBuscandoDatos(false);
     }
@@ -504,7 +505,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       const palabras = texto.trim().split(/\s+/).length;
       setAviso(t("Texto copiado: {palabras} palabras", { palabras }));
     } catch (e) {
-      setAviso(String(e));
+      setAviso(tError(e));
     } finally {
       setBuscandoDatos(false);
     }
@@ -512,9 +513,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   // El aviso se va solo: es algo que acaba de pasar, no un estado de la aplicacion, y uno
   // que se queda fijo acaba leyendose como si siguiera pasando.
+  // Salvo el que acaba en una orden de terminal («Falta Tesseract. Se instala con: sudo…», en
+  // Linux), que se queda lo que se tarda en copiarla.
   useEffect(() => {
     if (!aviso) return;
-    const reloj = setTimeout(() => setAviso(null), 5000);
+    const reloj = setTimeout(() => setAviso(null), partirOrden(aviso) ? DURA_CON_ORDEN : 5000);
     return () => clearTimeout(reloj);
   }, [aviso]);
 
@@ -1165,9 +1168,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo.
                 La letra es blanca y no la del tema: el fondo es negro también con el tema claro. */}
             {aviso && (
-              <div className="pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2">
-                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-white shadow-lg backdrop-blur-md">
-                  {aviso}
+              // Un renglón, cortado si no cabe; el que lleva una orden se parte en vez de cortarse.
+              <div
+                className={`pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2 ${
+                  partirOrden(aviso) ? "w-max" : ""
+                }`}
+              >
+                <span
+                  className={`block rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-white shadow-lg backdrop-blur-md ${
+                    partirOrden(aviso) ? "" : "truncate"
+                  }`}
+                >
+                  <TextoDeAviso texto={aviso} />
                 </span>
               </div>
             )}

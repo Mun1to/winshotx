@@ -3,7 +3,8 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Copy, Download, Type, X } from "lucide-react";
 import { copyPinned, pinnedText, savePinned } from "../../lib/ipc";
-import { useT } from "../../lib/i18n";
+import { DURA_CON_ORDEN, partirOrden, tError, useT } from "../../lib/i18n";
+import { TextoDeAviso } from "../ui/Orden";
 
 /**
  * Una captura dejada flotando encima de todo, para tenerla delante mientras se trabaja.
@@ -46,12 +47,17 @@ export function PinWindow({ imagen }: { imagen: string }) {
   const guardar = () => hacer(() => savePinned(imagen), "Guardada");
   const leer = () => hacer(() => pinnedText(imagen), "Texto copiado");
 
+  const textoDelAviso = aviso ? tError(aviso.texto) : "";
+  // «Falta Tesseract. Se instala con: sudo dnf install…» (Linux): la orden hay que copiarla.
+  const conOrden = partirOrden(textoDelAviso) !== null;
+
   useEffect(() => {
     if (!aviso) return;
     // El malo dura mas: si algo ha salido mal hay que llegar a leerlo.
-    const id = setTimeout(() => setAviso(null), aviso.malo ? 3000 : 1400);
+    const dura = conOrden ? DURA_CON_ORDEN : aviso.malo ? 3000 : 1400;
+    const id = setTimeout(() => setAviso(null), dura);
     return () => clearTimeout(id);
-  }, [aviso]);
+  }, [aviso, conOrden]);
 
   useEffect(() => {
     // Escape cierra, que es lo que hace todo lo demas de winshotx. Las otras tres son las
@@ -110,12 +116,14 @@ export function PinWindow({ imagen }: { imagen: string }) {
         <span
           role="status"
           // Lo que va bien no lleva color: gris oscuro, que se lee sobre cualquier foto. El
-          // rojo, solo si algo falló.
-          className={`absolute bottom-2 left-1/2 max-w-[90%] -translate-x-1/2 truncate rounded-md px-2 py-1 text-[12px] font-medium text-white shadow-lg ${
-            aviso.malo ? "bg-red-500/90" : "bg-neutral-900/90"
-          }`}
+          // rojo, solo si algo falló. Va en un renglón, cortado si no cabe, salvo el que
+          // lleva una orden: ese se parte en los que hagan falta (`w-max` para que llegue al
+          // 90 % del ancho antes de partirse, y no a la mitad que deja `left-1/2`).
+          className={`absolute bottom-2 left-1/2 max-w-[90%] -translate-x-1/2 rounded-md px-2 py-1 text-[12px] font-medium text-white shadow-lg ${
+            conOrden ? "w-max" : "truncate"
+          } ${aviso.malo ? "bg-red-500/90" : "bg-neutral-900/90"}`}
         >
-          {t(aviso.texto)}
+          <TextoDeAviso texto={textoDelAviso} />
         </span>
       )}
     </div>

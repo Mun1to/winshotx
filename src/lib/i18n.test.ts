@@ -8,7 +8,7 @@
  * justo el fallo que este archivo no puede ver y el de al lado si.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { aplicarIdioma, idiomaActivo, t } from "./i18n";
+import { aplicarIdioma, idiomaActivo, partirOrden, t, tError } from "./i18n";
 import { EN } from "./textos-en";
 import { ZH } from "./textos-zh";
 
@@ -64,6 +64,43 @@ describe("t, el traductor", () => {
 
   it("un marcador que no se le pasa se queda escrito, para que se vea el olvido", () => {
     expect(t("Paso {n} de {total}", { n: 1 })).toBe("Paso 1 de {total}");
+  });
+});
+
+describe("tError, los errores que llegan de Rust", () => {
+  const falta = "Para leer el texto falta Tesseract. Se instala con: sudo apt install tesseract-ocr tesseract-ocr-spa";
+
+  it("en espannol sale tal cual", () => {
+    expect(tError(falta)).toBe(falta);
+    expect(tError(new Error("No he encontrado texto en esa captura."))).toBe("Error: No he encontrado texto en esa captura.");
+  });
+
+  it("uno que acaba en una orden se traduce y la orden se queda como esta", () => {
+    aplicarIdioma("en");
+    expect(tError(falta)).toBe(
+      "Reading text needs Tesseract. Install it with: sudo apt install tesseract-ocr tesseract-ocr-spa",
+    );
+    aplicarIdioma("zh");
+    expect(tError(falta)).toBe("读取文字需要 Tesseract。 安装命令： sudo apt install tesseract-ocr tesseract-ocr-spa");
+  });
+
+  it("uno sin orden se traduce entero, como cualquier frase", () => {
+    aplicarIdioma("en");
+    expect(tError("No he encontrado texto en esa captura.")).toBe("I found no text in that shot.");
+    expect(tError("Para leer el texto falta Tesseract. Instala el paquete tesseract de tu distribución.")).toBe(
+      "Reading text needs Tesseract. Install your distribution's tesseract package.",
+    );
+    expect(tError("algo que nadie ha traducido")).toBe("algo que nadie ha traducido");
+  });
+
+  it("partirOrden separa la frase de la orden en cualquier idioma, y no parte lo que no lleva orden", () => {
+    const orden = "sudo apt install tesseract-ocr tesseract-ocr-spa";
+    expect(partirOrden(tError(falta))).toEqual({ frase: "Para leer el texto falta Tesseract. Se instala con:", orden });
+    aplicarIdioma("en");
+    expect(partirOrden(tError(falta))).toEqual({ frase: "Reading text needs Tesseract. Install it with:", orden });
+    aplicarIdioma("zh");
+    expect(partirOrden(tError(falta))).toEqual({ frase: "读取文字需要 Tesseract。 安装命令：", orden });
+    expect(partirOrden(tError("No he encontrado texto en esa captura."))).toBeNull();
   });
 });
 

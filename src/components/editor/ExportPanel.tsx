@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { ChevronDown, Clipboard, FolderDown, FolderOpen, Link2, Save, Unlink2 } from "lucide-react";
 import {
@@ -39,6 +39,7 @@ import { Presets } from "./Presets";
 import { edicionDe, estiloDe, panelDe } from "../../lib/presets";
 import type { Edicion } from "../../lib/contrato";
 import { Opcion, Opciones } from "../ui/Opcion";
+import { Orden } from "../ui/Orden";
 import { Segmented } from "../ui/Segmented";
 import { RELLENO, ROJO } from "./colores";
 // S11 (pistas)
@@ -653,17 +654,8 @@ export function ExportPanel({
                   {aviso.orden ? (
                     <>
                       {t("Se instala con:")}
-                      {/* En su propio renglón, para que empiece siempre por el principio. Y palabra
-                          a palabra: suelta, la orden se cortaba por un guion a mitad del nombre del
-                          paquete. Así solo se parte por los espacios y se copia entera. */}
-                      <code className="mt-0.5 block font-mono text-titulo select-text">
-                        {aviso.orden.split(" ").map((palabra, i) => (
-                          <Fragment key={i}>
-                            {i > 0 && " "}
-                            <span className="whitespace-nowrap">{palabra}</span>
-                          </Fragment>
-                        ))}
-                      </code>
+                      {/* En su propio renglón y sin partirse por los guiones (`ui/Orden`). */}
+                      <Orden texto={aviso.orden} className="mt-0.5 text-titulo select-text" />
                     </>
                   ) : (
                     t("Instala los plugins «bad» de GStreamer de tu distribución.")

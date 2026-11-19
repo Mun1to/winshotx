@@ -83,6 +83,39 @@ export function t(es: string, vars?: Record<string, string | number>): string {
   );
 }
 
+/** Lo que separa la frase de un error de la orden de terminal con que acaba. */
+const ANTES_DE_LA_ORDEN = " Se instala con: ";
+
+/**
+ * Un error que llega de Rust. Su texto en espannol es la clave, como el de cualquier frase,
+ * salvo cuando acaba en una orden de terminal («Para leer el texto falta Tesseract. Se instala
+ * con: sudo apt install tesseract-ocr»): la orden cambia con la distribucion y con el idioma
+ * del equipo, asi que se traduce la frase de delante y la orden se deja tal cual.
+ */
+export function tError(error: unknown): string {
+  const texto = String(error);
+  const corte = texto.indexOf(ANTES_DE_LA_ORDEN);
+  if (corte < 0) return t(texto);
+  const orden = texto.slice(corte + ANTES_DE_LA_ORDEN.length);
+  return `${t(texto.slice(0, corte))} ${t("Se instala con:")} ${orden}`;
+}
+
+/**
+ * Un aviso ya pasado por `tError`, partido en su frase y la orden de terminal con que acaba; o
+ * nada si no lleva orden. Los que la llevan no se cortan con puntos suspensivos y se quedan
+ * `DURA_CON_ORDEN`: la orden hay que llegar a copiarla, y de «Se instala con: su…» no se saca
+ * nada.
+ */
+export function partirOrden(aviso: string): { frase: string; orden: string } | null {
+  const marca = ` ${t("Se instala con:")} `;
+  const corte = aviso.indexOf(marca);
+  if (corte < 0) return null;
+  return { frase: aviso.slice(0, corte + marca.length - 1), orden: aviso.slice(corte + marca.length) };
+}
+
+/** Lo que se queda a la vista un aviso con una orden de terminal: lo que se tarda en teclearla. */
+export const DURA_CON_ORDEN = 20_000;
+
 export function idiomaActivo(): "es" | "en" | "zh" {
   return activo;
 }

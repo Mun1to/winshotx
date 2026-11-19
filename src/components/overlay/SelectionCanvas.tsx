@@ -30,7 +30,8 @@ import {
   type Proporcion,
 } from "../../lib/proporcion";
 import { clamp } from "../../lib/format";
-import { aplicarIdioma, useT } from "../../lib/i18n";
+import { aplicarIdioma, tError, useT } from "../../lib/i18n";
+import { TextoDeAviso } from "../ui/Orden";
 import {
   aPantalla,
   aVirtual,
@@ -1610,7 +1611,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
                 diccionario ES la frase espannola, pasarlos por `t` traduce los que
                 alguien ha traducido y deja el resto tal cual, que es mejor que verlos
                 todos en castellano con la aplicacion en ingles. */}
-            {t(error)}
+            <TextoDeAviso texto={tError(error)} />
           </div>
         </div>
       )}

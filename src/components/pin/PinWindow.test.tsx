@@ -5,7 +5,7 @@
  * todo lo que se puede hacer con ella son teclas y gestos. Eso es justo lo que se rompe
  * sin que nadie se entere, porque no se ve en una foto.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PinWindow } from "./PinWindow";
 import { aplicarIdioma } from "../../lib/i18n";
@@ -187,6 +187,50 @@ describe("cuando algo sale mal", () => {
     fireEvent.keyDown(window, { key: "t" });
     const aviso = await screen.findByRole("status");
     expect(aviso.textContent).not.toContain("captura");
+  });
+
+  it("si falta el lector, la orden de instalarlo se lee entera y da tiempo a copiarla", async () => {
+    // En Linux (S45) el lector es el Tesseract del sistema. En una anclada estrecha el aviso de un
+    // renglón se quedaba en «Se instala con: su…», y a los 3 s se iba.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      falla(
+        "pinned_text",
+        "Para leer el texto falta Tesseract. Se instala con: sudo dnf install tesseract tesseract-langpack-spa",
+      );
+      render(<PinWindow imagen={RUTA} />);
+      fireEvent.keyDown(window, { key: "t" });
+      const aviso = await screen.findByRole("status");
+      expect(aviso).toHaveTextContent("Para leer el texto falta Tesseract. Se instala con:");
+      // La orden, en su renglón y sin partirse por los guiones.
+      const orden = aviso.querySelector("code")!;
+      expect(orden.textContent).toBe("sudo dnf install tesseract tesseract-langpack-spa");
+      for (const p of orden.querySelectorAll("span")) expect(p.className).toContain("whitespace-nowrap");
+      expect(aviso.className).not.toContain("truncate");
+      // Que React eche a andar el reloj del aviso antes de mover el tiempo.
+      await act(async () => {});
+      act(() => void vi.advanceTimersByTime(12_000));
+      expect(screen.queryByRole("status")).not.toBeNull();
+      act(() => void vi.advanceTimersByTime(12_000));
+      expect(screen.queryByRole("status")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("un fallo corto sigue en un renglón y se va pronto", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      falla("pinned_text", "No he encontrado texto en esa captura.");
+      render(<PinWindow imagen={RUTA} />);
+      fireEvent.keyDown(window, { key: "t" });
+      expect((await screen.findByRole("status")).className).toContain("truncate");
+      await act(async () => {});
+      act(() => void vi.advanceTimersByTime(3_500));
+      expect(screen.queryByRole("status")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("un fallo al guardar no se traga en silencio", async () => {

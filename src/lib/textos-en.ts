@@ -452,6 +452,14 @@ export const EN: Record<string, string> = {
   // Copiar el texto de una captura
   "Copiar el texto": "Copy the text",
   "No he encontrado texto en esa captura.": "I found no text in that shot.",
+  // En Linux el texto lo lee el Tesseract del sistema. Detrás va «Se instala con:» y la orden.
+  "Para leer el texto falta Tesseract.": "Reading text needs Tesseract.",
+  "Tesseract no tiene ningún idioma instalado.": "Tesseract has no language installed.",
+  "Para leer el texto falta Tesseract. Instala el paquete tesseract de tu distribución.":
+    "Reading text needs Tesseract. Install your distribution's tesseract package.",
+  "Tesseract no tiene ningún idioma instalado. Instala el de tu idioma con los paquetes de tu distribución.":
+    "Tesseract has no language installed. Install yours from your distribution's packages.",
+  "Tesseract ha tardado demasiado en leer la imagen": "Tesseract took too long to read the image",
 
   // El color bajo el cursor
   copiado: "copied",
