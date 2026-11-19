@@ -119,6 +119,12 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     );
     let (sender, receiver) = channel::<Fotograma>();
     let reciclados = Reciclados::default();
+    let sonido = record::linux::sonido::empezar(
+        record::linux::sonido::Fuentes { sistema: options.audio, microfono: options.microphone },
+        &dir,
+        marcha.clone(),
+        fin_ms.clone(),
+    );
     let en_marcha = preparada.grabar(marcha, sender, reciclados.clone());
 
     let writer_frames = frames_counter.clone();
@@ -157,6 +163,19 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         session.frames = cache.finish(grabado_ms, session.fps)?;
 
         eprintln!("[grabar] {} fotogramas en {grabado_ms} ms", session.frames.len());
+        // El sonido, si lo hubo: sin un byte no se dice que lo hay.
+        if let Some(sonido) = sonido {
+            (session.audio, session.pistas) = sonido.cerrar();
+            session.has_audio = session.audio.is_some();
+            match session.pistas.as_ref() {
+                Some(pistas) => eprintln!(
+                    "[grabar] sonido: sistema={} micrófono={}",
+                    pistas.sistema.as_deref().unwrap_or("-"),
+                    pistas.microfono.as_deref().unwrap_or("-")
+                ),
+                None => eprintln!("[grabar] sin sonido: no ha llegado nada de PipeWire"),
+            }
+        }
         let rastro = en_marcha.terminar();
         session.cursor = rastro.cursor;
         session.cambios_puntero = rastro.cambios_puntero;
@@ -191,7 +210,7 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         fin_ms,
         frames: frames_counter,
         bytes: bytes_counter,
-        cabecera: Cabecera { format: options.format.clone(), audio: false, microphone: false },
+        cabecera: Cabecera { format: options.format.clone(), audio: options.audio, microphone: options.microphone },
         descartar,
         barra: None,
         writer: Some(writer),
