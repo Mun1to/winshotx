@@ -181,6 +181,74 @@ test with a real file: clicks are not recorded on Linux yet, so there is nothing
 An AppImage built from this code has not been run: what is said about it comes from the one CI
 built before, unpacked, and from its GStreamer core loaded by itself.
 
+## Reading text
+
+On Windows the text reader comes with the system. Linux has none, and one bundled inside would
+weigh more than winshotx itself, so winshotx runs the `tesseract` command of the system
+(Apache-2.0). It is behind `T` in the region picker and on a pinned capture, "Copy text" and
+"Hide data" in the editor (in a screenshot and across a whole recording), and the search box of
+the history.
+
+**The command is run, not linked.** Ubuntu 22.04 ships Tesseract 4 (`libtesseract4`) and the
+others ship 5 (`libtesseract5`): a package depending on one would not install where the other
+is. The command behaves the same in both. Checked in clean containers of Debian 12 and 13,
+Ubuntu 22.04, 24.04 and 26.04 and Fedora 44 and 45 (versions 4.1.1 to 5.5.4).
+
+**What it is given.** The image goes in grey through standard input, enlarged three times up to
+2.2 megapixels and twice up to 5 (interface text is a third of the size Tesseract expects: at
+its own size it read 25 of the 44 words of a settings window, enlarged 40 to 42), and inverted
+when it is dark, because Tesseract 4 cannot read light text on a dark background. A very tall
+image (a scrolling capture) is read in strips of 4,000 pixels. A read that takes more than 60
+seconds is abandoned.
+
+**Languages.** It reads with the languages of the system that are installed (`LANGUAGE`,
+`LC_ALL`, `LC_MESSAGES`, `LANG`), plus English when it is there; with whatever is installed if
+none of those is. With Spanish in front, Tesseract 5.5 reads the `@` of an e-mail address as an
+`O` at these sizes, so "Hide data" missed the addresses. When English is installed and is not
+the only language, a second pass in English alone runs at the same time, and only the e-mail
+addresses are taken from it.
+
+**The packages recommend it**, like the GStreamer plugins:
+
+| | Recommends |
+|---|---|
+| .deb | `tesseract-ocr` (brings English), `tesseract-ocr-spa` |
+| .rpm | `tesseract` (brings English), `tesseract-langpack-spa` |
+
+**When it is missing**, the app says so where the text was asked for, with the command for that
+distribution and the language of the system (`sudo apt install tesseract-ocr tesseract-ocr-spa`,
+`sudo dnf install tesseract tesseract-langpack-spa`); on other distributions it names the
+package. The history has no search box until Tesseract is there: it looks again every time a
+capture is saved or the history is opened, and then reads what was saved in the meantime.
+
+**The AppImage uses the system's Tesseract too.** Nothing travels inside it. The command is
+started without the AppImage's own library paths, like `xdg-open`.
+
+**What was tried**, in the same virtual session on Fedora 44 (Tesseract 5.5.4):
+
+- X11 (openbox), with the system in Spanish: `T` in the region picker, on a pinned capture and in
+  the editor, each pasted into another app, with the accents and the e-mail address whole.
+  "Hide data" on a screenshot, whose saved PNG was read back (the rest of the text is there, the
+  address and the phone number are not), and across a recording, whose MP4 was read back frame
+  by frame. The history reads the saved captures and its search box finds one by a word typed
+  without its accent.
+- GNOME 50 on Wayland, with the system in English: the same gestures on a screenshot. That was
+  before the second pass existed; with English alone there is none.
+- Without `tesseract` in the app's `PATH`, on X11: every gesture shows the sentence and the
+  whole command (Fedora's, and Ubuntu's with a borrowed `os-release`), and the history has no
+  search box. With the command made available while the app is running, opening the history
+  again reads the two captures saved without it and shows the box. On GNOME the region picker
+  and the editor show the sentence; the pinned capture was only seen there before its notice
+  stopped being cut.
+- The command itself, in clean containers of the seven distributions above: it reads from
+  standard input, answers the same twelve `tsv` columns, and fails with a clear message when a
+  language is missing.
+
+Not tried: a package built with the new `Recommends` (CI has to build it), the AppImage calling
+the system's Tesseract, how much Tesseract adds on top of what WebKitGTK already installs, the
+app with Tesseract 4 (only the command was run there), and text in Chinese, Japanese or
+right-to-left scripts.
+
 ## How the app identifies itself
 
 On Linux the app presents itself to the desktop as `com.munir.winshotx` (the identifier in
