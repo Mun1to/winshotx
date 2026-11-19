@@ -94,7 +94,7 @@
   <!-- paginas:desde (lo escribe generar-paginas.mjs) -->
   <url>
     <loc>https://winshotx.com/grabar-pantalla/</loc>
-    <lastmod>2026-11-18</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-pantalla/"/>
@@ -103,7 +103,7 @@
   </url>
   <url>
     <loc>https://winshotx.com/en/screen-recorder/</loc>
-    <lastmod>2026-11-18</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/grabar-pantalla/"/>
@@ -112,7 +112,7 @@
   </url>
   <url>
     <loc>https://winshotx.com/captura-de-pantalla/</loc>
-    <lastmod>2026-11-18</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/captura-de-pantalla/"/>
@@ -121,7 +121,7 @@
   </url>
   <url>
     <loc>https://winshotx.com/en/screenshot/</loc>
-    <lastmod>2026-11-18</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="es" href="https://winshotx.com/captura-de-pantalla/"/>

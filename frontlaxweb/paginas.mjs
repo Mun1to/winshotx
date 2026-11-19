@@ -13,7 +13,10 @@
  */
 import { HERRAMIENTAS, FILAS, TEXTOS } from "./comparativa.mjs";
 
-/** Cuándo se tocaron estas páginas por última vez: es la fecha que lee el sitemap. */
+/**
+ * Cuándo se tocaron estas páginas por última vez: es la fecha que lee el sitemap. Una página
+ * que cambia sola lleva la suya en `actualizado`, para no fechar de hoy las que siguen igual.
+ */
 export const ACTUALIZADO = "2026-11-18";
 
 export const DESCARGA = "https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe";
@@ -48,6 +51,7 @@ export const PROBLEMAS = [
     id: "grabar",
     es: "grabar-pantalla",
     en: "screen-recorder",
+    actualizado: "2026-11-19",
     pie: t("Grabar la pantalla", "Record your screen"),
     titulo: t("Cómo grabar la pantalla en Windows 10 y 11, con sonido", "How to record your screen on Windows 10 and 11, with sound"),
     descripcion: t(
@@ -95,6 +99,10 @@ export const PROBLEMAS = [
             pasos: [
               INSTALAR,
               t(
+                "<b>Enciende el sonido, si lo quieres.</b> Viene apagado: en <b>Ajustes → Grabar</b>, activa <b>Audio del sistema</b> (lo que suena por los altavoces) y <b>Micrófono</b> (tu voz).",
+                "<b>Turn on sound, if you want it.</b> It is off by default: in <b>Settings → Record</b>, switch on <b>System audio</b> (whatever the speakers are playing) and <b>Microphone</b> (your voice).",
+              ),
+              t(
                 `<b>Pulsa ${k("Ctrl", "Shift", "5")} y arrastra sobre la zona.</b> Al soltar el ratón, empieza a grabar. Para grabar solo una ventana, deja el ratón encima y pulsa ${k("W")}.`,
                 `<b>Press ${k("Ctrl", "Shift", "5")} and drag over the area.</b> When you let go of the mouse, it starts recording. To record just one window, leave the mouse over it and press ${k("W")}.`,
               ),
@@ -138,8 +146,8 @@ export const PROBLEMAS = [
       {
         q: t("¿Graba el sonido del PC y el micrófono?", "Does it record PC sound and the microphone?"),
         a: t(
-          "Sí: el audio del sistema (lo que suene por los altavoces) y tu micrófono, cada uno grabado en su propia pista y con su volumen en el editor. Cada uno tiene su interruptor en Ajustes y cualquiera de los dos puede ir solo.",
-          "Yes: the system audio (whatever the speakers are playing) and your microphone, each recorded on its own track and with its own volume in the editor. Each has its own switch in Settings and either can go alone.",
+          "Sí: el audio del sistema (lo que suene por los altavoces) y tu micrófono, cada uno grabado en su propia pista y con su volumen en el editor. Los dos vienen apagados: cada uno tiene su interruptor en <b>Ajustes → Grabar</b>, se enciende antes de grabar y cualquiera de los dos puede ir solo.",
+          "Yes: the system audio (whatever the speakers are playing) and your microphone, each recorded on its own track and with its own volume in the editor. Both are off by default: each has its own switch in <b>Settings → Record</b>, you turn it on before recording and either can go alone.",
         ),
       },
       GRATIS,
@@ -151,6 +159,7 @@ export const PROBLEMAS = [
     id: "captura",
     es: "captura-de-pantalla",
     en: "screenshot",
+    actualizado: "2026-11-19",
     pie: t("Hacer una captura", "Take a screenshot"),
     titulo: t("Cómo hacer una captura de pantalla en Windows 10 y 11", "How to take a screenshot on Windows 10 and 11"),
     descripcion: t(
@@ -159,8 +168,8 @@ export const PROBLEMAS = [
     ),
     h1: t("Cómo hacer una captura de pantalla en Windows", "How to take a screenshot on Windows"),
     entradilla: t(
-      `Pulsa ${k("Win", "Mayús", "S")}, elige la zona y Windows guarda la captura en la carpeta Capturas de pantalla. Para una captura suelta no necesitas nada más. Si capturas a menudo, winshotx enseña la selección ya pintada en ${atajo.num}, tapa datos personales con un clic y baja sola por una página larga.`,
-      `Press ${k("Win", "Shift", "S")}, pick the area and Windows saves the shot in the Screenshots folder. For a one-off screenshot you need nothing else. If you capture often, winshotx shows the selection already painted in ${atajo.num}, covers personal data with one click and scrolls down a long page by itself.`,
+      `Pulsa ${k("Win", "Mayús", "S")} y elige la zona. En Windows 11 la captura se guarda sola en la carpeta Capturas de pantalla; en Windows 10 se abre en la Herramienta de Recortes y la guardas tú. Para una captura suelta no necesitas nada más. Si capturas a menudo, winshotx enseña la selección ya pintada en ${atajo.num}, tapa datos personales con un clic y baja sola por una página larga.`,
+      `Press ${k("Win", "Shift", "S")} and pick the area. On Windows 11 the shot is saved by itself in the Screenshots folder; on Windows 10 it opens in the Snipping Tool and you save it yourself. For a one-off screenshot you need nothing else. If you capture often, winshotx shows the selection already painted in ${atajo.num}, covers personal data with one click and scrolls down a long page by itself.`,
     ),
     secciones: [
       {
@@ -172,8 +181,8 @@ export const PROBLEMAS = [
           {
             lista: [
               t(
-                `<b>${k("Win", "Mayús", "S")}.</b> Abre la Herramienta de Recortes para elegir un rectángulo, una ventana, la pantalla entera o una forma libre. La captura se guarda sola en <b>Imágenes › Capturas de pantalla</b>.`,
-                `<b>${k("Win", "Shift", "S")}.</b> Opens the Snipping Tool to pick a rectangle, a window, the full screen or a freeform shape. The shot is saved by itself in <b>Pictures › Screenshots</b>.`,
+                `<b>${k("Win", "Mayús", "S")}.</b> Abre la Herramienta de Recortes para elegir un rectángulo, una ventana, la pantalla entera o una forma libre. En Windows 11 la captura se guarda sola en <b>Imágenes › Capturas de pantalla</b>; en Windows 10 hay que guardarla a mano.`,
+                `<b>${k("Win", "Shift", "S")}.</b> Opens the Snipping Tool to pick a rectangle, a window, the full screen or a freeform shape. On Windows 11 the shot is saved by itself in <b>Pictures › Screenshots</b>; on Windows 10 you save it yourself.`,
               ),
               t(
                 `<b>${k("Win", "Impr Pant")}.</b> Guarda la pantalla entera en esa misma carpeta.`,
@@ -234,8 +243,8 @@ export const PROBLEMAS = [
       {
         q: t("¿Dónde se guardan las capturas?", "Where are the screenshots saved?"),
         a: t(
-          "Con Windows, en <b>Imágenes › Capturas de pantalla</b>. Con winshotx, en la carpeta que elijas en <b>Ajustes → La app</b>; de fábrica, <code>Imágenes\\winshotx</code>.",
-          "With Windows, in <b>Pictures › Screenshots</b>. With winshotx, in the folder you choose in <b>Settings → The app</b>; by default, <code>Pictures\\winshotx</code>.",
+          `En Windows 11, solas en <b>Imágenes › Capturas de pantalla</b>. En Windows 10, la de ${k("Win", "Mayús", "S")} la guardas tú donde quieras. Con winshotx, en la carpeta que elijas en <b>Ajustes → La app</b>; de fábrica, <code>Imágenes\\winshotx</code>.`,
+          `On Windows 11, by themselves in <b>Pictures › Screenshots</b>. On Windows 10, you save the ${k("Win", "Shift", "S")} one wherever you want. With winshotx, in the folder you choose in <b>Settings → The app</b>; by default, <code>Pictures\\winshotx</code>.`,
         ),
       },
       {

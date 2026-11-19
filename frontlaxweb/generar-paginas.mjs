@@ -359,7 +359,7 @@ for (const p of NUEVAS) {
 /* -------------------------------------------------- el sitemap, llms.txt y la 404 */
 const entradaSitemap = (loc, p) => `  <url>
     <loc>${BASE}${loc}/</loc>
-    <lastmod>${ACTUALIZADO}</lastmod>
+    <lastmod>${p.actualizado ?? ACTUALIZADO}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="es" href="${BASE}${p.es}/"/>
