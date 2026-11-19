@@ -837,6 +837,15 @@ export const ZH: Record<string, string> = {
   "este sistema no da el sonido por PipeWire": "此系统不通过 PipeWire 提供声音",
   "no hay ninguna salida de sonido": "未找到声音输出",
   "no hay ningún micrófono conectado": "未连接麦克风",
+  // S44 (Linux, grabar): cómo se para, dicho en la pantalla de elegir zona (`comoParar.ts`).
+  "Para parar la grabación, pulsa {atajo}.": "要停止录制，请按 {atajo}。",
+  "Para parar la grabación, pulsa {atajo} o usa el icono de winshotx en la bandeja.": "要停止录制，请按 {atajo}，或点击托盘中的 winshotx 图标。",
+  "Para parar la grabación, pulsa {atajo} o deja de compartir la pantalla desde el escritorio.": "要停止录制，请按 {atajo}，或在桌面上停止共享屏幕。",
+  "Para parar la grabación, pulsa {atajo}, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "要停止录制，请按 {atajo}、点击托盘中的 winshotx 图标，或在桌面上停止共享屏幕。",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja.": "要停止录制，请点击托盘中的 winshotx 图标。",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "要停止录制，请点击托盘中的 winshotx 图标，或在桌面上停止共享屏幕。",
+  "Para parar la grabación, deja de compartir la pantalla desde el escritorio o ejecuta {orden}.": "要停止录制，请在桌面上停止共享屏幕，或运行 {orden}。",
+  "Para parar la grabación, ejecuta {orden}.": "要停止录制，请运行 {orden}。",
   "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "这个桌面不允许应用申请按键。请用下面两条命令，自己加到它的键盘快捷键里：",
   // S43 (Linux en los ajustes de la 0.5)
   "Todo está en estos siete": "全都在这七项里",

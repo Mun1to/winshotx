@@ -332,6 +332,9 @@ pub fn run() {
             crono::marca("atajos");
             tray::build(&handle)?;
             crono::marca("bandeja");
+            // Si este escritorio ensenna la bandeja, para decir como se para una grabacion.
+            #[cfg(target_os = "linux")]
+            platform::como_parar::mirar_la_bandeja();
 
             // Si arranca sola con Windows, que arranque ESTA y no otra copia. Munir tenia
             // el registro apuntando a una instalacion de hace una semana en otra carpeta:

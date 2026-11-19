@@ -76,6 +76,23 @@ export interface OverlayPayload {
    * ofrece Vídeo ni GIF (otra grabación daría «ya hay una grabación en curso»).
    */
   recording?: boolean;
+  /**
+   * Con qué se para una grabación. Solo llega en Linux, donde puede no haber barra de
+   * grabar: la pantalla de elegir zona lo dice antes de empezar (`lib/comoParar.ts`).
+   */
+  comoParar?: ComoParar;
+}
+
+/** Con qué cuenta esta persona para parar una grabación en Linux. */
+export interface ComoParar {
+  /** La tecla de grabar, que también para, escrita para leerla. `null` si no hay ninguna. */
+  atajo: string | null;
+  /** Este escritorio enseña la bandeja (el GNOME de fábrica no). */
+  bandeja: boolean;
+  /** El escritorio tiene su propio botón de dejar de compartir la pantalla (GNOME, KDE). */
+  escritorio: boolean;
+  /** Lo que se escribe en una consola para parar («winshotx --record»). */
+  orden: string;
 }
 
 export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text" | /* S4 (capturas) */ "qr";

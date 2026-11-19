@@ -23,6 +23,9 @@ pub mod xdg;
 // S21 (Linux): presentarse al portal con el nombre de la app, y los atajos de Wayland.
 #[cfg(target_os = "linux")]
 pub mod portal;
+// S44 (Linux, grabar): con que se para una grabacion, para decirlo antes de que empiece.
+#[cfg(target_os = "linux")]
+pub mod como_parar;
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S2 (grabación)
 // S3 (fondos)

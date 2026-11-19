@@ -66,6 +66,7 @@ import {
   type StillAction,
 } from "../../lib/types";
 import { BootScreen } from "./BootScreen";
+import { ComoParar } from "./ComoParar";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
@@ -1645,6 +1646,16 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
           </div>
         </div>
       )}
+
+      {/* Cómo se para lo que se va a grabar, en Linux (donde puede no haber barra de grabar):
+          se dice aquí, antes de empezar, porque grabando saldría en el vídeo. Donde la barra
+          de modos y con sus mismas reglas: en la pantalla del ratón y sin un gesto en marcha. */}
+      {modo !== "still" &&
+        payload.comoParar &&
+        (cursorAqui || pantallaEntera) &&
+        mode.kind === "idle" &&
+        !gestoFuera &&
+        !error && <ComoParar como={payload.comoParar} />}
 
       {pantallaEntera && !active && (
         <ScreenPicker

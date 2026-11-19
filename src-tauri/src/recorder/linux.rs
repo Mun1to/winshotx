@@ -7,8 +7,11 @@
 //!
 //! **La barra de grabar no se puede esconder del video.** En Windows se le dice al sistema
 //! que no la grabe; en Linux eso no existe, ni en X11 ni en Wayland. Asi que se pone fuera
-//! de la zona que se graba, y si no cabe fuera (se graba la pantalla entera), no hay barra:
-//! se para con el atajo de grabar o desde el icono de la bandeja.
+//! de la zona que se graba, y si no cabe fuera (se graba la pantalla entera, o es Wayland,
+//! donde una ventana no elige su sitio), no hay barra: se para con el atajo de grabar o
+//! desde el icono de la bandeja. Como se para se dice ANTES de grabar, en la pantalla de
+//! elegir zona (`platform::como_parar`): mientras se graba no se ensenna nada, ni un aviso
+//! del escritorio, porque saldria en el video.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{channel, RecvTimeoutError};
@@ -227,7 +230,13 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
                 recording.barra = Some(label);
             }
         }
-        Ok(None) => eprintln!("[grabar] la barra no cabe fuera de lo que se graba: se para con el atajo o desde la bandeja"),
+        Ok(None) => {
+            // Como se para ya se dijo en la pantalla de elegir zona. Aqui no se ensenna nada:
+            // saldria en el video.
+            eprintln!(
+                "[grabar] no hay barra (no se puede poner fuera de lo que se graba): se para con el atajo, con la orden --record, desde la bandeja o desde el aviso del escritorio"
+            );
+        }
         Err(error) => eprintln!("no se ha podido abrir la barra de grabacion: {error}"),
     }
     spawn_ticker(app.clone(), stop);

@@ -349,6 +349,71 @@ describe("el interruptor de la barra de acciones", () => {
   });
 });
 
+// En Linux la barra de grabar no se puede dejar fuera del vídeo, así que puede no haberla. Y
+// grabando no se enseña nada (saldría en el vídeo): cómo se para lo dice esta pantalla, antes.
+describe("cómo se para una grabación, dicho antes de empezar (Linux)", () => {
+  const COMO = { atajo: "Ctrl+Shift+5", bandeja: false, escritorio: true, orden: "winshotx --record" };
+  const frase = () => document.querySelector("[data-como-parar]");
+
+  it("al abrir para grabar, lo dice con la tecla en negrita", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record", comoParar: COMO });
+    await abrir();
+    await waitFor(() => expect(frase()).not.toBeNull());
+    expect(frase()).toHaveTextContent(
+      "Para parar la grabación, pulsa Ctrl+Shift+5 o deja de compartir la pantalla desde el escritorio.",
+    );
+    expect(frase()!.querySelector("strong")).toHaveTextContent("Ctrl+Shift+5");
+  });
+
+  it("en inglés, en inglés", async () => {
+    aplicarIdioma("en");
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record", comoParar: { ...COMO, bandeja: true, escritorio: false } });
+    render(<SelectionCanvas monitorId={1} />);
+    await waitFor(() => expect(frase()).not.toBeNull());
+    expect(frase()).toHaveTextContent("To stop the recording, press Ctrl+Shift+5 or use the winshotx tray icon.");
+  });
+
+  it("sin tecla ni bandeja, la orden que se escribe en una consola", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      intent: "record",
+      comoParar: { atajo: null, bandeja: false, escritorio: false, orden: "winshotx --record" },
+    });
+    await abrir();
+    await waitFor(() => expect(frase()).not.toBeNull());
+    expect(frase()).toHaveTextContent("Para parar la grabación, ejecuta winshotx --record.");
+    expect(frase()!.querySelector("strong")).toHaveTextContent("winshotx --record");
+  });
+
+  it("haciendo una foto no dice nada, y sale al pasar a vídeo o a GIF", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, comoParar: COMO });
+    await abrir();
+    expect(frase()).toBeNull();
+    // El modo viaja por evento: es el mismo en todas las pantallas.
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: false, withToolbar: false });
+    await waitFor(() => expect(frase()).not.toBeNull());
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: false });
+    await waitFor(() => expect(frase()).toBeNull());
+    emite(EVENTS.overlayMode, { mode: "gif", fullScreen: false, withToolbar: false });
+    await waitFor(() => expect(frase()).not.toBeNull());
+  });
+
+  it("también eligiendo la pantalla entera, que es la que se graba sin barra", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record", comoParar: COMO });
+    await abrir();
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: true, withToolbar: false });
+    await screen.findByText("grabarla entera");
+    expect(frase()).not.toBeNull();
+  });
+
+  it("en Windows, que siempre tiene su barra, no sale ni al grabar", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record" });
+    await abrir();
+    await screen.findByLabelText("Vídeo");
+    expect(frase()).toBeNull();
+  });
+});
+
 // Grabando se puede abrir el overlay para hacer una foto, pero otra grabación da «ya hay una
 // grabación en curso»: la barra no la ofrece, ni con botón ni con tecla (revisión, 16-nov-2026).
 describe("grabando, el overlay solo hace fotos", () => {

@@ -39,6 +39,10 @@ pub struct OverlayPayload {
     /// en una y sigue en la de al lado (16-nov). Salen del sistema y no de las congeladas, que
     /// llegan en dos tandas: al montar el overlay de la primera, las otras aun no estan.
     monitores: Vec<capture::MonitorInfo>,
+    /// Con que se para una grabacion en Linux, donde puede no haber barra de grabar: la
+    /// pantalla de elegir zona lo dice antes de empezar (`platform::como_parar`).
+    #[cfg(target_os = "linux")]
+    como_parar: crate::platform::como_parar::ComoParar,
 }
 
 /// Construye el payload de una pantalla. La usan tanto el comando `overlay_bootstrap`
@@ -68,6 +72,8 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         last_region: *state.last_region.read(),
         recording: state.is_recording(),
         monitores,
+        #[cfg(target_os = "linux")]
+        como_parar: crate::platform::como_parar::de_ahora(state),
     })
 }
 

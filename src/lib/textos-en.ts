@@ -837,6 +837,15 @@ export const EN: Record<string, string> = {
   "este sistema no da el sonido por PipeWire": "this system doesn't provide sound through PipeWire",
   "no hay ninguna salida de sonido": "no sound output found",
   "no hay ningún micrófono conectado": "no microphone connected",
+  // S44 (Linux, grabar): cómo se para, dicho en la pantalla de elegir zona (`comoParar.ts`).
+  "Para parar la grabación, pulsa {atajo}.": "To stop the recording, press {atajo}.",
+  "Para parar la grabación, pulsa {atajo} o usa el icono de winshotx en la bandeja.": "To stop the recording, press {atajo} or use the winshotx tray icon.",
+  "Para parar la grabación, pulsa {atajo} o deja de compartir la pantalla desde el escritorio.": "To stop the recording, press {atajo} or stop sharing the screen from the desktop.",
+  "Para parar la grabación, pulsa {atajo}, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "To stop the recording, press {atajo}, use the winshotx tray icon or stop sharing the screen from the desktop.",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja.": "To stop the recording, use the winshotx tray icon.",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "To stop the recording, use the winshotx tray icon or stop sharing the screen from the desktop.",
+  "Para parar la grabación, deja de compartir la pantalla desde el escritorio o ejecuta {orden}.": "To stop the recording, stop sharing the screen from the desktop or run {orden}.",
+  "Para parar la grabación, ejecuta {orden}.": "To stop the recording, run {orden}.",
   "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "This desktop does not let apps ask for their keys. Add them yourself in its keyboard shortcuts, with these two commands:",
   // S43 (Linux en los ajustes de la 0.5)
   "Todo está en estos siete": "It is all in these seven",
