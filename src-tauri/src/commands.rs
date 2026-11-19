@@ -965,7 +965,8 @@ pub fn plataforma() -> Plataforma {
 /// de la pagina, que en una app instalada no ve nadie.
 #[tauri::command]
 pub fn apuntar_del_editor(texto: String) {
-    eprintln!("[editor] {}", linea_del_editor(&texto));
+    // Sin la ficha del servidor de medios, por si viene en el mensaje (lo escribe GStreamer).
+    eprintln!("[editor] {}", linea_del_editor(&crate::medios::sin_ficha(&texto)));
 }
 
 /// Lo que se apunta de lo que manda la pagina: una sola linea y corta, venga lo que venga.

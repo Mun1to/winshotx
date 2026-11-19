@@ -1233,7 +1233,10 @@ fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Re
     // que no conoce ese protocolo): el editor los pide a un servidor de 127.0.0.1, y se le
     // dice por donde antes de que cargue la pagina (`src/lib/medios.ts`).
     #[cfg(target_os = "linux")]
-    let constructor = match crate::medios::base(&app.state::<AppState>().temp_root) {
+    let constructor = match crate::medios::base(&crate::medios::raices(
+        &app.state::<AppState>().temp_root,
+        crate::fondos::carpeta(app).ok(),
+    )) {
         // La direccion la hace Rust con un puerto y una ficha en hexadecimal: no lleva nada
         // que haya que escapar dentro de las comillas.
         Some(base) => constructor.initialization_script(&format!("window.__WINSHOTX_MEDIOS__ = \"{base}\";")),
