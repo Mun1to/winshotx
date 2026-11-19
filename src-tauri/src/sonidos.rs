@@ -100,7 +100,16 @@ fn leer_con_windows(ruta: &Path) -> Result<(Vec<f32>, u32)> {
     })
 }
 
-#[cfg(not(windows))]
+/// En Linux lo que no es un WAV lo abre el GStreamer del sistema (`encode::gst`): MP3, OGG,
+/// FLAC, y lo demas que tenga instalado quien lo usa.
+#[cfg(target_os = "linux")]
+fn leer_con_windows(ruta: &Path) -> Result<(Vec<f32>, u32)> {
+    crate::encode::gst::leer_sonido(ruta, SEGUNDOS_LEIDOS).map_err(|e| {
+        AppError::Msg(format!("ese sonido no se puede abrir ({e}). Prueba con un WAV o un MP3."))
+    })
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn leer_con_windows(_ruta: &Path) -> Result<(Vec<f32>, u32)> {
     Err("ese sonido no es un WAV, y sin Windows solo se leen WAV".into())
 }
@@ -403,6 +412,31 @@ mod pruebas {
         assert_eq!(de_windows.len(), la.len());
         let error = de_windows.iter().zip(&la).fold(0.0f32, |m, (a, b)| m.max((a - b).abs()));
         assert!(error < 1e-3, "la mayor diferencia: {error}");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// El camino de los MP3 en Linux, con un MP3 de verdad hecho alli mismo: un segundo de
+    /// tono que el GStreamer del sistema escribe y `leer_archivo` vuelve a abrir, y que se
+    /// puede importar como clic propio.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_lee_un_mp3_de_verdad() {
+        let d = dir("mp3-linux");
+        let mp3 = d.join("la.mp3");
+        crate::encode::gst::correr(&format!(
+            "audiotestsrc wave=sine freq=440 volume=0.5 samplesperbuffer=1470 num-buffers=30 ! audio/x-raw,rate=44100,channels=2 ! audioconvert ! lamemp3enc ! filesink location={}",
+            mp3.display()
+        ))
+        .expect("hacer el MP3");
+        let (muestras, frecuencia) = leer_archivo(&mp3).expect("leer el MP3");
+        assert_eq!(frecuencia, 44_100);
+        let segundos = muestras.len() as f64 / 44_100.0;
+        assert!((segundos - 1.0).abs() < 0.1, "dura {segundos} s");
+        assert!(muestras.iter().any(|m| m.abs() > 0.2), "no suena");
+        let guardados = d.join("sonidos");
+        std::fs::create_dir_all(&guardados).unwrap();
+        let copia = importar_en(&guardados, &mp3).expect("importar el MP3 como clic");
+        assert!(copia.is_file());
         let _ = std::fs::remove_dir_all(&d);
     }
 
