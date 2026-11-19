@@ -445,6 +445,11 @@ export const ZH: Record<string, string> = {
   // 复制截图中的文字
   "Copiar el texto": "复制文字",
   "No he encontrado texto en esa captura.": "未在截图中找到文字。",
+  "No he encontrado texto en esta imagen.": "未在这张图片中找到文字。",
+  // 下面两句由 `src-tauri/src/platform/ocr.rs` 原样给出（那边有测试盯着）。
+  "No he podido abrir esa imagen para leer su texto.": "无法打开这张图片来读取其中的文字。",
+  "Windows no tiene ningún idioma con lector de texto instalado. Se añade en Configuración → Hora e idioma → Idioma, en «Opciones» de tu idioma.":
+    "Windows 没有安装任何带文字识别的语言。请在「设置 → 时间和语言 → 语言」中，从你所用语言的「选项」里添加。",
 
   // 光标下的颜色
   copiado: "已复制",

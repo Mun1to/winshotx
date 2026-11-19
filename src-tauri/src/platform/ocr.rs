@@ -89,8 +89,9 @@ fn lineas_de(
     for &(y, alto_tira) in &lista {
         let mapa = if lista.len() == 1 && escala == 1.0 {
             decodificador
-                .GetSoftwareBitmapConvertedAsync(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied)?
-                .join()?
+                .GetSoftwareBitmapConvertedAsync(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied)
+                .and_then(|pidiendo| pidiendo.join())
+                .map_err(no_se_abre)?
         } else {
             let transformacion = BitmapTransform::new()?;
             if escala != 1.0 {
@@ -109,8 +110,9 @@ fn lineas_de(
                     &transformacion,
                     ExifOrientationMode::IgnoreExifOrientation,
                     ColorManagementMode::DoNotColorManage,
-                )?
-                .join()?
+                )
+                .and_then(|pidiendo| pidiendo.join())
+                .map_err(no_se_abre)?
         };
         let resultado = motor.RecognizeAsync(&mapa)?.join()?;
         let grados = resultado.TextAngle().and_then(|angulo| angulo.Value()).unwrap_or(0.0);
@@ -308,6 +310,11 @@ pub fn tiras(alto: u32, maximo: u32, solape: u32) -> Vec<(u32, u32)> {
 
 /// Un lector para muchas fotos seguidas, con el motor creado una sola vez (S26: el texto
 /// del historial, que lee la carpeta de capturas entera poco a poco).
+///
+/// **Cada hilo, el suyo.** Un motor no lee dos imágenes a la vez: si dos hilos comparten un
+/// `Lector`, el que llega segundo recibe «Another RecognizeAsync operation is already
+/// running!» (medido). Dos motores distintos sí leen a la vez, que es lo que pasa cuando se
+/// pulsa T mientras el historial lee una foto.
 #[cfg(windows)]
 pub struct Lector {
     motor: windows::Media::Ocr::OcrEngine,
@@ -346,7 +353,15 @@ fn decodificador(bytes: &[u8]) -> Result<windows::Graphics::Imaging::BitmapDecod
     escritor.StoreAsync()?.join()?;
     escritor.FlushAsync()?.join()?;
     flujo.Seek(0)?;
-    Ok(BitmapDecoder::CreateAsync(&flujo)?.join()?)
+    BitmapDecoder::CreateAsync(&flujo).and_then(|abriendo| abriendo.join()).map_err(no_se_abre)
+}
+
+/// Cambia lo que contesta Windows al no poder abrir una imagen por la frase que se entiende,
+/// y deja lo de Windows en la salida de errores para quien tenga que mirarlo.
+#[cfg(windows)]
+fn no_se_abre(de_windows: windows::core::Error) -> AppError {
+    eprintln!("[texto] Windows no ha podido abrir la imagen: {de_windows}");
+    AppError::Msg(NO_SE_ABRE.into())
 }
 
 /// Lee la imagen y devuelve sus líneas, cada una con sus palabras y el rectángulo de cada
@@ -369,9 +384,7 @@ pub fn leer_palabras(png: &[u8]) -> Result<Vec<Vec<crate::sensibles::Palabra>>> 
 /// `datos_en_video`, que lo crea una vez para leer muchos fotogramas.
 #[cfg(windows)]
 pub(crate) fn motor() -> Result<windows::Media::Ocr::OcrEngine> {
-    use windows::Globalization::Language;
     use windows::Media::Ocr::OcrEngine;
-    use windows::core::HSTRING;
 
     if let Ok(motor) = OcrEngine::TryCreateFromUserProfileLanguages() {
         return Ok(motor);
@@ -379,15 +392,39 @@ pub(crate) fn motor() -> Result<windows::Media::Ocr::OcrEngine> {
     // Los idiomas del usuario pueden no tener OCR instalado. El inglés lo tiene casi
     // cualquier Windows, y leer con el motor equivocado sigue siendo mucho mejor que no
     // leer nada: el alfabeto es el mismo y solo se pierden algunas tildes.
-    let ingles = Language::CreateLanguage(&HSTRING::from("en-US"))?;
-    OcrEngine::TryCreateFromLanguage(&ingles).map_err(|_| {
-        AppError::Msg(
-            "Windows no tiene ningún idioma con lector de texto instalado. Se añade en \
-             Configuración → Hora e idioma → Idioma, en «Opciones» de tu idioma."
-                .into(),
-        )
-    })
+    motor_de("en-US")
 }
+
+/// El motor de un idioma concreto, o la frase que dice que falta.
+///
+/// Windows contesta «no hay» con un motor nulo, y `windows` lo convierte en un error sin
+/// código ni mensaje («La operación se completó correctamente»): de ahí la frase propia.
+#[cfg(windows)]
+fn motor_de(etiqueta: &str) -> Result<windows::Media::Ocr::OcrEngine> {
+    use windows::Globalization::Language;
+    use windows::Media::Ocr::OcrEngine;
+    use windows::core::HSTRING;
+
+    let idioma = Language::CreateLanguage(&HSTRING::from(etiqueta))?;
+    OcrEngine::TryCreateFromLanguage(&idioma).map_err(|_| AppError::Msg(SIN_IDIOMA.into()))
+}
+
+/// Lo que se le dice a quien no tiene en Windows ningún idioma con lector de texto.
+///
+/// Las dos frases de aquí llegan a la pantalla tal cual, y `t()` las traduce si están,
+/// letra por letra, en `src/lib/textos-en.ts` y `textos-zh.ts`: lo vigila la prueba
+/// `las_frases_del_lector_estan_traducidas`. Y van **en una sola línea**: `i18n.test.ts`
+/// busca cada clave de los diccionarios tal cual en este código, y partida no la encuentra
+/// (por eso esta estuvo sin traducir hasta la issue #16).
+#[cfg(windows)]
+#[rustfmt::skip]
+const SIN_IDIOMA: &str = "Windows no tiene ningún idioma con lector de texto instalado. Se añade en Configuración → Hora e idioma → Idioma, en «Opciones» de tu idioma.";
+
+/// Lo que se dice de una imagen que Windows no sabe abrir: vacía, rota, o de un formato
+/// para el que no tiene decodificador. Lo que contesta Windows («No se encuentra el
+/// componente», 0x88982F50) no le dice nada a quien usa la app, y va a la salida de errores.
+#[cfg(windows)]
+const NO_SE_ABRE: &str = "No he podido abrir esa imagen para leer su texto.";
 
 #[cfg(not(windows))]
 pub fn leer_texto(_png: &[u8]) -> crate::error::Result<String> {
@@ -980,6 +1017,80 @@ pub(crate) mod pruebas {
             let png = pintar_textos(&[(20, "arriba queda"), (y, "justo corte"), (980, "abajo queda")], 700, 1100);
             let texto = texto_de(&con_maximo(&png, 600));
             assert_eq!(texto, "arriba queda\njusto corte\nabajo queda", "con la línea a la altura {y}");
+        }
+    }
+
+    // Cada fallo, con su frase (issue #16, punto 5). Lo que ve quien usa la app es el texto
+    // del error, tal cual o traducido por `t()` si la frase está en `src/lib/textos-*.ts`.
+
+    /// Una imagen que Windows no sabe abrir (vacía, rota, o que no es una imagen) lo dice
+    /// con una frase que se entiende, la misma por los tres caminos. Decía «error de Windows:
+    /// No se encuentra el componente. (0x88982F50)».
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn una_imagen_que_no_se_abre_lo_dice_claro() {
+        let buena = pintar_lineas(&["winshotx lee"], 600, 160);
+        let casos: [(&str, &[u8]); 4] = [
+            ("vacía", &[]),
+            ("una frase, no una imagen", b"esto no es una imagen, es una frase"),
+            ("solo la firma de un PNG", &buena[..8]),
+            ("la cabecera de un PNG y nada más", &buena[..33]),
+        ];
+        let lector = Lector::nuevo().expect("el lector");
+        let archivo = std::env::temp_dir().join("winshotx-no-se-abre.png");
+        for (nombre, bytes) in casos {
+            let frase = |e: AppError| e.to_string();
+            assert_eq!(leer_texto(bytes).map_err(frase), Err(NO_SE_ABRE.to_string()), "{nombre}");
+            assert_eq!(leer_palabras(bytes).map(|l| l.len()).map_err(frase), Err(NO_SE_ABRE.to_string()), "{nombre}");
+            std::fs::write(&archivo, bytes).expect("el archivo de prueba");
+            assert_eq!(lector.leer_archivo(&archivo).map_err(frase), Err(NO_SE_ABRE.to_string()), "{nombre}");
+        }
+        let _ = std::fs::remove_file(&archivo);
+
+        // Con la cabecera bien y los datos rotos (machacados, o el archivo cortado por la
+        // mitad), Windows la abre igual con lo que puede y no encuentra texto: no es un
+        // error, y en todo caso nunca sale la frase cruda de Windows.
+        let mut machacada = buena.clone();
+        machacada[60..].fill(0x55);
+        for (nombre, bytes) in [("machacada", &machacada[..]), ("cortada", &buena[..buena.len() / 2])] {
+            match leer_texto(bytes) {
+                Ok(texto) => assert_eq!(texto, "", "{nombre}"),
+                Err(e) => assert_eq!(e.to_string(), NO_SE_ABRE, "{nombre}"),
+            }
+        }
+    }
+
+    /// Sin el idioma instalado, la frase dice qué falta y dónde se pone. `windows` devuelve un
+    /// error (y no un motor vacío que reviente después) cuando Windows contesta que no hay
+    /// motor para ese idioma: se comprueba con uno que este equipo no tenga.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn sin_el_idioma_instalado_lo_dice_claro() {
+        use windows::Globalization::Language;
+        use windows::Media::Ocr::OcrEngine;
+        use windows::core::HSTRING;
+        let sin_lector = ["ja", "ko", "ar-SA", "el-GR", "th-TH", "hi-IN"].into_iter().find(|etiqueta| {
+            let idioma = Language::CreateLanguage(&HSTRING::from(*etiqueta)).expect("el idioma");
+            !OcrEngine::IsLanguageSupported(&idioma).expect("preguntar por el idioma")
+        });
+        let etiqueta = sin_lector.expect("este equipo tiene el lector de todos los idiomas de la lista");
+        assert_eq!(motor_de(etiqueta).map(|_| ()).map_err(|e| e.to_string()), Err(SIN_IDIOMA.to_string()));
+        // Y con los idiomas de quien usa este equipo, hay motor.
+        motor().expect("el motor de los idiomas de este equipo");
+    }
+
+    /// Las frases del lector están en los dos diccionarios, letra por letra: la clave de la
+    /// traducción ES la frase, así que cambiar una coma aquí la deja sin traducir en silencio.
+    #[test]
+    fn las_frases_del_lector_estan_traducidas() {
+        let diccionarios = [
+            ("textos-en.ts", include_str!("../../../src/lib/textos-en.ts")),
+            ("textos-zh.ts", include_str!("../../../src/lib/textos-zh.ts")),
+        ];
+        for (archivo, contenido) in diccionarios {
+            for frase in [NO_SE_ABRE, SIN_IDIOMA] {
+                assert!(contenido.contains(&format!("\"{frase}\":")), "falta en {archivo}: {frase}");
+            }
         }
     }
 

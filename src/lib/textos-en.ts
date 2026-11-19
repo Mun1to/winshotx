@@ -450,6 +450,11 @@ export const EN: Record<string, string> = {
   // Copiar el texto de una captura
   "Copiar el texto": "Copy the text",
   "No he encontrado texto en esa captura.": "I found no text in that shot.",
+  "No he encontrado texto en esta imagen.": "I found no text in this image.",
+  // Estas dos las escribe `src-tauri/src/platform/ocr.rs`, letra por letra (lo vigila una prueba suya).
+  "No he podido abrir esa imagen para leer su texto.": "I could not open that image to read its text.",
+  "Windows no tiene ningún idioma con lector de texto instalado. Se añade en Configuración → Hora e idioma → Idioma, en «Opciones» de tu idioma.":
+    "Windows has no language with text recognition installed. Add it in Settings → Time & language → Language, under «Options» for your language.",
 
   // El color bajo el cursor
   copiado: "copied",
