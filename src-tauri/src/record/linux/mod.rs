@@ -14,6 +14,7 @@
 //! **El raton no va cocido en los fotogramas,** igual que en Windows: se apunta por donde va
 //! y que imagen tiene (`Rastro`), y lo dibuja el exportador al tamanno que se pida.
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -25,6 +26,7 @@ use image::RgbaImage;
 use crate::capture::Rect;
 use crate::error::Result;
 
+pub mod wayland;
 pub mod x11;
 
 /// Un fotograma recien capturado, ya recortado a la region y en RGBA.
@@ -99,10 +101,24 @@ pub struct Rastro {
 /// La captura con todo abierto, a falta de que empiece a contar el reloj.
 pub enum Preparada {
     X11(x11::Preparada),
+    Wayland(wayland::Preparada),
 }
 
-/// Abre lo que haga falta para grabar esa region (en pixeles del escritorio).
-pub fn preparar(region: Rect, fps: u32) -> Result<Preparada> {
+/// Lo que solo hace falta en Wayland.
+pub struct Opciones {
+    /// El archivo donde se guarda el permiso del escritorio, para que no vuelva a preguntar.
+    pub ficha: PathBuf,
+    /// Lo que hay que hacer si el escritorio corta la grabacion por su cuenta. Se llama desde
+    /// el hilo de la captura: no puede esperar a que ese hilo acabe.
+    pub al_cortarse: Box<dyn Fn() + Send>,
+}
+
+/// Abre lo que haga falta para grabar esa region (en pixeles del escritorio). En Wayland
+/// puede tardar lo que tarde la persona en contestar al escritorio.
+pub fn preparar(region: Rect, fps: u32, opciones: Opciones) -> Result<Preparada> {
+    if crate::platform::xdg::es_wayland() {
+        return Ok(Preparada::Wayland(wayland::preparar(region, fps, &opciones.ficha, opciones.al_cortarse)?));
+    }
     Ok(Preparada::X11(x11::preparar(region, fps)?))
 }
 
@@ -111,6 +127,16 @@ impl Preparada {
     pub fn region(&self) -> Rect {
         match self {
             Preparada::X11(p) => p.region(),
+            Preparada::Wayland(p) => p.region(),
+        }
+    }
+
+    /// El raton viene ya dibujado dentro de los fotogramas (los escritorios de Wayland que no
+    /// saben mandarlo aparte): el exportador no tiene que dibujarlo otra vez.
+    pub fn raton_cocido(&self) -> bool {
+        match self {
+            Preparada::X11(_) => false,
+            Preparada::Wayland(p) => p.raton_cocido(),
         }
     }
 
@@ -118,6 +144,7 @@ impl Preparada {
     pub fn grabar(self, marcha: Marcha, salida: Sender<Fotograma>, reciclados: Reciclados) -> EnMarcha {
         match self {
             Preparada::X11(p) => p.grabar(marcha, salida, reciclados),
+            Preparada::Wayland(p) => p.grabar(marcha, salida, reciclados),
         }
     }
 }

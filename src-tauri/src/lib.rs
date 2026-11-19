@@ -236,6 +236,14 @@ pub fn run() {
                 windows_mgr::close_overlays(app);
                 return;
             }
+            // En Linux la barra de grabar no siempre existe (no se puede sacar del video), y
+            // hay escritorios sin bandeja y sin atajos: `--record` empieza a grabar, o para
+            // lo que se este grabando, igual que la entrada de la bandeja.
+            #[cfg(target_os = "linux")]
+            if args.iter().any(|arg| arg == "--record") {
+                tray::ejecutar(app, "record");
+                return;
+            }
             // El primero es el nombre del programa.
             let argumentos = args.get(1..).unwrap_or_default();
             if arranque::la_segunda_abre_los_ajustes(

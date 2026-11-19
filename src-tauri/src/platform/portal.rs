@@ -161,6 +161,7 @@ static CANAL: OnceLock<UnboundedSender<Orden>> = OnceLock::new();
 static TECLAS: parking_lot::Mutex<TeclasDelEscritorio> = parking_lot::Mutex::new(TeclasDelEscritorio {
     capture: None,
     edit: None,
+    record: None,
     a_mano: false,
     orden: String::new(),
 });
@@ -392,28 +393,35 @@ fn anotar(app: &AppHandle, atados: &[Shortcut]) {
     };
     let captura = con_tecla("capture");
     let editor = con_tecla("edit");
+    let grabar = con_tecla("record");
     let tecla = |atajo: Option<&Shortcut>| {
         atajo.map(|s| TeclaDelEscritorio {
             texto: s.trigger_description().to_string(),
             atajo: atajo_de_la_descripcion(s.trigger_description()),
         })
     };
-    *TECLAS.lock() =
-        TeclasDelEscritorio { capture: tecla(captura), edit: tecla(editor), ..Default::default() };
+    *TECLAS.lock() = TeclasDelEscritorio {
+        capture: tecla(captura),
+        edit: tecla(editor),
+        record: tecla(grabar),
+        ..Default::default()
+    };
     let state = app.state::<AppState>();
     let estado = {
         let mut estado = state.shortcuts.write();
         estado.capture = captura.is_some();
         estado.edit = editor.is_some();
+        estado.record = grabar.is_some();
         *estado
     };
     // La bienvenida y los ajustes preguntan el estado al abrirse, y el escritorio puede
     // contestar despues (cuando la persona acepta su dialogo).
     let _ = app.emit(crate::EVENT_SHORTCUTS_CHANGED, estado);
     eprintln!(
-        "[atajo] portal: captura={} editor={}",
+        "[atajo] portal: captura={} editor={} grabar={}",
         captura.map(|s| s.trigger_description()).unwrap_or("-"),
         editor.map(|s| s.trigger_description()).unwrap_or("-"),
+        grabar.map(|s| s.trigger_description()).unwrap_or("-"),
     );
 }
 
@@ -459,6 +467,12 @@ fn disparar(app: &AppHandle, id: &str) {
     let intencion = match id {
         "capture" => OverlayIntent::Capture,
         "edit" => OverlayIntent::Edit,
+        // Grabar, o parar si ya se esta grabando: lo mismo que la entrada de la bandeja.
+        "record" => {
+            let dentro = app.clone();
+            let _ = app.run_on_main_thread(move || crate::tray::ejecutar(&dentro, "record"));
+            return;
+        }
         _ => return,
     };
     let dentro = app.clone();

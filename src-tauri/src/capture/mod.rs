@@ -8,9 +8,10 @@ mod proporcion_pruebas;
 mod dos_pantallas_pruebas;
 #[cfg(windows)]
 mod wgc;
-// S21 (Linux): en Wayland la foto la hace el portal, no `xcap`.
+// S21 (Linux): en Wayland la foto la hace el portal, no `xcap`. A la vista del resto de
+// winshotx porque grabar necesita saber que pantallas hay (`record::linux::wayland`).
 #[cfg(target_os = "linux")]
-mod wayland;
+pub(crate) mod wayland;
 // S5 (scroll): la captura con scroll, que cose las fotos de una zona mientras baja.
 pub mod scroll;
 use std::sync::Arc;

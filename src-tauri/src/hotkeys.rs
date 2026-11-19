@@ -254,30 +254,35 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     status
 }
 
-/// Los atajos de Wayland: se le piden al escritorio la captura y la captura al editor, con las
-/// teclas de los ajustes como sugerencia. El escritorio pregunta (GNOME ensenna un dialogo
-/// donde la persona confirma o cambia la tecla) y lo que quede puesto lo apunta el portal en
-/// `AppState::shortcuts` cuando conteste. Grabar no se pide hasta que grabe (Fase 2 del plan de
-/// Linux), ni Impr Pant, que en GNOME y en KDE ya es del escritorio.
+/// Los atajos de Wayland: se le piden al escritorio la captura, la captura al editor y grabar,
+/// con las teclas de los ajustes como sugerencia. El escritorio pregunta (GNOME ensenna un
+/// dialogo donde la persona confirma o cambia la tecla) y lo que quede puesto lo apunta el
+/// portal en `AppState::shortcuts` cuando conteste. Impr Pant no se pide: en GNOME y en KDE ya
+/// es del escritorio.
 #[cfg(target_os = "linux")]
 fn atajos_de_wayland(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     use crate::platform::portal::{pedir_atajos, Peticion};
     // Los mismos textos de la interfaz (`src/lib/textos-en.ts` y `textos-zh.ts`).
-    let (captura, editor) = match crate::tray::idioma(app) {
-        "es" => ("Capturar una región", "Capturar y abrir el editor"),
-        "zh" => ("区域截图", "截图并打开编辑器"),
-        _ => ("Capture a region", "Capture and open the editor"),
+    let (captura, editor, grabar) = match crate::tray::idioma(app) {
+        "es" => ("Capturar una región", "Capturar y abrir el editor", "Grabar la pantalla, o parar la grabación"),
+        "zh" => ("区域截图", "截图并打开编辑器", "录制屏幕，或停止录制"),
+        _ => ("Capture a region", "Capture and open the editor", "Record the screen, or stop recording"),
     };
     let tecla_captura = tecla_para_el_portal(&settings.capture_shortcut);
     // Dos atajos con la misma tecla no los pone nadie: el del editor va entonces sin sugerencia
     // y la elige la persona en el dialogo.
     let tecla_editor =
         tecla_para_el_portal(&settings.edit_shortcut).filter(|tecla| Some(tecla) != tecla_captura.as_ref());
+    // El de grabar es tambien el de parar: en Wayland no hay barra de grabar (no se puede
+    // sacar del video), asi que esta tecla es la forma de parar sin ir a la bandeja.
+    let tecla_grabar = tecla_para_el_portal(&settings.record_shortcut)
+        .filter(|tecla| Some(tecla) != tecla_captura.as_ref() && Some(tecla) != tecla_editor.as_ref());
     pedir_atajos(
         app,
         vec![
             Peticion { id: "capture", descripcion: captura.into(), tecla: tecla_captura },
             Peticion { id: "edit", descripcion: editor.into(), tecla: tecla_editor },
+            Peticion { id: "record", descripcion: grabar.into(), tecla: tecla_grabar },
         ],
     );
     *app.state::<AppState>().shortcuts.read()
@@ -390,12 +395,14 @@ pub struct TeclaDelEscritorio {
     pub atajo: Option<String>,
 }
 
-/// Las teclas que el escritorio ha dado a los dos atajos que se le piden en Wayland.
+/// Las teclas que el escritorio ha dado a los atajos que se le piden en Wayland.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TeclasDelEscritorio {
     pub capture: Option<TeclaDelEscritorio>,
     pub edit: Option<TeclaDelEscritorio>,
+    /// La de grabar, que es tambien la de parar: en Wayland no hay barra de grabar.
+    pub record: Option<TeclaDelEscritorio>,
     /// Que este escritorio no deja pedirle atajos (Sway y los demas de wlroots no tienen el
     /// portal): la tecla se pone a mano en su configuracion, con `orden` y `--capture`.
     pub a_mano: bool,

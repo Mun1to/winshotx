@@ -45,8 +45,24 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     let fps = options.fps.clamp(5, 60);
     // Aqui se abre lo que haga falta, y en Wayland se espera a que la persona conteste al
     // escritorio: el reloj no empieza hasta despues.
-    let preparada = record::linux::preparar(region.to_even(), fps)?;
+    let opciones = record::linux::Opciones {
+        ficha: app.path().app_config_dir().map_err(|e| AppError::Msg(e.to_string()))?.join("screencast-token"),
+        al_cortarse: {
+            let app = app.clone();
+            // En otro hilo: parar espera a que acabe la captura, y esto lo llama la captura.
+            Box::new(move || {
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    if let Err(error) = super::stop(&app) {
+                        eprintln!("no se ha podido parar la grabación: {error}");
+                    }
+                });
+            })
+        },
+    };
+    let preparada = record::linux::preparar(region.to_even(), fps, opciones)?;
     let region = preparada.region();
+    let raton_cocido = preparada.raton_cocido();
     std::thread::sleep(QUE_SE_VAYA_EL_OVERLAY);
 
     let id = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
@@ -68,8 +84,9 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         clics: Vec::new(),
         teclas: Vec::new(),
         cursor: Vec::new(),
-        // Como en Windows, el puntero no va cocido: se apunta y lo dibuja el exportador.
-        cursor_capturado: false,
+        // Como en Windows, el puntero no va cocido: se apunta y lo dibuja el exportador. Salvo
+        // en los escritorios de Wayland que solo saben darlo ya dibujado en la imagen.
+        cursor_capturado: raton_cocido,
         formas: Vec::new(),
         punteros: Vec::new(),
         cambios_puntero: Vec::new(),
@@ -182,7 +199,10 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     *state.recording.lock() = Some(recording);
     crate::tray::al_cambiar_la_grabacion(app);
 
-    match windows_mgr::open_recorder_fuera(app, region) {
+    // En Wayland una ventana no elige su sitio, asi que no se puede garantizar que la barra
+    // quede fuera de lo que se graba: no hay barra.
+    let barra = if crate::platform::xdg::es_wayland() { Ok(None) } else { windows_mgr::open_recorder_fuera(app, region) };
+    match barra {
         Ok(Some(label)) => {
             if let Some(recording) = state.recording.lock().as_mut() {
                 recording.barra = Some(label);
@@ -201,7 +221,7 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         duration_ms: 0,
         has_audio: false,
         has_clicks: false,
-        cursor_baked: false,
+        cursor_baked: raton_cocido,
         format: options.format,
         mp4_path: None,
         sonido_pc: None,

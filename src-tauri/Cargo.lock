@@ -6308,6 +6308,7 @@ dependencies = [
  "image",
  "libc",
  "parking_lot",
+ "pipewire",
  "qoi",
  "quircs",
  "rayon",
