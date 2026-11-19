@@ -1586,10 +1586,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
 
       {/*
         El color copiado. Va donde los errores y con la misma forma, porque es lo mismo:
-        algo que acaba de pasar y que hay que contar sin tapar la pantalla.
+        algo que acaba de pasar y que hay que contar sin tapar la pantalla. Los dos van
+        DEBAJO de la barra de modos (acaba a 74 px): a su altura quedaban detrás de ella,
+        y de un error solo asomaban las puntas.
       */}
       {colorCopiado && !error && (
-        <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center">
           <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-neutral-900/90 px-4 py-2.5 text-xs text-neutral-200 shadow-2xl backdrop-blur-md">
             <span
               className="size-3 rounded-[4px] border border-white/25"
@@ -1602,7 +1604,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       )}
 
       {error && (
-        <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center px-6">
           <div className="max-w-xl rounded-xl border border-red-500/30 bg-red-950/90 px-4 py-2.5 text-xs text-red-200 shadow-2xl backdrop-blur-md">
             {/* Los errores llegan de Rust escritos en espannol. Como la clave del
                 diccionario ES la frase espannola, pasarlos por `t` traduce los que

@@ -129,9 +129,10 @@ describe("en el overlay", () => {
     const lienzo = await abrirOverlay();
     fireEvent.click(screen.getByLabelText("Captura con scroll"));
     arrastrar(lienzo, { x: 100, y: 100 }, { x: 160, y: 140 });
-    expect(
-      await screen.findByText("Esa zona es muy pequeña para desplazarla: recorta algo más grande."),
-    ).toBeInTheDocument();
+    const aviso = await screen.findByText("Esa zona es muy pequeña para desplazarla: recorta algo más grande.");
+    expect(aviso).toBeInTheDocument();
+    // Debajo de la barra de modos, que acaba a 74 px: a su altura quedaba detrás y no se leía.
+    expect(aviso.parentElement?.className).toContain("top-[84px]");
   });
 
   it("sin encenderlo, soltar el recorte sigue sacando la barra de siempre", async () => {
