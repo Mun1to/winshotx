@@ -20,44 +20,126 @@ use crate::error::{AppError, Result};
 /// con su rectángulo, y unirlas con lo que había en medio es imposible de saber.
 #[cfg(windows)]
 pub fn leer_texto(png: &[u8]) -> Result<String> {
-    use windows::Graphics::Imaging::BitmapDecoder;
-    use windows::Storage::Streams::{DataWriter, InMemoryRandomAccessStream};
-
-    // El motor quiere un flujo del sistema, no un puñado de bytes: se le monta uno en
-    // memoria y se le vuelca el PNG dentro.
-    let flujo = InMemoryRandomAccessStream::new()?;
-    let escritor = DataWriter::CreateDataWriter(&flujo.GetOutputStreamAt(0)?)?;
-    escritor.WriteBytes(png)?;
-    escritor.StoreAsync()?.join()?;
-    escritor.FlushAsync()?.join()?;
-    flujo.Seek(0)?;
-
-    let decodificador = BitmapDecoder::CreateAsync(&flujo)?.join()?;
-    let mapa = decodificador.GetSoftwareBitmapAsync()?.join()?;
-
-    // `join` espera a que la operacion de WinRT termine sin montar ningun runtime
-    // asincrono: leer una captura tarda decimas y esto ya corre en su propio comando.
-    let motor = motor()?;
-    let resultado = motor.RecognizeAsync(&mapa)?.join()?;
-    texto_de(&resultado)
+    let maximo = windows::Media::Ocr::OcrEngine::MaxImageDimension()?;
+    Ok(texto_de(&lineas_de(&decodificador(png)?, &motor()?, maximo)?))
 }
 
-/// Las líneas de lo que ha leído el motor, de arriba abajo, con las palabras de cada una
-/// separadas por un espacio.
+/// Las líneas leídas, de arriba abajo, con las palabras de cada una separadas por un espacio.
 #[cfg(windows)]
-fn texto_de(resultado: &windows::Media::Ocr::OcrResult) -> Result<String> {
+fn texto_de(lineas: &[Vec<crate::sensibles::Palabra>]) -> String {
+    lineas
+        .iter()
+        .map(|linea| linea.iter().map(|p| p.texto.as_str()).collect::<Vec<_>>().join(" "))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// El único camino por el que una imagen llega al lector de Windows (issue #16): la tecla T,
+/// la captura anclada, el fotograma del editor, tapar datos y el texto del historial.
+///
+/// - **Siempre en BGRA de 8 bits.** Un PNG de 16 bits por canal sale del decodificador en un
+///   formato que el motor no acepta.
+/// - **Nada más grande que `maximo`.** El motor no lee imágenes de más de
+///   `OcrEngine::MaxImageDimension` píxeles de lado (10 000 en el Windows 11 de las pruebas,
+///   y contesta «Image dimensions are too large!»): una captura con scroll larga se lee a
+///   tiras que se solapan, y una más ancha que eso se reduce.
+/// - **Cada línea, una vez.** De lo que cae en el solape de dos tiras se queda la tira que
+///   tiene el centro de la línea más lejos de su borde, así que sale entera y no repetida.
+/// - **Las cajas, en píxeles de la imagen de verdad**, no de la reducida ni de su tira: con
+///   ellas se tapa un correo, y una caja corrida tapa otra cosa.
+///
+/// `join` espera a que cada operación de WinRT termine sin montar ningún runtime asíncrono.
+/// Ningún hilo hace falta iniciarlo a mano: `windows-core` mete en el apartamento MTA del
+/// proceso al que pide una clase de WinRT sin haber iniciado COM (`CoIncrementMTAUsage`).
+#[cfg(windows)]
+fn lineas_de(
+    decodificador: &windows::Graphics::Imaging::BitmapDecoder,
+    motor: &windows::Media::Ocr::OcrEngine,
+    maximo: u32,
+) -> Result<Vec<Vec<crate::sensibles::Palabra>>> {
+    use windows::Graphics::Imaging::{
+        BitmapAlphaMode, BitmapBounds, BitmapPixelFormat, BitmapTransform, ColorManagementMode,
+        ExifOrientationMode,
+    };
+
+    let (ancho, alto) = (decodificador.PixelWidth()?, decodificador.PixelHeight()?);
+    let maximo = maximo.max(SOLAPE_DE_TIRAS * 2);
+    let escala = (maximo as f64 / ancho.max(1) as f64).min(1.0);
+    let (ancho_leido, alto_leido) = if escala < 1.0 {
+        (
+            ((ancho as f64 * escala).round() as u32).clamp(1, maximo),
+            ((alto as f64 * escala).round() as u32).max(1),
+        )
+    } else {
+        (ancho, alto)
+    };
+    // De los píxeles leídos a los de la imagen de verdad.
+    let (kx, ky) = (ancho as f32 / ancho_leido as f32, alto as f32 / alto_leido as f32);
+
+    let lista = tiras(alto_leido, maximo, SOLAPE_DE_TIRAS);
     let mut lineas = Vec::new();
-    for linea in resultado.Lines()? {
-        let palabras: Vec<String> = linea
-            .Words()?
-            .into_iter()
-            .map(|p| p.Text().map(|t| t.to_string_lossy()))
-            .collect::<std::result::Result<_, _>>()?;
-        if !palabras.is_empty() {
-            lineas.push(palabras.join(" "));
+    for (i, &(y, alto_tira)) in lista.iter().enumerate() {
+        let mapa = if lista.len() == 1 && escala >= 1.0 {
+            decodificador
+                .GetSoftwareBitmapConvertedAsync(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied)?
+                .join()?
+        } else {
+            let transformacion = BitmapTransform::new()?;
+            if escala < 1.0 {
+                transformacion.SetScaledWidth(ancho_leido)?;
+                transformacion.SetScaledHeight(alto_leido)?;
+            }
+            // El recorte se aplica después de escalar, en los píxeles ya reducidos.
+            transformacion.SetBounds(BitmapBounds { X: 0, Y: y, Width: ancho_leido, Height: alto_tira })?;
+            decodificador
+                .GetSoftwareBitmapTransformedAsync(
+                    BitmapPixelFormat::Bgra8,
+                    BitmapAlphaMode::Premultiplied,
+                    &transformacion,
+                    ExifOrientationMode::IgnoreExifOrientation,
+                    ColorManagementMode::DoNotColorManage,
+                )?
+                .join()?
+        };
+        let resultado = motor.RecognizeAsync(&mapa)?.join()?;
+
+        // La franja de la que esta tira se queda las líneas: del centro de su solape de
+        // arriba al centro del de abajo.
+        let desde = if i == 0 { f32::MIN } else { (y + SOLAPE_DE_TIRAS / 2) as f32 };
+        let hasta = match lista.get(i + 1) {
+            Some(&(siguiente, _)) => (siguiente + SOLAPE_DE_TIRAS / 2) as f32,
+            None => f32::MAX,
+        };
+        for linea in resultado.Lines()? {
+            let mut palabras = Vec::new();
+            for palabra in linea.Words()? {
+                let caja = palabra.BoundingRect()?;
+                palabras.push(crate::sensibles::Palabra {
+                    texto: palabra.Text()?.to_string_lossy(),
+                    x: caja.X,
+                    y: caja.Y + y as f32,
+                    ancho: caja.Width,
+                    alto: caja.Height,
+                });
+            }
+            let Some(arriba) = palabras.iter().map(|p| p.y).reduce(f32::min) else {
+                continue;
+            };
+            let abajo = palabras.iter().map(|p| p.y + p.alto).fold(arriba, f32::max);
+            let centro = (arriba + abajo) / 2.0;
+            if centro < desde || centro >= hasta {
+                continue;
+            }
+            for p in &mut palabras {
+                p.x *= kx;
+                p.y *= ky;
+                p.ancho *= kx;
+                p.alto *= ky;
+            }
+            lineas.push(palabras);
         }
     }
-    Ok(lineas.join("\n"))
+    Ok(lineas)
 }
 
 /// Lo que se solapan dos tiras seguidas de una foto demasiado alta, en píxeles: una línea
@@ -111,50 +193,8 @@ impl Lector {
     /// que acepta el motor se reduce, y una más alta (una captura con scroll de veinte
     /// pantallas) se lee a tiras que se solapan un poco.
     pub fn leer_archivo(&self, ruta: &std::path::Path) -> Result<String> {
-        use windows::Graphics::Imaging::{
-            BitmapAlphaMode, BitmapBounds, BitmapPixelFormat, BitmapTransform, ColorManagementMode,
-            ExifOrientationMode,
-        };
-
         let bytes = std::fs::read(ruta)?;
-        let decodificador = decodificador(&bytes)?;
-        let (ancho, alto) = (decodificador.PixelWidth()?, decodificador.PixelHeight()?);
-        if ancho <= self.maximo && alto <= self.maximo {
-            // En BGRA de 8 bits siempre: un PNG de 16 bits por canal saldría en un formato
-            // que el motor no acepta.
-            let mapa = decodificador
-                .GetSoftwareBitmapConvertedAsync(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied)?
-                .join()?;
-            return texto_de(&self.motor.RecognizeAsync(&mapa)?.join()?);
-        }
-
-        let escala = (self.maximo as f64 / ancho as f64).min(1.0);
-        let ancho_leido = ((ancho as f64 * escala).round() as u32).clamp(1, self.maximo);
-        let alto_leido = ((alto as f64 * escala).round() as u32).max(1);
-        let mut trozos = Vec::new();
-        for (y, alto_tira) in tiras(alto_leido, self.maximo, SOLAPE_DE_TIRAS) {
-            let transformacion = BitmapTransform::new()?;
-            if escala < 1.0 {
-                transformacion.SetScaledWidth(ancho_leido)?;
-                transformacion.SetScaledHeight(alto_leido)?;
-            }
-            // El recorte se aplica después de escalar, en los píxeles ya reducidos.
-            transformacion.SetBounds(BitmapBounds { X: 0, Y: y, Width: ancho_leido, Height: alto_tira })?;
-            let mapa = decodificador
-                .GetSoftwareBitmapTransformedAsync(
-                    BitmapPixelFormat::Bgra8,
-                    BitmapAlphaMode::Premultiplied,
-                    &transformacion,
-                    ExifOrientationMode::IgnoreExifOrientation,
-                    ColorManagementMode::DoNotColorManage,
-                )?
-                .join()?;
-            let texto = texto_de(&self.motor.RecognizeAsync(&mapa)?.join()?)?;
-            if !texto.is_empty() {
-                trozos.push(texto);
-            }
-        }
-        Ok(trozos.join("\n"))
+        Ok(texto_de(&lineas_de(&decodificador(&bytes)?, &self.motor, self.maximo)?))
     }
 }
 
@@ -185,38 +225,8 @@ fn decodificador(bytes: &[u8]) -> Result<windows::Graphics::Imaging::BitmapDecod
 /// tarjeta en grupos de cuatro) solo se reconoce si sus trozos llegan seguidos.
 #[cfg(windows)]
 pub fn leer_palabras(png: &[u8]) -> Result<Vec<Vec<crate::sensibles::Palabra>>> {
-    use windows::Graphics::Imaging::BitmapDecoder;
-    use windows::Storage::Streams::{DataWriter, InMemoryRandomAccessStream};
-
-    let flujo = InMemoryRandomAccessStream::new()?;
-    let escritor = DataWriter::CreateDataWriter(&flujo.GetOutputStreamAt(0)?)?;
-    escritor.WriteBytes(png)?;
-    escritor.StoreAsync()?.join()?;
-    escritor.FlushAsync()?.join()?;
-    flujo.Seek(0)?;
-
-    let decodificador = BitmapDecoder::CreateAsync(&flujo)?.join()?;
-    let mapa = decodificador.GetSoftwareBitmapAsync()?.join()?;
-    let resultado = motor()?.RecognizeAsync(&mapa)?.join()?;
-
-    let mut lineas = Vec::new();
-    for linea in resultado.Lines()? {
-        let mut palabras = Vec::new();
-        for palabra in linea.Words()? {
-            let caja = palabra.BoundingRect()?;
-            palabras.push(crate::sensibles::Palabra {
-                texto: palabra.Text()?.to_string_lossy(),
-                x: caja.X,
-                y: caja.Y,
-                ancho: caja.Width,
-                alto: caja.Height,
-            });
-        }
-        if !palabras.is_empty() {
-            lineas.push(palabras);
-        }
-    }
-    Ok(lineas)
+    let maximo = windows::Media::Ocr::OcrEngine::MaxImageDimension()?;
+    lineas_de(&decodificador(png)?, &motor()?, maximo)
 }
 
 /// El motor de OCR, con los idiomas de la persona y el inglés como red. También lo usa
@@ -487,5 +497,128 @@ pub(crate) mod pruebas {
         let blanca = image::RgbaImage::from_pixel(200, 120, image::Rgba([255, 255, 255, 255]));
         let png = crate::encode::png::to_bytes(&blanca).expect("el PNG de prueba");
         assert_eq!(leer_texto(&png).expect("el motor de OCR"), "");
+    }
+
+    // Issue #16: lo que no cabe en el lector de Windows. Hasta aquí solo el texto del
+    // historial miraba `MaxImageDimension`; la tecla T, la captura anclada, el fotograma
+    // del editor y tapar datos le pasaban la imagen tal cual.
+
+    /// El lado más grande que acepta el lector en este Windows.
+    fn maximo() -> u32 {
+        windows::Media::Ocr::OcrEngine::MaxImageDimension().expect("el máximo del lector")
+    }
+
+    /// Un lienzo blanco de `ancho` x `alto` con cada frase pegada donde se dice, escrita
+    /// con la fuente del sistema. Devuelve el PNG.
+    fn lienzo_con_frases(ancho: u32, alto: u32, frases: &[(u32, u32, &str)]) -> Vec<u8> {
+        let mut lienzo = image::RgbaImage::from_pixel(ancho, alto, image::Rgba([255, 255, 255, 255]));
+        for (x, y, frase) in frases {
+            let png = pintar_textos(&[(16, frase)], 1100, 110);
+            let trozo = image::load_from_memory(&png).expect("el trozo de prueba").to_rgba8();
+            image::imageops::overlay(&mut lienzo, &trozo, *x as i64, *y as i64);
+        }
+        crate::encode::png::to_bytes(&lienzo).expect("el PNG de prueba")
+    }
+
+    /// Una captura más ancha que lo que acepta el lector (tres pantallas 4K de lado a lado
+    /// pasan de los 10 000 px de Windows 11) se lee igual, también lo que está a la derecha.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn una_captura_mas_ancha_que_el_lector_se_lee() {
+        let ancho = maximo() * 3 / 2;
+        let png = lienzo_con_frases(ancho, 240, &[(ancho - 1150, 60, "winshotx lee tres pantallas")]);
+        let texto = leer_texto(&png).expect("el motor de OCR");
+        println!("el lector ha visto: {texto:?}");
+        assert!(texto.to_lowercase().contains("pantallas"), "no ha leído la frase: {texto:?}");
+    }
+
+    /// Una captura con scroll más alta que lo que acepta el lector se lee entera, en orden,
+    /// y la línea que cae en el solape de dos tiras sale una sola vez.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn una_captura_con_scroll_se_lee_entera_y_en_orden() {
+        let maximo = maximo();
+        let alto = maximo * 2 + 400;
+        let corte = maximo - SOLAPE_DE_TIRAS / 2 - 40;
+        let png = lienzo_con_frases(
+            1200,
+            alto,
+            &[(20, 40, "arriba del todo"), (20, corte, "justo en el corte"), (20, alto - 140, "abajo del todo")],
+        );
+        let texto = leer_texto(&png).expect("el motor de OCR").to_lowercase();
+        println!("el lector ha visto: {texto:?}");
+        let arriba = texto.find("arriba").expect("falta la línea de arriba");
+        let corte_en = texto.find("corte").expect("falta la línea del corte");
+        let abajo = texto.find("abajo").expect("falta la línea de abajo");
+        assert!(arriba < corte_en && corte_en < abajo, "fuera de orden: {texto:?}");
+        assert_eq!(texto.matches("corte").count(), 1, "la línea del corte sale dos veces: {texto:?}");
+    }
+
+    /// En una captura ancha, la caja de cada palabra cae donde está la palabra en la imagen
+    /// de verdad, no en la reducida: tapar un correo tiene que tapar el correo.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn las_cajas_de_una_captura_ancha_caen_sobre_su_palabra() {
+        let ancho = maximo() * 3 / 2;
+        let (x, y) = (ancho - 1150, 60);
+        let png = lienzo_con_frases(ancho, 240, &[(x, y, "munir@example.com")]);
+        let lineas = leer_palabras(&png).expect("el motor de OCR");
+        let palabras: Vec<_> = lineas.iter().flatten().collect();
+        println!("palabras: {palabras:?}");
+        assert!(!palabras.is_empty(), "no ha leído nada");
+        for p in palabras {
+            // El texto empieza en x + 24 y mide unos 64 px de alto a partir de y + 16.
+            assert!(p.x >= x as f32 && p.x + p.ancho <= (x + 1100) as f32, "caja fuera en x: {p:?}");
+            assert!(p.y >= y as f32 && p.y + p.alto <= (y + 110) as f32, "caja fuera en y: {p:?}");
+        }
+    }
+
+    /// En una captura alta, la caja de lo que está en la segunda tira lleva la altura de la
+    /// imagen entera, no la de su tira.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn las_cajas_de_una_captura_alta_llevan_su_altura_de_verdad() {
+        let maximo = maximo();
+        let alto = maximo * 2;
+        let y = maximo + 500;
+        let png = lienzo_con_frases(1200, alto, &[(20, y, "munir@example.com")]);
+        let lineas = leer_palabras(&png).expect("el motor de OCR");
+        let palabras: Vec<_> = lineas.iter().flatten().collect();
+        println!("palabras: {palabras:?}");
+        assert_eq!(lineas.len(), 1, "esperaba una sola línea: {lineas:?}");
+        for p in palabras {
+            assert!(p.y >= y as f32 && p.y + p.alto <= (y + 110) as f32, "caja fuera en y: {p:?}");
+        }
+    }
+
+    /// Un PNG de 16 bits por canal (el de algunas herramientas de diseño, si se ancla) se lee
+    /// igual que uno de 8: el lector de Windows no acepta su formato tal cual.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn un_png_de_16_bits_se_lee() {
+        let png8 = pintar_lineas(&["winshotx lee dieciseis bits"], 1100, 160);
+        let imagen = image::load_from_memory(&png8).expect("el PNG de prueba").to_rgba16();
+        let mut png16 = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba16(imagen)
+            .write_to(&mut png16, image::ImageFormat::Png)
+            .expect("el PNG de 16 bits");
+        let texto = leer_texto(png16.get_ref()).expect("el motor de OCR");
+        println!("el lector ha visto: {texto:?}");
+        assert!(texto.to_lowercase().contains("winshotx"), "no ha leído la frase: {texto:?}");
+    }
+
+    /// Un hilo nuevo, sin iniciar nada de COM ni de WinRT, lee igual: `windows-core` mete el
+    /// hilo en el apartamento MTA del proceso la primera vez que pide una clase de WinRT
+    /// (`CoIncrementMTAUsage`, en `imp/factory_cache.rs`). Es lo que hace el hilo del
+    /// historial y cada comando de Tauri, que corren en hilos de tokio.
+    #[test]
+    #[ignore = "necesita el lector de texto de Windows instalado"]
+    fn un_hilo_recien_creado_lee_sin_iniciar_nada() {
+        let png = pintar_lineas(&["winshotx lee en otro hilo"], 1100, 160);
+        let texto = std::thread::spawn(move || leer_texto(&png))
+            .join()
+            .expect("el hilo")
+            .expect("el motor de OCR");
+        assert!(texto.to_lowercase().contains("hilo"), "no ha leído la frase: {texto:?}");
     }
 }
