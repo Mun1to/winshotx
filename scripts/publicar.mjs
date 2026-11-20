@@ -5,9 +5,9 @@
 //   node scripts/publicar.mjs --publicar  crea la release de verdad
 //   ... --linux <carpeta>                 y mete los paquetes de Linux de la CI
 //
-// Linux sale cuando tenga casi todo lo de Windows (decision 1 del plan de Linux): hasta
-// entonces no se pasa --linux. La carpeta es el artefacto «winshotx-linux» del run de la CI
-// del MISMO commit que se publica:
+// Linux sale desde la 0.6.0, asi que se pasa --linux en todas las versiones: sin el, el
+// latest.json no lleva Linux y las copias de Linux se quedan sin actualizar. La carpeta es el
+// artefacto «winshotx-linux» del run de la CI del MISMO commit que se publica:
 //
 //   gh run download <run> --repo Mun1to/winshotx --name winshotx-linux --dir <carpeta>
 //
@@ -199,6 +199,21 @@ for (const a of activos) console.log(`  ${a}`);
 console.log(`latest.json: ${Object.keys(latest.platforms).join(", ")}`);
 if (!carpetaLinux) console.log("Sin Linux: no se ha pasado --linux.");
 
+// El AppImage no escribe MP4 (no puede usar los codificadores del sistema): sale avisado en
+// la app, en el README de Linux y aqui, que es la pagina desde donde se baja.
+const notas = [
+  "Actualización automática desde la propia app: Ajustes → Actualizaciones.",
+  ...(carpetaLinux
+    ? [
+        "",
+        "**Linux** (X11 and GNOME on Wayland): `.deb`, `.rpm` and `.AppImage`. " +
+          "The AppImage cannot save MP4, only GIF; the .deb and the .rpm can. " +
+          "How to install: [packaging/linux](https://github.com/Mun1to/winshotx/blob/main/packaging/linux/README.md).",
+      ]
+    : []),
+].join("\n");
+console.log(`\nNotas de la release:\n${notas}`);
+
 if (!process.argv.includes("--publicar")) {
   console.log("\nNada subido. Repite con --publicar cuando quieras crear la release.");
   process.exit(0);
@@ -213,10 +228,16 @@ execFileSync(
     ...activos,
     "--repo",
     repo,
+    // Sin esto la etiqueta nueva sale de lo que haya en main en GitHub, que puede no ser lo
+    // compilado: la version se publica antes de juntar a main, porque cada push a main que toca
+    // frontlaxweb/ publica la web, y la web no puede anunciar una version que aun no existe.
+    // El commit tiene que estar ya subido (la rama de la CI de Linux lo sube).
+    "--target",
+    execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
     "--title",
     `winshotx ${version}`,
     "--notes",
-    `Actualización automática desde la propia app: Ajustes → Actualizaciones.`,
+    notas,
   ],
   { stdio: "inherit" },
 );
