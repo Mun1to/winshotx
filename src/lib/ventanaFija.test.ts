@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { render, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import conf from "../../src-tauri/tauri.conf.json";
 import { estirar, llamadas, ventana } from "../test/preparar";
 import {
@@ -144,5 +144,83 @@ describe("la ventana de verdad (con el Tauri de mentira)", () => {
     estirar(1920, 1009);
     await new Promise((r) => setTimeout(r, 700));
     expect(guardados()).toEqual([]);
+  });
+});
+
+/**
+ * S45 (Linux): en GNOME Wayland la barra de título la dibuja GTK dentro de la propia ventana,
+ * con su sombra alrededor, y lo que Tauri llama «lo de dentro» los cuenta: una ventana de
+ * 900 x 723 dice medir 952 x 822 (26 de sombra por lado y 47 de barra). Con eso, solo
+ * enseñarla ya era «alguien la ha estirado»: se guardaba 952 x 822 y el arranque siguiente la
+ * abría así de grande. Lo que mide de verdad lo sabe la página.
+ */
+describe("en Linux, donde la barra de título y la sombra cuentan como ventana", () => {
+  const WEBKITGTK =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+  const pagina = (ancho: number, alto: number) => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: ancho });
+    Object.defineProperty(window, "innerHeight", { configurable: true, writable: true, value: alto });
+  };
+  const enLinux = () => vi.spyOn(navigator, "userAgent", "get").mockReturnValue(WEBKITGTK);
+  afterEach(() => {
+    vi.restoreAllMocks();
+    pagina(1024, 768);
+  });
+
+  it("enseñarla no guarda ningún tamaño ni la toca, aunque Tauri diga que mide más", async () => {
+    enLinux();
+    pagina(900, 723);
+    ventana.dentro = { width: 952, height: 822 };
+    render(createElement(Prueba, { guardada: null }));
+    await waitFor(() => expect(ventana.oyentesTamanno.length).toBeGreaterThan(0));
+    // El aviso que llega al enseñarla: el tamaño de siempre, contado con la barra y la sombra.
+    estirar(952, 822);
+    await new Promise((r) => setTimeout(r, 700));
+    expect(guardados()).toEqual([]);
+    expect(ventana.tamannos).toEqual([]);
+  });
+
+  it("si la estiran a mano, guarda lo que mide la página y no lo que dice Tauri", async () => {
+    enLinux();
+    pagina(900, 723);
+    ventana.dentro = { width: 952, height: 822 };
+    render(createElement(Prueba, { guardada: null }));
+    await waitFor(() => expect(ventana.oyentesTamanno.length).toBeGreaterThan(0));
+    pagina(1000, 800);
+    estirar(1052, 899);
+    await waitFor(() => expect(guardados()).toEqual([{ ancho: 1000, alto: 800 }]), { timeout: 2000 });
+  });
+
+  it("abre al tamaño guardado, y enseñarla así tampoco guarda otro", async () => {
+    enLinux();
+    pagina(900, 723);
+    ventana.dentro = { width: 952, height: 822 };
+    render(createElement(Prueba, { guardada: { ancho: 1000, alto: 800 } }));
+    await waitFor(() => expect(ventana.tamannos.at(-1)).toEqual({ width: 1000, height: 800 }));
+    pagina(1000, 800);
+    estirar(1052, 899);
+    await new Promise((r) => setTimeout(r, 700));
+    expect(guardados()).toEqual([]);
+  });
+
+  // Arrancada con la sesión, la ventana está escondida y la página todavía no mide nada.
+  it("mientras la página no mide nada, no se apunta ningún tamaño", async () => {
+    enLinux();
+    pagina(0, 0);
+    render(createElement(Prueba, { guardada: null }));
+    await waitFor(() => expect(ventana.oyentesTamanno.length).toBeGreaterThan(0));
+    estirar(952, 822);
+    await new Promise((r) => setTimeout(r, 700));
+    expect(guardados()).toEqual([]);
+  });
+
+  it("en Windows se sigue preguntando a Tauri, mida lo que mida la página", async () => {
+    pagina(640, 480);
+    render(createElement(Prueba, { guardada: null }));
+    await waitFor(() => expect(ventana.oyentesTamanno.length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ventana.tamannos).toEqual([]);
+    estirar(1000, 800);
+    await waitFor(() => expect(guardados()).toEqual([{ ancho: 1000, alto: 800 }]), { timeout: 2000 });
   });
 });

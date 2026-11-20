@@ -9,8 +9,25 @@ use serde_json::{json, Map, Value};
 
 use super::cliente;
 
+/// Lo que ve quien está delante mientras se graba, para la ayuda.
+#[cfg(not(target_os = "linux"))]
+macro_rules! lo_que_se_ve {
+    () => {
+        "The frame shows while recording."
+    };
+}
+
+/// En Linux el marco no se puede esconder del vídeo: solo está si cabe fuera de lo que se graba,
+/// y en Wayland quien avisa es el escritorio.
+#[cfg(target_os = "linux")]
+macro_rules! lo_que_se_ve {
+    () => {
+        "On X11 the frame shows while recording if it fits outside the area; on Wayland the desktop shows its own indicator and has no window list."
+    };
+}
+
 /// `winshotx agent --help`, en inglés y en diez líneas.
-pub const AYUDA: &str = "\
+pub const AYUDA: &str = concat!("\
 winshotx agent <command> [options]: let an AI agent record the screen, export and capture. Prints one JSON line; exit code 0 = ok.
   status | screens | windows     what is going on, the screens, and the visible windows with their ids
   capture <target> [--out shot.png]                    target: --screen N | --window <id or part of the title> | --region x,y,w,h
@@ -19,8 +36,8 @@ winshotx agent <command> [options]: let an AI agent record the screen, export an
   export  <session> [--out demo.mp4|demo.gif] [--style NAME] [--trim start,end] [--zoom-on-clicks 0..1] [--speed 0.25..4]
   open    <session>              opens it in the winshotx editor, for a person to polish
 Pixels are physical, on the virtual desktop (see screens). Without --out, files go to the folder in winshotx's settings.
-Unset options follow winshotx's settings, except the start sound (--cue), which is off. The frame shows while recording.
-Example: winshotx agent record --screen 0 --max-seconds 20   then   winshotx agent stop   then   winshotx agent export <session> --out demo.mp4";
+Unset options follow winshotx's settings, except the start sound (--cue), which is off. ", lo_que_se_ve!(), "
+Example: winshotx agent record --screen 0 --max-seconds 20   then   winshotx agent stop   then   winshotx agent export <session> --out demo.mp4");
 
 /// Cómo se lee el valor de una opción.
 #[derive(Clone, Copy, PartialEq)]

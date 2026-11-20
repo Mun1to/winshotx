@@ -9,6 +9,8 @@ interface Props {
   version: string;
   /** Las filas que hoy no salen (elegir pantalla con una sola) no se ofrecen. */
   hay: (id: string) => boolean;
+  /** S21 (Linux): las filas que allí se llaman de otra forma salen con ese nombre. */
+  enLinux?: boolean;
   /** Ir al apartado del ajuste e iluminar su fila. */
   onElegir: (ajuste: AjusteBuscable) => void;
   onCerrar: () => void;
@@ -25,22 +27,26 @@ interface Props {
  * Busca en los tres idiomas a la vez (el nombre de cada fila y sus palabras), porque quien
  * tiene la app en inglés también puede escribir en español.
  */
-export function Paleta({ version, hay, onElegir, onCerrar }: Props) {
+export function Paleta({ version, hay, enLinux = false, onElegir, onCerrar }: Props) {
   const t = useT();
   const id = useId();
   const campo = useRef<HTMLInputElement>(null);
   const [consulta, setConsulta] = useState("");
   const [elegido, setElegido] = useState(0);
+  const nombreDe = (b: AjusteBuscable) => (enLinux && b.nombreEnLinux) || b.nombre;
 
   const lista = useMemo(
     () =>
       buscarAjustes(
         consulta,
         // El nombre de la pantalla primero, y luego los de los otros dos idiomas.
-        (b) => [t(b.nombre, { version }), b.nombre, EN[b.nombre] ?? "", ZH[b.nombre] ?? ""],
+        (b) => {
+          const nombre = (enLinux && b.nombreEnLinux) || b.nombre;
+          return [t(nombre, { version }), nombre, EN[nombre] ?? "", ZH[nombre] ?? ""];
+        },
         hay,
       ),
-    [consulta, t, version, hay],
+    [consulta, t, version, hay, enLinux],
   );
 
   useEffect(() => campo.current?.focus(), []);
@@ -127,7 +133,7 @@ export function Paleta({ version, hay, onElegir, onCerrar }: Props) {
                   className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 ${i === elegido ? "bg-realce" : ""}`}
                 >
                   <a.icono className="size-[18px] shrink-0 text-apagado" strokeWidth={1.9} />
-                  <span className="min-w-0 flex-1 text-[15px] font-medium text-titulo">{t(b.nombre, { version })}</span>
+                  <span className="min-w-0 flex-1 text-[15px] font-medium text-titulo">{t(nombreDe(b), { version })}</span>
                   <span className="shrink-0 text-[13px] text-apagado">{t(a.nombre)}</span>
                 </div>
               );

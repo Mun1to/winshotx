@@ -254,9 +254,37 @@ fn pantalla_del_raton() -> Option<((i32, i32, i32, i32), f64)> {
     }
 }
 
-#[cfg(not(windows))]
+/// Lo mismo preguntándole a GDK, que solo se toca desde su hilo.
+#[cfg(target_os = "linux")]
+fn pantalla_del_raton() -> Option<((i32, i32, i32, i32), f64)> {
+    crate::platform::xdg::en_el_hilo_de_gtk(|| {
+        use gtk::gdk::prelude::*;
+        let pantalla = gtk::gdk::Display::default()?;
+        let (_, x, y) = pantalla.default_seat()?.pointer()?.position();
+        let monitor = pantalla.monitor_at_point(x, y)?;
+        let area = monitor.workarea();
+        Some(area_en_fisicos(
+            (area.x(), area.y(), area.width(), area.height()),
+            monitor.scale_factor(),
+        ))
+    })
+    .ok()
+    .flatten()
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn pantalla_del_raton() -> Option<((i32, i32, i32, i32), f64)> {
     None
+}
+
+/// De lo que cuenta GDK (origen y medida, en píxeles de la app) a los cuatro bordes en píxeles
+/// físicos que espera `sitio`.
+#[cfg(any(target_os = "linux", test))]
+fn area_en_fisicos((x, y, ancho, alto): (i32, i32, i32, i32), escala: i32) -> ((i32, i32, i32, i32), f64) {
+    (
+        (x * escala, y * escala, (x + ancho) * escala, (y + alto) * escala),
+        escala as f64,
+    )
 }
 
 /// Al empezar y al acabar una grabación: una miniatura que ya estaba a la vista al darle a
@@ -274,6 +302,21 @@ pub fn fuera_de_la_grabacion(grabando: bool) {
     }
     #[cfg(not(windows))]
     let _ = grabando;
+}
+
+/// En Linux una ventana no se puede sacar de un video: al empezar a grabar, las miniaturas
+/// que hubiera a la vista se cierran, o saldrian en los primeros segundos. Sus fotos no se
+/// pierden: la copiada sigue en el portapapeles y la guardada, en su carpeta.
+#[cfg(target_os = "linux")]
+pub fn cerrar_todas(app: &AppHandle) {
+    {
+        let mut pila = PILA.lock();
+        if pila.is_empty() {
+            return;
+        }
+        pila.clear();
+    }
+    ensennar(app, segundos(app));
 }
 
 /// Crea la ventana la primera vez, y las siguientes la devuelve tal cual.
@@ -318,6 +361,12 @@ const APARCADA: i32 = -20000;
 /// Coloca la ventana para lo que haya en la pila, avisa a la página y la enseña. Con la
 /// pila vacía, la esconde.
 fn ensennar(app: &AppHandle, segundos: u32) {
+    // En Linux la miniatura no se puede sacar del video: grabando no se ensenna ninguna, ni
+    // la de una foto hecha justo antes de empezar y que llega ahora.
+    #[cfg(target_os = "linux")]
+    if app.state::<AppState>().is_recording() {
+        PILA.lock().clear();
+    }
     let cuantas = PILA.lock().len();
     let Ok(window) = ventana(app) else { return };
     let _ = app.emit_to(ETIQUETA, EVENTO, vista_de_la_pila(segundos));
@@ -461,16 +510,55 @@ pub async fn miniatura_anclar(app: AppHandle, id: u64) -> Result<()> {
 pub async fn miniatura_arrastrar(app: AppHandle, id: u64) -> Result<()> {
     let (archivo, _, _) = de(id)?;
     let window = ventana(&app)?;
-    let hwnd = window.hwnd().map_err(|e| AppError::Msg(e.to_string()))?.0 as isize;
-    let otra = app.clone();
-    app.run_on_main_thread(move || {
-        match crate::platform::arrastrar::arrastrar(hwnd, &archivo) {
-            Ok(true) => quitar(&otra, id),
-            Ok(false) => {}
-            Err(e) => eprintln!("[winshotx] {e}"),
-        }
-    })
-    .map_err(|e| AppError::Msg(e.to_string()))?;
+    // En Linux el arrastre es el de GTK: no espera a que se suelte, y avisa al acabar. La
+    // imagen que va con el ratón es la vista pequeña de la carta.
+    #[cfg(target_os = "linux")]
+    {
+        let vista = PILA.lock().iter().find(|m| m.id == id).map(|m| m.vista.clone());
+        let otra = app.clone();
+        app.run_on_main_thread(move || {
+            let Ok(ventana_gtk) = window.gtk_window() else {
+                return;
+            };
+            let empezado = crate::platform::arrastrar::arrastrar_en_gtk(
+                &ventana_gtk,
+                &archivo,
+                vista.as_deref(),
+                move |recogida| {
+                    if recogida {
+                        quitar(&otra, id);
+                    }
+                },
+            );
+            match empezado {
+                Ok(true) => {}
+                // El gesto ha sido más corto que la orden: no se ha empezado nada.
+                Ok(false) => eprintln!("[miniatura] no se arrastra: el botón ya estaba suelto"),
+                Err(e) => eprintln!("[winshotx] {e}"),
+            }
+        })
+        .map_err(|e| AppError::Msg(e.to_string()))?;
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        #[cfg(windows)]
+        let hwnd = window.hwnd().map_err(|e| AppError::Msg(e.to_string()))?.0 as isize;
+        // Sin OLE ni GTK no hay ventana que dar: `arrastrar` contesta que ahí no se puede.
+        #[cfg(not(windows))]
+        let hwnd = {
+            let _ = window;
+            0
+        };
+        let otra = app.clone();
+        app.run_on_main_thread(move || {
+            match crate::platform::arrastrar::arrastrar(hwnd, &archivo) {
+                Ok(true) => quitar(&otra, id),
+                Ok(false) => {}
+                Err(e) => eprintln!("[winshotx] {e}"),
+            }
+        })
+        .map_err(|e| AppError::Msg(e.to_string()))?;
+    }
     Ok(())
 }
 
@@ -517,6 +605,13 @@ mod pruebas {
     fn una_pila_enorme_no_se_sale_por_arriba() {
         let (_, y) = sitio((0, 0, 800, 600), 256, 900, 1.0);
         assert_eq!(y, 0);
+    }
+
+    /// GDK da origen y medida en píxeles de la app; `sitio` quiere bordes en píxeles físicos.
+    #[test]
+    fn el_area_de_gdk_pasa_a_bordes_fisicos() {
+        assert_eq!(area_en_fisicos((0, 27, 1600, 973), 1), ((0, 27, 1600, 1000), 1.0));
+        assert_eq!(area_en_fisicos((1920, 0, 1280, 720), 2), ((3840, 0, 6400, 1440), 2.0));
     }
 
     #[test]

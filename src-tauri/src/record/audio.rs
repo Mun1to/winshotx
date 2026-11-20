@@ -41,33 +41,8 @@ impl Fuentes {
     }
 }
 
-/// Como viene el sonido: hace falta para decirle al codificador que esta recibiendo.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Formato {
-    pub canales: u16,
-    pub muestras_por_segundo: u32,
-    pub bits_por_muestra: u16,
-}
-
-impl Formato {
-    /// Cuantos bytes ocupa un instante de sonido con todos sus canales.
-    pub fn bytes_por_instante(&self) -> u32 {
-        u32::from(self.canales) * u32::from(self.bits_por_muestra) / 8
-    }
-
-    /// Cuanto dura, en cien nanosegundos, un trozo de sonido de este tamanno. Es la unidad
-    /// que usa Windows para los tiempos de los medios, y la que espera el codificador.
-    pub fn duracion_de(&self, bytes: usize) -> i64 {
-        let por_instante = self.bytes_por_instante().max(1) as u64;
-        let instantes = bytes as u64 / por_instante;
-        (instantes * 10_000_000 / u64::from(self.muestras_por_segundo.max(1))) as i64
-    }
-
-    /// Lo mismo, como `Duration`, para compararlo con el reloj de la maquina.
-    pub fn duracion(&self, bytes: usize) -> Duration {
-        Duration::from_nanos(self.duracion_de(bytes).max(0) as u64 * 100)
-    }
-}
+/// Como viene el sonido. Vive en `mezcla`, que no depende de Windows, porque lo usan las dos.
+pub use super::mezcla::Formato;
 
 /// Un trozo de sonido tal y como lo entrega Windows, con el momento en que empieza.
 pub struct Trozo {

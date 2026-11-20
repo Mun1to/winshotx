@@ -118,6 +118,113 @@ describe("en el overlay", () => {
     expect(screen.queryByLabelText("Copiar")).toBeNull();
   });
 
+  it("en Linux dice además con qué tecla se para, que ahí puede no haber barra", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: { atajo: null, bandeja: false, escritorio: false, orden: "winshotx --record", scroll: "Esc" },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    const tecla = await screen.findByText("Esc");
+    expect(tecla.tagName).toBe("STRONG");
+    expect(tecla.parentElement).toHaveTextContent(
+      "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa Esc.",
+    );
+    // Y no la frase de parar una grabación: esto es una foto.
+    expect(document.querySelector("[data-como-parar]")).toBeNull();
+  });
+
+  it("en Wayland sin tecla puesta, dice que se para dejando de compartir la pantalla", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: true,
+        orden: "winshotx --record",
+        scroll: null,
+        scrollOrden: "winshotx --capture",
+      },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() =>
+      expect(document.querySelector("[data-scroll-aviso]")).toHaveTextContent(
+        "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, deja de compartir la pantalla desde el escritorio.",
+      ),
+    );
+  });
+
+  it("y donde el escritorio no tiene ese botón, con la orden", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: false,
+        orden: "winshotx --record",
+        scroll: null,
+        scrollOrden: "winshotx --capture",
+      },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    const orden = await screen.findByText("winshotx --capture");
+    expect(orden.tagName).toBe("STRONG");
+    expect(orden.parentElement).toHaveTextContent(
+      "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, ejecuta winshotx --capture.",
+    );
+  });
+
+  it("si el escritorio va a preguntar por el puntero, dice antes qué contestar", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: true,
+        orden: "winshotx --record",
+        scroll: "Ctrl+Shift+2",
+        scrollOrden: "winshotx --capture",
+        scrollPregunta: true,
+      },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() =>
+      expect(document.querySelector("[data-scroll-pregunta]")).toHaveTextContent(
+        "Cuando el escritorio pregunte, permite la interacción remota: sin ella tendrás que bajarlo tú.",
+      ),
+    );
+    // Además de lo de siempre, no en su lugar.
+    expect(document.querySelector("[data-scroll-aviso]")).toHaveTextContent("Para parar antes del final, pulsa Ctrl+Shift+2.");
+  });
+
+  it("y con el permiso ya guardado no lo repite", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: true,
+        orden: "winshotx --record",
+        scroll: "Ctrl+Shift+2",
+        scrollOrden: "winshotx --capture",
+        scrollPregunta: false,
+      },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    await screen.findByText("Ctrl+Shift+2");
+    expect(document.querySelector("[data-scroll-pregunta]")).toBeNull();
+  });
+
+  it("en Windows no hay nada que añadir: la frase de siempre", async () => {
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    expect(await screen.findByText("Recorta lo que se desplaza y winshotx lo bajará solo")).toBeInTheDocument();
+  });
+
   it("Ctrl+S sigue siendo guardar, no el scroll", async () => {
     await abrirOverlay();
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });
@@ -129,9 +236,10 @@ describe("en el overlay", () => {
     const lienzo = await abrirOverlay();
     fireEvent.click(screen.getByLabelText("Captura con scroll"));
     arrastrar(lienzo, { x: 100, y: 100 }, { x: 160, y: 140 });
-    expect(
-      await screen.findByText("Esa zona es muy pequeña para desplazarla: recorta algo más grande."),
-    ).toBeInTheDocument();
+    const aviso = await screen.findByText("Esa zona es muy pequeña para desplazarla: recorta algo más grande.");
+    expect(aviso).toBeInTheDocument();
+    // Debajo de la barra de modos, que acaba a 74 px: a su altura quedaba detrás y no se leía.
+    expect(aviso.parentElement?.className).toContain("top-[84px]");
   });
 
   it("sin encenderlo, soltar el recorte sigue sacando la barra de siempre", async () => {

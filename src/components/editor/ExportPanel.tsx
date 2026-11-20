@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { ChevronDown, Clipboard, FolderDown, FolderOpen, Link2, Save, Unlink2 } from "lucide-react";
-import { camaraDeLaSesion, exportMedia, pickDirectory, pickSaveFile, revealInExplorer } from "../../lib/ipc";
+import {
+  camaraDeLaSesion,
+  exportMedia,
+  faltaParaElMp4,
+  pickDirectory,
+  pickSaveFile,
+  revealInExplorer,
+} from "../../lib/ipc";
 import { formatBytes } from "../../lib/format";
 import {
   EVENTS,
   type ExportFormat,
+  type FaltaParaElMp4,
   type Background,
   type ExportProgress,
   type ExportResult,
@@ -31,6 +39,7 @@ import { Presets } from "./Presets";
 import { edicionDe, estiloDe, panelDe } from "../../lib/presets";
 import type { Edicion } from "../../lib/contrato";
 import { Opcion, Opciones } from "../ui/Opcion";
+import { Orden } from "../ui/Orden";
 import { Segmented } from "../ui/Segmented";
 import { RELLENO, ROJO } from "./colores";
 // S11 (pistas)
@@ -156,6 +165,11 @@ interface Props {
    * mientras escribes» y «Acercarse mientras escribes» no harían nada.
    */
   conEscritura?: boolean;
+  /**
+   * La grabación no trae ningún atajo y aquí no se pueden leer las teclas al grabar (Wayland):
+   * «Enseñar los atajos» no haría nada, así que no se ofrece.
+   */
+  sinTeclas?: boolean;
 }
 
 /**
@@ -184,6 +198,7 @@ export function ExportPanel({
   edicion,
   onEdicion,
   conEscritura = true,
+  sinTeclas = false,
 }: Props) {
   const t = useT();
   const esCaptura = session.format === "still";
@@ -299,6 +314,25 @@ export function ExportPanel({
       vigente = false;
     };
   }, [session.id]);
+  // En Linux el MP4 lo escribe el codificador del sistema, y puede faltar: se dice aquí,
+  // antes de guardar, con la orden que lo instala. En Windows no falta nunca.
+  const [falta, setFalta] = useState<FaltaParaElMp4 | null>(null);
+  useEffect(() => {
+    let vigente = true;
+    const mirar = () =>
+      void faltaParaElMp4()
+        .then((f) => {
+          if (vigente) setFalta(f ?? null);
+        })
+        .catch(() => undefined);
+    mirar();
+    // Lo normal es instalarlo en una terminal y volver: al volver se mira otra vez.
+    window.addEventListener("focus", mirar);
+    return () => {
+      vigente = false;
+      window.removeEventListener("focus", mirar);
+    };
+  }, []);
   const [loop, setLoop] = useState(true);
   const [directory, setDirectory] = useState(saveDirectory);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
@@ -460,9 +494,16 @@ export function ExportPanel({
     return (bitrate / 8) * seconds;
   }, [format, width, height, margen, carcasaPuesta, quality, fps, segundos, velocidad]);
 
+  // Sin codificador de vídeo no hay MP4 que pedir: ni con los botones ni con Ctrl+S. El aviso de
+  // arriba ya dice por qué y cómo se arregla; pedirlo solo sacaría el mismo error otra vez.
+  const sinMp4 = format === "mp4" && falta?.que === "video";
+  // Lo que se avisa: sin el de vídeo, siempre; sin el de sonido, solo si esta grabación tiene
+  // sonido que perder.
+  const aviso = falta && (falta.que === "video" || session.hasAudio || pistasAparte) ? falta : null;
+
   const run = async (copyToClipboard: boolean, file: string | null = null) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
-    if (progress !== null) return;
+    if (progress !== null || sinMp4) return;
     setError(null);
     setResult(null);
     setProgress({ stage: "reading", done: 0, total: 1 });
@@ -484,7 +525,11 @@ export function ExportPanel({
         quality,
         // A otra velocidad no hay sonido: acelerar la pista sin cambiarle el tono es otro
         // problema entero, y dejarla tal cual la despegaría de la imagen enseguida.
-        audio: (pistasAparte ? suenaAlguna : audio) && format === "mp4" && velocidad === 1,
+        audio:
+          (pistasAparte ? suenaAlguna : audio) &&
+          format === "mp4" &&
+          velocidad === 1 &&
+          falta?.que !== "sonido",
         speed: foto ? 1 : velocidad,
         // Una foto no tiene zoom: la cámara solo se mueve con el tiempo pasando.
         zoom: foto ? 1 : zoom,
@@ -526,7 +571,7 @@ export function ExportPanel({
    * después la exportación normal a ese archivo. Cancelar el diálogo no exporta nada.
    */
   const runAs = async (copyToClipboard: boolean) => {
-    if (progress !== null) return;
+    if (progress !== null || sinMp4) return;
     const file = await pickSaveFile(format, directory || null);
     if (!file) return;
     await run(copyToClipboard, file);
@@ -597,6 +642,34 @@ export function ExportPanel({
                 (FORMATS.find((f) => f.id === format)?.para ?? ""),
             )}
           </p>
+          {format === "mp4" && aviso && (
+            <p className="mt-2 text-[13px] leading-snug text-aviso">
+              {aviso.appimage ? (
+                // El AppImage lleva su propio GStreamer, y en casi todos los sistemas no carga
+                // los plugins de fuera: ahí instalar el codificador no cambia nada.
+                t(
+                  "Esta AppImage no puede usar los codificadores de tu sistema, y sin ellos no hay MP4. Instala winshotx con el paquete .deb o .rpm.",
+                )
+              ) : (
+                <>
+                  {t(
+                    aviso.que === "video"
+                      ? "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema."
+                      : "Falta un codificador de sonido AAC en el sistema: el MP4 se guardará sin sonido.",
+                  )}{" "}
+                  {aviso.orden ? (
+                    <>
+                      {t("Se instala con:")}
+                      {/* En su propio renglón y sin partirse por los guiones (`ui/Orden`). */}
+                      <Orden texto={aviso.orden} className="mt-0.5 text-titulo select-text" />
+                    </>
+                  ) : (
+                    t("Instala los plugins «bad» de GStreamer de tu distribución.")
+                  )}
+                </>
+              )}
+            </p>
+          )}
         </div>
 
         {format === "mp4" && (
@@ -754,7 +827,8 @@ export function ExportPanel({
           </Plegable>
         )}
 
-        {!foto && (
+        {/* Sin clics y sin poder leer las teclas (Wayland), el grupo se quedaría vacío. */}
+        {!foto && (session.hasClicks || !sinTeclas) && (
           <Plegable titulo={t("Clics y teclas")} {...plegado("clics")}>
             {session.hasClicks && <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />}
             {/* La onda y el sonido de los clics. */}
@@ -766,14 +840,16 @@ export function ExportPanel({
               conClics={session.hasClicks}
               conEscritura={conEscritura}
             />
-            <Toggle
-              checked={teclas}
-              onChange={setTeclas}
-              label={t("Enseñar los atajos")}
-              // Este aviso viaja con el interruptor: es la regla que impide que una
-              // contraseña tecleada mientras se grababa acabe dentro del vídeo.
-              hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
-            />
+            {!sinTeclas && (
+              <Toggle
+                checked={teclas}
+                onChange={setTeclas}
+                label={t("Enseñar los atajos")}
+                // Este aviso viaja con el interruptor: es la regla que impide que una
+                // contraseña tecleada mientras se grababa acabe dentro del vídeo.
+                hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
+              />
+            )}
           </Plegable>
         )}
 
@@ -967,7 +1043,7 @@ export function ExportPanel({
 
         <button
           type="button"
-          disabled={ocupado}
+          disabled={ocupado || sinMp4}
           onClick={() => void run(false)}
           title={t("Exportar a la carpeta elegida (Ctrl+S)")}
           className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[15px] font-semibold whitespace-nowrap transition-colors disabled:opacity-50 ${RELLENO}`}
@@ -980,7 +1056,7 @@ export function ExportPanel({
         <div className="grid grid-cols-2 gap-2">
           <BotonSegundo
             onClick={() => void run(true)}
-            apagado={ocupado}
+            apagado={ocupado || sinMp4}
             titulo={t("Exportar y copiar al portapapeles")}
             icono={<Clipboard className="size-4" />}
           >
@@ -988,7 +1064,7 @@ export function ExportPanel({
           </BotonSegundo>
           <BotonSegundo
             onClick={() => void runAs(false)}
-            apagado={ocupado}
+            apagado={ocupado || sinMp4}
             titulo={t("Elegir dónde guardar (Ctrl+Mayús+S)")}
             icono={<FolderDown className="size-4" />}
           >

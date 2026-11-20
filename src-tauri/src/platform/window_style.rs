@@ -25,6 +25,94 @@ pub fn rounded_corners(window: &tauri::WebviewWindow) {
 #[cfg(not(windows))]
 pub fn rounded_corners(_window: &tauri::WebviewWindow) {}
 
+/// La ventana a pelo, como numero: el `HWND` en Windows y 0 en los demas sistemas, donde
+/// no hay nada que guardar (las funciones que lo reciben no hacen nada alli).
+#[cfg(windows)]
+pub fn a_pelo(window: &tauri::WebviewWindow) -> isize {
+    window.hwnd().map(|h| h.0 as isize).unwrap_or(0)
+}
+
+#[cfg(not(windows))]
+pub fn a_pelo(_window: &tauri::WebviewWindow) -> isize {
+    0
+}
+
+/// En Wayland, la ventana a pantalla completa en ese monitor (el numero de GTK, que es el
+/// `id` de las pantallas en Wayland: ver `capture::wayland`). Devuelve si lo ha hecho; en X11
+/// no hace nada y la ventana se coloca como siempre, con su posicion.
+#[cfg(target_os = "linux")]
+pub fn pantalla_completa_en(window: &tauri::WebviewWindow, monitor: u32) -> bool {
+    use gtk::prelude::*;
+    if !crate::platform::xdg::es_wayland() {
+        return false;
+    }
+    let Ok(ventana) = window.gtk_window() else {
+        return false;
+    };
+    let pantalla = GtkWindowExt::screen(&ventana);
+    match pantalla {
+        Some(pantalla) => ventana.fullscreen_on_monitor(&pantalla, monitor as i32),
+        None => ventana.fullscreen(),
+    }
+    true
+}
+
+/// En X11, pide el foco otra vez cuando la ventana escondida ya esta en la pantalla.
+///
+/// Pedirlo nada mas ensennarla no basta: openbox dejaba el teclado en la ventana de antes, y Esc
+/// no cerraba la captura hasta hacer clic en ella. En Wayland el foco no se pide asi.
+#[cfg(target_os = "linux")]
+pub fn foco_al_aparecer(window: &tauri::WebviewWindow) {
+    if crate::platform::xdg::es_wayland() {
+        return;
+    }
+    let ventana = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        use gtk::prelude::*;
+        let Ok(gtk_window) = ventana.gtk_window() else {
+            return;
+        };
+        if gtk_window.is_mapped() {
+            return;
+        }
+        let senal = std::rc::Rc::new(std::cell::Cell::new(None));
+        let una_vez = senal.clone();
+        let id = gtk_window.connect_map_event(move |gtk_window, _| {
+            if let Some(id) = una_vez.take() {
+                gtk_window.disconnect(id);
+            }
+            gtk_window.present_with_time(gtk::gdk::ffi::GDK_CURRENT_TIME as u32);
+            gtk::glib::Propagation::Proceed
+        });
+        senal.set(Some(id));
+    });
+}
+
+/// Que la barra de titulo de Wayland siga al titulo de la ventana.
+///
+/// Alli la barra la monta tao con el titulo con el que nace la ventana, y lo que se le cambia
+/// despues no le llega: la bienvenida salia titulada «winshotx · ajustes».
+#[cfg(target_os = "linux")]
+pub fn titulo_al_dia(window: &tauri::WebviewWindow) {
+    let ventana = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        use gtk::prelude::*;
+        let Ok(gtk_window) = ventana.gtk_window() else {
+            return;
+        };
+        gtk_window.connect_title_notify(|gtk_window| {
+            let cabecera = gtk_window
+                .titlebar()
+                .and_then(|barra| barra.downcast::<gtk::EventBox>().ok())
+                .and_then(|caja| caja.child())
+                .and_then(|hijo| hijo.downcast::<gtk::HeaderBar>().ok());
+            if let Some(cabecera) = cabecera {
+                cabecera.set_title(gtk_window.title().as_deref());
+            }
+        });
+    });
+}
+
 /// Una ventana que no coge el foco JAMAS, ni al mostrarse ni al hacerle clic encima.
 ///
 /// El `.focused(false)` del constructor solo vale para el primer momento: en cuanto se
@@ -276,6 +364,19 @@ pub fn delante_fuera_del_video() -> bool {
 
 #[cfg(not(windows))]
 pub fn fuera_de_la_captura(_window: &tauri::WebviewWindow, _fuera: bool) -> bool {
+    false
+}
+
+// Fuera de Windows ninguna ventana se puede sacar de lo que se graba, asi que no hay ninguna
+// «fuera del video»: lo que se hace encima de una ventana de winshotx sale en el video igual
+// que la ventana.
+#[cfg(not(windows))]
+pub fn punto_fuera_del_video(_x: i32, _y: i32) -> bool {
+    false
+}
+
+#[cfg(not(windows))]
+pub fn delante_fuera_del_video() -> bool {
     false
 }
 

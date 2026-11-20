@@ -18,8 +18,13 @@ interface Props {
   patch: (cambio: Partial<Settings>) => void;
 }
 
-/** La tecla que, mientras grabas, deja un zoom donde tienes el ratón. */
-export function FilaTeclaZoom({ settings, patch }: Props) {
+/**
+ * La tecla que, mientras grabas, deja un zoom donde tienes el ratón.
+ *
+ * En Wayland no puede funcionar: un programa no lee el teclado mientras lo usa otro. La fila
+ * no se esconde: dice que ahí no hace nada y dónde se ponen los zooms, que es en el editor.
+ */
+export function FilaTeclaZoom({ settings, patch, enWayland = false }: Props & { enWayland?: boolean }) {
   const t = useT();
   const choque = chocaCon(settings);
   const aviso = {
@@ -33,16 +38,23 @@ export function FilaTeclaZoom({ settings, patch }: Props) {
       id="graZoom"
       icon={<ZoomIn className="size-4" />}
       label={t("Tecla de zoom")}
-      explicacion={t(
-        "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.",
-      )}
-      // Solo cuando choca: lo que hace la tecla ya lo cuenta el dibujo de la derecha.
-      hint={choque ? aviso[choque] : undefined}
+      explicacion={
+        enWayland
+          ? t(
+              "En Wayland un programa no puede leer el teclado mientras lo usa otro, así que esta tecla no hace nada mientras grabas. Los zooms se ponen después, haciendo clic en la línea de tiempo del editor.",
+            )
+          : t(
+              "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.",
+            )
+      }
+      // Solo cuando choca o no puede funcionar: lo que hace la tecla ya lo cuenta el dibujo de
+      // la derecha.
+      hint={enWayland ? t("en Wayland no funciona: los zooms se ponen en el editor") : choque ? aviso[choque] : undefined}
       tone="aviso"
       control={
         <ShortcutField
           value={settings.zoomShortcut}
-          active={choque === null}
+          active={choque === null && !enWayland}
           onChange={(v) => patch({ zoomShortcut: v })}
         />
       }
@@ -54,7 +66,7 @@ export function FilaTeclaZoom({ settings, patch }: Props) {
  * Grabar también la webcam y, si hay más de una, cuál. Son filas sueltas: van al final de
  * «Sonido y cámara», en el apartado Grabar.
  */
-export function FilasCamara({ settings, patch, camaras }: Props & { camaras: CamaraConectada[] }) {
+export function FilasCamara({ settings, patch, camaras, enLinux }: Props & { camaras: CamaraConectada[]; enLinux: boolean }) {
   const t = useT();
   // Si la guardada ya no está, se graba la primera: es lo que hace Rust.
   const elegida = camaras.find((c) => c.id === settings.cameraDevice) ?? camaras[0];
@@ -65,9 +77,16 @@ export function FilasCamara({ settings, patch, camaras }: Props & { camaras: Cam
         id="graCamara"
         icon={<Webcam className="size-4" />}
         label={t("Grabar también la cámara")}
-        explicacion={t(
-          "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.",
-        )}
+        // El ajuste de privacidad de la cámara es de Windows: en Linux no hay a dónde mandar.
+        explicacion={
+          enLinux
+            ? t(
+                "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si no se puede encender, se graba sin ella.",
+              )
+            : t(
+                "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.",
+              )
+        }
         // El nombre de la cámara es un dato (cuál va a grabar); que no haya ninguna es un
         // aviso solo si está encendida, que es cuando se va a echar de menos.
         hint={

@@ -68,6 +68,40 @@
         "installerHooks": "./windows/hooks.nsh"
       }
     },
+    "linux": {
+      "deb": {
+        "depends": [
+          "xdg-utils"
+        ],
+        "recommends": [
+          "gstreamer1.0-plugins-good",
+          "gstreamer1.0-plugins-bad",
+          "tesseract-ocr",
+          "tesseract-ocr-spa"
+        ],
+        "desktopTemplate": "../packaging/linux/winshotx.desktop.hbs",
+        "files": {
+          "/usr/share/applications/com.munir.winshotx.desktop": "../packaging/linux/com.munir.winshotx.desktop"
+        }
+      },
+      "rpm": {
+        "depends": [
+          "xdg-utils"
+        ],
+        "recommends": [
+          "gstreamer1-plugins-good",
+          "gstreamer1-plugins-bad-free",
+          "gstreamer1-plugin-openh264",
+          "pipewire-gstreamer",
+          "tesseract",
+          "tesseract-langpack-spa"
+        ],
+        "desktopTemplate": "../packaging/linux/winshotx.desktop.hbs",
+        "files": {
+          "/usr/share/applications/com.munir.winshotx.desktop": "../packaging/linux/com.munir.winshotx.desktop"
+        }
+      }
+    },
     "shortDescription": "Captura y grabación de pantalla local",
     "longDescription": "Captura de región, grabación a GIF y MP4 y editor de recorte, todo local y sin dependencias externas."
   }

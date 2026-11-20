@@ -77,6 +77,41 @@ features = [
   "ApplicationModel_Activation",
 ]
 
+# Linux (S21, Fase 1 del plan de Linux). Todo esto ya va dentro de Tauri o es Rust puro:
+# - gtk: el portapapeles con varios formatos a la vez, y la pantalla completa en un monitor
+#   concreto. Es la misma version que trae Tauri, asi que no compila nada nuevo.
+# - ashpd: los portales de xdg-desktop-portal (la foto de Wayland, los atajos globales, la
+#   carpeta con el archivo marcado). La 0.12 es la ultima que cabe en nuestro rust-version.
+# - fontdb + ab_glyph: las letras sin GDI (el numero de los pasos, el texto al exportar, la
+#   pastilla de las teclas), con las fuentes que ya tiene el sistema.
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+ashpd = { version = "0.12", default-features = false, features = ["tokio"] }
+# Para escuchar los atajos del portal a la vez que llegan cambios de los ajustes. Son las
+# mismas que ya trae ashpd: no compilan nada nuevo.
+futures-channel = "0.3"
+futures-util = { version = "0.3", default-features = false }
+fontdb = "0.24"
+ab_glyph = "0.2"
+# Grabar (Fase 2 del plan de Linux). Nada de esto compila algo nuevo: x11rb ya viene con el
+# plugin de los atajos, pipewire con xcap, y libc con casi todo.
+# - x11rb: los fotogramas de X11 por memoria compartida (MIT-SHM) y el raton por XFixes.
+#   Y el marco de grabar: Shape recorta sus ventanas y deja pasar el raton (ya venia con XFixes).
+#   Y la captura con scroll: XTEST gira la rueda como la giraria quien captura. Es otro
+#   modulo del mismo x11rb: no compila ningun paquete nuevo.
+# - libc: reservar esa memoria compartida (shmget y shmat).
+x11rb = { version = "0.13", features = ["shm", "xfixes", "shape", "xtest"] }
+libc = "0.2"
+# - pipewire: los fotogramas de Wayland (el nodo que da el portal ScreenCast) y el sonido.
+#   Es la misma version que ya trae xcap.
+pipewire = "0.10"
+# El MP4 (Fase 3 del plan de Linux): se escribe y se lee con el GStreamer del sistema, que ya
+# esta en cualquier equipo con WebKitGTK. Asi no se reparte ningun codificador H.264.
+# - La linea 0.21 es la de glib 0.18, la misma que el gtk de Tauri: no entra un segundo glib.
+# - Sin las features v1_22 ni v1_24: Ubuntu 22.04 trae GStreamer 1.20.
+gstreamer = "0.21"
+gstreamer-app = "0.21"
+
 # El binario tiene que caber en unos pocos MB: nada de simbolos ni unidades sueltas.
 [profile.release]
 opt-level = "s"

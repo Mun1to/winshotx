@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { urlDeMedio } from "../../lib/medios";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
 import { CapaRecorte } from "./CapaRecorte";
@@ -51,7 +51,7 @@ export function AjustesCamara({ sessionId, edicion, onEdicion }: Props) {
     };
   }, [sessionId]);
 
-  const url = useMemo(() => (camara ? convertFileSrc(camara.ruta) : null), [camara]);
+  const url = useMemo(() => (camara ? urlDeMedio(camara.ruta) : null), [camara]);
   if (!camara || !url) return null;
 
   const marco = edicion?.camara;

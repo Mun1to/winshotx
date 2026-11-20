@@ -21,6 +21,7 @@ import {
   Coffee,
   Compass,
   Crop,
+  Download,
   EyeOff,
   FolderOpen,
   Gauge,
@@ -52,6 +53,7 @@ import {
   openUrl,
   openWindowsApps,
   pickDirectory,
+  replaySave,
   showScreenNumber,
   type CamaraConectada,
 } from "../../lib/ipc";
@@ -65,6 +67,8 @@ import type {
   Screen,
   Settings,
   ShortcutStatus,
+  SonidoDisponible,
+  TeclasDelEscritorio,
   Theme,
 } from "../../lib/types";
 import { Segmented } from "../ui/Segmented";
@@ -75,9 +79,25 @@ import { FilaMiniatura, FondoEnLasCapturas } from "./DespuesDeCapturar";
 import { OtrosGrabadores } from "./OtrosGrabadores";
 import { Grupo, Row, RowButton } from "./Section";
 import { ShortcutField } from "./ShortcutField";
+import { OrdenDelAtajo, TeclaPuesta } from "./TeclaDelEscritorio";
 
 /** Todo lo que necesitan las filas: los ajustes, lo que cuenta Rust de la máquina y las acciones. */
 export interface DatosAjustes {
+  /** S21 (Linux): lo que solo es de Windows se esconde. */
+  enLinux: boolean;
+  /** S21 (Linux): en Wayland las teclas no las pone winshotx, las pone el escritorio. */
+  enWayland: boolean;
+  /** Las teclas que ha puesto el escritorio en Wayland (null mientras contesta). */
+  teclasDelEscritorio: TeclasDelEscritorio | null;
+  /** Donde el escritorio no deja pedir teclas (Sway) o «Cambiar» no abre nada (Hyprland). */
+  teclasAMano: boolean;
+  /** La orden que lanza winshotx, para ponerla a mano en los atajos del escritorio. */
+  ordenDeLaApp: string;
+  cambiarTeclas: () => void;
+  /** S45: el «Cambiar» de la tecla de rescatar, que el escritorio vuelve a preguntar si se rechazó. */
+  cambiarTeclaDeRescate: () => void;
+  /** S44 (Linux): qué sonido se puede grabar aquí. null en Windows y mientras contesta. */
+  sonido: SonidoDisponible | null;
   settings: Settings;
   patch: (partial: Partial<Settings>) => void;
   shortcuts: ShortcutStatus;
@@ -190,6 +210,19 @@ export const LO_QUE_COSTO: Record<string, string> = {
   "30|1080": "gasta poco con la pantalla quieta",
 };
 
+/**
+ * S45 (Linux): por qué está apagado el anillo cuando no lo apagó la persona (`ReplayStatus`).
+ *
+ * En Wayland no se enciende solo al arrancar si el escritorio no tiene guardado el permiso de
+ * compartir la pantalla, y se apaga si la persona deja de compartirla desde el aviso del
+ * escritorio. Un interruptor que aparece apagado sin decir nada parece un fallo.
+ */
+const APAGADO_POR: Record<string, string> = {
+  "sin-permiso": "se apagó al arrancar: falta tu permiso para compartir la pantalla",
+  cortado: "se apagó porque se dejó de compartir la pantalla",
+  fallo: "se apagó porque la pantalla dejó de llegar",
+};
+
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
   { value: "toolbar", label: "Sale la barra" },
   { value: "instant", label: "Se copia sola" },
@@ -222,12 +255,44 @@ const ESPERAS = [
   { value: 5, label: "5 s" },
 ];
 
+/**
+ * S21 (Linux): la línea de debajo de un atajo, y su tono. En Wayland no se habla de
+ * combinaciones ocupadas: la tecla la pone el escritorio, o se pone a mano donde no deja pedirla.
+ */
+function usePistaDeAtajo({ teclasAMano, enWayland }: Pick<DatosAjustes, "teclasAMano" | "enWayland">) {
+  const t = useT();
+  const pista = (libre: boolean, puesta: boolean) =>
+    teclasAMano
+      ? t("ponla en los atajos del escritorio")
+      : enWayland
+        ? puesta
+          ? t("la tecla la elige el escritorio")
+          : t("todavía sin tecla: pulsa «Cambiar»")
+        : libre
+          ? undefined
+          : t("esa combinación está ocupada");
+  const tono = (puesta: boolean): "dato" | "aviso" => (teclasAMano || (enWayland && puesta) ? "dato" : "aviso");
+  return { pista, tono };
+}
+
 /* ------------------------------------------------------------------ Capturar */
 
-export function ApartadoCapturar({ settings, patch, shortcuts, modernaOk }: DatosAjustes) {
+export function ApartadoCapturar({
+  settings,
+  patch,
+  shortcuts,
+  modernaOk,
+  enLinux,
+  enWayland,
+  teclasDelEscritorio,
+  teclasAMano,
+  ordenDeLaApp,
+  cambiarTeclas,
+}: DatosAjustes) {
   const t = useT();
   // «3 s» y «5 s» se escriben igual en los tres idiomas: solo se traduce el «No».
   const esperas = ESPERAS.map((o) => (o.value === 0 ? { ...o, label: t(o.label) } : o));
+  const { pista: pistaDeAtajo, tono: tonoDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
   return (
     <>
       <Grupo title={t("Los atajos")} tour="al-pulsar">
@@ -235,15 +300,32 @@ export function ApartadoCapturar({ settings, patch, shortcuts, modernaOk }: Dato
           id="capRegion"
           icon={<Camera className="size-4" />}
           label={t("Capturar región")}
-          explicacion={t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.")}
-          hint={shortcuts.capture ? undefined : t("esa combinación está ocupada")}
-          tone="aviso"
+          explicacion={
+            teclasAMano
+              ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).")
+              : enWayland
+                ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. En Wayland la tecla la elige el escritorio: winshotx le propone una, y la aceptas o la cambias en su ventana con «Cambiar».")
+                : enLinux
+                  ? t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. El escritorio se reserva algunas combinaciones y esas no llegan hasta aquí.")
+                  : t("Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. Windows se reserva algunas combinaciones para él y esas no llegan hasta aquí.")
+          }
+          hint={pistaDeAtajo(shortcuts.capture, Boolean(teclasDelEscritorio?.capture))}
+          tone={tonoDeAtajo(Boolean(teclasDelEscritorio?.capture))}
           control={
-            <ShortcutField
-              value={settings.captureShortcut}
-              active={shortcuts.capture}
-              onChange={(v) => patch({ captureShortcut: v })}
-            />
+            teclasAMano ? (
+              <OrdenDelAtajo orden={ordenDeLaApp} accion="capture" />
+            ) : enWayland ? (
+              <span className="flex items-center gap-1.5">
+                <TeclaPuesta tecla={teclasDelEscritorio?.capture ?? null} />
+                <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
+              </span>
+            ) : (
+              <ShortcutField
+                value={settings.captureShortcut}
+                active={shortcuts.capture}
+                onChange={(v) => patch({ captureShortcut: v })}
+              />
+            )
           }
         />
         <Row
@@ -253,14 +335,23 @@ export function ApartadoCapturar({ settings, patch, shortcuts, modernaOk }: Dato
           explicacion={t(
             "La misma captura, pero al soltar el ratón se abre el editor en vez de la barra de siempre. Para la captura que hay que trabajar: señalar algo con una flecha, tapar un dato o recortar antes de mandarla.",
           )}
-          hint={shortcuts.edit ? undefined : t("esa combinación está ocupada")}
-          tone="aviso"
+          hint={pistaDeAtajo(shortcuts.edit, Boolean(teclasDelEscritorio?.edit))}
+          tone={tonoDeAtajo(Boolean(teclasDelEscritorio?.edit))}
           control={
-            <ShortcutField
-              value={settings.editShortcut}
-              active={shortcuts.edit}
-              onChange={(v) => patch({ editShortcut: v })}
-            />
+            teclasAMano ? (
+              <OrdenDelAtajo orden={ordenDeLaApp} accion="edit" />
+            ) : enWayland ? (
+              <span className="flex items-center gap-1.5">
+                <TeclaPuesta tecla={teclasDelEscritorio?.edit ?? null} />
+                <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
+              </span>
+            ) : (
+              <ShortcutField
+                value={settings.editShortcut}
+                active={shortcuts.edit}
+                onChange={(v) => patch({ editShortcut: v })}
+              />
+            )
           }
         />
       </Grupo>
@@ -279,19 +370,22 @@ export function ApartadoCapturar({ settings, patch, shortcuts, modernaOk }: Dato
             />
           }
         />
-        <Row
-          id="capIconos"
-          icon={<EyeOff className="size-4" />}
-          label={t("Ocultar iconos del escritorio")}
-          explicacion={t("Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.")}
-          control={
-            <Switch
-              checked={settings.hideDesktopIcons}
-              onChange={(v) => patch({ hideDesktopIcons: v })}
-              label={t("Ocultar iconos del escritorio")}
-            />
-          }
-        />
+        {/* Los iconos los esconde el Explorador de Windows; en Linux no hace nada. */}
+        {!enLinux && (
+          <Row
+            id="capIconos"
+            icon={<EyeOff className="size-4" />}
+            label={t("Ocultar iconos del escritorio")}
+            explicacion={t("Los iconos se esconden solo durante el disparo, no mientras eliges el recorte, y vuelven aunque la captura falle. Sirve para fotografiar el fondo de pantalla o una ventana con el escritorio detrás sin que salgan tus archivos.")}
+            control={
+              <Switch
+                checked={settings.hideDesktopIcons}
+                onChange={(v) => patch({ hideDesktopIcons: v })}
+                label={t("Ocultar iconos del escritorio")}
+              />
+            }
+          />
+        )}
         <Row
           id="capCursor"
           icon={<MousePointer2 className="size-4" />}
@@ -321,7 +415,7 @@ export function ApartadoCapturar({ settings, patch, shortcuts, modernaOk }: Dato
         {/* Solo cuando pasa, que es casi nunca: en un Windows al dia no sale. No es un
             ajuste y no se puede tocar nada, pero sin esto las fotos salen con trozos en
             negro y parece culpa de la app. */}
-        {!modernaOk && (
+        {!modernaOk && !enLinux && (
           <Row
             icon={<TriangleAlert className="size-4" />}
             label={t("Este Windows usa la captura antigua")}
@@ -395,8 +489,37 @@ export function ApartadoDespues({ settings, patch }: DatosAjustes) {
 
 /* ------------------------------------------------------------------ Grabar */
 
-export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAjustes) {
+export function ApartadoGrabar({
+  settings,
+  patch,
+  shortcuts,
+  camaras,
+  enLinux,
+  enWayland,
+  teclasDelEscritorio,
+  teclasAMano,
+  ordenDeLaApp,
+  cambiarTeclas,
+  sonido,
+}: DatosAjustes) {
   const t = useT();
+  const { pista: pistaDeAtajo, tono: tonoDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
+  const teclaDeGrabar = teclasDelEscritorio?.record ?? null;
+  // S44 (Linux): donde PipeWire no lleva el sonido (Ubuntu 22.04, Linux Mint 21) se graba sin
+  // sonido. El interruptor sale apagado y dice por qué: nunca en silencio.
+  const sinSonidoAqui = sonido !== null && !sonido.altavoz && !sonido.microfono;
+  const porQueSinAltavoz =
+    sonido === null || sonido.altavoz
+      ? undefined
+      : sinSonidoAqui
+        ? t("este sistema no da el sonido por PipeWire")
+        : t("no hay ninguna salida de sonido");
+  const porQueSinMicro =
+    sonido === null || sonido.microfono
+      ? undefined
+      : sinSonidoAqui
+        ? t("este sistema no da el sonido por PipeWire")
+        : t("no hay ningún micrófono conectado");
   return (
     <>
       <Grupo title={t("Cómo se graba")} tour="como-se-graba">
@@ -404,19 +527,32 @@ export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAju
           id="graRegion"
           icon={<Video className="size-4" />}
           label={t("Grabar región")}
-          explicacion={t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. El mismo atajo lo termina, así que no hace falta ir a buscar ningún botón mientras grabas.")}
-          hint={shortcuts.record ? undefined : t("esa combinación está ocupada")}
-          tone="aviso"
+          explicacion={
+            enWayland
+              ? t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.")
+              : t("Recortas igual que para una captura, pero en vez de una foto sale un vídeo. El mismo atajo lo termina, así que no hace falta ir a buscar ningún botón mientras grabas.")
+          }
+          hint={pistaDeAtajo(shortcuts.record, Boolean(teclaDeGrabar))}
+          tone={tonoDeAtajo(Boolean(teclaDeGrabar))}
           control={
-            <ShortcutField
-              value={settings.recordShortcut}
-              active={shortcuts.record}
-              onChange={(v) => patch({ recordShortcut: v })}
-            />
+            teclasAMano ? (
+              <OrdenDelAtajo orden={ordenDeLaApp} accion="record" />
+            ) : enWayland ? (
+              <span className="flex items-center gap-1.5">
+                <TeclaPuesta tecla={teclaDeGrabar} />
+                <RowButton onClick={cambiarTeclas}>{t("Cambiar")}</RowButton>
+              </span>
+            ) : (
+              <ShortcutField
+                value={settings.recordShortcut}
+                active={shortcuts.record}
+                onChange={(v) => patch({ recordShortcut: v })}
+              />
+            )
           }
         />
         {/* S2 (grabación): la tecla de zoom. */}
-        <FilaTeclaZoom settings={settings} patch={patch} />
+        <FilaTeclaZoom settings={settings} patch={patch} enWayland={enWayland} />
         <Row
           id="graFps"
           icon={<Gauge className="size-4" />}
@@ -452,9 +588,12 @@ export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAju
           icon={<Volume2 className="size-4" />}
           label={t("Audio del sistema")}
           explicacion={t("Graba lo que suena por los altavoces, dentro del mismo vídeo: la voz de una llamada, el audio de un vídeo, la alerta de un programa. No graba tu micrófono, eso es la fila de abajo.")}
+          hint={porQueSinAltavoz}
+          tone="aviso"
           control={
             <Switch
-              checked={settings.recordAudio}
+              checked={settings.recordAudio && !porQueSinAltavoz}
+              disabled={Boolean(porQueSinAltavoz)}
               onChange={(v) => patch({ recordAudio: v })}
               label={t("Audio del sistema")}
             />
@@ -465,9 +604,12 @@ export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAju
           icon={<Mic className="size-4" />}
           label={t("Micrófono")}
           explicacion={t("Tu voz, en su propia pista: en el editor se sube, se baja o se quita sin tocar el sonido del sistema. Es lo que hace falta para explicar algo mientras lo enseñas, y solo se puede decidir antes de grabar.")}
+          hint={porQueSinMicro}
+          tone="aviso"
           control={
             <Switch
-              checked={settings.recordMicrophone}
+              checked={settings.recordMicrophone && !porQueSinMicro}
+              disabled={Boolean(porQueSinMicro)}
               onChange={(v) => patch({ recordMicrophone: v })}
               label={t("Micrófono")}
             />
@@ -488,7 +630,7 @@ export function ApartadoGrabar({ settings, patch, shortcuts, camaras }: DatosAju
           }
         />
         {/* S2 (grabación): la webcam. */}
-        <FilasCamara settings={settings} patch={patch} camaras={camaras} />
+        <FilasCamara settings={settings} patch={patch} camaras={camaras} enLinux={enLinux} />
       </Grupo>
     </>
   );
@@ -503,9 +645,21 @@ export function ApartadoUltimos({
   replay,
   pantallas,
   medidaGrabada,
+  enLinux,
+  enWayland,
+  teclasDelEscritorio,
+  teclasAMano,
+  ordenDeLaApp,
+  cambiarTeclaDeRescate,
 }: DatosAjustes) {
   const t = useT();
   const costo = LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`];
+  // S45 (Linux): en Wayland la tecla de rescatar la pone el escritorio, como las demás.
+  const { pista: pistaDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
+  const teclaDeRescate = teclasDelEscritorio?.replay ?? null;
+  const sinTeclaDeRescate = enWayland && !teclasAMano && replay.running && !teclaDeRescate;
+  // Apagado sin que nadie tocara el interruptor: la fila dice por qué, en gris.
+  const porQueApagado = enLinux && !replay.running && replay.apagadoPor ? APAGADO_POR[replay.apagadoPor] : undefined;
   return (
     <>
       <Grupo>
@@ -513,7 +667,11 @@ export function ApartadoUltimos({
           id="ultSiempre"
           icon={<History className="size-4" />}
           label={t("Grabar siempre lo último")}
-          explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla.")}
+          explicacion={
+            enWayland
+              ? t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla. En Wayland el escritorio te pregunta qué pantalla compartes la primera vez, y mientras esté encendido enseña su aviso de que se está compartiendo la pantalla: es suyo y no se puede quitar.")
+              : t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla.")
+          }
           // Encendido, lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño y cuánto
           // le escribe al disco cada segundo. Es un dato, en gris: no un «todo va bien» en verde.
           hint={
@@ -524,7 +682,11 @@ export function ApartadoUltimos({
                   alto: replay.height,
                   ritmo: formatBytes(replay.bytesPerSecond),
                 })
-              : undefined
+              : porQueApagado
+                ? t(porQueApagado)
+                : enWayland
+                  ? t("mientras esté encendido, el escritorio avisa de que se comparte la pantalla")
+                  : undefined
           }
           control={
             <Switch
@@ -535,8 +697,9 @@ export function ApartadoUltimos({
           }
         />
         <OtrosGrabadores />
-        {/* Solo con más de una pantalla: elegir entre una es una fila de ruido. */}
-        {pantallas.length > 1 && (
+        {/* Solo con más de una pantalla: elegir entre una es una fila de ruido. Y en Wayland
+            tampoco: ahí la pantalla se elige en la pregunta del escritorio al encenderlo. */}
+        {pantallas.length > 1 && !enWayland && (
           <Row
             id="ultPantalla"
             icon={<Monitor className="size-4" />}
@@ -579,28 +742,66 @@ export function ApartadoUltimos({
           id="ultQuedarme"
           icon={<Video className="size-4" />}
           label={t("Quedarme con lo último")}
-          explicacion={t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato.")}
+          explicacion={
+            teclasAMano
+              ? t("Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.")
+              : enWayland
+                ? t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. En Wayland la tecla la elige el escritorio: te la pregunta al encender esto, y la cambias en su ventana con «Cambiar».")
+                : t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato.")
+          }
           hint={
             !replay.running
               ? t("primero hay que encenderlo aquí arriba")
-              : replay.bufferedMs < settings.replaySeconds * 1000
-                ? t("ahora mismo hay {n} s guardados", { n: Math.floor(replay.bufferedMs / 1000) })
-                : shortcuts.replay
-                  ? undefined
-                  : t("esa combinación está ocupada")
+              : sinTeclaDeRescate
+                ? pistaDeAtajo(false, false)
+                : replay.bufferedMs < settings.replaySeconds * 1000
+                  ? t("ahora mismo hay {n} s guardados", { n: Math.floor(replay.bufferedMs / 1000) })
+                  : enWayland
+                    ? pistaDeAtajo(true, true)
+                    : shortcuts.replay
+                      ? undefined
+                      : t("esa combinación está ocupada")
           }
-          tone={replay.running && !shortcuts.replay ? "aviso" : "dato"}
+          tone={(enWayland ? sinTeclaDeRescate : replay.running && !shortcuts.replay) ? "aviso" : "dato"}
           control={
-            <ShortcutField
-              value={settings.replayShortcut}
-              // Con el anillo apagado la tecla NO se pide al sistema, así que pintarla en
-              // rojo diría que está ocupada cuando solo está sin usar. El rojo tiene que
-              // significar una sola cosa.
-              active={shortcuts.replay || !replay.running}
-              onChange={(v) => patch({ replayShortcut: v })}
-            />
+            teclasAMano ? (
+              <OrdenDelAtajo orden={ordenDeLaApp} accion="replay" />
+            ) : enWayland ? (
+              <span className="flex items-center gap-1.5">
+                {/* Con el anillo apagado la tecla no se le ha pedido al escritorio: no tenerla
+                    no es un fallo, así que no va en rojo. */}
+                <TeclaPuesta tecla={teclaDeRescate} sinPedir={!replay.running} />
+                <RowButton onClick={cambiarTeclaDeRescate} disabled={!replay.running}>
+                  {t("Cambiar")}
+                </RowButton>
+              </span>
+            ) : (
+              <ShortcutField
+                value={settings.replayShortcut}
+                // Con el anillo apagado la tecla NO se pide al sistema, así que pintarla en
+                // rojo diría que está ocupada cuando solo está sin usar. El rojo tiene que
+                // significar una sola cosa.
+                active={shortcuts.replay || !replay.running}
+                onChange={(v) => patch({ replayShortcut: v })}
+              />
+            )
           }
         />
+        {/* S45 (Linux): en Wayland la tecla es del escritorio, y puede no haber ninguna (se
+            cerró su pregunta, o este escritorio no deja pedirlas). Aquí se rescata igual, con
+            el ratón. La fila está siempre, encendido o no, para que nada se mueva de sitio. */}
+        {enWayland && (
+          <Row
+            icon={<Download className="size-4" />}
+            label={t("Guardar ahora")}
+            explicacion={t("Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».")}
+            control={
+              <RowButton onClick={() => void replaySave().catch(() => undefined)} disabled={!replay.running}>
+                {t("Guardar")}
+              </RowButton>
+            }
+          />
+        )}
       </Grupo>
 
       <Grupo title={t("Lo que guarda")}>
@@ -803,10 +1004,11 @@ export function ApartadoTeclas({
 
 /* ------------------------------------------------------------------ La app */
 
-export function ApartadoApp({ settings, patch, cache, vaciarCache }: DatosAjustes) {
+export function ApartadoApp({ settings, patch, cache, vaciarCache, enLinux }: DatosAjustes) {
   const t = useT();
   const temas = TEMAS.map((o) => ({ ...o, label: t(o.label) }));
   const idiomas = IDIOMAS.map((o) => ({ ...o, label: t(o.label) }));
+  const arrancar = enLinux ? t("Arrancar al iniciar sesión") : t("Arrancar con Windows");
   return (
     <Grupo tour="archivos">
       <Row
@@ -849,13 +1051,17 @@ export function ApartadoApp({ settings, patch, cache, vaciarCache }: DatosAjuste
       <Row
         id="appArrancar"
         icon={<Power className="size-4" />}
-        label={t("Arrancar con Windows")}
-        explicacion={t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")}
+        label={arrancar}
+        explicacion={
+          enLinux
+            ? t("winshotx se abre solo al entrar en tu sesión y se queda esperando, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")
+            : t("winshotx se abre solo al encender el ordenador y se queda en la bandeja, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.")
+        }
         control={
           <Switch
             checked={settings.startWithWindows}
             onChange={(v) => patch({ startWithWindows: v })}
-            label={t("Arrancar con Windows")}
+            label={arrancar}
           />
         }
       />
@@ -863,7 +1069,11 @@ export function ApartadoApp({ settings, patch, cache, vaciarCache }: DatosAjuste
         id="appTema"
         icon={<Palette className="size-4" />}
         label={t("Tema")}
-        explicacion={t("Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")}
+        explicacion={
+          enLinux
+            ? t("Claro, oscuro, o lo que diga el sistema y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")
+            : t("Claro, oscuro, o lo que diga Windows y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.")
+        }
         control={
           <Segmented
             etiqueta={t("Tema")}
@@ -883,7 +1093,11 @@ export function ApartadoApp({ settings, patch, cache, vaciarCache }: DatosAjuste
         stacked
         icon={<Languages className="size-4" />}
         label={t("Idioma")}
-        explicacion={t("Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")}
+        explicacion={
+          enLinux
+            ? t("Español, inglés, o el del sistema si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")
+            : t("Español, inglés, o el de Windows si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.")
+        }
         control={
           <Segmented
             etiqueta={t("Idioma")}
@@ -904,7 +1118,7 @@ export function ApartadoApp({ settings, patch, cache, vaciarCache }: DatosAjuste
 
 /* ------------------------------------------------------------------ Ayuda y winshotx */
 
-export function ApartadoAyuda({ onVerBienvenida, onTour, version, actualizacion }: DatosAjustes) {
+export function ApartadoAyuda({ onVerBienvenida, onTour, version, actualizacion, enLinux }: DatosAjustes) {
   const t = useT();
   const { fase, texto } = actualizacion;
   // Si lo ha pedido él con el botón. «Estás en la última versión» es la respuesta a esa
@@ -921,7 +1135,11 @@ export function ApartadoAyuda({ onVerBienvenida, onTour, version, actualizacion 
           id="appBienvenida"
           icon={<BookOpen className="size-4" />}
           label={t("Bienvenida")}
-          explicacion={t("Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.")}
+          explicacion={
+            enLinux
+              ? t("Las tres pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.")
+              : t("Las cuatro pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.")
+          }
           control={<RowButton onClick={onVerBienvenida}>{t("Ver otra vez")}</RowButton>}
         />
         <Row

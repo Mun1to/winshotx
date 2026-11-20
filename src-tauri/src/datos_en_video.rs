@@ -613,6 +613,18 @@ pub fn lector_de_windows() -> Result<impl FnMut(&RgbaImage, Franja) -> Result<Ve
     })
 }
 
+/// El lector de Linux: el Tesseract del sistema, comprobado una vez para toda la búsqueda.
+/// Cada lectura es una llamada a la orden con esa franja; las cajas ya vuelven en píxeles
+/// del fotograma entero.
+#[cfg(target_os = "linux")]
+pub fn lector_de_tesseract() -> Result<impl FnMut(&RgbaImage, Franja) -> Result<Vec<Dato>>> {
+    let motor = crate::platform::tesseract::Motor::nuevo()?;
+    Ok(move |imagen: &RgbaImage, franja: Franja| -> Result<Vec<Dato>> {
+        let lineas = motor.leer_franja(imagen, franja.y1, franja.y2)?;
+        Ok(lineas.iter().flat_map(|linea| datos_de_linea(linea, 0.0, 1.0)).collect())
+    })
+}
+
 /// Lo que se va haciendo, para el editor: cuántos fotogramas mirados de cuántos.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -638,10 +650,13 @@ pub async fn tapar_datos_video(app: tauri::AppHandle, session_id: String) -> Res
         .get(&session_id)
         .cloned()
         .ok_or_else(|| crate::error::AppError::UnknownSession(session_id.clone()))?;
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
         use tauri::Emitter;
+        #[cfg(windows)]
         let mut leer = lector_de_windows()?;
+        #[cfg(target_os = "linux")]
+        let mut leer = lector_de_tesseract()?;
         let mut ultimo_aviso = std::time::Instant::now();
         let mut avisar = |hechos: usize, total: usize| {
             if hechos == total || ultimo_aviso.elapsed().as_millis() >= 120 {
@@ -651,7 +666,7 @@ pub async fn tapar_datos_video(app: tauri::AppHandle, session_id: String) -> Res
         };
         buscar(&session, &mut leer, &mut avisar)
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = session;
         Err(crate::error::AppError::Unsupported)

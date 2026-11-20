@@ -21,8 +21,6 @@
 //! quien lo tenga puesto, y uno de bajo nivel ya le colgó el ordenador a Munir: ver la
 //! memoria `hooks-de-teclado-en-windows.md`.
 
-#![cfg(windows)]
-
 use crate::contrato::TramoEscritura;
 
 /// Cuánto se queda la pastilla en pantalla desde la última pulsación, en milisegundos.
@@ -90,6 +88,7 @@ pub struct Foto {
 impl Foto {
     /// El teclado de verdad, ahora mismo. Son unas ciento treinta preguntas al sistema;
     /// lo que cuestan está medido en `leer_el_teclado_entero_cuesta_poco`.
+    #[cfg(windows)]
     pub fn leer() -> Self {
         use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
         let mut foto = Self::default();
@@ -103,6 +102,21 @@ impl Foto {
             }
         }
         foto
+    }
+
+    /// En Linux con X11 se le pregunta al servidor qué teclas están abajo, de una sola vez, y
+    /// cada una se traduce a su código de Windows (`linux/entrada.rs`). En Wayland una app
+    /// normal no puede leer el teclado: nada pulsado, así que ni atajos ni escritura.
+    #[cfg(target_os = "linux")]
+    pub fn leer() -> Self {
+        let mut foto = Self::default();
+        super::linux::entrada::teclas_abajo(|vk| foto.poner(vk));
+        foto
+    }
+
+    #[cfg(not(any(windows, target_os = "linux")))]
+    pub fn leer() -> Self {
+        Self::default()
     }
 
     /// Una foto con esas teclas abajo, para las pruebas.
@@ -169,6 +183,7 @@ impl Lector {
 }
 
 /// Cuándo se tocó por última vez el teclado o el ratón, en el reloj de Windows.
+#[cfg(windows)]
 fn ultimo_toque() -> Option<u32> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     let mut info = LASTINPUTINFO {
@@ -176,6 +191,11 @@ fn ultimo_toque() -> Option<u32> {
         dwTime: 0,
     };
     unsafe { GetLastInputInfo(&mut info) }.as_bool().then_some(info.dwTime)
+}
+
+#[cfg(not(windows))]
+fn ultimo_toque() -> Option<u32> {
+    None
 }
 
 /// Los modificadores que están abajo, con AltGr ya descontado: AltGr es escribir.
@@ -644,6 +664,7 @@ pub fn caret() -> Option<(i32, i32)> {
 }
 
 /// Lo mismo para un hilo concreto. El 0 es el hilo de la ventana de delante.
+#[cfg(windows)]
 fn caret_de_hilo(hilo: u32) -> Option<(i32, i32)> {
     use windows::Win32::Foundation::POINT;
     use windows::Win32::Graphics::Gdi::ClientToScreen;
@@ -667,6 +688,11 @@ fn caret_de_hilo(hilo: u32) -> Option<(i32, i32)> {
     unsafe { ClientToScreen(info.hwndCaret, &mut punto) }
         .as_bool()
         .then_some((punto.x, punto.y))
+}
+
+#[cfg(not(windows))]
+fn caret_de_hilo(_hilo: u32) -> Option<(i32, i32)> {
+    None
 }
 
 #[cfg(test)]
@@ -715,6 +741,7 @@ mod tests {
     /// Leer el teclado de verdad no revienta, y lo que cuesta cabe de sobra en las sesenta
     /// vueltas por segundo del muestreador.
     #[test]
+    #[cfg(windows)]
     fn leer_el_teclado_entero_cuesta_poco() {
         let vueltas = 200;
         // La mejor de veinte tandas de diez, y no la media de las doscientas: con las demás
@@ -1075,6 +1102,7 @@ mod tests {
     /// El cursor de texto de una ventana de verdad, hecha aquí, en este hilo y fuera de la
     /// pantalla: no aparece nada en el escritorio de nadie.
     #[test]
+    #[cfg(windows)]
     fn el_cursor_de_texto_sale_en_coordenadas_del_escritorio() {
         use windows::core::w;
         use windows::Win32::System::Threading::GetCurrentThreadId;

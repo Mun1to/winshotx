@@ -179,3 +179,36 @@ as text, so the agent can read it and try again.
 as long as the recording itself (a 20 second 1080p tutorial takes around 11 s), so if your agent
 cuts tool calls short, give it more time. Claude Code already waits; in Codex it is
 `tool_timeout_sec`, as above.
+
+## On Linux
+
+The same two commands, the same tools and the same answers, with `winshotx` in place of
+`winshotx.exe` (from an AppImage, the path of the `.AppImage` file). It works on X11 and on Wayland.
+
+```sh
+claude mcp add --scope user winshotx -- winshotx mcp
+winshotx agent record --screen 0 --max-seconds 60
+```
+
+What is different:
+
+- **The channel** is a Unix socket in `$XDG_RUNTIME_DIR` (`/run/user/<uid>`) that only your own
+  user can open.
+- **Starting the app.** If winshotx is not running, the first call starts it. Many agents start
+  their MCP servers with almost no environment (no `DISPLAY`, no `WAYLAND_DISPLAY`), and a window
+  cannot be opened from there: winshotx then asks systemd's user session to start it, which is how
+  it works on GNOME, KDE and most desktops. Where that is not possible, the answer says so: open
+  winshotx once by hand (it stays in the background), or pass `DISPLAY` or `WAYLAND_DISPLAY`,
+  and `XDG_RUNTIME_DIR`, in the `env` of the server in your agent's configuration.
+- **On Wayland there is no window list.** A program cannot see the windows of other programs,
+  so `windows`, `windowId` and `windowTitle` answer with an error that says to use `screen` or
+  `region`. On X11 they work as on Windows.
+- **On Wayland the desktop asks the person at the computer.** The first `record_start` makes the
+  desktop ask which screen to share, and the call waits for the answer; if they leave "remember"
+  ticked, it is not asked again. The first screenshot needs the desktop's permission too, and
+  GNOME only asks while winshotx is the window in front: winshotx shows its window once so the
+  desktop can ask, and the answer to the agent says what is going on.
+- **What the person sees while recording.** On X11, the frame and the bar when they fit outside
+  the recorded area (with a whole screen, only the tray menu changes). On Wayland, the desktop's
+  own screen sharing indicator, which also stops the recording.
+- **Paths** look like `/home/you/Videos/demo.mp4`.

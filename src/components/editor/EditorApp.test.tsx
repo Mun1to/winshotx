@@ -303,6 +303,28 @@ describe("el botón de reproducir", () => {
     expect(screen.getByTitle(/recortar y exportar igual/)).toBeInTheDocument();
   });
 
+  it("y si falló antes de que el editor abriera, también lo dice", async () => {
+    // El aviso viaja por un evento, y el que se emite antes de que esta ventana monte su
+    // escucha no lo recoge nadie. En Linux la vista previa falla en el acto, antes de que
+    // el editor exista, y se quedaba en «Preparando el vídeo…» para siempre (S44): por eso
+    // la sesión también lo dice cuando se le pregunta.
+    preparar(VERTICAL, null, "mp4");
+    responde("session_info", {
+      id: "s1",
+      region: VERTICAL,
+      fps: 30,
+      frameCount: 3,
+      durationMs: 100,
+      hasAudio: false,
+      format: "mp4",
+      mp4Path: null,
+      previaFallida: true,
+    });
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(screen.getByText("Sin vista previa")).toBeInTheDocument());
+    expect(screen.queryByText("Preparando el vídeo…")).toBeNull();
+  });
+
   it("y mientras se escribe, dice por dónde va", async () => {
     await abrirRescatada();
     emite("winshotx://session-preview", { sessionId: "s1", porCiento: 45, listo: false, fallida: false });

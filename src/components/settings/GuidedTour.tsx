@@ -35,7 +35,7 @@ interface Paso {
  * entiende solo (un interruptor de sonido) no tiene paso: un tour que lee la pantalla en voz
  * alta se cierra a la mitad. Y empieza donde se abre, en Capturar: no te manda adonde ya estás.
  */
-const PASOS: Paso[] = [
+const TODOS_LOS_PASOS: Paso[] = [
   {
     id: "riel",
     apartado: "capturar",
@@ -94,6 +94,11 @@ const PASOS: Paso[] = [
     cafe: true,
   },
 ];
+
+/** Los mismos en Linux, sin la parada de las teclas de Windows: el riel tiene un icono menos. */
+const PASOS_SIN_TECLAS = TODOS_LOS_PASOS.filter((p) => p.apartado !== "teclas").map((p) =>
+  p.id === "riel" ? { ...p, titulo: "Todo está en estos siete" } : p,
+);
 
 interface Marco {
   top: number;
@@ -187,6 +192,8 @@ export function colocarTarjeta(
 interface Props {
   onNavegar: (apartado: ApartadoId) => void;
   onCerrar: () => void;
+  /** S21 (Linux): sin la parada de las teclas de Windows, que ahí no existen. */
+  sinTeclasDeWindows?: boolean;
 }
 
 /**
@@ -224,7 +231,8 @@ function Agujero({
   );
 }
 
-export function GuidedTour({ onNavegar, onCerrar }: Props) {
+export function GuidedTour({ onNavegar, onCerrar, sinTeclasDeWindows = false }: Props) {
+  const PASOS = sinTeclasDeWindows ? PASOS_SIN_TECLAS : TODOS_LOS_PASOS;
   const t = useT();
   const [indice, setIndice] = useState(0);
   const [marco, setMarco] = useState<Marco | null>(null);
@@ -337,7 +345,7 @@ export function GuidedTour({ onNavegar, onCerrar }: Props) {
     };
     window.addEventListener("keydown", alPulsar);
     return () => window.removeEventListener("keydown", alPulsar);
-  }, [onCerrar]);
+  }, [onCerrar, PASOS]);
 
   const sitio = colocarTarjeta(marco, pestana, altoTarjeta, window.innerWidth, window.innerHeight);
 

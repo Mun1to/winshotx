@@ -262,6 +262,8 @@ export const EN: Record<string, string> = {
   "Clic para cambiar el atajo": "Click to change the shortcut",
   "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí":
     "Press the combination · the ones Windows keeps never reach here",
+  "Pulsa la combinación · las que el escritorio se reserva no llegan hasta aquí":
+    "Press the combination · the ones the desktop keeps never reach here",
   "Pulsa las teclas…": "Press the keys…",
 
   // El tour guiado
@@ -460,6 +462,14 @@ export const EN: Record<string, string> = {
   // Copiar el texto de una captura
   "Copiar el texto": "Copy the text",
   "No he encontrado texto en esa captura.": "I found no text in that shot.",
+  // En Linux el texto lo lee el Tesseract del sistema. Detrás va «Se instala con:» y la orden.
+  "Para leer el texto falta Tesseract.": "Reading text needs Tesseract.",
+  "Tesseract no tiene ningún idioma instalado.": "Tesseract has no language installed.",
+  "Para leer el texto falta Tesseract. Instala el paquete tesseract de tu distribución.":
+    "Reading text needs Tesseract. Install your distribution's tesseract package.",
+  "Tesseract no tiene ningún idioma instalado. Instala el de tu idioma con los paquetes de tu distribución.":
+    "Tesseract has no language installed. Install yours from your distribution's packages.",
+  "Tesseract ha tardado demasiado en leer la imagen": "Tesseract took too long to read the image",
   "No he encontrado texto en esta imagen.": "I found no text in this image.",
   // Estas dos las escribe `src-tauri/src/platform/ocr.rs`, letra por letra (lo vigila una prueba suya).
   "No he podido abrir esa imagen para leer su texto.": "I could not open that image to read its text.",
@@ -474,6 +484,15 @@ export const EN: Record<string, string> = {
   "sin zoom": "no zoom",
 
   // El puntero dibujado
+  "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema.":
+    "To save as MP4, the system's H.264 video encoder is missing.",
+  "Falta un codificador de sonido AAC en el sistema: el MP4 se guardará sin sonido.":
+    "The system has no AAC audio encoder: the MP4 will be saved without sound.",
+  "Se instala con:": "Install it with:",
+  "Esta AppImage no puede usar los codificadores de tu sistema, y sin ellos no hay MP4. Instala winshotx con el paquete .deb o .rpm.":
+    "This AppImage cannot use your system's encoders, and without them there is no MP4. Install winshotx from the .deb or .rpm package.",
+  "Instala los plugins «bad» de GStreamer de tu distribución.":
+    "Install your distribution's GStreamer \"bad\" plugins.",
   // «el de Windows» ya está arriba, en el idioma: la clave es la frase, así que sirve.
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "This recording already has the Windows cursor baked in: you will see two.",
@@ -654,6 +673,9 @@ export const EN: Record<string, string> = {
   // S2 (grabación)
   "Tecla de zoom": "Zoom key",
   "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "While you record, press it and the camera will move in to wherever your mouse is at that moment. It shows up as a zoom on the editor's timeline, which you can move or remove later. The key press also reaches the program you are recording: that's why it comes set to one hardly any program uses.",
+  "En Wayland un programa no puede leer el teclado mientras lo usa otro, así que esta tecla no hace nada mientras grabas. Los zooms se ponen después, haciendo clic en la línea de tiempo del editor.":
+    "On Wayland an app can't read the keyboard while another one is using it, so this key does nothing while you record. Add zooms afterwards by clicking on the editor's timeline.",
+  "en Wayland no funciona: los zooms se ponen en el editor": "doesn't work on Wayland: add zooms in the editor",
   "es la de grabar: al pulsarla pararías la grabación": "it's the record key: pressing it would stop the recording",
   "es la de capturar: al pulsarla abrirías una captura": "it's the capture key: pressing it would start a capture",
   "es la de los últimos segundos": "it's the last-seconds key",
@@ -661,6 +683,7 @@ export const EN: Record<string, string> = {
   "La cámara": "The camera",
   "Grabar también la cámara": "Record the camera too",
   "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "Records your webcam at the same time, in its own file next to the video, so you can put it in a corner later from the editor. The camera light only comes on while you record. If another program is using it or Windows doesn't allow it (Privacy, Camera), the recording goes ahead without it.",
+  "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si no se puede encender, se graba sin ella.": "Records your webcam at the same time, in its own file next to the video, so you can put it in a corner later from the editor. The camera light only comes on while you record. If it can't be turned on, the recording goes ahead without it.",
   "no hay ninguna cámara conectada": "no camera is connected",
   "Qué cámara": "Which camera",
   "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "The one you choose is recorded. If it isn't connected one day, the first one available is used.",
@@ -745,6 +768,14 @@ export const EN: Record<string, string> = {
   "Captura con scroll": "Scrolling capture",
   "Captura con scroll: baja la página y la junta en una imagen · S": "Scrolling capture: scrolls the page and joins it into one image · S",
   "Recorta lo que se desplaza y winshotx lo bajará solo": "Select what scrolls and winshotx will scroll it for you",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa {atajo}.":
+    "Select what scrolls and winshotx will scroll it for you. To stop before the end, press {atajo}.",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, deja de compartir la pantalla desde el escritorio.":
+    "Select what scrolls and winshotx will scroll it for you. To stop before the end, stop sharing the screen from the desktop.",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, ejecuta {orden}.":
+    "Select what scrolls and winshotx will scroll it for you. To stop before the end, run {orden}.",
+  "Cuando el escritorio pregunte, permite la interacción remota: sin ella tendrás que bajarlo tú.":
+    "When the desktop asks, allow remote interaction: without it you will have to scroll it yourself.",
   "Bajando sola": "Scrolling by itself",
   "Desplázala tú": "Scroll it yourself",
   "Sube un poco, me he perdido": "Scroll back up a little, I lost track",
@@ -826,6 +857,61 @@ export const EN: Record<string, string> = {
   "Sonido del PC": "PC sound",
   "Redondeado": "Rounded",
   "Tu micrófono": "Your microphone",
+  // S21 (Linux)
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. En Wayland la tecla la elige el escritorio: winshotx le propone una, y la aceptas o la cambias en su ventana con «Cambiar».": "Freezes the screen the moment you press it and lets you crop on top of that still shot. On Wayland the desktop picks the key: winshotx suggests one, and you accept it or change it in the desktop's window with «Change».",
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. El escritorio se reserva algunas combinaciones y esas no llegan hasta aquí.": "Freezes the screen the moment you press it and lets you crop on top of that still shot: whatever moves underneath no longer gets in the way. The desktop keeps some combinations for itself, and those never reach this far.",
+  "la tecla la elige el escritorio": "the desktop picks the key",
+  "todavía sin tecla: pulsa «Cambiar»": "no key yet: press «Change»",
+  "Sin tecla": "No key",
+  "Arrancar al iniciar sesión": "Start when you log in",
+  "winshotx se abre solo al entrar en tu sesión y se queda esperando, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "winshotx opens by itself when you log in and waits, with no window. Without this you have to open it by hand every time, and the capture keys do nothing while it is closed.",
+  "Claro, oscuro, o lo que diga el sistema y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.": "Light, dark, or whatever the system says, changing along with it. It is only the colour of these windows; what you capture does not change.",
+  "Español, inglés, o el del sistema si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.": "Spanish, English, or the system's language if winshotx speaks it. It changes right away and nothing needs restarting.",
+  "No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.": "There is no window to leave open: you call it with a key, it does its job and it is gone.",
+  "Estas son las dos teclas con las que se llama. En Wayland las elige el escritorio: acepta las que te propone en su ventana, o cámbialas ahí con «Cambiar».": "These are the two keys that call it. On Wayland the desktop picks them: accept the ones it suggests in its window, or change them there with «Change».",
+  "Esto es lo que queda configurado. Todo se cambia después en los ajustes, que se abren desde winshotx en el menú de aplicaciones.": "This is what is set up. Everything can be changed later in the settings, which open from winshotx in the applications menu.",
+  "se queda esperando, sin ventana": "waits in the background, with no window",
+  "Pulsa el atajo cuando quieras. Los ajustes se abren desde winshotx en el menú de aplicaciones.": "Press the shortcut whenever you like. The settings open from winshotx in the applications menu.",
+  "Copiar la orden": "Copy the command",
+  "En Sway, por ejemplo, van en ~/.config/sway/config:": "In Sway, for example, they go in ~/.config/sway/config:",
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).": "Freezes the screen the moment you press it and lets you crop on top of that still shot. This desktop does not let apps ask for keys: put this command in its keyboard shortcuts (in Sway, a bindsym line in ~/.config/sway/config).",
+  "ponla en los atajos del escritorio": "add it to the desktop's shortcuts",
+  // S44 (Linux, grabar): la tecla de grabar de Wayland y el sonido que no hay.
+  "Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.": "You crop the same way as for a screenshot, but what comes out is a video. On Wayland there is no recording bar, because it can't be kept out of the video: this same key is the one that stops it.",
+  "este sistema no da el sonido por PipeWire": "this system doesn't provide sound through PipeWire",
+  "no hay ninguna salida de sonido": "no sound output found",
+  "no hay ningún micrófono conectado": "no microphone connected",
+  // S44 (Linux, grabar): cómo se para, dicho en la pantalla de elegir zona (`comoParar.ts`).
+  "Para parar la grabación, pulsa {atajo}.": "To stop the recording, press {atajo}.",
+  "Para parar la grabación, pulsa {atajo} o usa el icono de winshotx en la bandeja.": "To stop the recording, press {atajo} or use the winshotx tray icon.",
+  "Para parar la grabación, pulsa {atajo} o deja de compartir la pantalla desde el escritorio.": "To stop the recording, press {atajo} or stop sharing the screen from the desktop.",
+  "Para parar la grabación, pulsa {atajo}, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "To stop the recording, press {atajo}, use the winshotx tray icon or stop sharing the screen from the desktop.",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja.": "To stop the recording, use the winshotx tray icon.",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "To stop the recording, use the winshotx tray icon or stop sharing the screen from the desktop.",
+  "Para parar la grabación, deja de compartir la pantalla desde el escritorio o ejecuta {orden}.": "To stop the recording, stop sharing the screen from the desktop or run {orden}.",
+  "Para parar la grabación, ejecuta {orden}.": "To stop the recording, run {orden}.",
+  "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "This desktop does not let apps ask for their keys. Add them yourself in its keyboard shortcuts, with these two commands:",
+  // S43 (Linux en los ajustes de la 0.5)
+  "Todo está en estos siete": "It is all in these seven",
+  "Las tres pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.": "The three first-day screens again: what each key does and what to choose. It takes less than a minute and changes no settings.",
+  "Claro u oscuro, como el sistema": "Light or dark, like the system",
+  "Arranca al iniciar sesión": "Starts when you log in",
+  "No arranca sola al iniciar sesión": "Does not start by itself when you log in",
+  "En el idioma del sistema": "In the system language",
+  // S45 (Linux): «Grabar siempre lo último» en Linux y en Wayland.
+  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla. En Wayland el escritorio te pregunta qué pantalla compartes la primera vez, y mientras esté encendido enseña su aviso de que se está compartiendo la pantalla: es suyo y no se puede quitar.": "winshotx records the screen all the time and drops the old, so what just happened is still there even though you never pressed record. And it costs: the more frames and resolution you ask for, and the more the screen moves, the more it uses. On Wayland the desktop asks which screen you share the first time, and while this is on it shows its notice that the screen is being shared: that notice is the desktop's and cannot be removed.",
+  "mientras esté encendido, el escritorio avisa de que se comparte la pantalla": "while it's on, the desktop shows that the screen is being shared",
+  "se apagó al arrancar: falta tu permiso para compartir la pantalla": "turned off at startup: it needs your permission to share the screen",
+  "se apagó porque se dejó de compartir la pantalla": "turned off because screen sharing was stopped",
+  "se apagó porque la pantalla dejó de llegar": "turned off because the screen stopped arriving",
+  "La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. En Wayland la tecla la elige el escritorio: te la pregunta al encender esto, y la cambias en su ventana con «Cambiar».": "The key that rescues. It saves the last few seconds and opens them in the editor **without stopping the recording**, so you can carry on and rescue again in a while. On Wayland the desktop picks the key: it asks you when you turn this on, and you change it in its window with «Change».",
+  "Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.": "It saves the last few seconds and opens them in the editor **without stopping the recording**, so you can carry on and rescue again in a while. This desktop does not let apps ask for keys: put this command in its keyboard shortcuts.",
+  "Guardar ahora": "Save now",
+  "Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».": "The same thing the key does: it saves the last few seconds and opens them in the editor, without stopping the recording. For when the desktop gave you no key or you don't remember which one it is. The command «winshotx --replay» does it too.",
+  // S45 (Linux): el dibujo «Así va a salir» en Wayland, donde la tecla es la del escritorio.
+  "**Todavía sin tecla**: pídela con «Cambiar»": "**No key yet**: ask for one with «Change»",
+  "Al encenderlo eliges la tecla que se queda con los últimos **{n} s**": "When you turn it on you pick the key that keeps the last **{n} s**",
+
   // S40 (la barra de abajo vuelve)
   "Barra": "Bar",
   "Copia": "Copy",

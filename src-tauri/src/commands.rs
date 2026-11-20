@@ -39,6 +39,10 @@ pub struct OverlayPayload {
     /// en una y sigue en la de al lado (16-nov). Salen del sistema y no de las congeladas, que
     /// llegan en dos tandas: al montar el overlay de la primera, las otras aun no estan.
     monitores: Vec<capture::MonitorInfo>,
+    /// Con que se para una grabacion en Linux, donde puede no haber barra de grabar: la
+    /// pantalla de elegir zona lo dice antes de empezar (`platform::como_parar`).
+    #[cfg(target_os = "linux")]
+    como_parar: crate::platform::como_parar::ComoParar,
 }
 
 /// Construye el payload de una pantalla. La usan tanto el comando `overlay_bootstrap`
@@ -68,6 +72,8 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
         last_region: *state.last_region.read(),
         recording: state.is_recording(),
         monitores,
+        #[cfg(target_os = "linux")]
+        como_parar: crate::platform::como_parar::de_ahora(state),
     })
 }
 
@@ -346,22 +352,28 @@ mod pruebas_de_ancladas {
     use super::dentro_de_las_ancladas;
     use std::path::Path;
 
+    // Las rutas de cada sistema, hechas con `join`: fuera de Windows una contrabarra es
+    // parte del nombre, y las pruebas pasarían sin mirar nada.
+    #[cfg(windows)]
     const PINS: &str = r"C:\Users\a\AppData\Local\Temp\winshotx\pins";
+    #[cfg(windows)]
+    const PRIVADO: &str = r"C:\Users\a\Documents\privado.png";
+    #[cfg(not(windows))]
+    const PINS: &str = "/tmp/winshotx/pins";
+    #[cfg(not(windows))]
+    const PRIVADO: &str = "/home/a/Documents/privado.png";
 
     #[test]
     fn una_anclada_de_verdad_pasa() {
         assert!(dentro_de_las_ancladas(
-            Path::new(&format!(r"{PINS}\pin-20260827-101500123.png")),
+            &Path::new(PINS).join("pin-20260827-101500123.png"),
             Path::new(PINS)
         ));
     }
 
     #[test]
     fn un_archivo_de_otra_carpeta_no() {
-        assert!(!dentro_de_las_ancladas(
-            Path::new(r"C:\Users\a\Documents\privado.png"),
-            Path::new(PINS)
-        ));
+        assert!(!dentro_de_las_ancladas(Path::new(PRIVADO), Path::new(PINS)));
     }
 
     #[test]
@@ -369,7 +381,7 @@ mod pruebas_de_ancladas {
         // Empieza por la carpeta buena y acaba fuera: es el caso que `starts_with` a
         // secas no ve, y por el que se mira componente a componente.
         assert!(!dentro_de_las_ancladas(
-            Path::new(&format!(r"{PINS}\..\..\..\.ssh\id_rsa")),
+            &Path::new(PINS).join("..").join("..").join("..").join(".ssh").join("id_rsa"),
             Path::new(PINS)
         ));
     }
@@ -379,7 +391,7 @@ mod pruebas_de_ancladas {
         // `pins-viejos` empieza por `pins` como texto, pero es otra carpeta. Se compara
         // por componentes y no por letras, asi que este caso sale bien solo.
         assert!(!dentro_de_las_ancladas(
-            Path::new(&format!(r"{PINS}-viejos\pin-1.png")),
+            &Path::new(&format!("{PINS}-viejos")).join("pin-1.png"),
             Path::new(PINS)
         ));
     }
@@ -906,6 +918,194 @@ pub async fn clear_cache(app: AppHandle) -> Result<CacheStats> {
     cache_stats(app.clone()).await
 }
 
+/// La bienvenida lo pide al abrirse: es el momento en que winshotx tiene el foco, y el unico
+/// en que el escritorio deja preguntar por el permiso de capturas (en Wayland; en lo demas no
+/// hay nada que pedir). Devuelve si se puede capturar.
+#[tauri::command]
+pub async fn pedir_permiso_de_capturas() -> Result<bool> {
+    tauri::async_runtime::spawn_blocking(|| match capture::pedir_permiso_de_capturas() {
+        Ok(()) => true,
+        Err(error) => {
+            eprintln!("[portal] permiso de capturas: {error}");
+            false
+        }
+    })
+    .await
+    .map_err(|error| AppError::Msg(error.to_string()))
+}
+
+/// Donde corre winshotx, para que la interfaz no ensenne lo que ahi no existe (las teclas de
+/// Windows en Linux) y sepa quien pone los atajos: en Wayland, el escritorio.
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct Plataforma {
+    /// `windows`, `linux` o `macos`.
+    pub sistema: &'static str,
+    /// Si las ventanas van por Wayland. Entonces las teclas las decide el escritorio.
+    pub wayland: bool,
+}
+
+#[tauri::command]
+pub fn plataforma() -> Plataforma {
+    let sistema = if cfg!(windows) {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "linux"
+    };
+    #[cfg(target_os = "linux")]
+    let wayland = crate::platform::xdg::es_wayland();
+    #[cfg(not(target_os = "linux"))]
+    let wayland = false;
+    Plataforma { sistema, wayland }
+}
+
+/// Deja en el registro de la app algo que le ha pasado a la pagina del editor y que no se
+/// ensenna en pantalla (una pista de sonido que no abre). Sin esto solo quedaba en la consola
+/// de la pagina, que en una app instalada no ve nadie.
+#[tauri::command]
+pub fn apuntar_del_editor(texto: String) {
+    // Sin la ficha del servidor de medios, por si viene en el mensaje (lo escribe GStreamer).
+    eprintln!("[editor] {}", linea_del_editor(&crate::medios::sin_ficha(&texto)));
+}
+
+/// Lo que se apunta de lo que manda la pagina: una sola linea y corta, venga lo que venga.
+fn linea_del_editor(texto: &str) -> String {
+    texto.chars().map(|c| if c.is_control() { ' ' } else { c }).take(300).collect()
+}
+
+/// Que sonido se puede grabar en este sistema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SonidoDisponible {
+    pub altavoz: bool,
+    pub microfono: bool,
+}
+
+/// Que sonido se puede grabar aqui, o `null` donde no hay nada que avisar (Windows).
+///
+/// En Linux el sonido llega por PipeWire, y hay sistemas donde PipeWire esta pero no lo lleva
+/// (Ubuntu 22.04, Linux Mint 21: lo lleva PulseAudio). Alli se graba sin sonido, y los
+/// ajustes lo dicen con esto en vez de dejar un interruptor que no hace nada.
+#[tauri::command]
+pub async fn sonido_disponible() -> Option<SonidoDisponible> {
+    #[cfg(target_os = "linux")]
+    {
+        // Pregunta a PipeWire y espera su lista (con tope): fuera del hilo de las ventanas.
+        let hay = tauri::async_runtime::spawn_blocking(crate::record::linux::sonido::disponible).await.ok()?;
+        Some(SonidoDisponible { altavoz: hay.altavoz, microfono: hay.microfono })
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
+/// Lo que le falta a este equipo para guardar un MP4.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FaltaParaElMp4 {
+    /// `video`: no hay codificador de H.264 y el MP4 no sale. `sonido`: no hay de AAC y sale
+    /// sin sonido.
+    pub que: &'static str,
+    /// La orden que lo instala, donde se sabe cual es.
+    pub orden: Option<&'static str>,
+    /// Es un AppImage cuyo GStreamer no carga los plugins del sistema: instalar el
+    /// codificador no lo arregla, y lo que se dice es que se use el paquete .deb o .rpm.
+    pub appimage: bool,
+}
+
+/// Lo que falta para guardar un MP4, o `null` si no falta nada (en Windows, siempre).
+///
+/// En Linux winshotx no lleva codificador: escribe con el GStreamer del sistema, y hay
+/// distribuciones que no traen de serie el plugin de H.264 (Ubuntu). El editor lo dice antes
+/// de guardar, con la orden que lo instala, en vez de fallar despues.
+#[tauri::command]
+pub async fn falta_para_el_mp4() -> Option<FaltaParaElMp4> {
+    #[cfg(target_os = "linux")]
+    {
+        use crate::encode::mp4::{Arreglo, Falta};
+        // Mirarlo escribe un MP4 diminuto de prueba: fuera del hilo de las ventanas.
+        let hay = tauri::async_runtime::spawn_blocking(crate::encode::gst::codificadores).await.ok()?;
+        let (falta, que) = match (hay.video, hay.sonido) {
+            (None, _) => (Falta::Video, "video"),
+            (Some(_), None) => (Falta::Sonido, "sonido"),
+            (Some(_), Some(_)) => return None,
+        };
+        let arreglo = crate::encode::mp4::arreglo(falta);
+        Some(FaltaParaElMp4 {
+            que,
+            orden: match arreglo {
+                Arreglo::Orden(orden) => Some(orden),
+                Arreglo::Plugins | Arreglo::OtroPaquete => None,
+            },
+            appimage: arreglo == Arreglo::OtroPaquete,
+        })
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
+/// Las teclas que el escritorio ha dado a los atajos de Wayland, o `null` si los atajos los
+/// pone winshotx (Windows y X11): ahi mandan los ajustes.
+#[tauri::command]
+pub fn teclas_del_escritorio() -> Option<crate::hotkeys::TeclasDelEscritorio> {
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::portal::teclas_del_escritorio()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        None
+    }
+}
+
+/// Que el escritorio ensenne donde se cambian las teclas de winshotx (solo Wayland).
+///
+/// `rescate` lo manda el «Cambiar» de la fila de los ultimos segundos: si esa tecla se
+/// rechazo en la pregunta del escritorio, cambiarla es volver a pedirla.
+#[tauri::command]
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+pub async fn cambiar_teclas_en_el_escritorio(rescate: Option<bool>) -> Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::portal::cambiar_en_el_escritorio(rescate.unwrap_or(false))
+            .await
+            .map_err(AppError::Msg)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err(AppError::Unsupported)
+    }
+}
+
+/// Copia la orden para poner a mano un atajo del escritorio (`winshotx --capture` o
+/// `winshotx --edit`), donde no se le pueden pedir los atajos. La orden la monta Rust y no la
+/// interfaz, como en `copy_color`: la pagina no escribe lo que quiera en el portapapeles.
+#[tauri::command]
+pub async fn copiar_orden_del_atajo(accion: String) -> Result<()> {
+    let bandera = match accion.as_str() {
+        "capture" => "--capture",
+        "edit" => "--edit",
+        "record" => "--record",
+        "replay" => "--replay",
+        _ => return Err(AppError::Msg("ese atajo no existe".into())),
+    };
+    #[cfg(target_os = "linux")]
+    {
+        let orden = format!("{} {bandera}", crate::platform::xdg::orden_de_la_app());
+        crate::platform::clipboard::copy_text(&orden)?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = bandera;
+        Err(AppError::Unsupported)
+    }
+}
+
 #[tauri::command]
 pub async fn shortcut_status(state: State<'_, AppState>) -> Result<crate::hotkeys::ShortcutStatus> {
     Ok(*state.shortcuts.read())
@@ -1143,6 +1343,11 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     if previous.replay_enabled != settings.replay_enabled
         || (settings.replay_enabled && cambia_como_graba)
     {
+        // Quien toca el interruptor ya sabe como esta: el porque de un apagado solo se olvida.
+        #[cfg(target_os = "linux")]
+        if previous.replay_enabled != settings.replay_enabled {
+            crate::replay::olvidar_el_apagado(&app);
+        }
         crate::replay::stop(&app)?;
         if settings.replay_enabled {
             if let Err(error) = crate::replay::start(&app) {
@@ -1160,7 +1365,17 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     // Se registra siempre, aunque la combinacion no haya cambiado: es la unica forma
     // de reintentar cuando el atajo estaba cogido por otra aplicacion y ya se ha
     // cerrado. `register` empieza desregistrando todo, asi que repetirlo no molesta.
-    crate::hotkeys::register(&app, &settings);
+    //
+    // Encender el anillo trae su tecla, y lo acaba de hacer la persona: en Wayland eso cuenta
+    // como pedirle la tecla al escritorio a mano. En Windows y en X11 es el registro de siempre.
+    if !previous.replay_enabled && settings.replay_enabled {
+        crate::hotkeys::al_encender_el_anillo(&app, &settings);
+    } else {
+        crate::hotkeys::register(&app, &settings);
+    }
+    if previous.language != settings.language {
+        crate::tray::al_cambiar_los_ajustes(&app);
+    }
     if previous.start_with_windows != settings.start_with_windows {
         crate::platform::autostart::set(settings.start_with_windows)?;
     }
@@ -1434,5 +1649,19 @@ mod pruebas_de_impr_pant {
         assert!(estado.enabled && estado.active && !estado.taken_by_windows);
         let sin_valor = estado_impr_pant(false, false, None, true);
         assert!(sin_valor.taken_by_windows, "sin valor, Windows 11 la trae asignada");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_del_registro_del_editor {
+    use super::linea_del_editor;
+
+    /// Lo que manda la pagina va a una sola linea del registro: ni saltos que se hagan pasar
+    /// por otras lineas, ni un texto sin fin.
+    #[test]
+    fn lo_que_apunta_el_editor_es_una_linea_corta() {
+        assert_eq!(linea_del_editor("la pista no suena (pc: no se puede abrir)"), "la pista no suena (pc: no se puede abrir)");
+        assert_eq!(linea_del_editor("uno\n[grabar] mentira\r\tdos"), "uno [grabar] mentira  dos");
+        assert_eq!(linea_del_editor(&"a".repeat(5000)).chars().count(), 300);
     }
 }

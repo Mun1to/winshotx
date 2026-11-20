@@ -434,6 +434,12 @@ fn sesion(obj: &Map<String, Value>) -> Result<String, String> {
     Ok(texto.to_string())
 }
 
+/// Cómo es una ruta entera en este sistema, para el error de `ruta_absoluta`.
+#[cfg(not(target_os = "linux"))]
+const RUTA_DE_EJEMPLO: &str = "C:\\Users\\you\\Videos\\demo.mp4";
+#[cfg(target_os = "linux")]
+const RUTA_DE_EJEMPLO: &str = "/home/you/Videos/demo.mp4";
+
 /// Una ruta de salida, que tiene que ser absoluta: la app no sabe en qué carpeta está el
 /// agente. Los dos clientes (`agent` y `mcp`) ya convierten las relativas antes de mandarlas
 /// (`cliente::con_rutas_absolutas`), así que esto solo salta con un cliente hecho a mano.
@@ -446,7 +452,7 @@ fn ruta_absoluta(obj: &Map<String, Value>, campo: &str) -> Result<Option<PathBuf
                 Ok(Some(ruta))
             } else {
                 Err(format!(
-                    "\"{campo}\" must be an absolute path, like C:\\Users\\you\\Videos\\demo.mp4 (winshotx runs in its own folder, not yours)."
+                    "\"{campo}\" must be an absolute path, like {RUTA_DE_EJEMPLO} (winshotx runs in its own folder, not yours)."
                 ))
             }
         }
@@ -748,6 +754,17 @@ pub(crate) mod pruebas {
         r["error"].as_str().unwrap().to_string()
     }
 
+    /// Una ruta entera de este sistema, en la carpeta `carpeta` de la raíz: `C:\x\foto.png` en
+    /// Windows y `/x/foto.png` en los demás. Las órdenes piden las rutas enteras, y qué es
+    /// «entera» lo dice cada sistema.
+    fn entera(carpeta: &str, archivo: &str) -> String {
+        if cfg!(windows) {
+            format!(r"C:\{carpeta}\{archivo}")
+        } else {
+            format!("/{carpeta}/{archivo}")
+        }
+    }
+
     #[test]
     fn status_dice_la_version_y_si_se_graba() {
         let d = Doble::default();
@@ -809,14 +826,15 @@ pub(crate) mod pruebas {
     #[test]
     fn capture_de_una_ventana_por_trozo_de_titulo_coge_la_de_delante() {
         let d = Doble::default();
-        let r = pide(&d, r#"{"command":"capture","window":"microsoft EDGE","output":"C:\\x\\v.png"}"#);
-        assert_eq!(r["file"], r"C:\x\v.png");
+        let salida = entera("x", "v.png");
+        let r = pide(&d, &json!({"command":"capture","window":"microsoft EDGE","output":salida}).to_string());
+        assert_eq!(r["file"], salida.as_str());
         assert_eq!(
             d.pedido.borrow()[0],
             format!(
                 "capturar {:?} en {:?}",
                 Donde { caja: caja(100, 100, 1280, 720), ventana: Some(222) },
-                Some(Path::new(r"C:\x\v.png"))
+                Some(Path::new(&salida))
             )
         );
         // Por el programa, si ningún título lo tiene; y por id.
@@ -838,10 +856,14 @@ pub(crate) mod pruebas {
     #[test]
     fn la_salida_de_una_captura_es_absoluta_y_png() {
         let d = Doble::default();
-        assert!(error_de(&d, r#"{"command":"capture","screen":0,"output":"foto.png"}"#).contains("absolute path"));
-        assert!(error_de(&d, r#"{"command":"capture","screen":0,"output":"C:\\x\\foto.jpg"}"#).contains(".png"));
-        let r = pide(&d, r#"{"command":"capture","screen":0,"output":"C:\\x\\foto"}"#);
-        assert_eq!(r["file"], r"C:\x\foto.png");
+        let con_salida = |salida: String| json!({"command":"capture","screen":0,"output":salida}).to_string();
+        let relativa = error_de(&d, r#"{"command":"capture","screen":0,"output":"foto.png"}"#);
+        assert!(relativa.contains("absolute path"), "{relativa}");
+        // Y el ejemplo que da es una ruta de este sistema.
+        assert!(relativa.contains(if cfg!(windows) { r"C:\Users\you" } else { "/home/you" }), "{relativa}");
+        assert!(error_de(&d, &con_salida(entera("x", "foto.jpg"))).contains(".png"));
+        let r = pide(&d, &con_salida(entera("x", "foto")));
+        assert_eq!(r["file"], entera("x", "foto.png").as_str());
     }
 
     #[test]
@@ -918,14 +940,16 @@ pub(crate) mod pruebas {
     #[test]
     fn export_entero() {
         let d = Doble::default();
+        let salida = entera("v", "demo.MP4");
         let r = pide(
             &d,
-            r#"{"command":"export","session":"abc123","output":"C:\\v\\demo.MP4","style":" Tutorial ","trim":{"start":1.5,"end":9},"zoomOnClicks":0.5,"speed":2}"#,
+            &json!({"command":"export","session":"abc123","output":salida,"style":" Tutorial ","trim":{"start":1.5,"end":9},"zoomOnClicks":0.5,"speed":2})
+                .to_string(),
         );
-        assert_eq!(r, json!({"ok":true,"file":r"C:\v\demo.MP4","seconds":7.5,"bytes":1234}));
+        assert_eq!(r, json!({"ok":true,"file":salida,"seconds":7.5,"bytes":1234}));
         let esperado = PedidoDeExportar {
             sesion: "abc123".into(),
-            salida: Some(PathBuf::from(r"C:\v\demo.MP4")),
+            salida: Some(PathBuf::from(&salida)),
             formato: Some(Formato::Mp4),
             estilo: Some("Tutorial".into()),
             desde: Some(1.5),
@@ -946,11 +970,13 @@ pub(crate) mod pruebas {
         );
         pide(&d, r#"{"command":"export","session":"abc123","format":"gif","trim":{"start":2}}"#);
         assert!(d.pedido.borrow()[1].contains("formato: Some(Gif)") && d.pedido.borrow()[1].contains("desde: Some(2.0), hasta: None"));
+        let webm = json!({"command":"export","session":"a","output":entera("v", "demo.webm")}).to_string();
+        let gif_y_mp4 = json!({"command":"export","session":"a","output":entera("v", "demo.gif"),"format":"mp4"}).to_string();
         for (linea, trozo) in [
             (r#"{"command":"export"}"#, "Missing \"session\""),
             (r#"{"command":"export","session":"..\\..\\x"}"#, "not a session id"),
-            (r#"{"command":"export","session":"a","output":"C:\\v\\demo.webm"}"#, ".mp4 or .gif"),
-            (r#"{"command":"export","session":"a","output":"C:\\v\\demo.gif","format":"mp4"}"#, "make them match"),
+            (webm.as_str(), ".mp4 or .gif"),
+            (gif_y_mp4.as_str(), "make them match"),
             (r#"{"command":"export","session":"a","output":"demo.mp4"}"#, "absolute path"),
             (r#"{"command":"export","session":"a","trim":{"start":5,"end":2}}"#, "not after its start"),
             (r#"{"command":"export","session":"a","trim":[1,2]}"#, "\"trim\" must look like"),

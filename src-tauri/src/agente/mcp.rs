@@ -406,6 +406,27 @@ fn moderno(mut resultado: Value) -> Value {
 }
 
 /// Lo que se le cuenta al agente al conectarse, antes de que mire las herramientas.
+///
+/// En Linux es otro texto, porque allí no es verdad que siempre se vean un marco y una barra
+/// (no se pueden esconder del vídeo, así que solo están si caben fuera de lo que se graba; en
+/// Wayland avisa el escritorio), ni que haya lista de ventanas en Wayland.
+#[cfg(target_os = "linux")]
+const INSTRUCCIONES: &str = "winshotx records and captures the screen on Linux, on this \
+computer. To make a video: pick what to record with screens or windows, call record_start, \
+do what you want to show, call record_stop, then export to an .mp4 or .gif file (or \
+open_in_editor so the person can polish it). For a screenshot, call capture. Coordinates \
+are physical pixels of the virtual desktop, the same ones screens and windows return. On \
+Wayland there is no window list (use a screen or a region), and the first recording or \
+screenshot makes the desktop ask the person for permission: that call waits for their \
+answer. A recording is visible to the person at the computer: on X11, winshotx's frame \
+around the recorded area and a small bar when they fit outside it (recording a whole screen \
+shows neither, only winshotx's tray menu changes); on Wayland, the desktop's own screen \
+sharing indicator. Nothing plays a sound unless you pass cue: true. The screen can show \
+private things: record and capture only what the person asked for. If winshotx is not \
+running, the first call starts it in the background and takes a few seconds longer.";
+
+/// Lo que se le cuenta al agente al conectarse, antes de que mire las herramientas.
+#[cfg(not(target_os = "linux"))]
 const INSTRUCCIONES: &str = "winshotx records and captures the screen on Windows, on this \
 computer. To make a video: pick what to record with screens or windows, call record_start, \
 do what you want to show, call record_stop, then export to an .mp4 or .gif file (or \
@@ -415,6 +436,14 @@ recording is always visible to the person at the computer (a frame and a small b
 and nothing plays a sound unless you pass cue: true. The screen can show private things: \
 record and capture only what the person asked for. If winshotx is not running, the first \
 call starts it in the background and takes a few seconds longer.";
+
+/// Lo que ve quien está delante mientras graba un agente, para la descripción de `record_start`.
+#[cfg(not(target_os = "linux"))]
+const LO_QUE_SE_VE: &str = "The person at the computer sees winshotx's usual frame and recording bar, on purpose.";
+
+/// En Linux, lo que de verdad se ve (ver `INSTRUCCIONES`).
+#[cfg(target_os = "linux")]
+const LO_QUE_SE_VE: &str = "The person at the computer can see it, on purpose: on X11, winshotx's frame and recording bar when they fit outside the recorded area; on Wayland, the desktop's screen sharing indicator, and the first time the desktop asks them for permission and this call waits for their answer.";
 
 /// Una respuesta buena de JSON-RPC.
 fn resultado(id: Value, resultado: Value) -> Value {
@@ -622,8 +651,7 @@ fn herramientas() -> Value {
             "description": format!("Start recording a screen, a window or a region. \
                 {target} It returns once the recording has really started (after the webcam \
                 warms up, if it is on) with {{ok, session}}; keep the session id for export. \
-                The person at the computer sees winshotx's usual frame and recording bar, \
-                on purpose. Only one recording can run at a time. Then do what you want to \
+                {LO_QUE_SE_VE} Only one recording can run at a time. Then do what you want to \
                 show and call record_stop."),
             "inputSchema": esquema(objetivo(), json!({
                 "camera": {
@@ -978,7 +1006,7 @@ mod pruebas {
     }
 
     fn carpeta() -> PathBuf {
-        PathBuf::from(r"C:\proyecto")
+        PathBuf::from(if cfg!(windows) { r"C:\proyecto" } else { "/proyecto" })
     }
 
     /// Pasa estas líneas por el servidor entero y devuelve cada línea que escribió, leída.
@@ -1114,6 +1142,12 @@ mod pruebas {
 
     #[test]
     fn cada_herramienta_se_traduce_al_contrato() {
+        // Las rutas enteras de cada sistema; una relativa se junta con la carpeta de quien pide.
+        let (fotos, shots, demo, gif) = if cfg!(windows) {
+            (r"D:\fotos\a.PNG", r"C:\proyecto\shots/a.png", r"C:\proyecto\demo.mp4", r"C:\videos\demo.gif")
+        } else {
+            ("/fotos/a.PNG", "/proyecto/shots/a.png", "/proyecto/demo.mp4", "/videos/demo.gif")
+        };
         let casos = [
             ("status", json!({}), json!({ "command": "status" })),
             ("screens", json!({}), json!({ "command": "screens" })),
@@ -1121,14 +1155,14 @@ mod pruebas {
             ("capture", json!({ "windowTitle": " Edge " }), json!({ "command": "capture", "window": "Edge" })),
             (
                 "capture",
-                json!({ "windowId": 9_007_199_254_740_993u64, "output": r"D:\fotos\a.PNG" }),
-                json!({ "command": "capture", "window": 9_007_199_254_740_993u64, "output": r"D:\fotos\a.PNG" }),
+                json!({ "windowId": 9_007_199_254_740_993u64, "output": fotos }),
+                json!({ "command": "capture", "window": 9_007_199_254_740_993u64, "output": fotos }),
             ),
             (
                 "capture",
                 json!({ "region": { "x": -1920, "y": 0, "width": 800, "height": 600 }, "output": "shots/a.png" }),
                 json!({ "command": "capture", "region": { "x": -1920, "y": 0, "width": 800, "height": 600 },
-                        "output": r"C:\proyecto\shots/a.png" }),
+                        "output": shots }),
             ),
             (
                 "record_start",
@@ -1141,14 +1175,14 @@ mod pruebas {
                 "export",
                 json!({ "session": "s-1", "output": "demo.mp4", "style": "Tutorial",
                         "trim": { "start": 1.5, "end": 9 }, "zoomOnClicks": 0.5, "speed": 2 }),
-                json!({ "command": "export", "session": "s-1", "output": r"C:\proyecto\demo.mp4",
+                json!({ "command": "export", "session": "s-1", "output": demo,
                         "style": "Tutorial", "trim": { "start": 1.5, "end": 9 }, "zoomOnClicks": 0.5,
                         "speed": 2 }),
             ),
             (
                 "export",
-                json!({ "session": "s-1", "output": r"C:\videos\demo.gif" }),
-                json!({ "command": "export", "session": "s-1", "output": r"C:\videos\demo.gif" }),
+                json!({ "session": "s-1", "output": gif }),
+                json!({ "command": "export", "session": "s-1", "output": gif }),
             ),
             ("open_in_editor", json!({ "session": "s-1" }), json!({ "command": "open", "session": "s-1" })),
         ];

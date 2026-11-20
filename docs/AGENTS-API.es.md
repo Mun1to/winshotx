@@ -184,3 +184,36 @@ texto, para que el agente lo lea y lo intente otra vez.
 tardar más o menos lo que dura la grabación (un tutorial de 20 segundos en 1080p tarda unos 11 s),
 así que si tu agente corta antes las llamadas, dale más tiempo. Claude Code ya espera; en Codex es
 `tool_timeout_sec`, como arriba.
+
+## En Linux
+
+Las mismas dos órdenes, las mismas herramientas y las mismas respuestas, con `winshotx` en vez de
+`winshotx.exe` (desde un AppImage, la ruta del archivo `.AppImage`). Funciona en X11 y en Wayland.
+
+```sh
+claude mcp add --scope user winshotx -- winshotx mcp
+winshotx agent record --screen 0 --max-seconds 60
+```
+
+Lo que cambia:
+
+- **El canal** es un socket Unix en `$XDG_RUNTIME_DIR` (`/run/user/<uid>`) que solo puede abrir tu
+  mismo usuario.
+- **Arrancar la app.** Si winshotx no está abierta, la primera llamada la arranca. Muchos agentes
+  lanzan sus servidores MCP casi sin variables de entorno (sin `DISPLAY` ni `WAYLAND_DISPLAY`), y
+  desde ahí no se puede abrir una ventana: winshotx se lo pide entonces a la sesión de usuario de
+  systemd, que es como funciona en GNOME, KDE y casi todos los escritorios. Donde no se puede, la
+  respuesta lo dice: abre winshotx una vez a mano (se queda por detrás), o pásale `DISPLAY` o
+  `WAYLAND_DISPLAY`, y `XDG_RUNTIME_DIR`, en el `env` del servidor en la configuración de tu agente.
+- **En Wayland no hay lista de ventanas.** Un programa no puede ver las ventanas de los demás,
+  así que `windows`, `windowId` y `windowTitle` contestan con un error que dice que se use `screen`
+  o `region`. En X11 funcionan como en Windows.
+- **En Wayland el escritorio le pregunta a quien está delante.** El primer `record_start` hace que
+  el escritorio pregunte qué pantalla se comparte, y la llamada espera a la respuesta; si deja
+  marcado «recordar», no vuelve a preguntar. La primera captura también necesita el permiso del
+  escritorio, y GNOME solo lo pregunta con winshotx delante: winshotx enseña su ventana una vez
+  para que el escritorio pueda preguntar, y la respuesta al agente dice qué está pasando.
+- **Lo que ve la persona mientras se graba.** En X11, el marco y la barra cuando caben fuera de lo
+  que se graba (con una pantalla entera solo cambia el menú de la bandeja). En Wayland, el
+  indicador de pantalla compartida del propio escritorio, que también para la grabación.
+- **Las rutas** son como `/home/you/Videos/demo.mp4`.

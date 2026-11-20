@@ -256,6 +256,8 @@ export const ZH: Record<string, string> = {
   "Clic para cambiar el atajo": "点击更改快捷键",
   "Pulsa la combinación · las que Windows se reserva no llegan hasta aquí":
     "请按下组合键 · Windows 保留的组合键不会传到这里",
+  "Pulsa la combinación · las que el escritorio se reserva no llegan hasta aquí":
+    "请按下组合键 · 桌面保留的组合键不会传到这里",
   "Pulsa las teclas…": "请按快捷键…",
 
   // 设置导览
@@ -454,6 +456,14 @@ export const ZH: Record<string, string> = {
   // 复制截图中的文字
   "Copiar el texto": "复制文字",
   "No he encontrado texto en esa captura.": "未在截图中找到文字。",
+  // En Linux el texto lo lee el Tesseract del sistema. Detrás va «Se instala con:» y la orden.
+  "Para leer el texto falta Tesseract.": "读取文字需要 Tesseract。",
+  "Tesseract no tiene ningún idioma instalado.": "Tesseract 没有安装任何语言。",
+  "Para leer el texto falta Tesseract. Instala el paquete tesseract de tu distribución.":
+    "读取文字需要 Tesseract。请安装发行版中的 tesseract 软件包。",
+  "Tesseract no tiene ningún idioma instalado. Instala el de tu idioma con los paquetes de tu distribución.":
+    "Tesseract 没有安装任何语言。请用发行版的软件包安装你的语言。",
+  "Tesseract ha tardado demasiado en leer la imagen": "Tesseract 读取图片超时",
   "No he encontrado texto en esta imagen.": "未在这张图片中找到文字。",
   // 下面两句由 `src-tauri/src/platform/ocr.rs` 原样给出（那边有测试盯着）。
   "No he podido abrir esa imagen para leer su texto.": "无法打开这张图片来读取其中的文字。",
@@ -467,6 +477,15 @@ export const ZH: Record<string, string> = {
   "Acercarse a los clics": "点击时缩放",
   "sin zoom": "不缩放",
 
+  "Para guardar en MP4 falta el codificador de vídeo H.264 del sistema.":
+    "要保存为 MP4，系统缺少 H.264 视频编码器。",
+  "Falta un codificador de sonido AAC en el sistema: el MP4 se guardará sin sonido.":
+    "系统缺少 AAC 音频编码器：MP4 将不带声音保存。",
+  "Se instala con:": "安装命令：",
+  "Esta AppImage no puede usar los codificadores de tu sistema, y sin ellos no hay MP4. Instala winshotx con el paquete .deb o .rpm.":
+    "此 AppImage 无法使用系统的编码器，因此无法保存 MP4。请通过 .deb 或 .rpm 软件包安装 winshotx。",
+  "Instala los plugins «bad» de GStreamer de tu distribución.":
+    "请安装你的发行版提供的 GStreamer “bad” 插件。",
   // 绘制的指针
   "Esta grabación ya lleva el cursor de Windows dentro: vas a ver dos.":
     "此录制已包含 Windows 光标：你会看到两个。",
@@ -654,6 +673,9 @@ export const ZH: Record<string, string> = {
   // S2 (grabación)
   "Tecla de zoom": "缩放键",
   "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "录制时按下它，画面会在那一刻放大到鼠标所在的位置。它会作为一个缩放出现在编辑器的时间线上，之后可以移动或删除。按键也会传给正在录制的程序，所以默认选了一个几乎没有程序使用的组合。",
+  "En Wayland un programa no puede leer el teclado mientras lo usa otro, así que esta tecla no hace nada mientras grabas. Los zooms se ponen después, haciendo clic en la línea de tiempo del editor.":
+    "在 Wayland 上，应用无法在其他程序使用键盘时读取按键，所以录制时这个键不起作用。录完后在编辑器的时间轴上点击即可添加缩放。",
+  "en Wayland no funciona: los zooms se ponen en el editor": "在 Wayland 上不可用：请在编辑器中添加缩放",
   "es la de grabar: al pulsarla pararías la grabación": "这是录制键：按下会停止录制",
   "es la de capturar: al pulsarla abrirías una captura": "这是截图键：按下会开始截图",
   "es la de los últimos segundos": "这是最近几秒的快捷键",
@@ -661,6 +683,7 @@ export const ZH: Record<string, string> = {
   "La cámara": "摄像头",
   "Grabar también la cámara": "同时录制摄像头",
   "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si otro programa la está usando o Windows no la deja (Privacidad, Cámara), se graba sin ella.": "同时录制你的摄像头，单独保存为一个文件放在视频旁边，之后可以在编辑器里把它放到角落。摄像头指示灯只在录制时亮起。如果其他程序正在使用它，或 Windows 不允许（隐私，摄像头），则在没有摄像头的情况下继续录制。",
+  "Graba tu webcam a la vez, en su propio archivo junto al vídeo, para ponerla después en una esquina desde el editor. La luz de la cámara se enciende solo mientras grabas. Si no se puede encender, se graba sin ella.": "同时录制你的摄像头，单独保存为一个文件放在视频旁边，之后可以在编辑器里把它放到角落。摄像头指示灯只在录制时亮起。如果摄像头无法开启，则在没有摄像头的情况下继续录制。",
   "no hay ninguna cámara conectada": "没有连接摄像头",
   "Qué cámara": "使用哪个摄像头",
   "Se graba la que elijas. Si un día no está conectada, se usa la primera que haya.": "录制你选择的那个。如果某天它没有连接，就使用第一个可用的。",
@@ -744,6 +767,14 @@ export const ZH: Record<string, string> = {
   "Captura con scroll": "滚动截图",
   "Captura con scroll: baja la página y la junta en una imagen · S": "滚动截图：滚动页面并拼成一张图 · S",
   "Recorta lo que se desplaza y winshotx lo bajará solo": "框选会滚动的区域，winshotx 会自动向下滚动",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa {atajo}.":
+    "框选会滚动的区域，winshotx 会自动向下滚动。要在到底之前停止，请按 {atajo}。",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, deja de compartir la pantalla desde el escritorio.":
+    "框选会滚动的区域，winshotx 会自动向下滚动。要在到底之前停止，请在桌面上停止共享屏幕。",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, ejecuta {orden}.":
+    "框选会滚动的区域，winshotx 会自动向下滚动。要在到底之前停止，请运行 {orden}。",
+  "Cuando el escritorio pregunte, permite la interacción remota: sin ella tendrás que bajarlo tú.":
+    "桌面询问时，请允许远程交互：否则需要你自己滚动。",
   "Bajando sola": "正在自动滚动",
   "Desplázala tú": "请你自己滚动",
   "Sube un poco, me he perdido": "往回滚一点，我跟丢了",
@@ -825,6 +856,61 @@ export const ZH: Record<string, string> = {
   "Sonido del PC": "电脑声音",
   "Redondeado": "圆角",
   "Tu micrófono": "你的麦克风",
+  // S21 (Linux)
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. En Wayland la tecla la elige el escritorio: winshotx le propone una, y la aceptas o la cambias en su ventana con «Cambiar».": "按下时冻结屏幕，让你在静止的画面上裁剪。在 Wayland 上由桌面决定按键：winshotx 会推荐一个，你可以在桌面的窗口里接受，或用「更改」换成别的。",
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta: lo que se mueva debajo ya no te estorba. El escritorio se reserva algunas combinaciones y esas no llegan hasta aquí.": "按下时冻结屏幕，让你在静止的画面上裁剪：下面再怎么动也不会打扰你。桌面会保留一些组合键，那些按不到这里。",
+  "la tecla la elige el escritorio": "按键由桌面决定",
+  "todavía sin tecla: pulsa «Cambiar»": "还没有按键：点「更改」",
+  "Sin tecla": "无按键",
+  "Arrancar al iniciar sesión": "登录时启动",
+  "winshotx se abre solo al entrar en tu sesión y se queda esperando, sin ventana. Sin esto hay que abrirlo a mano cada vez, y las teclas de captura no funcionan mientras no esté abierto.": "登录时 winshotx 会自动打开并在后台等待，不显示窗口。不开启的话每次都要手动打开，而且没打开时截图快捷键不起作用。",
+  "Claro, oscuro, o lo que diga el sistema y cambiar con él. Es solo el color de estas ventanas; lo que capturas no cambia.": "浅色、深色，或跟随系统一起变化。只影响这些窗口的颜色，截取的内容不变。",
+  "Español, inglés, o el del sistema si winshotx lo habla. Cambia al momento y no hace falta reiniciar nada.": "西班牙语、英语，或系统语言（如果 winshotx 支持）。立即生效，无需重启。",
+  "No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.": "不需要开着任何窗口：按一个键调出它，做完就消失。",
+  "Estas son las dos teclas con las que se llama. En Wayland las elige el escritorio: acepta las que te propone en su ventana, o cámbialas ahí con «Cambiar».": "这是调出它的两个按键。在 Wayland 上由桌面决定：在桌面的窗口里接受推荐的按键，或用「更改」在那里换掉。",
+  "Esto es lo que queda configurado. Todo se cambia después en los ajustes, que se abren desde winshotx en el menú de aplicaciones.": "这些是目前的设置。之后都可以在设置里修改，从应用菜单里打开 winshotx 就能进入设置。",
+  "se queda esperando, sin ventana": "在后台等待，不显示窗口",
+  "Pulsa el atajo cuando quieras. Los ajustes se abren desde winshotx en el menú de aplicaciones.": "随时按下快捷键。设置可以从应用菜单里的 winshotx 打开。",
+  "Copiar la orden": "复制命令",
+  "En Sway, por ejemplo, van en ~/.config/sway/config:": "例如在 Sway 中，写在 ~/.config/sway/config 里：",
+  "Congela la pantalla en el momento de pulsarla y te deja recortar encima de esa foto quieta. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado (en Sway, una línea bindsym en ~/.config/sway/config).": "按下的那一刻冻结屏幕，让你在这张静止的画面上裁剪。这个桌面不允许应用申请按键：请把这条命令加到它的键盘快捷键里（在 Sway 中，是 ~/.config/sway/config 里的一行 bindsym）。",
+  "ponla en los atajos del escritorio": "请加到桌面的快捷键里",
+  // S44 (Linux, grabar): la tecla de grabar de Wayland y el sonido que no hay.
+  "Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.": "框选方式和截图一样，但输出的是视频。在 Wayland 上没有录制栏，因为无法把它排除在视频之外：停止录制用的就是这个按键。",
+  "este sistema no da el sonido por PipeWire": "此系统不通过 PipeWire 提供声音",
+  "no hay ninguna salida de sonido": "未找到声音输出",
+  "no hay ningún micrófono conectado": "未连接麦克风",
+  // S44 (Linux, grabar): cómo se para, dicho en la pantalla de elegir zona (`comoParar.ts`).
+  "Para parar la grabación, pulsa {atajo}.": "要停止录制，请按 {atajo}。",
+  "Para parar la grabación, pulsa {atajo} o usa el icono de winshotx en la bandeja.": "要停止录制，请按 {atajo}，或点击托盘中的 winshotx 图标。",
+  "Para parar la grabación, pulsa {atajo} o deja de compartir la pantalla desde el escritorio.": "要停止录制，请按 {atajo}，或在桌面上停止共享屏幕。",
+  "Para parar la grabación, pulsa {atajo}, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "要停止录制，请按 {atajo}、点击托盘中的 winshotx 图标，或在桌面上停止共享屏幕。",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja.": "要停止录制，请点击托盘中的 winshotx 图标。",
+  "Para parar la grabación, usa el icono de winshotx en la bandeja o deja de compartir la pantalla desde el escritorio.": "要停止录制，请点击托盘中的 winshotx 图标，或在桌面上停止共享屏幕。",
+  "Para parar la grabación, deja de compartir la pantalla desde el escritorio o ejecuta {orden}.": "要停止录制，请在桌面上停止共享屏幕，或运行 {orden}。",
+  "Para parar la grabación, ejecuta {orden}.": "要停止录制，请运行 {orden}。",
+  "Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:": "这个桌面不允许应用申请按键。请用下面两条命令，自己加到它的键盘快捷键里：",
+  // S43 (Linux en los ajustes de la 0.5)
+  "Todo está en estos siete": "全都在这七项里",
+  "Las tres pantallas del primer día, otra vez: lo que hace cada tecla y qué elegir. Dura menos de un minuto y no cambia ningún ajuste.": "再看一遍第一天的三个页面：每个按键的作用和如何选择。不到一分钟，也不会改动任何设置。",
+  "Claro u oscuro, como el sistema": "浅色或深色，跟随系统",
+  "Arranca al iniciar sesión": "登录时启动",
+  "No arranca sola al iniciar sesión": "登录时不自动启动",
+  "En el idioma del sistema": "使用系统语言",
+  // S45 (Linux): «Grabar siempre lo último» en Linux y en Wayland.
+  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla. En Wayland el escritorio te pregunta qué pantalla compartes la primera vez, y mientras esté encendido enseña su aviso de que se está compartiendo la pantalla: es suyo y no se puede quitar.": "winshotx 会一直录制屏幕并丢弃旧内容，所以即使你没按录制，刚刚发生的事也还在。但这需要资源：帧率和分辨率越高、屏幕变化越多，消耗就越大。在 Wayland 上，第一次开启时桌面会问你要共享哪块屏幕；开启期间，桌面会一直显示“正在共享屏幕”的提示：那是桌面自己的提示，无法去掉。",
+  "mientras esté encendido, el escritorio avisa de que se comparte la pantalla": "开启期间，桌面会提示正在共享屏幕",
+  "se apagó al arrancar: falta tu permiso para compartir la pantalla": "启动时已关闭：需要你允许共享屏幕",
+  "se apagó porque se dejó de compartir la pantalla": "已关闭：屏幕共享被停止了",
+  "se apagó porque la pantalla dejó de llegar": "已关闭：收不到屏幕画面了",
+  "La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. En Wayland la tecla la elige el escritorio: te la pregunta al encender esto, y la cambias en su ventana con «Cambiar».": "用于回溯的快捷键。保存最近几秒并在编辑器中打开，**同时不停止录制**，所以你可以继续录，过一会儿再回溯。在 Wayland 上按键由桌面决定：开启此功能时桌面会问你，之后点「更改」可在它的窗口里修改。",
+  "Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.": "保存最近几秒并在编辑器中打开，**同时不停止录制**，所以你可以继续录，过一会儿再回溯。这个桌面不允许应用申请按键：请把这条命令加到它的键盘快捷键里。",
+  "Guardar ahora": "立即保存",
+  "Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».": "和快捷键的作用一样：保存最近几秒并在编辑器中打开，同时不停止录制。适合桌面没有给你按键、或者你不记得是哪个键的时候。命令「winshotx --replay」也能做到。",
+  // S45 (Linux): el dibujo «Así va a salir» en Wayland, donde la tecla es la del escritorio.
+  "**Todavía sin tecla**: pídela con «Cambiar»": "**还没有按键**：点「更改」向桌面申请",
+  "Al encenderlo eliges la tecla que se queda con los últimos **{n} s**": "开启时选择用来留下最近 **{n} 秒**的按键",
+
   // S40 (la barra de abajo vuelve)
   "Barra": "工具栏",
   "Copia": "复制",

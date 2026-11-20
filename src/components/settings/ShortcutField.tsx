@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { partesDeAtajo } from "../../lib/teclas";
+import { corriendoEnLinux, partesDeAtajo } from "../../lib/teclas";
 import { useT } from "../../lib/i18n";
 
 /** Teclas que solo acompañan: por sí solas no forman un atajo. */
@@ -18,6 +18,13 @@ const MODIFIERS = new Set([
   "MetaRight",
 ]);
 
+/**
+ * La tecla del logo en WebKitGTK: se llama `Super`, su código es `OSLeft` u `OSRight` y `metaKey`
+ * no se enciende nunca, ni en X11 ni en Wayland. Sin mirar esto, Super+Mayús+K se guardaba como
+ * Mayús+K, que es otro atajo.
+ */
+const esSuperDeWebKit = (e: KeyboardEvent) => e.key === "Super" || e.code === "OSLeft" || e.code === "OSRight";
+
 interface Props {
   value: string;
   onChange: (value: string) => void;
@@ -29,9 +36,16 @@ export function ShortcutField({ value, onChange, active }: Props) {
   const t = useT();
   const [recording, setRecording] = useState(false);
   const boxRef = useRef<HTMLButtonElement>(null);
+  // En un ref para que el efecto de las teclas no se rehaga: el padre manda una flecha nueva en
+  // cada repintado, y rehacerlo a media combinación olvidaba la Super que seguía apretada.
+  const guardar = useRef(onChange);
+  guardar.current = onChange;
 
   useEffect(() => {
     if (!recording) return;
+
+    // Las Super que siguen apretadas, porque el evento de la letra no lo cuenta en WebKitGTK.
+    const superPulsadas = new Set<string>();
 
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
@@ -41,13 +55,17 @@ export function ShortcutField({ value, onChange, active }: Props) {
         setRecording(false);
         return;
       }
+      if (esSuperDeWebKit(e)) {
+        superPulsadas.add(e.code);
+        return;
+      }
       if (MODIFIERS.has(e.code) || MODIFIERS.has(e.key)) return;
 
       const parts: string[] = [];
       // La tecla Windows es Super, no Ctrl. Estaban juntas en la misma línea, así que
       // pulsar Win+X guardaba un atajo de Ctrl+X: otra tecla y otro atajo.
       if (e.ctrlKey) parts.push("CmdOrCtrl");
-      if (e.metaKey) parts.push("Super");
+      if (e.metaKey || superPulsadas.size > 0) parts.push("Super");
       if (e.shiftKey) parts.push("Shift");
       if (e.altKey) parts.push("Alt");
       // Un atajo global sin modificadores secuestraría la tecla en todo el sistema.
@@ -60,12 +78,24 @@ export function ShortcutField({ value, onChange, active }: Props) {
       // Cerrar ANTES de guardar. Si el guardado se va por el desagüe, el campo se
       // quedaba pidiendo teclas para siempre y parecía que no se había enterado.
       setRecording(false);
-      onChange(parts.join("+"));
+      guardar.current(parts.join("+"));
     };
 
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (esSuperDeWebKit(e)) superPulsadas.delete(e.code);
+    };
+    // Super sola abre las actividades de GNOME: la ventana pierde el foco y el keyup no llega.
+    const onBlur = () => superPulsadas.clear();
+
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [recording, onChange]);
+    window.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [recording]);
 
   useEffect(() => {
     if (!recording) return;
@@ -89,9 +119,11 @@ export function ShortcutField({ value, onChange, active }: Props) {
       type="button"
       onClick={() => setRecording((r) => !r)}
       title={
-        recording
-          ? t("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí")
-          : t("Clic para cambiar el atajo")
+        !recording
+          ? t("Clic para cambiar el atajo")
+          : corriendoEnLinux()
+            ? t("Pulsa la combinación · las que el escritorio se reserva no llegan hasta aquí")
+            : t("Pulsa la combinación · las que Windows se reserva no llegan hasta aquí")
       }
       data-atajo
       className="group flex h-9 items-center justify-end px-1 outline-none"

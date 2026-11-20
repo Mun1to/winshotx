@@ -8,6 +8,7 @@ import type {
   FrameMeta,
   MuestraCamara,
   OverlayPayload,
+  Plataforma,
   Rect,
   RecordOptions,
   ReplayStatus,
@@ -21,6 +22,9 @@ import type {
   StillAction,
   StillResult,
   StudioData,
+  SonidoDisponible,
+  FaltaParaElMp4,
+  TeclasDelEscritorio,
 } from "./types";
 import type { Anotacion } from "./anotaciones";
 import type { Recorte } from "./recorte";
@@ -192,6 +196,39 @@ export const justUpdated = () => invoke<boolean>("just_updated");
 export const isStoreBuild = () => invoke<boolean>("is_store_build");
 
 export const shortcutStatus = () => invoke<ShortcutStatus>("shortcut_status");
+
+/** En Linux con Wayland, que el escritorio pregunte ya por el permiso de capturas (ver el comando). */
+export const pedirPermisoDeCapturas = () => invoke<boolean>("pedir_permiso_de_capturas");
+
+/** Dónde corre winshotx. Ver `usePlataforma`. */
+export const plataforma = () => invoke<Plataforma | null>("plataforma");
+
+/** Las teclas que ha puesto el escritorio en Wayland, o null si las ponen los ajustes. */
+export const teclasDelEscritorio = () => invoke<TeclasDelEscritorio | null>("teclas_del_escritorio");
+
+/** Que el escritorio enseñe su ventana para cambiar las teclas de winshotx (Wayland). */
+export const cambiarTeclasEnElEscritorio = (rescate = false) =>
+  // S45: `rescate` es el «Cambiar» de la tecla de los últimos segundos. Sin él, la llamada de siempre.
+  rescate
+    ? invoke<void>("cambiar_teclas_en_el_escritorio", { rescate })
+    : invoke<void>("cambiar_teclas_en_el_escritorio");
+
+/** Copia `winshotx --capture`, `--edit`, `--record` o `--replay`, para ponerla a mano en el escritorio. */
+export const copiarOrdenDelAtajo = (accion: "capture" | "edit" | "record" | "replay") =>
+  invoke<void>("copiar_orden_del_atajo", { accion });
+
+/**
+ * Deja en el registro de la app algo que le ha pasado al editor y que no se enseña en pantalla.
+ * Nunca falla hacia fuera: apuntar algo no puede romper lo que se estaba haciendo.
+ */
+export const apuntarDelEditor = (texto: string) =>
+  void invoke<void>("apuntar_del_editor", { texto }).catch(() => undefined);
+
+/** Qué sonido se puede grabar aquí, o null donde no hay nada que avisar (Windows). */
+export const sonidoDisponible = () => invoke<SonidoDisponible | null>("sonido_disponible");
+
+/** Lo que falta para guardar un MP4, o null si no falta nada (en Windows, siempre). */
+export const faltaParaElMp4 = () => invoke<FaltaParaElMp4 | null>("falta_para_el_mp4");
 
 export const printScreenState = () => invoke<PrintScreenState>("print_screen_state");
 

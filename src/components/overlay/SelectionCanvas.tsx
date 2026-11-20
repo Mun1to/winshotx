@@ -30,7 +30,8 @@ import {
   type Proporcion,
 } from "../../lib/proporcion";
 import { clamp } from "../../lib/format";
-import { useT } from "../../lib/i18n";
+import { aplicarIdioma, tError, useT } from "../../lib/i18n";
+import { TextoDeAviso } from "../ui/Orden";
 import {
   aPantalla,
   aVirtual,
@@ -66,6 +67,7 @@ import {
   type StillAction,
 } from "../../lib/types";
 import { BootScreen } from "./BootScreen";
+import { ComoParar, ScrollConSuTecla, ScrollPregunta, ScrollSinTecla } from "./ComoParar";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
@@ -226,6 +228,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     cerrada.current = true;
     setMode({ kind: "idle" });
   }, []);
+  /** Si la pulsación que está llegando ya trajo su `pointerdown`: ver `onMouseDownCapture`. */
+  const pointerdownVisto = useRef(false);
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const cursorRef = useRef(cursor);
   cursorRef.current = cursor;
@@ -357,11 +361,25 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
    */
   const origenBarra = useRef<{ x: number; y: number } | null>(null);
 
+  /**
+   * Lo que mide la ventana, al dia. En Windows el overlay ya tiene su tamanno cuando llega la
+   * captura (espera aparcado), pero en Linux con Wayland se crea escondido y no sabe lo que
+   * mide hasta que el escritorio lo pone a pantalla completa: con la medida de antes, la
+   * primera captura salia con escala 1600 y un recorte de «558400 × 832000».
+   */
+  const [anchoVentana, setAnchoVentana] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const medir = () => setAnchoVentana(window.innerWidth);
+    window.addEventListener("resize", medir);
+    medir();
+    return () => window.removeEventListener("resize", medir);
+  }, []);
+
   /** Pixeles fisicos por pixel CSS: el freeze manda, el webview puede estar escalado por DPI. */
   const scale = useMemo(() => {
     if (!source) return 1;
-    return source.width / Math.max(1, window.innerWidth);
-  }, [source]);
+    return source.width / Math.max(1, anchoVentana);
+  }, [source, anchoVentana]);
 
   /**
    * Lo que hace falta para las cuentas de la proporción: su escalón (el doble grabando, para
@@ -626,6 +644,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     setSelection(null);
     setMode({ kind: "idle" });
     cerrada.current = false;
+    pointerdownVisto.current = false;
     setPantallaEntera(false);
     setConScroll(false);
     setProporcion("libre");
@@ -644,6 +663,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       // nadie nos lo ha dado, se pide.
       const data = payloadListo ?? (await overlayBootstrap(monitorId));
       if (!vigente()) return;
+      // El idioma, el de los ajustes de ESTA captura. Esta ventana se crea al arrancar y se
+      // reutiliza, así que lo que leyó del navegador al nacer es el idioma de entonces: con
+      // un perfil nuevo, o cambiando de idioma en los ajustes, salía en el anterior hasta
+      // volver a arrancar winshotx.
+      if (data.settings.language) aplicarIdioma(data.settings.language);
       setPayload(data);
       numeroPantalla.current = data.screenNumber;
       // Donde esta el raton al abrir: si se queda quieto no llega ningun `pointermove`, y
@@ -1258,7 +1282,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     };
   }, [llevarsePantalla]);
 
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onPointerDown = (e: React.MouseEvent) => {
     if (busy) return;
     // Lo que nace encima de la barra todavia no es nada: se apunta donde empezo y se
     // espera a ver si el puntero se mueve (recorte por debajo) o se suelta (clic del
@@ -1287,6 +1311,31 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
     empezarGesto(null);
     setMode({ kind: "drawing", originX: x, originY: y, candidate: windowAt(x, y)?.rect ?? null });
     setSelection({ x, y, width: 0, height: 0 });
+  };
+
+  /**
+   * En Linux el overlay se esconde de verdad, y con Escape a medio arrastre WebKitGTK no ve
+   * soltar el botón: cree que sigue pulsado y la pulsación siguiente no le da `pointerdown`, solo
+   * `mousedown`. Se le manda el que falta al elemento pulsado, para que cada cosa responda como
+   * siempre: el fondo empieza el recorte, las asas estiran y la barra de acciones se queda su clic.
+   */
+  const onMouseDownCapture = (e: React.MouseEvent) => {
+    const visto = pointerdownVisto.current;
+    pointerdownVisto.current = false;
+    if (visto || e.button !== 0 || e.buttons !== 1) return;
+    e.target.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        buttons: 1,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        pointerType: "mouse",
+        isPrimary: true,
+      }),
+    );
+    pointerdownVisto.current = false;
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -1322,7 +1371,7 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
   };
 
   if (!payload || !fondoListo) {
-    return <BootScreen error={bootError} />;
+    return <BootScreen error={bootError} generacion={payload?.generation ?? null} />;
   }
 
   const active =
@@ -1388,7 +1437,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
 
   return (
     <div
+      // En la fase de captura: las asas y la barra paran su `pointerdown` antes de que suba.
+      onPointerDownCapture={() => {
+        pointerdownVisto.current = true;
+      }}
       onPointerDown={onPointerDown}
+      onMouseDownCapture={onMouseDownCapture}
       onPointerMove={onPointerMove}
       onPointerEnter={() => setCursorAqui(true)}
       onPointerLeave={() => setCursorAqui(false)}
@@ -1533,10 +1587,12 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
 
       {/*
         El color copiado. Va donde los errores y con la misma forma, porque es lo mismo:
-        algo que acaba de pasar y que hay que contar sin tapar la pantalla.
+        algo que acaba de pasar y que hay que contar sin tapar la pantalla. Los dos van
+        DEBAJO de la barra de modos (acaba a 74 px): a su altura quedaban detrás de ella,
+        y de un error solo asomaban las puntas.
       */}
       {colorCopiado && !error && (
-        <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center">
           <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-neutral-900/90 px-4 py-2.5 text-xs text-neutral-200 shadow-2xl backdrop-blur-md">
             <span
               className="size-3 rounded-[4px] border border-white/25"
@@ -1549,13 +1605,13 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       )}
 
       {error && (
-        <div className="pointer-events-none absolute inset-x-0 top-8 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center px-6">
           <div className="max-w-xl rounded-xl border border-red-500/30 bg-red-950/90 px-4 py-2.5 text-xs text-red-200 shadow-2xl backdrop-blur-md">
             {/* Los errores llegan de Rust escritos en espannol. Como la clave del
                 diccionario ES la frase espannola, pasarlos por `t` traduce los que
                 alguien ha traducido y deja el resto tal cual, que es mejor que verlos
                 todos en castellano con la aplicacion en ingles. */}
-            {t(error)}
+            <TextoDeAviso texto={tError(error)} />
           </div>
         </div>
       )}
@@ -1592,12 +1648,33 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       {/* Lo que hace la captura con scroll, mientras se elige la zona: sin esto, el botón
           encendido no dice qué va a pasar al soltar. */}
       {conScroll && cursorAqui && !active && mode.kind === "idle" && !error && (
-        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center">
-          <div className="rounded-xl border border-white/10 bg-neutral-900/90 px-4 py-2.5 text-[14px] text-neutral-100 shadow-2xl backdrop-blur-md">
-            {t("Recorta lo que se desplaza y winshotx lo bajará solo")}
+        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center px-6">
+          <div
+            data-scroll-aviso
+            className="max-w-[760px] rounded-xl border border-white/10 bg-neutral-900/90 px-4 py-2.5 text-center text-[14px] text-balance text-neutral-100 shadow-2xl backdrop-blur-md"
+          >
+            {payload.comoParar?.scroll ? (
+              <ScrollConSuTecla tecla={payload.comoParar.scroll} />
+            ) : payload.comoParar ? (
+              // Linux sin tecla que decir (Wayland): lo que queda para parar.
+              <ScrollSinTecla como={payload.comoParar} />
+            ) : (
+              t("Recorta lo que se desplaza y winshotx lo bajará solo")
+            )}
+            {payload.comoParar?.scrollPregunta && <ScrollPregunta />}
           </div>
         </div>
       )}
+
+      {/* Cómo se para lo que se va a grabar, en Linux (donde puede no haber barra de grabar):
+          se dice aquí, antes de empezar, porque grabando saldría en el vídeo. Donde la barra
+          de modos y con sus mismas reglas: en la pantalla del ratón y sin un gesto en marcha. */}
+      {modo !== "still" &&
+        payload.comoParar &&
+        (cursorAqui || pantallaEntera) &&
+        mode.kind === "idle" &&
+        !gestoFuera &&
+        !error && <ComoParar como={payload.comoParar} />}
 
       {pantallaEntera && !active && (
         <ScreenPicker

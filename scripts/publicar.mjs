@@ -3,6 +3,13 @@
 //
 //   node scripts/publicar.mjs            solo prepara y enseña lo que haria
 //   node scripts/publicar.mjs --publicar  crea la release de verdad
+//   ... --linux <carpeta>                 y mete los paquetes de Linux de la CI
+//
+// Linux sale cuando tenga casi todo lo de Windows (decision 1 del plan de Linux): hasta
+// entonces no se pasa --linux. La carpeta es el artefacto «winshotx-linux» del run de la CI
+// del MISMO commit que se publica:
+//
+//   gh run download <run> --repo Mun1to/winshotx --name winshotx-linux --dir <carpeta>
 //
 // El actualizador de Tauri pide tres cosas en el mismo sitio: el instalador,
 // su firma y un latest.json que apunte a ellos. Hacer ese JSON a mano es pedir
@@ -12,6 +19,8 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { entradasDeLinux } from "./linux-en-latest.mjs";
+import { comprobarFirma } from "./minisign.mjs";
 
 const raiz = process.cwd();
 const paquete = JSON.parse(readFileSync(join(raiz, "package.json"), "utf8"));
@@ -60,6 +69,37 @@ if (nacimientoSig < nacimientoExe - 5000) {
   console.error(`  ${firma}  ${new Date(nacimientoSig).toISOString()}`);
   console.error("Es el .sig de otra compilacion. Vuelve a compilar con la clave puesta:");
   console.error('  export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/winshotx.key)"');
+  process.exit(1);
+}
+
+// La fecha solo pilla la firma vieja. Esto pilla tambien la de otra clave, y es la misma
+// comprobacion que hara el actualizador en cada ordenador.
+const clave = JSON.parse(readFileSync(join(raiz, "src-tauri", "tauri.conf.json"), "utf8")).plugins
+  ?.updater?.pubkey;
+if (!clave) {
+  console.error("src-tauri/tauri.conf.json no lleva plugins.updater.pubkey.");
+  process.exit(1);
+}
+const deWindows = comprobarFirma(readFileSync(instalador), readFileSync(firma, "utf8").trim(), clave);
+if (!deWindows.vale) {
+  console.error(`La firma de ${instalador} no vale: ${deWindows.motivo}.`);
+  console.error("El actualizador rechazaria la descarga. Vuelve a compilar con la clave puesta.");
+  process.exit(1);
+}
+
+const base = `https://github.com/${repo}/releases/download/${tag}`;
+const indice = process.argv.indexOf("--linux");
+const carpetaLinux = indice >= 0 ? process.argv[indice + 1] : null;
+if (indice >= 0 && (!carpetaLinux || carpetaLinux.startsWith("--"))) {
+  console.error("--linux necesita la carpeta donde se bajo el artefacto winshotx-linux.");
+  process.exit(1);
+}
+const linux = carpetaLinux
+  ? entradasDeLinux({ carpeta: carpetaLinux, version, base, clave })
+  : { plataformas: {}, archivos: [], fallos: [] };
+if (linux.fallos.length) {
+  console.error("Los paquetes de Linux no estan listos:");
+  for (const f of linux.fallos) console.error(`  ${f}`);
   process.exit(1);
 }
 
@@ -119,9 +159,10 @@ const latest = {
   pub_date: new Date().toISOString(),
   platforms: {
     "windows-x86_64": {
-      url: `https://github.com/${repo}/releases/download/${tag}/winshotx-setup.exe`,
+      url: `${base}/winshotx-setup.exe`,
       signature: readFileSync(firma, "utf8").trim(),
     },
+    ...linux.plataformas,
   },
 };
 
@@ -152,9 +193,11 @@ execFileSync(
   { stdio: "inherit" },
 );
 
-const activos = [instalador, estable, firma, destino, portable];
+const activos = [instalador, estable, firma, destino, portable, ...linux.archivos];
 console.log(`winshotx ${version} preparado:`);
 for (const a of activos) console.log(`  ${a}`);
+console.log(`latest.json: ${Object.keys(latest.platforms).join(", ")}`);
+if (!carpetaLinux) console.log("Sin Linux: no se ha pasado --linux.");
 
 if (!process.argv.includes("--publicar")) {
   console.log("\nNada subido. Repite con --publicar cuando quieras crear la release.");

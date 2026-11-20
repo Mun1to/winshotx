@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings } from "../lib/ipc";
 import { aplicarTema } from "../lib/tema";
-import { aplicarIdioma } from "../lib/i18n";
+import { aplicarIdioma, idiomaActivo, useT } from "../lib/i18n";
 import { type Tamanno, useVentanaFija } from "../lib/ventanaFija";
 import { SettingsApp } from "./settings/SettingsApp";
 import { WelcomeApp } from "./welcome/WelcomeApp";
@@ -15,6 +15,8 @@ import { WelcomeApp } from "./welcome/WelcomeApp";
 type Vista = "cargando" | "bienvenida" | "ajustes";
 
 export function App() {
+  const t = useT();
+  const idioma = idiomaActivo();
   const [vista, setVista] = useState<Vista>("cargando");
   // Solo cuando se acaba de terminar la bienvenida. Quien abre los ajustes de siempre no
   // quiere un tour delante: para eso esta el boton de repetirlo en "La app".
@@ -44,9 +46,7 @@ export function App() {
   useEffect(() => {
     if (vista === "cargando") return;
     const ventana = getCurrentWindow();
-    void ventana.setTitle(
-      vista === "bienvenida" ? "winshotx · bienvenida" : "winshotx · ajustes",
-    );
+    void ventana.setTitle(`winshotx · ${vista === "bienvenida" ? t("Bienvenida") : t("Ajustes")}`);
     // Ninguna de las dos pide aqui su tamanno: la ventana mide siempre lo mismo
     // (`useVentanaFija`, arriba). Historia, para no volver atras: hasta la 0.4 era un alto fijo
     // que subia con cada fila nueva (470, 510, 620, 760); de S24 a la 0.5.0 media lo que cada
@@ -54,7 +54,7 @@ export function App() {
     // 760. Munito, el 15-nov-2026: «el tamaño siempre el mismo, a no ser que lo modifiques tú».
     // Desde S40 es el de Grabar para todos, lo que no cabe baja con la rueda dentro, y lo que
     // sobra lo llena el dibujo de la derecha.
-  }, [vista]);
+  }, [vista, idioma, t]);
 
   if (vista === "cargando") return <div className="h-full bg-lienzo" />;
   if (vista === "bienvenida") {

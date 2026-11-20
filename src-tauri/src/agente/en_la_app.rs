@@ -60,6 +60,10 @@ fn segundos(session: &crate::record::SessionData) -> f64 {
     session.duration_ms() as f64 / 1000.0
 }
 
+/// Lo que contesta `windows` (y cualquier orden con `"window"`) en Wayland.
+#[cfg(target_os = "linux")]
+const SIN_VENTANAS_EN_WAYLAND: &str = "On Wayland a program cannot see the windows of other programs, so winshotx has no window list here. Use \"screen\" (see \"screens\") or \"region\" instead.";
+
 fn sesion_que_no_esta(id: &str) -> String {
     format!(
         "There is no session \"{id}\". Use the id that \"record\" or \"stop\" returned; winshotx keeps sessions for a day."
@@ -88,6 +92,12 @@ impl Hace for EnLaApp {
     }
 
     fn ventanas(&self) -> Result<Vec<Ventana>, String> {
+        // En Wayland ningún programa ve las ventanas de otro. Una lista vacía no le diría a
+        // un agente por qué: se le dice, y con qué se pide entonces.
+        #[cfg(target_os = "linux")]
+        if crate::platform::xdg::es_wayland() {
+            return Err(SIN_VENTANAS_EN_WAYLAND.into());
+        }
         Ok(ventanas_visibles())
     }
 
@@ -99,10 +109,10 @@ impl Hace for EnLaApp {
                 Ok(imagen) => imagen,
                 Err(error) => {
                     eprintln!("[agente] la ventana {id} no se deja fotografiar ({error}): va lo que se ve");
-                    foto_de_caja(donde.caja)?
+                    foto_de_caja(&self.app, donde.caja)?
                 }
             },
-            None => foto_de_caja(donde.caja)?,
+            None => foto_de_caja(&self.app, donde.caja)?,
         };
         let ruta = match salida {
             Some(ruta) => {
@@ -269,6 +279,7 @@ pub(crate) fn esperar_tope(tope_ms: u64, cada: Duration, lleva: impl Fn() -> Opt
 
 /// Si la ventana deja pasar el ratón (`WS_EX_TRANSPARENT`): las capas de NVIDIA, Discord, la
 /// Game Bar... Están encima de todo y no se ven; como en `capture::window_rects`, no cuentan.
+#[cfg(windows)]
 fn deja_pasar_el_raton(hwnd: u32) -> bool {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TRANSPARENT};
@@ -276,8 +287,29 @@ fn deja_pasar_el_raton(hwnd: u32) -> bool {
     estilo & WS_EX_TRANSPARENT.0 != 0
 }
 
+/// En X11 no hay ventanas así en la lista que da el gestor de ventanas.
+#[cfg(target_os = "linux")]
+fn deja_pasar_el_raton(_id: u32) -> bool {
+    false
+}
+
+/// En Linux, el nombre del archivo que ejecuta ese proceso (`firefox`), y si no se deja leer
+/// (es de otro usuario), el nombre corto que le da el núcleo. Vacío si ya no existe.
+#[cfg(target_os = "linux")]
+fn nombre_del_proceso(pid: u32) -> String {
+    let del_archivo = std::fs::read_link(format!("/proc/{pid}/exe")).ok().and_then(|ruta| {
+        let nombre = ruta.file_name()?.to_string_lossy().into_owned();
+        // Un programa actualizado mientras corre sale como «nombre (deleted)».
+        Some(nombre.strip_suffix(" (deleted)").unwrap_or(&nombre).to_string())
+    });
+    del_archivo
+        .or_else(|| std::fs::read_to_string(format!("/proc/{pid}/comm")).ok().map(|corto| corto.trim().to_string()))
+        .unwrap_or_default()
+}
+
 /// El nombre del ejecutable de ese proceso, `msedge.exe`. Vacío si no se deja mirar (los del
 /// sistema, con más permisos).
+#[cfg(windows)]
 fn nombre_del_proceso(pid: u32) -> String {
     use windows::core::PWSTR;
     use windows::Win32::Foundation::CloseHandle;
@@ -347,9 +379,30 @@ fn foto_de_ventana(id: isize) -> Result<image::RgbaImage, String> {
     ventana.capture_image().map_err(|e| e.to_string())
 }
 
+/// Lo que se contesta en Wayland cuando el escritorio no deja hacer la foto.
+#[cfg(target_os = "linux")]
+const SIN_PERMISO_DE_CAPTURAS: &str = "The desktop did not let winshotx take a screenshot. On Wayland the desktop asks the person for that permission the first time, and GNOME only asks while winshotx is the window in front, so winshotx shows its window once per session for the desktop to ask. Have the person at the computer allow it there (or take one capture by hand with winshotx) and send this again. If they said no before, it is changed in the desktop's settings, on the page of the winshotx app.";
+
+/// Lo que se le dice al agente cuando no hay foto.
+///
+/// En Wayland lo corriente es que el escritorio no haya dado todavía el permiso de capturas:
+/// GNOME solo lo pregunta con winshotx delante, y un agente pide la foto con la app en la
+/// bandeja. Se hace lo mismo que con un atajo (`platform::portal::pedir_permiso_con_la_ventana`:
+/// la ventana de winshotx al frente y la pregunta desde ahí, una vez por sesión), y al agente se
+/// le dice qué pasa y qué hacer, en vez del error del portal.
+fn sin_foto(app: &AppHandle, error: &AppError) -> String {
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() && crate::windows_mgr::intencion_del_portal(error) {
+        crate::platform::portal::pedir_permiso_con_la_ventana(app);
+        return SIN_PERMISO_DE_CAPTURAS.into();
+    }
+    let _ = app;
+    format!("Could not capture the screen ({error}).")
+}
+
 /// La foto de un trozo del escritorio: se fotografían las pantallas que toca (por la captura
 /// moderna, la misma de los vídeos), se juntan y se recorta. Sin overlay ni sonido.
-fn foto_de_caja(caja: Caja) -> Result<image::RgbaImage, String> {
+fn foto_de_caja(app: &AppHandle, caja: Caja) -> Result<image::RgbaImage, String> {
     let monitores = crate::capture::monitors().map_err(|e| format!("Could not list the screens ({e})."))?;
     let tocadas: Vec<usize> = monitores
         .iter()
@@ -359,7 +412,17 @@ fn foto_de_caja(caja: Caja) -> Result<image::RgbaImage, String> {
     if tocadas.is_empty() {
         return Err("That region is outside every screen. See \"screens\".".into());
     }
-    let fotos = crate::capture::freeze_monitors(&tocadas).map_err(|e| format!("Could not capture the screen ({e})."))?;
+    // En Wayland la foto que da el escritorio es siempre de todas las pantallas, y las que no
+    // se piden se quedan guardadas unos segundos para la segunda tanda de una captura a mano
+    // (`capture::wayland::congelar`): se piden todas, y así no queda nada de esta foto que
+    // pueda acabar en la captura siguiente de quien está delante.
+    #[cfg(target_os = "linux")]
+    let tocadas: Vec<usize> = if crate::platform::xdg::es_wayland() {
+        monitores.iter().map(|m| m.id as usize).collect()
+    } else {
+        tocadas
+    };
+    let fotos = crate::capture::freeze_monitors(&tocadas).map_err(|e| sin_foto(app, &e))?;
     let (lienzo, marco) = crate::capture::stitch_all(&fotos).map_err(|e| format!("Could not capture the screen ({e})."))?;
     let dentro = caja
         .cruce(&Caja { x: marco.x, y: marco.y, ancho: marco.width, alto: marco.height })
@@ -411,6 +474,13 @@ mod pruebas {
             assert_ne!(v.id, 0);
         }
         // El nombre de este mismo proceso se lee.
+        #[cfg(windows)]
         assert!(nombre_del_proceso(std::process::id()).to_lowercase().ends_with(".exe"));
+        #[cfg(target_os = "linux")]
+        {
+            let este = nombre_del_proceso(std::process::id());
+            assert!(este.starts_with("winshotx") && !este.contains('/'), "{este}");
+            assert_eq!(nombre_del_proceso(u32::MAX), "", "un proceso que no existe");
+        }
     }
 }

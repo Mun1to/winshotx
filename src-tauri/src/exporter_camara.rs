@@ -565,7 +565,8 @@ fn el_editor_recibe_la_ruta_solo_si_existe() {
         "{dada:?}"
     );
     // Un nombre con carpetas no saca la ruta de su sitio.
-    session.camara.as_mut().unwrap().archivo = "..\\..\\camara.mp4".into();
+    session.camara.as_mut().unwrap().archivo =
+        format!("..{s}..{s}camara.mp4", s = std::path::MAIN_SEPARATOR);
     assert_eq!(
         camara_estudio::de_la_sesion(&session).unwrap().ruta,
         session.dir.join("camara.mp4").to_string_lossy()

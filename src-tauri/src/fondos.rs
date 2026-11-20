@@ -44,7 +44,7 @@ pub enum Escritorio {
     Color { rgb: [u8; 3] },
 }
 
-fn carpeta(app: &AppHandle) -> Result<PathBuf> {
+pub(crate) fn carpeta(app: &AppHandle) -> Result<PathBuf> {
     // `app_data_dir` es lo mismo que `$APPDATA` en el permiso del protocolo `asset`.
     let carpeta = app.path().app_data_dir()?.join("winshotx").join("fondos");
     std::fs::create_dir_all(&carpeta)?;

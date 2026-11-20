@@ -28,6 +28,10 @@ struct Pendientes {
     ventanas: Vec<(u32, String, MonitorInfo)>,
     cursor: Option<(i32, i32)>,
     con_foco: bool,
+    /// Los monitores cuya ventana ensenno el rescate de `ESPERA_MAXIMA` sin que hubiera
+    /// avisado de que tiene su imagen, y que siguen sin avisar. Mientras quede alguno hay una
+    /// ventana a la vista, tapando la pantalla entera, que no ensenna la captura: ver `RESCATE`.
+    sin_pintar: Vec<u32>,
 }
 
 static PENDIENTES: Mutex<Pendientes> = Mutex::new(Pendientes {
@@ -35,12 +39,85 @@ static PENDIENTES: Mutex<Pendientes> = Mutex::new(Pendientes {
     ventanas: Vec::new(),
     cursor: None,
     con_foco: false,
+    sin_pintar: Vec::new(),
 });
+
+impl Pendientes {
+    /// El rescate de `ESPERA_MAXIMA`: saca todo lo que no ha avisado, con su foco decidido, y
+    /// lo deja apuntado como ensennado sin pintar. Vacio si la captura ya es otra.
+    fn sacar_las_que_falten(&mut self, generacion: u64) -> Vec<(u32, String, MonitorInfo, bool)> {
+        if self.generacion != generacion {
+            return Vec::new();
+        }
+        let cursor = self.cursor;
+        let mut lista = Vec::new();
+        for (id, label, monitor) in std::mem::take(&mut self.ventanas) {
+            let con_foco = !self.con_foco && cursor.is_some_and(|(x, y)| monitor.contains(x, y));
+            if con_foco {
+                self.con_foco = true;
+            }
+            lista.push((id, label, monitor, con_foco));
+        }
+        // Si el raton no estaba en ninguna, el foco a la primera que quede.
+        if !self.con_foco {
+            if let Some(primera) = lista.first_mut() {
+                primera.3 = true;
+                self.con_foco = true;
+            }
+        }
+        self.sin_pintar.extend(lista.iter().map(|(id, ..)| *id));
+        lista
+    }
+
+    /// La pagina de ese monitor avisa de que tiene su imagen pintada (`overlay_listo`).
+    ///
+    /// Si su ventana seguia esperando, la saca de la lista para ensennarla y decide si le toca
+    /// el foco: a la pantalla del raton, o a la ultima que quede si el raton no esta en
+    /// ninguna. Si el rescate ya la habia ensennado (una ventana lenta), deja de contar como
+    /// sin pintar, y `RESCATE` no la cierra. Un aviso de otra captura no hace nada.
+    fn avisa(&mut self, monitor_id: u32, generacion: u64) -> Option<(String, MonitorInfo, bool)> {
+        if self.generacion != generacion {
+            return None;
+        }
+        let Some(posicion) = self.ventanas.iter().position(|(id, _, _)| *id == monitor_id) else {
+            self.sin_pintar.retain(|id| *id != monitor_id);
+            return None;
+        };
+        let (_, label, monitor) = self.ventanas.remove(posicion);
+        let cursor = self.cursor;
+        let es_la_del_raton = cursor.is_some_and(|(x, y)| monitor.contains(x, y));
+        let otra_lo_tendra = self
+            .ventanas
+            .iter()
+            .any(|(_, _, m)| cursor.is_some_and(|(x, y)| m.contains(x, y)));
+        let con_foco = !self.con_foco && (es_la_del_raton || !otra_lo_tendra);
+        if con_foco {
+            self.con_foco = true;
+        }
+        Some((label, monitor, con_foco))
+    }
+
+    /// Si de ESA captura sigue a la vista alguna ventana que no ha pintado su imagen.
+    fn queda_sin_pintar(&self, generacion: u64) -> bool {
+        self.generacion == generacion && !self.sin_pintar.is_empty()
+    }
+}
 
 /// Cuanto se espera a que un overlay avise de que esta pintado antes de ensennarlo igual.
 /// Si el frontend no llega a avisar (porque ha fallado y esta ensennando su error), el
 /// usuario tiene que poder ver ese error y salir con Escape, no quedarse sin nada.
 const ESPERA_MAXIMA: std::time::Duration = std::time::Duration::from_millis(900);
+
+/// Cuanto puede estar a la vista un overlay que no ha avisado de que tiene su imagen antes de
+/// que la captura se cierre sola.
+///
+/// La ventana ocupa la pantalla entera y va por encima de todo. Si su pagina no tiene la
+/// captura (no le llego, o su navegador se ha quedado colgado), lo que tapa el escritorio es
+/// la pantalla de carga o la foto de la captura anterior, y puede no tener ni el foco para el
+/// Escape. La pagina lleva su propio rescate (`BootScreen`), pero solo puede contar desde que
+/// le llega una captura. Quien sabe que una ventana se ha ensennado sin pintar es esta parte,
+/// asi que este reloj esta aqui, y una ventana aparcada sin captura no lo arranca nunca.
+const RESCATE: std::time::Duration = std::time::Duration::from_secs(8);
 
 /// El numero de la captura en curso: viaja en el payload y vuelve en `overlay_listo`.
 pub fn generacion_actual() -> u64 {
@@ -99,6 +176,14 @@ impl OverlayIntent {
     pub fn es_foto(self) -> bool {
         self != Self::Record
     }
+
+    /// Si se puede abrir con una grabacion en marcha. Otra grabacion, nunca: el atajo de
+    /// grabar ya la para. Una foto, solo donde las ventanas de la captura se pueden sacar
+    /// del video: en Windows si (`fuera_de_la_captura`); en Linux no hay forma, ni en X11 ni
+    /// en Wayland, y la seleccion y la miniatura saldrian dentro de lo grabado.
+    pub fn se_abre_grabando(self) -> bool {
+        self.es_foto() && cfg!(windows)
+    }
 }
 
 /// Punto de entrada del atajo de captura: prepara la pantalla y abre la seleccion.
@@ -114,8 +199,13 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     // `hotkeys.rs`). Una foto si: Munir, 16-nov-2026, «puedes hacer que cuando grabas puedas
     // tomar capturas». Antes esto volvia sin hacer nada y el atajo parecia roto. Las ventanas
     // de la captura (la seleccion, la cuenta atras y la miniatura) se sacan del video con
-    // `fuera_de_la_captura`, asi que en lo grabado no sale nada de esto.
-    if state.is_recording() && !intent.es_foto() {
+    // `fuera_de_la_captura`, asi que en lo grabado no sale nada de esto. En Linux esas
+    // ventanas no se pueden sacar del video, asi que grabando tampoco se abre una foto.
+    if state.is_recording() && !intent.se_abre_grabando() {
+        #[cfg(target_os = "linux")]
+        if intent.es_foto() {
+            eprintln!("[grabar] grabando no se hacen fotos: la captura saldría en el vídeo");
+        }
         return Ok(());
     }
     // Si el atajo se pulsa dos veces muy seguidas, la segunda pulsacion se ignora en vez
@@ -219,6 +309,7 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
         let mut pendientes = PENDIENTES.lock();
         pendientes.generacion += 1;
         pendientes.ventanas.clear();
+        pendientes.sin_pintar.clear();
         pendientes.cursor = cursor;
         pendientes.con_foco = false;
         pendientes.generacion
@@ -268,6 +359,12 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
                 Ok(freezes) => freezes,
                 Err(error) => {
                     eprintln!("no se ha podido congelar la pantalla: {error}");
+                    // En Wayland, casi siempre es el permiso de capturas, que no se puede
+                    // pedir desde un atajo sin una ventana nuestra delante.
+                    #[cfg(target_os = "linux")]
+                    if en_wayland() && intencion_del_portal(&error) {
+                        crate::platform::portal::pedir_permiso_con_la_ventana(&app);
+                    }
                     continue;
                 }
             };
@@ -370,36 +467,15 @@ fn esperar_a_que_se_vea(monitor_id: u32, generacion: u64) {
 pub fn overlay_listo(app: &AppHandle, monitor_id: u32, generacion: u64) {
     let dentro = app.clone();
     let _ = app.run_on_main_thread(move || {
-        let Some((label, monitor, con_foco)) = sacar_pendiente(monitor_id, generacion) else {
-            // De una captura anterior, o ya ensennada por el rescate: no hay nada que hacer.
+        // El candado se suelta al acabar esta linea: ensennar una ventana no lo necesita.
+        let Some((label, monitor, con_foco)) = PENDIENTES.lock().avisa(monitor_id, generacion)
+        else {
+            // De una captura anterior, o ya ensennada por el rescate: no hay nada que ensennar.
             return;
         };
         ensennar_overlay(&dentro, &label, &monitor, con_foco);
         crate::crono::marca(&format!("mostrada-{monitor_id}"));
     });
-}
-
-/// Saca de la lista de pendientes la ventana de ese monitor, si es de esta captura, y
-/// decide si le toca el foco: a la pantalla del raton, o a la ultima que quede si el raton
-/// no esta en ninguna.
-fn sacar_pendiente(monitor_id: u32, generacion: u64) -> Option<(String, MonitorInfo, bool)> {
-    let mut pendientes = PENDIENTES.lock();
-    if pendientes.generacion != generacion {
-        return None;
-    }
-    let posicion = pendientes.ventanas.iter().position(|(id, _, _)| *id == monitor_id)?;
-    let (_, label, monitor) = pendientes.ventanas.remove(posicion);
-    let cursor = pendientes.cursor;
-    let es_la_del_raton = cursor.is_some_and(|(x, y)| monitor.contains(x, y));
-    let otra_lo_tendra = pendientes
-        .ventanas
-        .iter()
-        .any(|(_, _, m)| cursor.is_some_and(|(x, y)| m.contains(x, y)));
-    let con_foco = !pendientes.con_foco && (es_la_del_raton || !otra_lo_tendra);
-    if con_foco {
-        pendientes.con_foco = true;
-    }
-    Some((label, monitor, con_foco))
 }
 
 /// La coloca en su pantalla y la ensenna. Siempre desde el hilo principal.
@@ -413,10 +489,18 @@ fn ensennar_overlay(app: &AppHandle, label: &str, monitor: &MonitorInfo, con_foc
     // solo pone al dia lo que Tauri cree de la ventana, y no cuesta nada si ya esta visible.
     #[cfg(windows)]
     let colocada = crate::platform::window_style::colocar_y_ensennar(&window, monitor.x, monitor.y);
-    #[cfg(not(windows))]
+    // En Wayland una ventana no se puede poner en un sitio: se pide pantalla completa en su
+    // monitor, que el escritorio si respeta, y que ademas tapa la barra de arriba.
+    #[cfg(target_os = "linux")]
+    let colocada = crate::platform::window_style::pantalla_completa_en(&window, monitor.id);
+    #[cfg(not(any(windows, target_os = "linux")))]
     let colocada = false;
     if !colocada {
         let _ = window.set_position(PhysicalPosition::new(monitor.x, monitor.y));
+    }
+    #[cfg(target_os = "linux")]
+    if con_foco {
+        crate::platform::window_style::foco_al_aparecer(&window);
     }
     let _ = window.show();
     // Si el aparcadero no pudo darle el DPI de su monitor y Windows la ha reescalado al
@@ -439,34 +523,37 @@ fn ensennar_overlay(app: &AppHandle, label: &str, monitor: &MonitorInfo, con_foc
 
 /// El rescate: pasado el plazo, se ensenna lo que no haya avisado, sea lo que sea.
 fn mostrar_las_que_falten(app: &AppHandle, generacion: u64) {
-    let que_faltan: Vec<(u32, String, MonitorInfo, bool)> = {
-        let mut pendientes = PENDIENTES.lock();
-        if pendientes.generacion != generacion {
-            return;
-        }
-        let cursor = pendientes.cursor;
-        let mut lista = Vec::new();
-        for (id, label, monitor) in std::mem::take(&mut pendientes.ventanas) {
-            let con_foco = !pendientes.con_foco
-                && cursor.is_some_and(|(x, y)| monitor.contains(x, y));
-            if con_foco {
-                pendientes.con_foco = true;
-            }
-            lista.push((id, label, monitor, con_foco));
-        }
-        // Si el raton no estaba en ninguna, el foco a la primera que quede.
-        if !pendientes.con_foco {
-            if let Some(primera) = lista.first_mut() {
-                primera.3 = true;
-                pendientes.con_foco = true;
-            }
-        }
-        lista
-    };
+    let que_faltan = PENDIENTES.lock().sacar_las_que_falten(generacion);
+    if que_faltan.is_empty() {
+        return;
+    }
     for (id, label, monitor, con_foco) in que_faltan {
         ensennar_overlay(app, &label, &monitor, con_foco);
         crate::crono::marca(&format!("mostrada-{id}-tarde"));
     }
+    // Estan a la vista sin su imagen: si pasado `RESCATE` alguna sigue sin avisar, se cierra.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(RESCATE);
+        let dentro = app.clone();
+        let _ = app.run_on_main_thread(move || cerrar_si_queda_sin_pintar(&dentro, generacion));
+    });
+}
+
+/// El rescate de `RESCATE`: cierra la captura si alguna de sus ventanas sigue a la vista sin
+/// haber pintado su imagen. Si la captura ya es otra, o todas han avisado, no hace nada.
+fn cerrar_si_queda_sin_pintar(app: &AppHandle, generacion: u64) {
+    // El candado se suelta antes de cerrar: `close_overlays` lo vuelve a coger.
+    let queda = PENDIENTES.lock().queda_sin_pintar(generacion);
+    if !queda {
+        return;
+    }
+    crate::crono::marca("rescate-sin-pintar");
+    eprintln!(
+        "[overlay] una ventana lleva {} s a la vista sin su imagen: se cierra la captura",
+        RESCATE.as_secs()
+    );
+    close_overlays(app);
 }
 
 /// Ensenna los segundos que faltan, abajo a la derecha de la pantalla donde esta el raton.
@@ -677,7 +764,7 @@ fn esconder_cuenta_atras(app: &AppHandle) {
 
 fn build_overlay_window(app: &AppHandle, label: &str, monitor_id: u32) -> Result<tauri::WebviewWindow> {
     let url = WebviewUrl::App(format!("overlay.html?monitor={monitor_id}").into());
-    Ok(WebviewWindowBuilder::new(app, label, url)
+    let constructor = WebviewWindowBuilder::new(app, label, url)
         .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx")
         .decorations(false)
@@ -687,9 +774,23 @@ fn build_overlay_window(app: &AppHandle, label: &str, monitor_id: u32) -> Result
         .maximizable(false)
         .minimizable(false)
         .shadow(false)
-        .visible(false)
-        .build()?)
+        .visible(false);
+    // En Linux la ventana se crea escondida (no se puede aparcar fuera de la pantalla, ver
+    // `SE_PUEDE_APARCAR`), y una ventana escondida de WebKitGTK no pinta: la primera vez que
+    // se ensenna, su primer cuadro se paga ya a la vista. Hasta que llega, lo que tapa la
+    // pantalla entera es el fondo de la ventana, que de fabrica es el gris claro de GTK.
+    // Medido con el binario de release y la pantalla pintada por CPU: 1,7 s en X11 y 1,5 s en
+    // GNOME en la primera captura tras arrancar (en las siguientes, con la ventana ya pintada,
+    // ni un cuadro). Con el oscuro de la pantalla de carga (`BootScreen`) no hay fogonazo.
+    #[cfg(target_os = "linux")]
+    let constructor = constructor.background_color(FONDO_DEL_OVERLAY);
+    Ok(constructor.build()?)
 }
+
+/// El fondo de la ventana de la captura en Linux mientras no ha pintado: el `#111113` de la
+/// pantalla de carga del overlay (`BootScreen.tsx`).
+#[cfg(target_os = "linux")]
+const FONDO_DEL_OVERLAY: tauri::window::Color = tauri::window::Color(0x11, 0x11, 0x13, 0xff);
 
 /// Crea de antemano las ventanas overlay de los monitores actuales, aparcadas, sin esperar
 /// a la primera captura del dia. Se llama una vez al arrancar la app: en ese momento no
@@ -709,6 +810,10 @@ pub fn precrear_overlays(app: &AppHandle) {
         let Ok(window) = build_overlay_window(app, &label, monitor.id) else {
             continue;
         };
+        // En Linux se crea escondida y punto: ver `SE_PUEDE_APARCAR`.
+        if !SE_PUEDE_APARCAR {
+            continue;
+        }
         // Aparcada fuera de las pantallas y ENSENNADA, no escondida.
         //
         // Una ventana que no se ha ensennado nunca no tiene interfaz montada, asi que la
@@ -720,6 +825,32 @@ pub fn precrear_overlays(app: &AppHandle) {
         let _ = window.set_position(aparcadero_de(monitor, &monitors));
         let _ = window.set_size(PhysicalSize::new(monitor.width, monitor.height));
         let _ = window.show();
+    }
+}
+
+/// Si el error es el portal diciendo que no (sin permiso, o el dialogo que no pudo salir), y no
+/// otra cosa (el portal que no esta, una foto que no se puede leer).
+#[cfg(target_os = "linux")]
+pub(crate) fn intencion_del_portal(error: &crate::error::AppError) -> bool {
+    error.to_string().contains("Portal request didn't succeed")
+}
+
+/// Si una ventana colocada fuera de las pantallas deja de verse de verdad.
+///
+/// Solo en Windows. En Wayland el escritorio ignora la posicion y la ventana salia a la vista,
+/// en negro. En X11 el gestor de ventanas la devuelve hasta dejar un trozo dentro: con openbox,
+/// los 100 pixeles de abajo del overlay se quedaban arriba de la pantalla, con la foto congelada.
+const SE_PUEDE_APARCAR: bool = cfg!(windows);
+
+/// Si las ventanas van por Wayland, donde ninguna app puede colocar las suyas.
+fn en_wayland() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::xdg::es_wayland()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
     }
 }
 
@@ -746,6 +877,7 @@ pub fn close_overlays(app: &AppHandle) {
         let mut pendientes = PENDIENTES.lock();
         pendientes.generacion += 1;
         pendientes.ventanas.clear();
+        pendientes.sin_pintar.clear();
     }
     let monitores = capture::monitors().unwrap_or_default();
     for (label, window) in app.webview_windows() {
@@ -755,6 +887,11 @@ pub fn close_overlays(app: &AppHandle) {
         else {
             continue;
         };
+        // En Linux, escondida de verdad: aparcarla no la saca de la pantalla.
+        if !SE_PUEDE_APARCAR {
+            let _ = window.hide();
+            continue;
+        }
         // **Aparcada fuera de las pantallas, no escondida.**
         //
         // Una ventana escondida se queda sin atender: al ensennarla otra vez tardaba
@@ -947,6 +1084,85 @@ fn sitio_de_la_barra(region: Rect, monitor: Option<MonitorSitio>) -> (i32, i32) 
     (x, y)
 }
 
+/// La barra de grabar en Linux, donde no se puede sacar del video: FUERA de lo que se graba,
+/// o no hay barra (`None`) si no cabe fuera, que es lo que pasa grabando la pantalla entera.
+/// Entonces se para con el atajo de grabar o desde la bandeja.
+#[cfg(target_os = "linux")]
+pub fn open_recorder_fuera(app: &AppHandle, region: Rect) -> Result<Option<String>> {
+    close_recorder(app);
+    let centro = (
+        region.x + region.width as i32 / 2,
+        region.y + region.height as i32 / 2,
+    );
+    let Some((x, y)) = monitor_de(centro.0, centro.1).and_then(|m| sitio_fuera_de_la_region(region, m)) else {
+        return Ok(None);
+    };
+    let label = format!(
+        "{RECORDER_PREFIX}{}",
+        OVERLAY_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    );
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("recorder.html".into()))
+        .title("winshotx")
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        // En GTK una ventana que no se puede estirar no hace caso del tamanno que se le pide:
+        // se queda con el que pide su contenido, y la barra salia de 200 de alto en vez de 52
+        // (medido en el laboratorio de S44). Con el minimo y el maximo iguales mide lo suyo y
+        // tampoco se puede estirar.
+        .resizable(true)
+        .visible(false)
+        .inner_size(BARRA_ANCHO, BARRA_ALTO)
+        .min_inner_size(BARRA_ANCHO, BARRA_ALTO)
+        .max_inner_size(BARRA_ANCHO, BARRA_ALTO)
+        .build()?;
+    let _ = window.set_position(PhysicalPosition::new(x, y));
+    window.show()?;
+    Ok(Some(label))
+}
+
+/// Donde cabe la barra entera sin pisar lo que se graba: debajo, encima, a la derecha o a la
+/// izquierda de la region, por ese orden, y siempre dentro de su pantalla. `None` si no cabe
+/// en ningun lado.
+///
+/// Entre la barra y la region queda un hueco: con un compositor, la sombra de la ventana se
+/// sale unos pixeles de ella, y tambien saldria en el video.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn sitio_fuera_de_la_region(region: Rect, m: MonitorSitio) -> Option<(i32, i32)> {
+    sitio_fuera(region, m, BARRA_ANCHO, BARRA_ALTO)
+}
+
+/// Lo mismo para una ventana de otro tamanno (en pixeles logicos): la barra de la captura con
+/// scroll en Linux, que tampoco puede salir en sus fotos.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn sitio_fuera(region: Rect, m: MonitorSitio, ancho: f64, alto: f64) -> Option<(i32, i32)> {
+    let ancho = (ancho * m.escala).ceil() as i32;
+    let alto = (alto * m.escala).ceil() as i32;
+    let hueco = (24.0 * m.escala) as i32;
+    let margen = (8.0 * m.escala) as i32;
+    let (izquierda, arriba) = (m.x + margen, m.y + margen);
+    let (derecha, abajo) = (m.x + m.ancho - margen, m.y + m.alto - margen);
+    if derecha - izquierda < ancho || abajo - arriba < alto {
+        return None;
+    }
+    let (rx0, ry0) = (region.x, region.y);
+    let (rx1, ry1) = (region.x + region.width as i32, region.y + region.height as i32);
+    // Centrada con la region en el otro eje, sin salirse de la pantalla.
+    let x_centrada = (rx0 + (rx1 - rx0 - ancho) / 2).clamp(izquierda, derecha - ancho);
+    let y_centrada = (ry0 + (ry1 - ry0 - alto) / 2).clamp(arriba, abajo - alto);
+    if ry1 + hueco + alto <= abajo {
+        Some((x_centrada, ry1 + hueco))
+    } else if ry0 - hueco - alto >= arriba {
+        Some((x_centrada, ry0 - hueco - alto))
+    } else if rx1 + hueco + ancho <= derecha {
+        Some((rx1 + hueco, y_centrada))
+    } else if rx0 - hueco - ancho >= izquierda {
+        Some((rx0 - hueco - ancho, y_centrada))
+    } else {
+        None
+    }
+}
+
 /// Ancho y alto de la barra de grabacion, en pixeles logicos. Los mismos que pide el
 /// constructor de la ventana: si se separan, la barra deja de quedar centrada.
 const BARRA_ANCHO: f64 = 360.0;
@@ -1025,7 +1241,7 @@ fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Re
     );
     let url = WebviewUrl::App(format!("editor.html?session={session_id}").into());
     let (ancho, alto) = medida_del_editor(app);
-    let window = WebviewWindowBuilder::new(app, &label, url)
+    let constructor = WebviewWindowBuilder::new(app, &label, url)
         .additional_browser_args(NAVEGADOR_ARGS)
         .title("winshotx · editor")
         .decorations(true)
@@ -1033,11 +1249,26 @@ fn abrir_editor(app: &AppHandle, session_id: &str, cerrar_los_demas: bool) -> Re
         .inner_size(ancho, alto)
         .min_inner_size(760.0, 520.0)
         .center()
-        .visible(true)
-        .build()?;
+        .visible(true);
+    // En Linux el video y el sonido no se pueden leer por `asset:` (los reproduce GStreamer,
+    // que no conoce ese protocolo): el editor los pide a un servidor de 127.0.0.1, y se le
+    // dice por donde antes de que cargue la pagina (`src/lib/medios.ts`).
+    #[cfg(target_os = "linux")]
+    let constructor = match crate::medios::base(&crate::medios::raices(
+        &app.state::<AppState>().temp_root,
+        crate::fondos::carpeta(app).ok(),
+    )) {
+        // La direccion la hace Rust con un puerto y una ficha en hexadecimal: no lleva nada
+        // que haya que escapar dentro de las comillas.
+        Some(base) => constructor.initialization_script(&format!("window.__WINSHOTX_MEDIOS__ = \"{base}\";")),
+        None => constructor,
+    };
+    let window = constructor.build()?;
     // Sin `rounded_corners`: eso es para las ventanas sin marco. El marco del sistema ya
     // trae las esquinas que Windows quiere, y forzarlas encima deja un borde raro.
     let _ = window.set_min_size(Some(LogicalSize::new(760.0, 520.0)));
+    #[cfg(target_os = "linux")]
+    crate::platform::window_style::titulo_al_dia(&window);
     window.set_focus()?;
     crate::crono::marca("editor-creado");
     Ok(())
@@ -1191,6 +1422,15 @@ fn force_foreground(window: &tauri::WebviewWindow) {
 mod tests {
     use super::*;
 
+    /// Grabando no se abre otra grabacion en ningun sitio. Una foto si, pero solo donde su
+    /// pantalla no sale en el video: en Linux no se puede sacar, asi que no se abre.
+    #[test]
+    fn grabando_solo_se_abre_una_foto_y_solo_donde_no_sale_en_el_video() {
+        assert!(!OverlayIntent::Record.se_abre_grabando());
+        assert_eq!(OverlayIntent::Capture.se_abre_grabando(), cfg!(windows));
+        assert_eq!(OverlayIntent::Edit.se_abre_grabando(), cfg!(windows));
+    }
+
     #[test]
     fn el_editor_abre_a_tres_cuartos_de_una_pantalla_de_1920() {
         assert_eq!(medida_para(1920.0, 1080.0), (1440.0, 842.0));
@@ -1285,6 +1525,62 @@ mod tests {
         let (x, _) = sitio_de_la_barra(region(1930, 10, 380, 200), Some(estrecho));
         assert!(x >= 1928, "se sale por la izquierda: {x}");
         assert!(x + 360 <= 1920 + 400 - 8, "se sale por la derecha: {x}");
+    }
+
+    /// Si la barra en ese sitio pisa la region (360 x 52, la escala de las pruebas es 1).
+    fn pisa(sitio: (i32, i32), r: Rect) -> bool {
+        sitio.0 < r.x + r.width as i32 && r.x < sitio.0 + 360 && sitio.1 < r.y + r.height as i32 && r.y < sitio.1 + 52
+    }
+
+    /// En Linux la barra no se puede sacar del video: va fuera de lo que se graba.
+    #[test]
+    fn en_linux_la_barra_va_debajo_si_cabe() {
+        let r = region(400, 200, 800, 400);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("debajo cabe");
+        assert!(sitio.1 >= 600, "debajo de la región: {sitio:?}");
+        assert!(!pisa(sitio, r));
+    }
+
+    #[test]
+    fn en_linux_la_barra_se_sube_si_debajo_no_cabe() {
+        let r = region(400, 500, 800, 570);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("encima cabe");
+        assert!(sitio.1 + 52 <= 500, "encima de la región: {sitio:?}");
+        assert!(!pisa(sitio, r));
+    }
+
+    #[test]
+    fn en_linux_la_barra_va_a_un_lado_si_la_region_ocupa_todo_el_alto() {
+        let r = region(0, 0, 1200, 1080);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("a la derecha cabe");
+        assert!(sitio.0 >= 1200, "a la derecha de la región: {sitio:?}");
+        assert!(!pisa(sitio, r));
+        let r = region(720, 0, 1200, 1080);
+        let sitio = sitio_fuera_de_la_region(r, monitor(0, 0, 1920, 1080)).expect("a la izquierda cabe");
+        assert!(sitio.0 + 360 <= 720, "a la izquierda de la región: {sitio:?}");
+    }
+
+    /// Grabando la pantalla entera no hay sitio fuera: no hay barra, y se para con el atajo
+    /// o desde la bandeja.
+    #[test]
+    fn en_linux_grabando_la_pantalla_entera_no_hay_barra() {
+        let principal = monitor(0, 0, 1920, 1080);
+        assert_eq!(sitio_fuera_de_la_region(region(0, 0, 1920, 1080), principal), None);
+        assert_eq!(sitio_fuera_de_la_region(region(10, 10, 1900, 1060), principal), None);
+    }
+
+    /// En cualquier sitio que se le de, la barra queda entera en su pantalla y sin tocar lo
+    /// que se graba: tambien en una pantalla colocada a la izquierda, en negativo.
+    #[test]
+    fn en_linux_la_barra_nunca_pisa_la_region_ni_se_sale_de_la_pantalla() {
+        let pantalla = monitor(-1920, 483, 1920, 1080);
+        for (x, y, w, h) in [(-1900, 500, 300, 200), (-700, 1300, 600, 250), (-1920, 483, 1500, 1080), (-1000, 483, 1000, 1000)] {
+            let r = region(x, y, w, h);
+            let Some(sitio) = sitio_fuera_de_la_region(r, pantalla) else { continue };
+            assert!(!pisa(sitio, r), "{sitio:?} pisa {x},{y} {w}x{h}");
+            assert!(sitio.0 >= -1920 && sitio.0 + 360 <= 0, "fuera por los lados: {sitio:?}");
+            assert!(sitio.1 >= 483 && sitio.1 + 52 <= 483 + 1080, "fuera por arriba o abajo: {sitio:?}");
+        }
     }
 
     /// Lo que hace que anclar se entienda sin explicarlo: la captura aparece EXACTAMENTE
@@ -1429,5 +1725,108 @@ mod tests {
         assert_eq!(distancia_entre((0, 0, 10, 10), (10, 0, 20, 10)), 0);
         assert_eq!(distancia_entre((0, 0, 10, 10), (20, 0, 30, 10)), 100);
         assert_eq!(distancia_entre((0, 0, 10, 10), (13, 14, 30, 30)), 9 + 16);
+    }
+
+    /// Una captura en marcha, la numero `generacion`, con esas pantallas esperando a ensennarse.
+    fn pendientes_de(generacion: u64, monitores: &[u32]) -> Pendientes {
+        Pendientes {
+            generacion,
+            ventanas: monitores
+                .iter()
+                .map(|&id| {
+                    let pantalla = MonitorInfo {
+                        id,
+                        label: format!("pantalla {id}"),
+                        x: id as i32 * 1920,
+                        y: 0,
+                        width: 1920,
+                        height: 1080,
+                        scale: 1.0,
+                        is_primary: id == 0,
+                    };
+                    (id, format!("{OVERLAY_PREFIX}{id}"), pantalla)
+                })
+                .collect(),
+            cursor: None,
+            con_foco: false,
+            sin_pintar: Vec::new(),
+        }
+    }
+
+    /// Lo que vio la coordinadora el 19 de noviembre de 2026: a una ventana no le llega su
+    /// captura, el rescate de los 900 ms la ensenna igual, y ya nadie la cierra. Tiene que
+    /// quedar apuntada para que `RESCATE` la cierre.
+    #[test]
+    fn una_ventana_ensennada_sin_avisar_se_cierra_sola() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        let ensennadas = pendientes.sacar_las_que_falten(3);
+        assert_eq!(ensennadas.len(), 1);
+        assert!(ensennadas[0].3, "la unica que hay se lleva el foco");
+        assert!(pendientes.queda_sin_pintar(3));
+    }
+
+    /// La que solo iba lenta: el rescate la ensenna, y cuando su imagen llega no se cierra nada.
+    #[test]
+    fn si_avisa_despues_de_ensennarse_no_se_cierra() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        pendientes.sacar_las_que_falten(3);
+        assert!(pendientes.avisa(0, 3).is_none(), "ya esta a la vista: no hay nada que ensennar");
+        assert!(!pendientes.queda_sin_pintar(3));
+    }
+
+    /// El camino de siempre: avisa antes del rescate, se ensenna con el foco y no queda apuntada.
+    #[test]
+    fn la_que_avisa_a_tiempo_se_ensenna_y_no_hay_nada_que_cerrar() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        let (label, _, con_foco) = pendientes.avisa(0, 3).expect("estaba esperando su aviso");
+        assert_eq!(label, format!("{OVERLAY_PREFIX}0"));
+        assert!(con_foco, "la unica que hay se lleva el foco");
+        assert!(pendientes.sacar_las_que_falten(3).is_empty());
+        assert!(!pendientes.queda_sin_pintar(3));
+    }
+
+    #[test]
+    fn el_aviso_de_una_captura_anterior_no_la_da_por_pintada() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        pendientes.sacar_las_que_falten(3);
+        assert!(pendientes.avisa(0, 2).is_none());
+        assert!(pendientes.queda_sin_pintar(3));
+    }
+
+    #[test]
+    fn con_dos_pantallas_basta_una_sin_pintar() {
+        let mut pendientes = pendientes_de(3, &[0, 1]);
+        assert_eq!(pendientes.sacar_las_que_falten(3).len(), 2);
+        pendientes.avisa(1, 3);
+        assert!(pendientes.queda_sin_pintar(3), "la pantalla 0 sigue sin su imagen");
+        pendientes.avisa(0, 3);
+        assert!(!pendientes.queda_sin_pintar(3));
+    }
+
+    /// El reloj de una captura no puede cerrar la siguiente: es el fallo de la primera captura
+    /// que no abria (el rescate de la pantalla de carga), que aqui no se puede repetir.
+    #[test]
+    fn el_reloj_de_una_captura_no_cierra_la_siguiente() {
+        let mut pendientes = pendientes_de(3, &[0]);
+        pendientes.sacar_las_que_falten(3);
+        // Se cierra la captura y se abre otra, como hacen `close_overlays` y `congelar_y_abrir`.
+        pendientes.generacion = 5;
+        pendientes.sin_pintar.clear();
+        assert!(!pendientes.queda_sin_pintar(3));
+        assert!(!pendientes.queda_sin_pintar(5));
+    }
+
+    /// Las ventanas aparcadas sin captura no estan en la lista: no hay nada que ensennar ni
+    /// nada que cerrar, y un rescate que llega de una captura vieja no saca las de la nueva.
+    #[test]
+    fn sin_ventanas_esperando_no_hay_nada_que_cerrar() {
+        let mut vacia = pendientes_de(3, &[]);
+        assert!(vacia.sacar_las_que_falten(3).is_empty());
+        assert!(!vacia.queda_sin_pintar(3));
+
+        let mut nueva = pendientes_de(5, &[0]);
+        assert!(nueva.sacar_las_que_falten(3).is_empty());
+        assert_eq!(nueva.ventanas.len(), 1, "la captura nueva sigue esperando su aviso");
+        assert!(!nueva.queda_sin_pintar(5));
     }
 }

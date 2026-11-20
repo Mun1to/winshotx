@@ -53,6 +53,25 @@ function pintar(
 /** Lo que el panel le pide al editor sobre el marco de recorte. */
 const alRecorte = vi.fn();
 
+/** El panel de una grabación hecha donde no se pueden leer las teclas (Wayland) y sin atajos. */
+function pintarSinTeclas(session: Partial<SessionInfo> = {}) {
+  return render(
+    <ExportPanel
+      anotaciones={[]}
+      recorte={null}
+      session={{ ...GRABACION, ...session }}
+      inIndex={10}
+      outIndex={80}
+      currentIndex={42}
+      fpsMax={60}
+      hasFfmpeg={false}
+      saveDirectory="C:\capturas"
+      onRecorte={alRecorte}
+      sinTeclas
+    />,
+  );
+}
+
 /** Lo que se le mando a Rust en la ultima exportacion. */
 function loExportado() {
   const llamada = [...llamadas].reverse().find((l) => l.comando === "export_media");
@@ -657,6 +676,25 @@ describe("el estudio", () => {
     expect(await guardarYEsperar()).toMatchObject({ suavizado: "mucho", ondaClic: true, smoothCursor: true });
   });
 
+  // En Wayland no se pueden leer las teclas al grabar: un interruptor de atajos que no puede
+  // enseñar ninguno no se ofrece, y sin clics el grupo entero se quedaría vacío.
+  it("sin teclas que enseñar no ofrece «Enseñar los atajos», y sin clics tampoco el grupo", () => {
+    const { unmount } = pintarSinTeclas({ hasClicks: false });
+    expect(screen.queryByRole("button", { name: "Clics y teclas" })).not.toBeInTheDocument();
+    unmount();
+    // Con clics el grupo sigue, con lo de los clics y sin el interruptor de los atajos.
+    pintarSinTeclas({ hasClicks: true });
+    ir("Clics y teclas");
+    expect(screen.getByRole("switch", { name: "Marcar los clics" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Enseñar los atajos/ })).not.toBeInTheDocument();
+  });
+
+  it("y donde sí se leen, «Enseñar los atajos» sale aunque la grabación no traiga clics", () => {
+    pintar({ hasClicks: false });
+    ir("Clics y teclas");
+    expect(screen.getByRole("switch", { name: /Enseñar los atajos/ })).toBeInTheDocument();
+  });
+
   it("elegir un fondo pone aire, esquinas y sombra que se vean, y todo viaja a Rust", async () => {
     pintar();
     fireEvent.click(screen.getByRole("button", { name: "Noche" }));
@@ -970,5 +1008,106 @@ describe("el marco de ventana o de portátil", () => {
     aplicarIdioma("zh");
     pintar();
     expect(screen.getByRole("button", { name: "笔记本电脑" })).toBeInTheDocument();
+  });
+});
+
+describe("en Linux, si falta el codificador del sistema se dice antes de guardar", () => {
+  const guardar = (formato: string) => screen.getByRole("button", { name: new RegExp(`Guardar ${formato}`) });
+  /** La orden entera, tal como se copia: va partida en palabras para que no se corte por un guion. */
+  const orden = (texto: string) =>
+    screen.getByText((_, el) => el?.tagName === "CODE" && el.textContent === texto);
+
+  it("sin codificador de vídeo: lo dice con su orden, no deja guardar el MP4 y el GIF sigue saliendo", async () => {
+    responde("falta_para_el_mp4", { que: "video", orden: "sudo apt install gstreamer1.0-plugins-bad" });
+    pintar();
+    expect(
+      await screen.findByText(/Para guardar en MP4 falta el codificador de vídeo H\.264 del sistema\./),
+    ).toBeInTheDocument();
+    expect(orden("sudo apt install gstreamer1.0-plugins-bad")).toBeInTheDocument();
+    expect(guardar("MP4")).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "GIF" }));
+    expect(guardar("GIF")).toBeEnabled();
+    expect(screen.queryByText(/falta el codificador de vídeo/)).not.toBeInTheDocument();
+  });
+
+  it("sin codificador de vídeo, ni Ctrl+S ni los otros dos botones piden el MP4, y el GIF sí sale con Ctrl+S", async () => {
+    responde("falta_para_el_mp4", { que: "video", orden: "sudo apt install gstreamer1.0-plugins-bad" });
+    pintar();
+    await screen.findByText(/Para guardar en MP4 falta el codificador de vídeo/);
+    expect(screen.getByRole("button", { name: /Copiar/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Guardar en…/ })).toBeDisabled();
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true, shiftKey: true });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(llamadas.some((l) => l.comando === "export_media")).toBe(false);
+    expect(llamadas.some((l) => l.comando === "pick_save_file")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "GIF" }));
+    expect(screen.getByRole("button", { name: /Copiar/ })).toBeEnabled();
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => expect(loExportado()).toBeTruthy());
+    expect(loExportado().format).toBe("gif");
+  });
+
+  it("la orden se parte por los espacios y nunca por un guion, y al copiarla sale entera", async () => {
+    responde("falta_para_el_mp4", { que: "video", orden: "sudo dnf install gstreamer1-plugin-openh264" });
+    pintar();
+    const codigo = await waitFor(() => orden("sudo dnf install gstreamer1-plugin-openh264"));
+    const palabras = [...codigo.querySelectorAll("span")];
+    expect(palabras.map((p) => p.textContent)).toEqual(["sudo", "dnf", "install", "gstreamer1-plugin-openh264"]);
+    for (const p of palabras) expect(p.className).toContain("whitespace-nowrap");
+  });
+
+  it("sin codificador de sonido: el MP4 se guarda, pero sin sonido, y lo avisa", async () => {
+    responde("falta_para_el_mp4", { que: "sonido", orden: null });
+    pintar();
+    expect(await screen.findByText(/el MP4 se guardará sin sonido/)).toBeInTheDocument();
+    expect(screen.getByText(/Instala los plugins «bad» de GStreamer/)).toBeInTheDocument();
+    expect(guardar("MP4")).toBeEnabled();
+    fireEvent.click(guardar("MP4"));
+    await waitFor(() => expect(loExportado()).toBeTruthy());
+    expect(loExportado().audio).toBe(false);
+  });
+
+  it("en un AppImage que no ve los codificadores del sistema no manda instalar nada: dice qué paquete usar", async () => {
+    responde("falta_para_el_mp4", { que: "video", orden: null, appimage: true });
+    pintar();
+    expect(
+      await screen.findByText(
+        "Esta AppImage no puede usar los codificadores de tu sistema, y sin ellos no hay MP4. Instala winshotx con el paquete .deb o .rpm.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Se instala con/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/plugins «bad»/)).not.toBeInTheDocument();
+    expect(guardar("MP4")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "GIF" }));
+    expect(guardar("GIF")).toBeEnabled();
+  });
+
+  it("una grabación sin sonido no avisa de que falta el de sonido: no pierde nada", async () => {
+    responde("falta_para_el_mp4", { que: "sonido", orden: "sudo apt install gstreamer1.0-plugins-bad" });
+    pintar({ hasAudio: false });
+    fireEvent.click(guardar("MP4"));
+    await waitFor(() => expect(loExportado()).toBeTruthy());
+    expect(screen.queryByText(/codificador de sonido/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Se instala con/)).not.toBeInTheDocument();
+  });
+
+  it("si no falta nada (o en Windows) no se dice nada y el MP4 lleva su sonido", async () => {
+    responde("falta_para_el_mp4", null);
+    pintar();
+    fireEvent.click(guardar("MP4"));
+    await waitFor(() => expect(loExportado()).toBeTruthy());
+    expect(loExportado().audio).toBe(true);
+    expect(screen.queryByText(/falta/i)).not.toBeInTheDocument();
+  });
+
+  it("el aviso sale en el idioma de la app", async () => {
+    aplicarIdioma("en");
+    responde("falta_para_el_mp4", { que: "video", orden: "sudo dnf install gstreamer1-plugin-openh264" });
+    pintar();
+    expect(await screen.findByText(/To save as MP4, the system's H\.264 video encoder is missing\./)).toBeInTheDocument();
+    expect(orden("sudo dnf install gstreamer1-plugin-openh264")).toBeInTheDocument();
   });
 });

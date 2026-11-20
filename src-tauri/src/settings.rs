@@ -300,11 +300,20 @@ fn default_save_dir() -> String {
 }
 
 fn dirs_pictures() -> Option<PathBuf> {
+    // En Linux la carpeta cambia de nombre con el idioma (`~/Imágenes`) y la apunta
+    // xdg-user-dirs. Sin esto se guardaba en la carpeta desde la que se arranco la app.
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::xdg::carpeta_de_imagenes()
+    }
     // En Windows basta con USERPROFILE: nada de arrastrar el crate dirs por esto.
-    std::env::var_os("USERPROFILE")
-        .map(PathBuf::from)
-        .map(|home| home.join("Pictures"))
-        .filter(|p| p.exists())
+    #[cfg(not(target_os = "linux"))]
+    {
+        std::env::var_os("USERPROFILE")
+            .map(PathBuf::from)
+            .map(|home| home.join("Pictures"))
+            .filter(|p| p.exists())
+    }
 }
 
 /// El identificador de `tauri.conf.json`, que es el nombre de la carpeta de los ajustes.

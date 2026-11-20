@@ -84,6 +84,8 @@ function Carta({ miniatura, segundos }: { miniatura: MiniaturaVista; segundos: n
   const inicio = useRef<{ x: number; y: number; enBoton: boolean } | null>(null);
   /** Si esta pulsación ya se ha convertido en arrastre: entonces no es el clic de un botón. */
   const arrastro = useRef(false);
+  /** Si la pulsación que está llegando ya trajo su `pointerdown`: ver `sinPointerdown`. */
+  const pointerdownVisto = useRef(false);
 
   const cerrar = useCallback(() => void miniaturaCerrar(id).catch(() => {}), [id]);
 
@@ -143,13 +145,47 @@ function Carta({ miniatura, segundos }: { miniatura: MiniaturaVista; segundos: n
     e.stopPropagation();
     e.preventDefault();
   };
+  // El arrastre del sistema, cuando llega a empezar, se queda con el soltar (el de Windows y el
+  // de GTK). Si la página ve subir el botón es que el gesto ha sido más corto que la orden y
+  // no se está arrastrando nada: sin esto el letrero de «Suéltala» se quedaba puesto hasta
+  // mover el ratón (visto en X11 el 18 de noviembre de 2026).
   const alSoltar = () => {
     inicio.current = null;
+    setArrastrando(false);
+  };
+  /**
+   * En Linux el arrastre es el de GTK, que se queda con el soltar: WebKitGTK no ve subir el
+   * botón, cree que sigue pulsado y la pulsación siguiente no le da `pointerdown`, solo
+   * `mousedown`. Sin él la carta no se dejaba arrastrar otra vez, y el primer clic en un botón
+   * se perdía por arrastre (medido en X11 el 18 de noviembre de 2026). Se le manda el que
+   * falta al elemento pulsado, igual que hace el overlay (`SelectionCanvas`).
+   */
+  const sinPointerdown = (e: React.MouseEvent) => {
+    const visto = pointerdownVisto.current;
+    pointerdownVisto.current = false;
+    if (visto || e.button !== 0 || e.buttons !== 1) return;
+    e.target.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        buttons: 1,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        pointerType: "mouse",
+        isPrimary: true,
+      }),
+    );
+    pointerdownVisto.current = false;
   };
 
   return (
     <div
       data-miniatura={id}
+      onPointerDownCapture={() => {
+        pointerdownVisto.current = true;
+      }}
+      onMouseDownCapture={sinPointerdown}
       onPointerEnter={() => setEncima(true)}
       onPointerLeave={() => {
         setEncima(false);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { listen } from "@tauri-apps/api/event";
 import {
   AppWindow,
   Camera,
@@ -10,10 +11,13 @@ import {
   MousePointerClick,
   Power,
   SquareDashedMousePointer,
+  SquarePen,
   Video,
 } from "lucide-react";
 import {
+  cambiarTeclasEnElEscritorio,
   getSettings,
+  pedirPermisoDeCapturas,
   printScreenState,
   setSettings,
   shortcutStatus,
@@ -24,9 +28,15 @@ import type {
   PrintScreenState,
   Settings,
   ShortcutStatus,
+  TeclasDelEscritorio,
 } from "../../lib/types";
+import { EVENTS } from "../../lib/types";
 import { partesDeAtajo } from "../../lib/teclas";
 import { ShortcutField } from "../settings/ShortcutField";
+// S21 (Linux): sin el paso de Impr Pant, y en Wayland las teclas las pone el escritorio.
+import { RowButton } from "../settings/Section";
+import { EjemploDeSway, OrdenDelAtajo, TeclaPuesta } from "../settings/TeclaDelEscritorio";
+import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
 import { Marca } from "../ui/Marca";
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
@@ -51,6 +61,8 @@ import { DibujoAlSoltar, DibujoAtajos, DibujoBandeja, DibujoImprPant } from "./D
  */
 
 const PASOS = ["Tus teclas", "Al soltar", "Impr Pant", "Listo"];
+/** En Linux no hay Herramienta de Recortes a la que quitarle Impr Pant. */
+const PASOS_EN_LINUX = PASOS.filter((nombre) => nombre !== "Impr Pant");
 
 /**
  * Combinaciones recomendadas. Elegidas por no chocar con lo que ya usa Windows ni con lo
@@ -77,6 +89,20 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   });
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const donde = usePlataforma();
+  const enLinux = donde?.sistema === "linux";
+  const enWayland = donde?.wayland ?? false;
+  // Si «Cambiar» no abre nada (Hyprland, o un escritorio que winshotx no conoce), las teclas se
+  // ponen a mano, igual que donde no hay portal.
+  const [sinVentanaDeTeclas, setSinVentanaDeTeclas] = useState(false);
+  const delEscritorio = useTeclasDelEscritorio(enWayland);
+  const teclas =
+    delEscritorio && sinVentanaDeTeclas ? { ...delEscritorio, aMano: true } : delEscritorio;
+  const pasos = enLinux ? PASOS_EN_LINUX : PASOS;
+  const nombre = pasos[paso];
+  const cambiarTeclas = useCallback(() => {
+    void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
+  }, []);
 
   useEffect(() => {
     void getSettings().then(setAjustes);
@@ -86,6 +112,35 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
     void printScreenState()
       .then(setImprPant)
       .catch(() => undefined);
+    // Ahora winshotx tiene el foco, y es el unico momento en que GNOME deja preguntar por el
+    // permiso de capturas: desde un atajo no sale el dialogo. Fuera de Wayland no hace nada.
+    let conPermiso = false;
+    // El escritorio avisa de los atajos dos veces seguidas: una sola pregunta a la vez.
+    let pidiendo = false;
+    const pedirPermiso = () => {
+      if (pidiendo) return;
+      pidiendo = true;
+      void pedirPermisoDeCapturas()
+        .then((si) => {
+          conPermiso = si;
+        })
+        .catch(() => {})
+        .finally(() => {
+          pidiendo = false;
+        });
+    };
+    pedirPermiso();
+    // En Wayland el escritorio pone los atajos cuando la persona acepta su dialogo, despues
+    // de que esta pantalla ya haya preguntado. Y ese dialogo se lleva el foco: si sale a la
+    // vez que el del permiso, GNOME no deja salir el del permiso (medido en el laboratorio de
+    // S21), asi que al cerrarse se vuelve a pedir.
+    const cambios = listen<ShortcutStatus>(EVENTS.shortcutsChanged, ({ payload }) => {
+      setAtajos(payload);
+      if (!conPermiso) pedirPermiso();
+    });
+    return () => {
+      void cambios.then((quitar) => quitar());
+    };
   }, []);
 
   /** Se guarda en cuanto se toca algo: si la ventana se cierra a medias, no se pierde. */
@@ -127,11 +182,12 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
     onDone();
   }, [onDone]);
 
-  if (!ajustes) {
+  // Hasta saber dónde corre no se pinta nada: en Linux se vería un instante el paso de Impr Pant.
+  if (!ajustes || !donde) {
     return <div className="h-full bg-lienzo" />;
   }
 
-  const ultimo = paso === PASOS.length - 1;
+  const ultimo = paso === pasos.length - 1;
 
   return (
     <div className="flex h-full flex-col bg-lienzo text-texto">
@@ -142,9 +198,9 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
           <span className="text-[13px] text-apagado">{__VERSION__}</span>
         </span>
         <nav className="flex gap-5" aria-label={t("Pasos de la bienvenida")}>
-          {PASOS.map((nombre, i) => (
+          {pasos.map((cual, i) => (
             <button
-              key={nombre}
+              key={cual}
               type="button"
               onClick={() => setPaso(i)}
               aria-current={i === paso ? "step" : undefined}
@@ -154,7 +210,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
                   : "border-transparent text-apagado hover:text-titulo"
               }`}
             >
-              {t(nombre)}
+              {t(cual)}
             </button>
           ))}
         </nav>
@@ -171,28 +227,33 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
             exit={{ opacity: 0, x: -14 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            {paso === 0 && (
+            {nombre === "Tus teclas" && (
               <Atajos
                 ajustes={ajustes}
                 atajos={atajos}
                 onCaptura={(v) => guardar({ captureShortcut: v })}
                 onGrabacion={(v) => guardar({ recordShortcut: v })}
+                enLinux={enLinux}
+                teclas={enWayland ? teclas : undefined}
+                onCambiarTeclas={cambiarTeclas}
               />
             )}
-            {paso === 1 && (
+            {nombre === "Al soltar" && (
               <AlSoltar
                 valor={ajustes.captureFlow}
                 onChange={(v) => guardar({ captureFlow: v })}
               />
             )}
-            {paso === 2 && (
+            {nombre === "Impr Pant" && (
               <TeclaImprPant estado={imprPant} onElegir={(quiere) => void pedirTecla(quiere)} />
             )}
-            {paso === 3 && (
+            {nombre === "Listo" && (
               <Final
                 ajustes={ajustes}
                 imprPant={imprPant}
                 onArranque={(v) => guardar({ startWithWindows: v })}
+                enLinux={enLinux}
+                teclas={enWayland ? teclas : undefined}
               />
             )}
           </motion.div>
@@ -269,14 +330,15 @@ function Escenario({
   frases,
 }: {
   titulo: string;
-  dibujo: ReactNode;
+  /** El último paso de Linux no lo lleva: el suyo pinta la bandeja de Windows. */
+  dibujo?: ReactNode;
   frases: ReactNode[];
 }) {
   return (
     <figure className="flex h-full flex-col justify-center rounded-xl bg-tarjeta px-5 py-5">
       <figcaption className="mb-4 text-[15px] font-bold text-titulo">{titulo}</figcaption>
       {dibujo}
-      <ul className="mt-4 space-y-2 text-[14px] leading-snug text-texto">
+      <ul className={`${dibujo ? "mt-4 " : ""}space-y-2 text-[14px] leading-snug text-texto`}>
         {frases.map((frase, i) => (
           <li key={i} className="flex gap-2.5">
             <span aria-hidden="true" className="mt-[7px] size-[5px] shrink-0 rounded-full bg-marca" />
@@ -476,21 +538,35 @@ function Atajos({
   atajos,
   onCaptura,
   onGrabacion,
+  enLinux,
+  teclas,
+  onCambiarTeclas,
 }: {
   ajustes: Settings;
   atajos: ShortcutStatus;
   onCaptura: (valor: string) => void;
   onGrabacion: (valor: string) => void;
+  enLinux: boolean;
+  /** Solo en Wayland: las teclas que ha puesto el escritorio (null mientras contesta). */
+  teclas?: TeclasDelEscritorio | null;
+  onCambiarTeclas: () => void;
 }) {
   const t = useT();
+  if (teclas !== undefined) {
+    return <AtajosEnWayland teclas={teclas} onCambiar={onCambiarTeclas} />;
+  }
   return (
     <Paso
       titulo={t("winshotx ya está en marcha")}
-      sub={t("Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.")}
+      sub={
+        enLinux
+          ? t("No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.")
+          : t("Vive en la bandeja del sistema, junto al reloj. No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.")
+      }
       derecha={
         <Escenario
           titulo={t("Lo que vas a ver")}
-          dibujo={<DibujoAtajos />}
+          dibujo={<DibujoAtajos conBarra={!enLinux} />}
           frases={[
             <ConNegrita
               key="c"
@@ -552,6 +628,73 @@ function Atajos({
       <p className="mt-2 px-1 text-[13px] text-pretty text-apagado">
         {t("Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir.")}
       </p>
+    </Paso>
+  );
+}
+
+/**
+ * El primer paso en Wayland. Las dos teclas son las que se le piden al escritorio (capturar, y
+ * capturar y abrir el editor), y no se escriben aquí: el escritorio enseña su ventana con las
+ * que propone winshotx y la persona las acepta o las cambia ahí. Lo que se ve es lo que ha
+ * quedado puesto, y «Cambiar» vuelve a abrir esa ventana.
+ */
+function AtajosEnWayland({
+  teclas,
+  onCambiar,
+}: {
+  teclas: TeclasDelEscritorio | null;
+  onCambiar: () => void;
+}) {
+  const t = useT();
+  const aMano = teclas?.aMano ?? false;
+  const filas = [
+    { id: "capture", icono: <Camera className="size-4" />, nombre: t("Capturar una región") },
+    { id: "edit", icono: <SquarePen className="size-4" />, nombre: t("Capturar y abrir el editor") },
+  ] as const;
+  return (
+    <Paso
+      titulo={t("winshotx ya está en marcha")}
+      sub={t("No hay ventana que dejar abierta: se llama con una tecla, hace lo suyo y desaparece.")}
+      derecha={
+        <Escenario
+          titulo={t("Lo que vas a ver")}
+          dibujo={<DibujoAtajos conBarra={false} />}
+          frases={[
+            t("Pulsa el atajo cuando quieras"),
+            t("Todo se queda en tu ordenador: sin cuenta, sin nube y sin nada que subir."),
+          ]}
+        />
+      }
+    >
+      <p className="mt-4 px-1 text-[13px] text-pretty text-apagado">
+        {aMano
+          ? t("Este escritorio no deja que las apps pidan sus teclas. Ponlas tú en sus atajos de teclado, con estas dos órdenes:")
+          : t("Estas son las dos teclas con las que se llama. En Wayland las elige el escritorio: acepta las que te propone en su ventana, o cámbialas ahí con «Cambiar».")}
+      </p>
+      <Bloque titulo={t("Las dos teclas que lo llaman")}>
+        {filas.map((fila) => (
+          <Fila
+            key={fila.id}
+            icono={fila.icono}
+            nombre={fila.nombre}
+            control={
+              aMano ? (
+                <OrdenDelAtajo orden={teclas?.orden ?? "winshotx"} accion={fila.id} />
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <TeclaPuesta tecla={teclas?.[fila.id] ?? null} />
+                  <RowButton onClick={onCambiar}>{t("Cambiar")}</RowButton>
+                </span>
+              )
+            }
+          />
+        ))}
+      </Bloque>
+      {aMano && (
+        <div className="mt-3 px-1">
+          <EjemploDeSway orden={teclas?.orden ?? "winshotx"} />
+        </div>
+      )}
     </Paso>
   );
 }
@@ -701,25 +844,43 @@ function Final({
   ajustes,
   imprPant,
   onArranque,
+  enLinux,
+  teclas,
 }: {
   ajustes: Settings;
   imprPant: PrintScreenState | null;
   onArranque: (valor: boolean) => void;
+  enLinux: boolean;
+  /** Solo en Wayland: la tecla de captura es la que puso el escritorio. */
+  teclas?: TeclasDelEscritorio | null;
 }) {
   const t = useT();
+  const arrancar = enLinux ? t("Arrancar al iniciar sesión") : t("Arrancar con Windows");
   return (
     <Paso
       titulo={t("Listo, ya puedes capturar")}
-      sub={t("Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja.")}
+      sub={
+        enLinux
+          ? t("Esto es lo que queda configurado. Todo se cambia después en los ajustes, que se abren desde winshotx en el menú de aplicaciones.")
+          : t("Esto es lo que queda configurado. Todo se cambia después desde el icono de la bandeja.")
+      }
       derecha={
-        <Escenario
-          titulo={t("Dónde se queda")}
-          dibujo={<DibujoBandeja />}
-          frases={[
-            t("Pulsa el atajo cuando quieras"),
-            t("Con el botón derecho en el icono de la bandeja se abren los ajustes"),
-          ]}
-        />
+        enLinux ? (
+          // Sin dibujo: los que hay pintan la bandeja de Windows, y en GNOME ni siquiera hay bandeja.
+          <Escenario
+            titulo={t("Lo que vas a ver")}
+            frases={[t("Pulsa el atajo cuando quieras. Los ajustes se abren desde winshotx en el menú de aplicaciones.")]}
+          />
+        ) : (
+          <Escenario
+            titulo={t("Dónde se queda")}
+            dibujo={<DibujoBandeja />}
+            frases={[
+              t("Pulsa el atajo cuando quieras"),
+              t("Con el botón derecho en el icono de la bandeja se abren los ajustes"),
+            ]}
+          />
+        )
       }
     >
       <Bloque>
@@ -727,13 +888,25 @@ function Final({
           icono={<Camera className="size-4" />}
           nombre={t("Capturar una región")}
           pista={imprPant?.enabled && imprPant.active ? t("También con Impr Pant") : undefined}
-          control={<Atajo valor={ajustes.captureShortcut} />}
+          control={
+            teclas?.aMano ? (
+              <code className="font-mono text-[12px] text-apagado">{`${teclas.orden || "winshotx"} --capture`}</code>
+            ) : teclas !== undefined ? (
+              <TeclaPuesta tecla={teclas?.capture ?? null} />
+            ) : (
+              <Atajo valor={ajustes.captureShortcut} />
+            )
+          }
         />
-        <Fila
-          icono={<Video className="size-4" />}
-          nombre={t("Grabar en GIF o vídeo")}
-          control={<Atajo valor={ajustes.recordShortcut} />}
-        />
+        {/* En Wayland grabar todavía no se le pide al escritorio (Fase 2): no se enseña una
+            tecla que no va a hacer nada. */}
+        {teclas === undefined && (
+          <Fila
+            icono={<Video className="size-4" />}
+            nombre={t("Grabar en GIF o vídeo")}
+            control={<Atajo valor={ajustes.recordShortcut} />}
+          />
+        )}
         <Fila
           icono={<Mouse className="size-4" />}
           nombre={t("Al soltar el ratón")}
@@ -747,13 +920,13 @@ function Final({
         />
         <Fila
           icono={<Power className="size-4" />}
-          nombre={t("Arrancar con Windows")}
-          pista={t("se abre en la bandeja, sin ventana")}
+          nombre={arrancar}
+          pista={enLinux ? t("se queda esperando, sin ventana") : t("se abre en la bandeja, sin ventana")}
           control={
             <Switch
               checked={ajustes.startWithWindows}
               onChange={onArranque}
-              label={t("Arrancar con Windows")}
+              label={arrancar}
             />
           }
         />

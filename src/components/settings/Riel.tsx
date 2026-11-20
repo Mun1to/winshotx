@@ -4,6 +4,8 @@ import { APARTADOS, type ApartadoId } from "./mapaDeAjustes";
 interface Props {
   activo: ApartadoId;
   onIr: (id: ApartadoId) => void;
+  /** S21 (Linux): sin el apartado de las teclas de Windows, que ahí no existen. */
+  sinTeclasDeWindows?: boolean;
 }
 
 /**
@@ -19,11 +21,12 @@ interface Props {
  * riel baja con la rueda (sin barra, que en 64 px de ancho sería otro trasto) en vez de
  * cortar el último icono.
  */
-export function Riel({ activo, onIr }: Props) {
+export function Riel({ activo, onIr, sinTeclasDeWindows = false }: Props) {
   const t = useT();
+  const apartados = sinTeclasDeWindows ? APARTADOS.filter((a) => a.id !== "teclas") : APARTADOS;
   const mover = (paso: number) => {
-    const i = APARTADOS.findIndex((a) => a.id === activo);
-    const siguiente = APARTADOS[(i + paso + APARTADOS.length) % APARTADOS.length];
+    const i = apartados.findIndex((a) => a.id === activo);
+    const siguiente = apartados[(i + paso + apartados.length) % apartados.length];
     onIr(siguiente.id);
     // El foco sigue al apartado, para poder seguir con las flechas.
     requestAnimationFrame(() =>
@@ -46,7 +49,7 @@ export function Riel({ activo, onIr }: Props) {
         }
       }}
     >
-      {APARTADOS.map((a) => {
+      {apartados.map((a) => {
         const elegido = a.id === activo;
         return (
           <button

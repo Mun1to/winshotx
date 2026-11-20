@@ -11,7 +11,7 @@
  */
 import type { ReactNode } from "react";
 
-import type { ReplayStatus, Settings } from "../../lib/types";
+import type { ReplayStatus, Settings, SonidoDisponible, TeclasDelEscritorio } from "../../lib/types";
 import { FONDOS } from "../../lib/fondos";
 import { partesDeAtajo } from "../../lib/teclas";
 import { useT } from "../../lib/i18n";
@@ -21,6 +21,36 @@ import type { ApartadoId } from "./mapaDeAjustes";
 const ESCRITORIO = "linear-gradient(140deg, #2b59c3 0%, #1f7a72 55%, #24647a 100%)";
 
 const atajo = (a: string) => partesDeAtajo(a).join(" + ");
+
+/**
+ * S45 (Linux): con qué se dispara cada cosa en Wayland. Ahí no vale la tecla de los ajustes de
+ * la app: la pone el escritorio, o se ata a mano a una orden donde no deja pedirla (Sway).
+ */
+interface TeclasEnWayland {
+  /** Las que ha puesto el escritorio. `null` mientras no contesta. */
+  delEscritorio: TeclasDelEscritorio | null;
+  /** Que aquí las teclas se ponen a mano, en los atajos del escritorio. */
+  aMano: boolean;
+  /** Cómo se escribe winshotx aquí: `winshotx`, o la ruta del AppImage. */
+  orden: string;
+}
+
+/**
+ * Lo que va en negrita delante de «y eliges la zona»: la tecla de los ajustes. En Wayland, la
+ * del escritorio (tal cual la escribe él, si no se sabe leer) o la orden que se ata a mano; y
+ * `null` si el escritorio no ha dado ninguna, que es cuando el dibujo lo tiene que decir.
+ */
+function conQue(
+  deLosAjustes: string,
+  accion: "capture" | "record" | "replay",
+  wayland: TeclasEnWayland | null,
+): string | null {
+  if (!wayland) return atajo(deLosAjustes);
+  if (wayland.aMano) return `${wayland.orden || "winshotx"} --${accion}`;
+  const tecla = wayland.delEscritorio?.[accion];
+  if (!tecla) return null;
+  return tecla.atajo ? atajo(tecla.atajo) : tecla.texto;
+}
 
 /** Parte una frase ya traducida por sus `**` y pone en negrita lo de dentro. */
 export function conNegritas(frase: string): ReactNode[] {
@@ -80,22 +110,29 @@ function Cursor({ className = "" }: { className?: string }) {
   );
 }
 
-/** Lo mismo que el dibujo, en frases, con un punto de la marca delante de cada una. */
-function Frases({ lineas }: { lineas: (string | false | null | undefined)[] }) {
+/**
+ * Lo mismo que el dibujo, en frases, con un punto de la marca delante de cada una.
+ *
+ * `partible` es para cuando una frase lleva una orden (S45, donde las teclas se ponen a mano):
+ * la de un AppImage es su ruta entera, sin un espacio, y sin poder partirse por cualquier letra
+ * se saldría de la tarjeta.
+ */
+function Frases({ lineas, partible = false }: { lineas: (string | false | null | undefined)[]; partible?: boolean }) {
   return (
     <ul data-frases className="mt-4 space-y-2.5 text-[14px] leading-snug text-texto">
       {lineas.filter((l): l is string => Boolean(l)).map((l) => (
         <li key={l} className="flex gap-2.5">
           <span aria-hidden="true" className="mt-[7px] size-[5px] shrink-0 rounded-full bg-marca" />
-          <span className="text-pretty">{conNegritas(l)}</span>
+          <span className={partible ? "text-pretty [overflow-wrap:anywhere]" : "text-pretty"}>{conNegritas(l)}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-function Capturar({ s }: { s: Settings }) {
+function Capturar({ s, wayland }: { s: Settings; wayland: TeclasEnWayland | null }) {
   const t = useT();
+  const con = conQue(s.captureShortcut, "capture", wayland);
   return (
     <>
       <Pantallita iconos={!s.hideDesktopIcons}>
@@ -125,8 +162,11 @@ function Capturar({ s }: { s: Settings }) {
         )}
       </Pantallita>
       <Frases
+        partible={wayland?.aMano}
         lineas={[
-          t("**{atajo}** y eliges la zona con el ratón", { atajo: atajo(s.captureShortcut) }),
+          con === null
+            ? t("**Todavía sin tecla**: pídela con «Cambiar»")
+            : t("**{atajo}** y eliges la zona con el ratón", { atajo: con }),
           s.captureDelaySeconds > 0
             ? t("Cuenta **{n} s** antes de hacer la foto", { n: s.captureDelaySeconds })
             : t("La foto sale en cuanto sueltas"),
@@ -197,24 +237,51 @@ function Despues({ s }: { s: Settings }) {
   );
 }
 
-function Grabar({ s }: { s: Settings }) {
+function Grabar({
+  s,
+  hay,
+  conBarra,
+  wayland,
+}: {
+  s: Settings;
+  hay: SonidoDisponible | null;
+  conBarra: boolean;
+  wayland: TeclasEnWayland | null;
+}) {
   const t = useT();
+  const con = conQue(s.recordShortcut, "record", wayland);
+  // Lo que se va a grabar de verdad: lo encendido en los ajustes que además se pueda grabar
+  // aquí. Donde el sistema no da el sonido (o no hay micrófono) el interruptor sale apagado
+  // aunque el ajuste siga encendido, y esta frase tiene que decir lo mismo que él.
+  const conPc = s.recordAudio && (hay === null || hay.altavoz);
+  const conMicro = s.recordMicrophone && (hay === null || hay.microfono);
   const sonido =
-    s.recordAudio && s.recordMicrophone
+    conPc && conMicro
       ? t("Con el sonido del PC y tu micrófono")
-      : s.recordAudio
+      : conPc
         ? t("Con el sonido del PC, sin micrófono")
-        : s.recordMicrophone
+        : conMicro
           ? t("Con tu micrófono, sin el sonido del PC")
           : t("Sin sonido");
   return (
     <>
       <Pantallita>
-        <div className="absolute rounded-[3px] border-2 border-red-500" style={{ left: "16%", top: "8%", width: "72%", height: "76%" }}>
-          <div className="absolute -top-[11px] left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-zinc-900/90 px-2 py-[2px] text-[10px] font-semibold tabular-nums text-white">
-            <span className="size-[6px] rounded-full bg-red-500" />
-            0:12
-          </div>
+        <div
+          data-dibujo="marco"
+          className="absolute rounded-[3px] border-2 border-red-500"
+          style={{ left: "16%", top: "8%", width: "72%", height: "76%" }}
+        >
+          {/* La barra de grabar, con su tiempo. En Wayland no la hay (una ventana no se puede
+              dejar fuera del vídeo ni elegir dónde se pone), así que allí no se dibuja. */}
+          {conBarra && (
+            <div
+              data-dibujo="barra"
+              className="absolute -top-[11px] left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-zinc-900/90 px-2 py-[2px] text-[10px] font-semibold tabular-nums text-white"
+            >
+              <span className="size-[6px] rounded-full bg-red-500" />
+              0:12
+            </div>
+          )}
           {s.recordCamera && (
             <div
               data-dibujo="camara"
@@ -228,8 +295,11 @@ function Grabar({ s }: { s: Settings }) {
         <Cursor className="left-[58%] top-[56%]" />
       </Pantallita>
       <Frases
+        partible={wayland?.aMano}
         lineas={[
-          t("**{atajo}** y eliges qué grabar", { atajo: atajo(s.recordShortcut) }),
+          con === null
+            ? t("**Todavía sin tecla**: pídela con «Cambiar»")
+            : t("**{atajo}** y eliges qué grabar", { atajo: con }),
           t("A **{fps} fps**", { fps: s.fps }),
           sonido,
           s.recordCamera ? t("Con tu cámara en una esquina") : t("Sin cámara"),
@@ -240,8 +310,18 @@ function Grabar({ s }: { s: Settings }) {
   );
 }
 
-function Ultimos({ s }: { s: Settings }) {
+function Ultimos({
+  s,
+  wayland,
+  encendido,
+}: {
+  s: Settings;
+  wayland: TeclasEnWayland | null;
+  /** Que el anillo está grabando: en Wayland su tecla solo se le pide al escritorio entonces. */
+  encendido: boolean;
+}) {
   const t = useT();
+  const con = conQue(s.replayShortcut, "replay", wayland);
   const n = 12;
   const guardados = Math.max(2, Math.round((s.replaySeconds / 60) * n));
   const desde = ((n - guardados) / n) * 100;
@@ -276,14 +356,18 @@ function Ultimos({ s }: { s: Settings }) {
         </div>
       </div>
       <Frases
+        partible={wayland?.aMano}
         lineas={[
           s.replayEnabled
             ? t("**Grabando siempre**, en memoria, sin guardar nada")
             : t("**Apagado**: no graba nada hasta que lo enciendas"),
-          t("**{atajo}** y te quedas con los últimos **{n} s**", {
-            atajo: atajo(s.replayShortcut),
-            n: s.replaySeconds,
-          }),
+          con !== null
+            ? t("**{atajo}** y te quedas con los últimos **{n} s**", { atajo: con, n: s.replaySeconds })
+            : encendido
+              ? t("**Todavía sin tecla**: pídela con «Cambiar»")
+              : // Apagado, «Cambiar» no se puede pulsar: lo que va a pasar es que el escritorio
+                // pregunta por la tecla al encenderlo.
+                t("Al encenderlo eliges la tecla que se queda con los últimos **{n} s**", { n: s.replaySeconds }),
           s.replayHeight === 0
             ? t("A tamaño real, a {fps} fps", { fps: s.replayFps })
             : t("A {alto}p, a {fps} fps", { alto: s.replayHeight, fps: s.replayFps }),
@@ -376,7 +460,7 @@ function Mini({ claro, elegido }: { claro: boolean; elegido: boolean }) {
   );
 }
 
-function App({ s }: { s: Settings }) {
+function App({ s, enLinux }: { s: Settings; enLinux: boolean }) {
   const t = useT();
   const partes = s.saveDirectory.split(/[\\/]/).filter(Boolean);
   const carpeta = partes[partes.length - 1] ?? s.saveDirectory;
@@ -390,14 +474,26 @@ function App({ s }: { s: Settings }) {
         lineas={[
           t("Guarda en **{carpeta}**", { carpeta }),
           s.theme === "sistema"
-            ? t("Claro u oscuro, como Windows")
+            ? enLinux
+              ? t("Claro u oscuro, como el sistema")
+              : t("Claro u oscuro, como Windows")
             : s.theme === "claro"
               ? t("Siempre en claro")
               : t("Siempre en oscuro"),
-          s.startWithWindows ? t("Arranca con Windows, en la bandeja") : t("No arranca sola con Windows"),
+          enLinux
+            ? s.startWithWindows
+              ? t("Arranca al iniciar sesión")
+              : t("No arranca sola al iniciar sesión")
+            : s.startWithWindows
+              ? t("Arranca con Windows, en la bandeja")
+              : t("No arranca sola con Windows"),
           // «En español» se traduce por el nombre del idioma de cada diccionario («In English»,
           // «中文界面»): el diccionario que se usa es justo el del idioma elegido.
-          s.language === "sistema" ? t("En el idioma de Windows") : t("En español"),
+          s.language === "sistema"
+            ? enLinux
+              ? t("En el idioma del sistema")
+              : t("En el idioma de Windows")
+            : t("En español"),
         ]}
       />
     </>
@@ -411,25 +507,47 @@ function App({ s }: { s: Settings }) {
 export function VistaPrevia({
   apartado,
   settings,
+  enLinux = false,
+  enWayland = false,
+  sonido = null,
+  replay,
+  teclasDelEscritorio = null,
+  teclasAMano = false,
+  ordenDeLaApp = "winshotx",
 }: {
   apartado: ApartadoId;
   settings: Settings;
-  /** Para un dibujo que cuente lo que está grabando ahora el anillo (todavía no lo usa ninguno). */
+  /** S21 (Linux): las frases que hablan de Windows hablan allí del sistema. */
+  enLinux?: boolean;
+  /** S44 (Linux): en Wayland no hay barra de grabar, y el dibujo de Grabar no la pinta. */
+  enWayland?: boolean;
+  /** S44 (Linux): qué sonido se puede grabar aquí. null donde no hay nada que avisar (Windows). */
+  sonido?: SonidoDisponible | null;
+  /** Cómo va el anillo. En Wayland dice si su tecla se le ha pedido ya al escritorio (S45). */
   replay?: ReplayStatus;
+  /** S45 (Linux): en Wayland, las teclas que ha puesto el escritorio. */
+  teclasDelEscritorio?: TeclasDelEscritorio | null;
+  /** S45 (Linux): que en este escritorio las teclas se ponen a mano, con la orden. */
+  teclasAMano?: boolean;
+  /** S45 (Linux): cómo se escribe winshotx aquí, para la orden. */
+  ordenDeLaApp?: string;
 }) {
+  const wayland: TeclasEnWayland | null = enWayland
+    ? { delEscritorio: teclasDelEscritorio, aMano: teclasAMano, orden: ordenDeLaApp }
+    : null;
   switch (apartado) {
     case "capturar":
-      return <Capturar s={settings} />;
+      return <Capturar s={settings} wayland={wayland} />;
     case "despues":
       return <Despues s={settings} />;
     case "grabar":
-      return <Grabar s={settings} />;
+      return <Grabar s={settings} hay={sonido} conBarra={!enWayland} wayland={wayland} />;
     case "ultimos":
-      return <Ultimos s={settings} />;
+      return <Ultimos s={settings} wayland={wayland} encendido={replay?.running ?? settings.replayEnabled} />;
     case "teclas":
       return <Teclas s={settings} />;
     case "app":
-      return <App s={settings} />;
+      return <App s={settings} enLinux={enLinux} />;
     default:
       return null;
   }

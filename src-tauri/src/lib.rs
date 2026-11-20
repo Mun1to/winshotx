@@ -8,6 +8,8 @@ pub mod enlaces;
 pub mod error;
 mod exporter;
 mod hotkeys;
+// S44 (Linux, grabar): el servidor de 127.0.0.1 por el que el editor lee el video y el sonido.
+mod medios;
 mod platform;
 pub mod record;
 mod recorder;
@@ -57,6 +59,11 @@ pub const EVENT_CHECK_UPDATE: &str = "winshotx://check-update";
 /// Y este avisa de que la ventana vuelve a estar a la vista, para refrescar lo que
 /// se haya quedado viejo mientras estaba escondida.
 pub const EVENT_SETTINGS_SHOWN: &str = "winshotx://settings-shown";
+
+/// Los atajos que han quedado puestos han cambiado sin que nadie los pidiera desde una
+/// ventana: en Wayland el escritorio contesta tarde, cuando la persona acepta su dialogo.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub const EVENT_SHORTCUTS_CHANGED: &str = "winshotx://shortcuts-changed";
 
 /// El overlay se reutiliza entre capturas (ver windows_mgr::open_overlays): esto le dice
 /// a una ventana que YA estaba montada que hay una captura nueva que cargar, porque no va
@@ -130,7 +137,49 @@ fn purge_old_sessions(root: &std::path::Path) {
     }
 }
 
+/// Donde van los archivos de paso: las sesiones grabadas, lo anclado, las miniaturas.
+///
+/// En Windows, `%TEMP%\winshotx`, que es de cada usuario. En Linux `std::env::temp_dir()` es
+/// `/tmp`, que es de TODOS los usuarios del equipo: ahi cualquiera podia leer las capturas de
+/// otro (las carpetas nacen con permisos 755), y dos personas en la misma maquina se pisaban
+/// la carpeta. Alli va a la cache del usuario (`~/.cache/winshotx`, o `XDG_CACHE_HOME`), con
+/// permisos solo para el. No a `XDG_RUNTIME_DIR`, que es memoria: una grabacion no cabe.
+fn carpeta_de_paso() -> std::path::PathBuf {
+    #[cfg(target_os = "linux")]
+    {
+        let cache = std::env::var_os("XDG_CACHE_HOME")
+            .map(std::path::PathBuf::from)
+            .filter(|p| p.is_absolute())
+            .or_else(|| {
+                std::env::var_os("HOME")
+                    .map(std::path::PathBuf::from)
+                    .filter(|p| p.is_absolute())
+                    .map(|casa| casa.join(".cache"))
+            });
+        if let Some(cache) = cache {
+            return cache.join("winshotx");
+        }
+    }
+    std::env::temp_dir().join("winshotx")
+}
+
+/// Que la carpeta de paso sea solo de quien la usa. Fuera de Linux no hace nada: en Windows
+/// `%TEMP%` ya es del usuario.
+fn solo_para_el_usuario(carpeta: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(carpeta, std::fs::Permissions::from_mode(0o700));
+    }
+    #[cfg(not(unix))]
+    let _ = carpeta;
+}
+
 pub fn run() {
+    // S44 (Linux): antes que nada de nada, y con un solo hilo todavía. En Ubuntu 22.04 y Linux
+    // Mint 21, sin esto winshotx aborta al arrancar. Ver `platform::xdg::xlib_para_varios_hilos`.
+    #[cfg(target_os = "linux")]
+    platform::xdg::xlib_para_varios_hilos();
     // El cronometro, si se pide, lo primero de todo: cuenta desde que nacio el proceso y asi
     // se ve tambien lo que cuesta llegar hasta aqui. Ver `crono`.
     if std::env::args().any(|arg| arg == "--crono") {
@@ -156,6 +205,14 @@ pub fn run() {
         return;
     }
     crono::marca("webview");
+    // S21 (Linux): las ventanas se presentan al escritorio con el identificador de la app, no
+    // con el nombre del binario. GNOME casa cada ventana con el `.desktop` de ese nombre, y solo
+    // deja enseñar el permiso de capturas a la app que cree que tiene el foco comparando con el
+    // nombre con que winshotx se registra en el portal (`platform::portal::ID_DE_LA_APP`). Con
+    // `winshotx` a secas, nunca coincidian (medido en el laboratorio de S21). Va antes de que
+    // GTK arranque: GTK solo pone el nombre del binario si nadie ha puesto otro.
+    #[cfg(target_os = "linux")]
+    gtk::glib::set_prgname(Some(platform::portal::ID_DE_LA_APP));
     // Quien ha arrancado este proceso, para saber si se abren los ajustes (ver `arranque`).
     // El aviso del agente se mira aqui, antes de abrir su tuberia: hasta que la tuberia
     // exista, el agente no puede haber conectado ni haberlo quitado.
@@ -168,16 +225,49 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             crono::marca("segunda-instancia");
             // Una segunda instancia con `--capture` es la forma de disparar una captura
-            // desde fuera (un guion, otra herramienta, el cronometro), y `--cancel` la
-            // cierra. Abierta a mano otra vez, lo de siempre: ensennar los ajustes.
-            if args.iter().any(|arg| arg == "--capture") {
-                if let Err(error) = windows_mgr::open_overlays(app, windows_mgr::OverlayIntent::Capture) {
+            // desde fuera (un guion, otra herramienta, el cronometro, el atajo puesto a mano
+            // en Sway), `--edit` la de capturar y abrir el editor, y `--cancel` la cierra. Abierta a
+            // mano otra vez, lo de siempre: ensennar los ajustes.
+            let intencion = if args.iter().any(|arg| arg == "--capture") {
+                Some(windows_mgr::OverlayIntent::Capture)
+            } else if args.iter().any(|arg| arg == "--edit") {
+                Some(windows_mgr::OverlayIntent::Edit)
+            } else {
+                None
+            };
+            if let Some(intencion) = intencion {
+                // En Linux, con una captura con scroll bajando, `--capture` la termina, igual
+                // que la tecla de capturar: donde el escritorio no pone atajos, esa tecla es
+                // justo esta orden, puesta a mano.
+                #[cfg(target_os = "linux")]
+                if matches!(intencion, windows_mgr::OverlayIntent::Capture) && capture::scroll::terminar_la_que_haya() {
+                    return;
+                }
+                if let Err(error) = windows_mgr::open_overlays(app, intencion) {
                     eprintln!("no se ha podido abrir el overlay: {error}");
                 }
                 return;
             }
             if args.iter().any(|arg| arg == "--cancel") {
                 windows_mgr::close_overlays(app);
+                return;
+            }
+            // En Linux la barra de grabar no siempre existe (no se puede sacar del video), y
+            // hay escritorios sin bandeja y sin atajos: `--record` empieza a grabar, o para
+            // lo que se este grabando, igual que la entrada de la bandeja.
+            #[cfg(target_os = "linux")]
+            if args.iter().any(|arg| arg == "--record") {
+                tray::ejecutar(app, "record");
+                return;
+            }
+            // Y `--replay` se queda con los ultimos segundos: en Wayland la tecla la pone el
+            // escritorio, y donde no deja pedirla (o la persona no la quiso) esta orden es la
+            // forma de rescatar sin abrir los ajustes.
+            #[cfg(target_os = "linux")]
+            if args.iter().any(|arg| arg == "--replay") {
+                if let Err(error) = replay::save(app) {
+                    eprintln!("[replay] --replay: {error}");
+                }
                 return;
             }
             // El primero es el nombre del programa.
@@ -197,6 +287,14 @@ pub fn run() {
         .setup(move |app| {
             crono::marca("setup");
             let handle = app.handle().clone();
+            // S21 (Linux): con que pinta GTK (X11 o Wayland) cambia como se hace la foto, como
+            // se colocan las ventanas y que atajos hay. Se mira aqui, en el hilo de GTK.
+            #[cfg(target_os = "linux")]
+            platform::xdg::anotar_la_sesion();
+            #[cfg(target_os = "linux")]
+            for ventana in app.webview_windows().values() {
+                platform::window_style::titulo_al_dia(ventana);
+            }
             let mut config = settings::load(&handle);
 
             // Actualizar desde los propios ajustes acaba en `relaunch()`, y winshotx vuelve
@@ -217,9 +315,19 @@ pub fn run() {
                 config.last_version = Some(version);
                 let _ = settings::save(&handle, &config);
             }
+            // S45 (Linux): en Wayland el anillo de los ultimos segundos solo vuelve solo si el
+            // escritorio ya dio permiso. Si no, el ajuste pasa a apagado AQUI, antes de pedir
+            // las teclas: asi la de rescatar no sale en una pregunta al iniciar sesion.
+            #[cfg(target_os = "linux")]
+            replay::ajustes_al_arrancar(&handle, &mut config);
 
-            let temp_root = std::env::temp_dir().join("winshotx");
+            let temp_root = carpeta_de_paso();
             std::fs::create_dir_all(temp_root.join("sessions"))?;
+            solo_para_el_usuario(&temp_root);
+            // El protocolo `asset:` solo deja leer lo de `tauri.conf.json` (`$TEMP/winshotx`),
+            // y en Linux la carpeta de paso no esta ahi: se le abre esta, y solo esta.
+            #[cfg(target_os = "linux")]
+            app.asset_protocol_scope().allow_directory(&temp_root, true)?;
             purge_old_sessions(&temp_root);
             purge_pins(&temp_root);
             purge_replay(&temp_root);
@@ -259,6 +367,12 @@ pub fn run() {
             crono::marca("atajos");
             tray::build(&handle)?;
             crono::marca("bandeja");
+            // Si este escritorio ensenna la bandeja, para decir como se para una grabacion.
+            #[cfg(target_os = "linux")]
+            platform::como_parar::mirar_la_bandeja();
+            // Y si la captura con scroll va a hacer que el escritorio pregunte por el puntero.
+            #[cfg(target_os = "linux")]
+            capture::scroll::mirar_si_preguntara(app.handle());
 
             // Si arranca sola con Windows, que arranque ESTA y no otra copia. Munir tenia
             // el registro apuntando a una instalacion de hace una semana en otra carpeta:
@@ -272,10 +386,16 @@ pub fn run() {
             // El anillo de los ultimos segundos vuelve solo si se dejo encendido: es un
             // ajuste que se pone una vez y se espera encontrar puesto. Si no arranca, se
             // dice por consola y la app sigue: quedarse sin winshotx por esto seria peor.
+            #[cfg(not(target_os = "linux"))]
             if config.replay_enabled {
                 if let Err(error) = replay::start(&handle) {
                     eprintln!("[replay] no se ha podido encender al arrancar: {error}");
                 }
+            }
+            // En Linux va en su hilo, y en Wayland solo si el escritorio ya dio permiso.
+            #[cfg(target_os = "linux")]
+            if config.replay_enabled {
+                replay::al_arrancar(&handle);
             }
             // No hay ninguna ventana visible esperando en este momento (la app arranca
             // en la bandeja), asi que crear las ventanas overlay ahora, ocultas, no lo
@@ -369,6 +489,14 @@ pub fn run() {
             commands::cache_stats,
             commands::clear_cache,
             commands::shortcut_status,
+            commands::pedir_permiso_de_capturas,
+            commands::plataforma,
+            commands::teclas_del_escritorio,
+            commands::sonido_disponible,
+            commands::falta_para_el_mp4,
+            commands::apuntar_del_editor,
+            commands::cambiar_teclas_en_el_escritorio,
+            commands::copiar_orden_del_atajo,
             commands::list_screens,
             commands::show_screen_number,
             commands::replay_status,

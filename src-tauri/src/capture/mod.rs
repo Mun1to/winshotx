@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod bench_freeze;
 // S27 (proporción fija): que el PNG guardado salga de la proporción exacta.
 #[cfg(test)]
@@ -8,6 +8,10 @@ mod proporcion_pruebas;
 mod dos_pantallas_pruebas;
 #[cfg(windows)]
 mod wgc;
+// S21 (Linux): en Wayland la foto la hace el portal, no `xcap`. A la vista del resto de
+// winshotx porque grabar necesita saber que pantallas hay (`record::linux::wayland`).
+#[cfg(target_os = "linux")]
+pub(crate) mod wayland;
 // S5 (scroll): la captura con scroll, que cose las fotos de una zona mientras baja.
 pub mod scroll;
 use std::sync::Arc;
@@ -116,6 +120,10 @@ fn describir(index: usize, monitor: &xcap::Monitor) -> Result<MonitorInfo> {
 /// solo quiere saber donde estan (el anillo de los ultimos segundos, para elegir cual
 /// vigila) no tiene por que pagar eso.
 pub fn monitors() -> Result<Vec<MonitorInfo>> {
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return wayland::monitores();
+    }
     xcap::Monitor::all()
         .map_err(|e| AppError::Msg(e.to_string()))?
         .iter()
@@ -169,12 +177,23 @@ pub fn preparar() {
     wgc::preparar();
 }
 
+/// Hace que el escritorio pregunte por el permiso de capturas, si le toca preguntar: en
+/// Wayland se pide una foto al portal y se tira (la primera vez sale el dialogo del
+/// escritorio; con el permiso ya dado, no sale nada). En X11 y en Windows no hay permiso que
+/// pedir. Tiene que llamarse con una ventana de winshotx con el foco (ver
+/// `platform::portal::pedir_permiso_con_la_ventana`).
+pub fn pedir_permiso_de_capturas() -> Result<()> {
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return wayland::foto_del_portal().map(|_| ());
+    }
+    Ok(())
+}
+
 /// Congela todas las pantallas. Congelar la imagen evita pelearse con ventanas
 /// transparentes y da lupa exacta.
 pub fn freeze_all() -> Result<Vec<Freeze>> {
-    let cuantos = xcap::Monitor::all()
-        .map_err(|e| AppError::Msg(e.to_string()))?
-        .len();
+    let cuantos = monitors()?.len();
     freeze_monitors(&(0..cuantos).collect::<Vec<_>>())
 }
 
@@ -187,6 +206,10 @@ pub fn freeze_all() -> Result<Vec<Freeze>> {
 pub fn freeze_monitors(indices: &[usize]) -> Result<Vec<Freeze>> {
     if indices.is_empty() {
         return Ok(Vec::new());
+    }
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return wayland::congelar(indices);
     }
 
     // Las pantallas se fotografian A LA VEZ, una por hilo.
@@ -329,6 +352,12 @@ fn deja_pasar_el_raton(_hwnd: u32) -> bool {
 /// **El orden importa**: sale tal cual de `EnumWindows`, que es el orden Z (la primera es la
 /// de delante), y el overlay se queda con la primera que haya bajo el cursor. No reordenar.
 pub fn window_rects() -> Vec<WindowRect> {
+    // En Wayland ninguna app sabe donde estan las ventanas de las demas: `xcap` solo veria las
+    // de XWayland, y en otras coordenadas. Sin ventanas, el overlay no ofrece ajustarse a una.
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return Vec::new();
+    }
     let Ok(windows) = xcap::Window::all() else {
         return Vec::new();
     };

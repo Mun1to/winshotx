@@ -139,12 +139,12 @@ mod tests {
         assert!(!ensenar_ajustes(&de_siempre(&args(&[AL_ENCENDER]))));
     }
 
-    /// `--capture` y `--cancel` disparan o cierran una captura desde fuera; si llegan a la
+    /// `--capture`, `--edit` y `--cancel` disparan o cierran una captura desde fuera; si llegan a la
     /// primera instancia, la captura es lo que se ha pedido, no los ajustes. Y `--crono` lo
     /// usa `scripts/cronometrar-atajo.mjs`, que mide con la pantalla libre.
     #[test]
     fn lo_que_llega_de_un_guion_no_abre_nada() {
-        for bandera in ["--capture", "--cancel", "--crono"] {
+        for bandera in ["--capture", "--edit", "--cancel", "--crono"] {
             assert!(!ensenar_ajustes(&de_siempre(&args(&[bandera]))), "{bandera}");
         }
     }

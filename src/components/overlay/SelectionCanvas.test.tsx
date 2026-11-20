@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SelectionCanvas } from "./SelectionCanvas";
 import { aplicarIdioma } from "../../lib/i18n";
-import { emite, emitidos, escuchas, llamadas, responde, ventana } from "../../test/preparar";
+import { emite, emitidos, escuchas, falla, llamadas, responde, ventana } from "../../test/preparar";
 import { EVENTO_PROPORCION, type Proporcion } from "../../lib/proporcion";
 import { EVENTO_SELECCION, type SeleccionCompartida } from "../../lib/seleccionCompartida";
 import {
@@ -187,6 +187,58 @@ describe("salir de la captura", () => {
     arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
     await waitFor(() => expect(capturado().map((l) => l.comando)).toEqual(["capture_still"]));
   });
+
+  it("si tras esconderse a medio arrastre solo llega el mousedown, el arrastre vale igual", async () => {
+    // WebKitGTK no vio soltar el botón con la ventana escondida: la pulsación siguiente no le
+    // da `pointerdown`, y sin esto esa captura no respondía al primer arrastre.
+    const alVuelo = { ...PAYLOAD, settings: { ...AJUSTES, captureFlow: "instant" } as Settings };
+    responde("overlay_bootstrap", alVuelo);
+    const lienzo = await abrir();
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    emite(EVENTS.overlayShow, { ...alVuelo, generation: 2 });
+    await screen.findByLabelText("Foto");
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 0, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+    await waitFor(() => expect(capturado().map((l) => l.comando)).toEqual(["capture_still"]));
+  });
+
+  it("una pulsación normal trae los dos avisos y sigue siendo un solo gesto", async () => {
+    const lienzo = await abrir();
+    fireEvent.pointerDown(lienzo, { clientX: 200, clientY: 300, buttons: 1 });
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 0, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 600, buttons: 1 });
+    fireEvent.mouseDown(lienzo, { clientX: 600, clientY: 600, button: 0, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 600, clientY: 600 });
+    expect(recorte()).toBe("400 × 300");
+  });
+
+  it("el mousedown de un asa no empieza otro recorte encima de estirar el que hay", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    const asa = [...lienzo.querySelectorAll<HTMLElement>("div")]
+      .filter((d) => d.style.cursor === "ew-resize")
+      .sort((a, b) => parseFloat(b.style.left) - parseFloat(a.style.left))[0];
+    fireEvent.pointerDown(asa, { clientX: 500, clientY: 400, buttons: 1 });
+    fireEvent.mouseDown(asa, { clientX: 500, clientY: 400, button: 0, buttons: 1 });
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 400, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 600, clientY: 400 });
+    expect(recorte()).toBe("400 × 200");
+  });
+
+  it("el mousedown de otro botón, o de dos a la vez, no empieza ningún recorte", async () => {
+    const lienzo = await abrir();
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 2, buttons: 2 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 2 });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+    fireEvent.mouseDown(lienzo, { clientX: 200, clientY: 300, button: 0, buttons: 3 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 500, buttons: 3 });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 500 });
+    expect(recorte()).toBeNull();
+  });
 });
 
 describe("la barra de arriba no se queda el sitio", () => {
@@ -256,6 +308,30 @@ describe("el interruptor de la barra de acciones", () => {
     expect(accion).toBe("save_as");
   });
 
+  it("la T sin lector de texto dice con qué orden se instala, y la orden no se parte por un guion", async () => {
+    // En Linux el lector es el Tesseract del sistema, y puede no estar (S45). Suelta en el
+    // renglón, la orden se partía en «tesseract-langpack-» y debajo «spa».
+    falla(
+      "capture_still",
+      "Para leer el texto falta Tesseract. Se instala con: sudo dnf install tesseract tesseract-langpack-spa",
+    );
+    const lienzo = await abrir();
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: true });
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    await screen.findByLabelText("Copiar");
+
+    fireEvent.keyDown(window, { key: "t" });
+    const orden = await screen.findByText(
+      (_, el) => el?.tagName === "CODE" && el.textContent === "sudo dnf install tesseract tesseract-langpack-spa",
+    );
+    const palabras = [...orden.querySelectorAll("span")];
+    expect(palabras.map((p) => p.textContent)).toEqual(["sudo", "dnf", "install", "tesseract", "tesseract-langpack-spa"]);
+    for (const p of palabras) expect(p.className).toContain("whitespace-nowrap");
+    expect(orden.parentElement).toHaveTextContent("Para leer el texto falta Tesseract. Se instala con:");
+    // Debajo de la barra de modos, que acaba a 74 px.
+    expect(orden.parentElement?.parentElement?.className).toContain("top-[84px]");
+  });
+
   it("encendido, soltar el recorte saca la barra y no captura nada todavia", async () => {
     const lienzo = await abrir();
     emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: true });
@@ -294,6 +370,71 @@ describe("el interruptor de la barra de acciones", () => {
     await waitFor(() =>
       expect(llamadas.some((l) => l.comando === "open_settings")).toBe(true),
     );
+  });
+});
+
+// En Linux la barra de grabar no se puede dejar fuera del vídeo, así que puede no haberla. Y
+// grabando no se enseña nada (saldría en el vídeo): cómo se para lo dice esta pantalla, antes.
+describe("cómo se para una grabación, dicho antes de empezar (Linux)", () => {
+  const COMO = { atajo: "Ctrl+Shift+5", bandeja: false, escritorio: true, orden: "winshotx --record" };
+  const frase = () => document.querySelector("[data-como-parar]");
+
+  it("al abrir para grabar, lo dice con la tecla en negrita", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record", comoParar: COMO });
+    await abrir();
+    await waitFor(() => expect(frase()).not.toBeNull());
+    expect(frase()).toHaveTextContent(
+      "Para parar la grabación, pulsa Ctrl+Shift+5 o deja de compartir la pantalla desde el escritorio.",
+    );
+    expect(frase()!.querySelector("strong")).toHaveTextContent("Ctrl+Shift+5");
+  });
+
+  it("en inglés, en inglés", async () => {
+    aplicarIdioma("en");
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record", comoParar: { ...COMO, bandeja: true, escritorio: false } });
+    render(<SelectionCanvas monitorId={1} />);
+    await waitFor(() => expect(frase()).not.toBeNull());
+    expect(frase()).toHaveTextContent("To stop the recording, press Ctrl+Shift+5 or use the winshotx tray icon.");
+  });
+
+  it("sin tecla ni bandeja, la orden que se escribe en una consola", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      intent: "record",
+      comoParar: { atajo: null, bandeja: false, escritorio: false, orden: "winshotx --record" },
+    });
+    await abrir();
+    await waitFor(() => expect(frase()).not.toBeNull());
+    expect(frase()).toHaveTextContent("Para parar la grabación, ejecuta winshotx --record.");
+    expect(frase()!.querySelector("strong")).toHaveTextContent("winshotx --record");
+  });
+
+  it("haciendo una foto no dice nada, y sale al pasar a vídeo o a GIF", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, comoParar: COMO });
+    await abrir();
+    expect(frase()).toBeNull();
+    // El modo viaja por evento: es el mismo en todas las pantallas.
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: false, withToolbar: false });
+    await waitFor(() => expect(frase()).not.toBeNull());
+    emite(EVENTS.overlayMode, { mode: "still", fullScreen: false, withToolbar: false });
+    await waitFor(() => expect(frase()).toBeNull());
+    emite(EVENTS.overlayMode, { mode: "gif", fullScreen: false, withToolbar: false });
+    await waitFor(() => expect(frase()).not.toBeNull());
+  });
+
+  it("también eligiendo la pantalla entera, que es la que se graba sin barra", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record", comoParar: COMO });
+    await abrir();
+    emite(EVENTS.overlayMode, { mode: "video", fullScreen: true, withToolbar: false });
+    await screen.findByText("grabarla entera");
+    expect(frase()).not.toBeNull();
+  });
+
+  it("en Windows, que siempre tiene su barra, no sale ni al grabar", async () => {
+    responde("overlay_bootstrap", { ...PAYLOAD, intent: "record" });
+    await abrir();
+    await screen.findByLabelText("Vídeo");
+    expect(frase()).toBeNull();
   });
 });
 
@@ -348,6 +489,33 @@ describe("la tecla que captura y abre el editor", () => {
 
     expect(await screen.findByLabelText("Copiar")).toBeInTheDocument();
     expect(llamadas.some((l) => l.comando === "capture_still")).toBe(false);
+  });
+});
+
+// La ventana de la captura se crea al arrancar y se reutiliza en cada captura: lo que recuerda
+// el navegador es el idioma de cuando nació. El de ahora viene en los ajustes de cada captura.
+describe("el idioma de la pantalla de captura", () => {
+  const EN_INGLES = { ...PAYLOAD, settings: { ...AJUSTES, language: "en" } as Settings };
+
+  it("es el de los ajustes que trae la captura, no el que recordaba la ventana", async () => {
+    responde("overlay_bootstrap", EN_INGLES);
+    render(<SelectionCanvas monitorId={1} />);
+    expect(await screen.findByLabelText("Photo")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Foto")).toBeNull();
+  });
+
+  it("si se cambia entre dos capturas, la ventana reutilizada sale en el nuevo", async () => {
+    await abrir();
+    emite(EVENTS.overlayShow, { ...EN_INGLES, generation: 2 });
+    expect(await screen.findByLabelText("Photo")).toBeInTheDocument();
+    emite(EVENTS.overlayShow, { ...PAYLOAD, settings: { ...AJUSTES, language: "es" } as Settings, generation: 3 });
+    expect(await screen.findByLabelText("Foto")).toBeInTheDocument();
+  });
+
+  it("unos ajustes sin idioma (una versión vieja) dejan el que había", async () => {
+    aplicarIdioma("en");
+    render(<SelectionCanvas monitorId={1} />);
+    expect(await screen.findByLabelText("Photo")).toBeInTheDocument();
   });
 });
 
@@ -1183,5 +1351,46 @@ describe("dos pantallas: el recorte sigue en la de al lado", () => {
       expect(lienzo.querySelector('[class~="bg-black/45"]')).not.toBeNull();
       expect(screen.queryByLabelText("Copiar")).toBeNull();
     });
+  });
+});
+
+describe("revisión: la primera pulsación tras Esc cae encima de lo que ya hay", () => {
+  // En ese estado WebKitGTK solo manda `mousedown`, sin `pointerdown`.
+  const suelto = { button: 0, buttons: 1 };
+
+  it("un mousedown suelto en Copiar no borra el recorte", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    expect(recorte()).toBe("300 × 200");
+    fireEvent.mouseDown(lienzo, { clientX: 500, clientY: 500, button: 2, buttons: 2 });
+    const copiar = screen.getAllByRole("button").find((b) => /Copiar/.test(b.textContent ?? "") || /Copiar/.test(b.getAttribute("aria-label") ?? "") || /Copiar/.test(b.getAttribute("title") ?? ""));
+    if (!copiar) throw new Error("sin boton Copiar: " + screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent).join(" | "));
+    fireEvent.mouseDown(copiar, { clientX: 700, clientY: 560, ...suelto });
+    expect(recorte()).toBe("300 × 200");
+  });
+
+  it("un mousedown suelto en un asa no borra el recorte", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    expect(recorte()).toBe("300 × 200");
+    fireEvent.mouseDown(lienzo, { clientX: 500, clientY: 500, button: 2, buttons: 2 });
+    const asa = [...lienzo.querySelectorAll<HTMLElement>("div")]
+      .filter((d) => d.style.cursor === "ew-resize")
+      .sort((a, b) => parseFloat(b.style.left) - parseFloat(a.style.left))[0];
+    fireEvent.mouseDown(asa, { clientX: 504, clientY: 400, ...suelto });
+    expect(recorte()).toBe("300 × 200");
+  });
+
+  it("y el asa pulsada así estira el recorte, no lo mueve", async () => {
+    const lienzo = await abrir();
+    arrastrar(lienzo, { x: 200, y: 300 }, { x: 500, y: 500 });
+    fireEvent.mouseDown(lienzo, { clientX: 500, clientY: 500, button: 2, buttons: 2 });
+    const asa = [...lienzo.querySelectorAll<HTMLElement>("div")]
+      .filter((d) => d.style.cursor === "ew-resize")
+      .sort((a, b) => parseFloat(b.style.left) - parseFloat(a.style.left))[0];
+    fireEvent.mouseDown(asa, { clientX: 500, clientY: 400, ...suelto });
+    fireEvent.pointerMove(window, { clientX: 600, clientY: 400, buttons: 1 });
+    fireEvent.pointerUp(window, { clientX: 600, clientY: 400 });
+    expect(recorte()).toBe("400 × 200");
   });
 });

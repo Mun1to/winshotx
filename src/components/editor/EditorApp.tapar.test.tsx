@@ -6,7 +6,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, expect, it, vi } from "vitest";
 import { EditorApp } from "./EditorApp";
 import { aplicarIdioma } from "../../lib/i18n";
-import { emite, llamadas, responde } from "../../test/preparar";
+import { emite, falla, llamadas, responde } from "../../test/preparar";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -84,4 +84,104 @@ it("si no encuentra nada, lo dice y no pone nada", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Tapar datos/ }));
   expect(await screen.findByText("No he encontrado datos personales en el vídeo")).toBeInTheDocument();
   expect(container.querySelector("[data-pista-tapar]")).toBeNull();
+});
+
+/** Una captura suelta: una sesión sin tiempo dentro. */
+function prepararFoto() {
+  responde("session_info", {
+    id: "s1",
+    region: { x: 0, y: 0, width: 800, height: 400 },
+    fps: 30,
+    frameCount: 1,
+    durationMs: 0,
+    hasAudio: false,
+    format: "still",
+    mp4Path: null,
+  });
+  responde("session_frames", [{ index: 0, timestampMs: 0, durationMs: 33, thumbPath: "C:\t\0.png" }]);
+  responde("get_settings", { saveDirectory: "C:\capturas", theme: "oscuro", language: "es" });
+  responde("ffmpeg_available", false);
+}
+
+const DOS_MOSAICOS = [
+  { kind: "blur", x1: 0.1, y1: 0.2, x2: 0.4, y2: 0.25, color: "#ef4444", text: "" },
+  { kind: "blur", x1: 0.1, y1: 0.4, x2: 0.3, y2: 0.45, color: "#ef4444", text: "" },
+];
+
+it("el aviso del editor lleva letra blanca sobre su fondo negro, también con el tema claro", async () => {
+  prepararFoto();
+  responde("tapar_datos", { marcas: [], resumen: [] });
+  render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+  fireEvent.keyDown(window, { key: "d" });
+  const aviso = await screen.findByText("No he encontrado datos personales en esta imagen");
+  // Con la letra del tema (`text-titulo`), en claro salía casi negra sobre negro.
+  expect(aviso.className).toContain("text-white");
+  expect(aviso.className).not.toContain("text-titulo");
+});
+
+it("en una captura dice qué ha tapado, y en inglés también las clases de dato", async () => {
+  prepararFoto();
+  responde("tapar_datos", { marcas: DOS_MOSAICOS, resumen: [["correo", 1], ["teléfono", 1]] });
+  const vista = render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(screen.queryByText("Preparando la sesión…")).toBeNull());
+  fireEvent.keyDown(window, { key: "d" });
+  expect(await screen.findByText("Tapado: 1 correo, 1 teléfono")).toBeInTheDocument();
+  vista.unmount();
+
+  aplicarIdioma("en");
+  render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(llamadas.filter((l) => l.comando === "session_frames")).toHaveLength(2));
+  fireEvent.keyDown(window, { key: "d" });
+  expect(await screen.findByText("Covered up: 1 email, 1 phone")).toBeInTheDocument();
+});
+
+it("si falta el lector de texto, dice con qué orden se instala, y la orden no se traduce", async () => {
+  // En Linux el lector es el Tesseract del sistema, y puede no estar (S45).
+  prepararFoto();
+  const falta = "Para leer el texto falta Tesseract. Se instala con: sudo apt install tesseract-ocr tesseract-ocr-spa";
+  falla("copiar_texto", falta);
+  falla("tapar_datos", falta);
+  aplicarIdioma("en");
+  render(<EditorApp sessionId="s1" />);
+  await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+  fireEvent.keyDown(window, { key: "t" });
+  const aviso = (await ordenDelAviso("sudo apt install tesseract-ocr tesseract-ocr-spa")).parentElement!;
+  expect(aviso).toHaveTextContent("Reading text needs Tesseract. Install it with:");
+});
+
+/** La orden de un aviso: va en su renglón y partida en palabras, para que no se corte por un guion. */
+const ordenDelAviso = (texto: string) =>
+  screen.findByText((_, el) => el?.tagName === "CODE" && el.textContent === texto);
+
+it("el aviso con la orden de instalar no se corta y da tiempo a copiarla; los demás se van a los 5 s", async () => {
+  prepararFoto();
+  falla("copiar_texto", "Para leer el texto falta Tesseract. Se instala con: sudo dnf install tesseract tesseract-langpack-spa");
+  responde("tapar_datos", { marcas: [], resumen: [] });
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    render(<EditorApp sessionId="s1" />);
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "session_frames")).toBe(true));
+    fireEvent.keyDown(window, { key: "t" });
+    const orden = await ordenDelAviso("sudo dnf install tesseract tesseract-langpack-spa");
+    const palabras = [...orden.querySelectorAll("span")];
+    expect(palabras.map((p) => p.textContent)).toEqual(["sudo", "dnf", "install", "tesseract", "tesseract-langpack-spa"]);
+    for (const p of palabras) expect(p.className).toContain("whitespace-nowrap");
+    expect(orden.parentElement!.className).not.toContain("truncate");
+    // Que React eche a andar el reloj del aviso antes de mover el tiempo.
+    await act(async () => {});
+    act(() => void vi.advanceTimersByTime(12_000));
+    expect(screen.queryByText(/Se instala con:/)).not.toBeNull();
+    act(() => void vi.advanceTimersByTime(12_000));
+    expect(screen.queryByText(/Se instala con:/)).toBeNull();
+
+    fireEvent.keyDown(window, { key: "d" });
+    const corto = await screen.findByText("No he encontrado datos personales en esta imagen");
+    expect(corto.className).toContain("truncate");
+    await act(async () => {});
+    act(() => void vi.advanceTimersByTime(5_500));
+    expect(screen.queryByText("No he encontrado datos personales en esta imagen")).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
 });

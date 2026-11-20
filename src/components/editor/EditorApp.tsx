@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Pause, Play, VideoOff, Volume1, Volume2, VolumeX } from "lucide-react";
 import {
+  apuntarDelEditor,
   discardSession,
   ffmpegAvailable,
   frameImage,
@@ -21,6 +22,7 @@ import {
   tapaDatos,
 } from "../../lib/ipc";
 import { formatTimecode } from "../../lib/format";
+import { urlDeMedio } from "../../lib/medios";
 import {
   EVENTS,
   type AvisoVistaPrevia,
@@ -48,7 +50,8 @@ import { FondoVivo } from "./FondoVivo";
 import { CarcasaVista } from "./CarcasaVista";
 import { CapaCamara } from "./CapaCamara";
 import type { Edicion, TramoZoom } from "../../lib/contrato";
-import { useT } from "../../lib/i18n";
+import { DURA_CON_ORDEN, partirOrden, tError, useT } from "../../lib/i18n";
+import { TextoDeAviso } from "../ui/Orden";
 import { aplicarTema } from "../../lib/tema";
 import {
   duracionDe,
@@ -63,6 +66,7 @@ import { cambiar, NIVEL_NUEVO } from "../../lib/zooms";
 // S9 (presets y tapar)
 import { CapaTapar } from "./CapaTapar";
 import { AVISO_TAPAR_VIDEO, tapaDatosVideo } from "../../lib/ipc";
+import { usePlataforma } from "../../lib/plataforma";
 import { anadirTapas } from "../../lib/tapar";
 // S10 (sonidos)
 import { SonidoDeClics } from "./SonidoDeClics";
@@ -125,6 +129,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [estudio, setEstudio] = useState<Estudio>(ESTUDIO_APAGADO);
   /** Los clics, atajos y rastro del raton que se anotaron al grabar. */
   const [datosEstudio, setDatosEstudio] = useState<StudioData | null>(null);
+  // En Wayland no se pueden leer las teclas al grabar: sin atajos, el editor no los ofrece.
+  const enWayland = usePlataforma()?.wayland ?? false;
   /** La camara del zoom, una muestra por fotograma, con el zoom y el recorte puestos. */
   const [camara, setCamara] = useState<MuestraCamara[]>([]);
   /**
@@ -483,10 +489,10 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       }
       // Todas de una vez: un Ctrl+Z quita lo que tapó este botón entero.
       cambiarMarcas({ tipo: "anadir", marcas });
-      const detalle = resumen.map(([clase, cuantos]) => `${cuantos} ${clase}`).join(", ");
+      const detalle = resumen.map(([clase, cuantos]) => `${cuantos} ${t(clase)}`).join(", ");
       setAviso(t("Tapado: {detalle}", { detalle }));
     } catch (e) {
-      setAviso(String(e));
+      setAviso(tError(e));
     } finally {
       setBuscandoDatos(false);
     }
@@ -502,7 +508,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       const palabras = texto.trim().split(/\s+/).length;
       setAviso(t("Texto copiado: {palabras} palabras", { palabras }));
     } catch (e) {
-      setAviso(String(e));
+      setAviso(tError(e));
     } finally {
       setBuscandoDatos(false);
     }
@@ -510,9 +516,11 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
 
   // El aviso se va solo: es algo que acaba de pasar, no un estado de la aplicacion, y uno
   // que se queda fijo acaba leyendose como si siguiera pasando.
+  // Salvo el que acaba en una orden de terminal («Falta Tesseract. Se instala con: sudo…», en
+  // Linux), que se queda lo que se tarda en copiarla.
   useEffect(() => {
     if (!aviso) return;
-    const reloj = setTimeout(() => setAviso(null), 5000);
+    const reloj = setTimeout(() => setAviso(null), partirOrden(aviso) ? DURA_CON_ORDEN : 5000);
     return () => clearTimeout(reloj);
   }, [aviso]);
 
@@ -677,7 +685,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   }, [posicionMs, frames, togglePlay, ir, markIn, markOut, recortando, herramienta, cerrar, alternarSonido, marcas.elegida, elegirMarca, hayVideo, cambiarVista, copiarTexto, taparDatos]);
 
   const videoUrl = useMemo(
-    () => (session?.mp4Path ? convertFileSrc(session.mp4Path) : null),
+    () => (session?.mp4Path ? urlDeMedio(session.mp4Path) : null),
     [session],
   );
 
@@ -722,12 +730,21 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
     const reloj = window.setInterval(() => {
       void sessionInfo(sessionId)
         .then((info) => {
-          if (info.mp4Path) setSession(info);
+          if (info.mp4Path || info.previaFallida) setSession(info);
         })
         .catch(() => undefined);
     }, 2000);
     return () => window.clearInterval(reloj);
   }, [session, sessionId, previaFallida]);
+  /**
+   * Y lo mismo con el aviso de que NO va a salir: la sesión lo dice cuando se le pregunta.
+   *
+   * Donde la vista previa falla en el acto (en Linux todavía no existe), el evento sale antes
+   * de que esta ventana exista, y el editor se quedaba en «Preparando el vídeo…» para siempre.
+   */
+  useEffect(() => {
+    if (session?.previaFallida) setPreviaFallida(true);
+  }, [session]);
 
   /**
    * Las miniaturas de la tira llegan DESPUÉS de que el editor abra: al parar se abre
@@ -1093,6 +1110,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                   msParado={posicionMs}
                   onFallo={(motivo) => {
                     console.warn(`[winshotx] la pista no suena en la vista previa (${motivo}): suena el vídeo`);
+                    // Al registro de la app también: la consola de la página no la ve nadie.
+                    apuntarDelEditor(`la pista no suena en la vista previa (${motivo})`);
                     setPistasRotas(true);
                   }}
                 />
@@ -1149,11 +1168,21 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
             </div>
             </div>
             </div>
-            {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo. */}
+            {/* Lo que pasa AHORA se cuenta arriba, donde no hay nada que pulsar, y se va solo.
+                La letra es blanca y no la del tema: el fondo es negro también con el tema claro. */}
             {aviso && (
-              <div className="pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2">
-                <span className="block truncate rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-titulo shadow-lg backdrop-blur-md">
-                  {aviso}
+              // Un renglón, cortado si no cabe; el que lleva una orden se parte en vez de cortarse.
+              <div
+                className={`pointer-events-none absolute top-3 left-1/2 max-w-[80%] -translate-x-1/2 ${
+                  partirOrden(aviso) ? "w-max" : ""
+                }`}
+              >
+                <span
+                  className={`block rounded-lg bg-black/85 px-3 py-1.5 text-[13px] text-white shadow-lg backdrop-blur-md ${
+                    partirOrden(aviso) ? "" : "truncate"
+                  }`}
+                >
+                  <TextoDeAviso texto={aviso} />
                 </span>
               </div>
             )}
@@ -1217,6 +1246,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           edicion={edicion}
           onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}
           conEscritura={(datosEstudio?.escritura?.length ?? 0) > 0}
+          sinTeclas={enWayland && (datosEstudio?.teclas?.length ?? 0) === 0}
           onRecorte={(nuevo) => {
             setRecorte(nuevo);
             // Puesta la proporción, el marco se enciende para poder moverlo de sitio: es

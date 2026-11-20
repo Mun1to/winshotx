@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { urlDeMedio } from "../../lib/medios";
 import type { MarcoCamara } from "../../lib/contrato";
 import { camaraDeLaSesion } from "../../lib/ipc";
 import {
@@ -167,7 +167,7 @@ export function CapaCamara({ sessionId, videoRef, marco, onMarco, hueco, aire, a
     return () => cancelAnimationFrame(id);
   }, [camara, videoRef]);
 
-  const url = useMemo(() => (camara ? convertFileSrc(camara.ruta) : null), [camara]);
+  const url = useMemo(() => (camara ? urlDeMedio(camara.ruta) : null), [camara]);
   const mostrado = vivo ?? marco ?? null;
   const lienzo: Medida | null = sitio ? { ancho: sitio.ancho, alto: sitio.alto } : null;
   const medidaCamara: Medida | null = camara ? { ancho: camara.ancho, alto: camara.alto } : null;

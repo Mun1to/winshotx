@@ -76,6 +76,36 @@ export interface OverlayPayload {
    * ofrece Vídeo ni GIF (otra grabación daría «ya hay una grabación en curso»).
    */
   recording?: boolean;
+  /**
+   * Con qué se para una grabación. Solo llega en Linux, donde puede no haber barra de
+   * grabar: la pantalla de elegir zona lo dice antes de empezar (`lib/comoParar.ts`).
+   */
+  comoParar?: ComoParar;
+}
+
+/** Con qué cuenta esta persona para parar una grabación en Linux. */
+export interface ComoParar {
+  /** La tecla de grabar, que también para, escrita para leerla. `null` si no hay ninguna. */
+  atajo: string | null;
+  /** Este escritorio enseña la bandeja (el GNOME de fábrica no). */
+  bandeja: boolean;
+  /** El escritorio tiene su propio botón de dejar de compartir la pantalla (GNOME, KDE). */
+  escritorio: boolean;
+  /** Lo que se escribe en una consola para parar («winshotx --record»). */
+  orden: string;
+  /**
+   * La tecla que para una captura con scroll antes de que llegue al final («Esc» en X11, la
+   * de capturar en Wayland). Se dice antes de empezar porque en Linux puede no haber barra:
+   * no se puede sacar de las fotos. `null` si no hay ninguna (Wayland sin tecla puesta).
+   */
+  scroll?: string | null;
+  /** Lo que se escribe en una consola para pararla («winshotx --capture»). */
+  scrollOrden?: string;
+  /**
+   * Al empezar, el escritorio va a preguntar si deja mover el puntero (Wayland sin permiso
+   * guardado). Se avisa antes: en esa pregunta viene apagado, y sin él no baja sola.
+   */
+  scrollPregunta?: boolean;
 }
 
 export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text" | /* S4 (capturas) */ "qr";
@@ -137,6 +167,8 @@ export interface SessionInfo {
   picoMicrofono?: number | null;
   /** Cuántos decibelios se subió el sonido del PC al grabar porque llegó casi mudo. */
   subidaPc?: number | null;
+  /** La vista previa se intentó escribir y no salió: no hay que seguir esperándola. */
+  previaFallida?: boolean;
 }
 
 /**
@@ -435,6 +467,66 @@ export interface ShortcutStatus {
   winShiftS: boolean;
 }
 
+/** Dónde corre winshotx (el comando `plataforma`). */
+export interface Plataforma {
+  sistema: "windows" | "linux" | "macos";
+  /** En Wayland las teclas no las pone winshotx: las elige la persona en el escritorio. */
+  wayland: boolean;
+}
+
+/**
+ * Qué sonido se puede grabar en este sistema (el comando `sonido_disponible`). Solo existe en
+ * Linux, donde el sonido llega por PipeWire y hay sistemas en los que PipeWire no lo lleva
+ * (Ubuntu 22.04, Linux Mint 21): ahí se graba sin sonido, y los ajustes lo dicen.
+ */
+export interface SonidoDisponible {
+  /** Hay una salida de sonido: se puede grabar lo que suena. */
+  altavoz: boolean;
+  /** Hay una entrada: se puede grabar el micrófono. */
+  microfono: boolean;
+}
+
+/**
+ * Lo que le falta a este equipo para guardar un MP4 (el comando `falta_para_el_mp4`). Solo pasa
+ * en Linux, donde el MP4 lo escribe el GStreamer del sistema y winshotx no lleva codificador.
+ */
+export interface FaltaParaElMp4 {
+  /** `video`: no hay codificador de H.264 y el MP4 no sale. `sonido`: no hay de AAC y sale mudo. */
+  que: "video" | "sonido";
+  /** La orden que lo instala, donde se sabe cuál es. */
+  orden: string | null;
+  /**
+   * Es un AppImage cuyo GStreamer no carga los plugins del sistema: instalar el codificador no lo
+   * arregla, y lo que se dice es que se use el paquete .deb o .rpm.
+   */
+  appimage?: boolean;
+}
+
+/** Una tecla que ha puesto el escritorio en Wayland. */
+export interface TeclaDelEscritorio {
+  /** Tal cual la escribe el escritorio («Press <Shift><Control>2» en GNOME). */
+  texto: string;
+  /** La misma con el formato de los ajustes, o null si no se ha sabido leer. */
+  atajo: string | null;
+}
+
+/** Lo que el escritorio ha puesto en los atajos que se le piden en Wayland. */
+export interface TeclasDelEscritorio {
+  capture: TeclaDelEscritorio | null;
+  edit: TeclaDelEscritorio | null;
+  /** La de grabar, que es también la de parar: en Wayland no hay barra de grabar. */
+  record?: TeclaDelEscritorio | null;
+  /** S45: la que se queda con los últimos segundos. Solo se pide con el anillo encendido. */
+  replay?: TeclaDelEscritorio | null;
+  /**
+   * Que este escritorio no deja pedirle atajos (Sway y los demás de wlroots): la tecla se pone
+   * a mano en su configuración, con `orden` y `--capture` o `--edit`.
+   */
+  aMano: boolean;
+  /** Cómo se escribe winshotx ahí: `winshotx`, o la ruta del AppImage. */
+  orden: string;
+}
+
 /** Una pantalla del sistema, para poder elegir cuál se vigila. */
 export interface Screen {
   id: number;
@@ -466,6 +558,11 @@ export interface ReplayStatus {
    * menos de lo que pone el ajuste, y quien lo pulse tiene derecho a saberlo antes.
    */
   bufferedMs: number;
+  /**
+   * S45 (Linux): por qué está apagado, si no lo apagó la persona (al arrancar sin permiso
+   * guardado, o porque el escritorio dejó de compartir la pantalla). En Windows no llega nunca.
+   */
+  apagadoPor?: "sin-permiso" | "cortado" | "fallo";
 }
 
 export interface PrintScreenState {
@@ -499,6 +596,7 @@ export const EVENTS = {
   checkUpdate: "winshotx://check-update",
   /** La ventana de ajustes vuelve a estar a la vista: toca refrescar lo de dentro. */
   settingsShown: "winshotx://settings-shown",
+  shortcutsChanged: "winshotx://shortcuts-changed",
   /** El anillo de los últimos segundos se ha encendido, apagado o ha guardado algo. */
   replay: "winshotx://replay",
   /**

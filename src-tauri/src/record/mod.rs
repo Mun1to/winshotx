@@ -9,10 +9,31 @@ use serde::{Deserialize, Serialize};
 use crate::capture::Rect;
 use crate::error::{AppError, Result};
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 pub mod anotador;
 #[cfg(windows)]
 pub mod camara;
+pub mod camara_comun;
+/// La cámara de Linux: la da el GStreamer del sistema.
+#[cfg(target_os = "linux")]
+pub use linux::camara;
+/// En los demás sistemas no se sabe abrir una cámara: los ajustes la ven vacía.
+#[cfg(not(any(windows, target_os = "linux")))]
+pub mod camara {
+    /// Una cámara conectada, para elegirla en los ajustes.
+    #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Dispositivo {
+        pub id: String,
+        pub nombre: String,
+    }
+
+    /// La orden de los ajustes: qué cámaras hay, para elegir una.
+    #[tauri::command]
+    pub async fn list_cameras() -> crate::error::Result<Vec<Dispositivo>> {
+        Ok(Vec::new())
+    }
+}
 #[cfg(windows)]
 pub mod punteros;
 #[cfg(windows)]
@@ -27,12 +48,16 @@ mod viejo_s29;
 mod bench_thumbs;
 pub mod buffer;
 pub mod delta;
+pub(crate) mod letras;
+#[cfg(target_os = "linux")]
+pub mod linux;
 pub mod mezcla;
 pub mod pastilla;
 // S11 (pistas)
 pub mod pistas;
 pub mod raton;
 pub mod realce;
+pub mod reloj;
 pub mod teclas;
 #[cfg(windows)]
 pub mod comparar_gpu;

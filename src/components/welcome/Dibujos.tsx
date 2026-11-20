@@ -112,6 +112,7 @@ function Cursor({ className = "" }: { className?: string }) {
 function Seleccion({ hecha = false }: { hecha?: boolean }) {
   return (
     <div
+      data-dibujo="seleccion"
       className={`absolute rounded-[2px] border-2 border-[#0a9bff] ${hecha ? "" : "border-dashed"}`}
       style={{
         left: "26%",
@@ -124,10 +125,13 @@ function Seleccion({ hecha = false }: { hecha?: boolean }) {
   );
 }
 
-/** Paso 1: se pulsa la tecla, se arrastra la zona, y winshotx sigue en la bandeja. */
-export function DibujoAtajos() {
+/**
+ * Paso 1: se pulsa la tecla, se arrastra la zona, y winshotx sigue en la bandeja. En Linux va sin
+ * la barra de tareas, que es la de Windows: cada escritorio tiene la suya, o ninguna.
+ */
+export function DibujoAtajos({ conBarra = true }: { conBarra?: boolean }) {
   return (
-    <Pantallita barra>
+    <Pantallita barra={conBarra}>
       <Seleccion />
       <Cursor className="top-[57%] left-[64%]" />
     </Pantallita>

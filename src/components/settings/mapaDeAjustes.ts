@@ -109,6 +109,8 @@ export interface AjusteBuscable {
   id: string;
   apartado: ApartadoId;
   nombre: string;
+  /** S21 (Linux): el nombre de la fila allí, si no es el mismo. */
+  nombreEnLinux?: string;
   palabras: string;
 }
 
@@ -144,7 +146,7 @@ export const BUSCABLES: AjusteBuscable[] = [
   { id: "tecRecortes", apartado: "teclas", nombre: "Herramienta de Recortes", palabras: "herramienta recortes quitar desinstalar snipping tool remove uninstall 截图工具 卸载 移除" },
   { id: "appCarpeta", apartado: "app", nombre: "Carpeta de destino", palabras: "carpeta destino dónde guarda archivos folder destination where save files 文件夹 保存 位置" },
   { id: "appCache", apartado: "app", nombre: "Caché de grabaciones", palabras: "caché espacio borrar vaciar cache space clear empty 缓存 空间 清空" },
-  { id: "appArrancar", apartado: "app", nombre: "Arrancar con Windows", palabras: "arrancar inicio encender start startup boot 开机 启动" },
+  { id: "appArrancar", apartado: "app", nombre: "Arrancar con Windows", nombreEnLinux: "Arrancar al iniciar sesión", palabras: "arrancar inicio encender sesión start startup boot login 开机 启动 登录" },
   { id: "appTema", apartado: "app", nombre: "Tema", palabras: "tema claro oscuro color theme light dark colour 主题 浅色 深色" },
   { id: "appIdioma", apartado: "app", nombre: "Idioma", palabras: "idioma inglés español chino language english spanish chinese 语言 英语 西班牙语 中文" },
   { id: "appBienvenida", apartado: "ayuda", nombre: "Bienvenida", palabras: "bienvenida primer día welcome first day onboarding 欢迎" },

@@ -10,6 +10,10 @@
 pub mod autostart;
 pub mod empaquetado;
 pub mod marco;
+// La figura del marco y su dibujo, que no dependen del sistema. Las ventanas las ponen
+// `marco` en Windows y `marco_x11` en Linux.
+pub mod marco_comun;
+pub mod marco_x11;
 pub mod clipboard;
 pub mod desktop_icons;
 pub mod guardia;
@@ -18,6 +22,14 @@ pub mod snipping;
 pub mod sonido;
 pub mod webview;
 pub mod window_style;
+// S21 (Linux): la carpeta de imagenes de XDG, xdg-open y el gestor de archivos.
+pub mod xdg;
+// S21 (Linux): presentarse al portal con el nombre de la app, y los atajos de Wayland.
+#[cfg(target_os = "linux")]
+pub mod portal;
+// S44 (Linux, grabar): con que se para una grabacion, para decirlo antes de que empiece.
+#[cfg(target_os = "linux")]
+pub mod como_parar;
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S2 (grabación)
 // S3 (fondos)
@@ -27,6 +39,8 @@ pub mod arrastrar;
 // S25 (marco)
 pub mod tema;
 // S5 (scroll)
+// S45 (Linux): leer el texto con el Tesseract del sistema. Lo usa `ocr` en Linux.
+pub mod tesseract;
 
 use std::path::Path;
 
@@ -42,7 +56,12 @@ pub fn reveal(path: &Path) -> crate::error::Result<()> {
             .spawn()?;
         return Ok(());
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        xdg::ensennar(path)?;
+        return Ok(());
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = path;
         Err(crate::error::AppError::Unsupported)
@@ -80,7 +99,12 @@ pub fn open_folder(path: &Path) -> crate::error::Result<()> {
             .spawn()?;
         return Ok(());
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        xdg::abrir(path.as_os_str())?;
+        return Ok(());
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     Err(crate::error::AppError::Unsupported)
 }
 
@@ -99,7 +123,12 @@ pub fn abrir_url(url: &str) -> crate::error::Result<()> {
             .spawn()?;
         return Ok(());
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        xdg::abrir(std::ffi::OsStr::new(url))?;
+        return Ok(());
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = url;
         Err(crate::error::AppError::Unsupported)

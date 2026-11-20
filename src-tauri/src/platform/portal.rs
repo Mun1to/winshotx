@@ -1,0 +1,813 @@
+//! Lo de xdg-desktop-portal que no es de una sola funcion: presentarse al portal con el
+//! nombre de la app, y los atajos globales de Wayland.
+//!
+//! **El orden importa.** El portal apunta quien es cada conexion de D-Bus la primera vez que
+//! le habla, y desde ahi ya no deja cambiarlo («Registered too late»). `ashpd` usa una sola
+//! conexion para todo el proceso, asi que `registrar_la_app` va antes que cualquier otra
+//! llamada a un portal: la foto de Wayland la espera, y los atajos tambien.
+
+use std::path::Path;
+use std::pin::Pin;
+use std::sync::{LazyLock, OnceLock};
+use std::time::{Duration, Instant};
+
+use ashpd::desktop::global_shortcuts::{
+    Activated, GlobalShortcuts, NewShortcut, Shortcut, ShortcutsChanged,
+};
+use ashpd::desktop::Session;
+use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use futures_channel::oneshot;
+use futures_util::future::{select, Either};
+use futures_util::{Stream, StreamExt};
+use tauri::async_runtime::Mutex;
+use tauri::{AppHandle, Emitter, Manager};
+
+use crate::hotkeys::{atajo_de_la_descripcion, TeclaDelEscritorio, TeclasDelEscritorio};
+use crate::state::AppState;
+use crate::windows_mgr::{self, OverlayIntent};
+
+/// El identificador de la app, el de `tauri.conf.json`, que es tambien el nombre con que GTK
+/// presenta las ventanas (`lib.rs`, `set_prgname`). El portal solo acepta el registro si
+/// encuentra un `.desktop` con este nombre: el .deb y el .rpm lo instalan como la entrada del
+/// menu (`packaging/linux/com.munir.winshotx.desktop`), y el AppImage deja uno escondido en la
+/// carpeta del usuario (`dejar_el_desktop_del_appimage`).
+pub const ID_DE_LA_APP: &str = "com.munir.winshotx";
+
+/// Si el portal ha aceptado ya el registro: `None` mientras no se ha intentado.
+static REGISTRADA: LazyLock<Mutex<Option<bool>>> = LazyLock::new(|| Mutex::new(None));
+
+/// Se presenta al portal como `com.munir.winshotx`, una vez por proceso, y devuelve si lo ha
+/// aceptado.
+///
+/// Sin esto, una app instalada sin Flatpak le llega al portal sin nombre. Las capturas
+/// funcionan igual (el permiso queda a nombre de «todas las apps sin sandbox»), pero los
+/// atajos globales no: el portal los rechaza con «An app id is required» (lo comprueba
+/// `xdg-desktop-portal` 1.22, `src/global-shortcuts.c`). El registro existe desde la 1.19; en
+/// uno mas viejo falla y se sigue sin nombre.
+pub async fn registrar_la_app() -> bool {
+    let mut registrada = REGISTRADA.lock().await;
+    if let Some(valor) = *registrada {
+        return valor;
+    }
+    let recien_dejado = dejar_el_desktop_del_appimage();
+    let mut resultado = presentarse().await;
+    // El portal vigila la carpeta de los `.desktop`, pero tarda un poco en ver uno nuevo. Un
+    // registro que falla no deja apuntado nada, asi que se puede repetir.
+    if recien_dejado {
+        for _ in 0..3 {
+            let sin_el_desktop = resultado
+                .as_ref()
+                .is_err_and(|error| error.to_string().contains("App info not found"));
+            if !sin_el_desktop {
+                break;
+            }
+            let _ = tauri::async_runtime::spawn_blocking(|| {
+                std::thread::sleep(std::time::Duration::from_secs(1))
+            })
+            .await;
+            resultado = presentarse().await;
+        }
+    }
+    let valor = match resultado {
+        Ok(()) => {
+            eprintln!("[portal] registrada como {ID_DE_LA_APP}");
+            true
+        }
+        Err(error) => {
+            eprintln!("[portal] sin registrar ({error}): los atajos de Wayland no se pueden pedir");
+            false
+        }
+    };
+    *registrada = Some(valor);
+    valor
+}
+
+async fn presentarse() -> ashpd::Result<()> {
+    ashpd::register_host_app(ID_DE_LA_APP.parse::<ashpd::AppID>()?).await
+}
+
+/// El AppImage no instala nada, asi que el `.desktop` que pide el registro no esta en ningun
+/// sitio. Se deja uno escondido (`NoDisplay`, no sale en el menu) en
+/// `~/.local/share/applications`, apuntando al AppImage, si no hay ya uno de la app. Devuelve
+/// si lo ha dejado ahora.
+///
+/// El portal ve un `.desktop` nuevo aunque la carpeta no existiera cuando arranco (medido en
+/// el laboratorio de S21: a los 6 s ya lo encontraba), pero no al instante: de ahi los
+/// reintentos de `registrar_la_app`. Cuanto tarda exactamente no se ha medido.
+fn dejar_el_desktop_del_appimage() -> bool {
+    let Some(appimage) = std::env::var_os("APPIMAGE").map(std::path::PathBuf::from) else {
+        return false;
+    };
+    let Some(casa) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+        return false;
+    };
+    let datos_usuario = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .filter(|ruta| ruta.is_absolute())
+        .unwrap_or_else(|| casa.join(".local/share"));
+    let datos_sistema = std::env::var("XDG_DATA_DIRS")
+        .ok()
+        .filter(|valor| !valor.is_empty())
+        .unwrap_or_else(|| "/usr/local/share:/usr/share".into());
+    let nombre = format!("{ID_DE_LA_APP}.desktop");
+    let ya_hay = std::iter::once(datos_usuario.clone())
+        .chain(datos_sistema.split(':').map(std::path::PathBuf::from))
+        .any(|carpeta| carpeta.join("applications").join(&nombre).is_file());
+    if ya_hay {
+        return false;
+    }
+    let carpeta = datos_usuario.join("applications");
+    let texto = desktop_escondido(&appimage.to_string_lossy());
+    match std::fs::create_dir_all(&carpeta).and_then(|()| std::fs::write(carpeta.join(&nombre), texto)) {
+        Ok(()) => true,
+        Err(error) => {
+            eprintln!("[portal] no se ha podido dejar el .desktop del AppImage: {error}");
+            false
+        }
+    }
+}
+
+/// El `.desktop` escondido del AppImage. La ruta va entre comillas, como pide la
+/// especificacion de las entradas de escritorio para un `Exec` con espacios.
+fn desktop_escondido(ejecutable: &str) -> String {
+    let ruta = ejecutable.replace('\\', "\\\\").replace('"', "\\\"");
+    format!(
+        "[Desktop Entry]\nType=Application\nName=winshotx\nExec=\"{ruta}\"\nIcon=winshotx\nNoDisplay=true\nTerminal=false\n"
+    )
+}
+
+/// Un atajo que se le pide al escritorio: el nombre para nosotros, lo que ensenna el
+/// escritorio al preguntar, y la tecla que proponemos con el formato del portal. La tecla es
+/// solo una sugerencia: la decide la persona en el dialogo del escritorio.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Peticion {
+    pub id: &'static str,
+    pub descripcion: String,
+    pub tecla: Option<String>,
+}
+
+/// El atajo que se queda con los ultimos segundos. Solo se pide con el anillo encendido, y
+/// lleva su propia cuenta de si la persona lo quiso (`MARCA_SIN_RESCATE`).
+pub const LA_DE_RESCATE: &str = "replay";
+
+/// Lo que se le puede mandar a la tarea que habla con el portal.
+enum Orden {
+    /// Estos atajos, en lugar de los de la vez anterior.
+    Atar {
+        peticiones: Vec<Peticion>,
+        /// Los pide algo que la persona acaba de hacer (encender el anillo), y no un arranque
+        /// ni un ajuste cualquiera: cuenta como pulsar «Cambiar».
+        por_la_persona: bool,
+    },
+    /// Que el escritorio ensenne su ventana para cambiar las teclas, y por aqui se contesta si
+    /// ha salido alguna.
+    Configurar {
+        /// El «Cambiar» de la fila de rescatar: si esa tecla se rechazo, se vuelve a pedir.
+        por_la_de_rescate: bool,
+        contestar: oneshot::Sender<Result<(), String>>,
+    },
+}
+
+/// Por donde le llegan las ordenes a la tarea que habla con el portal. Solo existe en Wayland:
+/// la abre el primer `pedir_atajos`.
+static CANAL: OnceLock<UnboundedSender<Orden>> = OnceLock::new();
+
+/// Lo que ha puesto el escritorio en cada atajo, para la bienvenida y los ajustes.
+static TECLAS: parking_lot::Mutex<TeclasDelEscritorio> = parking_lot::Mutex::new(TeclasDelEscritorio {
+    capture: None,
+    edit: None,
+    record: None,
+    replay: None,
+    a_mano: false,
+    orden: String::new(),
+});
+
+/// Que el escritorio no deja pedirle atajos: no tiene el portal, o no se le pueden escuchar.
+static A_MANO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Le pide al escritorio estos atajos, en lugar de los de la vez anterior. Vuelve enseguida:
+/// el escritorio puede preguntar (un dialogo de GNOME), y lo que quede puesto se apunta en
+/// `AppState::shortcuts` cuando conteste.
+///
+/// `por_la_persona` dice que los pide algo que la persona acaba de hacer en los ajustes
+/// (encender el anillo, que trae su tecla): entonces se le pregunta aunque antes dijera que
+/// no. Un arranque o un ajuste cualquiera no lo es.
+pub fn pedir_atajos(app: &AppHandle, peticiones: Vec<Peticion>, por_la_persona: bool) {
+    let canal = CANAL.get_or_init(|| {
+        let (enviar, recibir) = unbounded();
+        tauri::async_runtime::spawn(atender(app.clone(), recibir));
+        enviar
+    });
+    let _ = canal.unbounded_send(Orden::Atar { peticiones, por_la_persona });
+}
+
+/// Las teclas que el escritorio ha dado a los atajos, o `None` si winshotx no le pide los
+/// atajos al escritorio (fuera de Wayland las pone el plugin, y mandan los ajustes).
+pub fn teclas_del_escritorio() -> Option<TeclasDelEscritorio> {
+    CANAL.get().map(|_| TeclasDelEscritorio {
+        a_mano: A_MANO.load(std::sync::atomic::Ordering::Relaxed),
+        orden: crate::platform::xdg::orden_de_la_app(),
+        ..TECLAS.lock().clone()
+    })
+}
+
+/// Donde no se le pueden pedir los atajos al escritorio, la persona los pone a mano en su
+/// configuracion: la bienvenida y los ajustes le ensennan la orden. Se avisa como cualquier
+/// otro cambio de teclas, porque la bienvenida puede haber preguntado antes de saberse.
+fn sin_atajos_del_escritorio(app: &AppHandle) {
+    A_MANO.store(true, std::sync::atomic::Ordering::Relaxed);
+    anotar(app, &[]);
+}
+
+/// Pide al escritorio que ensenne donde se cambian las teclas de winshotx: su propia ventana
+/// (`ConfigureShortcuts` del portal), o si no la tiene, la pagina de la app en sus ajustes. Lo
+/// que la persona cambie llega despues con la senal `ShortcutsChanged`. `Err` con el porque
+/// si no ha salido nada.
+///
+/// `por_la_de_rescate` es el «Cambiar» de la fila de los ultimos segundos: si la persona
+/// habia dicho que no a esa tecla, cambiarla es volver a pedirsela al escritorio.
+pub async fn cambiar_en_el_escritorio(por_la_de_rescate: bool) -> Result<(), String> {
+    let Some(canal) = CANAL.get() else {
+        return Err("aquí las teclas no las pone el escritorio".into());
+    };
+    let (contestar, respuesta) = oneshot::channel();
+    canal
+        .unbounded_send(Orden::Configurar { por_la_de_rescate, contestar })
+        .map_err(|_| "los atajos del escritorio no están en marcha".to_string())?;
+    respuesta.await.unwrap_or_else(|_| Err("los atajos del escritorio no están en marcha".into()))
+}
+
+/// Lo que dice el escritorio por su cuenta: que se ha pulsado un atajo, o que han cambiado.
+enum Senal {
+    Pulsado(Activated),
+    Cambiados(ShortcutsChanged),
+}
+
+/// La tarea de los atajos: una sesion del portal viva mientras la app lo este (si la sesion se
+/// cierra, el escritorio suelta las teclas), que se rehace cuando cambian los atajos.
+async fn atender(app: AppHandle, mut ordenes: UnboundedReceiver<Orden>) {
+    if !registrar_la_app().await {
+        sin_atajos_del_escritorio(&app);
+        return;
+    }
+    let portal = match GlobalShortcuts::new().await {
+        Ok(portal) => portal,
+        Err(error) => {
+            eprintln!("[atajo] el escritorio no tiene el portal de atajos: {error}");
+            sin_atajos_del_escritorio(&app);
+            return;
+        }
+    };
+    let pulsados = match portal.receive_activated().await {
+        Ok(senales) => senales.map(Senal::Pulsado),
+        Err(error) => {
+            eprintln!("[atajo] no se pueden escuchar los atajos del portal: {error}");
+            sin_atajos_del_escritorio(&app);
+            return;
+        }
+    };
+    // Sin esta senal los atajos funcionan igual: solo se pierde ver en los ajustes la tecla que
+    // la persona cambie en el escritorio.
+    let cambiados: Pin<Box<dyn Stream<Item = Senal> + Send>> =
+        match portal.receive_shortcuts_changed().await {
+            Ok(senales) => Box::pin(senales.map(Senal::Cambiados)),
+            Err(error) => {
+                eprintln!("[atajo] no se oyen los cambios de teclas del escritorio: {error}");
+                Box::pin(futures_util::stream::pending())
+            }
+        };
+    let mut senales = futures_util::stream::select(Box::pin(pulsados), cambiados);
+    let mut sesion: Option<Session<'_, GlobalShortcuts<'_>>> = None;
+    // Lo ultimo que ha pedido la app, y lo que tiene puesto el escritorio en la sesion de ahora.
+    // No son lo mismo: la tecla de rescatar que la persona rechazo se quiere y no se pide.
+    let mut queridos: Vec<Peticion> = Vec::new();
+    let mut pedidos: Vec<Peticion> = Vec::new();
+    let mut atados: Vec<Shortcut> = Vec::new();
+    // Si la persona cerro la pregunta del escritorio sin aceptarla, en este arranque o en otro.
+    let carpeta = app.path().app_config_dir().ok();
+    let marca = carpeta.as_ref().map(|carpeta| carpeta.join(MARCA_DE_QUE_NO));
+    let mut dijo_que_no = marca.as_deref().is_some_and(Path::exists);
+    if dijo_que_no {
+        eprintln!("[atajo] la persona dijo que no a los atajos del escritorio: se piden con «Cambiar», no al arrancar");
+    }
+    // Lo mismo, pero solo de la tecla de rescatar: dijo que no a esa y las demas siguen puestas.
+    let marca_rescate = carpeta.as_ref().map(|carpeta| carpeta.join(MARCA_SIN_RESCATE));
+    let mut sin_rescate = marca_rescate.as_deref().is_some_and(Path::exists);
+    if sin_rescate {
+        eprintln!("[atajo] la persona dijo que no a la tecla de rescatar: se pide al encender el anillo o con su «Cambiar»");
+    }
+    loop {
+        match select(ordenes.next(), senales.next()).await {
+            Either::Left((Some(orden), _)) => {
+                // Cada ajuste que se toca vuelve a pedir los atajos: vale el ultimo.
+                let mut llegan = false;
+                let mut por_la_persona = false;
+                let mut esperan: Vec<oneshot::Sender<Result<(), String>>> = Vec::new();
+                let mut siguiente = Some(orden);
+                while let Some(orden) = siguiente.take().or_else(|| ordenes.try_recv().ok()) {
+                    match orden {
+                        Orden::Atar { peticiones, por_la_persona: suya } => {
+                            queridos = peticiones;
+                            llegan = true;
+                            por_la_persona |= suya;
+                        }
+                        Orden::Configurar { por_la_de_rescate, contestar } => {
+                            por_la_persona |= por_la_de_rescate;
+                            esperan.push(contestar);
+                        }
+                    }
+                }
+                let configurar = !esperan.is_empty();
+                let mut resultado: Result<(), String> = Ok(());
+                // Pedir la de rescatar por la persona solo tiene sentido si el anillo sigue
+                // encendido cuando se atiende la tanda.
+                let por_la_persona = por_la_persona && lleva_la_de_rescate(&queridos);
+                let por_pedir = lo_que_se_pide(&queridos, sin_rescate && !por_la_persona);
+                let cambian = sesion.is_none() || por_pedir != pedidos;
+                let pedir = toca_pedir(Tanda {
+                    llegan,
+                    cambian,
+                    configurar,
+                    por_la_persona,
+                    hay_pedidos: !por_pedir.is_empty(),
+                    dijo_que_no,
+                });
+                if pedir {
+                    // Lo unico nuevo de esta pregunta es la tecla de rescatar: las demas ya
+                    // estaban puestas, y un «no» no puede llevarselas por delante.
+                    let estrena_la_de_rescate =
+                        sesion.is_some() && !lleva_la_de_rescate(&pedidos) && lleva_la_de_rescate(&por_pedir);
+                    if let Some(vieja) = sesion.take() {
+                        let _ = vieja.close().await;
+                    }
+                    let mut lista = por_pedir;
+                    let mut pedido_en = Instant::now();
+                    let mut intento = atar(&portal, &lista).await;
+                    let mut tardo = pedido_en.elapsed();
+                    if estrena_la_de_rescate && intento.as_ref().is_err_and(|error| es_un_no(error, tardo)) {
+                        eprintln!("[atajo] la persona ha dicho que no a la tecla de rescatar: las demas se quedan como estaban");
+                        sin_rescate = true;
+                        if let Some(marca) = &marca_rescate {
+                            if let Err(error) = apuntar_el_no(marca) {
+                                eprintln!("[atajo] no se ha podido apuntar el no ({error}): se preguntara otra vez al arrancar");
+                            }
+                        }
+                        // El escritorio recuerda las que ya acepto: volver a pedirlas no pregunta.
+                        lista = lo_que_se_pide(&queridos, true);
+                        pedido_en = Instant::now();
+                        intento = atar(&portal, &lista).await;
+                        tardo = pedido_en.elapsed();
+                    }
+                    match intento {
+                        Ok((nueva, puestos)) => {
+                            sesion = Some(nueva);
+                            atados = puestos;
+                            if dijo_que_no {
+                                dijo_que_no = false;
+                                if let Some(marca) = &marca {
+                                    let _ = std::fs::remove_file(marca);
+                                }
+                            }
+                            if sin_rescate && lleva_la_de_rescate(&lista) {
+                                sin_rescate = false;
+                                if let Some(marca) = &marca_rescate {
+                                    let _ = std::fs::remove_file(marca);
+                                }
+                            }
+                            pedidos = lista;
+                        }
+                        // La persona ha cerrado la pregunta del escritorio sin aceptarla. No es
+                        // un fallo (a quien pulso «Cambiar» no se le dice que el escritorio no
+                        // tiene ventana de teclas), y se apunta para no volver a preguntarle sola.
+                        Err(error) if es_un_no(&error, tardo) => {
+                            eprintln!("[atajo] la persona ha dicho que no a los atajos del escritorio: se piden otra vez con «Cambiar»");
+                            atados.clear();
+                            pedidos.clear();
+                            dijo_que_no = true;
+                            if let Some(marca) = &marca {
+                                if let Err(error) = apuntar_el_no(marca) {
+                                    eprintln!("[atajo] no se ha podido apuntar el no ({error}): se preguntara otra vez al arrancar");
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("[atajo] el escritorio no ha puesto los atajos: {error}");
+                            resultado = Err(error.to_string());
+                            atados.clear();
+                            pedidos.clear();
+                        }
+                    }
+                    anotar(&app, &atados);
+                } else if let (true, Some(sesion)) = (configurar, sesion.as_ref()) {
+                    resultado = configurar_en_el_escritorio(&portal, sesion).await;
+                } else if configurar {
+                    resultado = Err("el escritorio no ha puesto ningún atajo".into());
+                }
+                for contestar in esperan {
+                    let _ = contestar.send(resultado.clone());
+                }
+            }
+            // El portal manda las senales solo a quien abrio la sesion, y la sesion vieja se
+            // cierra antes de abrir otra: lo que llega es nuestro y de ahora.
+            Either::Right((Some(Senal::Pulsado(senal)), _)) => {
+                if sesion.is_some() {
+                    // El permiso de traer una ventana al frente, que el escritorio da con cada
+                    // pulsacion (GNOME lo manda). Ver `pedir_permiso_con_la_ventana`.
+                    *ULTIMO_TOKEN.lock() = senal
+                        .options()
+                        .get("activation_token")
+                        .and_then(|valor| String::try_from(valor.clone()).ok());
+                    disparar(&app, senal.shortcut_id());
+                }
+            }
+            Either::Right((Some(Senal::Cambiados(cambio)), _)) => {
+                if sesion.is_some() {
+                    // La senal puede traer solo los que han cambiado: se cambian esos y los
+                    // demas se quedan como estaban.
+                    for nuevo in cambio.shortcuts() {
+                        match atados.iter_mut().find(|viejo| viejo.id() == nuevo.id()) {
+                            Some(viejo) => *viejo = nuevo.clone(),
+                            None => atados.push(nuevo.clone()),
+                        }
+                    }
+                    anotar(&app, &atados);
+                }
+            }
+            Either::Left((None, _)) | Either::Right((None, _)) => break,
+        }
+    }
+    if let Some(vieja) = sesion.take() {
+        let _ = vieja.close().await;
+    }
+}
+
+/// El archivo, junto a los ajustes, que dice que la persona cerro la pregunta de los atajos del
+/// escritorio sin aceptarla. Mientras este, winshotx no se los vuelve a pedir por su cuenta: en
+/// GNOME un atajo que nadie acepto no queda guardado, y sin esto la pregunta volvia en cada
+/// arranque (tambien el del inicio de sesion y el de un agente) y con cada ajuste que se tocaba.
+/// No va en `settings.json` porque no es un ajuste: nadie lo elige y solo existe en Wayland.
+const MARCA_DE_QUE_NO: &str = "atajos-sin-pedir";
+
+/// Lo mismo, pero solo de la tecla de rescatar los ultimos segundos: la persona encendio el
+/// anillo con sus otras teclas ya puestas, el escritorio le pregunto por la nueva y dijo que
+/// no. Las demas se quedan como estaban y esta no se le vuelve a pedir sola: el anillo sigue
+/// encendido sin tecla, y se rescata con `winshotx --replay` o desde los ajustes. Se pide otra
+/// vez cuando la persona vuelve a encender el anillo o pulsa el «Cambiar» de su fila.
+const MARCA_SIN_RESCATE: &str = "atajos-sin-rescate";
+
+fn lleva_la_de_rescate(peticiones: &[Peticion]) -> bool {
+    peticiones.iter().any(|peticion| peticion.id == LA_DE_RESCATE)
+}
+
+/// De lo que quiere la app, lo que se le pide al escritorio: todo, o todo menos la tecla de
+/// rescatar. Las demas van tal cual y en su orden, para que el escritorio las reconozca.
+fn lo_que_se_pide(queridos: &[Peticion], sin_la_de_rescate: bool) -> Vec<Peticion> {
+    queridos
+        .iter()
+        .filter(|peticion| !(sin_la_de_rescate && peticion.id == LA_DE_RESCATE))
+        .cloned()
+        .collect()
+}
+
+/// Lo que hay al llegar una tanda de ordenes.
+#[derive(Clone, Copy, Debug)]
+struct Tanda {
+    /// Llega una lista de atajos: un arranque, o un ajuste que se ha tocado.
+    llegan: bool,
+    /// Lo que hay que pedir no es lo que tiene puesto el escritorio, o no tiene nada puesto.
+    cambian: bool,
+    /// La persona ha pulsado «Cambiar».
+    configurar: bool,
+    /// La persona acaba de encender el anillo, o ha pulsado el «Cambiar» de su tecla.
+    por_la_persona: bool,
+    hay_pedidos: bool,
+    dijo_que_no: bool,
+}
+
+/// Si con esta tanda hay que pedirle los atajos al escritorio, que puede sacar su pregunta.
+///
+/// Se piden cuando cambian (al arrancar, y con cada ajuste que se toca mientras no haya ninguno
+/// puesto) y cuando la persona pulsa «Cambiar» y lo que hay puesto no es lo que toca: ahi
+/// cambiar las teclas es volver a pedirlas. A quien ya dijo que no, solo lo segundo, y cuando
+/// enciende el anillo: eso tambien lo hace la persona, y trae una tecla.
+fn toca_pedir(tanda: Tanda) -> bool {
+    if !tanda.cambian {
+        return false;
+    }
+    let a_mano = tanda.configurar && tanda.hay_pedidos;
+    let sola = tanda.llegan && (!tanda.dijo_que_no || tanda.por_la_persona);
+    a_mano || sola
+}
+
+/// Lo minimo que tarda una persona en decir que no a una pregunta del escritorio: la ventana
+/// tiene que salir y hay que leerla. Un portal que no puede poner los atajos contesta en
+/// milesimas.
+const LO_QUE_TARDA_UNA_PERSONA: Duration = Duration::from_secs(1);
+
+/// Si ese fallo de pedir los atajos es un «no» de la persona, y no que el escritorio no pueda.
+///
+/// El numero de la respuesta no lo dice. GNOME contesta 2 («otro fallo») lo mismo cuando la
+/// persona cierra «Add Keyboard Shortcuts» que cuando falla su ventana de ajustes, y 1
+/// («cancelada») solo si es la app la que retira la peticion (xdg-desktop-portal-gnome,
+/// `src/globalshortcuts.c`, `settings_bind_shortcuts_done`; medido en el laboratorio: Esc
+/// da «Other»). Lo que los separa es el tiempo: a una pregunta que nadie ha visto no se le
+/// tarda un segundo en contestar. Un fallo que no es una respuesta del portal (D-Bus) nunca
+/// es un no.
+fn es_un_no(error: &ashpd::Error, tardo: Duration) -> bool {
+    matches!(error, ashpd::Error::Response(_)) && tardo >= LO_QUE_TARDA_UNA_PERSONA
+}
+
+fn apuntar_el_no(marca: &Path) -> std::io::Result<()> {
+    if let Some(carpeta) = marca.parent() {
+        std::fs::create_dir_all(carpeta)?;
+    }
+    std::fs::write(marca, b"")
+}
+
+/// La ventana del escritorio para cambiar las teclas de esta sesion, y si el portal no la tiene
+/// (la version 1, la de GNOME 50), la pagina de winshotx en los ajustes del escritorio.
+async fn configurar_en_el_escritorio(
+    portal: &GlobalShortcuts<'_>,
+    sesion: &Session<'_, GlobalShortcuts<'_>>,
+) -> Result<(), String> {
+    match portal.configure_shortcuts(sesion, None, None::<ashpd::ActivationToken>).await {
+        Ok(()) => {
+            eprintln!("[atajo] el escritorio ensenna sus teclas");
+            Ok(())
+        }
+        Err(error) => {
+            eprintln!("[atajo] el portal no ensenna las teclas ({error}): a los ajustes del escritorio");
+            crate::platform::xdg::abrir_los_atajos_del_escritorio(ID_DE_LA_APP).map_err(|_| {
+                "este escritorio no deja cambiar las teclas desde winshotx: cámbialas en sus ajustes de teclado".to_string()
+            })
+        }
+    }
+}
+
+/// Una sesion nueva con estos atajos. Si la persona cancela el dialogo, la sesion se cierra y
+/// no queda ninguno.
+async fn atar<'a>(
+    portal: &GlobalShortcuts<'a>,
+    pedidos: &[Peticion],
+) -> ashpd::Result<(Session<'a, GlobalShortcuts<'a>>, Vec<Shortcut>)> {
+    let sesion = portal.create_session().await?;
+    let nuevos: Vec<NewShortcut> = pedidos
+        .iter()
+        .map(|p| NewShortcut::new(p.id, p.descripcion.as_str()).preferred_trigger(p.tecla.as_deref()))
+        .collect();
+    let respuesta = match portal.bind_shortcuts(&sesion, &nuevos, None).await {
+        Ok(peticion) => peticion.response(),
+        Err(error) => Err(error),
+    };
+    match respuesta {
+        Ok(atados) => Ok((sesion, atados.shortcuts().to_vec())),
+        Err(error) => {
+            let _ = sesion.close().await;
+            Err(error)
+        }
+    }
+}
+
+/// Apunta que atajos han quedado puestos de verdad. Uno que el escritorio devuelve sin tecla
+/// (la persona lo dejo en blanco en el dialogo) no cuenta: no hay nada que pulsar.
+fn anotar(app: &AppHandle, atados: &[Shortcut]) {
+    let con_tecla = |id: &str| {
+        atados
+            .iter()
+            .find(|s| s.id() == id)
+            .filter(|s| !s.trigger_description().is_empty())
+    };
+    let captura = con_tecla("capture");
+    let editor = con_tecla("edit");
+    let grabar = con_tecla("record");
+    let rescatar = con_tecla(LA_DE_RESCATE);
+    let tecla = |atajo: Option<&Shortcut>| {
+        atajo.map(|s| TeclaDelEscritorio {
+            texto: s.trigger_description().to_string(),
+            atajo: atajo_de_la_descripcion(s.trigger_description()),
+        })
+    };
+    *TECLAS.lock() = TeclasDelEscritorio {
+        capture: tecla(captura),
+        edit: tecla(editor),
+        record: tecla(grabar),
+        replay: tecla(rescatar),
+        ..Default::default()
+    };
+    let state = app.state::<AppState>();
+    let estado = {
+        let mut estado = state.shortcuts.write();
+        estado.capture = captura.is_some();
+        estado.edit = editor.is_some();
+        estado.record = grabar.is_some();
+        estado.replay = rescatar.is_some();
+        *estado
+    };
+    // La bienvenida y los ajustes preguntan el estado al abrirse, y el escritorio puede
+    // contestar despues (cuando la persona acepta su dialogo).
+    let _ = app.emit(crate::EVENT_SHORTCUTS_CHANGED, estado);
+    eprintln!(
+        "[atajo] portal: captura={} editor={} grabar={} rescatar={}",
+        captura.map(|s| s.trigger_description()).unwrap_or("-"),
+        editor.map(|s| s.trigger_description()).unwrap_or("-"),
+        grabar.map(|s| s.trigger_description()).unwrap_or("-"),
+        rescatar.map(|s| s.trigger_description()).unwrap_or("-"),
+    );
+}
+
+/// El token de activacion de la ultima tecla del portal, sin gastar.
+static ULTIMO_TOKEN: parking_lot::Mutex<Option<String>> = parking_lot::Mutex::new(None);
+
+/// La foto del portal ha fallado al pulsar un atajo. Lo normal es que falte el permiso de
+/// capturas: el portal pregunta la primera vez, pero GNOME solo deja preguntar a la app que
+/// tiene el foco («Only the focused app is allowed to show a system access dialog», medido en
+/// el laboratorio de S21), y quien pulsa un atajo esta en otra app.
+///
+/// Se trae la ventana de winshotx al frente con el token de esa pulsacion y se pide el permiso
+/// desde ahi: sale el dialogo del escritorio encima de nuestra ventana, y la siguiente pulsacion
+/// ya captura. Una sola vez por sesion: si la persona dice que no, no se le insiste.
+pub fn pedir_permiso_con_la_ventana(app: &AppHandle) {
+    static YA_PEDIDO: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if YA_PEDIDO.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    let token = ULTIMO_TOKEN.lock().take();
+    let dentro = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let (Some(token), Some(ventana)) = (token, dentro.get_webview_window("main")) {
+            use gtk::prelude::GtkWindowExt;
+            if let Ok(gtk) = ventana.gtk_window() {
+                gtk.set_startup_id(&token);
+            }
+        }
+        let _ = windows_mgr::show_settings(&dentro);
+        std::thread::spawn(|| {
+            // Que el escritorio haya dado el foco a la ventana antes de preguntar.
+            std::thread::sleep(std::time::Duration::from_millis(700));
+            match crate::capture::pedir_permiso_de_capturas() {
+                Ok(()) => eprintln!("[portal] permiso de capturas: concedido"),
+                Err(error) => eprintln!("[portal] permiso de capturas: {error}"),
+            }
+        });
+    });
+}
+
+/// Lo mismo que hacen las teclas del plugin en X11 y en Windows (`hotkeys::on_capture`).
+fn disparar(app: &AppHandle, id: &str) {
+    let intencion = match id {
+        // Con una captura con scroll bajando, la tecla de capturar la termina.
+        "capture" if crate::capture::scroll::terminar_la_que_haya() => return,
+        "capture" => OverlayIntent::Capture,
+        "edit" => OverlayIntent::Edit,
+        // Grabar, o parar si ya se esta grabando: lo mismo que la entrada de la bandeja.
+        "record" => {
+            let dentro = app.clone();
+            let _ = app.run_on_main_thread(move || crate::tray::ejecutar(&dentro, "record"));
+            return;
+        }
+        // Quedarse con los ultimos segundos: lo mismo que la tecla del plugin en X11.
+        LA_DE_RESCATE => {
+            if let Err(error) = crate::replay::save(app) {
+                eprintln!("no se han podido guardar los ultimos segundos: {error}");
+            }
+            return;
+        }
+        _ => return,
+    };
+    let dentro = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Err(error) = windows_mgr::open_overlays(&dentro, intencion) {
+            eprintln!("no se ha podido abrir el overlay: {error}");
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        apuntar_el_no, desktop_escondido, es_un_no, lleva_la_de_rescate, lo_que_se_pide, toca_pedir, Peticion,
+        Tanda, LA_DE_RESCATE, MARCA_DE_QUE_NO,
+    };
+
+    /// Lo normal al arrancar: llegan los atajos, no hay nada puesto y nadie ha dicho que no.
+    const AL_ARRANCAR: Tanda = Tanda {
+        llegan: true,
+        cambian: true,
+        configurar: false,
+        por_la_persona: false,
+        hay_pedidos: true,
+        dijo_que_no: false,
+    };
+
+    #[test]
+    fn al_arrancar_se_le_piden_los_atajos_al_escritorio() {
+        assert!(toca_pedir(AL_ARRANCAR));
+    }
+
+    #[test]
+    fn a_quien_dijo_que_no_no_se_le_pregunta_al_arrancar_ni_al_tocar_un_ajuste() {
+        // Un arranque y un ajuste tocado llegan igual: atajos, sin sesion y sin «Cambiar».
+        assert!(!toca_pedir(Tanda { dijo_que_no: true, ..AL_ARRANCAR }));
+    }
+
+    #[test]
+    fn cambiar_vuelve_a_preguntar_aunque_dijera_que_no() {
+        // Sin sesion, lo que hay puesto (nada) nunca es lo que toca.
+        let cambiar = Tanda { llegan: false, configurar: true, ..AL_ARRANCAR };
+        assert!(toca_pedir(Tanda { dijo_que_no: true, ..cambiar }));
+        assert!(toca_pedir(cambiar));
+        // Y si el ajuste y el «Cambiar» llegan en la misma tanda.
+        assert!(toca_pedir(Tanda { configurar: true, dijo_que_no: true, ..AL_ARRANCAR }));
+    }
+
+    #[test]
+    fn con_los_atajos_puestos_no_se_piden_otra_vez_si_no_cambian() {
+        let puestos = Tanda { cambian: false, ..AL_ARRANCAR };
+        assert!(!toca_pedir(puestos));
+        // «Cambiar» con sesion ensenna la ventana de teclas del escritorio: no es pedirlos.
+        assert!(!toca_pedir(Tanda { llegan: false, configurar: true, ..puestos }));
+        // Otro idioma u otra tecla propuesta: se piden los nuevos.
+        assert!(toca_pedir(Tanda { cambian: true, ..puestos }));
+    }
+
+    #[test]
+    fn cambiar_sin_nada_que_pedir_no_pide_nada() {
+        assert!(!toca_pedir(Tanda { llegan: false, configurar: true, hay_pedidos: false, ..AL_ARRANCAR }));
+    }
+
+    /// Encender el anillo lo hace la persona y trae una tecla: cuenta como «Cambiar», tambien
+    /// para quien dijo que no a los atajos. Un arranque con el anillo ya encendido, no.
+    #[test]
+    fn encender_el_anillo_pregunta_aunque_dijera_que_no_y_un_arranque_no() {
+        assert!(toca_pedir(Tanda { por_la_persona: true, dijo_que_no: true, ..AL_ARRANCAR }));
+        assert!(!toca_pedir(Tanda { por_la_persona: false, dijo_que_no: true, ..AL_ARRANCAR }));
+        // Con todo ya puesto (el escritorio tiene las cuatro), encenderlo no pregunta nada.
+        assert!(!toca_pedir(Tanda { por_la_persona: true, cambian: false, ..AL_ARRANCAR }));
+    }
+
+    /// El «Cambiar» de la fila de rescatar con las otras teclas puestas y esa rechazada: lo
+    /// que hay puesto ya no es lo que toca, asi que se vuelve a pedir.
+    #[test]
+    fn cambiar_la_de_rescate_rechazada_la_vuelve_a_pedir() {
+        assert!(toca_pedir(Tanda { llegan: false, configurar: true, por_la_persona: true, ..AL_ARRANCAR }));
+    }
+
+    fn peticion(id: &'static str, tecla: &str) -> Peticion {
+        Peticion { id, descripcion: format!("hace {id}"), tecla: Some(tecla.into()) }
+    }
+
+    /// Las tres de siempre no cambian por llevar o no llevar la de rescatar detras: son las
+    /// mismas peticiones, en el mismo orden, y asi el escritorio las reconoce.
+    #[test]
+    fn sin_la_de_rescate_las_demas_se_piden_tal_cual() {
+        let tres = vec![peticion("capture", "CTRL+SHIFT+2"), peticion("edit", "SHIFT+LOGO+l"), peticion("record", "CTRL+SHIFT+5")];
+        let mut cuatro = tres.clone();
+        cuatro.push(peticion(LA_DE_RESCATE, "CTRL+SHIFT+6"));
+        assert_eq!(lo_que_se_pide(&cuatro, true), tres);
+        assert_eq!(lo_que_se_pide(&cuatro, false), cuatro);
+        assert_eq!(lo_que_se_pide(&tres, true), tres, "con el anillo apagado no hay nada que quitar");
+        assert!(lleva_la_de_rescate(&cuatro) && !lleva_la_de_rescate(&tres));
+    }
+
+    #[test]
+    fn un_no_es_una_respuesta_del_portal_que_ha_tardado_lo_que_tarda_una_persona() {
+        use ashpd::desktop::ResponseError;
+        use std::time::Duration;
+        let persona = Duration::from_secs(3);
+        let maquina = Duration::from_millis(40);
+        // GNOME contesta «Other» al cerrar su pregunta; otros escritorios, «Cancelled».
+        assert!(es_un_no(&ashpd::Error::Response(ResponseError::Other), persona));
+        assert!(es_un_no(&ashpd::Error::Response(ResponseError::Cancelled), persona));
+        // Lo mismo contestado al instante es un escritorio que no puede ponerlos.
+        assert!(!es_un_no(&ashpd::Error::Response(ResponseError::Other), maquina));
+        // Y un fallo que no es una respuesta nunca es un no, tarde lo que tarde.
+        assert!(!es_un_no(&ashpd::Error::NoResponse, persona));
+    }
+
+    #[test]
+    fn el_no_se_apunta_aunque_no_exista_la_carpeta_de_los_ajustes() {
+        let carpeta = std::env::temp_dir().join(format!("winshotx-prueba-atajos-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&carpeta);
+        let marca = carpeta.join("config").join(MARCA_DE_QUE_NO);
+        assert!(!marca.exists());
+        apuntar_el_no(&marca).expect("apuntar");
+        assert!(marca.exists());
+        // Apuntarlo dos veces no falla: quien cancela otra vez desde «Cambiar».
+        apuntar_el_no(&marca).expect("apuntar otra vez");
+        let _ = std::fs::remove_dir_all(&carpeta);
+    }
+
+    #[test]
+    fn el_desktop_del_appimage_va_escondido_y_con_la_ruta_entre_comillas() {
+        let texto = desktop_escondido("/home/ana/Mis cosas/winshotx.AppImage");
+        assert!(texto.starts_with("[Desktop Entry]\n"));
+        assert!(texto.contains("\nExec=\"/home/ana/Mis cosas/winshotx.AppImage\"\n"));
+        assert!(texto.contains("\nNoDisplay=true\n"));
+    }
+
+    #[test]
+    fn las_comillas_y_las_barras_de_la_ruta_se_escapan() {
+        let texto = desktop_escondido("/tmp/a\"b\\c.AppImage");
+        assert!(texto.contains("Exec=\"/tmp/a\\\"b\\\\c.AppImage\"\n"));
+    }
+}

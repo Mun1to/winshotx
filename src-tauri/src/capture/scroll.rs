@@ -616,23 +616,29 @@ fn volver(p: &mut impl Pantalla, cosedor: &mut Cosedor, muescas: i32) -> bool {
     false
 }
 
+#[cfg(any(windows, target_os = "linux"))]
+mod comun;
 #[cfg(windows)]
 mod en_vivo;
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+mod wayland;
 
 /// Empieza a capturar esa zona (en píxeles del escritorio virtual): cierra el overlay,
 /// pone el marco y la barra, y baja la página. Vuelve enseguida; lo demás va en su hilo.
 #[tauri::command]
 pub async fn scroll_iniciar(app: tauri::AppHandle, region: super::Rect) -> crate::error::Result<()> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
-        en_vivo::iniciar(&app, region)
+        comun::iniciar(&app, region)
     }
-    // Fuera de Windows no hay rueda que girar ni pantalla que fotografiar así.
-    #[cfg(not(windows))]
+    // En lo demás no hay rueda que girar ni pantalla que fotografiar así.
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = (app, region);
         Err(crate::error::AppError::Msg(
-            "la captura con scroll solo funciona en Windows".into(),
+            "la captura con scroll solo funciona en Windows y en Linux".into(),
         ))
     }
 }
@@ -640,15 +646,30 @@ pub async fn scroll_iniciar(app: tauri::AppHandle, region: super::Rect) -> crate
 /// Para y se queda con lo que lleve: lo abre en el editor.
 #[tauri::command]
 pub async fn scroll_terminar() {
-    #[cfg(windows)]
-    en_vivo::pedir(en_vivo::TERMINAR);
+    #[cfg(any(windows, target_os = "linux"))]
+    comun::pedir(comun::TERMINAR);
 }
 
 /// Para y lo tira.
 #[tauri::command]
 pub async fn scroll_descartar() {
-    #[cfg(windows)]
-    en_vivo::pedir(en_vivo::DESCARTAR);
+    #[cfg(any(windows, target_os = "linux"))]
+    comun::pedir(comun::DESCARTAR);
+}
+
+/// Si hay una captura con scroll en marcha, la termina (se queda con lo que lleve) y dice
+/// que la había. En Linux es lo que hace la tecla de capturar mientras baja una: ahí puede
+/// no haber barra ni Esc, y la tecla que se acaba de usar para empezar es la que se sabe.
+#[cfg(target_os = "linux")]
+pub fn terminar_la_que_haya() -> bool {
+    comun::terminar_si_hay()
+}
+
+/// Al arrancar: si la captura con scroll va a hacer que el escritorio pregunte por el puntero
+/// (Wayland), para que la pantalla de elegir zona lo diga antes.
+#[cfg(target_os = "linux")]
+pub fn mirar_si_preguntara(app: &tauri::AppHandle) {
+    wayland::mirar_si_preguntara(app);
 }
 
 /// El evento con el que la barra se entera de cómo va la captura.

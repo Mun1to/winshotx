@@ -40,6 +40,12 @@ fn on_capture(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state() != ShortcutState::Pressed {
         return;
     }
+    // En Linux, con una captura con scroll bajando, esta tecla la termina: ahi puede no haber
+    // barra (no se puede sacar de las fotos), y abrir otra captura encima no tiene sentido.
+    #[cfg(target_os = "linux")]
+    if crate::capture::scroll::terminar_la_que_haya() {
+        return;
+    }
     if let Err(error) = windows_mgr::open_overlays(app, OverlayIntent::Capture) {
         eprintln!("no se ha podido abrir el overlay: {error}");
     }
@@ -73,8 +79,30 @@ fn on_edit(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
 /// lista que quedaba no la llevaba. Desde ahi nadie la soltaba, cada registro fallaba y
 /// los ajustes decian "esa combinacion esta cogida" sobre una tecla que era nuestra.
 pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
+    registrar(app, settings, false)
+}
+
+/// Lo mismo que [`register`], dicho cuando la persona acaba de encender «Grabar siempre lo
+/// último», que trae una tecla nueva.
+///
+/// Solo cambia algo en Wayland: alli la tecla la pone el escritorio, que pregunta por ella, y
+/// a quien dijo que no a esa pregunta no se le vuelve a hacer sola. Encender el anillo es algo
+/// que hace la persona, asi que cuenta como pulsar «Cambiar» (`platform::portal`).
+pub fn al_encender_el_anillo(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
+    registrar(app, settings, true)
+}
+
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+fn registrar(app: &AppHandle, settings: &Settings, por_la_persona: bool) -> ShortcutStatus {
     static DE_UNO_EN_UNO: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
     let _turno = DE_UNO_EN_UNO.lock();
+
+    // En Wayland el plugin no puede coger ninguna tecla (solo sabe X11) y aun asi dice que la
+    // tiene: los atajos los pone el escritorio, por el portal.
+    #[cfg(target_os = "linux")]
+    if crate::platform::xdg::es_wayland() {
+        return atajos_de_wayland(app, settings, por_la_persona);
+    }
 
     let manager = app.global_shortcut();
     let state = app.state::<AppState>();
@@ -251,6 +279,277 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     status
 }
 
+/// Los atajos de Wayland: se le piden al escritorio la captura, la captura al editor y grabar,
+/// con las teclas de los ajustes como sugerencia. El escritorio pregunta (GNOME ensenna un
+/// dialogo donde la persona confirma o cambia la tecla) y lo que quede puesto lo apunta el
+/// portal en `AppState::shortcuts` cuando conteste. Impr Pant no se pide: en GNOME y en KDE ya
+/// es del escritorio.
+///
+/// Con «Grabar siempre lo último» encendido se pide una cuarta, la que rescata. Va la ultima
+/// y las tres de siempre no cambian por llevarla detras, para que el escritorio las reconozca
+/// y pregunte solo por la nueva.
+#[cfg(target_os = "linux")]
+fn atajos_de_wayland(app: &AppHandle, settings: &Settings, por_la_persona: bool) -> ShortcutStatus {
+    use crate::platform::portal::{pedir_atajos, Peticion, LA_DE_RESCATE};
+    // Los mismos textos de la interfaz (`src/lib/textos-en.ts` y `textos-zh.ts`).
+    let (captura, editor, grabar, rescatar) = match crate::tray::idioma(app) {
+        "es" => (
+            "Capturar una región",
+            "Capturar y abrir el editor",
+            "Grabar la pantalla, o parar la grabación",
+            "Guardar los últimos segundos",
+        ),
+        "zh" => ("区域截图", "截图并打开编辑器", "录制屏幕，或停止录制", "保存最近几秒"),
+        _ => (
+            "Capture a region",
+            "Capture and open the editor",
+            "Record the screen, or stop recording",
+            "Save the last few seconds",
+        ),
+    };
+    let tecla_captura = tecla_para_el_portal(&settings.capture_shortcut);
+    // Dos atajos con la misma tecla no los pone nadie: el del editor va entonces sin sugerencia
+    // y la elige la persona en el dialogo.
+    let tecla_editor =
+        tecla_para_el_portal(&settings.edit_shortcut).filter(|tecla| Some(tecla) != tecla_captura.as_ref());
+    // El de grabar es tambien el de parar: en Wayland no hay barra de grabar (no se puede
+    // sacar del video), asi que esta tecla es la forma de parar sin ir a la bandeja.
+    let tecla_grabar = tecla_para_el_portal(&settings.record_shortcut)
+        .filter(|tecla| Some(tecla) != tecla_captura.as_ref() && Some(tecla) != tecla_editor.as_ref());
+    // La de rescatar solo existe con el anillo encendido, como en Windows y en X11.
+    let rescate = settings.replay_enabled.then(|| {
+        let ocupadas = [tecla_captura.as_ref(), tecla_editor.as_ref(), tecla_grabar.as_ref()];
+        let tecla = tecla_para_el_portal(&settings.replay_shortcut).filter(|tecla| !ocupadas.contains(&Some(tecla)));
+        Peticion { id: LA_DE_RESCATE, descripcion: rescatar.into(), tecla }
+    });
+    let mut peticiones = vec![
+        Peticion { id: "capture", descripcion: captura.into(), tecla: tecla_captura },
+        Peticion { id: "edit", descripcion: editor.into(), tecla: tecla_editor },
+        Peticion { id: "record", descripcion: grabar.into(), tecla: tecla_grabar },
+    ];
+    peticiones.extend(rescate);
+    pedir_atajos(app, peticiones, por_la_persona);
+    *app.state::<AppState>().shortcuts.read()
+}
+
+/// Un atajo de los ajustes (`CmdOrCtrl+Shift+2`, el formato del plugin) escrito como lo pide el
+/// portal: los modificadores `CTRL`, `ALT`, `SHIFT` y `LOGO`, y la tecla con su nombre de
+/// xkbcommon (`2`, `l`, `Print`, `F5`, `Return`), unidos con `+`. Lo dice la especificacion
+/// de atajos de freedesktop (specifications.freedesktop.org/shortcuts, `CTRL+SHIFT+a`).
+///
+/// `None` si la tecla no tiene equivalente seguro: entonces se pide el atajo sin sugerencia y
+/// la tecla la pone la persona en el dialogo del escritorio, que es mejor que proponer otra.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn tecla_para_el_portal(atajo: &str) -> Option<String> {
+    let mut modificadores: Vec<&str> = Vec::new();
+    let mut tecla: Option<String> = None;
+    for parte in atajo.split('+').map(str::trim).filter(|p| !p.is_empty()) {
+        let modificador = match parte.to_ascii_lowercase().as_str() {
+            "cmdorctrl" | "commandorcontrol" | "ctrl" | "control" => Some("CTRL"),
+            "alt" | "option" | "altgr" => Some("ALT"),
+            "shift" => Some("SHIFT"),
+            "super" | "meta" | "cmd" | "command" => Some("LOGO"),
+            _ => None,
+        };
+        match modificador {
+            Some(m) => {
+                if !modificadores.contains(&m) {
+                    modificadores.push(m);
+                }
+            }
+            // Dos teclas que no son modificadores: no es un atajo que se pueda escribir.
+            None if tecla.is_some() => return None,
+            None => tecla = Some(nombre_xkb(parte)?),
+        }
+    }
+    let tecla = tecla?;
+    // Siempre en el mismo orden, el de los ejemplos de la especificacion.
+    let mut partes: Vec<&str> =
+        ["CTRL", "ALT", "SHIFT", "LOGO"].into_iter().filter(|m| modificadores.contains(m)).collect();
+    partes.push(&tecla);
+    Some(partes.join("+"))
+}
+
+/// El nombre de xkbcommon de una tecla del plugin (sin el `XKB_KEY_` delante).
+fn nombre_xkb(tecla: &str) -> Option<String> {
+    // `KeyA` y `Digit2` son los codigos que guarda el selector de teclas; `A` y `2`, lo que
+    // escribe una persona a mano.
+    let sin_prefijo = tecla
+        .strip_prefix("Key")
+        .filter(|resto| resto.len() == 1)
+        .or_else(|| tecla.strip_prefix("Digit").filter(|resto| resto.len() == 1))
+        .unwrap_or(tecla);
+    let mut letras = sin_prefijo.chars();
+    if let (Some(c), None) = (letras.next(), letras.next()) {
+        if c.is_ascii_alphanumeric() {
+            return Some(c.to_ascii_lowercase().to_string());
+        }
+    }
+    if let Some(numero) = sin_prefijo.strip_prefix('F').and_then(|n| n.parse::<u8>().ok()) {
+        return (1..=24).contains(&numero).then(|| format!("F{numero}"));
+    }
+    if let Some(cifra) = sin_prefijo.strip_prefix("Numpad").filter(|n| n.len() == 1 && n.chars().all(|c| c.is_ascii_digit())) {
+        return Some(format!("KP_{cifra}"));
+    }
+    let nombre = match sin_prefijo.to_ascii_lowercase().as_str() {
+        "printscreen" | "print" => "Print",
+        "space" => "space",
+        "enter" | "return" => "Return",
+        "tab" => "Tab",
+        "escape" | "esc" => "Escape",
+        "backspace" => "BackSpace",
+        "delete" => "Delete",
+        "insert" => "Insert",
+        "home" => "Home",
+        "end" => "End",
+        "pageup" => "Page_Up",
+        "pagedown" => "Page_Down",
+        "arrowup" | "up" => "Up",
+        "arrowdown" | "down" => "Down",
+        "arrowleft" | "left" => "Left",
+        "arrowright" | "right" => "Right",
+        "minus" => "minus",
+        "equal" => "equal",
+        "comma" => "comma",
+        "period" => "period",
+        "slash" => "slash",
+        "backslash" => "backslash",
+        "semicolon" => "semicolon",
+        "quote" => "apostrophe",
+        "backquote" => "grave",
+        "bracketleft" => "bracketleft",
+        "bracketright" => "bracketright",
+        "pause" => "Pause",
+        "scrolllock" => "Scroll_Lock",
+        _ => return None,
+    };
+    Some(nombre.into())
+}
+
+/// La tecla que el escritorio ha puesto a un atajo de Wayland (`platform::portal`): en
+/// Wayland la elige la persona en el dialogo del escritorio, y la de los ajustes es solo la
+/// que se le propuso.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TeclaDelEscritorio {
+    /// Tal cual la escribe el escritorio: `Press <Shift><Control>2` en GNOME.
+    pub texto: String,
+    /// La misma con el formato de los ajustes (`CmdOrCtrl+Shift+Digit2`), para pintarla como
+    /// las demas. `None` si no se ha sabido leer: entonces se ensenna el texto.
+    pub atajo: Option<String>,
+}
+
+/// Las teclas que el escritorio ha dado a los atajos que se le piden en Wayland.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TeclasDelEscritorio {
+    pub capture: Option<TeclaDelEscritorio>,
+    pub edit: Option<TeclaDelEscritorio>,
+    /// La de grabar, que es tambien la de parar: en Wayland no hay barra de grabar.
+    pub record: Option<TeclaDelEscritorio>,
+    /// La que se queda con los ultimos segundos. Solo se pide con el anillo encendido.
+    pub replay: Option<TeclaDelEscritorio>,
+    /// Que este escritorio no deja pedirle atajos (Sway y los demas de wlroots no tienen el
+    /// portal): la tecla se pone a mano en su configuracion, con `orden` y `--capture`.
+    pub a_mano: bool,
+    /// Como se escribe winshotx en esa configuracion: `winshotx`, o la ruta del AppImage.
+    pub orden: String,
+}
+
+/// Lo contrario de [`tecla_para_el_portal`]: lo que el escritorio dice que ha puesto, con el
+/// formato de los ajustes. El portal no fija como se escribe (es una «descripcion» para
+/// personas), asi que se leen las dos formas que hay: la de GTK que usa GNOME
+/// (`Press <Shift><Control>2`, medido en el laboratorio de S21 con GNOME 50) y la de Qt que
+/// usa KDE (`Ctrl+Shift+2`, sin probar).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn atajo_de_la_descripcion(texto: &str) -> Option<String> {
+    let texto = texto.trim();
+    let (modificadores, tecla): (Vec<&str>, &str) = if let Some(inicio) = texto.find('<') {
+        // GTK: los modificadores entre angulos, pegados, y la tecla detras.
+        let mut resto = &texto[inicio..];
+        let mut modificadores = Vec::new();
+        while let Some(dentro) = resto.strip_prefix('<') {
+            let fin = dentro.find('>')?;
+            modificadores.push(&dentro[..fin]);
+            resto = &dentro[fin + 1..];
+        }
+        (modificadores, resto.trim())
+    } else {
+        // Qt: todo unido con `+`, en la ultima palabra (por si el escritorio le pone algo delante).
+        let ultima = texto.split_whitespace().last()?;
+        let mut partes: Vec<&str> = ultima.split('+').collect();
+        let tecla = partes.pop()?;
+        (partes, tecla)
+    };
+    let mut ctrl = false;
+    let mut supr = false;
+    let mut shift = false;
+    let mut alt = false;
+    for modificador in modificadores {
+        match modificador.to_ascii_lowercase().as_str() {
+            "control" | "ctrl" | "primary" => ctrl = true,
+            "shift" => shift = true,
+            "alt" | "mod1" => alt = true,
+            "super" | "meta" | "mod4" | "logo" | "win" => supr = true,
+            _ => return None,
+        }
+    }
+    let tecla = codigo_de_tecla(tecla)?;
+    // En el orden en que los escribe el selector de teclas de los ajustes.
+    let mut partes: Vec<&str> = Vec::new();
+    if ctrl {
+        partes.push("CmdOrCtrl");
+    }
+    if supr {
+        partes.push("Super");
+    }
+    if shift {
+        partes.push("Shift");
+    }
+    if alt {
+        partes.push("Alt");
+    }
+    partes.push(&tecla);
+    Some(partes.join("+"))
+}
+
+/// El nombre de una tecla en GTK o en Qt, con el codigo fisico que guardan los ajustes.
+fn codigo_de_tecla(tecla: &str) -> Option<String> {
+    let mut letras = tecla.chars();
+    if let (Some(c), None) = (letras.next(), letras.next()) {
+        if c.is_ascii_digit() {
+            return Some(format!("Digit{c}"));
+        }
+        if c.is_ascii_alphabetic() {
+            return Some(format!("Key{}", c.to_ascii_uppercase()));
+        }
+        return None;
+    }
+    if let Some(numero) = tecla.strip_prefix(['F', 'f']).and_then(|n| n.parse::<u8>().ok()) {
+        return (1..=24).contains(&numero).then(|| format!("F{numero}"));
+    }
+    let codigo = match tecla.to_ascii_lowercase().as_str() {
+        "print" | "printscreen" | "print screen" | "sys_req" => "PrintScreen",
+        "space" => "Space",
+        "return" | "enter" => "Enter",
+        "tab" => "Tab",
+        "escape" | "esc" => "Escape",
+        "backspace" => "Backspace",
+        "delete" | "del" => "Delete",
+        "insert" | "ins" => "Insert",
+        "home" => "Home",
+        "end" => "End",
+        "page_up" | "pageup" | "pgup" | "prior" => "PageUp",
+        "page_down" | "pagedown" | "pgdown" | "next" => "PageDown",
+        "up" => "ArrowUp",
+        "down" => "ArrowDown",
+        "left" => "ArrowLeft",
+        "right" => "ArrowRight",
+        _ => return None,
+    };
+    Some(codigo.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +578,56 @@ mod tests {
         ] {
             assert!(sugerida.parse::<Shortcut>().is_ok(), "{sugerida}");
         }
+    }
+
+    /// Las teclas de fabrica y las que propone la bienvenida, como las pide el portal de atajos.
+    #[test]
+    fn los_atajos_se_escriben_como_los_pide_el_portal() {
+        assert_eq!(tecla_para_el_portal("CmdOrCtrl+Shift+2").as_deref(), Some("CTRL+SHIFT+2"));
+        assert_eq!(tecla_para_el_portal("Super+Shift+KeyL").as_deref(), Some("SHIFT+LOGO+l"));
+        assert_eq!(tecla_para_el_portal("Ctrl+Alt+A").as_deref(), Some("CTRL+ALT+a"));
+        assert_eq!(tecla_para_el_portal("Alt+X").as_deref(), Some("ALT+x"));
+        assert_eq!(tecla_para_el_portal("Shift+Digit5").as_deref(), Some("SHIFT+5"));
+        assert_eq!(tecla_para_el_portal("PrintScreen").as_deref(), Some("Print"));
+        assert_eq!(tecla_para_el_portal("Ctrl+F12").as_deref(), Some("CTRL+F12"));
+        assert_eq!(tecla_para_el_portal("Ctrl+Shift+Numpad7").as_deref(), Some("CTRL+SHIFT+KP_7"));
+        assert_eq!(tecla_para_el_portal("Ctrl+Shift+Backquote").as_deref(), Some("CTRL+SHIFT+grave"));
+        assert_eq!(tecla_para_el_portal("Shift+ArrowLeft").as_deref(), Some("SHIFT+Left"));
+    }
+
+    /// Lo que no tiene traduccion segura no se inventa: se pide sin sugerencia.
+    #[test]
+    fn lo_que_no_se_puede_escribir_va_sin_sugerencia() {
+        assert_eq!(tecla_para_el_portal(""), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+Shift"), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+A+B"), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+MediaPlayPause"), None);
+        assert_eq!(tecla_para_el_portal("Ctrl+F25"), None);
+    }
+
+    /// Lo que devuelve el escritorio se lee con el formato de los ajustes, para pintarlo con
+    /// las mismas teclas. La primera es la frase exacta de GNOME 50 en el laboratorio.
+    #[test]
+    fn la_tecla_que_pone_el_escritorio_se_lee_como_las_de_los_ajustes() {
+        let leer = |texto: &str| atajo_de_la_descripcion(texto);
+        assert_eq!(leer("Press <Shift><Control>2").as_deref(), Some("CmdOrCtrl+Shift+Digit2"));
+        assert_eq!(leer("<Shift><Super>l").as_deref(), Some("Super+Shift+KeyL"));
+        assert_eq!(leer("<Primary><Alt>a").as_deref(), Some("CmdOrCtrl+Alt+KeyA"));
+        assert_eq!(leer("Print").as_deref(), Some("PrintScreen"));
+        assert_eq!(leer("<Control>F12").as_deref(), Some("CmdOrCtrl+F12"));
+        assert_eq!(leer("<Shift>Page_Down").as_deref(), Some("Shift+PageDown"));
+        // Como lo escribe Qt (KDE).
+        assert_eq!(leer("Ctrl+Shift+2").as_deref(), Some("CmdOrCtrl+Shift+Digit2"));
+        assert_eq!(leer("Meta+Shift+L").as_deref(), Some("Super+Shift+KeyL"));
+    }
+
+    /// Lo que no se entiende no se inventa: la interfaz ensenna entonces el texto tal cual.
+    #[test]
+    fn lo_que_no_se_sabe_leer_no_se_convierte() {
+        assert_eq!(atajo_de_la_descripcion(""), None);
+        assert_eq!(atajo_de_la_descripcion("Press <Shift><Control>"), None);
+        assert_eq!(atajo_de_la_descripcion("<Shift><Hyper>2"), None);
+        assert_eq!(atajo_de_la_descripcion("<Control>XF86AudioPlay"), None);
+        assert_eq!(atajo_de_la_descripcion("<Control"), None);
     }
 }

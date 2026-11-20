@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   cacheStats,
+  cambiarTeclasEnElEscritorio,
   capturaModerna,
   clearCache,
   getSettings,
@@ -14,6 +15,7 @@ import {
   restartShell,
   setSettings,
   shortcutStatus,
+  sonidoDisponible,
   usePrintScreen,
   useWinShiftS,
   // S2 (grabación)
@@ -30,6 +32,7 @@ import {
   type Screen,
   type Settings,
   type ShortcutStatus,
+  type SonidoDisponible,
 } from "../../lib/types";
 import { useSobra } from "../../lib/ventanaFija";
 import { AvisoActualizacion, useActualizacion } from "./Actualizacion";
@@ -51,9 +54,14 @@ import { FilaEncendida } from "./Section";
 import { BarraRapida } from "./BarraRapida";
 import { Riel } from "./Riel";
 import { VistaPrevia } from "./VistaPrevia";
+// S21 (Linux): lo que solo es de Windows se esconde, y en Wayland las teclas las pone el escritorio.
+import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
 
 /** La inyecta Vite desde package.json: escribirla a mano acababa en cuatro copias. */
 const VERSION = __VERSION__;
+
+/** Las filas que en Linux no salen, para que el buscador tampoco las ofrezca. */
+const SOLO_EN_WINDOWS = new Set(["capIconos", "tecImpr", "tecWinS", "tecRecortes"]);
 
 const APARTADO: Record<ApartadoId, (d: DatosAjustes) => React.ReactNode> = {
   capturar: ApartadoCapturar,
@@ -128,6 +136,41 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const [modernaOk, setModernaOk] = useState(true);
   // S2 (grabación): las cámaras conectadas, para la fila de la cámara.
   const [camaras, setCamaras] = useState<CamaraConectada[]>([]);
+  // S21 (Linux): dónde corre, y en Wayland las teclas que ha puesto el escritorio.
+  const donde = usePlataforma();
+  const enLinux = donde?.sistema === "linux";
+  const enWayland = donde?.wayland ?? false;
+  const teclasDelEscritorio = useTeclasDelEscritorio(enWayland);
+  // Si «Cambiar» no abre nada (Hyprland, o un escritorio que winshotx no conoce), queda lo
+  // mismo que donde no hay portal: poner la tecla a mano con la orden.
+  const [sinVentanaDeTeclas, setSinVentanaDeTeclas] = useState(false);
+  const teclasAMano = enWayland && Boolean(teclasDelEscritorio?.aMano || sinVentanaDeTeclas);
+  const ordenDeLaApp = teclasDelEscritorio?.orden ?? "winshotx";
+  const cambiarTeclas = useCallback(() => {
+    void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
+  }, []);
+  // S45: el de la tecla de rescatar va aparte, porque esa tecla se puede haber rechazado sola
+  // y entonces «Cambiar» es volver a pedírsela al escritorio.
+  const cambiarTeclaDeRescate = useCallback(() => {
+    void cambiarTeclasEnElEscritorio(true).catch(() => setSinVentanaDeTeclas(true));
+  }, []);
+  // S44 (Linux): qué sonido se puede grabar aquí. Se vuelve a mirar al volver a la ventana,
+  // por si entretanto se ha enchufado un micrófono.
+  const [sonido, setSonido] = useState<SonidoDisponible | null>(null);
+  useEffect(() => {
+    if (!enLinux) return;
+    let vivo = true;
+    const mirar = () =>
+      void sonidoDisponible()
+        .then((hay) => vivo && setSonido(hay ?? null))
+        .catch(() => undefined);
+    mirar();
+    window.addEventListener("focus", mirar);
+    return () => {
+      vivo = false;
+      window.removeEventListener("focus", mirar);
+    };
+  }, [enLinux]);
   const actualizacion = useActualizacion(VERSION, recienActualizado);
   // El buscador: si la paleta está abierta, y la fila a la que se ha saltado, que se ilumina.
   const [paleta, setPaleta] = useState(false);
@@ -214,7 +257,16 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     // El anillo cambia por su cuenta: se enciende al arrancar la app, va llenandose y
     // guarda cuando alguien pulsa la tecla. Preguntando solo al abrir la ventana, la
     // fila se quedaria contando lo de hace un rato.
-    const unReplay = listen<ReplayStatus>(EVENTS.replay, (evento) => setReplay(evento.payload));
+    const unReplay = listen<ReplayStatus>(EVENTS.replay, (evento) => {
+      setReplay(evento.payload);
+      // S45 (Linux): si se ha apagado sin que nadie tocara el interruptor (el escritorio dejó
+      // de compartir la pantalla), Rust ya ha dejado el ajuste en apagado: se relee, o el
+      // interruptor seguiría en «sí» sobre un anillo que no graba. En Windows no llega nunca.
+      if (evento.payload.apagadoPor) {
+        void getSettings().then(setLocal);
+        void shortcutStatus().then(setShortcuts);
+      }
+    });
     return () => {
       void unlisten.then((fn) => fn());
       void unReplay.then((fn) => fn());
@@ -360,7 +412,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // la cabecera y el riel quietos.
   const hueco = useRef<HTMLDivElement>(null);
   const contenido = useRef<HTMLDivElement>(null);
-  const sobra = useSobra(hueco, contenido, settings !== null);
+  // S21: hasta saber dónde corre tampoco se pinta nada.
+  const sobra = useSobra(hueco, contenido, settings !== null && donde !== null);
 
   // Al cambiar de apartado se empieza por arriba: el hueco con rueda es el mismo para todos,
   // y sin esto el historial abría a media galería si se había bajado en otro apartado.
@@ -370,10 +423,17 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     hueco.current?.scrollTo?.({ top: 0 });
   }, []);
 
-  // Elegir pantalla solo sale con más de una: el buscador no ofrece una fila que no está.
-  const hay = useCallback((id: string) => id !== "ultPantalla" || pantallas.length > 1, [pantallas]);
+  // Elegir pantalla solo sale con más de una (y en Wayland nunca: la elige la persona en la
+  // pregunta del escritorio): el buscador no ofrece una fila que no está. Y en Linux tampoco
+  // lo que solo existe en Windows.
+  const hay = useCallback(
+    (id: string) =>
+      (id !== "ultPantalla" || (pantallas.length > 1 && !enWayland)) && !(enLinux && SOLO_EN_WINDOWS.has(id)),
+    [pantallas, enLinux, enWayland],
+  );
 
-  if (!settings) {
+  // Hasta saber dónde corre no se pinta nada: en Linux se verían un instante las teclas de Windows.
+  if (!settings || !donde) {
     return (
       <div className="flex h-full items-center justify-center bg-lienzo text-sm text-tenue">
         Cargando…
@@ -382,6 +442,14 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   }
 
   const datos: DatosAjustes = {
+    enLinux,
+    enWayland,
+    teclasDelEscritorio,
+    teclasAMano,
+    ordenDeLaApp,
+    cambiarTeclas,
+    cambiarTeclaDeRescate,
+    sonido,
     settings,
     patch,
     shortcuts,
@@ -430,7 +498,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
       />
 
       <div className="flex min-h-0 flex-1">
-        <Riel activo={seccion} onIr={ir} />
+        <Riel activo={seccion} onIr={ir} sinTeclasDeWindows={enLinux} />
 
         <div className="relative min-w-0 flex-1">
           <div ref={hueco} className="h-full overflow-y-auto" data-scroll-ajustes>
@@ -463,7 +531,17 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                       className="flex w-[290px] shrink-0 flex-col justify-center rounded-xl bg-tarjeta px-5 py-6"
                     >
                       <p className="mb-4 text-[15px] font-bold text-titulo">{t("Así va a salir")}</p>
-                      <VistaPrevia apartado={seccion} settings={settings} replay={replay} />
+                      <VistaPrevia
+                        apartado={seccion}
+                        settings={settings}
+                        replay={replay}
+                        enLinux={enLinux}
+                        enWayland={enWayland}
+                        sonido={sonido}
+                        teclasDelEscritorio={teclasDelEscritorio}
+                        teclasAMano={teclasAMano}
+                        ordenDeLaApp={ordenDeLaApp}
+                      />
                     </aside>
                   )}
                 </div>
@@ -482,6 +560,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
         <Paleta
           version={VERSION}
           hay={hay}
+          enLinux={enLinux}
           onCerrar={() => setPaleta(false)}
           onElegir={(b) => {
             setPaleta(false);
@@ -492,7 +571,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
         />
       )}
 
-      {tour && <GuidedTour onNavegar={ir} onCerrar={() => setTour(false)} />}
+      {tour && (
+        <GuidedTour onNavegar={ir} onCerrar={() => setTour(false)} sinTeclasDeWindows={enLinux} />
+      )}
 
       {/* Fuera del hueco: un fallo escondido al final de una columna no se ve. */}
       {error && (

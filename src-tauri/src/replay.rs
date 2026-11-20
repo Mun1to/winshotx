@@ -61,6 +61,10 @@ pub struct ReplayStatus {
     /// Cuanto lleva grabado. Hasta que no llega a la ventana entera, lo que se guarde
     /// durara menos de lo que pone el ajuste, y la gente tiene derecho a saberlo.
     pub buffered_ms: u64,
+    /// Por que esta apagado, si no lo apago la persona (`ApagadoPor`). Solo pasa en Linux; en
+    /// Windows no va nunca y lo que se manda a la interfaz es lo de siempre.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub apagado_por: Option<&'static str>,
 }
 
 impl ReplayStatus {
@@ -75,6 +79,7 @@ impl ReplayStatus {
             width: 0,
             height: 0,
             buffered_ms: 0,
+            apagado_por: None,
         }
     }
 }
@@ -130,18 +135,121 @@ impl ReplayState {
             width: self.medida.0,
             height: self.medida.1,
             buffered_ms: self.grabado_ms.load(Ordering::Relaxed),
+            apagado_por: None,
         }
     }
 }
 
 /// El estado de ahora mismo, corra o no corra.
 pub fn status(app: &AppHandle) -> ReplayStatus {
-    app.state::<AppState>()
+    let estado = app
+        .state::<AppState>()
         .replay
         .lock()
         .as_ref()
         .map(ReplayState::status)
-        .unwrap_or_else(ReplayStatus::parado)
+        .unwrap_or_else(ReplayStatus::parado);
+    #[cfg(target_os = "linux")]
+    let estado = ReplayStatus {
+        apagado_por: if estado.running { None } else { APAGADO_POR.lock().map(ApagadoPor::nombre) },
+        ..estado
+    };
+    estado
+}
+
+/// Por que el anillo esta apagado sin que la persona tocara su interruptor. Los ajustes lo
+/// dicen en la fila, en gris: un interruptor que aparece apagado sin explicacion parece un
+/// fallo, y quien contaba con rescatar algo tiene que saber que paso.
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ApagadoPor {
+    /// Al arrancar en Wayland no habia permiso guardado para compartir la pantalla, y no se
+    /// le saca a nadie una pregunta del escritorio al iniciar sesion.
+    SinPermiso,
+    /// El escritorio dejo de compartir la pantalla: la persona lo paro desde su aviso.
+    Cortado,
+    /// La pantalla dejo de llegar, o no se pudo abrir al arrancar.
+    Fallo,
+}
+
+#[cfg(target_os = "linux")]
+impl ApagadoPor {
+    /// Como lo conoce la interfaz (`ReplayStatus::apagado_por`) y como se guarda.
+    fn nombre(self) -> &'static str {
+        match self {
+            Self::SinPermiso => "sin-permiso",
+            Self::Cortado => "cortado",
+            Self::Fallo => "fallo",
+        }
+    }
+
+    fn de_nombre(nombre: &str) -> Option<Self> {
+        [Self::SinPermiso, Self::Cortado, Self::Fallo].into_iter().find(|por| por.nombre() == nombre)
+    }
+}
+
+#[cfg(target_os = "linux")]
+static APAGADO_POR: parking_lot::Mutex<Option<ApagadoPor>> = parking_lot::Mutex::new(None);
+
+/// El archivo, junto a los ajustes, que guarda ese porque de un arranque a otro: la app
+/// arranca con la sesion y los ajustes se abren cuando se abren, quiza dias despues. No va en
+/// `settings.json` porque no es un ajuste (nadie lo elige) y solo existe en Linux.
+#[cfg(target_os = "linux")]
+const MARCA_DEL_APAGADO: &str = "replay-apagado";
+
+#[cfg(target_os = "linux")]
+fn marca_del_apagado(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_config_dir().ok().map(|carpeta| carpeta.join(MARCA_DEL_APAGADO))
+}
+
+#[cfg(target_os = "linux")]
+fn apuntar_el_apagado(app: &AppHandle, por: ApagadoPor) {
+    *APAGADO_POR.lock() = Some(por);
+    let Some(marca) = marca_del_apagado(app) else { return };
+    let escrito = marca.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&marca, por.nombre()));
+    if let Err(error) = escrito {
+        eprintln!("[replay] no se ha podido apuntar por que se apago ({error}): los ajustes no lo diran tras reiniciar");
+    }
+}
+
+/// La persona ha tocado el interruptor: ya sabe como esta, y el porque de antes sobra.
+#[cfg(target_os = "linux")]
+pub fn olvidar_el_apagado(app: &AppHandle) {
+    *APAGADO_POR.lock() = None;
+    if let Some(marca) = marca_del_apagado(app) {
+        let _ = std::fs::remove_file(marca);
+    }
+}
+
+/// Lo que hay que mirar del anillo al arrancar, ANTES de pedir las teclas (`lib.rs`).
+///
+/// **En Wayland el anillo solo se enciende solo si el escritorio ya dio permiso.** Sin el,
+/// encender es que el escritorio saque su pregunta de compartir pantalla al iniciar sesion,
+/// sin que nadie haya tocado nada. Entonces el ajuste pasa a apagado aqui mismo: un
+/// interruptor en «si» sobre un anillo que no graba seria mentirle a quien confia en rescatar
+/// algo, y con el ajuste ya apagado su tecla tampoco se le pide al escritorio (otra pregunta
+/// al iniciar sesion). El porque queda apuntado para que la fila lo diga.
+#[cfg(target_os = "linux")]
+pub fn ajustes_al_arrancar(app: &AppHandle, ajustes: &mut crate::settings::Settings) {
+    if !ajustes.replay_enabled {
+        // Apagado desde un arranque anterior: el porque vale hasta que se toque el interruptor.
+        *APAGADO_POR.lock() = marca_del_apagado(app)
+            .and_then(|marca| std::fs::read_to_string(marca).ok())
+            .and_then(|nombre| ApagadoPor::de_nombre(nombre.trim()));
+        return;
+    }
+    olvidar_el_apagado(app);
+    let con_permiso = !crate::platform::xdg::es_wayland()
+        || ficha_del_permiso(app).is_ok_and(|ficha| std::fs::metadata(ficha).is_ok_and(|datos| datos.len() > 0));
+    if con_permiso {
+        return;
+    }
+    eprintln!("[replay] no se enciende al arrancar: el escritorio no tiene guardado el permiso; se enciende en Ajustes");
+    ajustes.replay_enabled = false;
+    if let Err(error) = crate::settings::save(app, ajustes) {
+        eprintln!("[replay] no se ha podido guardar el ajuste apagado: {error}");
+    }
+    apuntar_el_apagado(app, ApagadoPor::SinPermiso);
 }
 
 fn avisar(app: &AppHandle) {
@@ -157,7 +265,7 @@ fn avisar(app: &AppHandle) {
 /// Y si la pantalla pedida ya no esta (se desenchufo el monitor desde la ultima vez), se
 /// coge la del raton en vez de fallar: quedarse sin la funcion por mover un cable seria
 /// una forma tonta de perderla.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 fn pantalla_elegida(pedida: Option<u32>) -> Result<MonitorInfo> {
     let monitores = crate::capture::monitors()?;
     let elegida = pedida
@@ -293,20 +401,12 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                     return;
                 }
             };
-            let mut cocina = Cocina {
-                // Coser treinta segundos tarda lo suyo, y mientras tanto el anillo tiene que
-                // seguir tragando fotogramas: si se parara, el hueco caeria justo en los
-                // segundos siguientes a lo que alguien acaba de guardar.
-                servir: Box::new(move |encargo| {
-                    let app = app.clone();
-                    std::thread::spawn(move || {
-                        if let Err(error) = servir(&app, encargo) {
-                            eprintln!("[replay] no se ha podido montar la sesión: {error}");
-                        }
-                    });
-                }),
-                reloj: record::anotador::Reloj { start: inicio, paused_ms: apartado_ms.clone() },
-                vigia: Vigia::empezar(
+            let mut cocina = Cocina::nueva(
+                servir_aparte(app),
+                anillo,
+                Receta { region, region_guardada, destino, fps, ventana_ms, con_cursor },
+                record::anotador::Reloj { start: inicio, paused_ms: apartado_ms.clone() },
+                Vigia::empezar(
                     Box::new(SentidosDeVerdad::default()),
                     record::anotador::Reloj { start: inicio, paused_ms: apartado_ms },
                     apartado,
@@ -315,24 +415,15 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                     rescate,
                     record::teclas::Vigilante::con_nombres(nombres),
                 ),
-                anillo,
-                audio_anillo: audio.as_ref().map(|captura| {
-                    let info = AudioInfo {
-                        channels: captura.formato.canales,
-                        sample_rate: captura.formato.muestras_por_segundo,
-                    };
-                    (info, AnilloAudio::nuevo(info.bytes_por_ms(), info.channels, ventana_ms))
-                }),
-                clics: Vec::new(),
-                teclas: Vec::new(),
-                cursor: Vec::new(),
-                region_guardada,
-                fps,
-                ventana_ms,
-                con_cursor,
-                reciclados: reciclados_cocina,
-                imagen: crate::record::buffer::ImagenDelAnillo::nueva(region.width, region.height, destino),
-            };
+                reciclados_cocina,
+            );
+            cocina.audio_anillo = audio.as_ref().map(|captura| {
+                let info = AudioInfo {
+                    channels: captura.formato.canales,
+                    sample_rate: captura.formato.muestras_por_segundo,
+                };
+                (info, AnilloAudio::nuevo(info.bytes_por_ms(), info.channels, ventana_ms))
+            });
             cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado_ms, audio.as_ref());
             if let Some(captura) = audio {
                 captura.parar();
@@ -385,9 +476,224 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     Ok(status(app))
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn start(_app: &AppHandle) -> Result<ReplayStatus> {
     Err(AppError::Unsupported)
+}
+
+/// Enciende el anillo en Linux, sobre una pantalla entera.
+///
+/// La imagen sale de la captura de grabar (`record::linux`: MIT-SHM en X11, el portal y
+/// PipeWire en Wayland), que manda cada fotograma entero y solo cuando la pantalla cambia. El
+/// sonido va por PipeWire a un anillo por fuente, y sale como las dos pistas de siempre.
+///
+/// **En Wayland puede tardar lo que tarde la persona en contestar al escritorio**, que
+/// pregunta que pantalla se comparte la primera vez. El permiso se guarda en su propia ficha
+/// (`replay-token`), aparte de la de grabar: cada una se gasta al usarla y el escritorio da
+/// otra, y con una sola se la pisarian. Mientras el anillo esta encendido el escritorio
+/// ensenna su aviso de que se comparte la pantalla: es suyo y no se puede quitar.
+#[cfg(target_os = "linux")]
+pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
+    use std::sync::mpsc::channel;
+
+    use crate::record::linux::{self, sonido, Marcha};
+
+    let state = app.state::<AppState>();
+    if state.replay.lock().is_some() {
+        return Ok(status(app));
+    }
+
+    let (segundos, fps, alto_pedido, pedida, quiere_audio, quiere_micro) = {
+        let settings = state.settings.read();
+        (
+            settings.replay_seconds.clamp(SEGUNDOS_MIN, SEGUNDOS_MAX),
+            settings.replay_fps.clamp(5, 60),
+            settings.replay_height,
+            settings.replay_screen,
+            settings.record_audio,
+            settings.record_microphone,
+        )
+    };
+    // Quien apaga este anillo lo deja dicho aqui. Tambien sirve para saber quien fue el
+    // primero: si lo apaga la persona, lo que diga despues la captura ya no cuenta.
+    let stop = Arc::new(AtomicBool::new(false));
+    let opciones = linux::Opciones {
+        ficha: ficha_del_permiso(app)?,
+        al_cortarse: {
+            let app = app.clone();
+            let stop = stop.clone();
+            Box::new(move || {
+                if stop.swap(true, Ordering::Relaxed) {
+                    return;
+                }
+                // En otro hilo: apagar espera a que acabe la captura, y esto lo llama la captura.
+                let app = app.clone();
+                std::thread::spawn(move || apagado_por_su_cuenta(&app, ApagadoPor::Cortado));
+            })
+        },
+    };
+    // En Wayland la pantalla la elige la persona en la pregunta del escritorio: la pedida es
+    // solo la que se prefiere si ha dejado varias.
+    let (preparada, monitor) = linux::preparar_pantalla(pantalla_elegida(pedida)?, fps, opciones)?;
+    let region = preparada.region();
+    let destino = crate::encode::escalar::medida_para(region.width, region.height, alto_pedido);
+    let (ancho_guardado, alto_guardado) = destino.unwrap_or((region.width, region.height));
+    let region_guardada = Rect {
+        width: ancho_guardado,
+        height: alto_guardado,
+        ..region
+    };
+
+    // Cada anillo estrena carpeta: ver el `start` de Windows.
+    let dir = state
+        .temp_root
+        .join("replay")
+        .join(&uuid::Uuid::new_v4().simple().to_string()[..8]);
+    let ventana_ms = u64::from(segundos) * 1000;
+    let anillo = Anillo::nuevo(
+        &dir,
+        ventana_ms,
+        fps,
+        crate::record::buffer::bytes_max(segundos, fps, ancho_guardado, alto_guardado),
+    )?;
+
+    let pause = Arc::new(AtomicBool::new(false));
+    let paused_ms = Arc::new(AtomicU64::new(0));
+    let bytes = Arc::new(AtomicU64::new(0));
+    let escritos = Arc::new(AtomicU64::new(0));
+    let grabado_ms = Arc::new(AtomicU64::new(0));
+    // El cero del reloj: el mismo para los fotogramas, el raton, las teclas y el sonido. Lo
+    // unico que lo para es `apartar`, con la pausa de siempre.
+    let marcha = Marcha {
+        stop: stop.clone(),
+        pause: pause.clone(),
+        paused_ms: paused_ms.clone(),
+        start: Instant::now(),
+    };
+    let en_anillo = sonido::empezar_en_anillo(
+        sonido::Fuentes { sistema: quiere_audio, microfono: quiere_micro },
+        ventana_ms,
+        marcha.clone(),
+    );
+    let (sender, receiver) = channel::<linux::Fotograma>();
+    let (ordenes, buzon) = channel::<Orden>();
+    let reciclados = linux::Reciclados::default();
+    let raton_cocido = preparada.raton_cocido();
+    let en_marcha = preparada.grabar(marcha.clone(), sender, reciclados.clone());
+    eprintln!(
+        "[replay] encendido: {}x{} en {},{} a {fps} por segundo, {segundos} s",
+        region.width, region.height, region.x, region.y
+    );
+
+    let hilo = {
+        let app = app.clone();
+        let stop = stop.clone();
+        let bytes = bytes.clone();
+        let escritos = escritos.clone();
+        let grabado_ms = grabado_ms.clone();
+        // Que tecla rescata, para no apuntarla como un atajo de lo que se estaba haciendo.
+        let tecla_de_rescate = record::teclas::TeclaZoom::de_atajo(&state.settings.read().replay_shortcut);
+        std::thread::spawn(move || {
+            let mut cocina = Cocina::nueva(
+                servir_aparte(app.clone()),
+                anillo,
+                // En Linux el raton no va en la imagen, salvo en los escritorios de Wayland
+                // que solo saben darlo ya dibujado: entonces no se dibuja otra vez.
+                Receta { region, region_guardada, destino, fps, ventana_ms, con_cursor: raton_cocido },
+                DeLinux {
+                    marcha,
+                    rastro: en_marcha.rastro_vivo(),
+                    sonido: en_anillo,
+                    reciclados,
+                    // El raton y el teclado solo se dejan leer en X11.
+                    con_entrada: !crate::platform::xdg::es_wayland(),
+                    tecla_de_rescate,
+                },
+            );
+            cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado_ms);
+            if !stop.load(Ordering::Relaxed) {
+                // Nadie lo ha apagado: es la captura la que ha dejado de mandar la pantalla.
+                // Si ha sido el escritorio el que ha dejado de compartir, lo dice el por su
+                // lado (`al_cortarse`) y es mejor porque: se le deja un momento para llegar.
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                if !stop.swap(true, Ordering::Relaxed) {
+                    std::thread::spawn(move || apagado_por_su_cuenta(&app, ApagadoPor::Fallo));
+                }
+            }
+            drop(en_marcha.terminar());
+            if let Some(sonido) = cocina.linux.sonido.take() {
+                sonido.terminar();
+            }
+            cocina.anillo.limpiar();
+        })
+    };
+
+    *state.replay.lock() = Some(ReplayState {
+        seconds: segundos,
+        monitor,
+        medida: (ancho_guardado, alto_guardado),
+        stop,
+        pause,
+        paused_ms,
+        ordenes,
+        bytes,
+        escritos,
+        arranque: Instant::now(),
+        grabado_ms,
+        hilo: Some(hilo),
+    });
+    avisar(app);
+    Ok(status(app))
+}
+
+/// Donde se guarda el permiso del escritorio para el anillo (Wayland).
+#[cfg(target_os = "linux")]
+fn ficha_del_permiso(app: &AppHandle) -> Result<std::path::PathBuf> {
+    Ok(app.path().app_config_dir().map_err(|e| AppError::Msg(e.to_string()))?.join("replay-token"))
+}
+
+/// Enciende al arrancar la app el anillo que se dejo encendido, en Linux. Si en este arranque
+/// no tocaba encenderlo (Wayland sin permiso guardado), el ajuste ya llega apagado:
+/// `ajustes_al_arrancar`.
+///
+/// Va en su hilo: abrir la captura habla con el escritorio, y el arranque no espera a eso. Si
+/// no se enciende, el ajuste pasa a apagado, como cuando falla al encenderlo en los ajustes.
+#[cfg(target_os = "linux")]
+pub fn al_arrancar(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        if let Err(error) = start(&app) {
+            eprintln!("[replay] no se ha podido encender al arrancar: {error}");
+            apagar_el_ajuste(&app, ApagadoPor::Fallo);
+        }
+    });
+}
+
+/// El anillo ha dejado de grabar sin que nadie lo apague en winshotx: casi siempre porque la
+/// persona ha parado de compartir la pantalla desde el aviso del escritorio. Se apaga del
+/// todo y el interruptor vuelve a apagado, que es lo que esta pasando.
+#[cfg(target_os = "linux")]
+fn apagado_por_su_cuenta(app: &AppHandle, por: ApagadoPor) {
+    eprintln!("[replay] el anillo se apaga solo: {}", por.nombre());
+    let _ = stop(app);
+    apagar_el_ajuste(app, por);
+}
+
+/// Deja el ajuste en apagado, lo guarda, apunta por que y suelta la tecla de rescatar.
+#[cfg(target_os = "linux")]
+fn apagar_el_ajuste(app: &AppHandle, por: ApagadoPor) {
+    let state = app.state::<AppState>();
+    let settings = {
+        let mut ajustes = state.settings.write();
+        ajustes.replay_enabled = false;
+        ajustes.clone()
+    };
+    if let Err(error) = crate::settings::save(app, &settings) {
+        eprintln!("[replay] no se ha podido guardar el ajuste apagado: {error}");
+    }
+    apuntar_el_apagado(app, por);
+    crate::hotkeys::register(app, &settings);
+    avisar(app);
 }
 
 /// El anillo, apartado mientras se abre una captura.
@@ -642,19 +948,196 @@ struct Cocina {
     clics: Vec<crate::encode::zoom::Clic>,
     teclas: Vec<record::teclas::Atajo>,
     cursor: Vec<(u64, i32, i32)>,
-    /// La region que se graba con el tamanno al que se guarda, que es el que ve el editor.
+    /// La region que se graba, en la pantalla. En Windows la lleva el `Vigia`.
+    #[cfg(target_os = "linux")]
+    region: Rect,
+    /// La misma region pero con el tamanno al que se guarda, que es el que ve el editor.
     region_guardada: Rect,
+    /// A que tamanno se guarda cada fotograma, si no es el de la pantalla.
+    #[cfg(target_os = "linux")]
+    destino: Option<(u32, u32)>,
     fps: u32,
     ventana_ms: u64,
     con_cursor: bool,
     /// Por donde vuelven los bufers a la captura. Ver `win::Reciclados`.
     #[cfg(windows)]
     reciclados: crate::record::win::Reciclados,
+    /// Lo que el anillo solo lleva en Linux.
+    #[cfg(target_os = "linux")]
+    linux: DeLinux,
     /// La pantalla puesta al dia con lo que llega, y como se guarda. Ver `ImagenDelAnillo`.
     imagen: crate::record::buffer::ImagenDelAnillo,
 }
 
+/// Que se graba y como se guarda: lo mismo en los dos sistemas.
+#[derive(Debug, Clone, Copy)]
+struct Receta {
+    region: Rect,
+    region_guardada: Rect,
+    destino: Option<(u32, u32)>,
+    fps: u32,
+    ventana_ms: u64,
+    /// El raton va ya dibujado en la imagen: el exportador no lo dibuja otra vez.
+    con_cursor: bool,
+}
+
+/// Lo que el anillo solo lleva en Linux.
+#[cfg(target_os = "linux")]
+struct DeLinux {
+    /// El reloj del anillo, que tambien dice si esta apartado (`apartar`).
+    marcha: crate::record::linux::Marcha,
+    /// Por donde va el raton y que puntero lleva: lo apunta quien captura, en su hilo.
+    rastro: crate::record::linux::RastroVivo,
+    /// El sonido, cada fuente en su anillo. `None` si no se graba ninguna.
+    sonido: Option<crate::record::linux::sonido::EnAnillo>,
+    reciclados: crate::record::linux::Reciclados,
+    /// Se puede preguntar por los botones y las teclas: en X11 si, en Wayland no.
+    con_entrada: bool,
+    /// La tecla que rescata, para no apuntarla como un atajo de lo que se estaba haciendo.
+    tecla_de_rescate: Option<record::teclas::TeclaZoom>,
+}
+
+/// Los clics y los atajos que el `Vigia` ha visto y la cocina no ha recogido todavia.
+#[cfg(target_os = "linux")]
+#[derive(Default)]
+struct Pulsado {
+    clics: Vec<crate::encode::zoom::Clic>,
+    teclas: Vec<record::teclas::Atajo>,
+}
+
+/// El hilo que mira el raton y el teclado mientras el anillo graba (solo X11).
+///
+/// Tiene hilo propio, como el `Muestreador` de grabar, porque un clic dura menos que guardar
+/// un fotograma. Mirando entre fotograma y fotograma, en el hilo de la cocina, con la pantalla
+/// entera cambiando pasaban mas de 60 ms entre dos miradas y un clic rapido cabia entero en
+/// medio: en el laboratorio se perdian 3 de cada 10 clics de 60 ms y todos los de 25.
+#[cfg(target_os = "linux")]
+struct Vigia {
+    pulsado: Arc<parking_lot::Mutex<Pulsado>>,
+    parar: Arc<AtomicBool>,
+    hilo: Option<std::thread::JoinHandle<()>>,
+}
+
+#[cfg(target_os = "linux")]
+impl Vigia {
+    /// Empieza a mirar. `x_en` e `y_en` llevan un punto de la region a la escala a la que se
+    /// guarda (`Cocina::escalar_punto`): lo apuntado sale ya en esa escala.
+    fn empezar(
+        marcha: crate::record::linux::Marcha,
+        region: Rect,
+        x_en: impl Fn(i32) -> i32 + Send + 'static,
+        y_en: impl Fn(i32) -> i32 + Send + 'static,
+        tecla_de_rescate: Option<record::teclas::TeclaZoom>,
+    ) -> Self {
+        let pulsado = Arc::new(parking_lot::Mutex::new(Pulsado::default()));
+        let parar = Arc::new(AtomicBool::new(false));
+        let hilo = {
+            let (pulsado, parar) = (pulsado.clone(), parar.clone());
+            std::thread::spawn(move || {
+                let mut raton = record::raton::Vigilante::default();
+                let mut teclado = record::teclas::Vigilante::default();
+                let mut lector = record::teclas::Lector::default();
+                loop {
+                    std::thread::sleep(record::anotador::CADA);
+                    if parar.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    // Apartado, el reloj no vale: va por delante hasta que se suelta (`Apartado`).
+                    if marcha.en_pausa() {
+                        continue;
+                    }
+                    let ms = marcha.ms();
+                    let clic = raton.mirar(ms).and_then(|clic| {
+                        let (x, y) = (clic.x - region.x, clic.y - region.y);
+                        // Un clic en otra pantalla no es de lo que se esta guardando.
+                        let dentro = x >= 0 && y >= 0 && x < region.width as i32 && y < region.height as i32;
+                        dentro.then(|| crate::encode::zoom::Clic { ms: clic.ms, x: x_en(x), y: y_en(y), derecho: clic.derecho })
+                    });
+                    let foto = lector.leer();
+                    // La tecla que rescata es de winshotx, no de lo que se estaba haciendo: no se apunta.
+                    let rescate = tecla_de_rescate.as_ref().is_some_and(|tecla| tecla.pulsada(&foto));
+                    let atajo = teclado.mirar_foto(&foto, ms).filter(|_| !rescate).map(|atajo| {
+                        // Un atajo no tiene sitio propio: va donde este el raton.
+                        let (x, y) = record::raton::cursor().unwrap_or((region.x, region.y));
+                        record::teclas::Atajo { x: x_en(x - region.x), y: y_en(y - region.y), ..atajo }
+                    });
+                    if clic.is_some() || atajo.is_some() {
+                        let mut pulsado = pulsado.lock();
+                        pulsado.clics.extend(clic);
+                        pulsado.teclas.extend(atajo);
+                    }
+                }
+            })
+        };
+        Self { pulsado, parar, hilo: Some(hilo) }
+    }
+
+    /// Lo visto desde la ultima vez, que pasa a ser de quien lo recoge.
+    fn recoger(&self) -> Pulsado {
+        std::mem::take(&mut *self.pulsado.lock())
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl Drop for Vigia {
+    fn drop(&mut self) {
+        self.parar.store(true, Ordering::Relaxed);
+        if let Some(hilo) = self.hilo.take() {
+            let _ = hilo.join();
+        }
+    }
+}
+
+/// El raton tal y como lo apunta la captura de Linux, ya en la escala a la que se guarda:
+/// por donde fue, las imagenes de sus punteros (con su punto caliente) y cual llevaba.
+#[cfg(target_os = "linux")]
+struct RastroDelAnillo {
+    cursor: Vec<(u64, i32, i32)>,
+    punteros: Vec<((u32, u32), image::RgbaImage)>,
+    cambios_puntero: Vec<(u64, u32)>,
+}
+
 impl Cocina {
+    /// La cocina recien abierta. **Se construye aqui para los dos sistemas**: lo que cambie
+    /// de como se anota (por ejemplo, en que idioma se nombran las teclas de la pastilla) se
+    /// cambia una vez y vale en Windows y en Linux.
+    #[cfg(any(windows, target_os = "linux"))]
+    fn nueva(
+        servir: Box<dyn FnMut(Encargo) + Send>,
+        anillo: Anillo,
+        receta: Receta,
+        #[cfg(windows)] reloj: record::anotador::Reloj,
+        #[cfg(windows)] vigia: Vigia,
+        #[cfg(windows)] reciclados: crate::record::win::Reciclados,
+        #[cfg(target_os = "linux")] linux: DeLinux,
+    ) -> Self {
+        Self {
+            servir,
+            #[cfg(windows)]
+            reloj,
+            #[cfg(windows)]
+            vigia,
+            anillo,
+            audio_anillo: None,
+            clics: Vec::new(),
+            teclas: Vec::new(),
+            cursor: Vec::new(),
+            #[cfg(target_os = "linux")]
+            region: receta.region,
+            region_guardada: receta.region_guardada,
+            #[cfg(target_os = "linux")]
+            destino: receta.destino,
+            fps: receta.fps,
+            ventana_ms: receta.ventana_ms,
+            con_cursor: receta.con_cursor,
+            #[cfg(windows)]
+            reciclados,
+            #[cfg(target_os = "linux")]
+            linux,
+            imagen: crate::record::buffer::ImagenDelAnillo::nueva(receta.region.width, receta.region.height, receta.destino),
+        }
+    }
+
     // Ocho argumentos, uno mas de los que clippy da por buenos. Se queda asi a proposito: los
     // cinco ultimos son los marcadores que este hilo comparte con quien lo mira desde fuera
     // (`ReplayState`), y meterlos en una struct solo para bajar la cuenta seria un envoltorio
@@ -779,7 +1262,158 @@ impl Cocina {
         self.cursor.extend(visto.cursor);
     }
 
-    #[cfg(not(windows))]
+    /// El mismo trabajo en Linux, con dos diferencias. La captura manda cada fotograma ENTERO
+    /// y solo cuando la pantalla cambia, asi que si llegan varios juntos vale el ultimo. Y el
+    /// raton y el teclado se miran en otro hilo (`Vigia`), a su ritmo y no al de los
+    /// fotogramas: con la pantalla quieta no llega ninguno, y con ella cambiando entera
+    /// guardar uno tarda mas de lo que dura un clic.
+    #[cfg(target_os = "linux")]
+    fn trabajar(
+        &mut self,
+        receiver: &Receiver<crate::record::linux::Fotograma>,
+        buzon: &Receiver<Orden>,
+        stop: &Arc<AtomicBool>,
+        bytes: &Arc<AtomicU64>,
+        escritos: &Arc<AtomicU64>,
+        grabado_ms: &Arc<AtomicU64>,
+    ) {
+        use std::sync::mpsc::RecvTimeoutError;
+        use std::time::Duration;
+
+        // En X11 el raton y el teclado se miran aparte, mientras dure este trabajo. En Wayland
+        // no se dejan leer y no hay nada que mirar.
+        let vigia = if self.linux.con_entrada {
+            let (x_en, y_en) = self.escalar_punto();
+            Some(Vigia::empezar(self.linux.marcha.clone(), self.region, x_en, y_en, self.linux.tecla_de_rescate.take()))
+        } else {
+            None
+        };
+        // Sin nada que mirar entre fotograma y fotograma, se espera lo mismo que en Windows.
+        let espera = Duration::from_millis(150);
+        let mut ultimo_ts = 0u64;
+        let mut perdidos = 0u64;
+        let mut avisado = 0u64;
+        let mut podado_ms = 0u64;
+        loop {
+            // Las ordenes, antes de esperar fotograma, y varias seguidas son una: ver Windows.
+            let mut piden = false;
+            while let Ok(Orden::Cosechar) = buzon.try_recv() {
+                piden = true;
+            }
+            if piden {
+                self.recoger_lo_pulsado(vigia.as_ref());
+                let ahora = self.linux.marcha.ms();
+                if let Err(error) = self.cosechar(ahora.max(ultimo_ts)) {
+                    eprintln!("[replay] no se ha podido guardar: {error}");
+                }
+            }
+            if stop.load(Ordering::Relaxed) {
+                break;
+            }
+
+            match receiver.recv_timeout(espera) {
+                Ok(mut fotograma) => {
+                    // Cada uno es la pantalla entera: si la maquina no da para el ritmo
+                    // pedido, se guarda el ultimo y los de en medio vuelven a la captura.
+                    while let Ok(siguiente) = receiver.try_recv() {
+                        perdidos += 1;
+                        self.linux.reciclados.devolver(std::mem::replace(&mut fotograma, siguiente).rgba);
+                    }
+                    ultimo_ts = fotograma.ts_ms;
+                    let de_antes = self.imagen.recibir_rgba(fotograma.rgba);
+                    self.linux.reciclados.devolver(de_antes);
+                    let antes = self.anillo.escritos();
+                    if let Err(error) = self.imagen.guardar(&mut self.anillo, ultimo_ts) {
+                        eprintln!("[replay] fotograma perdido: {error}");
+                    }
+                    escritos.fetch_add(self.anillo.escritos().saturating_sub(antes), Ordering::Relaxed);
+                    bytes.store(self.anillo.bytes(), Ordering::Relaxed);
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => break,
+            }
+            if perdidos >= avisado + 600 {
+                avisado = perdidos;
+                eprintln!("[replay] {perdidos} fotogramas tirados por no dar abasto");
+            }
+
+            // Apartado, el reloj no vale: va por delante hasta que se suelta (`Apartado`).
+            if self.linux.marcha.en_pausa() {
+                continue;
+            }
+            let ahora = self.linux.marcha.ms().max(ultimo_ts);
+            // Lo guardado se cuenta con el reloj y no con el ultimo fotograma: con la pantalla
+            // quieta no llega ninguno, y lo que se puede rescatar sigue creciendo.
+            grabado_ms.store(self.anillo.guardado_ms(ahora), Ordering::Relaxed);
+            if ahora >= podado_ms + 5_000 {
+                podado_ms = ahora;
+                self.recoger_lo_pulsado(vigia.as_ref());
+                self.podar(ahora);
+            }
+        }
+    }
+
+    /// Se trae los clics y los atajos que el `Vigia` ha visto desde la ultima vez. Se hace
+    /// antes de rescatar y antes de podar, que son los dos que los usan.
+    #[cfg(target_os = "linux")]
+    fn recoger_lo_pulsado(&mut self, vigia: Option<&Vigia>) {
+        if let Some(vigia) = vigia {
+            let Pulsado { clics, teclas } = vigia.recoger();
+            self.clics.extend(clics);
+            self.teclas.extend(teclas);
+        }
+    }
+
+    /// Tira las anotaciones que ya se han salido de la ventana: un anillo que corre toda la
+    /// tarde no puede ir acumulando los clics y el rastro del raton de toda la tarde.
+    #[cfg(target_os = "linux")]
+    fn podar(&mut self, ahora_ms: u64) {
+        let corte = ahora_ms.saturating_sub(self.ventana_ms + crate::record::buffer::SEGMENTO_MS);
+        self.clics.retain(|clic| clic.ms >= corte);
+        self.teclas.retain(|atajo| atajo.ms >= corte);
+        self.linux.rastro.lock().podar(corte);
+    }
+
+    /// Lo que el rescate lleva de mas en Linux: el rastro del raton con sus punteros, ya en
+    /// la escala a la que se guarda, y el tramo de sonido de cada fuente que acaba en `ahora_ms`.
+    #[cfg(target_os = "linux")]
+    fn lo_de_linux(&self, ahora_ms: u64) -> (RastroDelAnillo, Option<crate::record::linux::sonido::TramoDeSonido>) {
+        let (x_en, y_en) = self.escalar_punto();
+        let rastro = self.linux.rastro.lock().clone();
+        let escala = self.destino.map(|(w, h)| {
+            (w as f32 / self.region.width.max(1) as f32, h as f32 / self.region.height.max(1) as f32)
+        });
+        let punteros = rastro
+            .punteros
+            .into_iter()
+            .map(|puntero| match escala {
+                None => (puntero.caliente, puntero.imagen),
+                // Guardando a menos tamanno, el puntero encoge lo mismo que la pantalla.
+                Some((fx, fy)) => {
+                    let a = |v: u32, f: f32| (v as f32 * f).round() as u32;
+                    let (ancho, alto) = (a(puntero.imagen.width(), fx).max(1), a(puntero.imagen.height(), fy).max(1));
+                    (
+                        (a(puntero.caliente.0, fx), a(puntero.caliente.1, fy)),
+                        image::imageops::resize(&puntero.imagen, ancho, alto, image::imageops::FilterType::Triangle),
+                    )
+                }
+            })
+            .collect();
+        let rastro = RastroDelAnillo {
+            cursor: rastro.cursor.into_iter().map(|(ms, x, y)| (ms, x_en(x), y_en(y))).collect(),
+            punteros,
+            cambios_puntero: rastro.cambios_puntero,
+        };
+        let sonido = self
+            .linux
+            .sonido
+            .as_ref()
+            .map(|sonido| sonido.tramo(ahora_ms, self.ventana_ms + 2_000))
+            .filter(|tramo| tramo.sistema.is_some() || tramo.microfono.is_some());
+        (rastro, sonido)
+    }
+
+    #[cfg(not(any(windows, target_os = "linux")))]
     fn trabajar(
         &mut self,
         _receiver: &Receiver<()>,
@@ -801,6 +1435,15 @@ impl Cocina {
         }
     }
 
+    /// Las dos funciones que llevan un punto de la pantalla a la escala guardada.
+    #[cfg(target_os = "linux")]
+    fn escalar_punto(&self) -> (impl Fn(i32) -> i32 + use<>, impl Fn(i32) -> i32 + use<>) {
+        let (fx, fy) = escala(self.region, self.destino);
+        (
+            move |x: i32| (x as f32 * fx).round() as i32,
+            move |y: i32| (y as f32 * fy).round() as i32,
+        )
+    }
 
     #[cfg(windows)]
     fn tragar_sonido(&mut self, captura: &record::audio::Captura) {
@@ -820,6 +1463,8 @@ impl Cocina {
             .audio_anillo
             .as_ref()
             .map(|(info, anillo)| (*info, anillo.ultimos(self.ventana_ms + 2_000)));
+        #[cfg(target_os = "linux")]
+        let (rastro, pistas) = self.lo_de_linux(ahora_ms);
 
         let encargo = Encargo {
             segmentos,
@@ -830,6 +1475,10 @@ impl Cocina {
             clics: self.clics.clone(),
             teclas: self.teclas.clone(),
             cursor: self.cursor.clone(),
+            #[cfg(target_os = "linux")]
+            rastro: Some(rastro),
+            #[cfg(target_os = "linux")]
+            pistas,
             region: self.region_guardada,
             fps: self.fps,
             con_cursor: self.con_cursor,
@@ -853,12 +1502,35 @@ struct Encargo {
     clics: Vec<crate::encode::zoom::Clic>,
     teclas: Vec<record::teclas::Atajo>,
     cursor: Vec<(u64, i32, i32)>,
+    /// El raton como lo apunta la captura de Linux, con sus punteros. Manda sobre `cursor`.
+    #[cfg(target_os = "linux")]
+    rastro: Option<RastroDelAnillo>,
+    /// El sonido de Linux: cada fuente por separado, para que salgan sus dos pistas.
+    #[cfg(target_os = "linux")]
+    pistas: Option<crate::record::linux::sonido::TramoDeSonido>,
     region: Rect,
     fps: u32,
     con_cursor: bool,
 }
 
 /// Cose lo grabado en una sesion normal y abre el editor con ella.
+/// Lo que la app hace con lo rescatado, en los dos sistemas: coserlo y abrirlo en el editor.
+///
+/// En otro hilo: coser treinta segundos tarda lo suyo, y mientras tanto el anillo tiene que
+/// seguir tragando fotogramas. Si se parara, el hueco caeria justo en los segundos siguientes
+/// a lo que alguien acaba de guardar.
+#[cfg(any(windows, target_os = "linux"))]
+fn servir_aparte(app: AppHandle) -> Box<dyn FnMut(Encargo) + Send> {
+    Box::new(move |encargo| {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            if let Err(error) = servir(&app, encargo) {
+                eprintln!("[replay] no se ha podido montar la sesión: {error}");
+            }
+        });
+    })
+}
+
 fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
     let state = app.state::<AppState>();
     let id = uuid::Uuid::new_v4().simple().to_string()[..10].to_string();
@@ -882,6 +1554,48 @@ fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
     preparar_por_detras(app, id);
     avisar(app);
     Ok(info)
+}
+
+/// Las sesiones cuya vista previa se intento escribir y no salio.
+///
+/// El aviso de que ha fallado viaja por un evento, y el que sale antes de que el editor monte
+/// su escucha no lo recoge nadie. Donde la vista previa falla en el acto (en Linux todavia no
+/// existe) el editor se quedaba en «Preparando el video…» para siempre, medido por S44 en el
+/// laboratorio. Con esta lista, la sesion lo dice tambien cuando el editor le pregunta
+/// (`SessionInfo::previa_fallida`).
+static PREVIAS_FALLIDAS: parking_lot::Mutex<Vec<String>> = parking_lot::Mutex::new(Vec::new());
+
+/// Si la vista previa de esa sesion se intento escribir y no salio.
+pub(crate) fn previa_fallida(id: &str) -> bool {
+    PREVIAS_FALLIDAS.lock().iter().any(|otra| otra == id)
+}
+
+fn apuntar_previa_fallida(id: &str) {
+    let mut fallidas = PREVIAS_FALLIDAS.lock();
+    if !fallidas.iter().any(|otra| otra == id) {
+        fallidas.push(id.to_string());
+    }
+}
+
+fn olvidar_previa_fallida(id: &str) {
+    PREVIAS_FALLIDAS.lock().retain(|otra| otra != id);
+}
+
+#[cfg(test)]
+mod pruebas_de_las_fallidas {
+    use super::*;
+
+    #[test]
+    fn una_vista_previa_que_falla_se_recuerda_hasta_que_se_vuelve_a_intentar() {
+        assert!(!previa_fallida("s44-una"));
+        apuntar_previa_fallida("s44-una");
+        apuntar_previa_fallida("s44-una");
+        assert!(previa_fallida("s44-una"));
+        assert!(!previa_fallida("s44-otra"), "cada sesion lleva lo suyo");
+        // Al volver a intentarlo se empieza de cero: la primera linea de `preparar_por_detras`.
+        olvidar_previa_fallida("s44-una");
+        assert!(!previa_fallida("s44-una"));
+    }
 }
 
 /// Escribe POR DETRAS lo que el editor no necesita para abrirse: el MP4 de la vista
@@ -911,7 +1625,9 @@ fn servir(app: &AppHandle, encargo: Encargo) -> Result<SessionInfo> {
 ///
 /// El aviso sale **pase lo que pase**, tambien cuando falla: un editor esperando para
 /// siempre a algo que no viene es peor que un editor que dice que no va a venir.
+/// Y el fallo, ademas de avisarse, se apunta (`previa_fallida`).
 pub(crate) fn preparar_por_detras(app: &AppHandle, id: String) {
+    olvidar_previa_fallida(&id);
     let app = app.clone();
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
@@ -932,6 +1648,7 @@ pub(crate) fn preparar_por_detras(app: &AppHandle, id: String) {
             // Sin vista previa la sesion sigue siendo buena: se ve y se exporta igual, solo
             // que sin reproducir. Mucho mejor eso que perder lo que se acaba de rescatar.
             eprintln!("[replay] sin vista previa: {error}");
+            apuntar_previa_fallida(&id);
             let _ = app.emit(crate::EVENT_SESSION_PREVIEW, AvisoVistaPrevia::fallida(&id));
             return;
         }
@@ -1081,8 +1798,88 @@ fn montar(dir: std::path::PathBuf, id: String, encargo: Encargo) -> Result<Sessi
         pistas: None,
         frames,
     };
+    #[cfg(target_os = "linux")]
+    let session = {
+        let mut session = session;
+        if let Some(rastro) = encargo.rastro {
+            poner_el_rastro(&mut session, rastro, t0);
+        }
+        if let Some(pistas) = encargo.pistas {
+            poner_las_pistas(&mut session, pistas, duracion);
+        }
+        session
+    };
     session.persist()?;
     Ok(session)
+}
+
+/// Pone en la sesion el raton como lo apunta la captura de Linux: por donde fue, que puntero
+/// llevaba y las imagenes de esos punteros, en disco, que es de donde las lee el exportador.
+#[cfg(target_os = "linux")]
+fn poner_el_rastro(session: &mut SessionData, rastro: RastroDelAnillo, t0: u64) {
+    session.cursor = desde_el_corte(rastro.cursor, t0, |punto| punto.0, |punto, ms| punto.0 = ms);
+    session.cambios_puntero = desde_el_corte(rastro.cambios_puntero, t0, |cambio| cambio.0, |cambio, ms| cambio.0 = ms);
+    for (id, (caliente, imagen)) in rastro.punteros.into_iter().enumerate() {
+        let id = id as u32;
+        // Solo los que salen en lo guardado. Uno que no se pueda escribir se queda fuera y
+        // en su tramo se dibuja la flecha.
+        if !session.cambios_puntero.iter().any(|(_, suyo)| *suyo == id) {
+            continue;
+        }
+        let archivo = session.dir.join(format!("cursor-{id}.png"));
+        if crate::encode::png::save_fast(&imagen, &archivo).is_ok() {
+            session.punteros.push(record::PunteroGrabado {
+                id,
+                ancho: imagen.width(),
+                alto: imagen.height(),
+                caliente,
+                archivo: archivo.to_string_lossy().to_string(),
+            });
+        }
+    }
+}
+
+/// Lo que cae dentro de lo guardado, con el reloj a cero, y delante lo ultimo de antes, que
+/// es lo que valia cuando empieza el video: un raton que llevaba un rato quieto sigue
+/// estando en su sitio, con el puntero que tuviera.
+#[cfg(target_os = "linux")]
+fn desde_el_corte<T>(apuntes: Vec<T>, t0: u64, leer: impl Fn(&T) -> u64, escribir: impl Fn(&mut T, u64)) -> Vec<T> {
+    let de_antes = apuntes.iter().rposition(|apunte| leer(apunte) < t0);
+    apuntes
+        .into_iter()
+        .enumerate()
+        .filter(|(i, apunte)| leer(apunte) >= t0 || Some(*i) == de_antes)
+        .map(|(_, mut apunte)| {
+            let ms = leer(&apunte).saturating_sub(t0);
+            escribir(&mut apunte, ms);
+            apunte
+        })
+        .collect()
+}
+
+/// Escribe las pistas de Linux (el PC y la voz, cada una en su WAV) con lo que acompanna a la
+/// imagen. Se corta por el FINAL, como el sonido de Windows: el tramo y los fotogramas acaban
+/// en el mismo instante.
+#[cfg(target_os = "linux")]
+fn poner_las_pistas(session: &mut SessionData, tramo: crate::record::linux::sonido::TramoDeSonido, duracion_ms: u64) {
+    use crate::record::linux::sonido::{cerrar_pistas, FORMATO};
+    use crate::record::pistas::{EscritorWav, ARCHIVO_MICROFONO, ARCHIVO_PC};
+
+    let escribir = |pcm: Option<Vec<u8>>, nombre: &str| -> Option<EscritorWav> {
+        let pcm = pcm?;
+        let quiero = (duracion_ms * FORMATO.bytes_por_ms()) as usize;
+        let bloque = usize::from(FORMATO.channels) * 2;
+        let desde = pcm.len().saturating_sub(quiero) / bloque * bloque;
+        let mut wav = EscritorWav::crear(&session.dir.join(nombre), FORMATO)
+            .map_err(|error| eprintln!("[replay] no se puede escribir {nombre}: {error}"))
+            .ok()?;
+        wav.escribir(&pcm[desde..]);
+        Some(wav)
+    };
+    let pc = escribir(tramo.sistema, ARCHIVO_PC);
+    let voz = escribir(tramo.microfono, ARCHIVO_MICROFONO);
+    (session.audio, session.pistas) = cerrar_pistas(pc, voz);
+    session.has_audio = session.audio.is_some();
 }
 
 /// Lo alto que se escribe la vista previa, como mucho.
@@ -1143,7 +1940,9 @@ fn a_ritmo(duraciones_origen: &[u32], fps: u32) -> (Vec<usize>, Vec<u32>) {
 /// y tardaban veintiun segundos en escribirse, veintiun segundos con el boton de play
 /// apagado. A 720p y 30 por segundo se ve igual de bien en el hueco del editor y esta listo
 /// en un tercio del tiempo.
-#[cfg(windows)]
+///
+/// En Linux es el mismo camino, con el GStreamer del sistema en vez de Media Foundation.
+#[cfg(any(windows, target_os = "linux"))]
 fn escribir_vista_previa(
     session: &mut SessionData,
     mut avisar: impl FnMut(usize, usize),
@@ -1164,6 +1963,11 @@ fn escribir_vista_previa(
             datos,
         })
     });
+    // En Linux puede faltar el codificador de AAC. La vista previa sale entonces muda en vez
+    // de no salir: alli el editor hace sonar las pistas por su cuenta, y sin vista previa no
+    // habria ni boton de reproducir.
+    #[cfg(target_os = "linux")]
+    let sonido = sonido.filter(|_| crate::encode::gst::codificadores().sonido.is_some());
 
     // En orden y sin volver a empezar: los fotogramas se piden del primero al ultimo, que
     // es justo el caso para el que existe `LectorEnOrden`. El encogido va aqui y no dentro
@@ -1208,7 +2012,7 @@ fn escribir_vista_previa(
     Ok(())
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 fn escribir_vista_previa(
     _session: &mut SessionData,
     _avisar: impl FnMut(usize, usize),
@@ -1915,12 +2719,14 @@ mod pruebas_con_pantalla {
         pause: Arc<AtomicBool>,
         paused_ms: Arc<AtomicU64>,
     ) -> Cocina {
-        Cocina {
-            servir: Box::new(move |encargo| {
+        Cocina::nueva(
+            Box::new(move |encargo| {
                 let _ = encargos.send(encargo);
             }),
-            reloj: record::anotador::Reloj { start: inicio, paused_ms: paused_ms.clone() },
-            vigia: Vigia::empezar(
+            anillo,
+            Receta { region, region_guardada: region, destino: None, fps: 15, ventana_ms: 10_000, con_cursor: false },
+            record::anotador::Reloj { start: inicio, paused_ms: paused_ms.clone() },
+            Vigia::empezar(
                 sentidos,
                 record::anotador::Reloj { start: inicio, paused_ms },
                 pause,
@@ -1929,18 +2735,8 @@ mod pruebas_con_pantalla {
                 record::teclas::TeclaZoom::de_atajo("Ctrl+Shift+6"),
                 record::teclas::Vigilante::default(),
             ),
-            anillo,
-            audio_anillo: None,
-            clics: Vec::new(),
-            teclas: Vec::new(),
-            cursor: Vec::new(),
-            region_guardada: region,
-            fps: 15,
-            ventana_ms: 10_000,
-            con_cursor: false,
-            reciclados: crate::record::win::Reciclados::default(),
-            imagen: crate::record::buffer::ImagenDelAnillo::nueva(region.width, region.height, None),
-        }
+            crate::record::win::Reciclados::default(),
+        )
     }
 
     /// Un raton y un teclado de mentira que la prueba mueve desde fuera.
@@ -2099,5 +2895,169 @@ mod pruebas_con_pantalla {
         // `apartar` devuelve esto cuando no hay nada que apartar: quien llama no tiene que
         // preguntar si el anillo está puesto.
         drop(Apartado(None));
+    }
+}
+
+/// Lo que el anillo hace solo en Linux: las dos pistas de sonido y el raton que apunta la
+/// captura. El resto del camino es el de Windows y lo prueban sus pruebas.
+#[cfg(all(test, target_os = "linux"))]
+mod pruebas_de_linux {
+    use super::*;
+    use crate::record::buffer::{bytes_max, ImagenDelAnillo};
+    use crate::record::linux::sonido::{TramoDeSonido, FORMATO};
+
+    /// Una pantalla de mentira con algo que se mueve, ya en RGBA, como la da la captura.
+    fn pantalla(ancho: u32, alto: u32, paso: u32) -> Vec<u8> {
+        let mut frame: Vec<u8> = [20u8, 20, 20, 255].repeat((ancho * alto) as usize);
+        let x0 = (paso * 2) % (ancho - 8);
+        for y in 2..10u32 {
+            for x in x0..x0 + 8 {
+                let p = ((y * ancho + x) * 4) as usize;
+                frame[p..p + 3].copy_from_slice(&[240, 60, 10]);
+            }
+        }
+        frame
+    }
+
+    /// **El camino entero en Linux, sin la ventana delante.** Lo que llega de la captura
+    /// entra en el anillo, se pulsa la tecla, y lo que sale es una sesion que el editor puede
+    /// abrir: con las imagenes que se vuelven a dibujar, el sonido del PC en su pista y con
+    /// el largo de la imagen, y el raton donde estaba, con su puntero en el disco.
+    #[test]
+    fn el_rescate_de_linux_sale_con_sus_pistas_y_su_raton() {
+        let (ancho, alto) = (48u32, 32u32);
+        let raiz = std::env::temp_dir().join(format!("winshotx-replay-linux-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&raiz);
+        let mut anillo = Anillo::nuevo(&raiz.join("anillo"), 10_000, 15, bytes_max(10, 15, 1920, 1080)).unwrap();
+        let mut imagen = ImagenDelAnillo::nueva(ancho, alto, None);
+        // Doce segundos moviendose y ocho con la pantalla quieta, en los que no llega nada.
+        for paso in 0..48u32 {
+            imagen.recibir_rgba(pantalla(ancho, alto, paso));
+            imagen.guardar(&mut anillo, u64::from(paso) * 250).unwrap();
+        }
+        let ahora = 20_000u64;
+        let (segmentos, corte, copia) = anillo.instantanea(ahora).unwrap();
+
+        // El tramo de sonido que da el anillo: la ventana y dos segundos mas, acabando ahora.
+        // Los dos primeros segundos (los que sobran) van en silencio, para ver que se corta
+        // por delante y no por detras.
+        let por_ms = FORMATO.bytes_por_ms() as usize;
+        let mut pc = vec![0u8; 2_000 * por_ms];
+        pc.extend([0x10u8, 0x20].repeat(10_000 * por_ms / 2));
+
+        let dibujo = |color: u8| image::RgbaImage::from_pixel(4, 6, image::Rgba([color, color, color, 255]));
+        let encargo = Encargo {
+            segmentos,
+            corte,
+            ahora,
+            copia,
+            sonido: None,
+            clics: vec![
+                crate::encode::zoom::Clic { ms: 2_000, x: 5, y: 5, derecho: false },
+                crate::encode::zoom::Clic { ms: 15_000, x: 20, y: 10, derecho: true },
+            ],
+            teclas: Vec::new(),
+            cursor: Vec::new(),
+            rastro: Some(RastroDelAnillo {
+                // El raton se movio por ultima vez un segundo antes de lo que se guarda.
+                cursor: vec![(1_000, 1, 1), (9_000, 5, 6), (16_000, 30, 20)],
+                punteros: vec![((0, 0), dibujo(1)), ((1, 2), dibujo(2)), ((3, 3), dibujo(3))],
+                cambios_puntero: vec![(0, 0), (8_000, 1)],
+            }),
+            pistas: Some(TramoDeSonido { sistema: Some(pc), microfono: None }),
+            region: Rect { x: 0, y: 0, width: ancho, height: alto },
+            fps: 15,
+            con_cursor: false,
+        };
+
+        let session = montar(raiz.join("sesion"), "prueba".into(), encargo).unwrap();
+
+        let duracion = session.duration_ms();
+        assert_eq!(duracion, 10_000, "se guardan los diez segundos pedidos, aunque la pantalla llevara ocho quieta");
+        assert_eq!(session.frames[0].timestamp_ms, 0);
+        assert_eq!(session.clics, vec![crate::encode::zoom::Clic { ms: 5_000, x: 20, y: 10, derecho: true }]);
+
+        // El raton: donde estaba al empezar (lo ultimo de antes, en el instante cero) y por
+        // donde fue despues. Y el puntero que llevaba, que es el que se escribe en el disco.
+        assert_eq!(session.cursor, vec![(0, 5, 6), (6_000, 30, 20)]);
+        assert_eq!(session.cambios_puntero, vec![(0, 1)]);
+        assert_eq!(session.punteros.len(), 1, "solo el puntero que sale en lo guardado");
+        let puntero = &session.punteros[0];
+        assert_eq!((puntero.id, puntero.caliente, puntero.ancho, puntero.alto), (1, (1, 2), 4, 6));
+        let leido = image::open(&puntero.archivo).expect("el puntero no llego al disco").to_rgba8();
+        assert_eq!(leido, dibujo(2));
+
+        // El sonido: la pista del PC, con el largo de la imagen y cortada por delante. La
+        // voz no ha sonado y no tiene archivo.
+        assert!(session.has_audio);
+        assert_eq!(session.audio.map(|a| (a.channels, a.sample_rate)), Some((FORMATO.channels, FORMATO.sample_rate)));
+        let pistas = session.pistas.as_ref().expect("el rescate sale con sus pistas");
+        assert_eq!(pistas.sistema.as_deref(), Some(record::pistas::ARCHIVO_PC));
+        assert_eq!((pistas.microfono.as_deref(), pistas.pico_sistema), (None, Some(0x2010)));
+        let (info, datos) = record::pistas::leer_wav(&session.dir.join(record::pistas::ARCHIVO_PC)).expect("un WAV entero");
+        assert_eq!((info.channels, info.sample_rate), (FORMATO.channels, FORMATO.sample_rate));
+        assert_eq!(datos.len(), 10_000 * por_ms, "la pista mide lo que la imagen");
+        assert_eq!((&datos[..2], &datos[datos.len() - 2..]), (&[0x10u8, 0x20][..], &[0x10u8, 0x20][..]));
+        assert!(!session.dir.join(record::pistas::ARCHIVO_MICROFONO).exists());
+        assert!(!session.audio_path().exists(), "en Linux el rescate no deja un audio.pcm mezclado");
+
+        for indice in [0, session.frames.len() / 2, session.frames.len() - 1] {
+            let dibujado = record::read_frame(&session, indice).unwrap();
+            assert_eq!((dibujado.width(), dibujado.height()), (ancho, alto));
+        }
+        // Lo ultimo que se ve es lo ultimo que llego, que se quedo en pantalla hasta ahora.
+        let ultimo = record::read_frame(&session, session.frames.len() - 1).unwrap().into_raw();
+        assert!(ultimo == pantalla(ancho, alto, 47), "el ultimo fotograma no es la pantalla como se quedo");
+
+        anillo.limpiar();
+        let _ = std::fs::remove_dir_all(&raiz);
+    }
+
+    /// Un rescate sin raton apuntado (un escritorio de Wayland que lo da ya dibujado) y sin
+    /// sonido sale igual: sin punteros, sin pistas y sin decir que hay sonido.
+    #[test]
+    fn un_rescate_sin_raton_ni_sonido_no_se_inventa_nada() {
+        let (ancho, alto) = (48u32, 32u32);
+        let raiz = std::env::temp_dir().join(format!("winshotx-replay-linux-pelado-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&raiz);
+        let mut anillo = Anillo::nuevo(&raiz.join("anillo"), 10_000, 15, bytes_max(10, 15, 1920, 1080)).unwrap();
+        let mut imagen = ImagenDelAnillo::nueva(ancho, alto, None);
+        for paso in 0..12u32 {
+            imagen.recibir_rgba(pantalla(ancho, alto, paso));
+            imagen.guardar(&mut anillo, u64::from(paso) * 250).unwrap();
+        }
+        let (segmentos, corte, copia) = anillo.instantanea(3_000).unwrap();
+        let encargo = Encargo {
+            segmentos,
+            corte,
+            ahora: 3_000,
+            copia,
+            sonido: None,
+            clics: Vec::new(),
+            teclas: Vec::new(),
+            cursor: Vec::new(),
+            rastro: Some(RastroDelAnillo { cursor: Vec::new(), punteros: Vec::new(), cambios_puntero: Vec::new() }),
+            // Los flujos se pidieron pero no sono ninguno: no hay tramo.
+            pistas: None,
+            region: Rect { x: 0, y: 0, width: ancho, height: alto },
+            fps: 15,
+            con_cursor: true,
+        };
+        let session = montar(raiz.join("sesion"), "pelado".into(), encargo).unwrap();
+        assert_eq!(session.duration_ms(), 3_000, "todavia no habia diez segundos: se guarda lo que hay");
+        assert!(session.cursor.is_empty() && session.punteros.is_empty() && session.cambios_puntero.is_empty());
+        assert!(session.cursor_capturado);
+        assert!(!session.has_audio && session.audio.is_none() && session.pistas.is_none());
+        anillo.limpiar();
+        let _ = std::fs::remove_dir_all(&raiz);
+    }
+
+    #[test]
+    fn lo_de_antes_del_corte_solo_deja_lo_ultimo() {
+        let puntos = |lista: Vec<(u64, i32)>, t0| desde_el_corte(lista, t0, |p| p.0, |p, ms| p.0 = ms);
+        assert_eq!(puntos(vec![(10, 1), (20, 2), (30, 3), (40, 4)], 25), vec![(0, 2), (5, 3), (15, 4)]);
+        assert_eq!(puntos(vec![(10, 1), (20, 2)], 5), vec![(5, 1), (15, 2)], "sin nada antes, tal cual");
+        assert_eq!(puntos(vec![(10, 1), (20, 2)], 90), vec![(0, 2)], "todo es de antes: queda lo ultimo");
+        assert_eq!(puntos(Vec::new(), 90), Vec::new());
     }
 }
