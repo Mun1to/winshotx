@@ -9,6 +9,7 @@
  *   node scripts/ver-ventana.mjs pendiente.png --tecla-pendiente
  *   node scripts/ver-ventana.mjs grabar.png --seccion=grabar --anillo
  *   node scripts/ver-ventana.mjs otros.png --seccion=grabar --anillo --otros-grabadores
+ *   node scripts/ver-ventana.mjs tienda.png --seccion=teclas --tienda
  *   node scripts/ver-ventana.mjs barra.png --barra-scroll --escala=2
  *
  * Sirve el bundle DE VERDAD de `dist/` y le cuela un `__TAURI_INTERNALS__` de mentira en
@@ -105,6 +106,9 @@ const otros = args.includes("--otros-grabadores");
 // Un Windows sin la captura moderna, que es la unica forma de ver el aviso de
 // «Este Windows usa la captura antigua»: con el de verdad nunca sale.
 const sinModerna = args.includes("--sin-captura-moderna");
+// La copia de la Microsoft Store, que no puede quitarle Impr Pant ni Win+Mayús+S a Windows: la
+// única forma de ver cómo lo dicen los ajustes y la bienvenida (trampa 54).
+const tienda = args.includes("--tienda");
 // Con que tema se pinta la ventana: sistema, claro u oscuro.
 const tema = bandera("tema", "oscuro");
 // Y en que idioma: sistema, es o en.
@@ -316,7 +320,8 @@ const RESPUESTAS = {
   ],
   captura_moderna: !sinModerna,
   otros_grabadores: { nvidia: otros, barraDeJuego: otros },
-  print_screen_state: { enabled: false, active: false, takenByWindows: true },
+  print_screen_state: { enabled: false, active: false, takenByWindows: true, storeBuild: tienda },
+  is_store_build: tienda,
   just_updated: actualizado,
   tray_menu_state: {
     version: "0.2.6",

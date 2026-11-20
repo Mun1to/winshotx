@@ -990,14 +990,41 @@ pub struct PrintScreenState {
     /// La Herramienta de Recortes la sigue teniendo asignada en el registro. Cuando el
     /// valor no existe se da por asignada, que es como viene Windows 11 de fabrica.
     taken_by_windows: bool,
+    /// Esta copia viene de la Microsoft Store y Windows no ve lo que escribe en sus ajustes
+    /// (`snipping::windows_ve_el_registro`): no puede quitarle ni Impr Pant ni Win+Mayús+S.
+    store_build: bool,
+}
+
+/// Lo que se le cuenta a la interfaz sobre Impr Pant, a partir de lo que se sabe.
+///
+/// `registrada` es que `RegisterHotKey` dijo que sí, y eso con Impr Pant no prueba nada:
+/// Windows la da por buena aunque la Herramienta de Recortes la siga teniendo. `valor` es
+/// lo que winshotx lee en el registro, que desde la Store es su copia privada y no lo que
+/// ve Windows.
+fn estado_impr_pant(
+    pedida: bool,
+    registrada: bool,
+    valor: Option<u32>,
+    ve_el_registro: bool,
+) -> PrintScreenState {
+    // Desde la Store no hay tecla que valga: lo pedido, lo registrado y lo leído son de su
+    // copia privada, y Windows sigue con la suya.
+    PrintScreenState {
+        enabled: pedida && ve_el_registro,
+        active: registrada && ve_el_registro,
+        taken_by_windows: !ve_el_registro || valor.unwrap_or(1) == 1,
+        store_build: !ve_el_registro,
+    }
 }
 
 fn print_screen_now(state: &AppState) -> PrintScreenState {
-    PrintScreenState {
-        enabled: state.settings.read().print_screen_capture,
-        active: state.shortcuts.read().print_screen,
-        taken_by_windows: crate::platform::snipping::read().unwrap_or(1) == 1,
-    }
+    use crate::platform::snipping;
+    estado_impr_pant(
+        state.settings.read().print_screen_capture,
+        state.shortcuts.read().print_screen,
+        snipping::read(),
+        snipping::windows_ve_el_registro(),
+    )
 }
 
 #[tauri::command]
@@ -1012,26 +1039,19 @@ pub async fn print_screen_state(state: State<'_, AppState>) -> Result<PrintScree
 #[tauri::command]
 pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScreenState> {
     use crate::platform::snipping;
+    use crate::teclas_windows::{devolver_impr_pant, tomar_impr_pant, RegistroDeVerdad};
 
     let state = app.state::<AppState>();
     let mut settings = state.settings.read().clone();
 
     if enabled {
-        // Solo la primera vez: si ya estaba activo, lo guardado es el 0 que pusimos
-        // nosotros y machacarlo seria perder el valor original del usuario.
-        if !settings.print_screen_capture {
-            settings.snipping_key_restore = snipping::read();
-            settings.disabled_hotkeys_restore = snipping::read_disabled_hotkeys();
-        }
-        snipping::write(0)?;
-        settings.print_screen_capture = true;
+        // Desde la Store, lo que se escribe aqui no lo veria Windows: se dice y no se toca
+        // nada. Apagarlo si se deja, para que quien lo encendio antes pueda limpiarlo.
+        snipping::comprobar_que_windows_lo_ve(snipping::windows_ve_el_registro())?;
+        tomar_impr_pant(&mut RegistroDeVerdad, &mut settings)?;
     } else {
-        // Se deja el registro como estaba, incluido el caso de que no hubiera valor.
-        match settings.snipping_key_restore.take() {
-            Some(previo) => snipping::write(previo)?,
-            None => snipping::remove()?,
-        }
-        settings.print_screen_capture = false;
+        // El mismo camino que el desinstalador (`teclas_windows::al_desinstalar`).
+        devolver_impr_pant(&mut RegistroDeVerdad, &mut settings)?;
     }
 
     *state.settings.write() = settings.clone();
@@ -1053,25 +1073,17 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
 #[tauri::command]
 pub async fn use_win_shift_s(app: AppHandle, enabled: bool) -> Result<bool> {
     use crate::platform::snipping;
+    use crate::teclas_windows::{devolver_win_shift_s, tomar_win_shift_s, RegistroDeVerdad};
 
     let state = app.state::<AppState>();
     let mut settings = state.settings.read().clone();
 
     if enabled {
-        if !settings.take_win_shift_s {
-            settings.disabled_hotkeys_restore = snipping::read_disabled_hotkeys();
-        }
-        // Se anade a lo que hubiera en vez de sustituirlo: quien tuviera otras letras
-        // apagadas las conserva.
-        let previas = settings.disabled_hotkeys_restore.clone().unwrap_or_default();
-        if !previas.to_uppercase().contains('S') {
-            snipping::write_disabled_hotkeys(Some(&format!("{previas}S")))?;
-        }
-        settings.take_win_shift_s = true;
+        snipping::comprobar_que_windows_lo_ve(snipping::windows_ve_el_registro())?;
+        tomar_win_shift_s(&mut RegistroDeVerdad, &mut settings)?;
     } else {
-        let previas = settings.disabled_hotkeys_restore.take();
-        snipping::write_disabled_hotkeys(previas.as_deref())?;
-        settings.take_win_shift_s = false;
+        // El mismo camino que el desinstalador (`teclas_windows::al_desinstalar`).
+        devolver_win_shift_s(&mut RegistroDeVerdad, &mut settings)?;
     }
 
     *state.settings.write() = settings.clone();
@@ -1088,7 +1100,11 @@ pub async fn use_win_shift_s(app: AppHandle, enabled: bool) -> Result<bool> {
 /// nada. Devuelve el estado de los atajos para poder decir en la interfaz si se consiguio.
 #[tauri::command]
 pub async fn restart_shell(app: AppHandle) -> Result<crate::hotkeys::ShortcutStatus> {
-    crate::platform::snipping::restart_shell()?;
+    use crate::platform::snipping;
+    // Desde la Store, el Explorador nuevo leeria el registro de siempre, sin la S: se le
+    // dejaria a alguien la barra de tareas parpadeando para nada.
+    snipping::comprobar_que_windows_lo_ve(snipping::windows_ve_el_registro())?;
+    snipping::restart_shell()?;
 
     let settings = app.state::<AppState>().settings.read().clone();
     Ok(crate::hotkeys::register(&app, &settings))
@@ -1392,5 +1408,31 @@ mod pruebas_de_tapar {
         let linea = vec![palabra("hola", 0.0, 0.0, 10.0, 10.0)];
         assert!(caja_de(&linea, &[7], 100.0, 100.0).is_none(), "un índice que no existe");
         assert!(caja_de(&linea, &[0], 0.0, 100.0).is_none(), "una imagen sin ancho");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_de_impr_pant {
+    use super::estado_impr_pant;
+
+    /// La copia de la Store escribe el 0 en su registro privado, se lo lee, y `RegisterHotKey`
+    /// le da Impr Pant aunque la siga teniendo la Herramienta de Recortes. Con eso, los ajustes
+    /// no decían nada y la tecla seguía abriendo lo de Windows.
+    #[test]
+    fn desde_la_store_impr_pant_nunca_es_de_winshotx() {
+        let estado = estado_impr_pant(true, true, Some(0), false);
+        assert!(estado.store_build);
+        assert!(!estado.enabled, "no puede salir pedida: no se puede pedir");
+        assert!(!estado.active, "dijo que la tecla era suya");
+        assert!(estado.taken_by_windows, "la tiene Windows, lea lo que lea winshotx");
+    }
+
+    #[test]
+    fn fuera_de_la_store_manda_lo_que_hay() {
+        let estado = estado_impr_pant(true, true, Some(0), true);
+        assert!(!estado.store_build);
+        assert!(estado.enabled && estado.active && !estado.taken_by_windows);
+        let sin_valor = estado_impr_pant(false, false, None, true);
+        assert!(sin_valor.taken_by_windows, "sin valor, Windows 11 la trae asignada");
     }
 }

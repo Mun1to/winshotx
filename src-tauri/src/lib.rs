@@ -42,6 +42,8 @@ mod agente;
 mod arranque;
 // S26 (buscar en el historial)
 mod historial_texto;
+// Las teclas de Windows: quitárselas y devolvérselas (también al desinstalar).
+mod teclas_windows;
 
 use std::time::{Duration, SystemTime};
 
@@ -141,6 +143,11 @@ pub fn run() {
     if let Some(codigo) = agente::desde_la_linea_de_ordenes() {
         std::process::exit(codigo);
     }
+    // Y la que lanza el desinstalador para devolverle a Windows Impr Pant y Win+Mayús+S
+    // (`teclas_windows`, `src-tauri/windows/hooks.nsh`). Tampoco abre nada.
+    if let Some(codigo) = teclas_windows::desde_la_linea_de_ordenes() {
+        std::process::exit(codigo);
+    }
     // Antes que nada, y antes de crear una sola ventana: sin WebView2 la ventana se abriria
     // igual y dentro saldria la pagina de error del navegador, que no dice ni que ha pasado
     // ni que hacer. Es por lo que la Microsoft Store rechazo el envio el 1 de septiembre de
@@ -227,8 +234,12 @@ pub fn run() {
             // arranque: una actualizacion de Windows o un paseo por Configuracion se la
             // devuelven a la Herramienta de Recortes sin avisar, y entonces el atajo se
             // registra igual pero no llega ni una pulsacion.
+            //
+            // Desde la Store no: lo escrito se quedaria en su copia privada del registro.
             #[cfg(windows)]
-            if config.print_screen_capture {
+            let windows_lo_ve = platform::snipping::windows_ve_el_registro();
+            #[cfg(windows)]
+            if config.print_screen_capture && windows_lo_ve {
                 let _ = platform::snipping::write(0);
 
             }
@@ -236,7 +247,7 @@ pub fn run() {
             // Y la S fuera de los atajos del escritorio, solo si se pidio esa opcion
             // aparte: es la que cuesta perder Win+S.
             #[cfg(windows)]
-            if config.take_win_shift_s {
+            if config.take_win_shift_s && windows_lo_ve {
                 let actuales = platform::snipping::read_disabled_hotkeys().unwrap_or_default();
                 if !actuales.to_uppercase().contains('S') {
                     let _ =

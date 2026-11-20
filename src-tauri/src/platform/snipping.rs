@@ -30,6 +30,39 @@ const HOTKEYS_PATH: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\
 #[cfg(windows)]
 const HOTKEYS_VALUE: &str = "DisabledHotkeys";
 
+/// Lo que se le dice a quien tiene la copia de la Microsoft Store y pide una de las dos teclas.
+pub const SOLO_FUERA_DE_LA_STORE: &str = "La versión de la Microsoft Store no puede quitarle esta tecla a Windows: Windows no ve los cambios que hace en sus ajustes. Para usarla, instala winshotx desde winshotx.com o con winget.";
+
+/// Si Windows ve lo que winshotx escribe en el registro del usuario.
+///
+/// Desde la Microsoft Store, NO. Un paquete MSIX de escritorio guarda todo lo que escribe en
+/// HKEY_CURRENT_USER en una copia privada suya: «All writes under HKCU are copied on write to a
+/// private per-user, per-app location» (Microsoft, «Understanding how packaged desktop apps run
+/// on Windows», apartado Registry). La app se lee a sí misma y cree que lo ha cambiado, pero el
+/// Explorador lee el registro de verdad y no ve ni la S de `DisabledHotkeys` ni el 0 de Impr Pant.
+/// Así que reiniciarlo no suelta nada y la tecla sigue abriendo la Herramienta de Recortes.
+///
+/// Medido el 19 de noviembre de 2026 en Windows 11 25H2 (26200), con un paquete de prueba con
+/// el mismo manifiesto que el de la Store: escribe «sin error», se lee desde dentro y desde fuera
+/// no está; y en Windows Sandbox, reiniciado el Explorador, `Win+Mayús+S` sigue siendo suya.
+/// Saltárselo pide la capacidad restringida `unvirtualizedResources`, que Microsoft dice que es
+/// para juegos suyos y de sus socios.
+pub fn windows_ve_el_registro() -> bool {
+    !crate::platform::empaquetado::es_msix()
+}
+
+/// Para cortar antes de tocar nada cuando lo que se va a escribir no lo vería Windows.
+///
+/// Se prueba aparte de `windows_ve_el_registro` porque eso depende de cómo se ha instalado
+/// la copia que corre la prueba.
+pub fn comprobar_que_windows_lo_ve(ve_el_registro: bool) -> crate::error::Result<()> {
+    if ve_el_registro {
+        Ok(())
+    } else {
+        Err(crate::error::AppError::Msg(SOLO_FUERA_DE_LA_STORE.into()))
+    }
+}
+
 #[cfg(windows)]
 fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
@@ -286,39 +319,79 @@ pub fn uninstall_snipping_tool() -> Result<bool> {
 #[cfg(windows)]
 pub fn restart_shell() -> Result<()> {
     use std::os::windows::process::CommandExt;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
     use windows::Win32::UI::WindowsAndMessaging::GetShellWindow;
 
-    let vivo = || unsafe { !GetShellWindow().0.is_null() };
+    let ventana = || unsafe { GetShellWindow().0 as isize };
+    let antes = ventana();
 
     std::process::Command::new("taskkill")
         .creation_flags(0x0800_0000)
         .args(["/F", "/IM", "explorer.exe"])
         .output()?;
 
+    esperar_shell_nuevo(
+        antes,
+        ventana,
+        || {
+            std::process::Command::new("explorer.exe")
+                .creation_flags(0x0800_0000)
+                .spawn()?;
+            Ok(())
+        },
+        Duration::from_secs(5),
+        Duration::from_millis(250),
+    )
+}
+
+/// Espera a que el escritorio vuelva después de cerrar el Explorador, y dice si ha vuelto.
+///
+/// `ventana` es la del escritorio (`GetShellWindow`): 0 mientras no hay ninguno, y otra
+/// distinta de `antes` cuando ha arrancado uno nuevo. `relanzar` se llama solo si el
+/// escritorio se ha ido y no vuelve por su cuenta.
+pub(crate) fn esperar_shell_nuevo(
+    antes: isize,
+    ventana: impl Fn() -> isize,
+    relanzar: impl FnOnce() -> crate::error::Result<()>,
+    plazo: std::time::Duration,
+    paso: std::time::Duration,
+) -> crate::error::Result<()> {
+    // Hasta el 19 de noviembre bastaba con que hubiera un escritorio, y si `taskkill` no podía
+    // con el Explorador (un PC con políticas) el de antes seguía ahí y esto decía que sí.
+    let vivo = || {
+        let ahora = ventana();
+        ahora != 0 && ahora != antes
+    };
+
     // Windows relanza el shell solo, pero tarda lo suyo. Si en cinco segundos no ha
     // vuelto, se arranca a mano: a nadie se le puede dejar sin barra de tareas.
-    let hasta = Instant::now() + Duration::from_secs(5);
-    while Instant::now() < hasta {
-        std::thread::sleep(Duration::from_millis(250));
+    let hasta = std::time::Instant::now() + plazo;
+    while std::time::Instant::now() < hasta {
+        std::thread::sleep(paso);
         if vivo() {
             return Ok(());
         }
     }
 
-    std::process::Command::new("explorer.exe")
-        .creation_flags(0x0800_0000)
-        .spawn()?;
+    // El de antes sigue en pie: no se ha cerrado, así que no hay que abrir otro (saldría una
+    // ventana de carpetas) y lo que se apuntó en el registro no lo ha leído nadie.
+    if antes != 0 && ventana() == antes {
+        return Err(crate::error::AppError::Msg(
+            "Windows no ha dejado reiniciar el Explorador, así que la tecla sigue siendo suya. Cierra sesión y vuelve a entrar para que Windows la suelte.".into(),
+        ));
+    }
+
+    relanzar()?;
 
     // Y aun asi se espera a verlo en pie antes de decir que salio bien.
-    let hasta = Instant::now() + Duration::from_secs(5);
-    while Instant::now() < hasta {
-        std::thread::sleep(Duration::from_millis(250));
+    let hasta = std::time::Instant::now() + plazo;
+    while std::time::Instant::now() < hasta {
+        std::thread::sleep(paso);
         if vivo() {
             return Ok(());
         }
     }
-    Err(AppError::Msg(
+    Err(crate::error::AppError::Msg(
         "el Explorador no ha vuelto solo; reinicia el equipo".into(),
     ))
 }
@@ -356,6 +429,80 @@ pub fn write(_value: u32) -> crate::error::Result<()> {
 #[cfg(not(windows))]
 pub fn remove() -> crate::error::Result<()> {
     Err(crate::error::AppError::Unsupported)
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use std::cell::Cell;
+    use std::time::Duration;
+
+    const PLAZO: Duration = Duration::from_millis(60);
+    const PASO: Duration = Duration::from_millis(5);
+
+    /// Lo que pasó en el PC de clase si estaba instalado desde la Store: winshotx se lee a sí
+    /// mismo, dice que ya es suya y la tecla sigue abriendo la Herramienta de Recortes.
+    #[test]
+    fn desde_la_store_no_se_toca_ninguna_tecla() {
+        let error = comprobar_que_windows_lo_ve(false).expect_err("en la Store tiene que decir que no");
+        let texto = error.to_string();
+        assert!(texto.contains("Microsoft Store"), "{texto}");
+        assert!(texto.contains("winshotx.com"), "tiene que decir qué hacer: {texto}");
+        assert!(comprobar_que_windows_lo_ve(true).is_ok());
+    }
+
+    /// Si `taskkill` no puede (un PC con políticas, un Explorador que no es nuestro), el
+    /// escritorio de antes sigue ahí. Eso no es haberlo reiniciado, y tampoco se abre otro
+    /// Explorador encima: sería una ventana de carpetas que nadie ha pedido.
+    #[test]
+    fn el_mismo_escritorio_no_cuenta_como_reiniciado() {
+        let relanzado = Cell::new(false);
+        let resultado = esperar_shell_nuevo(
+            42,
+            || 42,
+            || {
+                relanzado.set(true);
+                Ok(())
+            },
+            PLAZO,
+            PASO,
+        );
+        assert!(resultado.is_err(), "dijo que lo había reiniciado y seguía el de antes");
+        assert!(!relanzado.get(), "abrió otro Explorador con el de antes todavía en pie");
+    }
+
+    #[test]
+    fn vuelve_solo_con_otra_ventana() {
+        let vueltas = Cell::new(0);
+        let resultado = esperar_shell_nuevo(
+            42,
+            || {
+                vueltas.set(vueltas.get() + 1);
+                if vueltas.get() < 3 { 0 } else { 77 }
+            },
+            || panic!("no hacía falta relanzarlo"),
+            PLAZO,
+            PASO,
+        );
+        assert!(resultado.is_ok());
+    }
+
+    #[test]
+    fn si_no_vuelve_solo_se_relanza() {
+        let relanzado = Cell::new(false);
+        let resultado = esperar_shell_nuevo(
+            42,
+            || if relanzado.get() { 77 } else { 0 },
+            || {
+                relanzado.set(true);
+                Ok(())
+            },
+            PLAZO,
+            PASO,
+        );
+        assert!(resultado.is_ok());
+        assert!(relanzado.get());
+    }
 }
 
 #[cfg(all(test, windows))]

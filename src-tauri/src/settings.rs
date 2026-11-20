@@ -307,6 +307,38 @@ fn dirs_pictures() -> Option<PathBuf> {
         .filter(|p| p.exists())
 }
 
+/// El identificador de `tauri.conf.json`, que es el nombre de la carpeta de los ajustes.
+pub(crate) const IDENTIFICADOR: &str = "com.munir.winshotx";
+
+/// Los ajustes leídos sin la app arrancada y sin tocar el archivo, o None si no hay o no se
+/// entienden. Es para `winshotx.exe --restore-windows-keys`, que corre desde el desinstalador
+/// sin `AppHandle`; la app los lee con `load`.
+pub(crate) fn leer_sin_la_app() -> Option<Settings> {
+    let raw = std::fs::read_to_string(ruta_sin_la_app()?).ok()?;
+    serde_json::from_str(raw.trim_start_matches('\u{feff}')).ok()
+}
+
+/// La misma que `config_path`: Tauri la saca de `dirs::config_dir()` más el identificador, y
+/// en Windows eso es la carpeta conocida `RoamingAppData` del usuario.
+#[cfg(windows)]
+fn ruta_sin_la_app() -> Option<PathBuf> {
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::UI::Shell::{FOLDERID_RoamingAppData, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
+
+    let carpeta = unsafe {
+        let ruta = SHGetKnownFolderPath(&FOLDERID_RoamingAppData, KF_FLAG_DEFAULT, None).ok()?;
+        let texto = ruta.to_string();
+        CoTaskMemFree(Some(ruta.0 as *const _));
+        texto.ok()?
+    };
+    Some(PathBuf::from(carpeta).join(IDENTIFICADOR).join("settings.json"))
+}
+
+#[cfg(not(windows))]
+fn ruta_sin_la_app() -> Option<PathBuf> {
+    None
+}
+
 fn config_path(app: &AppHandle) -> Result<PathBuf> {
     let dir = app.path().app_config_dir()?;
     std::fs::create_dir_all(&dir)?;
@@ -364,6 +396,24 @@ pub fn save(app: &AppHandle, settings: &Settings) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `leer_sin_la_app` tiene que dar con el mismo archivo que la app: si el identificador de
+    /// `tauri.conf.json` cambia y esto no, el desinstalador no encuentra los ajustes y deja las
+    /// teclas de Windows sin devolver.
+    #[test]
+    fn los_ajustes_sin_la_app_estan_donde_los_deja_tauri() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("leer tauri.conf.json");
+        assert_eq!(conf["identifier"].as_str(), Some(IDENTIFICADOR));
+        #[cfg(windows)]
+        {
+            let appdata = std::env::var_os("APPDATA").expect("APPDATA");
+            assert_eq!(
+                ruta_sin_la_app().expect("la ruta"),
+                PathBuf::from(appdata).join(IDENTIFICADOR).join("settings.json")
+            );
+        }
+    }
 
     /// S40: quien viene de la 0.5.0 no trae tamaño guardado y abre al de serie; y el que se
     /// guarda va y vuelve tal cual, con el nombre que lee el frontend.

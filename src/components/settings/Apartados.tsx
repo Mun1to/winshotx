@@ -677,23 +677,43 @@ export function ApartadoTeclas({
   cambiarWinShiftS,
 }: DatosAjustes) {
   const t = useT();
+  // La copia de la Microsoft Store no puede con ninguna de las dos teclas: lo que escribe en
+  // los ajustes de Windows se queda en su caja y Windows no lo ve (el PC de clase, 19-nov). Se
+  // dice en las dos filas y lleva a la otra versión con un solo botón, en la primera.
+  const tienda = imprPant?.storeBuild === true;
   return (
     <Grupo tour="las-teclas">
       <Row
         id="tecImpr"
         icon={<Keyboard className="size-4" />}
         label={t("Impr Pant")}
-        explicacion={t("Windows le tiene asignada la Herramienta de Recortes, y esto se la quita para dársela a winshotx. Si la tecla no responde, hay que cerrar sesión una vez para que Windows la suelte del todo.")}
+        explicacion={
+          tienda
+            ? t("Windows guarda aparte lo que la versión de la Microsoft Store cambia en sus ajustes, y su tecla no se entera. La versión de winshotx.com, o la de winget, sí puede quedársela.")
+            : t("Windows le tiene asignada la Herramienta de Recortes, y esto se la quita para dársela a winshotx. Si la tecla no responde, hay que cerrar sesión una vez para que Windows la suelte del todo.")
+        }
         // Solo lo que pide algo: que Windows todavía no la ha soltado. «Ya es de winshotx» es
-        // un «todo va bien» que no pide nada, y lo que hace la tecla ya lo dice el dibujo.
-        hint={imprPant?.enabled && !imprPant.active ? t("cierra sesión para que Windows la suelte") : undefined}
+        // un «todo va bien» que no pide nada, y lo que hace la tecla ya lo dice el dibujo. Que
+        // Windows haya dejado registrarla no basta: con Impr Pant dice que sí aunque la siga
+        // teniendo la Herramienta de Recortes, así que manda también lo que hay en el registro.
+        hint={
+          tienda
+            ? t("la versión de la Microsoft Store no puede quitársela a Windows")
+            : imprPant?.enabled && (!imprPant.active || imprPant.takenByWindows)
+              ? t("cierra sesión para que Windows la suelte")
+              : undefined
+        }
         tone="aviso"
         control={
-          <Switch
-            checked={imprPant?.enabled ?? false}
-            onChange={(v) => void cambiarImprPant(v)}
-            label={t("Usar también Impr Pant")}
-          />
+          <span className="flex items-center gap-2">
+            {tienda && <RowButton onClick={() => void openUrl(WEB)}>{t("Bajar de winshotx.com")}</RowButton>}
+            <Switch
+              checked={!tienda && (imprPant?.enabled ?? false)}
+              disabled={tienda}
+              onChange={(v) => void cambiarImprPant(v)}
+              label={t("Usar también Impr Pant")}
+            />
+          </span>
         }
       />
       <Row
@@ -704,15 +724,17 @@ export function ApartadoTeclas({
         // Lo que cuesta va antes de pulsar, no después: es lo único que hay que saber para
         // decidir.
         hint={
-          !settings.takeWinShiftS
-            ? t("cuesta Win+S, la búsqueda")
-            : aplicando
-              ? t("reiniciando el Explorador…")
-              : shortcuts.winShiftS
-                ? t("de winshotx, o pulsa Aplicar si Windows la sigue abriendo")
-                : t("el escritorio todavía la tiene")
+          tienda
+            ? t("tampoco desde la Store: hace falta la de winshotx.com")
+            : !settings.takeWinShiftS
+              ? t("cuesta Win+S, la búsqueda")
+              : aplicando
+                ? t("reiniciando el Explorador…")
+                : shortcuts.winShiftS
+                  ? t("de winshotx, o pulsa Aplicar si Windows la sigue abriendo")
+                  : t("el escritorio todavía la tiene")
         }
-        tone={settings.takeWinShiftS && !aplicando && !shortcuts.winShiftS ? "aviso" : "dato"}
+        tone={tienda || (settings.takeWinShiftS && !aplicando && !shortcuts.winShiftS) ? "aviso" : "dato"}
         control={
           <span className="flex items-center gap-2">
             {/*
@@ -721,8 +743,9 @@ export function ApartadoTeclas({
               Explorador (que intercepta esta combinacion antes que cualquier programa) ya
               releyo la lista de teclas apagadas. El boton se deja siempre visible: reiniciar
               el Explorador no hace dano de mas, y es la unica forma real de confirmarlo.
+              Desde la Store no sale: el Explorador nuevo leeria el registro sin la S.
             */}
-            {settings.takeWinShiftS && (
+            {settings.takeWinShiftS && !tienda && (
               <RowButton
                 disabled={aplicando}
                 onClick={() => void aplicarTecla()}
@@ -732,7 +755,8 @@ export function ApartadoTeclas({
               </RowButton>
             )}
             <Switch
-              checked={settings.takeWinShiftS}
+              checked={!tienda && settings.takeWinShiftS}
+              disabled={tienda}
               onChange={(v) => void cambiarWinShiftS(v)}
               label={t("Quedarme con Win+Mayús+S")}
             />

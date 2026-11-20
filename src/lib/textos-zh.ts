@@ -93,6 +93,11 @@ export const ZH: Record<string, string> = {
   "Impr Pant": "Print Screen",
   "Usar también Impr Pant": "同时使用 Print Screen",
   "cierra sesión para que Windows la suelte": "注销一次让 Windows 释放该键",
+  "la versión de la Microsoft Store no puede quitársela a Windows": "Microsoft Store 版本无法从 Windows 接管该键",
+  "Bajar de winshotx.com": "从 winshotx.com 下载",
+  "tampoco desde la Store: hace falta la de winshotx.com": "Store 版本同样不行：需要 winshotx.com 的版本",
+  "Windows guarda aparte lo que la versión de la Microsoft Store cambia en sus ajustes, y su tecla no se entera. La versión de winshotx.com, o la de winget, sí puede quedársela.":
+    "Microsoft Store 版本对系统设置的修改会被 Windows 单独存放，按键本身察觉不到。winshotx.com 或 winget 的版本可以接管它。",
   "Win + Mayús + S": "Win + Shift + S",
   "Quedarme con Win+Mayús+S": "接管 Win+Shift+S",
   "cuesta Win+S, la búsqueda": "代价是失去 Win+S 搜索",
@@ -322,6 +327,10 @@ export const ZH: Record<string, string> = {
     "如果 Windows 仍用 Print Screen 打开截图工具，请注销并重新登录。",
   "Se queda en Windows: quitársela apaga también Win + S, la búsqueda. Si la quieres, está en Ajustes, en Teclas de Windows.":
     "它留给 Windows：接管它也会关闭 Win+S 搜索。如果需要，可在设置的「Windows 快捷键」中开启。",
+  "La versión de la Microsoft Store no puede quitarle Impr Pant a Windows. Para usarla, instala winshotx desde winshotx.com o con winget.":
+    "Microsoft Store 版本无法从 Windows 接管 Print Screen。如需使用，请从 winshotx.com 或通过 winget 安装 winshotx。",
+  "Se queda en Windows: la versión de la Microsoft Store tampoco puede quitársela.":
+    "保留给 Windows：Microsoft Store 版本同样无法接管它。",
   "Tus atajos de winshotx funcionan siempre, cojas esta tecla o no":
     "无论是否接管这个键，winshotx 的快捷键都始终有效",
 

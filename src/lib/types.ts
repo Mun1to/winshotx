@@ -475,6 +475,11 @@ export interface PrintScreenState {
   active: boolean;
   /** La Herramienta de Recortes la sigue teniendo asignada. */
   takenByWindows: boolean;
+  /**
+   * Esta copia es la de la Microsoft Store: Windows no ve lo que cambia en sus ajustes, así que
+   * no puede quitarle ni Impr Pant ni Win+Mayús+S (`snipping::windows_ve_el_registro` en Rust).
+   */
+  storeBuild: boolean;
 }
 
 export interface CacheStats {
