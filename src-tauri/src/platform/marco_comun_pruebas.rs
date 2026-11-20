@@ -116,6 +116,44 @@ fn la_linea_es_nitida_y_de_su_grosor_y_el_halo_se_apaga() {
     }
 }
 
+/// Sin transparencia (X11 sin compositor) la ventana se recorta a la linea: lo marcado es la
+/// linea y nada mas. En un tramo recto, justo sus filas, sin el hueco ni el halo; todo lo que
+/// el dibujo pinta opaco esta marcado, y nada de lo marcado es solo halo; y donde iria la
+/// esquina de un rectangulo no hay nada, porque la esquina es redonda.
+#[test]
+fn la_linea_recortada_es_la_linea_sin_hueco_ni_halo() {
+    let region = Rect { x: 1000, y: 1000, width: 400, height: 300 };
+    for estilo in Estilo::TODOS {
+        for escala in [1.0, 1.25, 1.5, 2.0] {
+            let forma = por_fuera(region, escala, estilo);
+            let m = forma.medidas;
+            let Color(r, g, b) = estilo.linea(false);
+            for (n, tira) in forma.tiras.into_iter().enumerate() {
+                let marcados = linea_de_tira(&forma, tira);
+                let dibujo = pintar_tira(&forma, tira, estilo, false);
+                assert_eq!(marcados.len() * 4, dibujo.len());
+                for (i, (marcado, pixel)) in marcados.iter().zip(dibujo.chunks_exact(4)).enumerate() {
+                    if pixel == [b, g, r, 255] {
+                        assert!(*marcado, "{estilo:?} a {escala}, tira {n}: un pixel de linea entera sin marcar ({i})");
+                    }
+                    if *marcado {
+                        assert!(pixel[3] >= 128, "{estilo:?} a {escala}, tira {n}: marcado sin ser linea ({i}): {pixel:?}");
+                    }
+                }
+            }
+            // La tira de arriba, de fuera hacia la region: el halo, la linea y el hueco.
+            let arriba = forma.tiras[0];
+            let marcados = linea_de_tira(&forma, arriba);
+            let columna: Vec<bool> = (0..arriba.height as usize).map(|fila| marcados[fila * arriba.width as usize + 200]).collect();
+            let esperada: Vec<bool> = (0..m.grosor()).map(|fila| (m.halo..m.halo + m.linea).contains(&fila)).collect();
+            assert_eq!(columna, esperada, "{estilo:?} a {escala}");
+            // Donde iria la esquina de un rectangulo (la de fuera de la linea).
+            let esquina = (m.halo as usize) * arriba.width as usize + m.halo as usize;
+            assert!(!marcados[esquina], "{estilo:?} a {escala}: la esquina no es redonda");
+        }
+    }
+}
+
 /// La esquina de la region nunca asoma por dentro de la linea, a ninguna escala: si
 /// asomara, la linea se cortaria en la esquina (las tiras no pueden pintar dentro de la
 /// region). Es lo que limita el radio con el hueco que hay (`RADIO_POR_HUECO`): a 120 %,

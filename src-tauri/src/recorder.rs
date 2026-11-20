@@ -842,7 +842,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
 /// La escala de la pantalla donde cae el centro de la zona: el marco mide lo mismo a la
 /// vista en una pantalla al 100 % que en una al 150 %. Si la zona cruza dos pantallas con
 /// distinto escalado, manda la del centro: un marco con un lado mas gordo que otro se ve roto.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 fn escala_del_marco(region: Rect) -> f64 {
     let (cx, cy) = region.center();
     windows_mgr::monitor_de(cx, cy)
@@ -979,7 +979,7 @@ fn terminar(mut recording: RecordingState) -> Result<SessionData> {
     }
     // El marco se quita ya: lo que viene ahora es guardar, y un marco encima de un
     // escritorio que ya no se graba dice lo contrario de lo que pasa.
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     drop(recording.marco.take());
 
     let writer = recording
@@ -1328,7 +1328,7 @@ pub fn set_paused(app: &AppHandle, paused: bool) -> Result<()> {
             .fetch_add(started.elapsed().as_millis() as u64, Ordering::Relaxed);
     }
     recording.pause.store(paused, Ordering::Relaxed);
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     if let Some(marco) = recording.marco.as_ref() {
         marco.pausado(paused);
     }

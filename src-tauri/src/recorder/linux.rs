@@ -368,6 +368,7 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         cabecera: Cabecera { format: options.format.clone(), audio: options.audio, microphone: options.microphone },
         descartar,
         barra: None,
+        marco: None,
         writer: Some(writer),
     };
     *state.recording.lock() = Some(recording);
@@ -390,6 +391,19 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
             );
         }
         Err(error) => eprintln!("no se ha podido abrir la barra de grabacion: {error}"),
+    }
+    // El marco alrededor de lo que se graba, solo en X11: en Wayland una ventana no elige su
+    // sitio, y el escritorio ya ensenna su aviso de que se graba. Va siempre por fuera de la
+    // zona (aqui nada se puede sacar del video), y que no se pueda abrir no impide grabar.
+    if !crate::platform::xdg::es_wayland() {
+        match crate::platform::marco_x11::Marco::abrir(region, super::escala_del_marco(region)) {
+            Ok(marco) => {
+                if let Some(recording) = state.recording.lock().as_mut() {
+                    recording.marco = Some(marco);
+                }
+            }
+            Err(error) => eprintln!("[grabar] sin marco alrededor de la grabación: {error}"),
+        }
     }
     spawn_ticker(app.clone(), stop);
 

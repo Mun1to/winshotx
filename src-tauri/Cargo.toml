@@ -96,8 +96,9 @@ ab_glyph = "0.2"
 # Grabar (Fase 2 del plan de Linux). Nada de esto compila algo nuevo: x11rb ya viene con el
 # plugin de los atajos, pipewire con xcap, y libc con casi todo.
 # - x11rb: los fotogramas de X11 por memoria compartida (MIT-SHM) y el raton por XFixes.
+#   Y el marco de grabar: Shape recorta sus ventanas y deja pasar el raton (ya venia con XFixes).
 # - libc: reservar esa memoria compartida (shmget y shmat).
-x11rb = { version = "0.13", features = ["shm", "xfixes"] }
+x11rb = { version = "0.13", features = ["shm", "xfixes", "shape"] }
 libc = "0.2"
 # - pipewire: los fotogramas de Wayland (el nodo que da el portal ScreenCast) y el sonido.
 #   Es la misma version que ya trae xcap.

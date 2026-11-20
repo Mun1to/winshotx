@@ -2,7 +2,8 @@
 //!
 //! Los colores, las medidas a cada escala, las cuatro tiras que rodean la region, que lados
 //! van por dentro y el dibujo de cada tira pixel a pixel. Cada sistema pone las ventanas:
-//! `marco.rs` en Windows, que es donde se cuenta que es el marco y por que es asi.
+//! `marco.rs` en Windows, que es donde se cuenta que es el marco y por que es asi, y
+//! `marco_x11.rs` en Linux.
 
 use crate::capture::Rect;
 
@@ -51,7 +52,7 @@ impl Estilo {
     pub const TODOS: [Estilo; 4] = [Estilo::Rojo, Estilo::Azul, Estilo::AzulConLuz, Estilo::BlancoConLuz];
 
     /// El color de la linea, grabando o en pausa.
-    fn linea(self, pausado: bool) -> Color {
+    pub(crate) fn linea(self, pausado: bool) -> Color {
         match (self, pausado) {
             (Estilo::BlancoConLuz, _) => BLANCO,
             (_, true) => EN_PAUSA,
@@ -74,16 +75,16 @@ impl Estilo {
 
 /// Un color de la linea, en rojo, verde y azul.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Color(u8, u8, u8);
+pub(crate) struct Color(pub(crate) u8, pub(crate) u8, pub(crate) u8);
 
 /// Lo que mide el marco en pixeles de la pantalla.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Medidas {
     /// Lo que se separa la linea de la region. Sin hueco, la esquina de dentro tendria que ir
     /// en angulo recto: una esquina redonda pegada a la region se meteria en ella.
-    hueco: i32,
+    pub(crate) hueco: i32,
     /// La linea de color.
-    linea: i32,
+    pub(crate) linea: i32,
     /// El radio de la esquina de dentro de la linea (la de fuera es este mas la linea).
     radio: i32,
     /// El halo, por fuera de la linea.
@@ -222,43 +223,66 @@ fn distancia(forma: &Forma, x: f32, y: f32) -> f32 {
     (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) - r
 }
 
-/// El dibujo de una tira: cada pixel segun lo lejos que este del borde de dentro de la linea.
-/// Sale en BGRA premultiplicado, que es lo que pide `UpdateLayeredWindow`.
+/// Cuanto de un pixel es linea, de 0 a 1. El pixel va contado desde la esquina de arriba a la
+/// izquierda de la region.
 ///
 /// En los tramos rectos, el hueco y la linea son pixeles enteros y sus bordes caen justo
 /// entre dos pixeles: la linea sale nitida, sin medio pixel borroso a ningun lado. En las
 /// esquinas redondas cada pixel se mira en 4x4 puntos y la curva sale suave, sin escalones.
+fn cubre_la_linea(forma: &Forma, x: f32, y: f32) -> f32 {
+    let linea = forma.medidas.linea as f32;
+    let [x1, y1, x2, y2] = forma.contorno;
+    let r = forma.radio_en(x + 0.5, y + 0.5);
+    // Cerca de una esquina redonda: donde empieza su curva, con un pixel de margen.
+    let en_curva = r > 0.0
+        && (x + 0.5 < x1 + r + 1.0 || x + 0.5 > x2 - r - 1.0)
+        && (y + 0.5 < y1 + r + 1.0 || y + 0.5 > y2 - r - 1.0);
+    if !en_curva {
+        // Tramo recto: el centro del pixel decide, y la linea sale de pixeles enteros.
+        let d = distancia(forma, x + 0.5, y + 0.5);
+        return if (0.0..=linea).contains(&d) { 1.0 } else { 0.0 };
+    }
+    let mut dentro = 0u32;
+    for my in 0..4 {
+        for mx in 0..4 {
+            let (sx, sy) = (x + (mx as f32 + 0.5) / 4.0, y + (my as f32 + 0.5) / 4.0);
+            if (0.0..=linea).contains(&distancia(forma, sx, sy)) {
+                dentro += 1;
+            }
+        }
+    }
+    dentro as f32 / 16.0
+}
+
+/// Que pixeles de una tira son linea (medio pixel o mas), fila a fila. Es para quien no puede
+/// pintar con transparencia y recorta la ventana a la forma de la linea (X11 sin compositor):
+/// ahi no hay halo ni borde suave, solo la linea con sus esquinas.
+#[cfg(any(target_os = "linux", test))]
+pub(crate) fn linea_de_tira(forma: &Forma, tira: Rect) -> Vec<bool> {
+    let (dx, dy) = (tira.x - forma.region.x, tira.y - forma.region.y);
+    let mut marcados = Vec::with_capacity(tira.width as usize * tira.height as usize);
+    for fila in 0..tira.height as i32 {
+        for col in 0..tira.width as i32 {
+            marcados.push(cubre_la_linea(forma, (dx + col) as f32, (dy + fila) as f32) >= 0.5);
+        }
+    }
+    marcados
+}
+
+/// El dibujo de una tira: cada pixel segun lo lejos que este del borde de dentro de la linea.
+/// Sale en BGRA premultiplicado, que es lo que pide `UpdateLayeredWindow` en Windows y una
+/// ventana de 32 bits en X11.
 pub(crate) fn pintar_tira(forma: &Forma, tira: Rect, estilo: Estilo, pausado: bool) -> Vec<u8> {
     let linea = forma.medidas.linea as f32;
     let ancho_halo = forma.medidas.halo.max(1) as f32;
     let (color, halo) = (estilo.linea(pausado), estilo.halo(pausado));
     let (dx, dy) = (tira.x - forma.region.x, tira.y - forma.region.y);
-    let [x1, y1, x2, y2] = forma.contorno;
     let mut bgra = Vec::with_capacity(tira.width as usize * tira.height as usize * 4);
     for fila in 0..tira.height as i32 {
         for col in 0..tira.width as i32 {
             let (x, y) = ((dx + col) as f32, (dy + fila) as f32);
             let d = distancia(forma, x + 0.5, y + 0.5);
-            let r = forma.radio_en(x + 0.5, y + 0.5);
-            // Cerca de una esquina redonda: donde empieza su curva, con un pixel de margen.
-            let en_curva = r > 0.0
-                && (x + 0.5 < x1 + r + 1.0 || x + 0.5 > x2 - r - 1.0)
-                && (y + 0.5 < y1 + r + 1.0 || y + 0.5 > y2 - r - 1.0);
-            let cubre = if !en_curva {
-                // Tramo recto: el centro del pixel decide, y la linea sale de pixeles enteros.
-                if (0.0..=linea).contains(&d) { 1.0 } else { 0.0 }
-            } else {
-                let mut dentro = 0u32;
-                for my in 0..4 {
-                    for mx in 0..4 {
-                        let (sx, sy) = (x + (mx as f32 + 0.5) / 4.0, y + (my as f32 + 0.5) / 4.0);
-                        if (0.0..=linea).contains(&distancia(forma, sx, sy)) {
-                            dentro += 1;
-                        }
-                    }
-                }
-                dentro as f32 / 16.0
-            };
+            let cubre = cubre_la_linea(forma, x, y);
             // El halo solo va por fuera de la linea: el hueco de dentro queda limpio.
             let fuera = if d > linea / 2.0 {
                 let t = ((d - linea) / ancho_halo).clamp(0.0, 1.0);

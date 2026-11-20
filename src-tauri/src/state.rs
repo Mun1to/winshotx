@@ -51,6 +51,9 @@ pub struct RecordingState {
     /// El marco que se ve alrededor de lo que se graba. Se cierra solo al soltarlo.
     #[cfg(windows)]
     pub marco: Option<crate::platform::marco::Marco>,
+    /// Lo mismo en Linux, solo en X11: en Wayland el escritorio ya ensenna su aviso.
+    #[cfg(target_os = "linux")]
+    pub marco: Option<crate::platform::marco_x11::Marco>,
     pub writer: Option<JoinHandle<Result<SessionData>>>,
 }
 
