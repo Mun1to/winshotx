@@ -408,8 +408,16 @@ pub fn leer_texto(png: &[u8]) -> crate::error::Result<String> {
 
 #[cfg(target_os = "linux")]
 pub fn leer_palabras(png: &[u8]) -> crate::error::Result<Vec<Vec<crate::sensibles::Palabra>>> {
-    let imagen = image::load_from_memory(png)?.to_rgba8();
+    let imagen = image::load_from_memory(png).map_err(no_se_abre)?.to_rgba8();
     super::tesseract::Motor::nuevo()?.leer(&imagen)
+}
+
+/// Lo que contesta `image` de una imagen que no sabe abrir va a la salida de errores, y a la
+/// pantalla la misma frase que en Windows, que tiene su traducción.
+#[cfg(target_os = "linux")]
+fn no_se_abre(error: image::ImageError) -> crate::error::AppError {
+    eprintln!("[ocr] la imagen no se abre: {error}");
+    crate::error::AppError::Msg(NO_SE_ABRE.into())
 }
 
 /// El lector del historial en Linux. Lee de fondo, con un solo hilo: nadie lo espera.
@@ -426,7 +434,7 @@ impl Lector {
 
     /// Lee una foto del disco (PNG o JPEG, que es lo que guarda winshotx) y devuelve su texto.
     pub fn leer_archivo(&self, ruta: &std::path::Path) -> crate::error::Result<String> {
-        let imagen = image::open(ruta)?.to_rgba8();
+        let imagen = image::open(ruta).map_err(no_se_abre)?.to_rgba8();
         Ok(super::tesseract::texto_de(&self.motor.leer(&imagen)?))
     }
 }
@@ -459,7 +467,7 @@ const SIN_IDIOMA: &str = "Windows no tiene ningún idioma con lector de texto in
 /// Lo que se dice de una imagen que Windows no sabe abrir: vacía, rota, o de un formato
 /// para el que no tiene decodificador. Lo que contesta Windows («No se encuentra el
 /// componente», 0x88982F50) no le dice nada a quien usa la app, y va a la salida de errores.
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 const NO_SE_ABRE: &str = "No he podido abrir esa imagen para leer su texto.";
 
 #[cfg(not(any(windows, target_os = "linux")))]
