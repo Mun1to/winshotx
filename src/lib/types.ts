@@ -516,6 +516,8 @@ export interface TeclasDelEscritorio {
   edit: TeclaDelEscritorio | null;
   /** La de grabar, que es también la de parar: en Wayland no hay barra de grabar. */
   record?: TeclaDelEscritorio | null;
+  /** S45: la que se queda con los últimos segundos. Solo se pide con el anillo encendido. */
+  replay?: TeclaDelEscritorio | null;
   /**
    * Que este escritorio no deja pedirle atajos (Sway y los demás de wlroots): la tecla se pone
    * a mano en su configuración, con `orden` y `--capture` o `--edit`.
@@ -556,6 +558,11 @@ export interface ReplayStatus {
    * menos de lo que pone el ajuste, y quien lo pulse tiene derecho a saberlo antes.
    */
   bufferedMs: number;
+  /**
+   * S45 (Linux): por qué está apagado, si no lo apagó la persona (al arrancar sin permiso
+   * guardado, o porque el escritorio dejó de compartir la pantalla). En Windows no llega nunca.
+   */
+  apagadoPor?: "sin-permiso" | "cortado" | "fallo";
 }
 
 export interface PrintScreenState {

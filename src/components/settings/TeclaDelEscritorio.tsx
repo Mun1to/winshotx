@@ -10,7 +10,13 @@ import type { TeclaDelEscritorio } from "../../lib/types";
  * (Sway y los demás de wlroots no tienen el portal), con un botón para copiarla. Va en el
  * sitio de la tecla y con su misma altura. La copia la hace Rust, que monta la orden él.
  */
-export function OrdenDelAtajo({ orden, accion }: { orden: string; accion: "capture" | "edit" | "record" }) {
+export function OrdenDelAtajo({
+  orden,
+  accion,
+}: {
+  orden: string;
+  accion: "capture" | "edit" | "record" | "replay";
+}) {
   const t = useT();
   const [copiada, setCopiada] = useState(false);
   useEffect(() => {
@@ -67,14 +73,17 @@ export function EjemploDeSway({ orden }: { orden: string }) {
  *
  * Si el escritorio la escribe de una forma que no se sabe leer, sale su texto tal cual; y si
  * no le ha dado ninguna (se canceló su ventana), sale en rojo, como un atajo ocupado.
+ *
+ * `sinPedir` es la tecla de algo que está apagado (la de rescatar, con el anillo sin encender):
+ * no se le ha pedido al escritorio, así que no tener tecla no es un fallo y no va en rojo.
  */
-export function TeclaPuesta({ tecla }: { tecla: TeclaDelEscritorio | null }) {
+export function TeclaPuesta({ tecla, sinPedir = false }: { tecla: TeclaDelEscritorio | null; sinPedir?: boolean }) {
   const t = useT();
   const partes = tecla?.atajo ? partesDeAtajo(tecla.atajo) : null;
   return (
     <span
       className={`flex h-8 min-w-[132px] items-center justify-end gap-1 rounded-lg border px-2 ${
-        tecla ? "border-linea-fuerte bg-hueco" : "border-red-500/40 bg-red-500/10"
+        tecla || sinPedir ? "border-linea-fuerte bg-hueco" : "border-red-500/40 bg-red-500/10"
       }`}
     >
       {partes ? (

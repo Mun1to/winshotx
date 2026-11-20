@@ -207,10 +207,14 @@ export const plataforma = () => invoke<Plataforma | null>("plataforma");
 export const teclasDelEscritorio = () => invoke<TeclasDelEscritorio | null>("teclas_del_escritorio");
 
 /** Que el escritorio enseñe su ventana para cambiar las teclas de winshotx (Wayland). */
-export const cambiarTeclasEnElEscritorio = () => invoke<void>("cambiar_teclas_en_el_escritorio");
+export const cambiarTeclasEnElEscritorio = (rescate = false) =>
+  // S45: `rescate` es el «Cambiar» de la tecla de los últimos segundos. Sin él, la llamada de siempre.
+  rescate
+    ? invoke<void>("cambiar_teclas_en_el_escritorio", { rescate })
+    : invoke<void>("cambiar_teclas_en_el_escritorio");
 
-/** Copia `winshotx --capture`, `--edit` o `--record`, para ponerla a mano en el escritorio. */
-export const copiarOrdenDelAtajo = (accion: "capture" | "edit" | "record") =>
+/** Copia `winshotx --capture`, `--edit`, `--record` o `--replay`, para ponerla a mano en el escritorio. */
+export const copiarOrdenDelAtajo = (accion: "capture" | "edit" | "record" | "replay") =>
   invoke<void>("copiar_orden_del_atajo", { accion });
 
 /**

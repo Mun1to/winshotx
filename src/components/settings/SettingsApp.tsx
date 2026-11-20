@@ -149,6 +149,11 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   const cambiarTeclas = useCallback(() => {
     void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
   }, []);
+  // S45: el de la tecla de rescatar va aparte, porque esa tecla se puede haber rechazado sola
+  // y entonces «Cambiar» es volver a pedírsela al escritorio.
+  const cambiarTeclaDeRescate = useCallback(() => {
+    void cambiarTeclasEnElEscritorio(true).catch(() => setSinVentanaDeTeclas(true));
+  }, []);
   // S44 (Linux): qué sonido se puede grabar aquí. Se vuelve a mirar al volver a la ventana,
   // por si entretanto se ha enchufado un micrófono.
   const [sonido, setSonido] = useState<SonidoDisponible | null>(null);
@@ -252,7 +257,16 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     // El anillo cambia por su cuenta: se enciende al arrancar la app, va llenandose y
     // guarda cuando alguien pulsa la tecla. Preguntando solo al abrir la ventana, la
     // fila se quedaria contando lo de hace un rato.
-    const unReplay = listen<ReplayStatus>(EVENTS.replay, (evento) => setReplay(evento.payload));
+    const unReplay = listen<ReplayStatus>(EVENTS.replay, (evento) => {
+      setReplay(evento.payload);
+      // S45 (Linux): si se ha apagado sin que nadie tocara el interruptor (el escritorio dejó
+      // de compartir la pantalla), Rust ya ha dejado el ajuste en apagado: se relee, o el
+      // interruptor seguiría en «sí» sobre un anillo que no graba. En Windows no llega nunca.
+      if (evento.payload.apagadoPor) {
+        void getSettings().then(setLocal);
+        void shortcutStatus().then(setShortcuts);
+      }
+    });
     return () => {
       void unlisten.then((fn) => fn());
       void unReplay.then((fn) => fn());
@@ -393,12 +407,13 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     hueco.current?.scrollTo?.({ top: 0 });
   }, []);
 
-  // Elegir pantalla solo sale con más de una: el buscador no ofrece una fila que no está. Y en
-  // Linux tampoco lo que solo existe en Windows.
+  // Elegir pantalla solo sale con más de una (y en Wayland nunca: la elige la persona en la
+  // pregunta del escritorio): el buscador no ofrece una fila que no está. Y en Linux tampoco
+  // lo que solo existe en Windows.
   const hay = useCallback(
     (id: string) =>
-      (id !== "ultPantalla" || pantallas.length > 1) && !(enLinux && SOLO_EN_WINDOWS.has(id)),
-    [pantallas, enLinux],
+      (id !== "ultPantalla" || (pantallas.length > 1 && !enWayland)) && !(enLinux && SOLO_EN_WINDOWS.has(id)),
+    [pantallas, enLinux, enWayland],
   );
 
   // Hasta saber dónde corre no se pinta nada: en Linux se verían un instante las teclas de Windows.
@@ -417,6 +432,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     teclasAMano,
     ordenDeLaApp,
     cambiarTeclas,
+    cambiarTeclaDeRescate,
     sonido,
     settings,
     patch,

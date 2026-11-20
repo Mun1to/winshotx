@@ -883,6 +883,17 @@ export const ZH: Record<string, string> = {
   "Arranca al iniciar sesión": "登录时启动",
   "No arranca sola al iniciar sesión": "登录时不自动启动",
   "En el idioma del sistema": "使用系统语言",
+  // S45 (Linux): «Grabar siempre lo último» en Linux y en Wayland.
+  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla. En Wayland el escritorio te pregunta qué pantalla compartes la primera vez, y mientras esté encendido enseña su aviso de que se está compartiendo la pantalla: es suyo y no se puede quitar.": "winshotx 会一直录制屏幕并丢弃旧内容，所以即使你没按录制，刚刚发生的事也还在。但这需要资源：帧率和分辨率越高、屏幕变化越多，消耗就越大。在 Wayland 上，第一次开启时桌面会问你要共享哪块屏幕；开启期间，桌面会一直显示“正在共享屏幕”的提示：那是桌面自己的提示，无法去掉。",
+  "mientras esté encendido, el escritorio avisa de que se comparte la pantalla": "开启期间，桌面会提示正在共享屏幕",
+  "se apagó al arrancar: falta tu permiso para compartir la pantalla": "启动时已关闭：需要你允许共享屏幕",
+  "se apagó porque se dejó de compartir la pantalla": "已关闭：屏幕共享被停止了",
+  "se apagó porque la pantalla dejó de llegar": "已关闭：收不到屏幕画面了",
+  "La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. En Wayland la tecla la elige el escritorio: te la pregunta al encender esto, y la cambias en su ventana con «Cambiar».": "用于回溯的快捷键。保存最近几秒并在编辑器中打开，**同时不停止录制**，所以你可以继续录，过一会儿再回溯。在 Wayland 上按键由桌面决定：开启此功能时桌面会问你，之后点「更改」可在它的窗口里修改。",
+  "Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.": "保存最近几秒并在编辑器中打开，**同时不停止录制**，所以你可以继续录，过一会儿再回溯。这个桌面不允许应用申请按键：请把这条命令加到它的键盘快捷键里。",
+  "Guardar ahora": "立即保存",
+  "Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».": "和快捷键的作用一样：保存最近几秒并在编辑器中打开，同时不停止录制。适合桌面没有给你按键、或者你不记得是哪个键的时候。命令「winshotx --replay」也能做到。",
+
   // S40 (la barra de abajo vuelve)
   "Barra": "工具栏",
   "Copia": "复制",

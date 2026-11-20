@@ -883,6 +883,17 @@ export const EN: Record<string, string> = {
   "Arranca al iniciar sesión": "Starts when you log in",
   "No arranca sola al iniciar sesión": "Does not start by itself when you log in",
   "En el idioma del sistema": "In the system language",
+  // S45 (Linux): «Grabar siempre lo último» en Linux y en Wayland.
+  "winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla. En Wayland el escritorio te pregunta qué pantalla compartes la primera vez, y mientras esté encendido enseña su aviso de que se está compartiendo la pantalla: es suyo y no se puede quitar.": "winshotx records the screen all the time and drops the old, so what just happened is still there even though you never pressed record. And it costs: the more frames and resolution you ask for, and the more the screen moves, the more it uses. On Wayland the desktop asks which screen you share the first time, and while this is on it shows its notice that the screen is being shared: that notice is the desktop's and cannot be removed.",
+  "mientras esté encendido, el escritorio avisa de que se comparte la pantalla": "while it's on, the desktop shows that the screen is being shared",
+  "se apagó al arrancar: falta tu permiso para compartir la pantalla": "turned off at startup: it needs your permission to share the screen",
+  "se apagó porque se dejó de compartir la pantalla": "turned off because screen sharing was stopped",
+  "se apagó porque la pantalla dejó de llegar": "turned off because the screen stopped arriving",
+  "La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. En Wayland la tecla la elige el escritorio: te la pregunta al encender esto, y la cambias en su ventana con «Cambiar».": "The key that rescues. It saves the last few seconds and opens them in the editor **without stopping the recording**, so you can carry on and rescue again in a while. On Wayland the desktop picks the key: it asks you when you turn this on, and you change it in its window with «Change».",
+  "Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.": "It saves the last few seconds and opens them in the editor **without stopping the recording**, so you can carry on and rescue again in a while. This desktop does not let apps ask for keys: put this command in its keyboard shortcuts.",
+  "Guardar ahora": "Save now",
+  "Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».": "The same thing the key does: it saves the last few seconds and opens them in the editor, without stopping the recording. For when the desktop gave you no key or you don't remember which one it is. The command «winshotx --replay» does it too.",
+
   // S40 (la barra de abajo vuelve)
   "Barra": "Bar",
   "Copia": "Copy",

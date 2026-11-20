@@ -12,7 +12,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
-import { falla, llamadas, responde, ventana } from "../../test/preparar";
+import { emite, falla, llamadas, responde, ventana } from "../../test/preparar";
 import type { ReplayStatus, Settings } from "../../lib/types";
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
@@ -966,6 +966,121 @@ describe("en Linux", () => {
         accion: "record",
       }),
     );
+  });
+
+  /*
+   * S45: «Grabar siempre lo último» en Linux. En Wayland la tecla de rescatar la pone el
+   * escritorio, como las demás, y puede no haber ninguna: se rescata también con el ratón.
+   */
+  const ANILLO: ReplayStatus = { ...PARADO, running: true, seconds: 30, screen: 1, width: 1920, height: 1080, bufferedMs: 30_000 };
+
+  it("en Wayland, la tecla de rescatar es la del escritorio y su Cambiar pide esa tecla", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", {
+      capture: null,
+      edit: null,
+      replay: { texto: "Press <Shift><Control>6", atajo: "CmdOrCtrl+Shift+Digit6" },
+    });
+    await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
+    ir("Los últimos segundos");
+    await waitFor(() => expect(screen.getByText("la tecla la elige el escritorio")).toBeInTheDocument());
+    expect(screen.queryByText("Sin tecla")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar" }));
+    expect(llamadas.filter((l) => l.comando === "cambiar_teclas_en_el_escritorio").at(-1)?.args).toEqual({
+      rescate: true,
+    });
+  });
+
+  it("en Wayland, encendido y sin tecla, se dice en ámbar y se rescata con el ratón", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, replay: null });
+    await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
+    ir("Los últimos segundos");
+    const aviso = await screen.findByText("todavía sin tecla: pulsa «Cambiar»");
+    expect(aviso.className).toContain("text-aviso");
+    expect(screen.getByText("Sin tecla").parentElement?.className).toMatch(/red/);
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "replay_save")).toBe(true));
+  });
+
+  it("en Wayland, apagado, la tecla no va en rojo ni se pide, y la fila avisa de lo que enseñará el escritorio", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null });
+    await abrirAjustes();
+    ir("Los últimos segundos");
+    await waitFor(() =>
+      expect(
+        screen.getByText("mientras esté encendido, el escritorio avisa de que se comparte la pantalla"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText("primero hay que encenderlo aquí arriba")).toBeInTheDocument();
+    // Una tecla que no se ha pedido no es una tecla que falta: el rojo es para lo segundo.
+    expect(screen.getByText("Sin tecla").parentElement?.className).not.toMatch(/red/);
+    expect(screen.getByRole("button", { name: "Cambiar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
+  });
+
+  it("en Wayland no se elige pantalla: la elige la persona en la pregunta del escritorio", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null });
+    await abrirAjustes(undefined, [
+      { id: 0, label: "DP-1", x: 0, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: true },
+      { id: 1, label: "DP-2", x: 1920, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: false },
+    ]);
+    ir("Los últimos segundos");
+    await waitFor(() => expect(screen.getByText("Guardar ahora")).toBeInTheDocument());
+    expect(screen.queryByText("Qué pantalla")).not.toBeInTheDocument();
+  });
+
+  it("si el anillo se apagó solo, la fila dice por qué, en gris", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null });
+    await abrirAjustes({ ...PARADO, apagadoPor: "sin-permiso" });
+    ir("Los últimos segundos");
+    const frase = await screen.findByText("se apagó al arrancar: falta tu permiso para compartir la pantalla");
+    expect(frase.className).toContain("text-apagado");
+  });
+
+  it("si el escritorio deja de compartir la pantalla, el interruptor baja solo y se dice por qué", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null });
+    await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
+    ir("Los últimos segundos");
+    const interruptor = await screen.findByRole("switch", { name: "Grabar siempre lo último" });
+    expect(interruptor).toBeChecked();
+    // Rust ya ha dejado el ajuste en apagado cuando avisa.
+    responde("get_settings", { ...AJUSTES, replayEnabled: false });
+    emite("winshotx://replay", { ...PARADO, apagadoPor: "cortado" });
+    await waitFor(() => expect(interruptor).not.toBeChecked());
+    expect(screen.getByText("se apagó porque se dejó de compartir la pantalla")).toBeInTheDocument();
+  });
+
+  it("donde no se pueden pedir teclas (Sway), rescatar enseña su orden y la copia", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, aMano: true, orden: "winshotx" });
+    await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
+    ir("Los últimos segundos");
+    await waitFor(() => expect(screen.getByText("winshotx --replay")).toBeInTheDocument());
+    expect(screen.getByText("ponla en los atajos del escritorio")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copiar la orden" }));
+    await waitFor(() =>
+      expect(llamadas.filter((l) => l.comando === "copiar_orden_del_atajo").at(-1)?.args).toEqual({
+        accion: "replay",
+      }),
+    );
+  });
+
+  it("en X11 la tecla de rescatar se escribe como en Windows, sin fila de guardar con el ratón", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
+    ir("Los últimos segundos");
+    await waitFor(() => expect(screen.getByText("Quedarme con lo último")).toBeInTheDocument());
+    expect(screen.queryByText("Guardar ahora")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("mientras esté encendido, el escritorio avisa de que se comparte la pantalla"),
+    ).not.toBeInTheDocument();
   });
 
   it("donde PipeWire no lleva el sonido, los dos interruptores salen apagados y dicen por qué", async () => {

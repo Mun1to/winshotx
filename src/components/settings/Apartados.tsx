@@ -21,6 +21,7 @@ import {
   Coffee,
   Compass,
   Crop,
+  Download,
   EyeOff,
   FolderOpen,
   Gauge,
@@ -52,6 +53,7 @@ import {
   openUrl,
   openWindowsApps,
   pickDirectory,
+  replaySave,
   showScreenNumber,
   type CamaraConectada,
 } from "../../lib/ipc";
@@ -92,6 +94,8 @@ export interface DatosAjustes {
   /** La orden que lanza winshotx, para ponerla a mano en los atajos del escritorio. */
   ordenDeLaApp: string;
   cambiarTeclas: () => void;
+  /** S45: el «Cambiar» de la tecla de rescatar, que el escritorio vuelve a preguntar si se rechazó. */
+  cambiarTeclaDeRescate: () => void;
   /** S44 (Linux): qué sonido se puede grabar aquí. null en Windows y mientras contesta. */
   sonido: SonidoDisponible | null;
   settings: Settings;
@@ -204,6 +208,19 @@ export const loQuePuedeOcupar = (segundos: number, fps: number, ancho: number, a
 export const LO_QUE_COSTO: Record<string, string> = {
   "60|0": "la más fluida; gasta más cuanto más se mueve la pantalla",
   "30|1080": "gasta poco con la pantalla quieta",
+};
+
+/**
+ * S45 (Linux): por qué está apagado el anillo cuando no lo apagó la persona (`ReplayStatus`).
+ *
+ * En Wayland no se enciende solo al arrancar si el escritorio no tiene guardado el permiso de
+ * compartir la pantalla, y se apaga si la persona deja de compartirla desde el aviso del
+ * escritorio. Un interruptor que aparece apagado sin decir nada parece un fallo.
+ */
+const APAGADO_POR: Record<string, string> = {
+  "sin-permiso": "se apagó al arrancar: falta tu permiso para compartir la pantalla",
+  cortado: "se apagó porque se dejó de compartir la pantalla",
+  fallo: "se apagó porque la pantalla dejó de llegar",
 };
 
 const FLUJOS: { value: CaptureFlow; label: string }[] = [
@@ -628,9 +645,21 @@ export function ApartadoUltimos({
   replay,
   pantallas,
   medidaGrabada,
+  enLinux,
+  enWayland,
+  teclasDelEscritorio,
+  teclasAMano,
+  ordenDeLaApp,
+  cambiarTeclaDeRescate,
 }: DatosAjustes) {
   const t = useT();
   const costo = LO_QUE_COSTO[`${settings.replayFps}|${settings.replayHeight}`];
+  // S45 (Linux): en Wayland la tecla de rescatar la pone el escritorio, como las demás.
+  const { pista: pistaDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
+  const teclaDeRescate = teclasDelEscritorio?.replay ?? null;
+  const sinTeclaDeRescate = enWayland && !teclasAMano && replay.running && !teclaDeRescate;
+  // Apagado sin que nadie tocara el interruptor: la fila dice por qué, en gris.
+  const porQueApagado = enLinux && !replay.running && replay.apagadoPor ? APAGADO_POR[replay.apagadoPor] : undefined;
   return (
     <>
       <Grupo>
@@ -638,7 +667,11 @@ export function ApartadoUltimos({
           id="ultSiempre"
           icon={<History className="size-4" />}
           label={t("Grabar siempre lo último")}
-          explicacion={t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla.")}
+          explicacion={
+            enWayland
+              ? t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla. En Wayland el escritorio te pregunta qué pantalla compartes la primera vez, y mientras esté encendido enseña su aviso de que se está compartiendo la pantalla: es suyo y no se puede quitar.")
+              : t("winshotx graba la pantalla todo el rato y va tirando lo viejo, así que lo que acaba de pasar sigue estando ahí aunque no le hubieras dado a grabar. Y cuesta: gasta más cuantos más fotogramas y más resolución le pidas, y cuanto más se mueva lo que hay en la pantalla.")
+          }
           // Encendido, lo que de verdad cuesta tenerlo puesto: de dónde, a qué tamaño y cuánto
           // le escribe al disco cada segundo. Es un dato, en gris: no un «todo va bien» en verde.
           hint={
@@ -649,7 +682,11 @@ export function ApartadoUltimos({
                   alto: replay.height,
                   ritmo: formatBytes(replay.bytesPerSecond),
                 })
-              : undefined
+              : porQueApagado
+                ? t(porQueApagado)
+                : enWayland
+                  ? t("mientras esté encendido, el escritorio avisa de que se comparte la pantalla")
+                  : undefined
           }
           control={
             <Switch
@@ -660,8 +697,9 @@ export function ApartadoUltimos({
           }
         />
         <OtrosGrabadores />
-        {/* Solo con más de una pantalla: elegir entre una es una fila de ruido. */}
-        {pantallas.length > 1 && (
+        {/* Solo con más de una pantalla: elegir entre una es una fila de ruido. Y en Wayland
+            tampoco: ahí la pantalla se elige en la pregunta del escritorio al encenderlo. */}
+        {pantallas.length > 1 && !enWayland && (
           <Row
             id="ultPantalla"
             icon={<Monitor className="size-4" />}
@@ -704,28 +742,66 @@ export function ApartadoUltimos({
           id="ultQuedarme"
           icon={<Video className="size-4" />}
           label={t("Quedarme con lo último")}
-          explicacion={t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato.")}
+          explicacion={
+            teclasAMano
+              ? t("Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.")
+              : enWayland
+                ? t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. En Wayland la tecla la elige el escritorio: te la pregunta al encender esto, y la cambias en su ventana con «Cambiar».")
+                : t("La tecla que rescata. Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato.")
+          }
           hint={
             !replay.running
               ? t("primero hay que encenderlo aquí arriba")
-              : replay.bufferedMs < settings.replaySeconds * 1000
-                ? t("ahora mismo hay {n} s guardados", { n: Math.floor(replay.bufferedMs / 1000) })
-                : shortcuts.replay
-                  ? undefined
-                  : t("esa combinación está ocupada")
+              : sinTeclaDeRescate
+                ? pistaDeAtajo(false, false)
+                : replay.bufferedMs < settings.replaySeconds * 1000
+                  ? t("ahora mismo hay {n} s guardados", { n: Math.floor(replay.bufferedMs / 1000) })
+                  : enWayland
+                    ? pistaDeAtajo(true, true)
+                    : shortcuts.replay
+                      ? undefined
+                      : t("esa combinación está ocupada")
           }
-          tone={replay.running && !shortcuts.replay ? "aviso" : "dato"}
+          tone={(enWayland ? sinTeclaDeRescate : replay.running && !shortcuts.replay) ? "aviso" : "dato"}
           control={
-            <ShortcutField
-              value={settings.replayShortcut}
-              // Con el anillo apagado la tecla NO se pide al sistema, así que pintarla en
-              // rojo diría que está ocupada cuando solo está sin usar. El rojo tiene que
-              // significar una sola cosa.
-              active={shortcuts.replay || !replay.running}
-              onChange={(v) => patch({ replayShortcut: v })}
-            />
+            teclasAMano ? (
+              <OrdenDelAtajo orden={ordenDeLaApp} accion="replay" />
+            ) : enWayland ? (
+              <span className="flex items-center gap-1.5">
+                {/* Con el anillo apagado la tecla no se le ha pedido al escritorio: no tenerla
+                    no es un fallo, así que no va en rojo. */}
+                <TeclaPuesta tecla={teclaDeRescate} sinPedir={!replay.running} />
+                <RowButton onClick={cambiarTeclaDeRescate} disabled={!replay.running}>
+                  {t("Cambiar")}
+                </RowButton>
+              </span>
+            ) : (
+              <ShortcutField
+                value={settings.replayShortcut}
+                // Con el anillo apagado la tecla NO se pide al sistema, así que pintarla en
+                // rojo diría que está ocupada cuando solo está sin usar. El rojo tiene que
+                // significar una sola cosa.
+                active={shortcuts.replay || !replay.running}
+                onChange={(v) => patch({ replayShortcut: v })}
+              />
+            )
           }
         />
+        {/* S45 (Linux): en Wayland la tecla es del escritorio, y puede no haber ninguna (se
+            cerró su pregunta, o este escritorio no deja pedirlas). Aquí se rescata igual, con
+            el ratón. La fila está siempre, encendido o no, para que nada se mueva de sitio. */}
+        {enWayland && (
+          <Row
+            icon={<Download className="size-4" />}
+            label={t("Guardar ahora")}
+            explicacion={t("Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».")}
+            control={
+              <RowButton onClick={() => void replaySave().catch(() => undefined)} disabled={!replay.running}>
+                {t("Guardar")}
+              </RowButton>
+            }
+          />
+        )}
       </Grupo>
 
       <Grupo title={t("Lo que guarda")}>
