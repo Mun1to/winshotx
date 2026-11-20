@@ -100,6 +100,72 @@ export function EnLosAjustes({ tomas, img = "ajustes-ultimos.png", luego, childr
   );
 }
 
+/**
+ * Lo más que ocupa una pantalla de Linux en el escenario: queda fondo alrededor, para que se lea
+ * como otra pantalla (la de Windows, en la primera pregunta, ocupa el cuadro entero). Va 50 px por
+ * debajo del centro para que la respuesta de arriba no tape la barra de GNOME, que es lo que dice
+ * «esto es Linux» de un vistazo.
+ */
+export const PANTALLA_LINUX = { w: 1440, h: 810, bajada: 50 };
+
+/** Dónde queda una foto de `ancho` x `alto` dentro de `PANTALLA_LINUX`, centrada y entera. */
+export function cajaDeLinux(ancho: number, alto: number) {
+  const k = Math.min(PANTALLA_LINUX.w / ancho, PANTALLA_LINUX.h / alto);
+  const w = Math.round(ancho * k);
+  const h = Math.round(alto * k);
+  return { x: (ANCHO - w) / 2, y: (ALTO - h) / 2 + PANTALLA_LINUX.bajada, w, h };
+}
+
+/**
+ * winshotx en un escritorio de Linux (las fotos de `linux.ts`): la pantalla entera, con su barra
+ * y sus ventanas, flotando sobre el fondo, y la cámara por dentro. Si hay una segunda foto (la de
+ * X11), entra en `cambia`: la primera se va desenfocándose y la segunda llega desenfocada, como
+ * los cortes entre escenas, pero en medio segundo y sin mover la cámara.
+ */
+export function EnLinux({ fotos, tomas, cambia, dura }: { fotos: { src: string; ancho: number; alto: number }[]; tomas: Toma[]; cambia?: number; dura: number }) {
+  const frame = useCurrentFrame();
+  const o = { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) } as const;
+  // De 0 (solo la primera) a 1 (solo la segunda), en 15 fotogramas centrados en `cambia`.
+  const paso = cambia === undefined || fotos.length < 2 ? 0 : interpolate(frame, [cambia - 7, cambia + 8], [0, 1], o);
+  // La pantalla entra y sale fundiéndose sobre el fondo oscuro: un escritorio claro (un fondo de
+  // pantalla, un tema claro) entre dos escenas oscuras daba un salto de brillo en el corte (medido
+  // con YDIF: 21 y 24 al entrar y al salir, frente a 10 en los demás cortes).
+  // La salida empieza antes que el velo del corte, para que la bajada de brillo no se junte en sus 9 fotogramas.
+  const entera = interpolate(frame, [0, 10, dura - 22, dura - 4], [0, 1, 1, 0], o);
+  return (
+    <AbsoluteFill>
+      <Fondo luz={0.6} />
+      <Camara tomas={tomas}>
+        {fotos.slice(0, 2).map((f, i) => {
+          const c = cajaDeLinux(f.ancho, f.alto);
+          const v = (i === 0 ? 1 - paso : paso) * entera;
+          if (v <= 0.001) return null;
+          const borroso = Math.sin(Math.min(1, paso) * Math.PI) * 10;
+          return (
+            <div
+              key={f.src}
+              style={{
+                position: "absolute",
+                left: c.x,
+                top: c.y,
+                width: c.w,
+                height: c.h,
+                borderRadius: 12,
+                overflow: "hidden",
+                opacity: v,
+                filter: borroso > 0.2 ? `blur(${borroso}px)` : undefined,
+                boxShadow: "0 30px 80px -20px #000d, 0 0 0 1px #ffffff1f",
+              }}
+            >
+              <Img src={f.src} style={{ width: c.w, height: c.h }} />
+            </div>
+          );
+        })}
+      </Camara>
+    </AbsoluteFill>
+  );
+}
+
 /** El cierre: el logo, la web y lo que es, sin nada más (un final con varias cosas apiladas
     le resultó «confuso» en Adeorq). */
 export function Cierre({ linea = "Free and open source, for Windows." }: { linea?: string }) {

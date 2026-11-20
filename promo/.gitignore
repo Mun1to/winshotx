@@ -13,3 +13,6 @@ musica-candidatas/
 # Los efectos de Mixkit: su licencia deja usarlos en el vídeo pero no redistribuirlos sueltos.
 # Los baja y los prepara `node sonidos.mjs`.
 public/sonido/mixkit/
+# winshotx en Linux: fotos de la app en GNOME y en X11 del laboratorio de Linux (no las saca el
+# banco de fotos, que es Windows); se piden por el BUZON y se dejan aquí (ver `src/linux.ts`).
+public/linux/
