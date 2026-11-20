@@ -449,6 +449,102 @@ wheel), Sway and Hyprland themselves, display scaling (the pointer is placed in 
 logical pixels, which is only covered by a unit test), more than one monitor, and X11 with a
 compositor.
 
+## AI agents
+
+`winshotx mcp` and `winshotx agent <command>` work on Linux as on Windows (`docs/AGENTS-API.md`):
+the same commands, the same answers and the same code (`src-tauri/src/agente`). What had to be
+written is the channel to the app and how the app is started.
+
+**The channel is a Unix socket**, `winshotx-agent.sock` in `$XDG_RUNTIME_DIR` (`agente/tuberia.rs`).
+That folder belongs to the user, has mode 700 and dies with the session, which is what the named
+pipe gives on Windows. winshotx does not listen if the folder is somebody else's or others can
+open it; the socket has mode 600; the app drops a connection that comes from another user
+(`SO_PEERCRED`), and the client does not send a word to a socket another user is listening on.
+The socket of an app that died is replaced by the next one. Abstract sockets were ruled out:
+they have no permissions.
+
+**Agents start their tools with almost no environment.** The official MCP SDK passes only
+`HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`: no `XDG_RUNTIME_DIR`, no `DISPLAY`, no
+`WAYLAND_DISPLAY`. So:
+
+- Without `XDG_RUNTIME_DIR`, both sides use `/run/user/<uid>`, which is where systemd puts it.
+- With `DISPLAY` or `WAYLAND_DISPLAY`, the client starts the app itself (`agente/cliente.rs`):
+  through a launcher that puts it in its own session (`setsid`), with stdin, stdout and stderr on
+  `/dev/null` and no other descriptor inherited (`close_range`), and exits. The app is left
+  hanging from the system, not from the agent: an agent that kills its MCP server, or the whole
+  process group, does not take the app or a running recording with it.
+- Without them, a window cannot be opened from there. The client asks systemd's user manager,
+  which does have the session's variables on any desktop that uses the portals:
+  `systemd-run --user --collect --quiet -- winshotx --started-by-agent`. It first checks, with
+  `systemctl --user show-environment`, that systemd knows of a desktop; where it does not, or
+  there is no systemd, the answer says what to do (open winshotx once, or give the command the
+  variables) instead of waiting for an app that cannot start.
+
+`--started-by-agent` does nothing by itself: started with any argument the app does not open its
+settings, and this one tells in the process list who started it. From an AppImage the app is
+started through the `.AppImage` file (`$APPIMAGE`), not through the binary inside its mount.
+
+**What changes for the agent** is said by the MCP server itself (its instructions and the
+description of `record_start` are written per system, `agente/mcp.rs`):
+
+- On X11 the window list comes from the window manager (`_NET_CLIENT_LIST_STACKING`, through
+  xcap), with the name of the executable from `/proc`. A window is photographed with `GetImage`
+  on the window itself.
+- On Wayland a program cannot see the windows of the others: `windows`, and any target given as
+  a window, answer with an error that says to use `screen` or `region`.
+- A recording started by an agent looks like one started by hand, which on Linux means: on X11
+  the frame and the bar when they fit outside the recorded area (with the whole screen, only the
+  tray menu changes); on Wayland, the desktop's own screen sharing indicator.
+
+**On Wayland it is the desktop that asks the person**, and the agent's call waits:
+
+- The first `record` makes the desktop ask which screen to share, with no time limit on our
+  side. With "remember" ticked the next ones do not ask, also after the app is restarted (the
+  token of the recordings, mode 600).
+- A screenshot goes through the Screenshot portal. GNOME asks for that permission the first
+  time and only while the app is the window in front, which it is not when an agent asks. So
+  the same is done as with a shortcut (`platform::portal::pedir_permiso_con_la_ventana`): the
+  settings window is brought up once per session and the permission is asked from there, and
+  the agent gets a sentence that says what is going on instead of the portal's
+  "Portal request didn't succeed: Other".
+- A screenshot asked for while recording leaves nothing in the video on GNOME 50 (no extra
+  frames around it), so it is not refused.
+- In a profile that never accepted winshotx's shortcuts, GNOME asks for them every time the app
+  starts, also when an agent starts it. That is the first-run question, not something of the
+  agents.
+
+What was tried, in virtual sessions on Fedora 44, with the app itself and a GTK window showing a
+known page:
+
+- X11 with openbox: every command. The screenshots of the screen, of a region and of a window
+  are, pixel by pixel, what the X server shows; the window list has the page and none of
+  winshotx's windows; a region is recorded with `--max-seconds`, stopped and exported to MP4 and
+  GIF, the whole screen is recorded, and `open` opens the editor; the frame and the bar are seen
+  around the region. With the app killed, the next command starts it in 0.3 s, first of its own
+  session, with nothing inherited and no window. The MCP server closed the way Claude Code
+  closes it (SIGINT, SIGTERM, SIGKILL), its whole process group killed, and a SIGHUP to the
+  group: the app and its recording go on. Another user (`nobody`) cannot connect; with the
+  folder and the socket opened on purpose it connects and is dropped; and the client refuses a
+  socket another user listens on without sending it anything. With only the six variables: it
+  answers with the app open; with the app closed systemd starts it (it hangs from `systemd`, in
+  its own `run-*.service`) and it captures; and when systemd knows of no desktop the answer says
+  what to do, in 0.1 s. Next to it: the capture by hand still opens and Esc closes it, and a
+  region is still recorded by hand.
+- GNOME 50 on Wayland: `windows` and a window target say there is no window list; the
+  screenshots of the screen and of a region are the page, pixel by pixel, and nothing is left in
+  the desktop's pictures folder; the first `record` waits while the desktop asks and starts once
+  answered, the second starts in half a second without asking, and so does one after the app is
+  killed and started again by the next command; a region with `--max-seconds`, `stop`, `export`
+  and `open`; the MCP server over stdio. Without the screenshot permission: the agent gets the
+  sentence, winshotx's window comes up with GNOME's question, and once allowed the next capture
+  works. Next to it: the capture by hand and recording a region by hand.
+
+Not tried: a real agent (Claude Code, Codex, Cursor) on Linux, only a scripted MCP client that
+starts and closes the server the way they document; KDE Plasma (its questions and its portal);
+a distribution without systemd with an agent that passes no variables (what is tried is systemd
+knowing of no desktop, which takes the same path); the AppImage; more than one monitor; and
+display scaling.
+
 ## How the app identifies itself
 
 On Linux the app presents itself to the desktop as `com.munir.winshotx` (the identifier in
