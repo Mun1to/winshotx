@@ -1129,8 +1129,15 @@ pub fn open_recorder_fuera(app: &AppHandle, region: Rect) -> Result<Option<Strin
 /// sale unos pixeles de ella, y tambien saldria en el video.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn sitio_fuera_de_la_region(region: Rect, m: MonitorSitio) -> Option<(i32, i32)> {
-    let ancho = (BARRA_ANCHO * m.escala).ceil() as i32;
-    let alto = (BARRA_ALTO * m.escala).ceil() as i32;
+    sitio_fuera(region, m, BARRA_ANCHO, BARRA_ALTO)
+}
+
+/// Lo mismo para una ventana de otro tamanno (en pixeles logicos): la barra de la captura con
+/// scroll en Linux, que tampoco puede salir en sus fotos.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn sitio_fuera(region: Rect, m: MonitorSitio, ancho: f64, alto: f64) -> Option<(i32, i32)> {
+    let ancho = (ancho * m.escala).ceil() as i32;
+    let alto = (alto * m.escala).ceil() as i32;
     let hueco = (24.0 * m.escala) as i32;
     let margen = (8.0 * m.escala) as i32;
     let (izquierda, arriba) = (m.x + margen, m.y + margen);

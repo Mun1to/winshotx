@@ -229,6 +229,13 @@ pub fn run() {
                 None
             };
             if let Some(intencion) = intencion {
+                // En Linux, con una captura con scroll bajando, `--capture` la termina, igual
+                // que la tecla de capturar: donde el escritorio no pone atajos, esa tecla es
+                // justo esta orden, puesta a mano.
+                #[cfg(target_os = "linux")]
+                if matches!(intencion, windows_mgr::OverlayIntent::Capture) && capture::scroll::terminar_la_que_haya() {
+                    return;
+                }
                 if let Err(error) = windows_mgr::open_overlays(app, intencion) {
                     eprintln!("no se ha podido abrir el overlay: {error}");
                 }

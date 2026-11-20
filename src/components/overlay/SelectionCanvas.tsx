@@ -67,7 +67,7 @@ import {
   type StillAction,
 } from "../../lib/types";
 import { BootScreen } from "./BootScreen";
-import { ComoParar } from "./ComoParar";
+import { ComoParar, ScrollConSuTecla } from "./ComoParar";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
@@ -1650,7 +1650,11 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       {conScroll && cursorAqui && !active && mode.kind === "idle" && !error && (
         <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center">
           <div className="rounded-xl border border-white/10 bg-neutral-900/90 px-4 py-2.5 text-[14px] text-neutral-100 shadow-2xl backdrop-blur-md">
-            {t("Recorta lo que se desplaza y winshotx lo bajará solo")}
+            {payload.comoParar?.scroll ? (
+              <ScrollConSuTecla tecla={payload.comoParar.scroll} />
+            ) : (
+              t("Recorta lo que se desplaza y winshotx lo bajará solo")
+            )}
           </div>
         </div>
       )}

@@ -93,6 +93,11 @@ export interface ComoParar {
   escritorio: boolean;
   /** Lo que se escribe en una consola para parar («winshotx --record»). */
   orden: string;
+  /**
+   * La tecla que para una captura con scroll antes de que llegue al final («Esc»). Se dice
+   * antes de empezar porque en Linux puede no haber barra: no se puede sacar de las fotos.
+   */
+  scroll?: string | null;
 }
 
 export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text" | /* S4 (capturas) */ "qr";

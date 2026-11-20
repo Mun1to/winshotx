@@ -465,6 +465,8 @@ pub fn pedir_permiso_con_la_ventana(app: &AppHandle) {
 /// Lo mismo que hacen las teclas del plugin en X11 y en Windows (`hotkeys::on_capture`).
 fn disparar(app: &AppHandle, id: &str) {
     let intencion = match id {
+        // Con una captura con scroll bajando, la tecla de capturar la termina.
+        "capture" if crate::capture::scroll::terminar_la_que_haya() => return,
         "capture" => OverlayIntent::Capture,
         "edit" => OverlayIntent::Edit,
         // Grabar, o parar si ya se esta grabando: lo mismo que la entrada de la bandeja.

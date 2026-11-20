@@ -118,6 +118,32 @@ describe("en el overlay", () => {
     expect(screen.queryByLabelText("Copiar")).toBeNull();
   });
 
+  it("en Linux dice además con qué tecla se para, que ahí puede no haber barra", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: { atajo: null, bandeja: false, escritorio: false, orden: "winshotx --record", scroll: "Esc" },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    const tecla = await screen.findByText("Esc");
+    expect(tecla.tagName).toBe("STRONG");
+    expect(tecla.parentElement).toHaveTextContent(
+      "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa Esc.",
+    );
+    // Y no la frase de parar una grabación: esto es una foto.
+    expect(document.querySelector("[data-como-parar]")).toBeNull();
+  });
+
+  it("y sin tecla que decir, la frase de siempre", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: { atajo: null, bandeja: false, escritorio: false, orden: "winshotx --record", scroll: null },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    expect(await screen.findByText("Recorta lo que se desplaza y winshotx lo bajará solo")).toBeInTheDocument();
+  });
+
   it("Ctrl+S sigue siendo guardar, no el scroll", async () => {
     await abrirOverlay();
     fireEvent.keyDown(window, { key: "s", ctrlKey: true });

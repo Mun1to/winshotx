@@ -753,6 +753,8 @@ export const ZH: Record<string, string> = {
   "Captura con scroll": "滚动截图",
   "Captura con scroll: baja la página y la junta en una imagen · S": "滚动截图：滚动页面并拼成一张图 · S",
   "Recorta lo que se desplaza y winshotx lo bajará solo": "框选会滚动的区域，winshotx 会自动向下滚动",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa {atajo}.":
+    "框选会滚动的区域，winshotx 会自动向下滚动。要在到底之前停止，请按 {atajo}。",
   "Bajando sola": "正在自动滚动",
   "Desplázala tú": "请你自己滚动",
   "Sube un poco, me he perdido": "往回滚一点，我跟丢了",
@@ -763,6 +765,7 @@ export const ZH: Record<string, string> = {
   "Otra vez para tirar la captura": "再按一次丢弃这次截图",
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "这个区域太小，无法滚动：请框选大一点的区域。",
   "Ya hay una captura con scroll en marcha.": "已经有一个滚动截图在进行中。",
+  "En Wayland la captura con scroll todavía no funciona.": "在 Wayland 上滚动截图暂时还不能用。",
   // S7 (cursor)
   "Nada": "无",
   "Esconderlo mientras escribes": "打字时隐藏",

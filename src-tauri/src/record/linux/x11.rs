@@ -95,6 +95,12 @@ impl Drop for Segmento {
 /// La parte de la region que cae dentro de una pantalla de ese tamanno, con medidas pares:
 /// pedirle al servidor un pixel de fuera es un error (`BadMatch`), no una imagen mas pequenna.
 pub(crate) fn dentro_de_la_pantalla(region: Rect, ancho: u32, alto: u32) -> Option<Rect> {
+    let dentro = lo_que_cae_dentro(region, ancho, alto)?;
+    Some(Rect { width: dentro.width & !1, height: dentro.height & !1, ..dentro })
+}
+
+/// Lo mismo sin redondear a pares, que es cosa del video: una foto mide lo que mida.
+fn lo_que_cae_dentro(region: Rect, ancho: u32, alto: u32) -> Option<Rect> {
     let x0 = region.x.max(0);
     let y0 = region.y.max(0);
     let x1 = (region.x + region.width as i32).min(ancho as i32);
@@ -102,7 +108,7 @@ pub(crate) fn dentro_de_la_pantalla(region: Rect, ancho: u32, alto: u32) -> Opti
     if x1 - x0 < 2 || y1 - y0 < 2 {
         return None;
     }
-    Some(Rect { x: x0, y: y0, width: ((x1 - x0) as u32) & !1, height: ((y1 - y0) as u32) & !1 })
+    Some(Rect { x: x0, y: y0, width: (x1 - x0) as u32, height: (y1 - y0) as u32 })
 }
 
 pub struct Preparada {
@@ -115,6 +121,16 @@ pub struct Preparada {
 }
 
 pub fn preparar(region: Rect, fps: u32) -> Result<Preparada> {
+    preparar_con(region, fps, true)
+}
+
+/// Lo mismo para fotos sueltas (`Preparada::foto`), que es lo que pide la captura con scroll:
+/// la zona tal cual, sin redondearla a medidas pares.
+pub fn preparar_fotos(region: Rect) -> Result<Preparada> {
+    preparar_con(region, 1, false)
+}
+
+fn preparar_con(region: Rect, fps: u32, pares: bool) -> Result<Preparada> {
     let (conexion, numero) = RustConnection::connect(None).map_err(|e| fallo("no se puede hablar con el servidor X", e))?;
     let instalacion = conexion.setup();
     let pantalla = instalacion
@@ -144,7 +160,8 @@ pub fn preparar(region: Rect, fps: u32) -> Result<Preparada> {
             pantalla.root_depth
         )));
     }
-    let region = dentro_de_la_pantalla(region, u32::from(pantalla.width_in_pixels), u32::from(pantalla.height_in_pixels))
+    let (ancho, alto) = (u32::from(pantalla.width_in_pixels), u32::from(pantalla.height_in_pixels));
+    let region = if pares { dentro_de_la_pantalla(region, ancho, alto) } else { lo_que_cae_dentro(region, ancho, alto) }
         .ok_or_else(|| AppError::Msg("la zona que se quiere grabar no está en la pantalla".into()))?;
 
     let largo = region.width as usize * region.height as usize * 4;
@@ -167,6 +184,38 @@ pub fn preparar(region: Rect, fps: u32) -> Result<Preparada> {
 impl Preparada {
     pub fn region(&self) -> Rect {
         self.region
+    }
+
+    /// Una foto de la zona ahora mismo, ya en RGBA. El raton no sale en ella.
+    pub fn foto(&self) -> Result<image::RgbaImage> {
+        const QUE: &str = "el servidor X no ha dado la imagen";
+        let r = self.region;
+        let (x, y, ancho, alto) = (r.x as i16, r.y as i16, r.width as u16, r.height as u16);
+        let largo = r.width as usize * r.height as usize * 4;
+        let mut rgba = vec![0u8; largo];
+        match self.segmento.as_ref() {
+            Some(s) => {
+                self.conexion
+                    .shm_get_image(self.raiz, x, y, ancho, alto, !0, ImageFormat::Z_PIXMAP.into(), s.id, 0)
+                    .map_err(|e| fallo(QUE, e))?
+                    .reply()
+                    .map_err(|e| fallo(QUE, e))?;
+                bgrx_a_rgba(&s.bytes()[..largo], &mut rgba);
+            }
+            None => {
+                let respuesta = self
+                    .conexion
+                    .get_image(ImageFormat::Z_PIXMAP, self.raiz, x, y, ancho, alto, !0)
+                    .map_err(|e| fallo(QUE, e))?
+                    .reply()
+                    .map_err(|e| fallo(QUE, e))?;
+                if respuesta.data.len() < largo {
+                    return Err(AppError::Msg(format!("{QUE}: ha llegado más pequeña de lo pedido")));
+                }
+                bgrx_a_rgba(&respuesta.data[..largo], &mut rgba);
+            }
+        }
+        image::RgbaImage::from_raw(r.width, r.height, rgba).ok_or_else(|| AppError::Msg(format!("{QUE}: no tiene las medidas pedidas")))
     }
 
     pub fn grabar(self, marcha: Marcha, salida: Sender<Fotograma>, reciclados: Reciclados) -> EnMarcha {
@@ -341,6 +390,14 @@ mod tests {
         let dentro = dentro_de_la_pantalla(r(-10, 1000, 301, 200), 1920, 1080).expect("toca la pantalla");
         assert_eq!((dentro.x, dentro.y), (0, 1000));
         assert_eq!((dentro.width, dentro.height), (290, 80));
+    }
+
+    #[test]
+    fn para_una_foto_las_medidas_impares_se_quedan_como_estan() {
+        let dentro = lo_que_cae_dentro(r(-10, 1000, 301, 200), 1920, 1080).expect("toca la pantalla");
+        assert_eq!((dentro.x, dentro.y, dentro.width, dentro.height), (0, 1000, 291, 80));
+        let dentro = lo_que_cae_dentro(r(7, 9, 351, 321), 1920, 1080).expect("cabe");
+        assert_eq!((dentro.x, dentro.y, dentro.width, dentro.height), (7, 9, 351, 321));
     }
 
     #[test]

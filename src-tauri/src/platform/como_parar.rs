@@ -32,6 +32,10 @@ pub struct ComoParar {
     pub escritorio: bool,
     /// Lo que se escribe en una consola para parar, para cuando no queda otra cosa.
     pub orden: String,
+    /// La tecla que para una captura con scroll antes de que llegue al final, escrita para
+    /// leerla. En X11 es Esc, que se coge mientras dura (`capture::scroll::linux`): la barrita
+    /// de la captura solo sale si cabe fuera de la zona, asi que hay capturas sin ella.
+    pub scroll: Option<String>,
 }
 
 /// Lo que hay ahora mismo para parar. No espera a nadie: va en el camino de abrir la captura.
@@ -44,6 +48,7 @@ pub fn de_ahora(state: &AppState) -> ComoParar {
         bandeja: BANDEJA.load(Ordering::Relaxed),
         escritorio: wayland && escritorio_con_boton_de_parar(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default()),
         orden: format!("{} --record", super::xdg::orden_de_la_app()),
+        scroll: (!wayland).then(|| "Esc".to_string()),
     }
 }
 
@@ -154,6 +159,7 @@ mod tests {
             bandeja: true,
             escritorio: false,
             orden: "winshotx --record".into(),
+            scroll: Some("Esc".into()),
         };
         assert_eq!(
             serde_json::to_value(&como).unwrap(),
@@ -161,7 +167,8 @@ mod tests {
                 "atajo": "Ctrl+Shift+5",
                 "bandeja": true,
                 "escritorio": false,
-                "orden": "winshotx --record"
+                "orden": "winshotx --record",
+                "scroll": "Esc"
             })
         );
     }

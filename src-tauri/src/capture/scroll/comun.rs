@@ -1,6 +1,7 @@
 //! Lo de la captura con scroll que no depende de cómo se fotografía ni de cómo se gira la
 //! rueda: quién manda parar, lo que se le cuenta a la barra, la zona dentro de su pantalla y
-//! la entrega al editor. Las fotos, la rueda, el ratón, Esc y la barra son de `en_vivo`.
+//! la entrega al editor. Las fotos, la rueda, el ratón, Esc y la barra son de `en_vivo` en
+//! Windows y de `linux` en Linux.
 
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
@@ -11,7 +12,10 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
+#[cfg(windows)]
 use super::en_vivo::{abrir_barra, capturar};
+#[cfg(target_os = "linux")]
+use super::linux::{abrir_barra, capturar};
 use super::{BARRA_LABEL, EVENTO_PROGRESO};
 use crate::capture::{MonitorInfo, Rect};
 use crate::error::{AppError, Result};
@@ -46,7 +50,21 @@ pub(super) fn pedir(orden: u8) {
     }
 }
 
+/// Si hay una captura en marcha, le pide que termine y dice que la había.
+#[cfg(target_os = "linux")]
+pub(super) fn terminar_si_hay() -> bool {
+    match EN_MARCHA.lock().as_ref() {
+        Some(actual) => {
+            let _ = actual.compare_exchange(SEGUIR, TERMINAR, Ordering::SeqCst, Ordering::SeqCst);
+            true
+        }
+        None => false,
+    }
+}
+
 pub(super) fn iniciar(app: &AppHandle, region: Rect) -> Result<()> {
+    #[cfg(target_os = "linux")]
+    super::linux::se_puede()?;
     if region.width < 40 || region.height < 80 {
         return Err(AppError::Msg(
             "Esa zona es muy pequeña para desplazarla: recorta algo más grande.".into(),
@@ -201,5 +219,18 @@ mod pruebas {
         pedir(DESCARTAR);
         assert_eq!(orden.load(Ordering::SeqCst), TERMINAR);
         *EN_MARCHA.lock() = None;
+        // En Linux, la tecla de capturar: termina la que haya, y sin ninguna no hace nada.
+        // Va aquí y no en su prueba porque las dos tocan la misma captura en marcha.
+        #[cfg(target_os = "linux")]
+        {
+            assert!(!terminar_si_hay(), "sin captura en marcha no hay nada que terminar");
+            let orden = Arc::new(AtomicU8::new(SEGUIR));
+            *EN_MARCHA.lock() = Some(orden.clone());
+            assert!(terminar_si_hay());
+            assert_eq!(orden.load(Ordering::SeqCst), TERMINAR);
+            pedir(DESCARTAR);
+            assert_eq!(orden.load(Ordering::SeqCst), TERMINAR, "lo que ya se guarda no se tira");
+            *EN_MARCHA.lock() = None;
+        }
     }
 }

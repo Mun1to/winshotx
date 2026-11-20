@@ -753,6 +753,8 @@ export const EN: Record<string, string> = {
   "Captura con scroll": "Scrolling capture",
   "Captura con scroll: baja la página y la junta en una imagen · S": "Scrolling capture: scrolls the page and joins it into one image · S",
   "Recorta lo que se desplaza y winshotx lo bajará solo": "Select what scrolls and winshotx will scroll it for you",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa {atajo}.":
+    "Select what scrolls and winshotx will scroll it for you. To stop before the end, press {atajo}.",
   "Bajando sola": "Scrolling by itself",
   "Desplázala tú": "Scroll it yourself",
   "Sube un poco, me he perdido": "Scroll back up a little, I lost track",
@@ -763,6 +765,7 @@ export const EN: Record<string, string> = {
   "Otra vez para tirar la captura": "Again to throw the capture away",
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "That area is too small to scroll: select something bigger.",
   "Ya hay una captura con scroll en marcha.": "A scrolling capture is already running.",
+  "En Wayland la captura con scroll todavía no funciona.": "On Wayland the scrolling capture does not work yet.",
   // S7 (cursor)
   "Nada": "None",
   "Esconderlo mientras escribes": "Hide it while you type",

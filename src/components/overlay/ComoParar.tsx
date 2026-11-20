@@ -13,6 +13,27 @@ import type { ComoParar as Datos } from "../../lib/types";
  * mismo, una frase que dice qué va a pasar. La tecla va en negrita porque es lo que hay que
  * llevarse leído.
  */
+/**
+ * Lo que hace la captura con scroll, con la tecla que la para antes del final.
+ *
+ * Solo en Linux: ahí la barrita de la captura no se puede sacar de las fotos, así que si no
+ * cabe fuera de la zona no sale, y lo que para es esta tecla. Se dice aquí por lo mismo que
+ * lo de grabar: es lo último que se ve antes de empezar.
+ */
+export function ScrollConSuTecla({ tecla }: { tecla: string }) {
+  const t = useT();
+  const [antes, despues] = t(
+    "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa {atajo}.",
+  ).split("{atajo}");
+  return (
+    <>
+      {antes}
+      <strong className="font-semibold whitespace-nowrap text-white">{tecla}</strong>
+      {despues}
+    </>
+  );
+}
+
 export function ComoParar({ como }: { como: Datos }) {
   const t = useT();
   const trozos = t(fraseDeComoParar(como)).split(/(\{atajo\}|\{orden\})/);

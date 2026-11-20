@@ -40,6 +40,12 @@ fn on_capture(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state() != ShortcutState::Pressed {
         return;
     }
+    // En Linux, con una captura con scroll bajando, esta tecla la termina: ahi puede no haber
+    // barra (no se puede sacar de las fotos), y abrir otra captura encima no tiene sentido.
+    #[cfg(target_os = "linux")]
+    if crate::capture::scroll::terminar_la_que_haya() {
+        return;
+    }
     if let Err(error) = windows_mgr::open_overlays(app, OverlayIntent::Capture) {
         eprintln!("no se ha podido abrir el overlay: {error}");
     }
