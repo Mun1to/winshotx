@@ -263,10 +263,16 @@ function Ultimos({ s }: { s: Settings }) {
             className="absolute top-0 h-[8px] rounded-b-[3px] border-x-2 border-b-2 border-marca"
             style={{ left: `${desde}%`, right: 0 }}
           />
-          <span className="absolute right-0 top-[12px] text-[12px] font-semibold text-titulo">{t("ahora")}</span>
-          <span className="absolute top-[12px] whitespace-nowrap text-[12px] text-apagado" style={{ left: `${desde}%` }}>
-            {t("hace {n} s", { n: s.replaySeconds })}
-          </span>
+          {/* Los dos textos van juntos y pegados a la derecha: a lo ancho de la llave si caben, y
+              si no crecen hacia la izquierda. Sueltos, a 15 s (la llave es un cuarto del dibujo)
+              «hace 15 s» empezaba en el borde de la llave y se metía debajo de «ahora». */}
+          <div
+            className="absolute right-0 top-[12px] flex justify-between gap-2 whitespace-nowrap text-[12px]"
+            style={{ minWidth: `${100 - desde}%` }}
+          >
+            <span className="text-apagado">{t("hace {n} s", { n: s.replaySeconds })}</span>
+            <span className="font-semibold text-titulo">{t("ahora")}</span>
+          </div>
         </div>
       </div>
       <Frases

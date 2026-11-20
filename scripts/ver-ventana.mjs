@@ -72,6 +72,10 @@ const zona = Number(bandera("zona", "1032"));
 const teclaPendiente = args.includes("--tecla-pendiente");
 // El anillo de los últimos segundos, encendido: con él apagado la sección no cuenta nada.
 const anillo = args.includes("--anillo");
+// Cuántos segundos guarda el anillo (15, 30 o 60). El dibujo de «Así va a salir» cambia con
+// ellos: a 15 la llave de lo guardado es la más estrecha, y es donde «hace 15 s» y «ahora»
+// tienen menos sitio.
+const segundosAnillo = Number(bandera("segundos", "30"));
 // Ruta de un PNG que hará de pantalla congelada; si viene, se fotografía el overlay.
 const overlay = bandera("overlay", null);
 // Dónde dejar el puntero, para ver lo que solo aparece al pasar por encima. Ojo: son
@@ -101,6 +105,13 @@ const seccion = bandera("seccion", null);
 const actualizado = args.includes("--actualizado");
 // NVIDIA y la Barra de juego grabando a la vez que el anillo: la única forma de ver su aviso
 // debajo de «Grabar siempre lo último», porque en una máquina sin ellos no sale.
+//
+// **Esta foto sale de dos maneras, y las dos valen** (20-nov-2026, el mismo `dist` repetido): sus
+// filas llegan tarde y hacen que sobre contenido, y el desvanecido de abajo (`useSobra`, con un
+// ResizeObserver) unas veces entra antes de la foto y otras no, porque con el reloj virtual el
+// observador solo avisa al pintar. Sin él: md5 `b1048224…`; con él: `8cda4633…` (los 9 px de abajo
+// de la tarjeta del dibujo, 1 a 3 tonos más oscuros). La geometría es la misma, medida con Playwright.
+// `--run-all-compositor-stages-before-draw` no lo arregla.
 const otros = args.includes("--otros-grabadores");
 // Un Windows sin la captura moderna, que es la unica forma de ver el aviso de
 // «Este Windows usa la captura antigua»: con el de verdad nunca sale.
@@ -172,7 +183,7 @@ const AJUSTES = {
   replayShortcut: "CmdOrCtrl+Shift+Digit6",
   editShortcut: "Super+Shift+KeyL",
   replayEnabled: anillo,
-  replaySeconds: 30,
+  replaySeconds: segundosAnillo,
   replayScreen: null,
   replayFps: 15,
   replayHeight: 720,
@@ -294,14 +305,14 @@ const RESPUESTAS = {
   // de mirar esa sección entera, porque sus filas dependen de lo que conteste Rust.
   replay_status: {
     running: anillo,
-    seconds: 30,
+    seconds: segundosAnillo,
     screen: 2,
     screenLabel: "\\.\DISPLAY2",
     bytes: 214_000_000,
     bytesPerSecond: 3_400_000,
     width: 1280,
     height: 720,
-    bufferedMs: 30_000,
+    bufferedMs: segundosAnillo * 1000,
   },
   list_screens: [
     { id: 0, label: "1", x: 0, y: 0, width: 1920, height: 1080, scale: 1, isPrimary: true },
