@@ -537,13 +537,16 @@ known page:
   killed and started again by the next command; a region with `--max-seconds`, `stop`, `export`
   and `open`; the MCP server over stdio. Without the screenshot permission: the agent gets the
   sentence, winshotx's window comes up with GNOME's question, and once allowed the next capture
-  works. Next to it: the capture by hand and recording a region by hand.
+  works. With two monitors (1600x1000 and 1280x800): `screens` lists both, each one is
+  photographed with its own size, and a region across both is the edge of one next to the edge
+  of the other. Next to it: the capture by hand and recording a region by hand.
 
 Not tried: a real agent (Claude Code, Codex, Cursor) on Linux, only a scripted MCP client that
 starts and closes the server the way they document; KDE Plasma (its questions and its portal);
 a distribution without systemd with an agent that passes no variables (what is tried is systemd
-knowing of no desktop, which takes the same path); the AppImage; more than one monitor; and
-display scaling.
+knowing of no desktop, which takes the same path); the AppImage; more than one monitor on X11
+(this Xvfb does not list monitors made with `xrandr --setmonitor`), and recording the second
+one on Wayland; and display scaling.
 
 ## How the app identifies itself
 
