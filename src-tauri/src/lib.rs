@@ -253,6 +253,16 @@ pub fn run() {
                 tray::ejecutar(app, "record");
                 return;
             }
+            // Y `--replay` se queda con los ultimos segundos: en Wayland la tecla la pone el
+            // escritorio, y donde no deja pedirla (o la persona no la quiso) esta orden es la
+            // forma de rescatar sin abrir los ajustes.
+            #[cfg(target_os = "linux")]
+            if args.iter().any(|arg| arg == "--replay") {
+                if let Err(error) = replay::save(app) {
+                    eprintln!("[replay] --replay: {error}");
+                }
+                return;
+            }
             // El primero es el nombre del programa.
             let argumentos = args.get(1..).unwrap_or_default();
             if arranque::la_segunda_abre_los_ajustes(
@@ -298,6 +308,11 @@ pub fn run() {
                 config.last_version = Some(version);
                 let _ = settings::save(&handle, &config);
             }
+            // S45 (Linux): en Wayland el anillo de los ultimos segundos solo vuelve solo si el
+            // escritorio ya dio permiso. Si no, el ajuste pasa a apagado AQUI, antes de pedir
+            // las teclas: asi la de rescatar no sale en una pregunta al iniciar sesion.
+            #[cfg(target_os = "linux")]
+            replay::ajustes_al_arrancar(&handle, &mut config);
 
             let temp_root = carpeta_de_paso();
             std::fs::create_dir_all(temp_root.join("sessions"))?;
@@ -360,10 +375,16 @@ pub fn run() {
             // El anillo de los ultimos segundos vuelve solo si se dejo encendido: es un
             // ajuste que se pone una vez y se espera encontrar puesto. Si no arranca, se
             // dice por consola y la app sigue: quedarse sin winshotx por esto seria peor.
+            #[cfg(not(target_os = "linux"))]
             if config.replay_enabled {
                 if let Err(error) = replay::start(&handle) {
                     eprintln!("[replay] no se ha podido encender al arrancar: {error}");
                 }
+            }
+            // En Linux va en su hilo, y en Wayland solo si el escritorio ya dio permiso.
+            #[cfg(target_os = "linux")]
+            if config.replay_enabled {
+                replay::al_arrancar(&handle);
             }
             // No hay ninguna ventana visible esperando en este momento (la app arranca
             // en la bandeja), asi que crear las ventanas overlay ahora, ocultas, no lo

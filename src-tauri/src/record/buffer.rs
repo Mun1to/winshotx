@@ -425,14 +425,7 @@ impl ImagenDelAnillo {
                     return bgra;
                 }
                 crate::recorder::bgra_a_rgba_en_sitio(&mut bgra);
-                let cambiado = if self.actual.len() == bgra.len() {
-                    Some(super::delta::zonas_cambiadas(&self.actual, &bgra, self.ancho, self.alto))
-                } else {
-                    None
-                };
-                std::mem::swap(&mut self.actual, &mut bgra);
-                self.sumar_pistas(cambiado);
-                bgra
+                self.recibir_rgba(bgra)
             }
             Some(zonas) => {
                 if self.actual.len() != self.tamanno() {
@@ -458,6 +451,25 @@ impl ImagenDelAnillo {
                 bgra
             }
         }
+    }
+
+    /// Pone al dia la pantalla con un fotograma ENTERO que ya viene en RGBA, que es como lo
+    /// da la captura de Linux. Lo que cambio se saca comparando con el anterior, y el bufer
+    /// que se devuelve (el de antes) es para reciclarlo.
+    ///
+    /// Es tambien el final del camino de Windows cuando llega un fotograma entero.
+    pub fn recibir_rgba(&mut self, mut rgba: Vec<u8>) -> Vec<u8> {
+        if rgba.len() != self.tamanno() {
+            return rgba;
+        }
+        let cambiado = if self.actual.len() == rgba.len() {
+            Some(super::delta::zonas_cambiadas(&self.actual, &rgba, self.ancho, self.alto))
+        } else {
+            None
+        };
+        std::mem::swap(&mut self.actual, &mut rgba);
+        self.sumar_pistas(cambiado);
+        rgba
     }
 
     fn sumar_pistas(&mut self, nuevas: Option<Vec<super::delta::Parche>>) {
@@ -886,6 +898,67 @@ mod tests {
             }
             entera.limpiar();
             por_zonas.limpiar();
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    /// **El camino de Linux:** la captura manda cada fotograma entero y ya en RGBA, solo
+    /// cuando la pantalla cambia. Lo que sale del anillo tiene que ser, pixel a pixel, la
+    /// pantalla de ese instante, a su tamanno y reducido, tambien cuando llegan varios antes
+    /// de guardar. Y el bufer que se devuelve es el de antes, para que la captura lo recicle.
+    #[test]
+    fn la_imagen_entera_en_rgba_guarda_la_pantalla_de_cada_instante() {
+        let (w, h) = (96u32, 54u32);
+        let fuente: Vec<(u64, Vec<u8>)> = (0..150u32).map(|paso| (u64::from(paso) * 66, pantalla(w, h, paso))).collect();
+        for destino in [None, Some((64u32, 36u32))] {
+            let dir = temporal(&format!("rgba-{}", destino.is_some()));
+            let (gw, gh) = destino.unwrap_or((w, h));
+            let mut anillo = Anillo::nuevo(&dir.join("anillo"), 600_000, 15, u64::MAX).unwrap();
+            let mut imagen = ImagenDelAnillo::nueva(w, h, destino);
+            let reduccion = destino.map(|(dw, dh)| crate::encode::escalar::Reduccion::nueva(w, h, dw, dh));
+            let como_se_guarda = |rgba: &[u8]| -> Vec<u8> {
+                match reduccion.as_ref() {
+                    None => rgba.to_vec(),
+                    Some(r) => {
+                        let mut salida = vec![0u8; (gw * gh * 4) as usize];
+                        r.reducir_zona(rgba, r.entera(), &mut salida);
+                        salida
+                    }
+                }
+            };
+
+            // Uno de otra medida no entra y vuelve tal cual.
+            assert_eq!(imagen.recibir_rgba(vec![1, 2, 3, 4]), vec![1, 2, 3, 4]);
+            assert!(!imagen.guardar(&mut anillo, 0).unwrap(), "sin pantalla no hay nada que guardar");
+
+            let mut guardados = Vec::new();
+            for (i, (ts, f)) in fuente.iter().enumerate() {
+                let devuelto = imagen.recibir_rgba(f.clone());
+                match i {
+                    0 => assert!(devuelto.is_empty(), "la primera vez no hay bufer de antes"),
+                    _ => assert!(devuelto == fuente[i - 1].1, "el bufer devuelto no es el de antes"),
+                }
+                // Tandas: uno de cada cuatro se queda sin guardar y entra con el siguiente.
+                if i % 4 != 2 {
+                    assert!(imagen.guardar(&mut anillo, *ts).unwrap(), "el fotograma de {ts} ms no se ha guardado");
+                    guardados.push(*ts);
+                }
+            }
+            // Lo mismo otra vez no escribe nada: una pantalla quieta no llena el disco.
+            let ultimo = fuente.last().unwrap();
+            imagen.recibir_rgba(ultimo.1.clone());
+            assert!(!imagen.guardar(&mut anillo, ultimo.0 + 66).unwrap(), "se ha guardado un fotograma repetido");
+
+            let leido = leer_lo_guardado(&mut anillo, ultimo.0 + 132, &dir.join("sesion"), gw, gh);
+            assert_eq!(leido.iter().map(|(ts, _)| *ts).collect::<Vec<_>>(), guardados);
+            for (ts, pixeles) in &leido {
+                let original = &fuente.iter().find(|(t, _)| t == ts).expect("una marca que no existe").1;
+                assert!(
+                    *pixeles == como_se_guarda(original),
+                    "{destino:?}: el fotograma de {ts} ms no es la pantalla de ese instante"
+                );
+            }
+            anillo.limpiar();
             let _ = std::fs::remove_dir_all(&dir);
         }
     }

@@ -16,6 +16,10 @@
 //! **Cada pista mide lo mismo que el video.** Lo que llega se coloca segun el reloj de la
 //! grabacion: si un flujo empieza tarde o se queda un rato sin mandar nada, el hueco se
 //! rellena de silencio, y al parar se rellena hasta el final. En pausa no se escribe.
+//!
+//! **Para «Grabar siempre lo ultimo» las pistas no van a un archivo** (que solo sabe crecer)
+//! sino a la memoria, cada una en su anillo (`PistaEnAnillo`, `empezar_en_anillo`), colocadas
+//! con el mismo reloj. Al rescatar se copia el tramo que acompanna a la imagen.
 
 use std::cell::RefCell;
 use std::io::Cursor;
@@ -37,12 +41,13 @@ use spa::utils::{Direction, SpaTypes};
 
 use super::Marcha;
 use crate::contrato::PistasGrabadas;
+use crate::record::buffer::AnilloAudio;
 use crate::record::pistas::{EscritorWav, ARCHIVO_MICROFONO, ARCHIVO_PC, PICO_CASI_MUDO};
 use crate::record::AudioInfo;
 
 /// En que formato se pide el sonido: el de un WAV de toda la vida. PipeWire convierte lo que
 /// tenga cada aparato a esto.
-const FORMATO: AudioInfo = AudioInfo { channels: 2, sample_rate: 48_000 };
+pub const FORMATO: AudioInfo = AudioInfo { channels: 2, sample_rate: 48_000 };
 const BYTES_POR_MARCO: usize = 4;
 
 /// Cuanto puede ir una pista por detras del reloj antes de rellenar el hueco con silencio.
@@ -202,11 +207,8 @@ impl Pista {
             }
         }
         let marcos = (pcm.len() / BYTES_POR_MARCO) as u64;
-        let empieza_en = Self::marcos_en(ms).saturating_sub(marcos);
-        // El primer trozo se coloca en su sitio exacto; despues solo se rellena un hueco de
-        // verdad, no el vaiven de cada trozo.
-        let hueco = empieza_en.saturating_sub(self.escritos);
-        if hueco > 0 && (primero || hueco > Self::marcos_en(HUECO_MS)) {
+        let hueco = silencio_delante(self.escritos, marcos, ms, primero);
+        if hueco > 0 {
             self.silencio(hueco);
         }
         if let Some(wav) = self.wav.as_mut() {
@@ -226,6 +228,163 @@ impl Pista {
     #[cfg(test)]
     pub(crate) fn cerrar(mut self) -> u64 {
         self.wav.take().map(EscritorWav::cerrar).unwrap_or(0)
+    }
+}
+
+/// Cuantos marcos de silencio van delante de un trozo de `marcos` que acaba en `ms`, en una
+/// pista que lleva `escritos`. El primer trozo se coloca en su sitio exacto; despues solo se
+/// rellena un hueco de verdad, no el vaiven de cada trozo.
+fn silencio_delante(escritos: u64, marcos: u64, ms: u64, primero: bool) -> u64 {
+    let empieza_en = Pista::marcos_en(ms).saturating_sub(marcos);
+    let hueco = empieza_en.saturating_sub(escritos);
+    if primero || hueco > Pista::marcos_en(HUECO_MS) {
+        hueco
+    } else {
+        0
+    }
+}
+
+/// Una pista de «Grabar siempre lo ultimo»: los ultimos segundos de un flujo, en memoria.
+///
+/// Se coloca con el reloj igual que la de archivo (`Pista`): `escritos` es por donde va la
+/// pista contando desde el cero del reloj, con sus silencios, aunque de lo viejo ya no quede
+/// nada guardado.
+pub struct PistaEnAnillo {
+    anillo: AnilloAudio,
+    /// Los marcos que caben: la ventana y un poco mas.
+    caben: u64,
+    escritos: u64,
+    /// Ha llegado sonido alguna vez. Una pista de la que no llega nada no existe.
+    sonado: bool,
+}
+
+impl PistaEnAnillo {
+    pub fn nueva(ventana_ms: u64) -> Self {
+        Self {
+            anillo: AnilloAudio::nuevo(FORMATO.bytes_por_ms(), FORMATO.channels, ventana_ms),
+            // Lo mismo que guarda `AnilloAudio`: la ventana y dos segundos.
+            caben: Pista::marcos_en(ventana_ms + 2_000),
+            escritos: 0,
+            sonado: false,
+        }
+    }
+
+    fn silencio(&mut self, marcos: u64) {
+        // Un hueco mas largo que el anillo lo vacia entero: no hace falta pasarlo todo por el.
+        let ceros = vec![0u8; FORMATO.sample_rate as usize * BYTES_POR_MARCO];
+        let mut quedan = marcos.min(self.caben) as usize * BYTES_POR_MARCO;
+        while quedan > 0 {
+            let ahora = quedan.min(ceros.len());
+            self.anillo.empujar(&ceros[..ahora]);
+            quedan -= ahora;
+        }
+        self.escritos += marcos;
+    }
+
+    /// Un trozo de sonido que acaba en `ms`, el instante del reloj del anillo.
+    pub(crate) fn recibir(&mut self, pcm: &[u8], ms: u64) {
+        let pcm = &pcm[..pcm.len() - pcm.len() % BYTES_POR_MARCO];
+        if pcm.is_empty() {
+            return;
+        }
+        let marcos = (pcm.len() / BYTES_POR_MARCO) as u64;
+        let hueco = silencio_delante(self.escritos, marcos, ms, !self.sonado);
+        if hueco > 0 {
+            self.silencio(hueco);
+        }
+        self.sonado = true;
+        self.anillo.empujar(pcm);
+        self.escritos += marcos;
+    }
+
+    /// Los `cuantos_ms` de sonido que acaban en `hasta_ms`, con silencio donde no hay nada:
+    /// por delante si no hay tanto guardado, y por detras si el flujo lleva un rato callado.
+    /// No toca la pista (rescatar no puede descolocar lo que venga despues). `None` si de este
+    /// flujo no ha llegado nunca nada.
+    pub fn tramo(&self, hasta_ms: u64, cuantos_ms: u64) -> Option<Vec<u8>> {
+        if !self.sonado {
+            return None;
+        }
+        let hasta = Pista::marcos_en(hasta_ms);
+        let cuantos = Pista::marcos_en(cuantos_ms).min(hasta);
+        let desde = hasta - cuantos;
+        // Lo guardado acaba en `escritos`: de ahi hacia atras hasta `desde`, sin lo que pase
+        // de `hasta` (el vaiven de los trozos puede llevar la pista un pelo por delante).
+        let del_final = self.escritos.saturating_sub(desde);
+        let mut datos = self.anillo.ultimos(del_final * 1000 / u64::from(FORMATO.sample_rate) + 1);
+        let quiero = del_final as usize * BYTES_POR_MARCO;
+        if datos.len() > quiero {
+            datos.drain(..datos.len() - quiero);
+        }
+        let de_mas = (self.escritos.saturating_sub(hasta) as usize * BYTES_POR_MARCO).min(datos.len());
+        datos.truncate(datos.len() - de_mas);
+
+        let total = cuantos as usize * BYTES_POR_MARCO;
+        let detras = (hasta.saturating_sub(self.escritos) as usize * BYTES_POR_MARCO).min(total);
+        let mut tramo = vec![0u8; total.saturating_sub(datos.len() + detras)];
+        tramo.extend_from_slice(&datos);
+        tramo.resize(total, 0);
+        Some(tramo)
+    }
+}
+
+/// El sonido de «Grabar siempre lo ultimo» en marcha: cada flujo en su anillo.
+pub struct EnAnillo {
+    sistema: Option<Arc<parking_lot::Mutex<PistaEnAnillo>>>,
+    microfono: Option<Arc<parking_lot::Mutex<PistaEnAnillo>>>,
+    hilo: JoinHandle<()>,
+}
+
+/// Lo que se saca de los anillos al rescatar: el tramo de cada pista que haya sonado.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct TramoDeSonido {
+    pub sistema: Option<Vec<u8>>,
+    pub microfono: Option<Vec<u8>>,
+}
+
+/// Empieza a guardar en memoria los ultimos `ventana_ms` de cada fuente pedida. Para solo
+/// cuando `Marcha::stop` se pone a cierto, y en pausa no guarda (ver `replay::apartar`).
+pub fn empezar_en_anillo(fuentes: Fuentes, ventana_ms: u64, marcha: Marcha) -> Option<EnAnillo> {
+    if !fuentes.sistema && !fuentes.microfono {
+        return None;
+    }
+    let nueva = |quiere: bool| quiere.then(|| Arc::new(parking_lot::Mutex::new(PistaEnAnillo::nueva(ventana_ms))));
+    let (sistema, microfono) = (nueva(fuentes.sistema), nueva(fuentes.microfono));
+    let hilo = std::thread::Builder::new()
+        .name("anillo-sonido".into())
+        .spawn({
+            let (sistema, microfono) = (sistema.clone(), microfono.clone());
+            move || {
+                let recibir: Recibir = Rc::new(move |cual, pcm, ms| {
+                    let pista = match cual {
+                        Cual::Sistema => sistema.as_ref(),
+                        Cual::Microfono => microfono.as_ref(),
+                    };
+                    if let Some(pista) = pista {
+                        pista.lock().recibir(pcm, ms);
+                    }
+                });
+                if let Err(error) = correr(fuentes, &marcha, recibir) {
+                    eprintln!("[replay] sin sonido: {error}");
+                }
+            }
+        })
+        .ok()?;
+    Some(EnAnillo { sistema, microfono, hilo })
+}
+
+impl EnAnillo {
+    /// Los `cuantos_ms` de cada pista que acaban en `hasta_ms`, sin parar de guardar.
+    pub fn tramo(&self, hasta_ms: u64, cuantos_ms: u64) -> TramoDeSonido {
+        let de = |pista: &Option<Arc<parking_lot::Mutex<PistaEnAnillo>>>| {
+            pista.as_ref().and_then(|pista| pista.lock().tramo(hasta_ms, cuantos_ms))
+        };
+        TramoDeSonido { sistema: de(&self.sistema), microfono: de(&self.microfono) }
+    }
+
+    /// Espera a que el hilo acabe (ya se le ha dicho que pare).
+    pub fn terminar(self) {
+        let _ = self.hilo.join();
     }
 }
 
@@ -253,7 +412,20 @@ pub fn empezar(fuentes: Fuentes, carpeta: &Path, marcha: Marcha, fin_ms: Arc<Ato
         .name("grabar-sonido".into())
         .spawn(move || {
             let pistas = Rc::new(RefCell::new(pistas));
-            if let Err(error) = correr(&pistas, &marcha) {
+            let recibir: Recibir = {
+                let pistas = pistas.clone();
+                Rc::new(move |cual, pcm, ms| {
+                    let mut pistas = pistas.borrow_mut();
+                    let pista = match cual {
+                        Cual::Sistema => pistas.sistema.as_mut(),
+                        Cual::Microfono => pistas.microfono.as_mut(),
+                    };
+                    if let Some(pista) = pista {
+                        pista.recibir(pcm, ms);
+                    }
+                })
+            };
+            if let Err(error) = correr(fuentes, &marcha, recibir) {
                 eprintln!("[grabar] sin sonido: {error}");
             }
             let mut pistas = Rc::try_unwrap(pistas)
@@ -280,32 +452,37 @@ impl Captura {
         let Ok(pistas) = self.hilo.join() else {
             return (None, None);
         };
-        let voz = pistas.microfono.and_then(|p| p.wav);
-        let pc = pistas.sistema.and_then(|p| p.wav);
-        // Como en Windows: el del PC se sube si llego casi mudo, y menos si hay una voz que
-        // se oye; la voz no se toca.
-        let con_voz = voz.as_ref().is_some_and(|voz| voz.nivel() >= PICO_CASI_MUDO);
-        let mut grabadas = PistasGrabadas::default();
-        if let Some(pc) = pc {
-            let (escritos, pico, subida) = pc.cerrar_y_nivelar(con_voz);
-            if escritos > 0 {
-                grabadas.sistema = Some(ARCHIVO_PC.to_string());
-                grabadas.pico_sistema = Some(pico);
-                grabadas.subida_sistema = subida;
-            }
-        }
-        if let Some(voz) = voz {
-            let pico = voz.pico();
-            if voz.cerrar() > 0 {
-                grabadas.microfono = Some(ARCHIVO_MICROFONO.to_string());
-                grabadas.pico_microfono = Some(pico);
-            }
-        }
-        if grabadas.sistema.is_none() && grabadas.microfono.is_none() {
-            return (None, None);
-        }
-        (Some(FORMATO), Some(grabadas))
+        cerrar_pistas(pistas.sistema.and_then(|p| p.wav), pistas.microfono.and_then(|p| p.wav))
     }
+}
+
+/// Cierra los dos archivos (los que haya) y dice que sonido queda en la sesion. Es el final de
+/// una grabacion y tambien el de un rescate de «Grabar siempre lo ultimo», que escribe los
+/// suyos de una vez.
+pub(crate) fn cerrar_pistas(pc: Option<EscritorWav>, voz: Option<EscritorWav>) -> (Option<AudioInfo>, Option<PistasGrabadas>) {
+    // Como en Windows: el del PC se sube si llego casi mudo, y menos si hay una voz que
+    // se oye; la voz no se toca.
+    let con_voz = voz.as_ref().is_some_and(|voz| voz.nivel() >= PICO_CASI_MUDO);
+    let mut grabadas = PistasGrabadas::default();
+    if let Some(pc) = pc {
+        let (escritos, pico, subida) = pc.cerrar_y_nivelar(con_voz);
+        if escritos > 0 {
+            grabadas.sistema = Some(ARCHIVO_PC.to_string());
+            grabadas.pico_sistema = Some(pico);
+            grabadas.subida_sistema = subida;
+        }
+    }
+    if let Some(voz) = voz {
+        let pico = voz.pico();
+        if voz.cerrar() > 0 {
+            grabadas.microfono = Some(ARCHIVO_MICROFONO.to_string());
+            grabadas.pico_microfono = Some(pico);
+        }
+    }
+    if grabadas.sistema.is_none() && grabadas.microfono.is_none() {
+        return (None, None);
+    }
+    (Some(FORMATO), Some(grabadas))
 }
 
 /// Lo que se le pide a PipeWire: PCM de 16 bits, 48 kHz y dos canales.
@@ -335,7 +512,11 @@ enum Cual {
     Microfono,
 }
 
-fn correr(pistas: &Rc<RefCell<Pistas>>, marcha: &Marcha) -> std::result::Result<(), String> {
+/// A donde va cada trozo que llega: de que flujo es, el sonido y el instante del reloj en el
+/// que acaba. Se llama en el hilo de PipeWire.
+type Recibir = Rc<dyn Fn(Cual, &[u8], u64)>;
+
+fn correr(fuentes: Fuentes, marcha: &Marcha, recibir: Recibir) -> std::result::Result<(), String> {
     let mal = |error: pw::Error| error.to_string();
     pw::init();
     let bucle = pw::main_loop::MainLoopRc::new(None).map_err(mal)?;
@@ -366,8 +547,8 @@ fn correr(pistas: &Rc<RefCell<Pistas>>, marcha: &Marcha) -> std::result::Result<
         };
         let flujo = pw::stream::StreamRc::new(nucleo.clone(), nombre, propiedades).map_err(mal)?;
         let escucha = flujo
-            .add_local_listener_with_user_data((pistas.clone(), marcha.clone()))
-            .process(move |flujo, (pistas, marcha)| {
+            .add_local_listener_with_user_data((recibir.clone(), marcha.clone()))
+            .process(move |flujo, (recibir, marcha)| {
                 let Some(mut bufer) = flujo.dequeue_buffer() else {
                     return;
                 };
@@ -384,14 +565,7 @@ fn correr(pistas: &Rc<RefCell<Pistas>>, marcha: &Marcha) -> std::result::Result<
                 let Some(pcm) = bytes.get(desde..desde + cuanto) else {
                     return;
                 };
-                let mut pistas = pistas.borrow_mut();
-                let pista = match cual {
-                    Cual::Sistema => pistas.sistema.as_mut(),
-                    Cual::Microfono => pistas.microfono.as_mut(),
-                };
-                if let Some(pista) = pista {
-                    pista.recibir(pcm, marcha.ms());
-                }
+                recibir(cual, pcm, marcha.ms());
             })
             .register()
             .map_err(mal)?;
@@ -407,10 +581,7 @@ fn correr(pistas: &Rc<RefCell<Pistas>>, marcha: &Marcha) -> std::result::Result<
         Ok((flujo, escucha))
     };
 
-    let (con_sistema, con_microfono) = {
-        let pistas = pistas.borrow();
-        (pistas.sistema.is_some(), pistas.microfono.is_some())
-    };
+    let (con_sistema, con_microfono) = (fuentes.sistema, fuentes.microfono);
     // Si uno de los dos no se puede abrir, el otro se graba igual.
     let _altavoz = con_sistema.then(|| abrir(Cual::Sistema)).and_then(|r| r.map_err(|e| eprintln!("[grabar] sin el sonido del sistema: {e}")).ok());
     let _microfono = con_microfono.then(|| abrir(Cual::Microfono)).and_then(|r| r.map_err(|e| eprintln!("[grabar] sin el micrófono: {e}")).ok());
@@ -494,6 +665,81 @@ mod tests {
         pista.hasta(3000);
         assert_eq!(ms_de(pista.cerrar()), 3000);
         let _ = std::fs::remove_dir_all(carpeta);
+    }
+
+    /// Un trozo en el que cada marco lleva su numero (desde `primero`), para saber cual es cual.
+    fn numerado(primero: u64, marcos: u64) -> Vec<u8> {
+        (primero..primero + marcos).flat_map(|n| [(n % 30_000) as i16; 2]).flat_map(i16::to_le_bytes).collect()
+    }
+
+    /// El numero de cada marco de un tramo (0 es silencio: la cuenta empieza en 1).
+    fn numeros(tramo: &[u8]) -> Vec<i16> {
+        tramo.chunks_exact(BYTES_POR_MARCO).map(|m| i16::from_le_bytes([m[0], m[1]])).collect()
+    }
+
+    #[test]
+    fn una_pista_en_anillo_de_la_que_no_llega_nada_no_existe() {
+        let pista = PistaEnAnillo::nueva(10_000);
+        assert_eq!(pista.tramo(5_000, 3_000), None);
+    }
+
+    /// Lo que se rescata acaba en el instante que se pide y mide lo que se pide, con silencio
+    /// delante si el flujo empezo tarde y detras si lleva un rato callado.
+    #[test]
+    fn el_tramo_del_anillo_acaba_donde_se_pide_y_mide_lo_que_se_pide() {
+        let mut pista = PistaEnAnillo::nueva(10_000);
+        // El flujo empieza a mandar en el segundo 2 y suena un segundo, de 20 en 20 ms.
+        let por_trozo = Pista::marcos_en(20);
+        for n in 0..50u64 {
+            pista.recibir(&numerado(1 + n * por_trozo, por_trozo), 2_020 + n * 20);
+        }
+        // Rescate en el segundo 4, pidiendo los cuatro: 2 s de silencio, 1 s de sonido y 1 s
+        // de silencio (el flujo callo en el 3).
+        let tramo = pista.tramo(4_000, 4_000).expect("ha sonado");
+        assert_eq!(tramo.len() as u64, 4_000 * FORMATO.bytes_por_ms());
+        let n = numeros(&tramo);
+        let seg = Pista::marcos_en(1_000) as usize;
+        assert!(n[..2 * seg].iter().all(|v| *v == 0), "delante va silencio");
+        assert_eq!(n[2 * seg], 1, "el sonido empieza justo en el segundo 2");
+        assert_eq!(n[3 * seg - 1], (seg % 30_000) as i16, "y acaba justo en el 3");
+        assert!(n[3 * seg..].iter().all(|v| *v == 0), "detras va silencio");
+
+        // Pedir no descoloca nada: lo que llega despues va en su sitio.
+        pista.recibir(&numerado(7, por_trozo), 5_000);
+        let n = numeros(&pista.tramo(5_000, 20).expect("ha sonado"));
+        assert_eq!((n[0], n.len() as u64), (7, por_trozo));
+
+        // Y un tramo que acaba antes de lo ultimo guardado no trae lo de despues.
+        let n = numeros(&pista.tramo(2_500, 1_000).expect("ha sonado"));
+        assert!(n[..seg / 2].iter().all(|v| *v == 0));
+        assert_eq!((n[seg / 2], n[seg - 1]), (1, (seg / 2) as i16));
+    }
+
+    /// El anillo tira lo viejo: horas despues sigue ocupando lo que la ventana, y un hueco
+    /// de una hora no pasa una hora de ceros por la memoria.
+    #[test]
+    fn el_anillo_de_sonido_solo_guarda_la_ventana() {
+        let mut pista = PistaEnAnillo::nueva(3_000);
+        let por_trozo = Pista::marcos_en(20);
+        for n in 0..1_000u64 {
+            pista.recibir(&numerado(1 + n * por_trozo, por_trozo), 20 + n * 20);
+        }
+        // Veinte segundos sonando: quedan los ultimos cinco (la ventana y dos mas).
+        assert_eq!(pista.anillo.ultimos(60_000).len() as u64, 5_000 * FORMATO.bytes_por_ms());
+        // Pidiendo ocho, los tres de delante ya no estan: silencio.
+        let n = numeros(&pista.tramo(20_000, 8_000).expect("ha sonado"));
+        let seg = Pista::marcos_en(1_000) as usize;
+        assert!(n[..3 * seg].iter().all(|v| *v == 0));
+        assert_eq!(n[3 * seg], ((15 * seg + 1) % 30_000) as i16);
+
+        // Una hora callado y vuelve a sonar.
+        let antes = std::time::Instant::now();
+        pista.recibir(&numerado(1, por_trozo), 3_620_000);
+        assert!(antes.elapsed() < Duration::from_millis(500), "el hueco ha pasado entero por la memoria");
+        assert_eq!(pista.escritos, Pista::marcos_en(3_620_000));
+        let n = numeros(&pista.tramo(3_620_000, 1_000).expect("ha sonado"));
+        assert!(n[..seg - por_trozo as usize].iter().all(|v| *v == 0));
+        assert_eq!(n[seg - por_trozo as usize], 1);
     }
 
     #[test]

@@ -92,13 +92,44 @@ pub struct Puntero {
 }
 
 /// Por donde fue el raton y que imagen tenia, ya en coordenadas de la region grabada.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Rastro {
     pub cursor: Vec<(u64, i32, i32)>,
     /// Las imagenes de los punteros que hubo, en el orden en que aparecieron.
     pub punteros: Vec<Puntero>,
     /// Cual de ellas estaba puesta y desde cuando.
     pub cambios_puntero: Vec<(u64, u32)>,
+}
+
+/// El rastro mientras se graba, a la vista de quien no puede esperar al final: «Grabar siempre
+/// lo ultimo» lo copia al rescatar y le va tirando lo viejo (`Rastro::podar`).
+pub type RastroVivo = Arc<parking_lot::Mutex<Rastro>>;
+
+impl Rastro {
+    /// El numero de ese puntero: el de uno igual que ya estuviera, o el suyo, recien apuntado.
+    ///
+    /// Se mira la imagen y no quien la puso: los programas crean el mismo puntero una y otra
+    /// vez, y un rastro que corre toda la tarde no puede guardar una copia por cada vez.
+    pub fn puntero(&mut self, caliente: (u32, u32), imagen: RgbaImage) -> u32 {
+        let ya = self.punteros.iter().position(|p| p.caliente == caliente && p.imagen == imagen);
+        ya.unwrap_or_else(|| {
+            self.punteros.push(Puntero { caliente, imagen });
+            self.punteros.len() - 1
+        }) as u32
+    }
+
+    /// Tira lo anterior a `corte_ms`. De lo de antes se queda con el ultimo punto y el ultimo
+    /// cambio de puntero, que son los que valen en ese instante: un raton que lleva un rato
+    /// quieto sigue estando en algun sitio. Las imagenes no se tiran: son pocas (`puntero`).
+    pub fn podar(&mut self, corte_ms: u64) {
+        fn podar<T>(lista: &mut Vec<T>, corte_ms: u64, ms: impl Fn(&T) -> u64) {
+            // Van en el orden en que pasaron.
+            let de_antes = lista.partition_point(|apunte| ms(apunte) < corte_ms);
+            lista.drain(..de_antes.saturating_sub(1));
+        }
+        podar(&mut self.cursor, corte_ms, |punto| punto.0);
+        podar(&mut self.cambios_puntero, corte_ms, |cambio| cambio.0);
+    }
 }
 
 /// La captura con todo abierto, a falta de que empiece a contar el reloj.
@@ -123,6 +154,23 @@ pub fn preparar(region: Rect, fps: u32, opciones: Opciones) -> Result<Preparada>
         return Ok(Preparada::Wayland(wayland::preparar(region, fps, &opciones.ficha, opciones.al_cortarse)?));
     }
     Ok(Preparada::X11(x11::preparar(region, fps)?))
+}
+
+/// Lo mismo para una pantalla ENTERA, que es lo que pide «Grabar siempre lo ultimo». Devuelve
+/// tambien la pantalla que se graba de verdad, que puede no ser la pedida: en Wayland la
+/// elige la persona en la pregunta del escritorio, y `pantalla` solo es la que se prefiere si
+/// ha dejado varias. En X11 es esa.
+pub fn preparar_pantalla(
+    pantalla: crate::capture::MonitorInfo,
+    fps: u32,
+    opciones: Opciones,
+) -> Result<(Preparada, crate::capture::MonitorInfo)> {
+    if crate::platform::xdg::es_wayland() {
+        let (preparada, grabada) = wayland::preparar_pantalla(pantalla.id, fps, &opciones.ficha, opciones.al_cortarse)?;
+        return Ok((Preparada::Wayland(preparada), grabada));
+    }
+    let region = Rect { x: pantalla.x, y: pantalla.y, width: pantalla.width, height: pantalla.height };
+    Ok((Preparada::X11(x11::preparar(region.to_even(), fps)?), pantalla))
 }
 
 impl Preparada {
@@ -155,16 +203,23 @@ impl Preparada {
 /// La captura en marcha. Para sola cuando `Marcha::stop` se pone a cierto.
 pub struct EnMarcha {
     pub(crate) imagen: Option<JoinHandle<()>>,
-    pub(crate) raton: Option<JoinHandle<Rastro>>,
+    pub(crate) raton: Option<JoinHandle<()>>,
+    /// Donde va apuntando el hilo del raton.
+    pub(crate) rastro: RastroVivo,
 }
 
 impl EnMarcha {
+    /// El rastro tal y como va, para leerlo y podarlo sin esperar al final.
+    pub fn rastro_vivo(&self) -> RastroVivo {
+        self.rastro.clone()
+    }
+
     /// Espera a que los hilos acaben (ya se les ha dicho que paren) y devuelve el rastro.
     pub fn terminar(mut self) -> Rastro {
-        if let Some(hilo) = self.imagen.take() {
+        for hilo in [self.imagen.take(), self.raton.take()].into_iter().flatten() {
             let _ = hilo.join();
         }
-        self.raton.take().and_then(|hilo| hilo.join().ok()).unwrap_or_default()
+        std::mem::take(&mut *self.rastro.lock())
     }
 }
 
@@ -224,6 +279,35 @@ mod tests {
     fn un_puntero_sin_pixeles_no_es_un_puntero() {
         assert!(puntero_de_argb(&[], 0, 0).is_none());
         assert!(puntero_de_argb(&[1, 2], 2, 2).is_none());
+    }
+
+    /// Un rastro que corre toda la tarde: lo viejo se tira, pero se sigue sabiendo donde
+    /// estaba el raton y que puntero llevaba en el instante del corte.
+    #[test]
+    fn al_podar_el_rastro_queda_lo_que_valia_en_el_corte() {
+        let flecha = RgbaImage::from_pixel(2, 2, image::Rgba([1, 2, 3, 255]));
+        let mano = RgbaImage::from_pixel(2, 2, image::Rgba([9, 9, 9, 255]));
+        let mut rastro = Rastro::default();
+        assert_eq!(rastro.puntero((0, 0), flecha.clone()), 0);
+        assert_eq!(rastro.puntero((1, 1), mano.clone()), 1);
+        // El mismo dibujo otra vez no es otro puntero, aunque lo haya puesto otro programa.
+        assert_eq!(rastro.puntero((0, 0), flecha.clone()), 0);
+        assert_eq!(rastro.puntero((1, 0), flecha), 2, "con otro punto caliente si es otro");
+        assert_eq!(rastro.punteros.len(), 3);
+
+        rastro.cursor = vec![(0, 1, 1), (100, 2, 2), (5_000, 3, 3), (9_000, 4, 4)];
+        rastro.cambios_puntero = vec![(0, 0), (50, 1), (8_000, 0)];
+        rastro.podar(6_000);
+        assert_eq!(rastro.cursor, vec![(5_000, 3, 3), (9_000, 4, 4)]);
+        assert_eq!(rastro.cambios_puntero, vec![(50, 1), (8_000, 0)]);
+        assert_eq!(rastro.punteros.len(), 3, "las imagenes se quedan: los cambios las nombran por su numero");
+
+        // Sin nada despues del corte queda lo ultimo, y podar otra vez no lo pierde.
+        rastro.podar(60_000);
+        rastro.podar(120_000);
+        assert_eq!(rastro.cursor, vec![(9_000, 4, 4)]);
+        assert_eq!(rastro.cambios_puntero, vec![(8_000, 0)]);
+        Rastro::default().podar(10);
     }
 
     #[test]

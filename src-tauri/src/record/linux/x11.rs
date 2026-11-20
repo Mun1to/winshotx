@@ -23,7 +23,7 @@ use x11rb::protocol::xfixes::ConnectionExt as _;
 use x11rb::protocol::xproto::{ConnectionExt as _, ImageFormat, ImageOrder, Window};
 use x11rb::rust_connection::RustConnection;
 
-use super::{bgrx_a_rgba, puntero_de_argb, EnMarcha, Fotograma, Marcha, Puntero, Rastro, Reciclados};
+use super::{bgrx_a_rgba, puntero_de_argb, EnMarcha, Fotograma, Marcha, RastroVivo, Reciclados};
 use crate::capture::Rect;
 use crate::error::{AppError, Result};
 
@@ -221,9 +221,11 @@ impl Preparada {
     pub fn grabar(self, marcha: Marcha, salida: Sender<Fotograma>, reciclados: Reciclados) -> EnMarcha {
         let region = self.region;
         let del_raton = marcha.clone();
+        let rastro = RastroVivo::default();
+        let del_rastro = rastro.clone();
         let imagen = std::thread::spawn(move || capturar(self, marcha, salida, reciclados));
-        let raton = std::thread::spawn(move || seguir_al_raton(region, del_raton));
-        EnMarcha { imagen: Some(imagen), raton: Some(raton) }
+        let raton = std::thread::spawn(move || seguir_al_raton(region, del_raton, del_rastro));
+        EnMarcha { imagen: Some(imagen), raton: Some(raton), rastro }
     }
 }
 
@@ -318,13 +320,15 @@ const CADA: Duration = Duration::from_millis(16);
 ///
 /// Con su propia conexion: la de la imagen esta ocupada esperando cada foto, y compartirla
 /// seria hacer esperar al raton a la pantalla.
-fn seguir_al_raton(region: Rect, marcha: Marcha) -> Rastro {
-    let mut rastro = Rastro::default();
+///
+/// Lo apunta en `rastro`, que esta a la vista de quien graba: se coge solo lo que dura cada
+/// apunte, con la respuesta del servidor ya en la mano.
+fn seguir_al_raton(region: Rect, marcha: Marcha, rastro: RastroVivo) {
     let Ok((conexion, numero)) = RustConnection::connect(None) else {
-        return rastro;
+        return;
     };
     let Some(raiz) = conexion.setup().roots.get(numero).map(|p| p.root) else {
-        return rastro;
+        return;
     };
     // XFixes da la imagen del puntero. Sin el (no deberia faltar en ningun servidor de este
     // siglo) queda la posicion, y el exportador dibuja su flecha.
@@ -341,6 +345,7 @@ fn seguir_al_raton(region: Rect, marcha: Marcha) -> Rastro {
             let Some(cursor) = conexion.xfixes_get_cursor_image().ok().and_then(|c| c.reply().ok()) else {
                 continue;
             };
+            let mut rastro = rastro.lock();
             rastro.cursor.push((ms, i32::from(cursor.x) - region.x, i32::from(cursor.y) - region.y));
             if ultimo != Some(cursor.cursor_serial) {
                 ultimo = Some(cursor.cursor_serial);
@@ -348,13 +353,7 @@ fn seguir_al_raton(region: Rect, marcha: Marcha) -> Rastro {
                     Some(id) => *id,
                     None => {
                         let id = match puntero_de_argb(&cursor.cursor_image, u32::from(cursor.width), u32::from(cursor.height)) {
-                            Some(imagen) => {
-                                rastro.punteros.push(Puntero {
-                                    caliente: (u32::from(cursor.xhot), u32::from(cursor.yhot)),
-                                    imagen,
-                                });
-                                (rastro.punteros.len() - 1) as u32
-                            }
+                            Some(imagen) => rastro.puntero((u32::from(cursor.xhot), u32::from(cursor.yhot)), imagen),
                             // Como en Windows: uno que no se puede leer se dibuja con la flecha.
                             None => u32::MAX,
                         };
@@ -365,10 +364,9 @@ fn seguir_al_raton(region: Rect, marcha: Marcha) -> Rastro {
                 rastro.cambios_puntero.push((ms, id));
             }
         } else if let Some(raton) = conexion.query_pointer(raiz).ok().and_then(|c| c.reply().ok()) {
-            rastro.cursor.push((ms, i32::from(raton.root_x) - region.x, i32::from(raton.root_y) - region.y));
+            rastro.lock().cursor.push((ms, i32::from(raton.root_x) - region.x, i32::from(raton.root_y) - region.y));
         }
     }
-    rastro
 }
 
 #[cfg(test)]

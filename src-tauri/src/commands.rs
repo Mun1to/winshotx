@@ -1063,11 +1063,17 @@ pub fn teclas_del_escritorio() -> Option<crate::hotkeys::TeclasDelEscritorio> {
 }
 
 /// Que el escritorio ensenne donde se cambian las teclas de winshotx (solo Wayland).
+///
+/// `rescate` lo manda el «Cambiar» de la fila de los ultimos segundos: si esa tecla se
+/// rechazo en la pregunta del escritorio, cambiarla es volver a pedirla.
 #[tauri::command]
-pub async fn cambiar_teclas_en_el_escritorio() -> Result<()> {
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+pub async fn cambiar_teclas_en_el_escritorio(rescate: Option<bool>) -> Result<()> {
     #[cfg(target_os = "linux")]
     {
-        crate::platform::portal::cambiar_en_el_escritorio().await.map_err(AppError::Msg)
+        crate::platform::portal::cambiar_en_el_escritorio(rescate.unwrap_or(false))
+            .await
+            .map_err(AppError::Msg)
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -1084,6 +1090,7 @@ pub async fn copiar_orden_del_atajo(accion: String) -> Result<()> {
         "capture" => "--capture",
         "edit" => "--edit",
         "record" => "--record",
+        "replay" => "--replay",
         _ => return Err(AppError::Msg("ese atajo no existe".into())),
     };
     #[cfg(target_os = "linux")]
@@ -1320,6 +1327,11 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     if previous.replay_enabled != settings.replay_enabled
         || (settings.replay_enabled && cambia_como_graba)
     {
+        // Quien toca el interruptor ya sabe como esta: el porque de un apagado solo se olvida.
+        #[cfg(target_os = "linux")]
+        if previous.replay_enabled != settings.replay_enabled {
+            crate::replay::olvidar_el_apagado(&app);
+        }
         crate::replay::stop(&app)?;
         if settings.replay_enabled {
             if let Err(error) = crate::replay::start(&app) {
@@ -1337,7 +1349,14 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     // Se registra siempre, aunque la combinacion no haya cambiado: es la unica forma
     // de reintentar cuando el atajo estaba cogido por otra aplicacion y ya se ha
     // cerrado. `register` empieza desregistrando todo, asi que repetirlo no molesta.
-    crate::hotkeys::register(&app, &settings);
+    //
+    // Encender el anillo trae su tecla, y lo acaba de hacer la persona: en Wayland eso cuenta
+    // como pedirle la tecla al escritorio a mano. En Windows y en X11 es el registro de siempre.
+    if !previous.replay_enabled && settings.replay_enabled {
+        crate::hotkeys::al_encender_el_anillo(&app, &settings);
+    } else {
+        crate::hotkeys::register(&app, &settings);
+    }
     if previous.language != settings.language {
         crate::tray::al_cambiar_los_ajustes(&app);
     }

@@ -57,7 +57,7 @@ use spa::pod::serialize::PodSerializer;
 use spa::pod::Pod;
 use spa::utils::{Choice, ChoiceEnum, ChoiceFlags, Direction, Fraction, Id, Rectangle, SpaTypes};
 
-use super::{EnMarcha, Fotograma, Marcha, Puntero, Rastro, Reciclados};
+use super::{EnMarcha, Fotograma, Marcha, RastroVivo, Reciclados};
 use crate::capture::wayland::PantallaGtk;
 use crate::capture::{MonitorInfo, Rect};
 use crate::error::{AppError, Result};
@@ -443,8 +443,10 @@ pub struct Preparada {
     fps: u32,
     raton_cocido: bool,
     avisos: Option<pw::channel::Sender<Aviso>>,
-    hilo: Option<JoinHandle<Rastro>>,
+    hilo: Option<JoinHandle<()>>,
     raton: RatonVivo,
+    /// Donde el hilo de PipeWire va apuntando el rastro del raton.
+    rastro: RastroVivo,
 }
 
 /// Por donde va el raton ahora mismo, contado desde la esquina de la region y en sus pixeles.
@@ -553,6 +555,48 @@ pub fn preparar(
 ) -> Result<Preparada> {
     let permiso = pedir_con_ficha(ficha, Pedido::Pantalla(Uso::Video)).map_err(|fallo| AppError::Msg(fallo.frase()))?;
     Ok(abrir(permiso, region, fps, Uso::Video, ficha, al_cortarse)?.preparada)
+}
+
+/// Lo mismo para una pantalla entera de las que la persona haya dejado grabar: `preferida`
+/// (por su numero) si esta entre ellas y, si no, la primera que lo este. Es lo que pide
+/// «Grabar siempre lo ultimo», que no tiene una zona elegida de antemano: en Wayland la
+/// pantalla se elige en la pregunta del escritorio. Devuelve tambien que pantalla es.
+pub fn preparar_pantalla(
+    preferida: u32,
+    fps: u32,
+    ficha: &Path,
+    al_cortarse: Box<dyn Fn() + Send>,
+) -> Result<(Preparada, MonitorInfo)> {
+    let permiso = pedir_con_ficha(ficha, Pedido::Pantalla(Uso::Video)).map_err(|fallo| AppError::Msg(fallo.frase()))?;
+    let pantallas = crate::capture::wayland::pantallas()?;
+    let monitores = crate::capture::wayland::monitores()?;
+    let Some(monitor) = la_que_dejan(&permiso.fuentes, &pantallas, &monitores, preferida) else {
+        // Para que la vez siguiente vuelva a preguntar.
+        let _ = std::fs::remove_file(ficha);
+        return Err(AppError::Msg("el escritorio no ha dejado grabar ninguna pantalla de las que hay".into()));
+    };
+    let entera = Rect { x: monitor.x, y: monitor.y, width: monitor.width, height: monitor.height };
+    let abierta = abrir(permiso, entera, fps, Uso::Video, ficha, al_cortarse)?;
+    Ok((abierta.preparada, abierta.monitor))
+}
+
+/// De las pantallas que deja grabar el escritorio, la `preferida` si esta, y si no la primera.
+pub(crate) fn la_que_dejan(
+    fuentes: &[Fuente],
+    pantallas: &[PantallaGtk],
+    monitores: &[MonitorInfo],
+    preferida: u32,
+) -> Option<MonitorInfo> {
+    let la_dejan = |monitor: &&MonitorInfo| {
+        let entera = Rect { x: monitor.x, y: monitor.y, width: monitor.width, height: monitor.height };
+        elegir(fuentes, pantallas, monitores, entera).is_some()
+    };
+    monitores
+        .iter()
+        .filter(|monitor| monitor.id == preferida)
+        .find(la_dejan)
+        .or_else(|| monitores.iter().find(la_dejan))
+        .cloned()
 }
 
 /// Los fotogramas por segundo que se piden para las fotos de la captura con scroll. No es un
@@ -728,15 +772,16 @@ fn abrir(
     let raton_aparte = permiso.raton_aparte;
     let plan = Plan { dentro, pantalla: (monitor.width, monitor.height), raton_aparte };
     let raton = RatonVivo::default();
+    let rastro = RastroVivo::default();
     let hilo = std::thread::Builder::new()
         .name("grabar-pipewire".into())
         .spawn({
-            let raton = raton.clone();
-            move || bucle(permiso, nodo, plan, recibidos, listo, al_cortarse, raton)
+            let (raton, rastro) = (raton.clone(), rastro.clone());
+            move || bucle(permiso, nodo, plan, recibidos, listo, al_cortarse, raton, rastro)
         })
         .map_err(|error| AppError::Msg(format!("no se ha podido empezar a grabar: {error}")))?;
     let preparada =
-        Preparada { region, fps, raton_cocido: !raton_aparte, avisos: Some(avisos), hilo: Some(hilo), raton };
+        Preparada { region, fps, raton_cocido: !raton_aparte, avisos: Some(avisos), hilo: Some(hilo), raton, rastro };
     match esperando.recv_timeout(ESPERA_DE_LA_IMAGEN) {
         Ok(Ok(())) => Ok(Abierta { preparada, nodo, monitor, medida }),
         Ok(Err(error)) => Err(AppError::Msg(format!("el escritorio no manda la imagen de la pantalla: {error}"))),
@@ -764,8 +809,8 @@ impl Preparada {
         if let Some(avisos) = self.avisos.take() {
             let _ = avisos.send(Aviso::Empezar(Emision { marcha, salida, reciclados, intervalo_ms }));
         }
-        // Un solo hilo trae la imagen y el raton, y devuelve el rastro al acabar.
-        EnMarcha { imagen: None, raton: self.hilo.take() }
+        // Un solo hilo trae la imagen y el raton.
+        EnMarcha { imagen: None, raton: self.hilo.take(), rastro: self.rastro.clone() }
     }
 }
 
@@ -789,7 +834,8 @@ struct Estado {
     listo: Option<Sender<std::result::Result<(), String>>>,
     emision: Option<Emision>,
     proximo_ms: u64,
-    rastro: Rastro,
+    /// El rastro del raton, a la vista de quien graba (`EnMarcha::rastro_vivo`).
+    rastro: RastroVivo,
     /// Donde esta el raton y que imagen lleva, aunque todavia no se este grabando.
     raton: Option<(i32, i32)>,
     puntero: Option<u32>,
@@ -851,11 +897,11 @@ impl Estado {
         self.emision = Some(emision);
         self.proximo_ms = 0;
         if let Some((x, y)) = self.raton {
-            self.rastro.cursor.push((0, x, y));
+            self.rastro.lock().cursor.push((0, x, y));
             self.ultimo_apunte_ms = Some(0);
         }
         if let Some(id) = self.puntero {
-            self.rastro.cambios_puntero.push((0, id));
+            self.rastro.lock().cambios_puntero.push((0, id));
         }
         self.soltar();
     }
@@ -881,17 +927,12 @@ impl Estado {
         if let Some(imagen) = cursor.bitmap().and_then(imagen_del_puntero) {
             let caliente = cursor.hotspot();
             let caliente = (caliente.x.max(0) as u32, caliente.y.max(0) as u32);
-            let id = match self.rastro.punteros.iter().position(|p| p.caliente == caliente && p.imagen == imagen) {
-                Some(ya) => ya as u32,
-                None => {
-                    self.rastro.punteros.push(Puntero { caliente, imagen });
-                    (self.rastro.punteros.len() - 1) as u32
-                }
-            };
+            let mut rastro = self.rastro.lock();
+            let id = rastro.puntero(caliente, imagen);
             if self.puntero != Some(id) {
                 self.puntero = Some(id);
                 if let Some(ms) = ahora {
-                    self.rastro.cambios_puntero.push((ms, id));
+                    rastro.cambios_puntero.push((ms, id));
                 }
             }
         }
@@ -906,7 +947,7 @@ impl Estado {
                     return;
                 }
                 self.raton = Some((x, y));
-                self.rastro.cursor.push((ms, x, y));
+                self.rastro.lock().cursor.push((ms, x, y));
                 self.ultimo_apunte_ms = Some(ms);
             }
         }
@@ -1028,7 +1069,7 @@ fn serializar(objeto: spa::pod::Object) -> std::result::Result<Vec<u8>, String> 
 }
 
 /// El hilo de PipeWire: conecta con la pantalla, recibe sus fotogramas y, cuando hay reloj,
-/// los suelta. Acaba cuando se para la grabacion y devuelve el rastro del raton.
+/// los suelta. Acaba cuando se para la grabacion. El rastro del raton lo va dejando en `rastro`.
 fn bucle(
     permiso: Permiso,
     nodo: u32,
@@ -1037,7 +1078,8 @@ fn bucle(
     listo: Sender<std::result::Result<(), String>>,
     al_cortarse: Box<dyn Fn() + Send>,
     a_la_vista: RatonVivo,
-) -> Rastro {
+    rastro: RastroVivo,
+) {
     let Permiso { sesion, conexion, .. } = permiso;
     let estado = Rc::new(RefCell::new(Estado {
         plan,
@@ -1048,7 +1090,7 @@ fn bucle(
         listo: Some(listo),
         emision: None,
         proximo_ms: 0,
-        rastro: Rastro::default(),
+        rastro,
         raton: None,
         puntero: None,
         ultimo_apunte_ms: None,
@@ -1063,8 +1105,6 @@ fn bucle(
     }
     // Cerrar la sesion es lo que apaga el aviso de «se esta compartiendo la pantalla».
     drop(sesion);
-    let rastro = std::mem::take(&mut estado.borrow_mut().rastro);
-    rastro
 }
 
 fn correr(
@@ -1316,6 +1356,24 @@ mod tests {
         let solo_la_izquierda = [fuente(40, Some((0, 0)), Some((1920, 1080)))];
         let derecha = Rect { x: 2000, y: 100, width: 200, height: 200 };
         assert!(elegir(&solo_la_izquierda, &pantallas, &monitores, derecha).is_none());
+    }
+
+    /// «Grabar siempre lo ultimo» graba una pantalla entera de las que haya dejado la
+    /// persona en la pregunta del escritorio: la que se prefiere si esta, y si no otra.
+    #[test]
+    fn de_las_pantallas_que_dejan_se_coge_la_preferida_y_si_no_la_que_haya() {
+        let pantallas = [pantalla(0, 0, 1920, 1080), pantalla(1920, 0, 1280, 720)];
+        let monitores = [monitor(0, 0, 0, 1920, 1080), monitor(1, 1920, 0, 1280, 720)];
+        let las_dos = [fuente(41, Some((1920, 0)), Some((1280, 720))), fuente(40, Some((0, 0)), Some((1920, 1080)))];
+        let id = |elegida: Option<MonitorInfo>| elegida.map(|m| m.id);
+        assert_eq!(id(la_que_dejan(&las_dos, &pantallas, &monitores, 1)), Some(1));
+        assert_eq!(id(la_que_dejan(&las_dos, &pantallas, &monitores, 0)), Some(0));
+        // Ha dejado solo la de la derecha: se graba esa aunque se prefiriera la otra.
+        let solo_la_derecha = [fuente(41, Some((1920, 0)), Some((1280, 720)))];
+        assert_eq!(id(la_que_dejan(&solo_la_derecha, &pantallas, &monitores, 0)), Some(1));
+        // Una pantalla que ya no esta (se desenchufo): la primera de las que dejan.
+        assert_eq!(id(la_que_dejan(&las_dos, &pantallas, &monitores, 7)), Some(0));
+        assert_eq!(id(la_que_dejan(&[], &pantallas, &monitores, 0)), None);
     }
 
     #[test]

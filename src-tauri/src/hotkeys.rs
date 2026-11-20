@@ -79,6 +79,21 @@ fn on_edit(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
 /// lista que quedaba no la llevaba. Desde ahi nadie la soltaba, cada registro fallaba y
 /// los ajustes decian "esa combinacion esta cogida" sobre una tecla que era nuestra.
 pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
+    registrar(app, settings, false)
+}
+
+/// Lo mismo que [`register`], dicho cuando la persona acaba de encender «Grabar siempre lo
+/// último», que trae una tecla nueva.
+///
+/// Solo cambia algo en Wayland: alli la tecla la pone el escritorio, que pregunta por ella, y
+/// a quien dijo que no a esa pregunta no se le vuelve a hacer sola. Encender el anillo es algo
+/// que hace la persona, asi que cuenta como pulsar «Cambiar» (`platform::portal`).
+pub fn al_encender_el_anillo(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
+    registrar(app, settings, true)
+}
+
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+fn registrar(app: &AppHandle, settings: &Settings, por_la_persona: bool) -> ShortcutStatus {
     static DE_UNO_EN_UNO: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
     let _turno = DE_UNO_EN_UNO.lock();
 
@@ -86,7 +101,7 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     // tiene: los atajos los pone el escritorio, por el portal.
     #[cfg(target_os = "linux")]
     if crate::platform::xdg::es_wayland() {
-        return atajos_de_wayland(app, settings);
+        return atajos_de_wayland(app, settings, por_la_persona);
     }
 
     let manager = app.global_shortcut();
@@ -265,14 +280,28 @@ pub fn register(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
 /// dialogo donde la persona confirma o cambia la tecla) y lo que quede puesto lo apunta el
 /// portal en `AppState::shortcuts` cuando conteste. Impr Pant no se pide: en GNOME y en KDE ya
 /// es del escritorio.
+///
+/// Con «Grabar siempre lo último» encendido se pide una cuarta, la que rescata. Va la ultima
+/// y las tres de siempre no cambian por llevarla detras, para que el escritorio las reconozca
+/// y pregunte solo por la nueva.
 #[cfg(target_os = "linux")]
-fn atajos_de_wayland(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
-    use crate::platform::portal::{pedir_atajos, Peticion};
+fn atajos_de_wayland(app: &AppHandle, settings: &Settings, por_la_persona: bool) -> ShortcutStatus {
+    use crate::platform::portal::{pedir_atajos, Peticion, LA_DE_RESCATE};
     // Los mismos textos de la interfaz (`src/lib/textos-en.ts` y `textos-zh.ts`).
-    let (captura, editor, grabar) = match crate::tray::idioma(app) {
-        "es" => ("Capturar una región", "Capturar y abrir el editor", "Grabar la pantalla, o parar la grabación"),
-        "zh" => ("区域截图", "截图并打开编辑器", "录制屏幕，或停止录制"),
-        _ => ("Capture a region", "Capture and open the editor", "Record the screen, or stop recording"),
+    let (captura, editor, grabar, rescatar) = match crate::tray::idioma(app) {
+        "es" => (
+            "Capturar una región",
+            "Capturar y abrir el editor",
+            "Grabar la pantalla, o parar la grabación",
+            "Guardar los últimos segundos",
+        ),
+        "zh" => ("区域截图", "截图并打开编辑器", "录制屏幕，或停止录制", "保存最近几秒"),
+        _ => (
+            "Capture a region",
+            "Capture and open the editor",
+            "Record the screen, or stop recording",
+            "Save the last few seconds",
+        ),
     };
     let tecla_captura = tecla_para_el_portal(&settings.capture_shortcut);
     // Dos atajos con la misma tecla no los pone nadie: el del editor va entonces sin sugerencia
@@ -283,14 +312,19 @@ fn atajos_de_wayland(app: &AppHandle, settings: &Settings) -> ShortcutStatus {
     // sacar del video), asi que esta tecla es la forma de parar sin ir a la bandeja.
     let tecla_grabar = tecla_para_el_portal(&settings.record_shortcut)
         .filter(|tecla| Some(tecla) != tecla_captura.as_ref() && Some(tecla) != tecla_editor.as_ref());
-    pedir_atajos(
-        app,
-        vec![
-            Peticion { id: "capture", descripcion: captura.into(), tecla: tecla_captura },
-            Peticion { id: "edit", descripcion: editor.into(), tecla: tecla_editor },
-            Peticion { id: "record", descripcion: grabar.into(), tecla: tecla_grabar },
-        ],
-    );
+    // La de rescatar solo existe con el anillo encendido, como en Windows y en X11.
+    let rescate = settings.replay_enabled.then(|| {
+        let ocupadas = [tecla_captura.as_ref(), tecla_editor.as_ref(), tecla_grabar.as_ref()];
+        let tecla = tecla_para_el_portal(&settings.replay_shortcut).filter(|tecla| !ocupadas.contains(&Some(tecla)));
+        Peticion { id: LA_DE_RESCATE, descripcion: rescatar.into(), tecla }
+    });
+    let mut peticiones = vec![
+        Peticion { id: "capture", descripcion: captura.into(), tecla: tecla_captura },
+        Peticion { id: "edit", descripcion: editor.into(), tecla: tecla_editor },
+        Peticion { id: "record", descripcion: grabar.into(), tecla: tecla_grabar },
+    ];
+    peticiones.extend(rescate);
+    pedir_atajos(app, peticiones, por_la_persona);
     *app.state::<AppState>().shortcuts.read()
 }
 
@@ -409,6 +443,8 @@ pub struct TeclasDelEscritorio {
     pub edit: Option<TeclaDelEscritorio>,
     /// La de grabar, que es tambien la de parar: en Wayland no hay barra de grabar.
     pub record: Option<TeclaDelEscritorio>,
+    /// La que se queda con los ultimos segundos. Solo se pide con el anillo encendido.
+    pub replay: Option<TeclaDelEscritorio>,
     /// Que este escritorio no deja pedirle atajos (Sway y los demas de wlroots no tienen el
     /// portal): la tecla se pone a mano en su configuracion, con `orden` y `--capture`.
     pub a_mano: bool,
