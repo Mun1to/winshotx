@@ -144,7 +144,7 @@ tarjeta(
     "Crop the screen", "before you blink",
     "Screenshots, videos and GIFs for Windows and Linux",
     [("114 ms", "to show it"),
-     ("3.01 MB", "installer"),
+     ("3.03 MB", "installer"),
      ("Free", "open source")],
     captura_de_la_app(),
 )

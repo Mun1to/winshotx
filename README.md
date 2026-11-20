@@ -9,14 +9,14 @@
 A free and open source **Snipping Tool alternative for Windows**: region screenshots with a pixel
 magnifier, **GIF and MP4 screen recording**, and an editor with a studio. It shows the selection
 already painted 114 ms after the shortcut with three screens, uses 33 MB of memory and fits in a
-3.01 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
+3.03 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
 
 <a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.svg"><img src=".github/readme/download-windows-light.svg" alt="Download for Windows"></picture></a>
 <a href="https://github.com/Mun1to/winshotx/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-linux-dark.svg"><img src=".github/readme/download-linux-light.svg" alt="Download for Linux"></picture></a>
 <a href="https://winshotx.com/en/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.svg"><img src=".github/readme/download-web-light.svg" alt="Try it in your browser"></picture></a>
 <a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><picture><source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/en-us%20light.svg"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Download from the Microsoft Store" height="52"></picture></a>
 
-Licence MIT · Windows 10 and 11, and Linux · Installer 3.01 MB
+Licence MIT · Windows 10 and 11, and Linux · Installer 3.03 MB
 
 [Compare with the Snipping Tool](#snipping-tool-against-winshotx) · [home page](https://winshotx.com/en/) · [Latest version](https://github.com/Mun1to/winshotx/releases/latest) · [Español](README.es.md)
 
@@ -172,7 +172,7 @@ To remove the Snipping Tool altogether, the app opens the Windows screen where t
 ## Install
 
 [**Download the installer**](https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe)
-· 3.01 MB · it installs for your user only, so Windows never asks for administrator rights. Older
+· 3.03 MB · it installs for your user only, so Windows never asks for administrator rights. Older
 versions are in [Releases](../../releases).
 
 Three other ways, same app:

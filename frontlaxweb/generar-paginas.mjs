@@ -280,7 +280,7 @@ ${el("title", "", p.titulo)}
 <meta property="og:image" content="${BASE}social.png?v=4">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="winshotx, «Crop the screen before you blink»: 114 ms, instalador de 3,01 MB, gratis y de código abierto, junto a su ventana de ajustes">
+<meta property="og:image:alt" content="winshotx, «Crop the screen before you blink»: 114 ms, instalador de 3,03 MB, gratis y de código abierto, junto a su ventana de ajustes">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${titulo}">
 <meta name="twitter:description" content="${descripcion}">
