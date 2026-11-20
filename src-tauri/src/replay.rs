@@ -311,6 +311,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                     region,
                     escala(region, destino),
                     rescate,
+                    record::teclas::Vigilante::default(),
                 ),
                 anillo,
                 audio_anillo: audio.as_ref().map(|captura| {
@@ -546,6 +547,7 @@ impl Vigia {
     /// Empieza a mirar. `escala` lleva un punto de la pantalla al tamanno al que se guarda, y
     /// `rescate` es la tecla que rescata: es de winshotx, no de lo que se estaba haciendo, y
     /// no se apunta como atajo (si no, cada rescate acabaria con su propia pastilla).
+    /// `teclado` llega hecho porque es quien sabe en que idioma se nombran las teclas.
     fn empezar(
         mut sentidos: Box<dyn Sentidos>,
         reloj: record::anotador::Reloj,
@@ -553,6 +555,7 @@ impl Vigia {
         region: Rect,
         (fx, fy): (f32, f32),
         rescate: Option<record::teclas::TeclaZoom>,
+        mut teclado: record::teclas::Vigilante,
     ) -> Self {
         let visto = Arc::new(parking_lot::Mutex::new(Visto::default()));
         let parar = Arc::new(AtomicBool::new(false));
@@ -562,7 +565,6 @@ impl Vigia {
                 let x_en = |x: i32| ((x - region.x) as f32 * fx).round() as i32;
                 let y_en = |y: i32| ((y - region.y) as f32 * fy).round() as i32;
                 let mut raton = record::raton::Vigilante::default();
-                let mut teclado = record::teclas::Vigilante::default();
                 loop {
                     std::thread::sleep(record::anotador::CADA);
                     if parar.load(Ordering::Relaxed) {
@@ -1923,6 +1925,7 @@ mod pruebas_con_pantalla {
                 region,
                 (1.0, 1.0),
                 record::teclas::TeclaZoom::de_atajo("Ctrl+Shift+6"),
+                record::teclas::Vigilante::default(),
             ),
             anillo,
             audio_anillo: None,
