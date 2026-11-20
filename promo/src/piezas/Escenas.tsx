@@ -122,7 +122,7 @@ export function cajaDeLinux(ancho: number, alto: number) {
  * X11), entra en `cambia`: la primera se va desenfocándose y la segunda llega desenfocada, como
  * los cortes entre escenas, pero en medio segundo y sin mover la cámara.
  */
-export function EnLinux({ fotos, tomas, cambia, dura }: { fotos: { src: string; ancho: number; alto: number }[]; tomas: Toma[]; cambia?: number; dura: number }) {
+export function EnLinux({ fotos, tomas, cambia, dura }: { fotos: { src: string; ancho: number; alto: number; tapar?: { x: number; y: number; w: number; h: number }[] }[]; tomas: Toma[]; cambia?: number; dura: number }) {
   const frame = useCurrentFrame();
   const o = { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) } as const;
   // De 0 (solo la primera) a 1 (solo la segunda), en 15 fotogramas centrados en `cambia`.
@@ -158,6 +158,12 @@ export function EnLinux({ fotos, tomas, cambia, dura }: { fotos: { src: string; 
               }}
             >
               <Img src={f.src} style={{ width: c.w, height: c.h }} />
+              {/* Lo que la foto trae y no es de winshotx (en GNOME, la pastilla naranja de «se está
+                  grabando» que dejó el laboratorio), tapado con el negro de la barra. */}
+              {(f.tapar ?? []).map((t, j) => {
+                const k = c.w / f.ancho;
+                return <div key={j} style={{ position: "absolute", left: t.x * k, top: t.y * k, width: t.w * k, height: t.h * k, background: "#000" }} />;
+              })}
             </div>
           );
         })}

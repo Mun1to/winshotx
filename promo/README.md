@@ -16,8 +16,9 @@ on purpose, because Remotion pulls a headless Chrome that nobody building winsho
    one of the version being released, so the settings show that version number.
 2. **Linux.** The bench is Windows and Edge, so winshotx on a Linux desktop (GNOME on Wayland and
    X11) comes from the Linux lab as plain screenshots, 1920 x 1080, English, dark theme, dropped in
-   `public/linux/` (not in git). `src/linux.ts` takes the best one there is; until they arrive it
-   falls back to two provisional ones, which are not shown to anyone.
+   `public/linux/` (not in git). `src/linux.ts` takes the best one there is (the capture overlay on
+   GNOME, then X11), covers what the lab left on them (GNOME's orange screen-recording pill), and
+   stops the render if there is no GNOME shot.
 3. **The video.** `src/Promo.tsx` is the chosen cut, 45.5 s since 0.6.0: the maker's story over
    the app, then seven questions the app answers (Linux is the seventh, new in 0.6.0), a new idea
    every 2.2 s. Its cuts are counted in beats of the

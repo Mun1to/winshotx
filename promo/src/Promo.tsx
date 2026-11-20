@@ -340,7 +340,7 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
           respuesta="Yes. X11 and *GNOME on Wayland*"
           app={
             <EnLinux
-              fotos={linux.fotos}
+              fotos={linux}
               dura={T.graba - T.linux}
               cambia={Math.round((PREGUNTA + PASO + (T.graba - T.linux - PASO)) / 2)}
               tomas={[
@@ -353,15 +353,6 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
             />
           }
         />
-        {/* Con las fotos provisionales (en español, de la 0.5.2), el vídeo lo dice en la propia
-            escena, para que nadie lo enseñe así por error. Se va solo al llegar las buenas. */}
-        {linux.provisionales && (
-          <AbsoluteFill style={{ alignItems: "flex-end", justifyContent: "flex-end", padding: 28 }}>
-            <div style={{ color: "#ff6b6b", font: "700 30px 'Segoe UI', system-ui", textShadow: "0 2px 8px #000" }}>
-              PROVISIONAL: faltan las fotos de Linux de S45
-            </div>
-          </AbsoluteFill>
-        )}
       </Sequence>
 
       {/* 2. ¿Graba? El editor entero, su línea de tiempo y la pestaña GIF. */}
