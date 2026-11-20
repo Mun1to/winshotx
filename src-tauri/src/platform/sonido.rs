@@ -8,6 +8,10 @@
 //! justifica meter un motor de audio con sus hilos y sus dependencias. A cambio, **solo
 //! sabe leer WAV PCM**, y por eso la prueba de aqui abajo comprueba la cabecera: un mp3
 //! renombrado a `.wav` no sonaria, y no se enteraria nadie hasta que alguien capturase.
+//!
+//! **En Linux suena con el GStreamer del sistema** (`en_linux::tocar`), el mismo que ya
+//! escribe el MP4: `autoaudiosink` elige la salida que haya, sea PipeWire o PulseAudio. Son
+//! los mismos dos sonidos, sin crate nuevo.
 
 /// El sonido, ya recortado a los tres golpes de un obturador de reflex.
 const CLIC: &[u8] = include_bytes!("../../assets/obturador.wav");
@@ -33,6 +37,80 @@ pub fn obturador() {
                 SND_MEMORY | SND_ASYNC | SND_NODEFAULT,
             );
         }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // En su hilo: tocar espera a que el sonido acabe, y capturar no espera a nadie.
+        let _ = std::thread::Builder::new().name("obturador".into()).spawn(|| {
+            let sonado = crate::encode::wav::leer(CLIC)
+                .map_err(|error| error.to_string())
+                .and_then(|(muestras, frecuencia)| en_linux::tocar(&muestras, frecuencia));
+            if let Err(error) = sonado {
+                eprintln!("[sonido] el obturador no suena: {error}");
+            }
+        });
+    }
+}
+
+/// S45 (Linux): sonar con el GStreamer del sistema.
+#[cfg(target_os = "linux")]
+mod en_linux {
+    use gst::prelude::*;
+    use gstreamer as gst;
+    use gstreamer_app as gst_app;
+
+    use crate::encode::gst as motor;
+
+    /// Lo que se espera, ademas de lo que dura el sonido, a que la salida diga que ha acabado.
+    /// Con un servidor de sonido que no contesta, esto es todo lo que se pierde.
+    const DE_MAS_MS: u64 = 2_000;
+
+    /// Toca un sonido corto (un canal, de -1 a 1) por la salida de sonido del sistema y
+    /// vuelve cuando ha acabado de sonar. `autoaudiosink` elige por donde: `pulsesink` donde
+    /// haya PulseAudio o el PipeWire que contesta por el, y si no ALSA. Sin ninguna salida
+    /// (o sin el plugin), devuelve el porque y no suena nada: quien llama sigue igual.
+    pub(super) fn tocar(muestras: &[f32], frecuencia: u32) -> std::result::Result<(), String> {
+        let mal = |error: crate::error::AppError| error.to_string();
+        let tuberia = motor::monta(&format!(
+            "appsrc name=a format=time caps=audio/x-raw,format=F32LE,rate={frecuencia},channels=1,layout=interleaved \
+             ! audioconvert ! audioresample ! autoaudiosink"
+        ))
+        .map_err(mal)?;
+        let fuente: gst_app::AppSrc = motor::pieza(&tuberia, "a").map_err(mal)?;
+        let bus = tuberia.bus().ok_or("la tubería no tiene por dónde avisar")?;
+        let dura_ms = muestras.len() as u64 * 1000 / u64::from(frecuencia.max(1));
+        let antes = std::time::Instant::now();
+        let sonar = || -> std::result::Result<(), String> {
+            if tuberia.set_state(gst::State::Playing).is_err() {
+                return Err(motor::error_de(&bus).unwrap_or_else(|| "no hay por dónde sonar".into()));
+            }
+            let bytes: Vec<u8> = muestras.iter().flat_map(|m| m.to_le_bytes()).collect();
+            let mut bufer = gst::Buffer::from_slice(bytes);
+            if let Some(b) = bufer.get_mut() {
+                b.set_pts(gst::ClockTime::ZERO);
+                b.set_duration(gst::ClockTime::from_mseconds(dura_ms.max(1)));
+            }
+            fuente.push_buffer(bufer).map_err(|_| "la salida de sonido no acepta nada".to_string())?;
+            let _ = fuente.end_of_stream();
+            // El final llega cuando la salida ha sacado la ultima muestra, no cuando se le da.
+            let fin = bus.timed_pop_filtered(
+                gst::ClockTime::from_mseconds(dura_ms + DE_MAS_MS),
+                &[gst::MessageType::Eos, gst::MessageType::Error],
+            );
+            match fin {
+                Some(mensaje) => match mensaje.view() {
+                    gst::MessageView::Error(e) => Err(e.error().to_string()),
+                    _ => Ok(()),
+                },
+                None => Err("la salida de sonido no ha acabado a tiempo".into()),
+            }
+        };
+        let sonado = sonar();
+        let _ = tuberia.set_state(gst::State::Null);
+        if sonado.is_ok() {
+            eprintln!("[sonido] {dura_ms} ms de sonido, sonados en {} ms", antes.elapsed().as_millis());
+        }
+        sonado
     }
 }
 
@@ -139,7 +217,9 @@ pub fn al_empezar(encendido: bool, graba_sonido: bool) -> AlEmpezar {
 }
 
 /// El WAV de la marimba, hecho una vez: `PlaySoundW` lo lee de la memoria mientras suena en
-/// su hilo, así que tiene que seguir vivo hasta que acabe.
+/// su hilo, así que tiene que seguir vivo hasta que acabe. En Linux la marimba se toca de sus
+/// muestras, sin pasar por un WAV: allí esto solo lo usan las pruebas.
+#[cfg(any(windows, test))]
 fn wav_de_la_marimba() -> &'static [u8] {
     static WAV: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
     WAV.get_or_init(|| crate::encode::wav::escribir_mono16(&marimba(48_000), 48_000))
@@ -163,6 +243,22 @@ pub fn sonar_al_empezar(cuando: AlEmpezar) {
         }
         if cuando == AlEmpezar::Esperando {
             std::thread::sleep(std::time::Duration::from_millis(MARGEN_AL_EMPEZAR_MS));
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let sonar = || {
+            if let Err(error) = en_linux::tocar(&marimba(48_000), 48_000) {
+                eprintln!("[sonido] la marimba no suena: {error}");
+            }
+        };
+        if cuando == AlEmpezar::Esperando {
+            // `tocar` vuelve cuando la salida ha sacado la ultima muestra: con el margen de
+            // siempre, la cola no entra en lo que se grabe del altavoz.
+            sonar();
+            std::thread::sleep(std::time::Duration::from_millis(MARGEN_AL_EMPEZAR_MS));
+        } else {
+            let _ = std::thread::Builder::new().name("marimba".into()).spawn(sonar);
         }
     }
 }
