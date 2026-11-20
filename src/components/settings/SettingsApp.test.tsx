@@ -8,7 +8,7 @@
  * ver la prueba del diccionario: una frase puede estar traducida en `textos-en.ts` y salir en
  * espannol igual, porque el componente la escribio a pelo sin pasarla por `t()`. Ha pasado.
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsApp } from "./SettingsApp";
 import { aplicarIdioma } from "../../lib/i18n";
@@ -106,6 +106,9 @@ function ir(nombre: string | RegExp) {
 
 /** El panel de «Así va a salir» del apartado que se ve. */
 const dibujo = () => document.querySelector<HTMLElement>("[data-dibujo-de]");
+
+/** La orden que enseña una fila donde las teclas se ponen a mano (el dibujo también la dice, en negrita). */
+const ordenDeLaFila = (orden: string) => screen.getByText(orden, { selector: "code" });
 
 beforeEach(() => aplicarIdioma("es"));
 
@@ -903,7 +906,7 @@ describe("en Linux", () => {
     await waitFor(() =>
       expect(screen.getAllByText("ponla en los atajos del escritorio")).toHaveLength(2),
     );
-    expect(screen.getByText("\"/home/ana/Mis cosas/winshotx.AppImage\" --capture")).toBeInTheDocument();
+    expect(ordenDeLaFila("\"/home/ana/Mis cosas/winshotx.AppImage\" --capture")).toBeInTheDocument();
     expect(screen.getByText("\"/home/ana/Mis cosas/winshotx.AppImage\" --edit")).toBeInTheDocument();
     // Sin «Cambiar» ni «Sin tecla»: aquí no hay ventana del escritorio que abrir.
     expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
@@ -925,7 +928,7 @@ describe("en Linux", () => {
       expect(screen.getAllByText("todavía sin tecla: pulsa «Cambiar»")).toHaveLength(2),
     );
     fireEvent.click(screen.getAllByRole("button", { name: "Cambiar" })[0]);
-    await waitFor(() => expect(screen.getByText("winshotx --capture")).toBeInTheDocument());
+    await waitFor(() => expect(ordenDeLaFila("winshotx --capture")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
   });
 
@@ -959,7 +962,7 @@ describe("en Linux", () => {
     responde("teclas_del_escritorio", { capture: null, edit: null, record: null, aMano: true, orden: "winshotx" });
     await abrirAjustes();
     ir("Grabar");
-    await waitFor(() => expect(screen.getByText("winshotx --record")).toBeInTheDocument());
+    await waitFor(() => expect(ordenDeLaFila("winshotx --record")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Copiar la orden" }));
     await waitFor(() =>
       expect(llamadas.filter((l) => l.comando === "copiar_orden_del_atajo").at(-1)?.args).toEqual({
@@ -1060,7 +1063,7 @@ describe("en Linux", () => {
     responde("teclas_del_escritorio", { capture: null, edit: null, aMano: true, orden: "winshotx" });
     await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
     ir("Los últimos segundos");
-    await waitFor(() => expect(screen.getByText("winshotx --replay")).toBeInTheDocument());
+    await waitFor(() => expect(ordenDeLaFila("winshotx --replay")).toBeInTheDocument());
     expect(screen.getByText("ponla en los atajos del escritorio")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cambiar" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Copiar la orden" }));
@@ -1187,6 +1190,165 @@ describe("en Linux", () => {
     ir("Grabar");
     await waitFor(() => expect(dibujo()?.querySelector('[data-dibujo="barra"]')).not.toBeNull());
     expect(dibujo()?.textContent).toContain("0:12");
+  });
+
+  /*
+   * S45: «Así va a salir» decía la tecla de los ajustes de la app también en Wayland, donde la
+   * que vale es la que pone el escritorio, y puede no haber ninguna: con la fila de al lado en
+   * «Sin tecla», el dibujo seguía diciendo «Ctrl + Shift + 2 y eliges la zona con el ratón».
+   */
+  const ALT_F9 = { texto: "Press <Alt>F9", atajo: "Alt+F9" };
+
+  it("en Wayland, el dibujo de Capturar dice la tecla del escritorio y no la de los ajustes", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: ALT_F9, edit: null });
+    await abrirAjustes();
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Alt + F9 y eliges la zona con el ratón"));
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift + 2");
+  });
+
+  it("en Wayland, sin tecla del escritorio, el dibujo de Capturar lo dice y manda a «Cambiar»", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null });
+    await abrirAjustes();
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Todavía sin tecla: pídela con «Cambiar»"));
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift + 2");
+    // Lo demás del dibujo sigue contando lo que va a pasar.
+    expect(dibujo()?.textContent).toContain("La foto sale en cuanto sueltas");
+  });
+
+  it("si el escritorio escribe la tecla de una forma que no se sabe leer, el dibujo la pone tal cual", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: { texto: "Press <Hyper>F13", atajo: null }, edit: null });
+    await abrirAjustes();
+    await waitFor(() =>
+      expect(dibujo()?.textContent).toContain("Press <Hyper>F13 y eliges la zona con el ratón"),
+    );
+  });
+
+  it("en Wayland, el dibujo de Grabar dice la tecla del escritorio", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, record: ALT_F9 });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Alt + F9 y eliges qué grabar"));
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift + 5");
+  });
+
+  it("en Wayland, sin tecla de grabar, el dibujo de Grabar lo dice", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: ALT_F9, edit: null, record: null });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Todavía sin tecla: pídela con «Cambiar»"));
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift + 5");
+    expect(dibujo()?.textContent).toContain("fps");
+  });
+
+  it("en Wayland, el dibujo de los últimos segundos dice la tecla del escritorio", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, replay: ALT_F9 });
+    await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
+    ir("Los últimos segundos");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Alt + F9 y te quedas con los últimos 30 s"));
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift + 6");
+  });
+
+  it("en Wayland, encendido y sin tecla de rescatar, el dibujo lo dice", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, replay: null });
+    await abrirAjustes(ANILLO, undefined, { replayEnabled: true });
+    ir("Los últimos segundos");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Todavía sin tecla: pídela con «Cambiar»"));
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift + 6");
+  });
+
+  // Apagado, la tecla no se le ha pedido al escritorio y «Cambiar» no se puede pulsar: mandar
+  // a pedirla sería mandar a un botón gris. Lo que va a pasar es que se elige al encenderlo.
+  it("en Wayland, apagado, el dibujo dice que la tecla de rescatar se elige al encenderlo", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null });
+    await abrirAjustes();
+    ir("Los últimos segundos");
+    await waitFor(() =>
+      expect(dibujo()?.textContent).toContain(
+        "Al encenderlo eliges la tecla que se queda con los últimos 30 s",
+      ),
+    );
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift + 6");
+    expect(dibujo()?.textContent).not.toContain("Todavía sin tecla");
+  });
+
+  it("donde las teclas se ponen a mano (Sway), los tres dibujos dicen la orden", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, aMano: true, orden: "winshotx" });
+    await abrirAjustes();
+    await waitFor(() =>
+      expect(dibujo()?.textContent).toContain("winshotx --capture y eliges la zona con el ratón"),
+    );
+    ir("Grabar");
+    await waitFor(() => expect(dibujo()?.textContent).toContain("winshotx --record y eliges qué grabar"));
+    ir("Los últimos segundos");
+    await waitFor(() =>
+      expect(dibujo()?.textContent).toContain("winshotx --replay y te quedas con los últimos 30 s"),
+    );
+    expect(dibujo()?.textContent).not.toContain("Ctrl + Shift");
+    expect(dibujo()?.textContent).not.toContain("Todavía sin tecla");
+  });
+
+  // La orden de un AppImage es su ruta entera, sin un espacio donde partirse: en la columna
+  // del dibujo tiene que poder partirse por cualquier letra o se sale de la tarjeta.
+  it("la orden de un AppImage, que es una ruta larga, se puede partir dentro del dibujo", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", {
+      capture: null,
+      edit: null,
+      aMano: true,
+      orden: "/home/ana/Aplicaciones/winshotx_0.5.3_amd64.AppImage",
+    });
+    await abrirAjustes();
+    await waitFor(() =>
+      expect(dibujo()?.textContent).toContain("/home/ana/Aplicaciones/winshotx_0.5.3_amd64.AppImage --capture"),
+    );
+    const frase = [...dibujo()!.querySelectorAll("[data-frases] li")].find((li) =>
+      li.textContent?.includes("--capture"),
+    );
+    expect(frase?.innerHTML).toContain("[overflow-wrap:anywhere]");
+  });
+
+  it("si «Cambiar» no abre nada (Hyprland), el dibujo pasa también a la orden", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null, aMano: false, orden: "winshotx" });
+    falla("cambiar_teclas_en_el_escritorio", "Unsupported");
+    await abrirAjustes();
+    await waitFor(() => expect(dibujo()?.textContent).toContain("Todavía sin tecla"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Cambiar" })[0]);
+    await waitFor(() =>
+      expect(dibujo()?.textContent).toContain("winshotx --capture y eliges la zona con el ratón"),
+    );
+  });
+
+  it("en X11 el dibujo sigue diciendo la tecla de los ajustes, y sus frases no se parten por letras", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrirAjustes();
+    await waitFor(() => expect(llamadas.some((l) => l.comando === "plataforma")).toBe(true));
+    expect(dibujo()?.textContent).toContain("Ctrl + Shift + 2 y eliges la zona con el ratón");
+    expect(dibujo()?.innerHTML).not.toContain("overflow-wrap");
+  });
+
+  it("las frases nuevas del dibujo salen en inglés y en chino", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    responde("teclas_del_escritorio", { capture: null, edit: null });
+    aplicarIdioma("en");
+    await abrirAjustes();
+    await waitFor(() => expect(dibujo()?.textContent).toContain("No key yet: ask for one with «Change»"));
+    ir("The last few seconds");
+    await waitFor(() =>
+      expect(dibujo()?.textContent).toContain("When you turn it on you pick the key that keeps the last 30 s"),
+    );
+    expect(dibujo()?.textContent).not.toContain("tecla");
+    act(() => aplicarIdioma("zh"));
+    await waitFor(() => expect(dibujo()?.textContent).toContain("开启时选择用来留下最近 30 秒的按键"));
   });
 
   it("con el sonido en su sitio, los interruptores de Linux van como siempre", async () => {

@@ -893,6 +893,9 @@ export const EN: Record<string, string> = {
   "Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.": "It saves the last few seconds and opens them in the editor **without stopping the recording**, so you can carry on and rescue again in a while. This desktop does not let apps ask for keys: put this command in its keyboard shortcuts.",
   "Guardar ahora": "Save now",
   "Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».": "The same thing the key does: it saves the last few seconds and opens them in the editor, without stopping the recording. For when the desktop gave you no key or you don't remember which one it is. The command «winshotx --replay» does it too.",
+  // S45 (Linux): el dibujo «Así va a salir» en Wayland, donde la tecla es la del escritorio.
+  "**Todavía sin tecla**: pídela con «Cambiar»": "**No key yet**: ask for one with «Change»",
+  "Al encenderlo eliges la tecla que se queda con los últimos **{n} s**": "When you turn it on you pick the key that keeps the last **{n} s**",
 
   // S40 (la barra de abajo vuelve)
   "Barra": "Bar",

@@ -522,6 +522,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                         enLinux={enLinux}
                         enWayland={enWayland}
                         sonido={sonido}
+                        teclasDelEscritorio={teclasDelEscritorio}
+                        teclasAMano={teclasAMano}
+                        ordenDeLaApp={ordenDeLaApp}
                       />
                     </aside>
                   )}

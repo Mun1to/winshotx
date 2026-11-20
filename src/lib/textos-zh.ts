@@ -893,6 +893,9 @@ export const ZH: Record<string, string> = {
   "Guarda los últimos segundos y te los abre en el editor **sin dejar de grabar**, así que puedes seguir y volver a rescatar dentro de un rato. Este escritorio no deja que las apps pidan teclas: pon esta orden en sus atajos de teclado.": "保存最近几秒并在编辑器中打开，**同时不停止录制**，所以你可以继续录，过一会儿再回溯。这个桌面不允许应用申请按键：请把这条命令加到它的键盘快捷键里。",
   "Guardar ahora": "立即保存",
   "Lo mismo que hace la tecla: guarda los últimos segundos y te los abre en el editor, sin dejar de grabar. Para cuando el escritorio no te ha dado tecla o no te acuerdas de cuál es. También lo hace la orden «winshotx --replay».": "和快捷键的作用一样：保存最近几秒并在编辑器中打开，同时不停止录制。适合桌面没有给你按键、或者你不记得是哪个键的时候。命令「winshotx --replay」也能做到。",
+  // S45 (Linux): el dibujo «Así va a salir» en Wayland, donde la tecla es la del escritorio.
+  "**Todavía sin tecla**: pídela con «Cambiar»": "**还没有按键**：点「更改」向桌面申请",
+  "Al encenderlo eliges la tecla que se queda con los últimos **{n} s**": "开启时选择用来留下最近 **{n} 秒**的按键",
 
   // S40 (la barra de abajo vuelve)
   "Barra": "工具栏",
