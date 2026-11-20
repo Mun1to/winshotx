@@ -446,10 +446,12 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
     std::fs::create_dir_all(&dir)?;
     // Lo de S2 sale de los ajustes y no de `options`: lo arma el overlay, y la tecla de zoom
     // y la cámara no son de cada grabación sino de quien graba.
-    let (tecla_zoom, camara_pedida) = {
+    let (tecla_zoom, nombres_de_teclas, camara_pedida) = {
         let ajustes = state.settings.read();
         (
             crate::record::teclas::TeclaZoom::de_atajo(&ajustes.zoom_shortcut),
+            // La pastilla va dentro del vídeo: se escribe ya en el idioma de la app.
+            crate::record::teclas::Nombres::de(ajustes.language),
             // S15 (agente): `options.camara` manda si viene.
             options
                 .camara
@@ -579,7 +581,8 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
         // los aros de clic y el rastro del raton la siguen en vez de quedarse donde
         // estaba al empezar.
         crate::record::anotador::Anotador::con_ventana(region, ventana, marcar_clics, marcar_teclas)
-            .con_tecla_zoom(tecla_zoom),
+            .con_tecla_zoom(tecla_zoom)
+            .con_nombres(nombres_de_teclas),
         crate::record::anotador::Reloj {
             start: reloj_inicio,
             paused_ms: paused_ms.clone(),
