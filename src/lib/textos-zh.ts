@@ -863,7 +863,8 @@ export const ZH: Record<string, string> = {
   "ponla en los atajos del escritorio": "请加到桌面的快捷键里",
   // S44 (Linux, grabar): la tecla de grabar de Wayland y el sonido que no hay.
   "Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.": "框选方式和截图一样，但输出的是视频。在 Wayland 上没有录制栏，因为无法把它排除在视频之外：停止录制用的就是这个按键。",
-  "este sistema no da el sonido por PipeWire": "此系统不通过 PipeWire 提供声音",
+  "este sistema no da el sonido por PipeWire ni por PulseAudio": "此系统不通过 PipeWire 或 PulseAudio 提供声音",
+  "para grabar el sonido falta el paquete gstreamer1.0-plugins-good": "要录制声音，还缺少 gstreamer1.0-plugins-good 软件包",
   "no hay ninguna salida de sonido": "未找到声音输出",
   "no hay ningún micrófono conectado": "未连接麦克风",
   // S44 (Linux, grabar): cómo se para, dicho en la pantalla de elegir zona (`comoParar.ts`).

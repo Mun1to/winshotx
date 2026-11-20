@@ -980,20 +980,23 @@ fn linea_del_editor(texto: &str) -> String {
 pub struct SonidoDisponible {
     pub altavoz: bool,
     pub microfono: bool,
+    /// El sonido lo lleva PulseAudio y falta el plugin de GStreamer que lo graba.
+    pub falta_el_de_pulse: bool,
 }
 
 /// Que sonido se puede grabar aqui, o `null` donde no hay nada que avisar (Windows).
 ///
-/// En Linux el sonido llega por PipeWire, y hay sistemas donde PipeWire esta pero no lo lleva
-/// (Ubuntu 22.04, Linux Mint 21: lo lleva PulseAudio). Alli se graba sin sonido, y los
-/// ajustes lo dicen con esto en vez de dejar un interruptor que no hace nada.
+/// En Linux el sonido llega por PipeWire, y donde PipeWire esta pero no lo lleva (Ubuntu
+/// 22.04, Linux Mint 21) por PulseAudio. Si no hay de ninguno de los dos se graba sin sonido,
+/// y los ajustes lo dicen con esto en vez de dejar un interruptor que no hace nada.
 #[tauri::command]
 pub async fn sonido_disponible() -> Option<SonidoDisponible> {
     #[cfg(target_os = "linux")]
     {
-        // Pregunta a PipeWire y espera su lista (con tope): fuera del hilo de las ventanas.
+        // Pregunta a PipeWire (y a PulseAudio si hace falta) y espera, con tope: fuera del
+        // hilo de las ventanas.
         let hay = tauri::async_runtime::spawn_blocking(crate::record::linux::sonido::disponible).await.ok()?;
-        Some(SonidoDisponible { altavoz: hay.altavoz, microfono: hay.microfono })
+        Some(SonidoDisponible { altavoz: hay.altavoz, microfono: hay.microfono, falta_el_de_pulse: hay.falta_el_de_pulse })
     }
     #[cfg(not(target_os = "linux"))]
     {

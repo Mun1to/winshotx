@@ -505,20 +505,24 @@ export function ApartadoGrabar({
   const t = useT();
   const { pista: pistaDeAtajo, tono: tonoDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
   const teclaDeGrabar = teclasDelEscritorio?.record ?? null;
-  // S44 (Linux): donde PipeWire no lleva el sonido (Ubuntu 22.04, Linux Mint 21) se graba sin
-  // sonido. El interruptor sale apagado y dice por qué: nunca en silencio.
+  // S44 (Linux): donde no hay sonido que grabar, el interruptor sale apagado y dice por qué:
+  // nunca en silencio. S45: el sonido se pide a PipeWire y, donde no lo lleva (Ubuntu 22.04,
+  // Linux Mint 21), a PulseAudio; si PulseAudio está pero falta su plugin, se dice qué instalar.
   const sinSonidoAqui = sonido !== null && !sonido.altavoz && !sonido.microfono;
+  const porQueSinNada = sonido?.faltaElDePulse
+    ? t("para grabar el sonido falta el paquete gstreamer1.0-plugins-good")
+    : t("este sistema no da el sonido por PipeWire ni por PulseAudio");
   const porQueSinAltavoz =
     sonido === null || sonido.altavoz
       ? undefined
       : sinSonidoAqui
-        ? t("este sistema no da el sonido por PipeWire")
+        ? porQueSinNada
         : t("no hay ninguna salida de sonido");
   const porQueSinMicro =
     sonido === null || sonido.microfono
       ? undefined
       : sinSonidoAqui
-        ? t("este sistema no da el sonido por PipeWire")
+        ? porQueSinNada
         : t("no hay ningún micrófono conectado");
   return (
     <>
