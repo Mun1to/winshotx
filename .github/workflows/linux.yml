@@ -1,6 +1,6 @@
 name: Linux
 
-# winshotx is not released for Linux yet. This only checks that the backend still builds and
+# winshotx ships for Linux since 0.6.0. The first job checks that the backend still builds and
 # passes its tests there, so the Linux side cannot rot unnoticed again: in November 2026 it
 # had 27 build errors that nobody saw, because on Windows everything behind
 # `cfg(not(windows))` is never compiled.
@@ -73,10 +73,10 @@ jobs:
         working-directory: src-tauri
         run: cargo test --lib --locked
 
-  # The .deb, the .rpm and the AppImage, signed for the updater. Nothing is published: Linux
-  # ships when it has almost everything Windows has (decision 1 of the Linux plan), so for now
-  # they only stay as artifacts of the run, to install them on clean distributions. Pull
-  # requests from forks do not get the signing key, so they skip this job.
+  # The .deb, the .rpm and the AppImage, signed for the updater. Nothing is published from
+  # here: they stay as the `winshotx-linux` artifact of the run, and the release script uploads
+  # them (`node scripts/publicar.mjs --publicar --linux <folder>`). Pull requests from forks
+  # do not get the signing key, so they skip this job.
   packages:
     needs: check
     if: github.event_name != 'pull_request'
