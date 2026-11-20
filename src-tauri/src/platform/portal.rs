@@ -6,8 +6,10 @@
 //! conexion para todo el proceso, asi que `registrar_la_app` va antes que cualquier otra
 //! llamada a un portal: la foto de Wayland la espera, y los atajos tambien.
 
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::{LazyLock, OnceLock};
+use std::time::{Duration, Instant};
 
 use ashpd::desktop::global_shortcuts::{
     Activated, GlobalShortcuts, NewShortcut, Shortcut, ShortcutsChanged,
@@ -257,6 +259,12 @@ async fn atender(app: AppHandle, mut ordenes: UnboundedReceiver<Orden>) {
     let mut sesion: Option<Session<'_, GlobalShortcuts<'_>>> = None;
     let mut pedidos: Vec<Peticion> = Vec::new();
     let mut atados: Vec<Shortcut> = Vec::new();
+    // Si la persona cerro la pregunta del escritorio sin aceptarla, en este arranque o en otro.
+    let marca = app.path().app_config_dir().ok().map(|carpeta| carpeta.join(MARCA_DE_QUE_NO));
+    let mut dijo_que_no = marca.as_deref().is_some_and(Path::exists);
+    if dijo_que_no {
+        eprintln!("[atajo] la persona dijo que no a los atajos del escritorio: se piden con «Cambiar», no al arrancar");
+    }
     loop {
         match select(ordenes.next(), senales.next()).await {
             Either::Left((Some(orden), _)) => {
@@ -273,20 +281,44 @@ async fn atender(app: AppHandle, mut ordenes: UnboundedReceiver<Orden>) {
                 let configurar = !esperan.is_empty();
                 let mut resultado: Result<(), String> = Ok(());
                 let cambian = nuevos.as_ref().is_some_and(|n| sesion.is_none() || *n != pedidos);
-                // Sin sesion (la persona cancelo el dialogo, o el escritorio no los puso),
-                // cambiar las teclas es volver a pedirlas: el escritorio ensenna su dialogo.
-                let repetir = configurar && sesion.is_none() && !pedidos.is_empty();
                 if let Some(nuevos) = nuevos.filter(|_| cambian) {
                     pedidos = nuevos;
                 }
-                if cambian || repetir {
+                let pedir = toca_pedir(Tanda {
+                    cambian,
+                    configurar,
+                    hay_sesion: sesion.is_some(),
+                    hay_pedidos: !pedidos.is_empty(),
+                    dijo_que_no,
+                });
+                if pedir {
                     if let Some(vieja) = sesion.take() {
                         let _ = vieja.close().await;
                     }
+                    let pedido_en = Instant::now();
                     match atar(&portal, &pedidos).await {
                         Ok((nueva, puestos)) => {
                             sesion = Some(nueva);
                             atados = puestos;
+                            if dijo_que_no {
+                                dijo_que_no = false;
+                                if let Some(marca) = &marca {
+                                    let _ = std::fs::remove_file(marca);
+                                }
+                            }
+                        }
+                        // La persona ha cerrado la pregunta del escritorio sin aceptarla. No es
+                        // un fallo (a quien pulso «Cambiar» no se le dice que el escritorio no
+                        // tiene ventana de teclas), y se apunta para no volver a preguntarle sola.
+                        Err(error) if es_un_no(&error, pedido_en.elapsed()) => {
+                            eprintln!("[atajo] la persona ha dicho que no a los atajos del escritorio: se piden otra vez con «Cambiar»");
+                            atados.clear();
+                            dijo_que_no = true;
+                            if let Some(marca) = &marca {
+                                if let Err(error) = apuntar_el_no(marca) {
+                                    eprintln!("[atajo] no se ha podido apuntar el no ({error}): se preguntara otra vez al arrancar");
+                                }
+                            }
                         }
                         Err(error) => {
                             eprintln!("[atajo] el escritorio no ha puesto los atajos: {error}");
@@ -336,6 +368,60 @@ async fn atender(app: AppHandle, mut ordenes: UnboundedReceiver<Orden>) {
     if let Some(vieja) = sesion.take() {
         let _ = vieja.close().await;
     }
+}
+
+/// El archivo, junto a los ajustes, que dice que la persona cerro la pregunta de los atajos del
+/// escritorio sin aceptarla. Mientras este, winshotx no se los vuelve a pedir por su cuenta: en
+/// GNOME un atajo que nadie acepto no queda guardado, y sin esto la pregunta volvia en cada
+/// arranque (tambien el del inicio de sesion y el de un agente) y con cada ajuste que se tocaba.
+/// No va en `settings.json` porque no es un ajuste: nadie lo elige y solo existe en Wayland.
+const MARCA_DE_QUE_NO: &str = "atajos-sin-pedir";
+
+/// Lo que hay al llegar una tanda de ordenes.
+#[derive(Clone, Copy, Debug)]
+struct Tanda {
+    /// Llegan atajos que no son los de la vez anterior, o no hay ninguno puesto.
+    cambian: bool,
+    /// La persona ha pulsado «Cambiar».
+    configurar: bool,
+    hay_sesion: bool,
+    hay_pedidos: bool,
+    dijo_que_no: bool,
+}
+
+/// Si con esta tanda hay que pedirle los atajos al escritorio, que puede sacar su pregunta.
+///
+/// Se piden cuando cambian (al arrancar, y con cada ajuste que se toca mientras no haya ninguno
+/// puesto) y cuando la persona pulsa «Cambiar» sin sesion: ahi cambiar las teclas es volver a
+/// pedirlas. A quien ya dijo que no, solo lo segundo.
+fn toca_pedir(tanda: Tanda) -> bool {
+    let a_mano = tanda.configurar && !tanda.hay_sesion && tanda.hay_pedidos;
+    a_mano || (tanda.cambian && !tanda.dijo_que_no)
+}
+
+/// Lo minimo que tarda una persona en decir que no a una pregunta del escritorio: la ventana
+/// tiene que salir y hay que leerla. Un portal que no puede poner los atajos contesta en
+/// milesimas.
+const LO_QUE_TARDA_UNA_PERSONA: Duration = Duration::from_secs(1);
+
+/// Si ese fallo de pedir los atajos es un «no» de la persona, y no que el escritorio no pueda.
+///
+/// El numero de la respuesta no lo dice. GNOME contesta 2 («otro fallo») lo mismo cuando la
+/// persona cierra «Add Keyboard Shortcuts» que cuando falla su ventana de ajustes, y 1
+/// («cancelada») solo si es la app la que retira la peticion (xdg-desktop-portal-gnome,
+/// `src/globalshortcuts.c`, `settings_bind_shortcuts_done`; medido en el laboratorio: Esc
+/// da «Other»). Lo que los separa es el tiempo: a una pregunta que nadie ha visto no se le
+/// tarda un segundo en contestar. Un fallo que no es una respuesta del portal (D-Bus) nunca
+/// es un no.
+fn es_un_no(error: &ashpd::Error, tardo: Duration) -> bool {
+    matches!(error, ashpd::Error::Response(_)) && tardo >= LO_QUE_TARDA_UNA_PERSONA
+}
+
+fn apuntar_el_no(marca: &Path) -> std::io::Result<()> {
+    if let Some(carpeta) = marca.parent() {
+        std::fs::create_dir_all(carpeta)?;
+    }
+    std::fs::write(marca, b"")
 }
 
 /// La ventana del escritorio para cambiar las teclas de esta sesion, y si el portal no la tiene
@@ -487,7 +573,74 @@ fn disparar(app: &AppHandle, id: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::desktop_escondido;
+    use super::{apuntar_el_no, desktop_escondido, es_un_no, toca_pedir, Tanda, MARCA_DE_QUE_NO};
+
+    /// Lo normal al arrancar: llegan los atajos, no hay sesion y nadie ha dicho que no.
+    const AL_ARRANCAR: Tanda =
+        Tanda { cambian: true, configurar: false, hay_sesion: false, hay_pedidos: true, dijo_que_no: false };
+
+    #[test]
+    fn al_arrancar_se_le_piden_los_atajos_al_escritorio() {
+        assert!(toca_pedir(AL_ARRANCAR));
+    }
+
+    #[test]
+    fn a_quien_dijo_que_no_no_se_le_pregunta_al_arrancar_ni_al_tocar_un_ajuste() {
+        // Un arranque y un ajuste tocado llegan igual: atajos, sin sesion y sin «Cambiar».
+        assert!(!toca_pedir(Tanda { dijo_que_no: true, ..AL_ARRANCAR }));
+    }
+
+    #[test]
+    fn cambiar_vuelve_a_preguntar_aunque_dijera_que_no() {
+        let cambiar = Tanda { cambian: false, configurar: true, ..AL_ARRANCAR };
+        assert!(toca_pedir(Tanda { dijo_que_no: true, ..cambiar }));
+        assert!(toca_pedir(cambiar));
+        // Y si el ajuste y el «Cambiar» llegan en la misma tanda.
+        assert!(toca_pedir(Tanda { cambian: true, configurar: true, dijo_que_no: true, ..AL_ARRANCAR }));
+    }
+
+    #[test]
+    fn con_los_atajos_puestos_no_se_piden_otra_vez_si_no_cambian() {
+        let puestos = Tanda { cambian: false, hay_sesion: true, ..AL_ARRANCAR };
+        assert!(!toca_pedir(puestos));
+        // «Cambiar» con sesion ensenna la ventana de teclas del escritorio: no es pedirlos.
+        assert!(!toca_pedir(Tanda { configurar: true, ..puestos }));
+        // Otro idioma u otra tecla propuesta: se piden los nuevos.
+        assert!(toca_pedir(Tanda { cambian: true, ..puestos }));
+    }
+
+    #[test]
+    fn cambiar_sin_nada_que_pedir_no_pide_nada() {
+        assert!(!toca_pedir(Tanda { cambian: false, configurar: true, hay_pedidos: false, ..AL_ARRANCAR }));
+    }
+
+    #[test]
+    fn un_no_es_una_respuesta_del_portal_que_ha_tardado_lo_que_tarda_una_persona() {
+        use ashpd::desktop::ResponseError;
+        use std::time::Duration;
+        let persona = Duration::from_secs(3);
+        let maquina = Duration::from_millis(40);
+        // GNOME contesta «Other» al cerrar su pregunta; otros escritorios, «Cancelled».
+        assert!(es_un_no(&ashpd::Error::Response(ResponseError::Other), persona));
+        assert!(es_un_no(&ashpd::Error::Response(ResponseError::Cancelled), persona));
+        // Lo mismo contestado al instante es un escritorio que no puede ponerlos.
+        assert!(!es_un_no(&ashpd::Error::Response(ResponseError::Other), maquina));
+        // Y un fallo que no es una respuesta nunca es un no, tarde lo que tarde.
+        assert!(!es_un_no(&ashpd::Error::NoResponse, persona));
+    }
+
+    #[test]
+    fn el_no_se_apunta_aunque_no_exista_la_carpeta_de_los_ajustes() {
+        let carpeta = std::env::temp_dir().join(format!("winshotx-prueba-atajos-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&carpeta);
+        let marca = carpeta.join("config").join(MARCA_DE_QUE_NO);
+        assert!(!marca.exists());
+        apuntar_el_no(&marca).expect("apuntar");
+        assert!(marca.exists());
+        // Apuntarlo dos veces no falla: quien cancela otra vez desde «Cambiar».
+        apuntar_el_no(&marca).expect("apuntar otra vez");
+        let _ = std::fs::remove_dir_all(&carpeta);
+    }
 
     #[test]
     fn el_desktop_del_appimage_va_escondido_y_con_la_ruta_entre_comillas() {
