@@ -115,6 +115,17 @@ screen is recorded or on Wayland (where a window cannot choose its position). Su
 is stopped with the record shortcut, from the tray icon, with `winshotx --record`, or from the
 desktop's own screen sharing indicator (GNOME, KDE).
 
+**The frame around the recorded area is X11 only.** It is the same blue line as on Windows
+(amber while paused), drawn by four plain X windows that the window manager does not manage
+and the mouse goes through. For the same reason as the bar it always sits outside the recorded
+area: a side that does not fit between the area and the edge of its screen is not drawn, and
+there is no frame when the whole screen is recorded. With a compositor running the line has its
+soft corners and its glow; without one the windows are cut to the shape of the line (the Shape
+extension) and the glow is left out. The windows are of type `dock` with the class
+`winshotx-marco`: compositors leave that type without a shadow, and a shadow of theirs would
+fall inside the video. On Wayland there is no frame, since a window cannot choose its position
+and the desktop already shows that the screen is being recorded.
+
 **How to stop is said before recording, not during.** Anything winshotx showed while recording
 (a notification, a window) would end up in the video, so it shows nothing. Instead the region
 picker says how to stop, in one line under the mode bar, whenever video or GIF is selected. The
@@ -146,6 +157,13 @@ are served at once. What the page still fails to load is written to the app log.
 
 - X11 (openbox): a region and the whole screen to GIF, a region to video with the editor
   opening afterwards, the bar outside the recorded area, the pointer drawn by the exporter.
+- The frame, on X11 with openbox alone and with picom running: four windows around the recorded
+  area, blue while recording and amber while paused, back on top of a window opened over them,
+  a click on the line reaching the window underneath, none left after stopping, and nothing of
+  theirs inside the area or in the saved MP4. With the area against the left edge of the screen
+  that side is not drawn, and there is none when the whole screen is recorded. On GNOME the
+  recording has no frame and is saved as before. Not tried: more than one monitor, a display
+  scaled above 100%, and the compositors of KDE, Xfce and GNOME on X11.
 - GNOME 50 on Wayland: a region to GIF, with the desktop's question the first time and without
   it the second; a token the desktop rejects, with the question cancelled and answered; and
   stopping from GNOME's screen sharing indicator, which saves the recording.
