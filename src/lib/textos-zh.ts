@@ -659,6 +659,9 @@ export const ZH: Record<string, string> = {
   // S2 (grabación)
   "Tecla de zoom": "缩放键",
   "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "录制时按下它，画面会在那一刻放大到鼠标所在的位置。它会作为一个缩放出现在编辑器的时间线上，之后可以移动或删除。按键也会传给正在录制的程序，所以默认选了一个几乎没有程序使用的组合。",
+  "En Wayland un programa no puede leer el teclado mientras lo usa otro, así que esta tecla no hace nada mientras grabas. Los zooms se ponen después, haciendo clic en la línea de tiempo del editor.":
+    "在 Wayland 上，应用无法在其他程序使用键盘时读取按键，所以录制时这个键不起作用。录完后在编辑器的时间轴上点击即可添加缩放。",
+  "en Wayland no funciona: los zooms se ponen en el editor": "在 Wayland 上不可用：请在编辑器中添加缩放",
   "es la de grabar: al pulsarla pararías la grabación": "这是录制键：按下会停止录制",
   "es la de capturar: al pulsarla abrirías una captura": "这是截图键：按下会开始截图",
   "es la de los últimos segundos": "这是最近几秒的快捷键",

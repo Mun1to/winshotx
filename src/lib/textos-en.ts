@@ -658,6 +658,9 @@ export const EN: Record<string, string> = {
   // S2 (grabación)
   "Tecla de zoom": "Zoom key",
   "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.": "While you record, press it and the camera will move in to wherever your mouse is at that moment. It shows up as a zoom on the editor's timeline, which you can move or remove later. The key press also reaches the program you are recording: that's why it comes set to one hardly any program uses.",
+  "En Wayland un programa no puede leer el teclado mientras lo usa otro, así que esta tecla no hace nada mientras grabas. Los zooms se ponen después, haciendo clic en la línea de tiempo del editor.":
+    "On Wayland an app can't read the keyboard while another one is using it, so this key does nothing while you record. Add zooms afterwards by clicking on the editor's timeline.",
+  "en Wayland no funciona: los zooms se ponen en el editor": "doesn't work on Wayland: add zooms in the editor",
   "es la de grabar: al pulsarla pararías la grabación": "it's the record key: pressing it would stop the recording",
   "es la de capturar: al pulsarla abrirías una captura": "it's the capture key: pressing it would start a capture",
   "es la de los últimos segundos": "it's the last-seconds key",

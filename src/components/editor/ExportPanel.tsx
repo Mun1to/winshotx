@@ -165,6 +165,11 @@ interface Props {
    * mientras escribes» y «Acercarse mientras escribes» no harían nada.
    */
   conEscritura?: boolean;
+  /**
+   * La grabación no trae ningún atajo y aquí no se pueden leer las teclas al grabar (Wayland):
+   * «Enseñar los atajos» no haría nada, así que no se ofrece.
+   */
+  sinTeclas?: boolean;
 }
 
 /**
@@ -193,6 +198,7 @@ export function ExportPanel({
   edicion,
   onEdicion,
   conEscritura = true,
+  sinTeclas = false,
 }: Props) {
   const t = useT();
   const esCaptura = session.format === "still";
@@ -821,7 +827,8 @@ export function ExportPanel({
           </Plegable>
         )}
 
-        {!foto && (
+        {/* Sin clics y sin poder leer las teclas (Wayland), el grupo se quedaría vacío. */}
+        {!foto && (session.hasClicks || !sinTeclas) && (
           <Plegable titulo={t("Clics y teclas")} {...plegado("clics")}>
             {session.hasClicks && <Toggle checked={aros} onChange={setAros} label={t("Marcar los clics")} />}
             {/* La onda y el sonido de los clics. */}
@@ -833,14 +840,16 @@ export function ExportPanel({
               conClics={session.hasClicks}
               conEscritura={conEscritura}
             />
-            <Toggle
-              checked={teclas}
-              onChange={setTeclas}
-              label={t("Enseñar los atajos")}
-              // Este aviso viaja con el interruptor: es la regla que impide que una
-              // contraseña tecleada mientras se grababa acabe dentro del vídeo.
-              hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
-            />
+            {!sinTeclas && (
+              <Toggle
+                checked={teclas}
+                onChange={setTeclas}
+                label={t("Enseñar los atajos")}
+                // Este aviso viaja con el interruptor: es la regla que impide que una
+                // contraseña tecleada mientras se grababa acabe dentro del vídeo.
+                hint={t("solo con Ctrl, Alt o Win: lo que escribes no sale")}
+              />
+            )}
           </Plegable>
         )}
 

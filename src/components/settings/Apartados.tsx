@@ -535,7 +535,7 @@ export function ApartadoGrabar({
           }
         />
         {/* S2 (grabación): la tecla de zoom. */}
-        <FilaTeclaZoom settings={settings} patch={patch} />
+        <FilaTeclaZoom settings={settings} patch={patch} enWayland={enWayland} />
         <Row
           id="graFps"
           icon={<Gauge className="size-4" />}

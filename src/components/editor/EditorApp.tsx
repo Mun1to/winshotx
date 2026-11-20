@@ -66,6 +66,7 @@ import { cambiar, NIVEL_NUEVO } from "../../lib/zooms";
 // S9 (presets y tapar)
 import { CapaTapar } from "./CapaTapar";
 import { AVISO_TAPAR_VIDEO, tapaDatosVideo } from "../../lib/ipc";
+import { usePlataforma } from "../../lib/plataforma";
 import { anadirTapas } from "../../lib/tapar";
 // S10 (sonidos)
 import { SonidoDeClics } from "./SonidoDeClics";
@@ -128,6 +129,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   const [estudio, setEstudio] = useState<Estudio>(ESTUDIO_APAGADO);
   /** Los clics, atajos y rastro del raton que se anotaron al grabar. */
   const [datosEstudio, setDatosEstudio] = useState<StudioData | null>(null);
+  // En Wayland no se pueden leer las teclas al grabar: sin atajos, el editor no los ofrece.
+  const enWayland = usePlataforma()?.wayland ?? false;
   /** La camara del zoom, una muestra por fotograma, con el zoom y el recorte puestos. */
   const [camara, setCamara] = useState<MuestraCamara[]>([]);
   /**
@@ -1243,6 +1246,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           edicion={edicion}
           onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}
           conEscritura={(datosEstudio?.escritura?.length ?? 0) > 0}
+          sinTeclas={enWayland && (datosEstudio?.teclas?.length ?? 0) === 0}
           onRecorte={(nuevo) => {
             setRecorte(nuevo);
             // Puesta la proporción, el marco se enciende para poder moverlo de sitio: es

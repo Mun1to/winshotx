@@ -1033,6 +1033,25 @@ describe("en Linux", () => {
     expect(dibujo()?.textContent).toContain("Con el sonido del PC y tu micrófono");
   });
 
+  // La tecla de zoom se lee preguntando por el teclado mientras se graba. En Wayland un
+  // programa no puede, así que la fila lo dice en vez de dejar elegir una tecla que no hará nada.
+  it("en Wayland, la tecla de zoom dice que ahí no funciona y dónde se ponen los zooms", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() =>
+      expect(screen.getByText("en Wayland no funciona: los zooms se ponen en el editor")).toBeInTheDocument(),
+    );
+  });
+
+  it("en X11, donde sí se lee el teclado, la tecla de zoom no avisa de nada", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    await abrirAjustes();
+    ir("Grabar");
+    await waitFor(() => expect(screen.getByText("Tecla de zoom")).toBeInTheDocument());
+    expect(screen.queryByText("en Wayland no funciona: los zooms se ponen en el editor")).not.toBeInTheDocument();
+  });
+
   // La pastilla «0:12» del dibujo de Grabar es la barra de grabar. En Wayland no hay barra (una
   // ventana no se puede dejar fuera del vídeo ni elegir dónde se pone): el dibujo no la pinta.
   it("en Wayland, el dibujo de Grabar no lleva la barra de grabar", async () => {

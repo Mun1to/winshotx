@@ -18,8 +18,13 @@ interface Props {
   patch: (cambio: Partial<Settings>) => void;
 }
 
-/** La tecla que, mientras grabas, deja un zoom donde tienes el ratón. */
-export function FilaTeclaZoom({ settings, patch }: Props) {
+/**
+ * La tecla que, mientras grabas, deja un zoom donde tienes el ratón.
+ *
+ * En Wayland no puede funcionar: un programa no lee el teclado mientras lo usa otro. La fila
+ * no se esconde: dice que ahí no hace nada y dónde se ponen los zooms, que es en el editor.
+ */
+export function FilaTeclaZoom({ settings, patch, enWayland = false }: Props & { enWayland?: boolean }) {
   const t = useT();
   const choque = chocaCon(settings);
   const aviso = {
@@ -33,16 +38,23 @@ export function FilaTeclaZoom({ settings, patch }: Props) {
       id="graZoom"
       icon={<ZoomIn className="size-4" />}
       label={t("Tecla de zoom")}
-      explicacion={t(
-        "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.",
-      )}
-      // Solo cuando choca: lo que hace la tecla ya lo cuenta el dibujo de la derecha.
-      hint={choque ? aviso[choque] : undefined}
+      explicacion={
+        enWayland
+          ? t(
+              "En Wayland un programa no puede leer el teclado mientras lo usa otro, así que esta tecla no hace nada mientras grabas. Los zooms se ponen después, haciendo clic en la línea de tiempo del editor.",
+            )
+          : t(
+              "Mientras grabas, púlsala y la cámara se acercará a donde tengas el ratón en ese momento. Sale como un zoom en la línea de tiempo del editor, que luego puedes mover o quitar. La pulsación también le llega al programa que estás grabando: por eso viene una que casi ninguno usa.",
+            )
+      }
+      // Solo cuando choca o no puede funcionar: lo que hace la tecla ya lo cuenta el dibujo de
+      // la derecha.
+      hint={enWayland ? t("en Wayland no funciona: los zooms se ponen en el editor") : choque ? aviso[choque] : undefined}
       tone="aviso"
       control={
         <ShortcutField
           value={settings.zoomShortcut}
-          active={choque === null}
+          active={choque === null && !enWayland}
           onChange={(v) => patch({ zoomShortcut: v })}
         />
       }

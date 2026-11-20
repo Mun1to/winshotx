@@ -53,6 +53,25 @@ function pintar(
 /** Lo que el panel le pide al editor sobre el marco de recorte. */
 const alRecorte = vi.fn();
 
+/** El panel de una grabación hecha donde no se pueden leer las teclas (Wayland) y sin atajos. */
+function pintarSinTeclas(session: Partial<SessionInfo> = {}) {
+  return render(
+    <ExportPanel
+      anotaciones={[]}
+      recorte={null}
+      session={{ ...GRABACION, ...session }}
+      inIndex={10}
+      outIndex={80}
+      currentIndex={42}
+      fpsMax={60}
+      hasFfmpeg={false}
+      saveDirectory="C:\capturas"
+      onRecorte={alRecorte}
+      sinTeclas
+    />,
+  );
+}
+
 /** Lo que se le mando a Rust en la ultima exportacion. */
 function loExportado() {
   const llamada = [...llamadas].reverse().find((l) => l.comando === "export_media");
@@ -655,6 +674,25 @@ describe("el estudio", () => {
     ir("Clics y teclas");
     fireEvent.click(screen.getByRole("switch", { name: /Una onda en cada clic/ }));
     expect(await guardarYEsperar()).toMatchObject({ suavizado: "mucho", ondaClic: true, smoothCursor: true });
+  });
+
+  // En Wayland no se pueden leer las teclas al grabar: un interruptor de atajos que no puede
+  // enseñar ninguno no se ofrece, y sin clics el grupo entero se quedaría vacío.
+  it("sin teclas que enseñar no ofrece «Enseñar los atajos», y sin clics tampoco el grupo", () => {
+    const { unmount } = pintarSinTeclas({ hasClicks: false });
+    expect(screen.queryByRole("button", { name: "Clics y teclas" })).not.toBeInTheDocument();
+    unmount();
+    // Con clics el grupo sigue, con lo de los clics y sin el interruptor de los atajos.
+    pintarSinTeclas({ hasClicks: true });
+    ir("Clics y teclas");
+    expect(screen.getByRole("switch", { name: "Marcar los clics" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Enseñar los atajos/ })).not.toBeInTheDocument();
+  });
+
+  it("y donde sí se leen, «Enseñar los atajos» sale aunque la grabación no traiga clics", () => {
+    pintar({ hasClicks: false });
+    ir("Clics y teclas");
+    expect(screen.getByRole("switch", { name: /Enseñar los atajos/ })).toBeInTheDocument();
   });
 
   it("elegir un fondo pone aire, esquinas y sombra que se vean, y todo viaja a Rust", async () => {
