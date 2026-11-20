@@ -12,10 +12,11 @@ already painted 114 ms after the shortcut with three screens, uses 33 MB of memo
 3.01 MB installer. No account, no cloud, no telemetry and no bundled FFmpeg.
 
 <a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.svg"><img src=".github/readme/download-windows-light.svg" alt="Download for Windows"></picture></a>
+<a href="https://github.com/Mun1to/winshotx/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-linux-dark.svg"><img src=".github/readme/download-linux-light.svg" alt="Download for Linux"></picture></a>
 <a href="https://winshotx.com/en/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.svg"><img src=".github/readme/download-web-light.svg" alt="Try it in your browser"></picture></a>
-<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Microsoft Store" height="52"></a>
+<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Download from the Microsoft Store" height="52"></a>
 
-Licence MIT · Windows 10 and 11 · Installer 3.01 MB
+Licence MIT · Windows 10 and 11, and Linux · Installer 3.01 MB
 
 [Compare with the Snipping Tool](#snipping-tool-against-winshotx) · [home page](https://winshotx.com/en/) · [Latest version](https://github.com/Mun1to/winshotx/releases/latest) · [Español](README.es.md)
 
@@ -184,6 +185,15 @@ It lives in the system tray, with no window of its own: if you cannot see it, lo
 
 **It updates itself.** When a new version is out, the settings show a button, and one click downloads it, installs it and restarts the app. Every download is signed, and the signature is checked before anything is installed, so a tampered file is rejected.
 
+**On Linux**, with X11 or with GNOME on Wayland, every release since 0.6.0 carries three packages in
+[Releases](../../releases/latest):
+
+- **.deb** for Debian and Ubuntu: `sudo apt install ./winshotx_<version>_amd64.deb`
+- **.rpm** for Fedora: `sudo dnf install ./winshotx-<version>-1.x86_64.rpm`
+- **AppImage** for the rest: `chmod +x winshotx_<version>_amd64.AppImage` and open it. **It does not save MP4 video**, only GIF, PNG and JPG: for MP4, use the .deb or the .rpm.
+
+The .deb and the .rpm write MP4 with the system's GStreamer. Where its H.264 encoder is missing (Ubuntu without `gstreamer1.0-plugins-bad`), the export panel says so and gives the command that installs it. What changes on Linux, and what has been tested where, is in [packaging/linux](packaging/linux/README.md).
+
 ## For AI agents
 
 An AI agent (Claude Code, Codex, Cursor or any other MCP client) can drive winshotx on its own:
@@ -244,8 +254,9 @@ commands that freeze the interface, windows that must not be created from a glob
 CSP that only fails in the installer, a window asking for a size it has no permission for, and the
 signing key that is passed one way and not the other.
 
-**Windows only.** It runs on Windows 10 1903 or newer, and everything that touches the system is
-behind `#[cfg(windows)]`.
+**Windows and Linux.** It runs on Windows 10 1903 or newer and, since 0.6.0, on Linux with X11 or
+with GNOME on Wayland. Everything that touches the system is behind `#[cfg(windows)]` or
+`#[cfg(target_os = "linux")]`; what changes on Linux is in [packaging/linux](packaging/linux/README.md).
 
 <details>
 <summary><b>Building it yourself</b></summary>
