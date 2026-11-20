@@ -122,8 +122,11 @@ JPG do not go through GStreamer.
 turned off, a recording is saved on its own, with nothing opened. Where no MP4 can be written
 (the AppImage, or a system without the H.264 encoder) a video used to stay in the temporary
 folder: no file, no notice and no way back to it. Now it opens in the editor, whose export panel
-says what is missing and saves it as a GIF. A GIF recording is still saved on its own. The rule
-has its unit tests (`recorder::destino`); it has not been tried with the app yet.
+says what is missing and saves it as a GIF. A GIF recording is still saved on its own. Tried
+with the app on X11, run as an AppImage that loads no plugins (`APPIMAGE` set and GStreamer
+looking at an empty folder): the editor opens with the notice, the build before it left no file
+and no window, a video is saved on its own where the encoders are, and so is a GIF where they
+are not. Not tried with a built AppImage.
 
 Pointing that core at the system's plugin folder (`GST_PLUGIN_SYSTEM_PATH_1_0`) was measured
 with the AppImage CI built, and winshotx does not do it. It loads the plugins and writes an MP4
