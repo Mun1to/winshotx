@@ -612,6 +612,40 @@ describe("los ultimos segundos", () => {
     expect(screen.getByText(/ahora mismo hay 8 s guardados/)).toBeInTheDocument();
   });
 
+  /**
+   * Rust solo avisa al encender, al apagar y al rescatar. Al encenderlo, el anillo lleva
+   * cero segundos y aún no ha escrito nada, así que la fila se quedaba en «0 B/s» y «ahora
+   * mismo hay 0 s guardados» hasta cerrar y volver a abrir los ajustes, justo cuando
+   * alguien la mira para ver si funciona. Mientras se ve, pregunta cada segundo.
+   */
+  it("encendido y a la vista, la fila va contando lo que se llena", async () => {
+    const enfocada = vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    try {
+      await irAUltimos({ ...CORRIENDO, bytesPerSecond: 0, bufferedMs: 0 });
+      expect(screen.getByText(/ahora mismo hay 0 s guardados/)).toBeInTheDocument();
+      responde("replay_status", { ...CORRIENDO, bufferedMs: 12_400 });
+      await waitFor(() => expect(screen.getByText(/ahora mismo hay 12 s guardados/)).toBeInTheDocument(), {
+        timeout: 2_500,
+      });
+      expect(screen.getByText(/pantalla 2 · 1280 × 720 · 3,2 MB\/s/)).toBeInTheDocument();
+    } finally {
+      enfocada.mockRestore();
+    }
+  });
+
+  /** Con la ventana escondida o detrás no se pregunta nada: el anillo corre toda la tarde. */
+  it("encendido pero sin mirarlo, no pregunta cada segundo", async () => {
+    const enfocada = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    try {
+      await irAUltimos({ ...CORRIENDO, bufferedMs: 3_000 });
+      const antes = llamadas.filter((l) => l.comando === "replay_status").length;
+      await new Promise((r) => setTimeout(r, 2_200));
+      expect(llamadas.filter((l) => l.comando === "replay_status").length).toBe(antes);
+    } finally {
+      enfocada.mockRestore();
+    }
+  });
+
   it("apagado, la tecla no promete nada que no vaya a pasar", async () => {
     await irAUltimos();
     expect(screen.getByText("primero hay que encenderlo aquí arriba")).toBeInTheDocument();

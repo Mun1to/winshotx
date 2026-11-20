@@ -22,10 +22,11 @@
  *  4. lo que sobra no deja una franja vacía: el dibujo de la derecha llega de arriba abajo;
  *  5. nada se sale por la derecha ni se queda cortado;
  *  6. la barra de abajo (tema, idioma, al soltar, el tour y buscar versión nueva) sale en los
- *     ajustes, entera y sin letra de menos de 12 px, y no sale en la bienvenida.
+ *     ajustes, entera y sin letra de menos de 12 px, y no sale en la bienvenida;
+ *  7. en el dibujo de la derecha ningún texto pisa a otro (renglón a renglón).
  *
  * Casos: 100, 125 y 150 % (a 150 %, en una pantalla de 1080, Grabar no cabe entero); español,
- * inglés y chino; el anillo encendido; estrechada a mano a 780 (lo mínimo de `tauri.conf.json`);
+ * inglés y chino; el anillo encendido, y a 15 s (en los tres idiomas) y a 60; estrechada a mano a 780 (lo mínimo de `tauri.conf.json`);
  * estirada a mano a 1100 x 800; un portátil de 1366 x 768 al 125 % (566 px lógicos útiles);
  * y el historial con 60 capturas.
  *
@@ -59,6 +60,11 @@ const CASOS = [
   { nombre: "inglés", escala: 1, zona: 1032, idioma: "en" },
   { nombre: "chino", escala: 1, zona: 1032, idioma: "zh" },
   { nombre: "anillo encendido", escala: 1, zona: 1032, idioma: "es", anillo: true },
+  // A 15 s (lo mínimo) la llave de lo guardado del dibujo es la más estrecha: un cuarto del ancho.
+  { nombre: "anillo a 15 s", escala: 1, zona: 1032, idioma: "es", anillo: true, segundos: 15 },
+  { nombre: "anillo a 15 s, en inglés", escala: 1, zona: 1032, idioma: "en", anillo: true, segundos: 15 },
+  { nombre: "anillo a 15 s, en chino", escala: 1, zona: 1032, idioma: "zh", anillo: true, segundos: 15 },
+  { nombre: "anillo a 60 s", escala: 1, zona: 1032, idioma: "es", anillo: true, segundos: 60 },
   { nombre: "estrechada a mano a 780", escala: 1, zona: 1032, idioma: "es", guardada: { ancho: 780, alto: 723 } },
   { nombre: "estrechada a 780, en inglés", escala: 1, zona: 1032, idioma: "en", guardada: { ancho: 780, alto: 723 } },
   { nombre: "estrechada a 780, en chino", escala: 1, zona: 1032, idioma: "zh", guardada: { ancho: 780, alto: 723 } },
@@ -88,6 +94,7 @@ for (const caso of CASOS) {
       `--zona=${caso.zona}`,
       `--idioma=${caso.idioma}`,
       ...(caso.anillo ? ["--anillo"] : []),
+      ...(caso.segundos ? [`--segundos=${caso.segundos}`] : []),
       ...(caso.bienvenida ? ["--bienvenida"] : []),
       ...(caso.historial ? [`--historial=${caso.historial}`] : []),
       ...(caso.guardada ? [`--guardada=${caso.guardada.ancho},${caso.guardada.alto}`] : []),
@@ -199,7 +206,35 @@ for (const caso of CASOS) {
         // Lo que queda vacío debajo de lo último de la columna de las filas (solo para contarlo).
         const filas = document.querySelector("[data-contenido-ajustes] main, [data-paso] > div > div:first-child");
         const ultimo = filas ? [...filas.querySelectorAll("*")].reduce((m, el) => Math.max(m, el.getBoundingClientRect().bottom), 0) : 0;
+        // Textos del dibujo que se pisan. Se mide cada renglón de cada texto (`getClientRects`
+        // de un `Range`), no la caja de su elemento: un párrafo que ocupa dos renglones tiene
+        // una caja que tapa la negrita de al lado sin que nada se pise. Con el anillo a 15 s,
+        // «hace 15 s» y «ahora» salían uno encima del otro: «hace 1ahora».
+        const renglones = [];
+        if (dibujo) {
+          const recorrido = document.createTreeWalker(dibujo, NodeFilter.SHOW_TEXT);
+          for (let nodo = recorrido.nextNode(); nodo; nodo = recorrido.nextNode()) {
+            if (!nodo.textContent.trim()) continue;
+            const rango = document.createRange();
+            rango.selectNodeContents(nodo);
+            for (const r of rango.getClientRects()) {
+              if (r.width > 0 && r.height > 0) renglones.push({ nodo, texto: nodo.textContent.trim().slice(0, 24), r });
+            }
+          }
+        }
+        const pisados = [];
+        for (let a = 0; a < renglones.length; a++) {
+          for (let b = a + 1; b < renglones.length; b++) {
+            if (renglones[a].nodo === renglones[b].nodo) continue;
+            const [x, y] = [renglones[a].r, renglones[b].r];
+            const ancho = Math.min(x.right, y.right) - Math.max(x.left, y.left);
+            const alto = Math.min(x.bottom, y.bottom) - Math.max(x.top, y.top);
+            // Dos trozos seguidos de un mismo renglón se tocan en el borde: eso no es pisarse.
+            if (ancho > 1.5 && alto > 1.5) pisados.push(`«${renglones[a].texto}» y «${renglones[b].texto}»`);
+          }
+        }
         return {
+          pisados,
           rueda: Math.round((h.scrollHeight - h.clientHeight) * 10) / 10,
           desvanecido: !!document.querySelector(".bg-gradient-to-t.from-lienzo"),
           // Del borde de abajo del dibujo al del hueco: con el aire de la columna, 28.
@@ -215,7 +250,7 @@ for (const caso of CASOS) {
   const mirar = async (nombre, selHueco, selDibujo, fijo) => {
     const m = await medir(selHueco, selDibujo);
     const nuevos = (await pedidos()).length - pedidosAlAbrir;
-    let bien = nuevos === 0 && m.fuera.length === 0;
+    let bien = nuevos === 0 && m.fuera.length === 0 && m.pisados.length === 0;
     // Sin rueda con el tamaño de serie; si alguien la ha encogido a mano (o la pantalla no da
     // para más), lo que no cabe baja con la rueda, que es lo que pidió Munito.
     if (fijo && !apretada && !caso.guardada) bien &&= m.rueda <= 0;
@@ -228,7 +263,7 @@ for (const caso of CASOS) {
         m.bajoDibujo !== null ? `  bajo el dibujo ${m.bajoDibujo}` : ""
       }${m.vacio !== null ? `  vacío bajo las filas ${m.vacio}` : ""}${m.desvanecido ? "  desvanecido" : ""}${
         nuevos ? `  PIDIÓ ${nuevos} CAMBIOS DE VENTANA` : ""
-      }${m.fuera.length ? `  CORTADO: ${m.fuera.join(" | ")}` : ""}`,
+      }${m.fuera.length ? `  CORTADO: ${m.fuera.join(" | ")}` : ""}${m.pisados.length ? `  SE PISAN: ${m.pisados.join(" | ")}` : ""}`,
     );
     return m;
   };
