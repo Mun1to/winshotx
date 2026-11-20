@@ -175,10 +175,12 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     // llegue. Que venga en `options` (un agente) manda sobre los ajustes.
     // La tecla de zoom sale de los ajustes y no de `options`, como en Windows: no es de cada
     // grabacion sino de quien graba.
-    let (tecla_zoom, camara_pedida) = {
+    let (tecla_zoom, nombres_de_teclas, camara_pedida) = {
         let ajustes = state.settings.read();
         (
             record::teclas::TeclaZoom::de_atajo(&ajustes.zoom_shortcut),
+            // La pastilla va dentro del video: se escribe ya en el idioma de la app.
+            record::teclas::Nombres::de(ajustes.language),
             options.camara.unwrap_or(ajustes.record_camera).then(|| ajustes.camera_device.clone()),
         )
     };
@@ -254,7 +256,9 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     let (marcar_clics, marcar_teclas) = (options.highlight_clicks, options.highlight_keys);
     let muestreador = (!crate::platform::xdg::es_wayland()).then(|| {
         record::anotador::Muestreador::empezar(
-            record::anotador::Anotador::new(region, marcar_clics, marcar_teclas).con_tecla_zoom(tecla_zoom),
+            record::anotador::Anotador::new(region, marcar_clics, marcar_teclas)
+                .con_tecla_zoom(tecla_zoom)
+                .con_nombres(nombres_de_teclas),
             record::reloj::Reloj { start: reloj_inicio, paused_ms: paused_ms.clone() },
             pause.clone(),
         )

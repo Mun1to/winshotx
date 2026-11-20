@@ -591,8 +591,12 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         let bytes = bytes.clone();
         let escritos = escritos.clone();
         let grabado_ms = grabado_ms.clone();
-        // Que tecla rescata, para no apuntarla como un atajo de lo que se estaba haciendo.
-        let tecla_de_rescate = record::teclas::TeclaZoom::de_atajo(&state.settings.read().replay_shortcut);
+        // Que tecla rescata, para no apuntarla como un atajo de lo que se estaba haciendo, y los
+        // atajos en el idioma de la app, que van dentro de lo guardado.
+        let (tecla_de_rescate, nombres) = {
+            let ajustes = state.settings.read();
+            (record::teclas::TeclaZoom::de_atajo(&ajustes.replay_shortcut), record::teclas::Nombres::de(ajustes.language))
+        };
         std::thread::spawn(move || {
             let mut cocina = Cocina::nueva(
                 servir_aparte(app.clone()),
@@ -608,6 +612,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                     // El raton y el teclado solo se dejan leer en X11.
                     con_entrada: !crate::platform::xdg::es_wayland(),
                     tecla_de_rescate,
+                    nombres,
                 },
             );
             cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado_ms);
@@ -995,6 +1000,8 @@ struct DeLinux {
     con_entrada: bool,
     /// La tecla que rescata, para no apuntarla como un atajo de lo que se estaba haciendo.
     tecla_de_rescate: Option<record::teclas::TeclaZoom>,
+    /// Los atajos de la pastilla, en el idioma de la app.
+    nombres: record::teclas::Nombres,
 }
 
 /// Los clics y los atajos que el `Vigia` ha visto y la cocina no ha recogido todavia.
@@ -1028,6 +1035,7 @@ impl Vigia {
         x_en: impl Fn(i32) -> i32 + Send + 'static,
         y_en: impl Fn(i32) -> i32 + Send + 'static,
         tecla_de_rescate: Option<record::teclas::TeclaZoom>,
+        nombres: record::teclas::Nombres,
     ) -> Self {
         let pulsado = Arc::new(parking_lot::Mutex::new(Pulsado::default()));
         let parar = Arc::new(AtomicBool::new(false));
@@ -1035,7 +1043,7 @@ impl Vigia {
             let (pulsado, parar) = (pulsado.clone(), parar.clone());
             std::thread::spawn(move || {
                 let mut raton = record::raton::Vigilante::default();
-                let mut teclado = record::teclas::Vigilante::default();
+                let mut teclado = record::teclas::Vigilante::con_nombres(nombres);
                 let mut lector = record::teclas::Lector::default();
                 loop {
                     std::thread::sleep(record::anotador::CADA);
@@ -1284,7 +1292,14 @@ impl Cocina {
         // no se dejan leer y no hay nada que mirar.
         let vigia = if self.linux.con_entrada {
             let (x_en, y_en) = self.escalar_punto();
-            Some(Vigia::empezar(self.linux.marcha.clone(), self.region, x_en, y_en, self.linux.tecla_de_rescate.take()))
+            Some(Vigia::empezar(
+                self.linux.marcha.clone(),
+                self.region,
+                x_en,
+                y_en,
+                self.linux.tecla_de_rescate.take(),
+                self.linux.nombres,
+            ))
         } else {
             None
         };
