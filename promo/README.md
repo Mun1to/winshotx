@@ -46,7 +46,8 @@ node sonidos.mjs                    # the sound effects, from Mixkit, into publi
 node render.mjs muestras            # the opening of each direction plus a few stills
 node render.mjs Promo               # the chosen cut (45.5 s): out/Promo.mp4 (muted) + out/Promo-efectos.wav
 node render.mjs Promo-127           # the same cut on the beat of a 127.5 bpm track (42.8 s)
-node musica.mjs musica-candidatas/3-be-happy.mp3 --desde=6.56 --sube=5.5 --variante=clics  # the chosen mix
+node musica.mjs musica-candidatas/3-be-happy.mp3 --desde=6.56 --sube=5.5 --variante=clics --salida=winshotx-0.6.0  # the chosen mix
+node final.mjs                      # all of the above for 0.6.0 in one go, after the weight or the Linux shots change
 node musica.mjs <track.mp3> --desde=6.56 --sube=5.5  # out/Promo-<track>.mp4, about -14 LUFS
 node musica.mjs <track.mp3> --video=Promo-127 --desde=6.63 --sube=5.18  # on the 127.5 cut
 pnpm ver                            # Remotion Studio, to look around

@@ -9,6 +9,7 @@
  *   node musica.mjs <pista> --efectos=1         los efectos 3 dB más bajos que de costumbre (4)
  *   node musica.mjs <pista> --variante=clics    con la pista de efectos sin whoosh, en out/<video>-<pista>-clics.mp4
  *   node musica.mjs <pista> --sin-efectos       solo la música
+ *   node musica.mjs <pista> --salida=winshotx-0.6.0   en out/winshotx-0.6.0.mp4 (y no pisa el de otra versión)
  *
  * Los efectos de sonido son la pista `out/<video>-efectos.wav` que saca `render.mjs` a la vez que
  * el vídeo: van debajo de la música, cada uno en su fotograma, y no pasan por el `loudnorm`
@@ -64,7 +65,12 @@ const dura = (f) =>
   Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f], { encoding: "utf8" }).stdout.trim());
 const largo = arranque ?? dura(video);
 const nombre = basename(pista, extname(pista));
-const salida = join(aqui, "out", arranque ? `arranque-${nombre}.mp4` : `${base}-${nombre}${variante ? `-${variante}` : ""}.mp4`);
+// El de la 0.5 (`Promo-3-be-happy-clics.mp4`) salía con el nombre que da la pista, y la primera mezcla
+// de la 0.6.0 lo pisó (20-nov; se recuperó de `frontlaxweb/video/winshotx-0.5.mp4`): cada versión,
+// con su nombre.
+const pedida = opcion("salida");
+if (pedida && !/^[\w.-]+$/.test(pedida)) process.exit(1);
+const salida = join(aqui, "out", pedida ? `${pedida}.mp4` : arranque ? `arranque-${nombre}.mp4` : `${base}-${nombre}${variante ? `-${variante}` : ""}.mp4`);
 
 const musica = [
   `atrim=start=${desde}:duration=${largo}`,
