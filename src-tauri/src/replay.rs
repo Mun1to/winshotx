@@ -189,7 +189,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         return Ok(status(app));
     }
 
-    let (segundos, fps, alto_pedido, pedida, quiere_audio, quiere_micro, con_cursor) = {
+    let (segundos, fps, alto_pedido, pedida, quiere_audio, quiere_micro, con_cursor, nombres) = {
         let settings = state.settings.read();
         (
             settings.replay_seconds.clamp(SEGUNDOS_MIN, SEGUNDOS_MAX),
@@ -201,6 +201,8 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
             settings.record_audio,
             settings.record_microphone,
             settings.capture_cursor,
+            // Los atajos van dentro de lo guardado: en el idioma de la app al encender el anillo.
+            record::teclas::Nombres::de(settings.language),
         )
     };
     let monitor = pantalla_elegida(pedida)?;
@@ -301,7 +303,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 teclas: Vec::new(),
                 cursor: Vec::new(),
                 vigilante: record::raton::Vigilante::default(),
-                teclado: record::teclas::Vigilante::default(),
+                teclado: record::teclas::Vigilante::con_nombres(nombres),
                 region,
                 region_guardada,
                 destino,

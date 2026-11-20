@@ -132,6 +132,12 @@ impl Anotador {
         self
     }
 
+    /// Los atajos de la pastilla, escritos en el idioma de la app (`teclas::Nombres`).
+    pub fn con_nombres(mut self, nombres: teclas::Nombres) -> Self {
+        self.teclado = teclas::Vigilante::con_nombres(nombres);
+        self
+    }
+
     /// De donde se miden las coordenadas en este instante.
     ///
     /// Con una region, de su esquina, que no se mueve. Con una ventana, de la esquina que

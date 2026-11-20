@@ -194,7 +194,7 @@ impl Modificadores {
     }
 
     /// En el orden en que se dicen.
-    fn nombres(&self) -> Vec<String> {
+    fn nombres(&self, idioma: Nombres) -> Vec<String> {
         let mut partes = Vec::new();
         if self.ctrl {
             partes.push("Ctrl".to_string());
@@ -203,13 +203,59 @@ impl Modificadores {
             partes.push("Alt".to_string());
         }
         if self.shift {
-            partes.push("Mayús".to_string());
+            partes.push(idioma.mayus().to_string());
         }
         if self.win {
             partes.push("Win".to_string());
         }
         partes
     }
+}
+
+// --- Cómo se llaman las teclas en la pastilla ---
+
+/// En qué idioma se escriben las teclas de la pastilla.
+///
+/// La pastilla acaba DENTRO del vídeo y nadie la traduce después: el texto se escribe al
+/// grabar, y la vista previa del editor, la exportación y lo pintado al grabar lo dibujan tal
+/// cual. Hasta el 20-nov-2026 salía siempre en español, también a quien tiene la app en inglés
+/// o en chino («Ctrl + Mayús + P» en un tutorial en inglés). En español va lo que pone en un
+/// teclado español («Mayús», «Supr»); en cualquier otro idioma, lo que pone en uno inglés
+/// («Shift», «Del»), que es también lo que llevan impreso los teclados chinos.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Nombres {
+    #[default]
+    Es,
+    En,
+}
+
+impl Nombres {
+    /// Los del idioma de la app. Con «el de Windows», el de la interfaz de Windows, que es lo
+    /// mismo que mira la página para elegir el suyo (`delSistema` en `src/lib/i18n.ts`).
+    pub fn de(idioma: crate::settings::Language) -> Self {
+        use crate::settings::Language;
+        match idioma {
+            Language::Es => Self::Es,
+            Language::En | Language::Zh => Self::En,
+            Language::Sistema if windows_en_espanol() => Self::Es,
+            Language::Sistema => Self::En,
+        }
+    }
+
+    fn mayus(self) -> &'static str {
+        match self {
+            Self::Es => "Mayús",
+            Self::En => "Shift",
+        }
+    }
+}
+
+/// Si Windows enseña su interfaz en español, de cualquier país: el idioma principal son los
+/// diez bits de abajo del identificador, y el del español es 0x0A.
+fn windows_en_espanol() -> bool {
+    use windows::Win32::Globalization::GetUserDefaultUILanguage;
+    let idioma = unsafe { GetUserDefaultUILanguage() };
+    idioma & 0x3FF == 0x0A
 }
 
 // --- Los atajos de la pastilla ---
@@ -220,9 +266,16 @@ pub struct Vigilante {
     /// La última tecla principal que se vio pulsada, para no repetir el atajo en cada
     /// fotograma mientras se mantiene el dedo encima.
     ultima: Option<u16>,
+    /// En qué idioma se escribe el atajo.
+    nombres: Nombres,
 }
 
 impl Vigilante {
+    /// Uno que escribe los atajos en ese idioma.
+    pub fn con_nombres(nombres: Nombres) -> Self {
+        Self { nombres, ..Self::default() }
+    }
+
     /// Mira el teclado de verdad y devuelve el atajo si acaba de empezar uno, con el ratón
     /// en coordenadas del escritorio. Es lo que usa el anillo de los últimos segundos.
     pub fn mirar(&mut self, ms: u64) -> Option<Atajo> {
@@ -234,7 +287,7 @@ impl Vigilante {
     /// Lo mismo con una foto del teclado ya hecha. El atajo sale con `x` e `y` a cero:
     /// dónde estaba el ratón lo pone quien lo anota, que es el que sabe desde dónde se mide.
     pub fn mirar_foto(&mut self, foto: &Foto, ms: u64) -> Option<Atajo> {
-        self.decidir(foto.modificadores().nombres(), tecla_principal(foto), ms)
+        self.decidir(foto.modificadores().nombres(self.nombres), tecla_principal(foto), ms)
     }
 
     /// La regla, separada de la lectura del teclado.
@@ -259,7 +312,7 @@ impl Vigilante {
         // Mayúsculas sola con una letra, un número o un signo no es un atajo: es como se
         // escribe una mayúscula o una @, y una contraseña con mayúsculas no puede salir en
         // el vídeo letra a letra. Con Tab, las flechas o las de función sí lo es.
-        let solo_mayus = modificadores.iter().all(|m| m == "Mayús");
+        let solo_mayus = modificadores.iter().all(|m| m == self.nombres.mayus());
         if solo_mayus && principal.is_some_and(escribe_un_caracter) {
             self.ultima = None;
             return None;
@@ -274,7 +327,7 @@ impl Vigilante {
             Some(codigo) => {
                 self.ultima = Some(codigo);
                 let mut partes = modificadores;
-                partes.push(nombre_de(codigo));
+                partes.push(nombre_de(codigo, self.nombres));
                 Some(Atajo {
                     texto: partes.join(" + "),
                     ms,
@@ -303,24 +356,28 @@ fn tecla_principal(foto: &Foto) -> Option<u16> {
         .find(|&codigo| foto.pulsada(codigo))
 }
 
-/// El nombre con el que se conoce esa tecla.
-fn nombre_de(codigo: u16) -> String {
+/// El nombre con el que se conoce esa tecla, como lo lleva impreso un teclado de ese idioma.
+fn nombre_de(codigo: u16, idioma: Nombres) -> String {
+    let es = idioma == Nombres::Es;
+    let dicho = |espanol: &str, ingles: &str| if es { espanol } else { ingles }.to_string();
     match codigo {
-        0x08 => "Retroceso".into(),
+        0x08 => dicho("Retroceso", "Backspace"),
         0x09 => "Tab".into(),
-        0x0D => "Intro".into(),
+        0x0D => dicho("Intro", "Enter"),
         0x1B => "Esc".into(),
-        0x20 => "Espacio".into(),
-        0x21 => "Re Pág".into(),
-        0x22 => "Av Pág".into(),
-        0x23 => "Fin".into(),
-        0x24 => "Inicio".into(),
+        0x20 => dicho("Espacio", "Space"),
+        0x21 => dicho("Re Pág", "PgUp"),
+        0x22 => dicho("Av Pág", "PgDn"),
+        0x23 => dicho("Fin", "End"),
+        0x24 => dicho("Inicio", "Home"),
         0x25 => "←".into(),
         0x26 => "↑".into(),
         0x27 => "→".into(),
         0x28 => "↓".into(),
-        0x2D => "Insert".into(),
-        0x2E => "Supr".into(),
+        // Entra en las que miran los atajos, y salía como «Ctrl + 0x2C».
+        0x2C => dicho("Impr Pant", "PrtSc"),
+        0x2D => dicho("Insert", "Ins"),
+        0x2E => dicho("Supr", "Del"),
         0x30..=0x39 => char::from(b'0' + (codigo - 0x30) as u8).to_string(),
         0x41..=0x5A => char::from(b'A' + (codigo - 0x41) as u8).to_string(),
         0x70..=0x7B => format!("F{}", codigo - 0x6F),
@@ -606,31 +663,31 @@ mod tests {
 
     #[test]
     fn las_letras_se_llaman_por_su_letra() {
-        assert_eq!(nombre_de(0x41), "A");
-        assert_eq!(nombre_de(0x5A), "Z");
+        assert_eq!(nombre_de(0x41, Nombres::Es), "A");
+        assert_eq!(nombre_de(0x5A, Nombres::Es), "Z");
     }
 
     #[test]
     fn los_numeros_por_su_numero() {
-        assert_eq!(nombre_de(0x30), "0");
-        assert_eq!(nombre_de(0x39), "9");
+        assert_eq!(nombre_de(0x30, Nombres::Es), "0");
+        assert_eq!(nombre_de(0x39, Nombres::Es), "9");
     }
 
     #[test]
     fn las_de_funcion_van_de_f1_a_f12() {
-        assert_eq!(nombre_de(0x70), "F1");
-        assert_eq!(nombre_de(0x7B), "F12");
+        assert_eq!(nombre_de(0x70, Nombres::Es), "F1");
+        assert_eq!(nombre_de(0x7B, Nombres::Es), "F12");
     }
 
     #[test]
     fn las_flechas_se_dibujan_en_vez_de_escribirse() {
-        assert_eq!(nombre_de(0x25), "←");
-        assert_eq!(nombre_de(0x28), "↓");
+        assert_eq!(nombre_de(0x25, Nombres::Es), "←");
+        assert_eq!(nombre_de(0x28, Nombres::Es), "↓");
     }
 
     #[test]
     fn una_tecla_rara_sale_con_su_numero_en_vez_de_reventar() {
-        assert!(nombre_de(0xFF).starts_with("0x"));
+        assert!(nombre_de(0xFF, Nombres::Es).starts_with("0x"));
     }
 
     /// Sin tocar el teclado no aparece ningún atajo. Es lo que impide que la pastilla
@@ -777,6 +834,68 @@ mod tests {
         assert!(vigilante.decidir(ctrl(), Some(A), 0).is_some());
         assert!(vigilante.decidir(Vec::new(), None, 100).is_none());
         assert!(vigilante.decidir(ctrl(), Some(A), 200).is_some());
+    }
+
+    // --- El idioma de la pastilla ---
+
+    /// Con la app en inglés o en chino la pastilla sale con los nombres de un teclado inglés:
+    /// va dentro del vídeo y nadie la traduce después.
+    #[test]
+    fn en_ingles_la_pastilla_dice_shift_y_del() {
+        let mut vigilante = Vigilante::con_nombres(Nombres::En);
+        let foto = Foto::con(&[VK_CONTROL, VK_SHIFT, 0x50]);
+        assert_eq!(vigilante.mirar_foto(&foto, 0).unwrap().texto, "Ctrl + Shift + P");
+        let supr = Foto::con(&[VK_CONTROL, VK_LCONTROL, VK_MENU, 0xA4, VK_DELETE]);
+        assert_eq!(vigilante.mirar_foto(&supr, 10).unwrap().texto, "Ctrl + Alt + Del");
+        let intro = Foto::con(&[VK_CONTROL, VK_RETURN]);
+        assert_eq!(vigilante.mirar_foto(&intro, 20).unwrap().texto, "Ctrl + Enter");
+    }
+
+    /// La regla de la contraseña no depende del idioma: Shift con una letra sigue sin ser un
+    /// atajo, y Shift con Tab sí.
+    #[test]
+    fn en_ingles_shift_con_una_letra_tampoco_es_un_atajo() {
+        let mut vigilante = Vigilante::con_nombres(Nombres::En);
+        assert!(vigilante.mirar_foto(&Foto::con(&[VK_SHIFT, 0x48]), 0).is_none());
+        let tab = Foto::con(&[VK_SHIFT, 0x09]);
+        assert_eq!(vigilante.mirar_foto(&tab, 10).unwrap().texto, "Shift + Tab");
+    }
+
+    /// Impr Pant entra en las teclas que miran los atajos y no tenía nombre.
+    #[test]
+    fn impr_pant_tiene_nombre() {
+        let foto = Foto::con(&[VK_CONTROL, 0x2C]);
+        let espanol = Vigilante::default().mirar_foto(&foto, 0).unwrap().texto;
+        assert_eq!(espanol, "Ctrl + Impr Pant");
+        let ingles = Vigilante::con_nombres(Nombres::En).mirar_foto(&foto, 0).unwrap().texto;
+        assert_eq!(ingles, "Ctrl + PrtSc");
+    }
+
+    /// Ninguna de las teclas que pueden acabar en la pastilla sale como un número.
+    #[test]
+    fn ninguna_tecla_de_atajo_sale_como_un_numero() {
+        // Las que no existen en un teclado normal: reservadas, las del japonés y Select,
+        // Print y Execute, que no lleva ningún teclado de hoy.
+        let sin_tecla = [0x0A, 0x0B, 0x0C, 0x1C, 0x1D, 0x1E, 0x1F, 0x29, 0x2A, 0x2B, 0x2F];
+        for idioma in [Nombres::Es, Nombres::En] {
+            for codigo in (0x08..=0x0D).chain(0x1B..=0x2E).chain(0x30..=0x5A).chain(0x70..=0x7B) {
+                if sin_tecla.contains(&codigo) || (0x3A..=0x40).contains(&codigo) {
+                    continue;
+                }
+                let nombre = nombre_de(codigo, idioma);
+                assert!(!nombre.starts_with("0x"), "{codigo:#04X} sale como {nombre} ({idioma:?})");
+            }
+        }
+    }
+
+    #[test]
+    fn el_idioma_de_la_app_elige_los_nombres() {
+        use crate::settings::Language;
+        assert_eq!(Nombres::de(Language::Es), Nombres::Es);
+        assert_eq!(Nombres::de(Language::En), Nombres::En);
+        assert_eq!(Nombres::de(Language::Zh), Nombres::En);
+        // El de Windows depende de esta máquina: aquí solo que conteste sin reventar.
+        let _ = Nombres::de(Language::Sistema);
     }
 
     // --- La tecla de zoom ---
