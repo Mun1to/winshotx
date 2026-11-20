@@ -22,7 +22,7 @@ Licence MIT · Windows 10 and 11, and Linux · Installer 3.03 MB
 
 </div>
 
-https://github.com/user-attachments/assets/6de04ba4-61e0-47a8-9756-cf748c3d5c3a
+https://github.com/user-attachments/assets/2d87de58-39de-4752-aeb1-53ee16e9f41b
 
 ## How it works
 

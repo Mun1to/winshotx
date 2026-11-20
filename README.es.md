@@ -22,7 +22,7 @@ píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selecci�
 
 </div>
 
-https://github.com/user-attachments/assets/d8c29d23-d987-4faf-aee5-393ba5aaf075
+https://github.com/user-attachments/assets/2a3ba06b-3d6c-4e22-9379-8a0e89b5d258
 
 ## Cómo funciona
 
