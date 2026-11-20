@@ -85,8 +85,11 @@ es tu carpeta de usuario; si instalaste winshotx en otro sitio, pon esa ruta en 
 ### Cualquier otro cliente de MCP
 
 Un servidor local por la entrada y la salida estándar: la orden es la ruta de `winshotx.exe` y el
-único argumento es `mcp`. Habla la revisión `2025-06-18` de MCP (los clientes de revisiones más
-nuevas vuelven a ella), un mensaje de JSON-RPC por línea, y solo tiene herramientas.
+único argumento es `mcp`. Habla las dos épocas de MCP, un mensaje de JSON-RPC por línea, y solo
+tiene herramientas: la revisión `2025-06-18` (y la `2024-11-05`), con el saludo `initialize`, y la
+`2026-07-28`, sin él, en la que cada petición lleva `io.modelcontextprotocol/protocolVersion` en su
+`_meta` y `server/discover` contesta antes de nada. Cada petición se atiende en la época en la que
+llega.
 
 ## Las herramientas
 
