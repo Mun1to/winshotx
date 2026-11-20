@@ -45,8 +45,17 @@ fn motor() -> Motor {
     Motor::nuevo().expect("para estas pruebas hace falta Tesseract instalado")
 }
 
+/// Una lectura de verdad cada vez. El Tesseract de Debian reparte cada lectura en varios
+/// hilos, y nueve a la vez en los cuatro nucleos de la CI pasaban del plazo de 60 s (20-nov-2026,
+/// dos vueltas seguidas). La app lee de una en una.
+fn turno() -> parking_lot::MutexGuard<'static, ()> {
+    static TURNO: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+    TURNO.lock()
+}
+
 #[test]
 fn lee_la_letra_de_una_interfaz_y_cada_renglon_sale_en_su_linea() {
+    let _turno = turno();
     let imagen = pintar(
         &[(24, 20, "Grabar la pantalla entera"), (24, 60, "Abrir el editor al terminar")],
         420,
@@ -65,6 +74,7 @@ fn lee_la_letra_de_una_interfaz_y_cada_renglon_sale_en_su_linea() {
 /// La puerta que usa la tecla T: entra un PNG y sale su texto.
 #[test]
 fn la_puerta_de_copiar_el_texto_lee_un_png() {
+    let _turno = turno();
     let imagen = pintar(&[(24, 24, "winshotx lee este texto")], 420, 80, 18, CLARO, TINTA);
     let png = crate::encode::png::to_bytes(&imagen).expect("el PNG de prueba");
     let texto = crate::platform::ocr::leer_texto(&png).expect("leer").to_lowercase();
@@ -75,6 +85,7 @@ fn la_puerta_de_copiar_el_texto_lee_un_png() {
 /// vuelta antes. Tiene que leer lo mismo que en claro.
 #[test]
 fn la_letra_clara_sobre_fondo_oscuro_se_lee_igual() {
+    let _turno = turno();
     let lineas = [(24, 20, "Fotogramas por segundo"), (24, 60, "Sonido al empezar")];
     let oscura = pintar(&lineas, 420, 110, LETRA, [17, 17, 19], [232, 232, 234]);
     let texto = texto_de(&motor().leer(&oscura).expect("leer"));
@@ -88,6 +99,7 @@ fn la_letra_clara_sobre_fondo_oscuro_se_lee_igual() {
 /// que se le dice a quien no tiene Tesseract lleva también el paquete de su idioma.
 #[test]
 fn con_el_espannol_instalado_salen_las_tildes() {
+    let _turno = turno();
     let salida = std::process::Command::new("tesseract").arg("--list-langs").output().expect("tesseract");
     if !idiomas_instalados(&String::from_utf8_lossy(&salida.stdout)).iter().any(|i| i == "spa") {
         eprintln!("sin el paquete del español no se puede comprobar: no miro nada");
@@ -104,6 +116,7 @@ fn con_el_espannol_instalado_salen_las_tildes() {
 /// pasada en inglés (con `spa`, Tesseract lee la arroba como una «O») y lo demás, la otra.
 #[test]
 fn con_el_espannol_delante_el_correo_sale_entero() {
+    let _turno = turno();
     let salida = std::process::Command::new("tesseract").arg("--list-langs").output().expect("tesseract");
     if !idiomas_instalados(&String::from_utf8_lossy(&salida.stdout)).iter().any(|i| i == "spa") {
         eprintln!("sin el paquete del español no se puede comprobar: no miro nada");
@@ -129,6 +142,7 @@ fn con_el_espannol_delante_el_correo_sale_entero() {
 /// por la puerta de la app, y el detector sobre lo leído.
 #[test]
 fn el_camino_entero_de_tapar_datos() {
+    let _turno = turno();
     let imagen = pintar(
         &[
             (24, 20, "Factura 2026-104 por 1.234,56 euros"),
@@ -164,6 +178,7 @@ fn el_camino_entero_de_tapar_datos() {
 /// la copia agrandada que lee Tesseract: con esa caja se tapa.
 #[test]
 fn la_caja_de_una_palabra_cae_donde_esta_pintada() {
+    let _turno = turno();
     let (x0, y0, letra) = (200, 90, 20);
     let imagen = pintar(&[(x0, y0, "winshotx")], 480, 200, letra, CLARO, TINTA);
     let ancho_pintado = crate::record::letras::componer("winshotx", letra).unwrap().ancho as f32;
@@ -183,6 +198,7 @@ fn la_caja_de_una_palabra_cae_donde_esta_pintada() {
 
 #[test]
 fn una_imagen_sin_texto_no_da_nada() {
+    let _turno = turno();
     let blanca = RgbaImage::from_pixel(300, 160, Rgba([255, 255, 255, 255]));
     assert!(motor().leer(&blanca).expect("leer").is_empty());
     let png = crate::encode::png::to_bytes(&blanca).expect("el PNG de prueba");
@@ -193,6 +209,7 @@ fn una_imagen_sin_texto_no_da_nada() {
 /// también el que cae donde se solapan dos tiras, y a su altura de verdad.
 #[test]
 fn una_imagen_muy_alta_se_lee_a_tiras_sin_repetir_ni_perder_renglones() {
+    let _turno = turno();
     let renglones = [(60, "primero arriba"), (3_930, "segundo corte"), (5_000, "tercero medio"), (8_940, "cuarto abajo")];
     let lineas: Vec<(i32, i32, &str)> = renglones.iter().map(|(y, t)| (24, *y, *t)).collect();
     let imagen = pintar(&lineas, 600, 9_000, 22, CLARO, TINTA);
