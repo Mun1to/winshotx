@@ -168,6 +168,45 @@ fn sonda(video: &str, sonido: Option<&str>) -> bool {
 
 // --- Escribir ---
 
+/// Le devuelve a cada fotograma, a la salida de `h264parse`, la duracion con la que entro.
+///
+/// El `h264parse` de GStreamer 1.22 (Debian 12) le pone a todos la de un fotograma a los
+/// fotogramas por segundo de la cabecera (33 ms a 30), y `mp4mux` guarda la del ultimo tal
+/// cual: un video que acababa con la pantalla quieta un segundo acababa 967 ms antes (medido
+/// en la CI el 20-nov-2026; el de Fedora no lo hace). Los demas fotogramas no se tocan en el
+/// archivo, porque `mp4mux` los mide por la distancia al siguiente, pero se devuelven igual.
+fn devolver_duraciones(analiza: &gst::Element) -> Result<()> {
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+    let pad = |nombre: &str| analiza.static_pad(nombre).ok_or_else(|| mal(format!("h264parse no tiene «{nombre}»")));
+    // La duracion de cada fotograma por su instante, en nanosegundos.
+    let entraron: Arc<parking_lot::Mutex<BTreeMap<u64, gst::ClockTime>>> = Arc::default();
+    let apunta = entraron.clone();
+    pad("sink")?.add_probe(gst::PadProbeType::BUFFER, move |_, info| {
+        if let Some(gst::PadProbeData::Buffer(ref bufer)) = info.data {
+            if let (Some(pts), Some(dura)) = (bufer.pts(), bufer.duration()) {
+                apunta.lock().insert(pts.nseconds(), dura);
+            }
+        }
+        gst::PadProbeReturn::Ok
+    });
+    pad("src")?.add_probe(gst::PadProbeType::BUFFER, move |_, info| {
+        if let Some(gst::PadProbeData::Buffer(ref mut bufer)) = info.data {
+            if let Some(pts) = bufer.pts() {
+                let mut entraron = entraron.lock();
+                let dura = entraron.remove(&pts.nseconds());
+                // Lo de antes ya no va a salir: que no se acumule en una grabacion larga.
+                *entraron = entraron.split_off(&pts.nseconds());
+                if let Some(dura) = dura.filter(|&d| bufer.duration() != Some(d)) {
+                    bufer.make_mut().set_duration(dura);
+                }
+            }
+        }
+        gst::PadProbeReturn::Ok
+    });
+    Ok(())
+}
+
 /// Como tiene que salir el video.
 pub struct Medidas {
     pub ancho: u32,
@@ -221,7 +260,7 @@ impl Escritor {
         // Un fotograma clave cada dos segundos: es lo mas lejos que tiene que retroceder el
         // editor para ensennar un instante cualquiera.
         let mut texto = format!(
-            "appsrc name=v format=time ! videoconvert ! {video} bitrate={} gop-size={} ! h264parse ! queue ! mp4mux name=m ! filesink name=f",
+            "appsrc name=v format=time ! videoconvert ! {video} bitrate={} gop-size={} ! h264parse name=analiza ! queue ! mp4mux name=m ! filesink name=f",
             medidas.bitrate.max(64_000),
             fps * 2,
         );
@@ -231,6 +270,7 @@ impl Escritor {
             ));
         }
         let tuberia = monta(&texto)?;
+        devolver_duraciones(&pieza(&tuberia, "analiza")?)?;
         let fuente: gst_app::AppSrc = pieza(&tuberia, "v")?;
         fuente.set_caps(Some(
             &gst::Caps::builder("video/x-raw")
@@ -388,6 +428,9 @@ pub struct LectorVideo {
     bus: gst::Bus,
     duracion_ms: Option<u64>,
     ultimo_ms: u64,
+    /// El fotograma ya sacado del descodificador que todavia no se ha dado: hace falta el
+    /// siguiente para saber cuanto dura el de antes.
+    pendiente: Option<Cuadro>,
 }
 
 impl LectorVideo {
@@ -399,7 +442,7 @@ impl LectorVideo {
         pieza::<gst::Element>(&tuberia, "f")?.set_property("location", ruta.to_string_lossy().as_ref());
         let salida: gst_app::AppSink = pieza(&tuberia, "s")?;
         let bus = tuberia.bus().ok_or_else(|| mal("la tuberia no tiene por donde avisar"))?;
-        let este = Self { tuberia, salida, bus, duracion_ms: None, ultimo_ms: 0 };
+        let este = Self { tuberia, salida, bus, duracion_ms: None, ultimo_ms: 0, pendiente: None };
         if este.tuberia.set_state(gst::State::Playing).is_err() {
             let porque = error_de(&este.bus).unwrap_or_else(|| "GStreamer no ha querido empezar".into());
             return Err(mal(format!("ese vídeo no se puede abrir: {porque}")));
@@ -415,7 +458,45 @@ impl Drop for LectorVideo {
 }
 
 impl Lector for LectorVideo {
+    /// Cada fotograma dura hasta que empieza el siguiente, y el ultimo hasta que acaba el
+    /// video. La duracion que trae el descodificador no vale: el de GStreamer 1.22 (Debian 12)
+    /// da la de uno o dos fotogramas a los fotogramas por segundo de la cabecera, y una
+    /// pantalla quieta de dos segundos se leia como 66 ms (medido en la CI el 20-nov-2026).
     fn siguiente(&mut self) -> Result<Option<Cuadro>> {
+        let mut cuadro = match self.pendiente.take() {
+            Some(cuadro) => cuadro,
+            None => match self.sacar()? {
+                Some(cuadro) => cuadro,
+                None => return Ok(None),
+            },
+        };
+        match self.sacar()? {
+            Some(despues) => {
+                if despues.desde_ms > cuadro.desde_ms {
+                    cuadro.dura_ms = despues.desde_ms - cuadro.desde_ms;
+                }
+                self.pendiente = Some(despues);
+            }
+            None => {
+                if let Some(total) = self.duracion_ms.filter(|&total| total > cuadro.desde_ms) {
+                    cuadro.dura_ms = total - cuadro.desde_ms;
+                }
+            }
+        }
+        Ok(Some(cuadro))
+    }
+
+    fn leido(&self) -> f32 {
+        match self.duracion_ms {
+            Some(total) => (self.ultimo_ms as f32 / total as f32).clamp(0.0, 1.0),
+            None => 0.0,
+        }
+    }
+}
+
+impl LectorVideo {
+    /// El siguiente fotograma tal como sale del descodificador.
+    fn sacar(&mut self) -> Result<Option<Cuadro>> {
         let empieza = Instant::now();
         let muestra = loop {
             if let Some(muestra) = self.salida.try_pull_sample(gst::ClockTime::from_mseconds(250)) {
@@ -465,13 +546,6 @@ impl Lector for LectorVideo {
         }
         self.ultimo_ms = desde_ms;
         Ok(Some(Cuadro { desde_ms, dura_ms, imagen }))
-    }
-
-    fn leido(&self) -> f32 {
-        match self.duracion_ms {
-            Some(total) => (self.ultimo_ms as f32 / total as f32).clamp(0.0, 1.0),
-            None => 0.0,
-        }
     }
 }
 
@@ -576,6 +650,23 @@ mod tests {
         [p[0], p[1], p[2]]
     }
 
+    /// Lo que guarda un MP4 de solo video de cada fotograma, sin descodificar: su instante y
+    /// lo que dura, en milisegundos.
+    fn muestras_del_mp4(ruta: &Path) -> Vec<(u64, u64)> {
+        let lee = monta("filesrc name=f ! qtdemux ! appsink name=s sync=false").expect("montar la lectura");
+        pieza::<gst::Element>(&lee, "f").expect("f").set_property("location", ruta.to_string_lossy().as_ref());
+        let salida: gst_app::AppSink = pieza(&lee, "s").expect("s");
+        let _ = lee.set_state(gst::State::Playing);
+        let mut muestras = Vec::new();
+        while let Some(muestra) = salida.try_pull_sample(gst::ClockTime::from_seconds(5)) {
+            if let Some(b) = muestra.buffer() {
+                muestras.push((b.pts().map_or(0, |t| t.mseconds()), b.duration().map_or(0, |t| t.mseconds())));
+            }
+        }
+        let _ = lee.set_state(gst::State::Null);
+        muestras
+    }
+
     fn parecido(a: [u8; 3], b: [u8; 3]) -> bool {
         a.iter().zip(b).all(|(x, y)| x.abs_diff(y) < 40)
     }
@@ -611,6 +702,13 @@ mod tests {
             escritor.imagen(liso(320, 240, color), desde, dura).expect("fotograma");
         }
         escritor.cerrar().expect("cerrar");
+
+        // Lo que guarda el archivo, sin descodificar: en Debian 12 el ultimo salia de 33 ms.
+        let guardado = muestras_del_mp4(&ruta);
+        assert_eq!(guardado.len(), 3, "el MP4 guarda {guardado:?}");
+        for ((_, desde, dura), (desde_guardado, dura_guardada)) in cuadros.iter().zip(&guardado) {
+            assert!(desde.abs_diff(*desde_guardado) <= 2 && dura.abs_diff(*dura_guardada) <= 2, "el MP4 guarda {guardado:?}");
+        }
 
         let mut lector = LectorVideo::abrir(&ruta).expect("leer lo escrito");
         let mut leidos = Vec::new();
