@@ -431,6 +431,11 @@ fn vivir(
     orden: mpsc::Receiver<Orden>,
 ) -> Result<Pista> {
     let encendida = Instant::now();
+    // GStreamer encendido del todo antes de preguntarle nada. Una cámara de verdad ya viene de
+    // uno encendido (`camaras`) y esto no hace nada; la de mentira de las pruebas no, y
+    // preguntaba sus formatos sin él o, peor, mientras otro hilo lo encendía: GStreamer dice
+    // que lo está antes de cargar sus plugins, y ahí no existe ni «videotestsrc».
+    motor::encender()?;
     let mut pedido = fuente.formatos().as_ref().and_then(pedido_de);
     let mut camara = Abierta::abrir(fuente, pedido.as_ref())?;
     let mut aviso = Some(aviso);
