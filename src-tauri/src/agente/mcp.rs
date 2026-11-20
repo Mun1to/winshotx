@@ -24,6 +24,17 @@
 //! - **Un argumento mal puesto es un error de la herramienta, no del protocolo.** Así el
 //!   modelo lee qué ha hecho mal y lo corrige solo. Solo una herramienta que no existe es
 //!   un error de protocolo, como pide la especificación.
+//! - **Habla las dos épocas de MCP, petición a petición.** Hasta la 2025-11-25 el cliente
+//!   saluda con `initialize` y después pide; desde la 2026-07-28 no hay saludo: cada petición
+//!   lleva su versión y lo que sabe hacer el cliente en `params._meta`, y el cliente puede
+//!   preguntar antes con `server/discover`. Un cliente que solo hable la nueva no podría usar
+//!   un servidor de las de antes («Modern | Legacy: Fails», en `basic/versioning` de la
+//!   especificación), así que este atiende las dos: la que trae la clave
+//!   `io.modelcontextprotocol/protocolVersion` en su `_meta` va por el camino nuevo, sin
+//!   estado y sin saludo, y todo lo demás exactamente como antes. Es como lo deciden los dos
+//!   SDK oficiales (el de Python lo explica en `mcp/server/runner.py`: esa clave solo existe
+//!   en los mensajes de la 2026-07-28, y un `_meta` a secas no prueba nada, porque los de
+//!   antes llevan ahí el `progressToken`).
 
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
@@ -42,6 +53,21 @@ const PROTOCOLO: &str = "2025-06-18";
 /// servidor a aceptar lotes de JSON-RPC, y este no los acepta (la 2025-06-18 los quitó). A
 /// quien la pida se le contesta con la 2025-06-18, y decide él.
 const PROTOCOLOS: &[&str] = &["2025-06-18", "2024-11-05"];
+
+/// Las revisiones de la época sin saludo que habla este servidor. Solo estas van en
+/// `supportedVersions` de `server/discover`: las de antes se negocian con `initialize`, y si
+/// se anunciaran ahí, los clientes de las dos épocas se irían a `initialize` igual.
+const MODERNAS: &[&str] = &["2026-07-28"];
+
+// Las claves de `_meta` de la época sin saludo (`basic/index` de la especificación 2026-07-28).
+const META_VERSION: &str = "io.modelcontextprotocol/protocolVersion";
+const META_CAPACIDADES: &str = "io.modelcontextprotocol/clientCapabilities";
+const META_SERVIDOR: &str = "io.modelcontextprotocol/serverInfo";
+
+/// Cuánto puede guardar un cliente la respuesta de `server/discover` y la de `tools/list`
+/// antes de volver a pedirla. Las dos son las mismas para todos y no cambian mientras viva
+/// este proceso (una versión nueva de winshotx es otro proceso), así que una hora.
+const VIGENCIA_MS: u64 = 3_600_000;
 
 /// Lo que llega a la app por el canal. En la app de verdad es `cliente::pedir`; en las
 /// pruebas, uno de mentira.
@@ -68,10 +94,10 @@ fn servir_con<R: BufRead, W: Write + Send>(
     let mut codigo = 0;
 
     std::thread::scope(|hilos| {
-        let (encargos, pendientes) = mpsc::channel::<(Value, Value)>();
+        let (encargos, pendientes) = mpsc::channel::<(Value, Value, bool)>();
         let (salida, cancelados) = (&salida, &cancelados);
         hilos.spawn(move || {
-            for (id, peticion) in pendientes {
+            for (id, peticion, moderna) in pendientes {
                 if salida.rota() || quitar(cancelados, &id) {
                     continue;
                 }
@@ -84,7 +110,7 @@ fn servir_con<R: BufRead, W: Write + Send>(
                 };
                 // Si se canceló mientras se hacía, no se contesta (lo pide la especificación).
                 if !quitar(cancelados, &id) {
-                    salida.escribir(&resultado(id, resultado_de_herramienta(respuesta)));
+                    salida.escribir(&resultado(id, resultado_de_herramienta(respuesta, moderna)));
                 }
             }
         });
@@ -105,8 +131,8 @@ fn servir_con<R: BufRead, W: Write + Send>(
             match atender(&linea, carpeta, &mut iniciado) {
                 Accion::Nada => {}
                 Accion::Responder(mensaje) => salida.escribir(&mensaje),
-                Accion::Llamar { id, peticion } => {
-                    let _ = encargos.send((id, peticion));
+                Accion::Llamar { id, peticion, moderna } => {
+                    let _ = encargos.send((id, peticion, moderna));
                 }
                 Accion::Cancelar(id) => {
                     cancelados.lock().unwrap_or_else(|e| e.into_inner()).insert(id.to_string());
@@ -164,8 +190,9 @@ enum Accion {
     Nada,
     /// Se contesta ya, desde el hilo que lee.
     Responder(Value),
-    /// Una herramienta: su petición del contrato va al hilo de las llamadas.
-    Llamar { id: Value, peticion: Value },
+    /// Una herramienta: su petición del contrato va al hilo de las llamadas. `moderna` si llegó
+    /// por la época sin saludo, que contesta con lo que esa época pide en cada resultado.
+    Llamar { id: Value, peticion: Value, moderna: bool },
     /// El cliente ya no quiere la respuesta de esa petición.
     Cancelar(Value),
 }
@@ -175,9 +202,12 @@ const JSON_ROTO: i64 = -32700;
 const PETICION_MALA: i64 = -32600;
 const METODO_QUE_NO_EXISTE: i64 = -32601;
 const PARAMETROS_MALOS: i64 = -32602;
+/// El de MCP 2026-07-28 para una versión del protocolo que el servidor no habla.
+const VERSION_QUE_NO_SE_HABLA: i64 = -32022;
 
 /// Una línea de la entrada, ya leída, convertida en lo que toca hacer. `iniciado` dice si ya
-/// llegó el `initialize`: antes de él solo se contestan `ping` y el propio saludo.
+/// llegó el `initialize`: antes de él, de la época del saludo solo se contestan `ping` y el
+/// propio saludo. Lo de la época sin saludo no lo necesita (ver `atender_moderna`).
 fn atender(linea: &[u8], carpeta: &Path, iniciado: &mut bool) -> Accion {
     let linea = limpiar(linea);
     if linea.is_empty() {
@@ -233,24 +263,35 @@ fn atender(linea: &[u8], carpeta: &Path, iniciado: &mut bool) -> Accion {
             "Invalid Request: add \"jsonrpc\": \"2.0\" to the message.",
         ));
     }
+    // `initialize` es siempre de la época del saludo (lo dice `basic/versioning`), lleve lo
+    // que lleve en `_meta`. Lo demás, si trae la versión en `_meta`, va por la época sin saludo.
+    if metodo != "initialize" {
+        match epoca_moderna(&id, params) {
+            Some(Ok(())) => return atender_moderna(id, metodo, params, carpeta),
+            Some(Err(respuesta)) => return Accion::Responder(respuesta),
+            None => {}
+        }
+    }
     match metodo {
         "initialize" => {
             *iniciado = true;
             Accion::Responder(resultado(id, iniciar(params)))
         }
         "ping" => Accion::Responder(resultado(id, json!({}))),
-        // Las revisiones de MCP que vienen después de esta (la 2026-07-28 ya no saluda con
-        // `initialize`) pueden mandar una herramienta de entrada. Contestarla como si se hubiera
-        // saludado sería entender sus mensajes a la antigua; con un error, el cliente sabe que
-        // tiene delante un servidor 2025-06-18 y saluda. Lo que no se conoce (su
-        // `server/discover`, por ejemplo) ya recibe su error abajo, sin cerrar nada.
+        // Sin la versión en `_meta` y sin saludo, es un cliente de las de antes que se ha
+        // saltado el `initialize`, o uno que no se sabe de qué época es. Contestarle como si
+        // hubiera saludado sería adivinar; con el error, saluda. Un `server/discover` sin
+        // `_meta` cae abajo y recibe «no existe», que es lo que hace volver a `initialize` a un
+        // cliente de las dos épocas. Nada de esto cierra el servidor.
         "tools/list" | "tools/call" if !*iniciado => Accion::Responder(error(
             id,
             PETICION_MALA,
-            "Invalid Request: send initialize first. This server speaks MCP 2025-06-18.",
+            "Invalid Request: send initialize first (MCP 2025-06-18), or put \
+             io.modelcontextprotocol/protocolVersion \"2026-07-28\" and \
+             io.modelcontextprotocol/clientCapabilities in params._meta (MCP 2026-07-28).",
         )),
         "tools/list" => Accion::Responder(resultado(id, json!({ "tools": herramientas() }))),
-        "tools/call" => llamar(id, params, carpeta),
+        "tools/call" => llamar(id, params, carpeta, false),
         _ => Accion::Responder(error(
             id,
             METODO_QUE_NO_EXISTE,
@@ -274,14 +315,94 @@ fn iniciar(params: Option<&Value>) -> Value {
     let version = pedido.filter(|v| PROTOCOLOS.contains(v)).unwrap_or(PROTOCOLO);
     json!({
         "protocolVersion": version,
-        "capabilities": { "tools": { "listChanged": false } },
-        "serverInfo": {
-            "name": "winshotx",
-            "title": "winshotx",
-            "version": env!("CARGO_PKG_VERSION"),
-        },
+        "capabilities": capacidades(),
+        "serverInfo": quien_soy(),
         "instructions": INSTRUCCIONES,
     })
+}
+
+/// Lo que sabe hacer este servidor: herramientas, y su lista no cambia.
+fn capacidades() -> Value {
+    json!({ "tools": { "listChanged": false } })
+}
+
+/// Quién es este servidor, para `initialize` y para el `_meta` de la época sin saludo.
+fn quien_soy() -> Value {
+    json!({
+        "name": "winshotx",
+        "title": "winshotx",
+        "version": env!("CARGO_PKG_VERSION"),
+    })
+}
+
+/// Si la petición es de la época sin saludo (MCP 2026-07-28 en adelante): `None` si no lo es
+/// (no trae la versión en `_meta`), `Some(Ok)` si se puede atender, y `Some(Err)` con el error
+/// que pide la especificación si no. Se mira en cada petición: en esa época el servidor no
+/// guarda nada de una petición para la siguiente (`basic/index`, «Servers MUST NOT rely on
+/// prior requests»).
+fn epoca_moderna(id: &Value, params: Option<&Value>) -> Option<Result<(), Value>> {
+    let meta =params.and_then(|p| p.get("_meta")).and_then(Value::as_object)?;
+    let version = meta.get(META_VERSION)?;
+    let Some(version) = version.as_str() else {
+        return Some(Err(error(
+            id.clone(),
+            PARAMETROS_MALOS,
+            &format!("Invalid params: _meta[\"{META_VERSION}\"] must be a string, like \"2026-07-28\"."),
+        )));
+    };
+    if !MODERNAS.contains(&version) {
+        // Con las versiones de las dos épocas: un cliente que también sepa saludar ve que puede
+        // volver a `initialize`.
+        let sabidas: Vec<&str> = MODERNAS.iter().chain(PROTOCOLOS).copied().collect();
+        let mut respuesta = error(id.clone(), VERSION_QUE_NO_SE_HABLA, "Unsupported protocol version");
+        respuesta["error"]["data"] = json!({ "supported": sabidas, "requested": version });
+        return Some(Err(respuesta));
+    }
+    if !meta.get(META_CAPACIDADES).is_some_and(Value::is_object) {
+        return Some(Err(error(
+            id.clone(),
+            PARAMETROS_MALOS,
+            &format!("Invalid params: _meta[\"{META_CAPACIDADES}\"] is required on every request ({{}} if the client has none)."),
+        )));
+    }
+    Some(Ok(()))
+}
+
+/// Una petición de la época sin saludo, ya comprobada: se contesta sin mirar si hubo
+/// `initialize`. En esa época ya no existen `initialize`, `ping` ni `logging/setLevel`
+/// (`changelog` de la 2026-07-28), así que lo que no sea esto es un método que no existe.
+fn atender_moderna(id: Value, metodo: &str, params: Option<&Value>, carpeta: &Path) -> Accion {
+    match metodo {
+        "server/discover" => Accion::Responder(resultado(
+            id,
+            moderno(json!({
+                "supportedVersions": MODERNAS,
+                "capabilities": capacidades(),
+                "instructions": INSTRUCCIONES,
+                "ttlMs": VIGENCIA_MS,
+                "cacheScope": "public",
+            })),
+        )),
+        // Igual para todos y en el mismo orden siempre: por eso «public» (`server/utilities/caching`).
+        "tools/list" => Accion::Responder(resultado(
+            id,
+            moderno(json!({ "tools": herramientas(), "ttlMs": VIGENCIA_MS, "cacheScope": "public" })),
+        )),
+        "tools/call" => llamar(id, params, carpeta, true),
+        _ => Accion::Responder(error(
+            id,
+            METODO_QUE_NO_EXISTE,
+            &format!("Method not found: {metodo}. This server only has tools."),
+        )),
+    }
+}
+
+/// Lo que lleva todo resultado de la época sin saludo: `resultType` (obligatorio) y quién
+/// contesta en su `_meta` (recomendado). En la época del saludo no se pone nada de esto.
+fn moderno(mut resultado: Value) -> Value {
+    resultado["resultType"] = json!("complete");
+    resultado["_meta"] = json!({ META_SERVIDOR: quien_soy() });
+    resultado
 }
 
 /// Lo que se le cuenta al agente al conectarse, antes de que mire las herramientas.
@@ -313,7 +434,8 @@ fn error(id: Value, codigo: i64, mensaje: &str) -> Value {
 }
 
 /// `tools/call`: comprueba la herramienta y sus argumentos y la manda al hilo de las llamadas.
-fn llamar(id: Value, params: Option<&Value>, carpeta: &Path) -> Accion {
+/// `moderna` si llegó por la época sin saludo.
+fn llamar(id: Value, params: Option<&Value>, carpeta: &Path, moderna: bool) -> Accion {
     let nombre = params.and_then(|p| p.get("name")).and_then(Value::as_str);
     let Some(nombre) = nombre.filter(|n| NOMBRES.contains(n)) else {
         let dicho = nombre.map(|n| format!("Unknown tool: {n}.")).unwrap_or_else(|| {
@@ -338,15 +460,16 @@ fn llamar(id: Value, params: Option<&Value>, carpeta: &Path) -> Accion {
         }
     };
     match traducir(nombre, argumentos, carpeta) {
-        Ok(peticion) => Accion::Llamar { id, peticion },
-        Err(mensaje) => Accion::Responder(resultado(id, resultado_de_herramienta(Err(mensaje)))),
+        Ok(peticion) => Accion::Llamar { id, peticion, moderna },
+        Err(mensaje) => Accion::Responder(resultado(id, resultado_de_herramienta(Err(mensaje), moderna))),
     }
 }
 
 /// El resultado de una herramienta: el JSON de la app como texto, y `isError` si no salió.
 /// Un fallo del canal (la app no arranca, por ejemplo) se cuenta con la misma forma que un
-/// fallo de la app, `{"ok":false,"error":...}`, para que el agente lea siempre lo mismo.
-fn resultado_de_herramienta(respuesta: Result<Value, String>) -> Value {
+/// fallo de la app, `{"ok":false,"error":...}`, para que el agente lea siempre lo mismo. En la
+/// época sin saludo (`moderna`), con lo que esa época pide en cada resultado.
+fn resultado_de_herramienta(respuesta: Result<Value, String>, moderna: bool) -> Value {
     let (cuerpo, fallo) = match respuesta {
         Ok(cuerpo) => {
             let bien = cuerpo.get("ok") == Some(&Value::Bool(true));
@@ -354,10 +477,15 @@ fn resultado_de_herramienta(respuesta: Result<Value, String>) -> Value {
         }
         Err(mensaje) => (json!({ "ok": false, "error": mensaje }), true),
     };
-    json!({
+    let resultado = json!({
         "content": [{ "type": "text", "text": cuerpo.to_string() }],
         "isError": fallo,
-    })
+    });
+    if moderna {
+        moderno(resultado)
+    } else {
+        resultado
+    }
 }
 
 /// Los nombres de las herramientas, en el orden de la lista.
@@ -1192,9 +1320,10 @@ mod pruebas {
 
     #[test]
     fn antes_del_saludo_solo_contesta_el_ping_y_lo_nuevo_recibe_su_error() {
-        // Un cliente de las revisiones nuevas (2026-07-28) pregunta primero con
-        // `server/discover`, y si recibe un error cualquiera vuelve a `initialize`. Si el
-        // servidor se callara o se cerrara, ese cliente no lo podría usar.
+        // Sin la versión en `_meta` nada de esto es de la época nueva: un `server/discover` así
+        // recibe «no existe» (un cliente de las dos épocas vuelve con eso a `initialize`) y lo
+        // demás pide el saludo. Si el servidor se callara o se cerrara, ese cliente no lo podría
+        // usar. Lo que sí trae la versión, en `un_cliente_que_solo_habla_la_2026_07_28_...`.
         let canal = sin_canal();
         let lineas = [
             r#"{"jsonrpc":"2.0","id":"d","method":"server/discover","params":{}}"#,
@@ -1217,6 +1346,153 @@ mod pruebas {
         assert_eq!(con_id(&mensajes, json!(4))["result"], json!({}));
         assert_eq!(con_id(&mensajes, json!("init"))["result"]["protocolVersion"], "2025-06-18");
         assert_eq!(con_id(&mensajes, json!(5))["result"]["tools"].as_array().map(Vec::len), Some(8));
+    }
+
+    /// El `_meta` que lleva cada petición de la época sin saludo, con esta versión.
+    fn meta(version: &str) -> Value {
+        json!({
+            "io.modelcontextprotocol/protocolVersion": version,
+            "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": { "name": "prueba", "version": "2" },
+        })
+    }
+
+    /// Una petición de la época sin saludo (MCP 2026-07-28).
+    fn moderna(id: Value, metodo: &str, mut params: Value) -> String {
+        params["_meta"] = meta("2026-07-28");
+        json!({ "jsonrpc": "2.0", "id": id, "method": metodo, "params": params }).to_string()
+    }
+
+    /// Lo que todo resultado de la época sin saludo tiene que llevar.
+    fn es_moderno(respuesta: &Value) {
+        let r = &respuesta["result"];
+        assert_eq!(r["resultType"], "complete", "{respuesta}");
+        let yo = &r["_meta"]["io.modelcontextprotocol/serverInfo"];
+        assert_eq!(yo["name"], "winshotx", "{respuesta}");
+        assert_eq!(yo["version"], env!("CARGO_PKG_VERSION"), "{respuesta}");
+    }
+
+    /// La fila «Modern | Dual-era» de la especificación (`basic/versioning`): un cliente que
+    /// solo habla MCP 2026-07-28 no saluda nunca. Pregunta con `server/discover`, pide la lista y
+    /// llama, cada petición con su versión en `_meta`, y todo funciona sin `initialize`.
+    #[test]
+    fn un_cliente_que_solo_habla_la_2026_07_28_lo_usa_sin_saludar() {
+        let canal = Canal::que_contesta(|_| Ok(json!({ "ok": true, "recording": false })));
+        let lineas = [
+            moderna(json!("d"), "server/discover", json!({})),
+            moderna(json!(2), "tools/list", json!({})),
+            moderna(json!(3), "tools/call", json!({ "name": "status", "arguments": {} })),
+        ];
+        let lineas: Vec<&str> = lineas.iter().map(String::as_str).collect();
+        let (codigo, mensajes) = conversar(&lineas, &canal);
+        assert_eq!(codigo, 0);
+
+        let descubrir = con_id(&mensajes, json!("d"));
+        es_moderno(&descubrir);
+        let r = &descubrir["result"];
+        assert_eq!(r["supportedVersions"], json!(["2026-07-28"]), "solo las de la época sin saludo");
+        assert_eq!(r["capabilities"], json!({ "tools": { "listChanged": false } }));
+        assert!(r["instructions"].as_str().unwrap().contains("record_start"));
+        assert!(r["ttlMs"].as_u64().is_some(), "ttlMs es obligatorio y >= 0: {r}");
+        assert_eq!(r["cacheScope"], "public");
+
+        let lista = con_id(&mensajes, json!(2));
+        es_moderno(&lista);
+        assert_eq!(lista["result"]["tools"], herramientas(), "la misma lista que con saludo");
+        assert!(lista["result"]["ttlMs"].as_u64().is_some());
+        assert_eq!(lista["result"]["cacheScope"], "public");
+
+        let estado = con_id(&mensajes, json!(3));
+        es_moderno(&estado);
+        assert_eq!(estado["result"]["isError"], false);
+        assert_eq!(texto_de(&estado), json!({ "ok": true, "recording": false }));
+        assert_eq!(canal.pedido(), [json!({ "command": "status" })], "la llamada llega a la app");
+    }
+
+    /// La fila «Dual-era | Dual-era»: un cliente de las dos épocas prueba primero con
+    /// `server/discover` en la misma tubería y, al ver la 2026-07-28, sigue en ella. Y un cliente
+    /// que ya saludó a la antigua puede mandar luego una petición nueva: cada una va por la suya.
+    #[test]
+    fn las_dos_epocas_en_la_misma_tuberia_contestan_cada_una_a_su_manera() {
+        let canal = Canal::que_contesta(|_| Ok(json!({ "ok": true })));
+        let lineas = [
+            INICIO.to_string(),
+            INICIADO.to_string(),
+            r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#.to_string(),
+            moderna(json!(2), "tools/list", json!({})),
+            llamada(3, "status", json!({})),
+            moderna(json!(4), "tools/call", json!({ "name": "status" })),
+        ];
+        let lineas: Vec<&str> = lineas.iter().map(String::as_str).collect();
+        let (_, mensajes) = conversar(&lineas, &canal);
+        // Lo de la época del saludo sale exactamente como antes: sin nada de la nueva.
+        for id in [1, 3] {
+            let r = &con_id(&mensajes, json!(id))["result"];
+            for nueva in ["resultType", "_meta", "ttlMs", "cacheScope"] {
+                assert!(r.get(nueva).is_none(), "la respuesta {id} de la época del saludo lleva {nueva}: {r}");
+            }
+        }
+        es_moderno(&con_id(&mensajes, json!(2)));
+        es_moderno(&con_id(&mensajes, json!(4)));
+        // `initialize` con `_meta` nuevo sigue siendo el saludo de antes, y nunca dice 2026-07-28.
+        let saludo = json!({ "jsonrpc": "2.0", "id": "i", "method": "initialize",
+            "params": { "protocolVersion": "2026-07-28", "capabilities": {}, "clientInfo": { "name": "p", "version": "1" },
+                        "_meta": meta("2026-07-28") } })
+        .to_string();
+        let (_, mensajes) = conversar(&[&saludo], &sin_canal());
+        assert_eq!(con_id(&mensajes, json!("i"))["result"]["protocolVersion"], "2025-06-18");
+    }
+
+    /// Lo que la 2026-07-28 manda contestar cuando una petición suya no se puede atender: la
+    /// versión que no se habla (`-32022`, con las que sí), el `_meta` incompleto (`-32602`), y lo
+    /// que ya no existe en esa época (`ping`, `-32601`). Una herramienta que no existe o unos
+    /// argumentos malos, como siempre, pero con lo que esa época pide en cada resultado.
+    #[test]
+    fn la_epoca_sin_saludo_dice_lo_que_falta_y_que_versiones_habla() {
+        let canal = sin_canal();
+        let lineas = [
+            json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list",
+                    "params": { "_meta": { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } } })
+            .to_string(),
+            json!({ "jsonrpc": "2.0", "id": 2, "method": "server/discover", "params": { "_meta": meta("2099-01-01") } })
+                .to_string(),
+            json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/list",
+                    "params": { "_meta": { "io.modelcontextprotocol/protocolVersion": 2026,
+                                           "io.modelcontextprotocol/clientCapabilities": {} } } })
+            .to_string(),
+            moderna(json!(4), "ping", json!({})),
+            moderna(json!(5), "tools/call", json!({ "name": "borrar_todo" })),
+            moderna(json!(6), "tools/call", json!({ "name": "capture", "arguments": { "screen": "0" } })),
+            moderna(json!(7), "logging/setLevel", json!({ "level": "info" })),
+        ];
+        let lineas: Vec<&str> = lineas.iter().map(String::as_str).collect();
+        let (codigo, mensajes) = conversar(&lineas, &canal);
+        assert_eq!(codigo, 0, "sigue vivo");
+        let codigo_de = |id: i64| con_id(&mensajes, json!(id))["error"]["code"].as_i64();
+        assert_eq!(codigo_de(1), Some(-32602), "sin clientCapabilities");
+        assert!(con_id(&mensajes, json!(1))["error"]["message"].as_str().unwrap().contains("clientCapabilities"));
+        assert_eq!(codigo_de(2), Some(-32022), "una versión que no habla");
+        let datos = &con_id(&mensajes, json!(2))["error"]["data"];
+        assert_eq!(datos["requested"], "2099-01-01");
+        assert_eq!(datos["supported"], json!(["2026-07-28", "2025-06-18", "2024-11-05"]));
+        assert_eq!(codigo_de(3), Some(-32602), "una versión que no es texto");
+        assert_eq!(codigo_de(4), Some(-32601), "ping ya no existe en esta época");
+        assert_eq!(codigo_de(5), Some(-32602), "una herramienta que no existe");
+        assert_eq!(codigo_de(7), Some(-32601));
+        let mala = con_id(&mensajes, json!(6));
+        es_moderno(&mala);
+        assert_eq!(mala["result"]["isError"], true);
+        assert!(texto_de(&mala)["error"].as_str().unwrap().contains("whole number"), "{mala}");
+        assert!(canal.pedido().is_empty(), "nada de esto llega a la app");
+    }
+
+    /// Un `_meta` de los de antes (el `progressToken`) no convierte una petición en nueva: sin la
+    /// versión en `_meta`, sin saludo, se pide el saludo como siempre.
+    #[test]
+    fn un_meta_de_los_de_antes_no_es_de_la_epoca_nueva() {
+        let lista = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"progressToken":"t"}}}"#;
+        let (_, mensajes) = conversar(&[lista], &sin_canal());
+        assert_eq!(con_id(&mensajes, json!(1))["error"]["code"], -32600);
     }
 
     #[test]
