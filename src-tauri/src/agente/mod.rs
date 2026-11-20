@@ -4,7 +4,8 @@
 //!
 //! Grabar y exportar necesitan el `AppHandle` de la app que vive en la bandeja, así que es la
 //! app la que abre el canal: una tubería con nombre que solo puede abrir este mismo usuario
-//! (`tuberia`), con una orden por línea JSON y una respuesta por línea (`ordenes`), atendidas
+//! (`tuberia`; en Linux, un socket Unix en la carpeta de los sockets del usuario), con una
+//! orden por línea JSON y una respuesta por línea (`ordenes`), atendidas
 //! sobre lo que la app ya hace (`en_la_app`). Dos clientes hablan con ella: la orden de terminal
 //! `winshotx.exe agent` (`linea`) y el servidor MCP `winshotx.exe mcp` (`mcp`, de S16). Los dos
 //! pasan por `cliente::pedir`, que si la app no está abierta la arranca y espera.
@@ -17,7 +18,7 @@
 
 pub mod cliente;
 mod consola;
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 mod en_la_app;
 pub mod linea;
 pub mod mcp;
@@ -56,7 +57,7 @@ pub fn desde_la_linea_de_ordenes() -> Option<i32> {
 /// Si no se puede abrir (otro programa tiene ya la tubería con ese nombre), se dice por consola
 /// y la app sigue: quedarse sin winshotx por no poder hablar con agentes sería peor.
 pub fn arrancar(app: &tauri::AppHandle) {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
         let manejador = en_la_app::manejador(app.clone());
         match tuberia::escuchar(&tuberia::nombre(), manejador) {
@@ -64,6 +65,6 @@ pub fn arrancar(app: &tauri::AppHandle) {
             Err(error) => eprintln!("[agente] sin canal para agentes: {error}"),
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     let _ = app;
 }

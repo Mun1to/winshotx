@@ -25,7 +25,7 @@ pub const ESPERA_AL_ARRANCAR: Duration = Duration::from_secs(15);
 /// respuesta tal cual, `{"ok":true,...}` o `{"ok":false,"error":...}`. El `Err` es que no se ha
 /// podido hablar con ella, ya en inglés y para un agente.
 pub fn pedir(peticion: &Value) -> Result<Value, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("Could not find winshotx.exe itself ({e})."))?;
+    let exe = este_ejecutable()?;
     // S22: el aviso de que la arranca un agente, para que no abra los ajustes. Vive hasta que
     // acaba la petición; la app lo mira nada más arrancar, mucho antes. Ver `AvisoDeArranque`.
     let aviso = std::cell::OnceCell::new();
@@ -38,6 +38,19 @@ pub fn pedir(peticion: &Value) -> Result<Value, String> {
         },
         ESPERA_AL_ARRANCAR,
     )
+}
+
+/// El archivo con el que se arranca la app: este mismo exe.
+#[cfg(not(target_os = "linux"))]
+fn este_ejecutable() -> Result<std::path::PathBuf, String> {
+    std::env::current_exe().map_err(|e| format!("Could not find winshotx.exe itself ({e})."))
+}
+
+/// En Linux, el de `platform::xdg`: con el AppImage no es el binario que está corriendo (vive en
+/// una carpeta montada que se va con este proceso), sino el archivo `.AppImage`.
+#[cfg(target_os = "linux")]
+fn este_ejecutable() -> Result<std::path::PathBuf, String> {
+    crate::platform::xdg::ejecutable_de_la_app().map_err(|e| format!("Could not find winshotx itself ({e})."))
 }
 
 /// El nombre del aviso de `AvisoDeArranque`. `Local\` es la sesión de Windows de este usuario.
@@ -117,9 +130,16 @@ pub fn pedir_con(
     // petición y podría contestar lo que quisiera.
     match tuberia::dueno_es_este_usuario(&conexion) {
         Ok(true) => {}
+        #[cfg(windows)]
         Ok(false) => {
             return Err(format!(
                 "{nombre} belongs to another Windows user, so winshotx will not talk to it. Close whatever program created it and try again."
+            ))
+        }
+        #[cfg(not(windows))]
+        Ok(false) => {
+            return Err(format!(
+                "The program listening on {nombre} runs as another user, so winshotx will not talk to it. Close that program, delete that file and try again."
             ))
         }
         Err(e) => return Err(format!("Could not check who owns {nombre} ({e}).")),
@@ -156,8 +176,15 @@ fn conectar(nombre: &str, arrancar: &dyn Fn() -> Result<(), String>, espera: Dur
             Err(e) => return Err(format!("Could not connect to winshotx at {nombre} ({e}).")),
         }
         if empezado.elapsed() >= espera {
+            #[cfg(not(target_os = "linux"))]
             return Err(format!(
                 "winshotx did not answer within {} s of starting it. If an older winshotx (before 0.4.5) is open, quit it from its tray icon and try again; if not, open winshotx once by hand and retry.",
+                espera.as_secs()
+            ));
+            // En Linux no hay un winshotx de antes del canal: si no contesta, es que no arranca.
+            #[cfg(target_os = "linux")]
+            return Err(format!(
+                "winshotx did not answer within {} s of starting it. Open winshotx once by hand and retry; if it does not open, run it from a terminal to see why.",
                 espera.as_secs()
             ));
         }
@@ -215,8 +242,12 @@ pub fn arrancar_app(exe: &Path) -> Result<(), String> {
         }
         proceso::crear(exe, &[], false).map(drop).map_err(|e| fallo(e.message()))
     }
-    #[cfg(not(windows))]
-    Err(format!("winshotx only runs on Windows ({}).", exe.display()))
+    #[cfg(target_os = "linux")]
+    {
+        linux::arrancar(exe, linux::hay_escritorio_aqui())
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    Err(format!("winshotx only runs on Windows and Linux ({}).", exe.display()))
 }
 
 /// `winshotx.exe --agent-launcher`: arranca la app (este mismo exe, sin argumentos) fuera de
@@ -232,7 +263,14 @@ pub fn hacer_de_lanzadera() -> i32 {
             Err(_) => 1,
         }
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        match este_ejecutable().map_err(std::io::Error::other).and_then(|exe| linux::lanzar_suelta(&exe)) {
+            Ok(()) => 0,
+            Err(_) => 1,
+        }
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     1
 }
 
@@ -328,6 +366,141 @@ pub(crate) mod proceso {
     }
 }
 
+/// Arrancar la app en Linux, fuera del árbol de quien la pide.
+///
+/// **Con escritorio en este proceso** (`DISPLAY` o `WAYLAND_DISPLAY`: un agente en una terminal
+/// del escritorio), la arranca la lanzadera, este mismo programa con `LANZADERA`: lanza la app en
+/// su propia sesión (`setsid`), sin entrada ni salida y sin nada de lo que quien pide tuviera
+/// abierto, y sale. La app queda colgando del sistema y no del agente: no la alcanza quien mate
+/// «el árbol» ni «el grupo» del servidor MCP, ni un Ctrl+C, ni el cierre de la terminal. Claude
+/// Code cierra un servidor MCP en Linux con SIGINT, SIGTERM y SIGKILL al proceso (su
+/// documentación, mirada el 20-nov-2026); el SDK de MCP cierra la entrada y hace lo mismo.
+///
+/// **Sin escritorio en este proceso**, que es lo corriente: el SDK oficial de MCP lanza los
+/// servidores solo con `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` y `USER`. Desde ahí una
+/// ventana no se puede abrir. Se le pide al gestor de usuario de systemd (`systemd-run --user`),
+/// que sí tiene las variables de la sesión en GNOME, KDE y cualquier escritorio que use los
+/// portales, y que la deja además fuera de todo lo de quien pide. Si no hay systemd, o no sabe de
+/// ningún escritorio, se dice qué hacer.
+#[cfg(target_os = "linux")]
+pub(crate) mod linux {
+    use std::path::Path;
+    use std::process::{Child, Command, Stdio};
+
+    use super::LANZADERA;
+
+    /// El argumento con el que se arranca la app para un agente. Por sí mismo no hace nada: basta
+    /// con que haya uno para que la app no abra los ajustes (`arranque::ensenar_ajustes`), y este
+    /// deja dicho en la lista de procesos quién la arrancó.
+    pub const POR_UN_AGENTE: &str = "--started-by-agent";
+
+    /// Lo que se contesta cuando no hay dónde abrir la app.
+    const SIN_ESCRITORIO: &str = "winshotx is not running, and this command has no desktop session to start it in: DISPLAY and WAYLAND_DISPLAY are not set here (many agents start their tools with almost no environment), and systemd's user session could not start it either. Open winshotx on the desktop and try again: it then stays running in the background. Or give this command DISPLAY or WAYLAND_DISPLAY, and XDG_RUNTIME_DIR.";
+
+    /// Si este proceso tiene un escritorio en el que abrir una ventana.
+    pub fn hay_escritorio_aqui() -> bool {
+        ["DISPLAY", "WAYLAND_DISPLAY"].iter().any(|v| std::env::var_os(v).is_some_and(|valor| !valor.is_empty()))
+    }
+
+    /// Si entre esas variables (una por línea, como las da `systemctl --user show-environment`)
+    /// hay un escritorio.
+    pub(super) fn tiene_escritorio(entorno: &str) -> bool {
+        entorno.lines().any(|linea| {
+            ["DISPLAY=", "WAYLAND_DISPLAY="]
+                .iter()
+                .any(|variable| linea.strip_prefix(variable).is_some_and(|valor| !valor.trim().is_empty()))
+        })
+    }
+
+    pub fn arrancar(exe: &Path, hay_escritorio: bool) -> Result<(), String> {
+        if !hay_escritorio {
+            return por_systemd(exe);
+        }
+        let fallo = |e: String| format!("winshotx is not running and could not be started from {} ({e}).", exe.display());
+        let estado = Command::new(exe)
+            .arg(LANZADERA)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|e| fallo(e.to_string()))?;
+        if estado.success() {
+            Ok(())
+        } else {
+            Err(fallo(format!("its launcher ended with {estado}")))
+        }
+    }
+
+    /// Que la arranque el gestor de usuario de systemd, con las variables de la sesión. Se le
+    /// habla por la carpeta de los sockets del usuario, la misma en la que va el canal.
+    fn por_systemd(exe: &Path) -> Result<(), String> {
+        let carpeta = crate::agente::tuberia::carpeta();
+        let orden = |programa: &str| {
+            let mut orden = Command::new(programa);
+            orden.env("XDG_RUNTIME_DIR", &carpeta).stdin(Stdio::null()).stderr(Stdio::null());
+            orden
+        };
+        // Antes de pedírselo, que sepa de algún escritorio: si no, la app arrancaría, no podría
+        // abrir nada y quien pide esperaría entero el tope para enterarse.
+        let con_escritorio = orden("systemctl")
+            .args(["--user", "show-environment"])
+            .output()
+            .ok()
+            .filter(|salida| salida.status.success())
+            .is_some_and(|salida| tiene_escritorio(&String::from_utf8_lossy(&salida.stdout)));
+        if !con_escritorio {
+            return Err(SIN_ESCRITORIO.into());
+        }
+        let lanzada = orden("systemd-run")
+            .args(["--user", "--collect", "--quiet", "--"])
+            .arg(exe)
+            .arg(POR_UN_AGENTE)
+            .stdout(Stdio::null())
+            .status();
+        match lanzada {
+            Ok(estado) if estado.success() => Ok(()),
+            _ => Err(SIN_ESCRITORIO.into()),
+        }
+    }
+
+    /// Lo que hace la lanzadera: arranca la app suelta y no la espera.
+    pub fn lanzar_suelta(exe: &Path) -> std::io::Result<()> {
+        let mut orden = Command::new(exe);
+        orden.arg(POR_UN_AGENTE);
+        suelta(orden).map(drop)
+    }
+
+    /// Arranca eso en su propia sesión, con la entrada, la salida y los errores a nulo, en la
+    /// carpeta personal y sin heredar ningún otro descriptor.
+    ///
+    /// Lo de los descriptores es por lo mismo que en Windows: si la app se quedara con una
+    /// tubería de quien pide (la salida por la que el agente lee la respuesta, u otra que el
+    /// agente dejó sin marcar), el agente esperaría su final hasta que alguien cerrara winshotx.
+    /// `close_range` con `CLOSE_RANGE_CLOEXEC` (Linux 5.11) los marca todos para cerrarse al
+    /// ejecutar; en un núcleo más viejo falla y se quedan como estaban.
+    pub(super) fn suelta(mut orden: Command) -> std::io::Result<Child> {
+        use std::os::unix::process::CommandExt;
+        let casa = std::env::var_os("HOME").filter(|casa| Path::new(casa).is_dir()).unwrap_or_else(|| "/".into());
+        orden.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).current_dir(casa);
+        // Entre `fork` y `exec` solo se puede llamar a lo que aguanta una señal: estas dos lo son.
+        unsafe {
+            orden.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                libc::syscall(
+                    libc::SYS_close_range,
+                    3 as libc::c_long,
+                    libc::c_uint::MAX as libc::c_long,
+                    libc::CLOSE_RANGE_CLOEXEC as libc::c_long,
+                );
+                Ok(())
+            });
+        }
+        orden.spawn()
+    }
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -336,8 +509,22 @@ mod pruebas {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
 
+    #[cfg(not(target_os = "linux"))]
     fn nombre_de_prueba(que: &str) -> String {
         format!(r"\\.\pipe\winshotx-agent-cliente-{que}-{}-{}", std::process::id(), uuid::Uuid::new_v4().simple())
+    }
+
+    /// En Linux, un socket en una carpeta nueva y solo de este usuario.
+    #[cfg(target_os = "linux")]
+    fn nombre_de_prueba(que: &str) -> String {
+        use std::os::unix::fs::DirBuilderExt;
+        let carpeta = std::env::temp_dir().join(format!(
+            "winshotx-agent-cliente-{que}-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::DirBuilder::new().mode(0o700).create(&carpeta).unwrap();
+        carpeta.join("canal.sock").to_string_lossy().into_owned()
     }
 
     /// El servidor con el doble de `ordenes` detrás, como la app pero sin pantalla.
@@ -381,7 +568,7 @@ mod pruebas {
         }
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     #[test]
     fn de_punta_a_punta_por_la_tuberia_con_el_doble() {
         let nombre = nombre_de_prueba("punta");
@@ -399,7 +586,7 @@ mod pruebas {
     }
 
     /// Sin nadie escuchando, arranca la app UNA vez y espera a que conteste.
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     #[test]
     fn si_la_app_no_esta_la_arranca_y_espera() {
         let nombre = nombre_de_prueba("arranca");
@@ -420,12 +607,13 @@ mod pruebas {
         assert_eq!(veces.load(Ordering::SeqCst), 1);
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     #[test]
     fn si_no_contesta_a_tiempo_lo_dice() {
         let nombre = nombre_de_prueba("nunca");
         let e = pedir_con(&nombre, &json!({"command":"status"}), &|| Ok(()), Duration::from_millis(400)).unwrap_err();
-        assert!(e.contains("did not answer within") && e.contains("older winshotx"), "{e}");
+        let consejo = if cfg!(windows) { "older winshotx" } else { "run it from a terminal" };
+        assert!(e.contains("did not answer within") && e.contains(consejo), "{e}");
         let e = pedir_con(&nombre, &json!({"command":"status"}), &|| Err("no está".into()), Duration::from_secs(1)).unwrap_err();
         assert_eq!(e, "no está");
     }
@@ -437,6 +625,93 @@ mod pruebas {
         assert!(e.contains("could not be started") && e.contains(r"C:\no\existe\winshotx.exe"), "{e}");
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn arrancar_un_ejecutable_que_no_existe_da_un_error_legible() {
+        let e = linux::arrancar(Path::new("/no/existe/winshotx"), true).unwrap_err();
+        assert!(e.contains("could not be started") && e.contains("/no/existe/winshotx"), "{e}");
+    }
+
+    /// Lo que cuenta como escritorio en las variables del gestor de usuario de systemd.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn systemd_sabe_de_un_escritorio_si_tiene_una_de_las_dos_variables() {
+        let sin = "HOME=/home/ana\nLANG=es_ES.UTF-8\nXDG_RUNTIME_DIR=/run/user/1000\nDBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus\n";
+        assert!(!linux::tiene_escritorio(sin));
+        assert!(!linux::tiene_escritorio(&format!("{sin}DISPLAY=\nWAYLAND_DISPLAY=  \n")), "vacías no cuentan");
+        assert!(linux::tiene_escritorio(&format!("{sin}DISPLAY=:0\n")));
+        assert!(linux::tiene_escritorio(&format!("{sin}WAYLAND_DISPLAY=wayland-0\nXDG_SESSION_TYPE=wayland\n")));
+        assert!(!linux::tiene_escritorio("OTRA_DISPLAY=:0\nMI_WAYLAND_DISPLAY=x\n"), "tiene que ser la variable entera");
+    }
+
+    /// Lo que se le pide a `sh` que apunte de sí mismo: su número, su sesión y qué tiene abierto.
+    #[cfg(target_os = "linux")]
+    fn sh_que_se_apunta(nota: &Path) -> std::process::Command {
+        let mut orden = std::process::Command::new("/bin/sh");
+        orden.arg("-c").arg(format!(
+            "read -r _ _ _ _ _ sesion _ < /proc/$$/stat; echo \"$$ $sesion $(echo $(ls /proc/$$/fd))\" > '{0}.tmp'; mv '{0}.tmp' '{0}'",
+            nota.display()
+        ));
+        orden
+    }
+
+    #[cfg(target_os = "linux")]
+    fn lo_apuntado(nota: &Path) -> (i32, i32, Vec<i32>) {
+        let empezado = Instant::now();
+        let texto = loop {
+            if let Ok(texto) = std::fs::read_to_string(nota) {
+                break texto;
+            }
+            assert!(empezado.elapsed() < Duration::from_secs(10), "lo arrancado no ha apuntado nada");
+            std::thread::sleep(Duration::from_millis(30));
+        };
+        let numeros: Vec<i32> = texto.split_whitespace().map(|n| n.parse().unwrap()).collect();
+        (numeros[0], numeros[1], numeros[2..].to_vec())
+    }
+
+    /// Lo que arranca la lanzadera queda suelto de quien lo pide: es el primero de una sesión
+    /// nueva (ni un Ctrl+C ni el cierre de la terminal le llegan), y no se queda con nada de lo
+    /// que quien pide tenía abierto, tampoco con un descriptor que no estaba marcado para
+    /// cerrarse. Con un `sh` en lugar de la app, y el mismo `sh` arrancado sin más al lado, para
+    /// ver que la prueba distingue.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn lo_que_arranca_queda_en_su_sesion_y_sin_lo_que_tenia_abierto_quien_lo_pide() {
+        let carpeta = std::env::temp_dir().join(format!("winshotx-suelta-{}-{}", std::process::id(), uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&carpeta).unwrap();
+        // Una tubería que se hereda (sin marcar), con un número alto para que no se confunda con
+        // lo que abre cualquier programa.
+        let mut tubo = [0 as libc::c_int; 2];
+        assert_eq!(unsafe { libc::pipe(tubo.as_mut_ptr()) }, 0);
+        let heredable = unsafe { libc::fcntl(tubo[1], libc::F_DUPFD, 200) };
+        assert!(heredable >= 200);
+        let mi_sesion = unsafe { libc::getsid(0) };
+
+        let nota = carpeta.join("suelta.txt");
+        let mut hija = linux::suelta(sh_que_se_apunta(&nota)).unwrap();
+        let (pid, sesion, abiertos) = lo_apuntado(&nota);
+        hija.wait().unwrap();
+        assert_eq!(sesion, pid, "es la primera de su sesión");
+        assert_ne!(sesion, mi_sesion, "y esa sesión no es la de quien la pide");
+        assert!(!abiertos.contains(&heredable), "se ha quedado con la tubería de quien la pide: {abiertos:?}");
+
+        // Sin `suelta`, el mismo `sh` sí se queda en la sesión de quien lo lanza y con la tubería.
+        let nota = carpeta.join("normal.txt");
+        let mut hija = sh_que_se_apunta(&nota).spawn().unwrap();
+        let (_, sesion, abiertos) = lo_apuntado(&nota);
+        hija.wait().unwrap();
+        assert_eq!(sesion, mi_sesion);
+        assert!(abiertos.contains(&heredable), "la prueba no vería una tubería heredada: {abiertos:?}");
+
+        unsafe {
+            libc::close(tubo[0]);
+            libc::close(tubo[1]);
+            libc::close(heredable);
+        }
+        let _ = std::fs::remove_dir_all(&carpeta);
+    }
+
+    #[cfg(windows)]
     fn de_sistema(exe: &str) -> std::path::PathBuf {
         let windows = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
         Path::new(&windows).join("System32").join(exe)
@@ -551,12 +826,12 @@ mod pruebas {
     }
 
     #[test]
-    #[cfg_attr(not(windows), ignore = "el canal de agentes y sus rutas de salida son de Windows de momento")]
     fn las_rutas_relativas_se_hacen_absolutas_con_la_carpeta_de_quien_pide() {
         let aqui = std::env::current_dir().unwrap();
         let r = con_rutas_absolutas(&json!({"command":"export","session":"a","output":"videos\\demo.mp4"}));
         assert_eq!(r["output"], aqui.join("videos\\demo.mp4").to_string_lossy().as_ref());
-        let absoluta = json!({"command":"capture","screen":0,"output":"C:\\x\\a.png"});
+        let entera = if cfg!(windows) { "C:\\x\\a.png" } else { "/x/a.png" };
+        let absoluta = json!({"command":"capture","screen":0,"output":entera});
         assert_eq!(con_rutas_absolutas(&absoluta), absoluta);
         let sin = json!({"command":"status"});
         assert_eq!(con_rutas_absolutas(&sin), sin);
@@ -580,6 +855,7 @@ mod pruebas {
     }
 
     /// Lo que dura cada pista según ffprobe (si está): la de vídeo, en segundos.
+    #[cfg(windows)]
     fn duracion_del_video(mp4: &Path) -> Option<f64> {
         let salida = std::process::Command::new("ffprobe")
             .args(["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=duration", "-of", "csv=p=0"])

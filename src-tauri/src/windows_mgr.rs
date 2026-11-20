@@ -831,7 +831,7 @@ pub fn precrear_overlays(app: &AppHandle) {
 /// Si el error es el portal diciendo que no (sin permiso, o el dialogo que no pudo salir), y no
 /// otra cosa (el portal que no esta, una foto que no se puede leer).
 #[cfg(target_os = "linux")]
-fn intencion_del_portal(error: &crate::error::AppError) -> bool {
+pub(crate) fn intencion_del_portal(error: &crate::error::AppError) -> bool {
     error.to_string().contains("Portal request didn't succeed")
 }
 

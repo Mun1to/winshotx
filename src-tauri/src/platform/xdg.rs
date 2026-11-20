@@ -347,7 +347,7 @@ pub fn arrancar_al_entrar(encender: bool) -> crate::error::Result<()> {
 /// temporal que cambia cada vez: lo que vale es el archivo .AppImage, que es lo que la persona
 /// tiene en el disco.
 #[cfg(target_os = "linux")]
-fn ejecutable_de_la_app() -> std::io::Result<PathBuf> {
+pub(crate) fn ejecutable_de_la_app() -> std::io::Result<PathBuf> {
     std::env::var_os("APPIMAGE")
         .map(PathBuf::from)
         .filter(|ruta| ruta.is_absolute())
