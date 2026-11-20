@@ -56,7 +56,9 @@ On Wayland the desktop decides where windows go, so the thumbnail appears where 
 puts it (centred on GNOME) and not in the bottom right corner.
 
 On GNOME, the first launch asks to confirm the shortcuts ("Add Keyboard Shortcuts") and the first
-capture asks for permission ("Allow winshotx to Take Screenshots?").
+capture asks for permission ("Allow winshotx to Take Screenshots?"). If the shortcuts question is
+closed without adding them, winshotx does not ask again on its own: "Change" next to each shortcut
+in Settings, and on the welcome screen, brings the question back (see "Shortcuts on Wayland").
 
 ## Screen recording
 
@@ -509,9 +511,10 @@ description of `record_start` are written per system, `agente/mcp.rs`):
   "Portal request didn't succeed: Other".
 - A screenshot asked for while recording leaves nothing in the video on GNOME 50 (no extra
   frames around it), so it is not refused.
-- In a profile that never accepted winshotx's shortcuts, GNOME asks for them every time the app
-  starts, also when an agent starts it. That is the first-run question, not something of the
-  agents.
+- In a profile where nobody has answered winshotx's shortcuts question yet, GNOME shows it when
+  the app starts, also when an agent starts it. That is the first-run question, not something of
+  the agents, and once answered it does not come back: accepted, GNOME keeps the keys; closed,
+  winshotx remembers the no (see "Shortcuts on Wayland").
 
 What was tried, in virtual sessions on Fedora 44, with the app itself and a GTK window showing a
 known page:
@@ -570,11 +573,36 @@ Files:
 The AppImage installs nothing, so it writes a hidden `com.munir.winshotx.desktop` pointing to
 itself into `~/.local/share/applications` at runtime.
 
-## Shortcuts on desktops without the GlobalShortcuts portal
+## Shortcuts on Wayland
 
 On X11 winshotx grabs its keys itself. On Wayland it asks the desktop through the GlobalShortcuts
-portal (GNOME 48+, KDE Plasma). Sway and the other wlroots compositors have no such portal, so
-the welcome screen and the settings show the commands to bind by hand instead:
+portal (GNOME 48+, KDE Plasma), and the desktop asks the person.
+
+**A question that was closed is not asked again.** GNOME only stores the shortcuts when the
+person presses "Add". Closed any other way, nothing is stored, and winshotx used to ask again on
+every start (the one at login and the one by an agent too) and every time a setting was changed.
+Now it leaves an empty file, `atajos-sin-pedir`, next to `settings.json`, and while that file is
+there it only asks when the person presses "Change" in Settings or on the welcome screen. Adding
+the shortcuts from there removes the file.
+
+The portal does not say that it was the person who said no: GNOME answers 2 ("other") both when
+the question is closed and when its own settings window fails, and 1 ("cancelled") only when the
+app withdraws the request (`settings_bind_shortcuts_done` in xdg-desktop-portal-gnome's
+`src/globalshortcuts.c`). What tells them apart is time: a refusal that took a second or more was
+answered by a person, one that comes back in milliseconds is a desktop that cannot bind them.
+That second kind leaves no file and, from "Change", still leads to the commands below.
+
+Tried on GNOME 50 (Fedora 44, virtual session, clean profile): the question closed with Esc on
+the first start; no question on the next start, on a start by an agent, or after changing a
+setting; "Change" shows it again, closing it again leaves "Change" in place, and "Add" from there
+binds the keys, after which GNOME no longer asks. Not tried: KDE Plasma, and the same home
+directory moved from a desktop where the question was closed to another desktop (the file does
+not know which desktop asked, so the other one is asked from "Change" too).
+
+### Desktops without the GlobalShortcuts portal
+
+Sway and the other wlroots compositors have no such portal, so the welcome screen and the
+settings show the commands to bind by hand instead:
 
 ```
 winshotx --capture   # capture a region
