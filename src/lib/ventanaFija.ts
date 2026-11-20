@@ -7,6 +7,7 @@ import {
   getCurrentWindow,
 } from "@tauri-apps/api/window";
 import { guardarVentanaAjustes } from "./ipc";
+import { corriendoEnLinux } from "./teclas";
 
 /**
  * La ventana de ajustes (y la bienvenida, que vive en la misma) tiene siempre el mismo tamaño
@@ -106,6 +107,23 @@ export function esDeLaApp(lo: Tamanno, propio: Tamanno): boolean {
   return Math.abs(lo.ancho - propio.ancho) <= 2 && Math.abs(lo.alto - propio.alto) <= 2;
 }
 
+/**
+ * Lo que mide la ventana por dentro según la página, en px lógicos, o `null` si todavía no mide
+ * nada (arrancada con la sesión está escondida).
+ *
+ * S45 (Linux): en GNOME Wayland la barra de título la dibuja GTK dentro de la propia ventana,
+ * con su sombra alrededor, y el tamaño «de dentro» que da Tauri, y el de su aviso de tamaño
+ * nuevo, los cuentan: una ventana de 900 x 723 dice medir 952 x 822. Con eso, solo enseñarla
+ * ya parecía que alguien la había estirado: se guardaba 952 x 822 y el arranque siguiente la
+ * abría así de grande. La página sabe lo que mide en cualquier escritorio, así que en Linux
+ * se le pregunta a ella. En Windows se sigue preguntando a Tauri, como siempre.
+ */
+function dentroSegunLaPagina(): Tamanno | null {
+  const ancho = window.innerWidth;
+  const alto = window.innerHeight;
+  return ancho > 0 && alto > 0 ? { ancho, alto } : null;
+}
+
 /** Lo que se espera desde el último tirón antes de guardar: estirar una ventana son decenas. */
 const ESPERA_GUARDAR = 500;
 
@@ -149,11 +167,14 @@ export function useVentanaFija(listo: boolean, guardada: Tamanno | null | undefi
             ]);
             // Maximizada no es «su tamaño»: al volver, vuelve al de antes.
             if (maximizada || !(escala > 0)) return;
-            const lo = {
-              ancho: Math.round(payload.width / escala),
-              alto: Math.round(payload.height / escala),
-            };
-            if (esDeLaApp(lo, propio.current)) return;
+            const lo = corriendoEnLinux()
+              ? dentroSegunLaPagina()
+              : {
+                  ancho: Math.round(payload.width / escala),
+                  alto: Math.round(payload.height / escala),
+                };
+            // En Linux, con la página sin medir nada todavía, no hay tamaño que apuntar.
+            if (!lo || esDeLaApp(lo, propio.current)) return;
             propio.current = lo;
             await guardarVentanaAjustes(lo.ancho, lo.alto);
           })().catch(() => undefined);
@@ -183,7 +204,7 @@ export function useVentanaFija(listo: boolean, guardada: Tamanno | null | undefi
 async function colocarAlAbrir(quiere: Tamanno, puesto: (t: Tamanno) => void): Promise<void> {
   const ventana = getCurrentWindow();
   try {
-    const [escala, dentro, fuera, posicion, pantalla] = await Promise.all([
+    const [escala, deTauri, fuera, posicion, pantalla] = await Promise.all([
       ventana.scaleFactor(),
       ventana.innerSize(),
       ventana.outerSize(),
@@ -192,7 +213,13 @@ async function colocarAlAbrir(quiere: Tamanno, puesto: (t: Tamanno) => void): Pr
     ]);
     // Un Tauri de mentira que contesta null a todo no puede decir cuánto mide nada: mejor no
     // tocar la ventana que pedirle tamaño cero.
-    if (!(escala > 0) || !(dentro?.height > 0) || !(fuera?.height > 0)) return;
+    if (!(escala > 0) || !(deTauri?.height > 0) || !(fuera?.height > 0)) return;
+    // En Linux lo de dentro lo dice la página (`dentroSegunLaPagina`); si aún no mide nada,
+    // vale lo de Tauri, que con la ventana sin enseñar es el tamaño con el que nació.
+    const pagina = corriendoEnLinux() ? dentroSegunLaPagina() : null;
+    const dentro = pagina
+      ? { width: Math.round(pagina.ancho * escala), height: Math.round(pagina.alto * escala) }
+      : deTauri;
     const sitio = colocar({
       quiere,
       escala,
