@@ -9,7 +9,7 @@
  * `out/0.6.0/linux.jpg`, la foto de la escena nueva que sale en `out/0.6.0/index.html`. Con otro
  * nombre que el de la 0.5 (`out/Promo-3-be-happy-clics.mp4`), que no se pisa.
  *
- * Antes de nada mira lo que pide la coordinadora para lo pesado en este PC (BUZON, 20-nov): que el
+ * Antes de nada mira que este PC aguante lo pesado: que el
  * Fedora de WSL esté apagado, que no haya un cargo ni un rustc en marcha y que Windows tenga 10 GB
  * libres o más. Si falla una, para sin renderizar.
  */
