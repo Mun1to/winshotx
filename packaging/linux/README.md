@@ -378,6 +378,77 @@ from this code reading text (what ran inside the one CI built before was a probe
 winshotx), the app with Tesseract 4 (only the command was run there), and text in Chinese,
 Japanese or right-to-left scripts.
 
+## Scrolling capture
+
+`S` in the region picker: select what scrolls, and winshotx scrolls the page down by itself and
+stitches it into one image, which opens in the editor. The stitching and the decision of how far
+to turn the wheel are the same code as on Windows (`capture/scroll.rs`), which never depended on
+the platform. What changes is where the photos come from and who turns the wheel.
+
+**On X11 everything is asked of the X server** (`capture/scroll/linux.rs`): the photos through
+MIT-SHM, the wheel through XTEST (buttons 4 and 5, which the server delivers to whatever is under
+the pointer), and Esc grabbed with `XGrabKey` for as long as the capture lasts. Esc is not
+grabbed through the global shortcut plugin: `global-hotkey` 0.8 asks to release a key without
+waiting for the server, and after a capture Esc stayed grabbed for the whole desktop.
+
+**On Wayland a program can neither read the screen nor touch the pointer**, so both are asked
+of the desktop through the RemoteDesktop portal, with the screen inside the same session
+(`capture/scroll/wayland.rs`, `record/linux/wayland.rs`). The photos are the last frame the
+desktop sent, without the pointer in it. The desktop asks once and the answer is kept in
+`~/.config/com.munir.winshotx/remotedesktop-token` (mode 600), apart from the token of the
+recordings, which only covers the screen.
+
+- **In GNOME's question, "Allow Remote Interaction" is off by default.** Shared without it,
+  winshotx sees the screen but cannot turn the wheel: nothing scrolls by itself, and it
+  stitches whatever the person scrolls. While the desktop is going to ask, the region picker
+  says so before starting ("When the desktop asks, allow remote interaction: without it you
+  will have to scroll it yourself"). A permission without the pointer is never kept: kept, the
+  desktop would not ask again and the page would never scroll by itself, with nothing in
+  winshotx to change it.
+- **Where there is no RemoteDesktop portal** (the wlroots desktops), only the screen is asked
+  for, with the token of the recordings, and the person scrolls.
+- If the question is cancelled, nothing is captured and it is not asked again until the next
+  capture.
+
+**Nothing of ours can be kept out of a photo on Linux**: what is on the screen ends up in the
+image. On X11 the frame goes outside the area and the bar is only shown when it fits entirely
+outside it (never with the whole screen). On Wayland a window does not choose its place, so
+there is no bar and no frame, and Esc belongs to the program in front. How to stop before the
+end is said in the region picker, before starting:
+
+- Esc on X11.
+- The capture key. While a scrolling capture runs, on Linux that key ends it instead of
+  opening another capture on top, and so does `winshotx --capture`, which is that key on the
+  desktops where shortcuts are set by hand.
+- On Wayland, the desktop's own "stop sharing" button (GNOME, KDE).
+
+Stopped early, it keeps what it has so far. It also ends by itself at the end of the page.
+
+What was tried, in virtual sessions on Fedora 44, with synthetic input and a GTK window showing
+a known long page, so that every row of the stitched image could be compared with the page:
+
+- X11 with openbox: it scrolls to the end by itself and the image saved from the editor is the
+  page, row by row; Esc, the capture key and `winshotx --capture` stop it halfway and the image
+  is shorter but right; with the whole screen there is no bar; afterwards the capture key opens
+  a capture as usual and Esc closes it.
+- GNOME 50 on Wayland: the desktop asks; answered with remote interaction allowed, it scrolls
+  to the end by itself and the saved image is the page, row by row; the token is kept with mode
+  600 and is not written to the log; the second capture does not ask, and `winshotx --capture`
+  stops it without opening another capture. Answered without remote interaction, nothing
+  scrolls by itself, the wheel of the person is stitched, no token is kept and the next capture
+  asks again. Cancelled, nothing is captured. Stopped from GNOME's screen sharing indicator, it
+  keeps what it had and opens the editor.
+- GNOME with the RemoteDesktop portal taken away (`XDG_DESKTOP_PORTAL_DIR`), which is what a
+  wlroots desktop looks like: only the screen is asked for, the wheel of the person is
+  stitched, and the second capture does not ask.
+- Next to it, on both: recording a region still works, and it shares the screen code.
+
+Not tried: a real wheel and a real keyboard, a real browser (smooth scrolling, sticky headers,
+pages that load more at the bottom) on Linux, KDE Plasma (its RemoteDesktop question and its
+wheel), Sway and Hyprland themselves, display scaling (the pointer is placed in the desktop's
+logical pixels, which is only covered by a unit test), more than one monitor, and X11 with a
+compositor.
+
 ## How the app identifies itself
 
 On Linux the app presents itself to the desktop as `com.munir.winshotx` (the identifier in
