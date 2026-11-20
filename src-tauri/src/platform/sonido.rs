@@ -11,7 +11,8 @@
 //!
 //! **En Linux suena con el GStreamer del sistema** (`en_linux::tocar`), el mismo que ya
 //! escribe el MP4: `autoaudiosink` elige la salida que haya, sea PipeWire o PulseAudio. Son
-//! los mismos dos sonidos, sin crate nuevo.
+//! los mismos dos sonidos, sin crate nuevo. Y el de una captura va por `obturador_de_captura`,
+//! que calla donde el escritorio ya toca el suyo.
 
 /// El sonido, ya recortado a los tres golpes de un obturador de reflex.
 const CLIC: &[u8] = include_bytes!("../../assets/obturador.wav");
@@ -50,6 +51,23 @@ pub fn obturador() {
             }
         });
     }
+}
+
+/// El obturador de una captura: el de siempre, salvo donde el escritorio ya toca el suyo al
+/// sacar la foto (GNOME en Wayland, `obturador_del_escritorio`). Alli sonarian dos por captura,
+/// y el del escritorio no se puede quitar. En Windows y en X11 es `obturador()` tal cual.
+pub fn obturador_de_captura() {
+    #[cfg(target_os = "linux")]
+    {
+        let ya_suena = super::obturador_del_escritorio::lo_toca_ahora();
+        // Se vuelve a mirar para la proxima: el Shell puede haber llegado despues que la app.
+        super::obturador_del_escritorio::mirar();
+        if ya_suena {
+            eprintln!("[sonido] el obturador de esta captura lo ha puesto el escritorio: el nuestro calla");
+            return;
+        }
+    }
+    obturador();
 }
 
 /// S45 (Linux): sonar con el GStreamer del sistema.

@@ -472,6 +472,11 @@ export interface Plataforma {
   sistema: "windows" | "linux" | "macos";
   /** En Wayland las teclas no las pone winshotx: las elige la persona en el escritorio. */
   wayland: boolean;
+  /**
+   * S45: el escritorio ya toca su obturador cada vez que saca la foto de una captura (GNOME en
+   * Wayland, por el portal), y winshotx no puede callarlo: el nuestro no suena encima.
+   */
+  obturadorDelEscritorio?: boolean;
 }
 
 /**

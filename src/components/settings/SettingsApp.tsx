@@ -434,6 +434,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     cambiarTeclas,
     cambiarTeclaDeRescate,
     sonido,
+    obturadorDelEscritorio: donde.obturadorDelEscritorio ?? false,
     settings,
     patch,
     shortcuts,

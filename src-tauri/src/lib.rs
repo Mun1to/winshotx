@@ -359,6 +359,9 @@ pub fn run() {
             // Si este escritorio ensenna la bandeja, para decir como se para una grabacion.
             #[cfg(target_os = "linux")]
             platform::como_parar::mirar_la_bandeja();
+            // Y si el escritorio toca su obturador al capturar, para no sonar encima.
+            #[cfg(target_os = "linux")]
+            platform::obturador_del_escritorio::mirar();
             // Y si la captura con scroll va a hacer que el escritorio pregunte por el puntero.
             #[cfg(target_os = "linux")]
             capture::scroll::mirar_si_preguntara(app.handle());

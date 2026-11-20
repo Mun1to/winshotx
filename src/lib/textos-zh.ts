@@ -866,6 +866,7 @@ export const ZH: Record<string, string> = {
   "este sistema no da el sonido por PipeWire ni por PulseAudio": "此系统不通过 PipeWire 或 PulseAudio 提供声音",
   "para grabar el sonido falta el paquete gstreamer1.0-plugins-good": "要录制声音，还缺少 gstreamer1.0-plugins-good 软件包",
   "no hay ninguna salida de sonido": "未找到声音输出",
+  "al capturar ya suena el de GNOME": "截图时 GNOME 会播放自带的快门声",
   "no hay ningún micrófono conectado": "未连接麦克风",
   // S44 (Linux, grabar): cómo se para, dicho en la pantalla de elegir zona (`comoParar.ts`).
   "Para parar la grabación, pulsa {atajo}.": "要停止录制，请按 {atajo}。",

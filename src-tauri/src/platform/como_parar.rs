@@ -138,18 +138,19 @@ pub fn mirar_la_bandeja() {
         let Ok(conexion) = zbus::Connection::session().await else {
             return;
         };
-        BANDEJA.store(hay_bandeja(&conexion).await, Ordering::Relaxed);
+        BANDEJA.store(esta_en_el_bus(&conexion, "org.kde.StatusNotifierWatcher").await, Ordering::Relaxed);
     });
 }
 
-async fn hay_bandeja(conexion: &zbus::Connection) -> bool {
+/// Si alguien atiende ese nombre en el bus de la sesion.
+pub(super) async fn esta_en_el_bus(conexion: &zbus::Connection, nombre: &str) -> bool {
     let respuesta = conexion
         .call_method(
             Some("org.freedesktop.DBus"),
             "/org/freedesktop/DBus",
             Some("org.freedesktop.DBus"),
             "NameHasOwner",
-            &("org.kde.StatusNotifierWatcher",),
+            &(nombre,),
         )
         .await;
     let Ok(mensaje) = respuesta else {

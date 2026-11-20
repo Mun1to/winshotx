@@ -168,7 +168,8 @@ fn entregar(app: &AppHandle, imagen: &RgbaImage, region: Rect) {
     // Grabando, sin obturador: se colaria en el sonido del video (16-nov).
     let grabando = app.state::<crate::state::AppState>().is_recording();
     if con_sonido && !grabando {
-        crate::platform::sonido::obturador();
+        // La foto con la que se eligio la zona ya hizo sonar el del escritorio, donde lo haya.
+        crate::platform::sonido::obturador_de_captura();
     }
     let zona = Rect {
         x: region.x,

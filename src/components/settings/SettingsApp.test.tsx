@@ -1134,6 +1134,38 @@ describe("en Linux", () => {
     }
   });
 
+  // S45: en GNOME con Wayland la foto se pide al portal y el escritorio toca SU obturador, que
+  // winshotx no puede callar. El nuestro no suena encima (una captura, un obturador), y la fila
+  // lo dice: si no, con el interruptor apagado sonaría un clic que nadie explica.
+  it("en GNOME con Wayland, la fila del obturador dice que ya suena el del escritorio", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true, obturadorDelEscritorio: true });
+    await abrirAjustes();
+    ir("Después de capturar");
+    await waitFor(() => expect(screen.getByText("al capturar ya suena el de GNOME")).toBeInTheDocument());
+    // El interruptor sigue ahí y se puede tocar: manda en lo que no pasa por el portal.
+    expect(screen.getByRole("switch", { name: "Sonido de obturador" })).not.toBeDisabled();
+  });
+
+  it("la frase del obturador de GNOME sale en inglés y en chino", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true, obturadorDelEscritorio: true });
+    aplicarIdioma("en");
+    await abrirAjustes();
+    ir("After capturing");
+    await waitFor(() =>
+      expect(screen.getByText("GNOME already plays its own when you capture")).toBeInTheDocument(),
+    );
+    act(() => aplicarIdioma("zh"));
+    await waitFor(() => expect(screen.getByText("截图时 GNOME 会播放自带的快门声")).toBeInTheDocument());
+  });
+
+  it("donde el escritorio no toca el suyo (X11, otro escritorio de Wayland, Windows), la fila no dice nada", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    await abrirAjustes();
+    ir("Después de capturar");
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Sonido de obturador" })).toBeInTheDocument());
+    expect(screen.queryByText("al capturar ya suena el de GNOME")).not.toBeInTheDocument();
+  });
+
   // El dibujo de «Así va a salir» cuenta lo que se va a grabar de verdad, no lo que pone en los
   // ajustes: con los interruptores apagados por falta de sonido decía «Con el sonido del PC y
   // tu micrófono».

@@ -98,6 +98,8 @@ export interface DatosAjustes {
   cambiarTeclaDeRescate: () => void;
   /** S44 (Linux): qué sonido se puede grabar aquí. null en Windows y mientras contesta. */
   sonido: SonidoDisponible | null;
+  /** S45: al capturar ya suena el obturador del escritorio (GNOME en Wayland), y el nuestro calla. */
+  obturadorDelEscritorio: boolean;
   settings: Settings;
   patch: (partial: Partial<Settings>) => void;
   shortcuts: ShortcutStatus;
@@ -434,7 +436,7 @@ export function ApartadoCapturar({
 
 /* ------------------------------------------------------------------ Después de capturar */
 
-export function ApartadoDespues({ settings, patch }: DatosAjustes) {
+export function ApartadoDespues({ settings, patch, obturadorDelEscritorio }: DatosAjustes) {
   const t = useT();
   const flujos = FLUJOS.map((o) => ({ ...o, label: t(o.label) }));
   return (
@@ -473,6 +475,8 @@ export function ApartadoDespues({ settings, patch }: DatosAjustes) {
         icon={<Volume2 className="size-4" />}
         label={t("Sonido de obturador")}
         explicacion={t("Un clic de cámara al capturar, como el de una réflex. Sirve para saber que la captura ha salido sin mirar la pantalla. Viene apagado: en una reunión o grabando un tutorial, un sonido que no esperas es peor que ninguno.")}
+        // S45: en GNOME con Wayland el clic de la captura lo pone el escritorio, se quiera o no.
+        hint={obturadorDelEscritorio ? t("al capturar ya suena el de GNOME") : undefined}
         control={
           <Switch
             checked={settings.playSound}
