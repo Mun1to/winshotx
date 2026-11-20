@@ -617,6 +617,8 @@ fn volver(p: &mut impl Pantalla, cosedor: &mut Cosedor, muescas: i32) -> bool {
 }
 
 #[cfg(windows)]
+mod comun;
+#[cfg(windows)]
 mod en_vivo;
 
 /// Empieza a capturar esa zona (en píxeles del escritorio virtual): cierra el overlay,
@@ -625,7 +627,7 @@ mod en_vivo;
 pub async fn scroll_iniciar(app: tauri::AppHandle, region: super::Rect) -> crate::error::Result<()> {
     #[cfg(windows)]
     {
-        en_vivo::iniciar(&app, region)
+        comun::iniciar(&app, region)
     }
     // Fuera de Windows no hay rueda que girar ni pantalla que fotografiar así.
     #[cfg(not(windows))]
@@ -641,14 +643,14 @@ pub async fn scroll_iniciar(app: tauri::AppHandle, region: super::Rect) -> crate
 #[tauri::command]
 pub async fn scroll_terminar() {
     #[cfg(windows)]
-    en_vivo::pedir(en_vivo::TERMINAR);
+    comun::pedir(comun::TERMINAR);
 }
 
 /// Para y lo tira.
 #[tauri::command]
 pub async fn scroll_descartar() {
     #[cfg(windows)]
-    en_vivo::pedir(en_vivo::DESCARTAR);
+    comun::pedir(comun::DESCARTAR);
 }
 
 /// El evento con el que la barra se entera de cómo va la captura.
