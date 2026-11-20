@@ -431,6 +431,9 @@ pub struct LectorVideo {
     /// El fotograma ya sacado del descodificador que todavia no se ha dado: hace falta el
     /// siguiente para saber cuanto dura el de antes.
     pendiente: Option<Cuadro>,
+    /// Donde acaba la pista de video, si el archivo lo dice (el final de su segmento). No es
+    /// lo que dura el archivo: el sonido AAC acaba unos 50 ms despues por su relleno.
+    fin_del_video_ms: Option<u64>,
 }
 
 impl LectorVideo {
@@ -442,7 +445,8 @@ impl LectorVideo {
         pieza::<gst::Element>(&tuberia, "f")?.set_property("location", ruta.to_string_lossy().as_ref());
         let salida: gst_app::AppSink = pieza(&tuberia, "s")?;
         let bus = tuberia.bus().ok_or_else(|| mal("la tuberia no tiene por donde avisar"))?;
-        let este = Self { tuberia, salida, bus, duracion_ms: None, ultimo_ms: 0, pendiente: None };
+        let este =
+            Self { tuberia, salida, bus, duracion_ms: None, ultimo_ms: 0, pendiente: None, fin_del_video_ms: None };
         if este.tuberia.set_state(gst::State::Playing).is_err() {
             let porque = error_de(&este.bus).unwrap_or_else(|| "GStreamer no ha querido empezar".into());
             return Err(mal(format!("ese vídeo no se puede abrir: {porque}")));
@@ -478,8 +482,9 @@ impl Lector for LectorVideo {
                 self.pendiente = Some(despues);
             }
             None => {
-                if let Some(total) = self.duracion_ms.filter(|&total| total > cuadro.desde_ms) {
-                    cuadro.dura_ms = total - cuadro.desde_ms;
+                let fin = self.fin_del_video_ms.or(self.duracion_ms);
+                if let Some(fin) = fin.filter(|&fin| fin > cuadro.desde_ms) {
+                    cuadro.dura_ms = fin - cuadro.desde_ms;
                 }
             }
         }
@@ -522,6 +527,9 @@ impl LectorVideo {
                 .ok_or_else(|| mal("ese vídeo no dice cuánto mide"))
         };
         let (ancho, alto) = (medida("width")?, medida("height")?);
+        if let Some(fin) = muestra.segment().and_then(|s| s.downcast_ref::<gst::ClockTime>()).and_then(|s| s.stop()) {
+            self.fin_del_video_ms = Some(fin.mseconds());
+        }
         let bufer = muestra.buffer().ok_or_else(|| mal("un fotograma ha llegado vacío"))?;
         let desde_ms = bufer.pts().map(|t| t.mseconds()).unwrap_or(self.ultimo_ms);
         let dura_ms = bufer.duration().map(|t| t.mseconds()).filter(|&d| d > 0).unwrap_or(1000 / u64::from(FPS));
