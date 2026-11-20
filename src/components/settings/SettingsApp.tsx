@@ -221,6 +221,22 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     };
   }, [refrescar]);
 
+  // Lo que el aviso no cuenta: Rust solo avisa al encender, al apagar y al rescatar, y al
+  // encenderlo el anillo lleva cero segundos y aún no ha escrito nada. Sin preguntar, la fila
+  // se quedaba en «0 B/s» y «ahora mismo hay 0 s guardados» justo cuando alguien la mira para
+  // ver si funciona. Se pregunta cada segundo, y solo con la ventana delante: escondida o
+  // detrás no la ve nadie, y el anillo corre toda la tarde.
+  useEffect(() => {
+    if (!replay.running) return;
+    const cada = window.setInterval(() => {
+      if (document.visibilityState === "hidden" || !document.hasFocus()) return;
+      void replayStatus()
+        .then((estado) => estado && setReplay(estado))
+        .catch(() => {});
+    }, 1_000);
+    return () => window.clearInterval(cada);
+  }, [replay.running]);
+
   // El ultimo valor conocido, para poder guardar fuera del updater de useState.
   const ultimo = useRef<Settings | null>(null);
   ultimo.current = settings;
