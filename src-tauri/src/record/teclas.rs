@@ -104,9 +104,17 @@ impl Foto {
         foto
     }
 
-    /// Fuera de Windows todavía no se sabe leer el teclado (en X11 sería `XQueryKeymap`; en
-    /// Wayland una app normal no puede): nada pulsado, así que ni atajos ni escritura.
-    #[cfg(not(windows))]
+    /// En Linux con X11 se le pregunta al servidor qué teclas están abajo, de una sola vez, y
+    /// cada una se traduce a su código de Windows (`linux/entrada.rs`). En Wayland una app
+    /// normal no puede leer el teclado: nada pulsado, así que ni atajos ni escritura.
+    #[cfg(target_os = "linux")]
+    pub fn leer() -> Self {
+        let mut foto = Self::default();
+        super::linux::entrada::teclas_abajo(|vk| foto.poner(vk));
+        foto
+    }
+
+    #[cfg(not(any(windows, target_os = "linux")))]
     pub fn leer() -> Self {
         Self::default()
     }

@@ -367,6 +367,19 @@ pub fn fuera_de_la_captura(_window: &tauri::WebviewWindow, _fuera: bool) -> bool
     false
 }
 
+// Fuera de Windows ninguna ventana se puede sacar de lo que se graba, asi que no hay ninguna
+// «fuera del video»: lo que se hace encima de una ventana de winshotx sale en el video igual
+// que la ventana.
+#[cfg(not(windows))]
+pub fn punto_fuera_del_video(_x: i32, _y: i32) -> bool {
+    false
+}
+
+#[cfg(not(windows))]
+pub fn delante_fuera_del_video() -> bool {
+    false
+}
+
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;

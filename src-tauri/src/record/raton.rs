@@ -121,20 +121,36 @@ fn donde() -> Option<(i32, i32)> {
     Some((punto.x, punto.y))
 }
 
-// Fuera de Windows todavía no se sabe leer el ratón (en X11 sería `XQueryPointer`; en Wayland
-// una app normal no puede): sin botones ni sitio, el vigilante no ve clics y no se inventa
-// ninguno.
-#[cfg(not(windows))]
+// En Linux con X11 se le pregunta al servidor (`linux/entrada.rs`), que da de una vez el sitio
+// y los botones. En Wayland una app normal no puede: sin botones ni sitio, el vigilante no ve
+// clics y no se inventa ninguno.
+#[cfg(target_os = "linux")]
+fn pulsado(tecla: i32) -> bool {
+    super::linux::entrada::raton().is_some_and(|raton| match tecla {
+        VK_LBUTTON => raton.izquierdo,
+        VK_RBUTTON => raton.derecho,
+        _ => false,
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn donde() -> Option<(i32, i32)> {
+    super::linux::entrada::raton().map(|raton| (raton.x, raton.y))
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn pulsado(_tecla: i32) -> bool {
     false
 }
 
+// La imagen del puntero no sale de aqui fuera de Windows: en Linux la apunta quien captura
+// (`linux::Rastro`), que la recibe con cada posicion.
 #[cfg(not(windows))]
 pub fn puntero_actual() -> Option<(isize, crate::encode::cursor::Forma)> {
     None
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 fn donde() -> Option<(i32, i32)> {
     None
 }

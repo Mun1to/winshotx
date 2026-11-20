@@ -27,6 +27,7 @@ use crate::capture::Rect;
 use crate::error::Result;
 
 pub mod camara;
+pub mod entrada;
 pub mod sonido;
 pub mod wayland;
 pub mod x11;

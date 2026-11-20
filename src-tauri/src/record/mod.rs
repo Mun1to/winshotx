@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::capture::Rect;
 use crate::error::{AppError, Result};
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 pub mod anotador;
 #[cfg(windows)]
 pub mod camara;

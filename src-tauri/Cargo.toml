@@ -110,6 +110,11 @@ pipewire = "0.10"
 gstreamer = "0.21"
 gstreamer-app = "0.21"
 
+# Solo para las pruebas, y no compila nada nuevo: con XTEST, la prueba de `linux/entrada.rs`
+# le pulsa teclas y botones de mentira a un servidor X de pruebas. No entra en el binario.
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+x11rb = { version = "0.13", features = ["xtest"] }
+
 # El binario tiene que caber en unos pocos MB: nada de simbolos ni unidades sueltas.
 [profile.release]
 opt-level = "s"

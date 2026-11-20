@@ -12,9 +12,14 @@
 //! Se pregunta por el raton y por el teclado en cada fotograma, nunca con un enganche
 //! global: ver `raton.rs` y `teclas.rs`, que explican por que un enganche mal hecho le
 //! deja el escritorio a tirones a quien lo tenga puesto.
+//!
+//! En Linux es el mismo anotador, y solo en X11: el raton y el teclado se los da el servidor
+//! X (`linux/entrada.rs`), y en Wayland una app no puede leerlos. Alli el rastro del raton y
+//! la imagen del puntero no salen de aqui sino de quien captura (`linux::Rastro`).
 
-#![cfg(windows)]
+#![cfg(any(windows, target_os = "linux"))]
 
+#[cfg(windows)]
 use std::collections::HashMap;
 #[cfg(test)]
 use std::sync::atomic::AtomicU64;
@@ -28,7 +33,9 @@ use std::time::Instant;
 use image::RgbaImage;
 use parking_lot::Mutex;
 
-use super::{pastilla, punteros, raton, realce, teclas};
+#[cfg(windows)]
+use super::punteros;
+use super::{pastilla, raton, realce, teclas};
 use crate::capture::Rect;
 use crate::contrato::{MarcaZoom, TramoEscritura};
 use crate::encode::zoom;
@@ -42,6 +49,7 @@ pub struct Anotaciones {
     /// La forma del puntero cada vez que cambia: flecha, barra de texto o manita.
     pub formas: Vec<(u64, u8)>,
     /// Las imagenes de verdad de los punteros que hubo, en el orden en que aparecieron.
+    #[cfg(windows)]
     pub punteros: Vec<punteros::Puntero>,
     /// Cual de ellas estaba puesta y desde cuando. `u32::MAX` es una que no se pudo leer.
     pub cambios_puntero: Vec<(u64, u32)>,
@@ -70,10 +78,13 @@ pub struct Anotador {
     anotaciones: Anotaciones,
     /// La ultima forma vista, para apuntar solo los cambios. Empieza en un valor que no
     /// es ninguna forma, asi el primer fotograma siempre deja la suya escrita.
+    #[cfg(windows)]
     ultima_forma: u8,
     /// El identificador del ultimo cursor visto, y que imagen le corresponde a cada uno
     /// de los que ya se han leido. Leer la imagen cuesta; se hace una vez por cursor.
+    #[cfg(windows)]
     ultimo_asa: isize,
+    #[cfg(windows)]
     ids: HashMap<isize, u32>,
     /// La tecla que deja una marca de zoom, si la hay, y si estaba abajo la vez anterior:
     /// mantenerla pulsada es UNA marca, no sesenta por segundo.
@@ -117,8 +128,11 @@ impl Anotador {
             atajo: None,
             pastillas: pastilla::Cache::default(),
             anotaciones: Anotaciones::default(),
+            #[cfg(windows)]
             ultima_forma: u8::MAX,
+            #[cfg(windows)]
             ultimo_asa: 0,
+            #[cfg(windows)]
             ids: HashMap::new(),
             tecla_zoom: None,
             zoom_abajo: false,
@@ -163,6 +177,7 @@ impl Anotador {
             self.anotaciones.cursor.push((ts_ms, cx - rx, cy - ry));
             self.ultimo_raton = (cx - rx, cy - ry);
         }
+        #[cfg(windows)]
         if let Some((asa, forma)) = raton::puntero_actual() {
             let forma = forma as u8;
             if forma != self.ultima_forma {
@@ -195,6 +210,13 @@ impl Anotador {
             .raton
             .mirar(ts_ms)
             .filter(|c| !crate::platform::window_style::punto_fuera_del_video(c.x, c.y));
+        // En Linux nada se puede sacar del video, y por eso la barra de grabar se pone fuera
+        // de la zona: un clic fuera de la zona (pausar, parar) tampoco es del tutorial.
+        #[cfg(target_os = "linux")]
+        let clic = clic.filter(|c| {
+            let (x, y) = (c.x - rx, c.y - ry);
+            x >= 0 && y >= 0 && x < self.region.width as i32 && y < self.region.height as i32
+        });
         if let Some(clic) = clic {
             self.anotaciones.clics.push(zoom::Clic {
                 ms: clic.ms,
@@ -459,7 +481,11 @@ mod tests {
 
     /// El muestreador mira el raton a su ritmo aunque no llegue ni un fotograma, y sus
     /// tiempos van siempre hacia delante.
+    ///
+    /// Solo en Windows, que siempre tiene un raton que mirar. En Linux hace falta un servidor
+    /// X: lo que se anota con uno de verdad se prueba en `linux/entrada.rs`.
     #[test]
+    #[cfg(windows)]
     fn el_muestreador_apunta_el_raton_sin_fotogramas() {
         let reloj = Reloj {
             start: Instant::now(),
@@ -578,6 +604,7 @@ mod tests {
 
     /// El raton se apunta en coordenadas de la region, no del escritorio.
     #[test]
+    #[cfg(windows)]
     fn el_rastro_del_raton_va_en_coordenadas_de_la_region() {
         let mut anotador = Anotador::new(region(), false, false);
         anotador.mirar(33);

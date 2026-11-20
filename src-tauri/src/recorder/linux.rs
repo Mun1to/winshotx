@@ -173,9 +173,14 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     // Windows, la pantalla y el reloj no arrancan hasta que da su primera imagen, y como
     // mucho `TOPE_DE_LA_CAMARA`: si no la da para entonces se graba igual, y entra cuando
     // llegue. Que venga en `options` (un agente) manda sobre los ajustes.
-    let camara_pedida = {
+    // La tecla de zoom sale de los ajustes y no de `options`, como en Windows: no es de cada
+    // grabacion sino de quien graba.
+    let (tecla_zoom, camara_pedida) = {
         let ajustes = state.settings.read();
-        options.camara.unwrap_or(ajustes.record_camera).then(|| ajustes.camera_device.clone())
+        (
+            record::teclas::TeclaZoom::de_atajo(&ajustes.zoom_shortcut),
+            options.camara.unwrap_or(ajustes.record_camera).then(|| ajustes.camera_device.clone()),
+        )
     };
     let encendida_en = Instant::now();
     let mut camara = camara_pedida.map(|dispositivo| record::camara::Encendida::encender(dispositivo, &dir));
@@ -242,6 +247,18 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         fin_ms.clone(),
     );
     let en_marcha = preparada.grabar(marcha, sender, reciclados.clone());
+    // Los clics, los atajos, la tecla de zoom y los ratos de escritura los apunta el mismo
+    // anotador que en Windows, en su hilo y con el mismo reloj. Solo en X11, que deja
+    // preguntar por el raton y el teclado; en Wayland una app no puede, y la grabacion sale
+    // sin ellos. El rastro del raton y su imagen siguen viniendo de quien captura.
+    let (marcar_clics, marcar_teclas) = (options.highlight_clicks, options.highlight_keys);
+    let muestreador = (!crate::platform::xdg::es_wayland()).then(|| {
+        record::anotador::Muestreador::empezar(
+            record::anotador::Anotador::new(region, marcar_clics, marcar_teclas).con_tecla_zoom(tecla_zoom),
+            record::reloj::Reloj { start: reloj_inicio, paused_ms: paused_ms.clone() },
+            pause.clone(),
+        )
+    });
     // La webcam, ya encendida, empieza a guardar en su archivo con el mismo reloj: lo que
     // saco antes del cero no entra (`camara_comun::Toma`).
     let camara = camara.map(|camara| {
@@ -258,6 +275,9 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
         let (width, height) = (session.width, session.height);
         let mut cache = FrameCache::new(&session.dir)?;
         let mut previa = Previa::abrir(&session.dir, width, height, session.fps);
+        // Los aros de los clics y la pastilla del atajo, si se pidieron al grabar, se pintan
+        // en el fotograma que se guarda (y en la vista previa, que sale de el).
+        let pintor = muestreador.as_ref().filter(|_| marcar_clics || marcar_teclas);
         let mut last_ts = 0u64;
         // El fin no puede depender de que el canal se cierre: con la pantalla quieta no
         // llegan fotogramas y el hilo se quedaria esperando.
@@ -282,6 +302,9 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
                 Err(RecvTimeoutError::Disconnected) => break,
             };
             last_ts = frame.ts_ms;
+            if let Some(pintor) = pintor {
+                pintor.anotador().lock().pintar(&mut frame.rgba, width, height, frame.ts_ms);
+            }
             if cache.push_rgba(&frame.rgba, width, height, frame.ts_ms)? {
                 writer_frames.store(cache.frame_count() as u64, Ordering::Relaxed);
                 writer_bytes.store(cache.bytes_written(), Ordering::Relaxed);
@@ -318,6 +341,20 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
                 ),
                 None => eprintln!("[grabar] sin sonido: no ha llegado nada de PipeWire"),
             }
+        }
+        if let Some(muestreador) = muestreador {
+            let anotaciones = muestreador.terminar();
+            session.clics = anotaciones.clics;
+            session.teclas = anotaciones.teclas;
+            session.marcas_zoom = anotaciones.marcas_zoom;
+            session.escritura = anotaciones.escritura;
+            eprintln!(
+                "[grabar] anotado: {} clics, {} atajos, {} marcas de zoom, {} ratos de escritura",
+                session.clics.len(),
+                session.teclas.len(),
+                session.marcas_zoom.len(),
+                session.escritura.len()
+            );
         }
         let rastro = en_marcha.terminar();
         session.cursor = rastro.cursor;
