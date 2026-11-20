@@ -32,6 +32,9 @@ pub mod sonido;
 pub mod wayland;
 pub mod x11;
 
+#[cfg(test)]
+mod banco_anillo;
+
 /// Un fotograma recien capturado, ya recortado a la region y en RGBA.
 pub struct Fotograma {
     pub rgba: Vec<u8>,
