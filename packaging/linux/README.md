@@ -1,8 +1,20 @@
 # packaging/linux
 
-**winshotx is not released for Linux yet.** There are no official packages and no download. The
-CI builds a .deb, an .rpm and an AppImage on Debian 12 only to test them. This page is for people
-packaging or building the app from source.
+**winshotx for Linux comes out with version 0.6.0**, for x86_64, as a .deb, an .rpm and an
+AppImage. The three files are on the
+[releases page](https://github.com/Mun1to/winshotx/releases/latest):
+
+- **Debian, Ubuntu and their family:** `sudo apt install ./winshotx_0.6.0_amd64.deb`
+- **Fedora:** `sudo dnf install ./winshotx-0.6.0-1.x86_64.rpm`
+- **Anywhere else, the AppImage:** `chmod +x winshotx_0.6.0_amd64.AppImage` and run it. **The
+  AppImage cannot write MP4**: there a recording is saved as a GIF (see "Screen recording"). Where
+  the .deb or the .rpm can be installed, use that one.
+
+`apt` and `dnf` also bring what the packages recommend: the GStreamer plugins that write the MP4
+and Tesseract, which reads the text in an image.
+
+The rest of this page is for people packaging or building the app from source. It says what was
+tried and what was not.
 
 ## Building from source
 
@@ -105,6 +117,13 @@ next to itself and finds none, not even `playbin` or an audio sink: there is no 
 WebKitGTK has nothing to play the preview or the sound tracks with. The export panel says so and
 names the .deb and .rpm packages, instead of a command that would change nothing. GIF, PNG and
 JPG do not go through GStreamer.
+
+**A video that cannot be saved as MP4 opens in the editor.** With "Open the editor when it ends"
+turned off, a recording is saved on its own, with nothing opened. Where no MP4 can be written
+(the AppImage, or a system without the H.264 encoder) a video used to stay in the temporary
+folder: no file, no notice and no way back to it. Now it opens in the editor, whose export panel
+says what is missing and saves it as a GIF. A GIF recording is still saved on its own. The rule
+has its unit tests (`recorder::destino`); it has not been tried with the app yet.
 
 Pointing that core at the system's plugin folder (`GST_PLUGIN_SYSTEM_PATH_1_0`) was measured
 with the AppImage CI built, and winshotx does not do it. It loads the plugins and writes an MP4
@@ -733,6 +752,14 @@ on GNOME 50 (Fedora 44, virtual session): 900x723 on three starts in a row, with
 stretched to 996x771 by dragging its corner, that size is saved and the next two starts open at
 996x771. On X11 (Xvfb with openbox), where the window manager draws the title bar and this never
 failed, the same before and after the change. Not tried: KDE Plasma, display scaling.
+
+**Known issue in 0.6.0: right after an update, the "How it will look" drawing may not appear
+until the mouse moves.** After an update the window opens on "Help and winshotx", a section
+without that drawing. The first click on a section that has it changes the page, and WebKitGTK
+does not paint the change until the next event: moving the mouse over the window is enough, and
+it happens only that once. Seen on X11 and on GNOME on Wayland in the virtual session (Fedora 44,
+WebKitGTK 2.54.2), with the release binary too; not tried on a physical machine. It does not
+happen when the window opens on "Capture", which is every other start, nor on the welcome screen.
 
 ## How the app identifies itself
 
