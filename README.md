@@ -14,7 +14,7 @@ already painted 114 ms after the shortcut with three screens, uses 33 MB of memo
 <a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.svg"><img src=".github/readme/download-windows-light.svg" alt="Download for Windows"></picture></a>
 <a href="https://github.com/Mun1to/winshotx/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-linux-dark.svg"><img src=".github/readme/download-linux-light.svg" alt="Download for Linux"></picture></a>
 <a href="https://winshotx.com/en/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.svg"><img src=".github/readme/download-web-light.svg" alt="Try it in your browser"></picture></a>
-<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Download from the Microsoft Store" height="52"></a>
+<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><picture><source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/en-us%20light.svg"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Download from the Microsoft Store" height="52"></picture></a>
 
 Licence MIT · Windows 10 and 11, and Linux · Installer 3.01 MB
 

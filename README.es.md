@@ -14,7 +14,7 @@ píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selecci�
 <a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.es.svg"><img src=".github/readme/download-windows-light.es.svg" alt="Descargar para Windows"></picture></a>
 <a href="https://github.com/Mun1to/winshotx/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-linux-dark.es.svg"><img src=".github/readme/download-linux-light.es.svg" alt="Descargar para Linux"></picture></a>
 <a href="https://winshotx.com/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.es.svg"><img src=".github/readme/download-web-light.es.svg" alt="Probarla en el navegador"></picture></a>
-<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/es%20dark.svg" alt="Descargar desde Microsoft Store" height="52"></a>
+<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><picture><source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/es%20light.svg"><img src="https://get.microsoft.com/images/es%20dark.svg" alt="Descargar desde Microsoft Store" height="52"></picture></a>
 
 [Licencia MIT](LICENSE) · Windows 10 y 11, y Linux · Instalador 3,01 MB
 
