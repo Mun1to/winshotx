@@ -641,6 +641,23 @@ Not tried: KDE Plasma (its questions and its indicator), Sway and Hyprland thems
 unit tests of the row with the command), a real pointer and a real keyboard, real sound devices,
 more than one monitor, display scaling, and X11 with a compositor.
 
+## The settings window
+
+The settings window always opens at 900x723 unless someone stretches it, and then at the size
+they left it (`src/lib/ventanaFija.ts`). On GNOME Wayland it used to open bigger on every start
+without anyone touching it: 952x822, then 1004x921, then 1056x1020, until it no longer fitted
+the screen. There GTK draws the title bar inside the window itself, with its shadow around it,
+and the inner size Tauri reports, like the one in its resize event, counts both (26 px of shadow
+on each side and 47 of title bar). Just showing the window looked like someone had stretched it,
+so that size was saved and the next start gave it to the page.
+
+On Linux the inner size is now the one the page itself measures, and nothing is saved while the
+page still measures nothing (started with the session, the window is hidden). Tried with the app
+on GNOME 50 (Fedora 44, virtual session): 900x723 on three starts in a row, with nothing saved;
+stretched to 996x771 by dragging its corner, that size is saved and the next two starts open at
+996x771. On X11 (Xvfb with openbox), where the window manager draws the title bar and this never
+failed, the same before and after the change. Not tried: KDE Plasma, display scaling.
+
 ## How the app identifies itself
 
 On Linux the app presents itself to the desktop as `com.munir.winshotx` (the identifier in
@@ -700,6 +717,17 @@ the three it already had and the new one.
   them stored and does not ask), the ring stays on without a key, and a second empty file,
   `atajos-sin-rescate`, keeps later starts from asking for the fourth. "Change" on its row asks
   again, and adding the key removes the file.
+
+**The "How it will look" panel says the key that works.** That panel, on the right of the
+settings, used to write the shortcut kept in the app's own settings, which on Wayland is only
+what winshotx suggests to the desktop: with the row next to it saying "No key", the panel still
+said "Ctrl + Shift + 2 and you pick the area with the mouse". On Wayland it now says the
+desktop's key (as the desktop writes it, when it cannot be read), "No key yet: ask for one with
+«Change»" when the desktop gave none, and the command to bind where shortcuts are set by hand.
+With "Always be recording" off its key has not been asked for and "Change" is disabled, so that
+line says the key is picked when turning it on. Tried on GNOME 50 with the app: the three
+panels without keys (the first question closed), with the keys GNOME gave, and with the ring
+off again. Sway and Hyprland only in the unit tests.
 
 ### Desktops without the GlobalShortcuts portal
 
