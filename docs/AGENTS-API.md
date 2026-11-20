@@ -84,8 +84,10 @@ user folder; if you installed winshotx somewhere else, put that path in `command
 ### Any other MCP client
 
 A local stdio server: the command is the path to `winshotx.exe` and the only argument is `mcp`.
-It speaks MCP revision `2025-06-18` (clients of newer revisions fall back to it), one JSON-RPC
-message per line, and has tools only.
+It speaks both eras of MCP, one JSON-RPC message per line, and has tools only: revision
+`2025-06-18` (and `2024-11-05`) with the `initialize` handshake, and revision `2026-07-28`
+without it, where each request carries `io.modelcontextprotocol/protocolVersion` in its `_meta`
+and `server/discover` answers first. Each request is served in the era it was sent in.
 
 ## The tools
 
