@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
+import cifras from "../cifras.json";
 import { MEDIDAS, OVERLAY } from "./app";
 import { COLOR, FPS, s } from "./casa";
+import { fotosDeLinux } from "./linux";
 import { Camara, type Toma } from "./piezas/Camara";
 import { Cursor } from "./piezas/Cursor";
-import { AJUSTES, Arriba, Centro, Cierre, EDITOR, EnElEditor, EnLosAjustes, centroDelRecorte } from "./piezas/Escenas";
+import { AJUSTES, Arriba, Centro, Cierre, EDITOR, EnElEditor, EnLinux, EnLosAjustes, cajaDeLinux, centroDelRecorte } from "./piezas/Escenas";
 import { Logo } from "./piezas/Logo";
 import { Overlay } from "./piezas/Overlay";
 import { Palabras } from "./piezas/Palabras";
@@ -44,20 +46,32 @@ import { Teclas } from "./piezas/Teclas";
  * `musica.mjs` las mezcla), y la sexta pregunta, Win + Shift + S en Ajustes, va justo después
  * de la del atajo, que es la que la pide.
  */
+/*
+ * La 0.6.0 (20-nov): lo grande es que winshotx ya funciona en Linux (X11 y GNOME con Wayland), y
+ * entra como séptima pregunta, «On Linux?», justo después de las dos del atajo: Win + Shift + S es
+ * de Windows, y la siguiente pregunta es la que se haría alguien de Linux al verlo. Las seis de la
+ * 0.5 se quedan (las eligió él) y el vídeo no pasa de unos 45 s (45,5): la de Linux dura 4 s, como
+ * las cortas, y para hacerle sitio la primera pierde medio segundo (de 7 a 6,5 s, sin tocar el
+ * ratón del overlay), y la de grabar, la del Estudio, la de los últimos segundos y el cierre, entre
+ * medio y un segundo cada una. Los cortes siguen cayendo en golpes de la música, y el logo, en el
+ * mismo golpe de Be Happy (`musica.mjs --desde` corre lo mismo que se corre el logo: 1 s antes).
+ * El cierre dice «For Windows and Linux», y el peso del instalador sale de `cifras.json`.
+ */
 const GOLPES = {
   lento: 0,
   harto: 5,
   hice: 8,
   nombre: 11,
   rapido: 15,
-  atajo: 29,
-  graba: 38,
-  estudio: 48,
-  ultimos: 58,
-  peso: 68,
-  libre: 77,
-  cierre: 82,
-  fin: 90,
+  atajo: 28,
+  linux: 37,
+  graba: 45,
+  estudio: 54,
+  ultimos: 62,
+  peso: 70,
+  libre: 79,
+  cierre: 84,
+  fin: 91,
 };
 export type Tiempos = Record<keyof typeof GOLPES, number>;
 /** Los cortes en fotogramas para una música de `bpm` golpes por minuto. */
@@ -144,11 +158,25 @@ function Raton({ de, a, sale, llega, clic }: { de: { x: number; y: number }; a: 
   );
 }
 
-/** El overlay de la primera pregunta: cuándo aparece y por qué fotograma de su recorrido entra. */
-const Q1 = { aparece: PREGUNTA + s(1.1), desde: OVERLAY.vaAlBoton + 10 };
+/**
+ * El overlay de la primera pregunta: cuándo aparece y por qué fotograma de su recorrido entra. En
+ * la 0.6.0 la escena dura medio segundo menos: aparece 3 fotogramas antes y entra 3 más adelante
+ * en su camino al botón (a su ritmo entero, como antes), y así la barra de debajo del recorte se
+ * sigue viendo entera antes del corte.
+ */
+const Q1 = { aparece: PREGUNTA + s(1.0), desde: OVERLAY.vaAlBoton + 13 };
 
 /** La sexta pregunta: lo que dura sola (lleva más letra que las otras) y cuándo se hace clic. */
 const ATAJO = { sola: s(1.4), llega: s(1.4) + 20, clic: s(1.4) + 22 };
+/**
+ * La cámara de la pregunta de Linux acaba con este zoom, y mirando a la altura que deja el borde de
+ * arriba de la pantalla en el mismo sitio que al empezar (y = 540 + (borde − y) · z = borde).
+ */
+const ZOOM_LINUX = 1.08;
+const ARRIBA_LINUX = (() => {
+  const borde = cajaDeLinux(1920, 1080).y;
+  return borde + (540 - borde) / ZOOM_LINUX;
+})();
 /** El interruptor de «Take Win+Shift+S», apagado, en el escenario (su centro). */
 const INTERRUPTOR = (() => {
   const r = MEDIDAS.teclas.no.interruptor;
@@ -159,7 +187,8 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
   const frame = useCurrentFrame();
   const T = tiempos(bpm);
   // Cada corte, un whoosh con su pico justo en el corte, y nunca el mismo dos veces seguidas.
-  const cortes = [T.rapido, T.atajo, T.graba, T.estudio, T.ultimos, T.peso, T.libre];
+  const cortes = [T.rapido, T.atajo, T.linux, T.graba, T.estudio, T.ultimos, T.peso, T.libre];
+  const linux = fotosDeLinux();
   const whoosh = ["whoosh-1", "whoosh-2", "whoosh-3", "whoosh-4"] as const;
   // Los niveles, medidos con el mismo script que los vídeos de fuera (`musica.mjs` sube la pista
   // entera 4 dB): las teclas, los clics, el obturador y el interruptor quedan a la altura del
@@ -301,6 +330,31 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
         />
       </Sequence>
 
+      {/* 7. ¿Y en Linux? La novedad de la 0.6.0: la app de verdad en GNOME con Wayland y, si hay
+          foto, en X11 después. Lo que dice es lo que hay: GNOME con Wayland, no «Wayland» a secas
+          (en KDE con Wayland no funciona todavía). */}
+      <Sequence from={T.linux} durationInFrames={T.graba - T.linux}>
+        <Pregunta
+          texto="On Linux?"
+          dura={T.graba - T.linux}
+          respuesta="Yes. X11 and *GNOME on Wayland*"
+          app={
+            <EnLinux
+              fotos={linux}
+              dura={T.graba - T.linux}
+              cambia={Math.round((PREGUNTA + PASO + (T.graba - T.linux - PASO)) / 2)}
+              tomas={[
+                { f: 0, x: 960, y: 540, z: 1 },
+                // Se acerca poco (las fotos son de 1920 x 1080 a escala 1 y más cerca se emborronan)
+                // y apuntando un poco por encima del centro, para que el borde de arriba de la
+                // pantalla, con la barra de GNOME, no suba hasta debajo de la respuesta.
+                { f: T.graba - T.linux, x: 960, y: ARRIBA_LINUX, z: ZOOM_LINUX },
+              ]}
+            />
+          }
+        />
+      </Sequence>
+
       {/* 2. ¿Graba? El editor entero, su línea de tiempo y la pestaña GIF. */}
       <Sequence from={T.graba} durationInFrames={T.estudio - T.graba}>
         <Pregunta
@@ -368,7 +422,7 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
         </Sequence>
         <Sequence from={PREGUNTA}>
           <Centro y={-50}>
-            <Palabras texto="*3.01 MB* to install" tam={104} cada={3} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
+            <Palabras texto={`*${cifras.pesoInstalador} MB* to install`} tam={104} cada={3} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
           </Centro>
           <Centro y={80}>
             <Palabras texto="33 MB of memory while it runs" entra={s(0.7)} cada={3} tam={50} peso={500} color={COLOR.suave} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
@@ -386,7 +440,7 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
         </Centro>
       </Sequence>
       <Sequence from={T.cierre}>
-        <Cierre linea="For Windows 10 and 11" />
+        <Cierre linea="For Windows and Linux" />
       </Sequence>
       <Efectos lista={sonidos} />
       {/* Un fundido a negro en el último segundo, para que el bucle de Reddit no salte en seco. */}

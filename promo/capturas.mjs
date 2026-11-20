@@ -5,6 +5,13 @@
  *   (en la raíz del repo)  pnpm build                   una vez: el banco fotografía ese bundle
  *   (aquí, en promo/)      node capturas.mjs            todo
  *                          node capturas.mjs overlay    solo una parte (escritorio, overlay, editor, ajustes)
+ *                          node capturas.mjs --raiz=<carpeta>   la app, el banco y la web de otro árbol
+ *                                                       (el de la versión que sale, con su dist/ compilado)
+ *
+ * El peso del instalador vive en UN sitio, `cifras.json`: el vídeo lo dice con ese número y la
+ * guía de la web que se fotografía de fondo se pone a ese mismo número antes de la foto (la web
+ * puede ir por detrás del instalador que se acaba de compilar). Si cambia, se rehacen las fotos
+ * (`node capturas.mjs`), el vídeo (`node render.mjs Promo`) y la mezcla (`node musica.mjs`).
  *
  * Deja en `public/app/` (fuera de git: se rehace en un par de minutos):
  *   escritorio.png         la «pantalla» que se congela: la guía de winshotx.com en inglés
@@ -29,15 +36,23 @@ import { join, extname, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
-const raiz = resolve(aqui, "..");
+const raizPedida = process.argv.find((a) => a.startsWith("--raiz="))?.slice("--raiz=".length);
+const raiz = raizPedida ? resolve(raizPedida) : resolve(aqui, "..");
 const web = join(raiz, "frontlaxweb");
 const banco = join(raiz, "scripts", "ver-ventana.mjs");
 const salida = join(aqui, "public", "app");
-
-if (!existsSync(join(raiz, "dist", "index.html"))) {
-  console.error("no hay dist/: corre antes `pnpm build` en la raíz (el banco fotografía ese bundle)");
+const { pesoInstalador } = JSON.parse(await readFile(join(aqui, "cifras.json"), "utf8"));
+if (!/^\d+\.\d\d$/.test(pesoInstalador)) {
+  console.error(`cifras.json: pesoInstalador tiene que ser como "3.01" (MB, con dos decimales), y es "${pesoInstalador}"`);
   process.exit(1);
 }
+
+if (!existsSync(join(raiz, "dist", "index.html"))) {
+  console.error(`no hay ${join(raiz, "dist")}: corre antes \`pnpm build\` en ese árbol (el banco fotografía ese bundle)`);
+  process.exit(1);
+}
+const version = JSON.parse(await readFile(join(raiz, "package.json"), "utf8")).version;
+console.log(`fotografío ${raiz} (versión ${version}), con el instalador a ${pesoInstalador} MB`);
 
 /** La pantalla de mentira, en píxeles de CSS, y cuántos píxeles de verdad hay por cada uno:
     a 2 la cámara del vídeo puede acercarse al doble sin que se emborrone nada. */
@@ -131,6 +146,17 @@ try {
     // ?motion=off: nada a medio entrar en la foto.
     await p.goto(`${urlWeb}/en/docs/?motion=off`, { waitUntil: "load" });
     await p.evaluate(() => document.fonts.ready);
+    // El peso que dice la guía, al de `cifras.json` (el mismo que dice el vídeo).
+    const pesos = await p.evaluate((peso) => {
+      const vistos = [];
+      const paseo = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = paseo.nextNode(); n; n = paseo.nextNode()) {
+        n.nodeValue = n.nodeValue.replace(/\b\d+\.\d\d MB\b/g, (viejo) => (vistos.push(viejo), `${peso} MB`));
+      }
+      return vistos;
+    }, pesoInstalador);
+    if (pesos.length === 0) throw new Error("la guía ya no dice el peso del instalador («N.NN MB»): mira qué enseña ahora");
+    console.log(`la guía decía ${[...new Set(pesos)].join(", ")}; en la foto, ${pesoInstalador} MB`);
     await p.waitForTimeout(500);
     medidas.boton = await p.evaluate(() => {
       const el = document.querySelector('[data-demo="boton"]');
