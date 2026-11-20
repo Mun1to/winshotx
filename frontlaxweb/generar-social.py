@@ -115,7 +115,12 @@ def tarjeta(destinos, titulo1, titulo2, bajada, datos, app):
     grande = fuente("segoeuib.ttf", tam)
     d.text((62, 190), titulo1, font=grande, fill=(255, 255, 255))
     d.text((62, 190 + tam * 1.12), titulo2, font=grande, fill=AZUL)
-    d.text((64, 190 + tam * 2.45), bajada, font=fuente("segoeui.ttf", 26), fill=(170, 170, 182))
+    # La bajada, igual: desde la 0.6.0 dice «Windows and Linux» y a 26 px se metía debajo de la ventana.
+    tam_bajada = 26
+    while tam_bajada > 20 and d.textlength(bajada, font=fuente("segoeui.ttf", tam_bajada)) > hueco:
+        tam_bajada -= 1
+    assert d.textlength(bajada, font=fuente("segoeui.ttf", tam_bajada)) <= hueco, "la bajada no cabe"
+    d.text((64, 190 + tam * 2.45), bajada, font=fuente("segoeui.ttf", tam_bajada), fill=(170, 170, 182))
 
     # Las cifras, cada una a su ancho y con su raya en medio.
     fv, fq = fuente("segoeuib.ttf", 40), fuente("segoeui.ttf", 23)
@@ -137,7 +142,7 @@ def tarjeta(destinos, titulo1, titulo2, bajada, datos, app):
 tarjeta(
     ["social.png", "social-en.png"],
     "Crop the screen", "before you blink",
-    "Screenshots, videos and GIFs for Windows",
+    "Screenshots, videos and GIFs for Windows and Linux",
     [("114 ms", "to show it"),
      ("3.01 MB", "installer"),
      ("Free", "open source")],

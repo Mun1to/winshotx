@@ -43,7 +43,7 @@
   h.classList.toggle("quieto", gain === 0);
 })();
 </script>
-<link rel="stylesheet" href="../../estilos.css?v=22675198">
+<link rel="stylesheet" href="../../estilos.css?v=bf66aa15">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -129,7 +129,7 @@
       "name": "Does it work on macOS or Linux?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Not yet: today it is for Windows 10 and 11 only."
+        "text": "On Linux, yes, since version 0.6.0: with X11 or with GNOME on Wayland, as a .deb, an .rpm or an AppImage, which does not save MP4 video. Not on macOS yet."
       }
     }
   ]
@@ -229,6 +229,8 @@
       <a class="btn dos" href="https://github.com/Mun1to/winshotx/releases">All versions</a>
     </div>
     </div>
+    <p class="tienda"><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener"><img class="insignia-clara" src="../../img/microsoft-store/en-us-light.svg" width="161" height="44" alt="Download from the Microsoft Store"><img class="insignia-oscura" src="../../img/microsoft-store/en-us-dark.svg" width="161" height="44" alt="Download from the Microsoft Store"></a></p>
+    <p>On Linux it runs with X11 and with GNOME on Wayland. From the <a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">latest version on GitHub</a>, take the .deb for Debian and Ubuntu, the .rpm for Fedora or the AppImage for the rest. <b>The AppImage does not save MP4 video</b>, only GIF, PNG and JPG: for MP4, the .deb or the .rpm. What changes on Linux is on <a href="https://github.com/Mun1to/winshotx/blob/main/packaging/linux/README.md" rel="noopener">its own page</a>.</p>
     <p>It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the <code>^</code> arrow on the taskbar.</p>
     <p>It updates itself. When a new version is out, the bottom bar of <b>Settings</b> shows a button for it, and one click downloads it, installs it and restarts the app. Every download is signed and the signature is checked before anything is installed, so a tampered file is rejected.</p>
     <p>The first time it opens on its own with four steps: the shortcuts, how you prefer to capture, whether the <kbd>Print Screen</kbd> key should open winshotx instead of the Snipping Tool, and whether it should start with Windows. You can see it again in <b>Settings → The app → Welcome</b>.</p>
@@ -453,7 +455,7 @@
       </details>
       <details>
         <summary><h3>Does it work on macOS or Linux?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>Not yet: today it is for Windows 10 and 11 only.</p></div>
+        <div class="faq-cajon"><p>On Linux, yes, since version 0.6.0: with X11 or with GNOME on Wayland, as a .deb, an .rpm or an AppImage, which does not save MP4 video. Not on macOS yet.</p></div>
       </details>
     </div>
   </section>
@@ -468,12 +470,13 @@
     <div class="pie-rejilla">
       <div class="quien">
         <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
-        <p>Screenshots and screen recording for Windows. Free, open source and with no account.</p>
+        <p>Screenshots and screen recording for Windows and Linux. Free, open source and with no account.</p>
       </div>
       <div>
         <h2 class="pie-titulo">Product</h2>
         <ul>
-          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download for Windows</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Download for Linux</a></li>
           <li><a href="../changelog/">What's new</a></li>
           <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
           <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Portable version</a></li>

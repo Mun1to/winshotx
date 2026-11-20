@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>winshotx · screenshots and screen recording for Windows</title>
+<title>winshotx · screenshots and screen recording for Windows and Linux</title>
 <meta name="description" content="Free and open source alternative to the Windows Snipping Tool: region capture, GIF and MP4 recording and an editor with a timeline and a studio. Shows the selection already painted 114 ms after the shortcut, with three screens, and uses 33 MB. A 3.01 MB installer, no account and no cloud.">
 <link rel="canonical" href="https://winshotx.com/en/">
 <link rel="alternate" hreflang="es" href="https://winshotx.com/">
@@ -17,14 +17,14 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="es_ES">
 <meta property="og:url" content="https://winshotx.com/en/">
-<meta property="og:title" content="winshotx · screenshots and screen recording for Windows">
+<meta property="og:title" content="winshotx · screenshots and screen recording for Windows and Linux">
 <meta property="og:description" content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB, records GIF and ships an editor. 3.01 MB, open source.">
 <meta property="og:image" content="https://winshotx.com/social-en.png?v=4">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="winshotx: 114 ms against the Snipping Tool's 920 ms">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="winshotx · screenshots and screen recording for Windows">
+<meta name="twitter:title" content="winshotx · screenshots and screen recording for Windows and Linux">
 <meta name="twitter:description" content="The Snipping Tool takes 920 ms and 253 MB. This one shows it already painted in 114 ms with three screens and uses 33 MB. 3.01 MB, open source.">
 <meta name="twitter:image" content="https://winshotx.com/social-en.png?v=4">
 <link rel="icon" href="../favicon.ico?v=2" sizes="any">
@@ -48,7 +48,7 @@
   h.classList.toggle("suave", gain > 0 && gain < 1);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=22675198">
+<link rel="stylesheet" href="../estilos.css?v=bf66aa15">
 <link rel="preload" as="image" href="../img/escritorio-en.webp?v=7de614b5">
 <script type="application/ld+json">
 {
@@ -56,12 +56,12 @@
   "@type": "SoftwareApplication",
   "name": "winshotx",
   "alternateName": "Snipping Tool alternative for Windows",
-  "description": "Free and open source screenshot and screen recording tool for Windows. Region, window and scrolling capture with a pixel magnifier, GIF and MP4 recording with system audio, microphone and webcam, and an editor with zooms, backgrounds and automatic redaction. Shows the selection already painted 114 ms after the shortcut with three screens and uses 33 MB of memory.",
+  "description": "Free and open source screenshot and screen recording tool for Windows and Linux. Region, window and scrolling capture with a pixel magnifier, GIF and MP4 recording with system audio, microphone and webcam, and an editor with zooms, backgrounds and automatic redaction. Shows the selection already painted 114 ms after the shortcut with three screens and uses 33 MB of memory.",
   "url": "https://winshotx.com/en/",
   "applicationCategory": "MultimediaApplication",
   "applicationSubCategory": "Screen capture",
-  "operatingSystem": "Windows 10, Windows 11",
-  "softwareVersion": "0.5.2",
+  "operatingSystem": "Windows 10, Windows 11, Linux",
+  "softwareVersion": "0.6.0",
   "fileSize": "3.01 MB",
   "downloadUrl": "https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe",
   "installUrl": "https://github.com/Mun1to/winshotx/releases/latest",
@@ -108,10 +108,10 @@
     },
     {
       "@type": "Question",
-      "name": "Which versions of Windows does it run on?",
+      "name": "Which systems does it run on?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Windows 10 (version 1903 or later) and Windows 11."
+        "text": "Windows 10 (version 1903 or later), Windows 11 and, since version 0.6.0, Linux, with X11 or with GNOME on Wayland: a .deb for Debian and Ubuntu, an .rpm for Fedora and an AppImage for the rest, which does not save MP4 video. Not on macOS yet."
       }
     },
     {
@@ -408,15 +408,21 @@
 <header class="portada" data-cruceta>
   <div class="env">
     <h1>Crop the screen <em>before you blink</em></h1>
-    <p class="bajada">Screenshots, videos and GIFs for Windows, with an editor that gets them ready to show. <b>Free, no account and no cloud.</b></p>
+    <p class="bajada">Screenshots, videos and GIFs for Windows and Linux, with an editor that gets them ready to show. <b>Free, no account and no cloud.</b></p>
     <div class="botones">
       <a class="btn uno" href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><svg aria-hidden="true"><use href="#i-download"/></svg><span>Download for Windows</span></a>
       <a class="btn dos" href="#demo">Try it right here</a>
     </div>
     <p class="nota">3.01 MB installer · Windows 10 and 11 · or from the terminal: <code>winget install Mun1to.winshotx</code></p>
-    <!-- La Microsoft Store desde el 7 de septiembre de 2026 y el portable, que es lo que busca
-         quien no quiere instalar nada: un ejecutable suelto, con los ajustes igual. -->
-    <p class="nota">Also on the <a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a>, or with nothing to install: the <a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">portable version</a></p>
+    <!-- La Microsoft Store desde el 7 de septiembre de 2026, con su insignia oficial («Descargar desde
+         Microsoft Store»): los SVG de get.microsoft.com/images, sin tocar, en img/microsoft-store/. Microsoft
+         pide no estirarla, no cambiarle el color y dejarle aire, y la quiere en la primera pantalla.
+         Su propio componente pone la clara con el tema oscuro y la oscura con el claro, y aquí igual. -->
+    <p class="tienda"><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener"><img class="insignia-clara" src="../img/microsoft-store/en-us-light.svg" width="161" height="44" alt="Download from the Microsoft Store"><img class="insignia-oscura" src="../img/microsoft-store/en-us-dark.svg" width="161" height="44" alt="Download from the Microsoft Store"></a></p>
+    <!-- Linux desde la 0.6.0, y el portable, que es lo que busca quien no quiere instalar nada: un
+         ejecutable suelto, con los ajustes igual. Los paquetes de Linux llevan la versión en el nombre
+         (winshotx_0.6.0_amd64.deb), así que no hay un enlace fijo a cada uno: van a la última versión. -->
+    <p class="nota linux">For Linux, with X11 or GNOME on Wayland: <a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">.deb, .rpm or AppImage</a> (the AppImage does not save MP4) · or the <a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">portable version</a> for Windows, with nothing to install</p>
 
     <!-- Las notas giradas de los lados (las pidió Munito el 14-nov): lo que tiene winshotx que
          no tienen las otras, en tono de fan y escrito a mano. Todo lo que dicen es verdad: el
@@ -700,7 +706,7 @@
     <!-- Las cinco pestañas de la 0.4.6, con sus mismas filas y sus mismos atajos de serie. -->
     <div class="marco" id="p-set" role="tabpanel" hidden>
       <header class="cab-set">
-        <span class="ver-set">Version 0.5.2</span>
+        <span class="ver-set">Version 0.6.0</span>
         <nav class="pes-set" role="tablist">
           <button class="viva" data-set="s-cap">Capture</button>
           <button data-set="s-gra">Record</button>
@@ -930,7 +936,7 @@
           <section class="tarjeta">
             <h3>About</h3>
             <div class="fila">
-              <span class="txt"><svg class="ico-fila"><use href="#i-info"/></svg><span><span>winshotx <b data-version>0.5.2</b></span><small>winshotx.com</small></span></span>
+              <span class="txt"><svg class="ico-fila"><use href="#i-info"/></svg><span><span>winshotx <b data-version>0.6.0</b></span><small>winshotx.com</small></span></span>
               <span class="botoncitos"><button>The website</button></span></div>
             <div class="fila">
               <span class="txt"><svg class="ico-fila"><use href="#i-coffee"/></svg><span><span>Buy me a coffee</span><small>buymeacoffee.com/munito</small></span></span>
@@ -1082,6 +1088,11 @@
     <!-- novedades:desde (lo escribe generar-novedades.mjs a partir de versiones.json) -->
     <div class="novedades-portada">
       <article class="novedad">
+        <p class="cuando">Versions 0.5.2 to 0.6.0 · 20 November 2026</p>
+        <h3><a href="changelog/#v0-6-0">winshotx comes to Linux</a></h3>
+        <p><b>winshotx runs on Linux</b>, with X11 and with GNOME on Wayland: area capture, the editor, GIF and MP4 recording with sound and webcam, scrolling capture, reading text, the last few seconds and AI agents. It installs from the .deb (Debian and Ubuntu), the .rpm (Fedora) or the AppImage.</p>
+      </article>
+      <article class="novedad">
         <p class="cuando">Versions 0.5.1 to 0.5.2 · 16 November 2026</p>
         <h3><a href="changelog/#v0-5-2">No blank box when you stop recording</a></h3>
         <p><b>Stopping a recording no longer leaves a blank box</b> where the tray menu or the corner thumbnail last was.</p>
@@ -1090,11 +1101,6 @@
         <p class="cuando">Versions 0.5.0 to 0.5.1 · 16 November 2026</p>
         <h3><a href="changelog/#v0-5-1">Capture while recording and across two screens</a></h3>
         <p><b>Take a shot while recording</b>: with a recording running, the capture shortcut opens the selection, and neither the selection nor the thumbnail shows up in the video.</p>
-      </article>
-      <article class="novedad">
-        <p class="cuando">Versions 0.4.8 to 0.5.0 · 15 November 2026</p>
-        <h3><a href="changelog/#v0-5-0">Everything redesigned: settings, editor and welcome</a></h3>
-        <p><b>New settings</b>: a rail of icons on the left, one section at a time and, on the right, a live drawing of how what you change will turn out.</p>
       </article>
     </div>
     <!-- novedades:hasta -->
@@ -1120,8 +1126,8 @@
         <div class="faq-cajon"><p>No. It never asks for an account, sends nothing to any cloud, and works offline; the only moment it talks to the internet is to check for a new version.</p></div>
       </details>
       <details>
-        <summary><h3>Which versions of Windows does it run on?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p>Windows 10 (version 1903 or later) and Windows 11.</p></div>
+        <summary><h3>Which systems does it run on?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
+        <div class="faq-cajon"><p>Windows 10 (version 1903 or later), Windows 11 and, since version 0.6.0, Linux, with X11 or with GNOME on Wayland: a .deb for Debian and Ubuntu, an .rpm for Fedora and an AppImage for the rest, which does not save MP4 video. Not on macOS yet.</p></div>
       </details>
       <details>
         <summary><h3>Which languages is the app in?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
@@ -1226,7 +1232,7 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Snipping Tool: no</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Snipping Tool: no</span></div></li>
             </ul>
-          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; and draws arrows, text and numbered steps.</p>
+          <p class="frente-mas"><b>And also:</b> runs on Linux; captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; and draws arrows, text and numbered steps.</p>
           </div>
           <div>
             <h3 class="frente-sub">Where the Snipping Tool wins</h3>
@@ -1254,9 +1260,9 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>Xbox Game Bar: no</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>Xbox Game Bar: no</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Xbox Game Bar: no</span></div></li>
-              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-scroll"/></svg><div><b>Captures a long page, scrolling by itself</b><span>Xbox Game Bar: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Runs on Linux</b><span>Xbox Game Bar: no</span></div></li>
             </ul>
-          <p class="frente-mas"><b>And also:</b> reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; draws arrows, text and numbered steps; needs no account; and captures an area of the screen.</p>
+          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; draws arrows, text and numbered steps; needs no account; and captures an area of the screen.</p>
           </div>
           <div>
             <h3 class="frente-sub">Where Xbox Game Bar wins</h3>
@@ -1284,6 +1290,7 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-terminal"/></svg><div><b>An AI agent can drive it</b><span>ShareX: no; it has a command line</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>ShareX: no, by hand</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>ShareX: no</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Runs on Linux</b><span>ShareX: no</span></div></li>
             </ul>
           </div>
           <div>
@@ -1314,7 +1321,7 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Greenshot: does not record</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Greenshot: no</span></div></li>
             </ul>
-          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone.</p>
+          <p class="frente-mas"><b>And also:</b> runs on Linux; captures a long page, scrolling by itself; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone.</p>
           </div>
           <div>
             <h3 class="frente-sub">Where Greenshot wins</h3>
@@ -1350,11 +1357,11 @@
             <h3 class="frente-sub">Where Flameshot wins</h3>
             <ul class="frente-lista pierde">
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>Flameshot: 43 languages; winshotx, 3</span></div></li>
-              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>Flameshot: Mac and Linux</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Runs on Mac</b><span>Flameshot: Mac</span></div></li>
             </ul>
           </div>
         </div>
-        <p class="frente-empatan"><b>Both:</b> pin a shot on top of everything; arrows, text and numbered steps; and capture an area.</p>
+        <p class="frente-empatan"><b>Both:</b> pin a shot on top of everything; arrows, text and numbered steps; capture an area; and run on Linux.</p>
         <div class="botones frente-pagina"><a class="btn dos" href="flameshot-alternative/">Compare with Flameshot</a></div>
       </div>
       <div class="frente" id="frente-screentogif">
@@ -1374,7 +1381,7 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>ScreenToGif: no</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>ScreenToGif: no</span></div></li>
             </ul>
-          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; reads the text in an image, and in a video; puts your webcam on top of the video; draws arrows, text and numbered steps; records MP4 video; records PC sound and the microphone; and captures an area of the screen.</p>
+          <p class="frente-mas"><b>And also:</b> runs on Linux; captures a long page, scrolling by itself; reads the text in an image, and in a video; puts your webcam on top of the video; draws arrows, text and numbered steps; records MP4 video; records PC sound and the microphone; and captures an area of the screen.</p>
           </div>
           <div>
             <h3 class="frente-sub">Where ScreenToGif wins</h3>
@@ -1411,12 +1418,12 @@
             <h3 class="frente-sub">Where OBS Studio wins</h3>
             <ul class="frente-lista pierde">
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>OBS Studio: 57 languages; winshotx, 3</span></div></li>
-              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>OBS Studio: Mac and Linux</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Runs on Mac</b><span>OBS Studio: Mac</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-video"/></svg><div><b>Streams live</b><span>OBS Studio: yes</span></div></li>
             </ul>
           </div>
         </div>
-        <p class="frente-empatan"><b>Both:</b> the last seconds, without pressing record; your webcam on top; record MP4 video; and PC sound and microphone.</p>
+        <p class="frente-empatan"><b>Both:</b> the last seconds, without pressing record; your webcam on top; record MP4 video; PC sound and microphone; and run on Linux.</p>
         <div class="botones frente-pagina"><a class="btn dos" href="obs-studio-alternative/">Compare with OBS</a></div>
       </div>
       <div class="frente" id="frente-lightshot">
@@ -1436,12 +1443,12 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Lightshot: does not record</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Lightshot: no</span></div></li>
             </ul>
-          <p class="frente-mas"><b>And also:</b> captures a long page, scrolling by itself; reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone.</p>
+          <p class="frente-mas"><b>And also:</b> runs on Linux; captures a long page, scrolling by itself; reads the text in an image, and in a video; records GIF; puts your webcam on top of the video; records MP4 video; and records PC sound and the microphone.</p>
           </div>
           <div>
             <h3 class="frente-sub">Where Lightshot wins</h3>
             <ul class="frente-lista pierde">
-              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>Lightshot: Mac</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Runs on Mac</b><span>Lightshot: Mac</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>Lightshot: public on prnt.sc</span></div></li>
             </ul>
           </div>
@@ -1466,7 +1473,7 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-shield-check"/></svg><div><b>Covers the personal data in an image by itself</b><span>PicPick: no, by hand</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>PicPick: no</span></div></li>
             </ul>
-          <p class="frente-mas"><b>And also:</b> pins a shot on top of everything and reads the text in an image, and in a video.</p>
+          <p class="frente-mas"><b>And also:</b> pins a shot on top of everything; runs on Linux; and reads the text in an image, and in a video.</p>
           </div>
           <div>
             <h3 class="frente-sub">Where PicPick wins</h3>
@@ -1496,13 +1503,13 @@
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-rewind"/></svg><div><b>Keeps the last seconds without pressing record</b><span>Snagit: no</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-pin"/></svg><div><b>Pins a shot on top of everything</b><span>Snagit: no</span></div></li>
             </ul>
-          <p class="frente-mas"><b>And also:</b> needs no account.</p>
+          <p class="frente-mas"><b>And also:</b> runs on Linux and needs no account.</p>
           </div>
           <div>
             <h3 class="frente-sub">Where Snagit wins</h3>
             <ul class="frente-lista pierde">
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-languages"/></svg><div><b>Speaks more languages</b><span>Snagit: 6 languages; winshotx, 3</span></div></li>
-              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Also runs on Mac or Linux</b><span>Snagit: Mac</span></div></li>
+              <li><svg aria-hidden="true" class="frente-ic"><use href="#i-monitor"/></svg><div><b>Runs on Mac</b><span>Snagit: Mac</span></div></li>
               <li><svg aria-hidden="true" class="frente-ic"><use href="#i-link-2"/></svg><div><b>Uploads the shot and gives you a link</b><span>Snagit: yes</span></div></li>
             </ul>
           </div>
@@ -1534,12 +1541,13 @@
     <div class="pie-rejilla">
       <div class="quien">
         <a class="logo-nombre" href="./" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
-        <p>Screenshots and screen recording for Windows. Free, open source and with no account.</p>
+        <p>Screenshots and screen recording for Windows and Linux. Free, open source and with no account.</p>
       </div>
       <div>
         <h2 class="pie-titulo">Product</h2>
         <ul>
-          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download for Windows</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Download for Linux</a></li>
           <li><a href="changelog/">What's new</a></li>
           <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
           <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Portable version</a></li>

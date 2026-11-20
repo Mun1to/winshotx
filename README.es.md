@@ -12,10 +12,11 @@ píxel, **grabación en GIF y MP4** y un editor con estudio. Enseña la selecci�
 3,01 MB. Sin cuenta, sin nube, sin telemetría y sin FFmpeg empaquetado.
 
 <a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-windows-dark.es.svg"><img src=".github/readme/download-windows-light.es.svg" alt="Descargar para Windows"></picture></a>
+<a href="https://github.com/Mun1to/winshotx/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-linux-dark.es.svg"><img src=".github/readme/download-linux-light.es.svg" alt="Descargar para Linux"></picture></a>
 <a href="https://winshotx.com/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/readme/download-web-dark.es.svg"><img src=".github/readme/download-web-light.es.svg" alt="Probarla en el navegador"></picture></a>
-<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/es%20dark.svg" alt="Microsoft Store" height="52"></a>
+<a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z"><img src="https://get.microsoft.com/images/es%20dark.svg" alt="Descargar desde Microsoft Store" height="52"></a>
 
-[Licencia MIT](LICENSE) · Windows 10 y 11 · Instalador 3,01 MB
+[Licencia MIT](LICENSE) · Windows 10 y 11, y Linux · Instalador 3,01 MB
 
 [Comparar con la Herramienta de Recortes](#herramienta-de-recortes-contra-winshotx) · [Última versión](https://github.com/Mun1to/winshotx/releases/latest) · [English](README.md)
 
@@ -184,6 +185,15 @@ Vive en la bandeja del sistema, sin ventana propia: si no la ves, mira detrás d
 
 **Se actualiza sola.** Cuando sale una versión nueva, los ajustes enseñan un botón, y con un clic se descarga, se instala y reinicia la app. Cada descarga va firmada y la firma se comprueba antes de instalar nada, así que un archivo manipulado se rechaza.
 
+**En Linux**, con X11 o con GNOME en Wayland, cada versión desde la 0.6.0 trae tres paquetes en
+[Releases](../../releases/latest):
+
+- **.deb** para Debian y Ubuntu: `sudo apt install ./winshotx_<versión>_amd64.deb`
+- **.rpm** para Fedora: `sudo dnf install ./winshotx-<versión>-1.x86_64.rpm`
+- **AppImage** para los demás: `chmod +x winshotx_<versión>_amd64.AppImage` y ábrelo. **No guarda vídeo MP4**, solo GIF, PNG y JPG: para MP4, el .deb o el .rpm.
+
+El .deb y el .rpm escriben el MP4 con el GStreamer del sistema. Si le falta su codificador de H.264 (Ubuntu sin `gstreamer1.0-plugins-bad`), el panel de exportar lo dice y da la orden que lo instala. Lo que cambia en Linux, y qué se ha probado dónde, está en [packaging/linux](packaging/linux/README.md), en inglés.
+
 ## Para agentes de IA
 
 Un agente de IA (Claude Code, Codex, Cursor o cualquier otro cliente de MCP) puede manejar winshotx
@@ -244,8 +254,9 @@ interfaz, ventanas que no se pueden crear desde el hilo de un atajo global, una 
 el instalador, una ventana que pide un tamaño sin permiso para pedirlo, y la clave de firma que se pasa
 de una forma y no de otra.
 
-**Solo Windows.** Funciona en Windows 10 1903 o posterior, y todo lo que toca el sistema va detrás de
-`#[cfg(windows)]`.
+**Windows y Linux.** Funciona en Windows 10 1903 o posterior y, desde la 0.6.0, en Linux con X11 o
+con GNOME en Wayland. Todo lo que toca el sistema va detrás de `#[cfg(windows)]` o de
+`#[cfg(target_os = "linux")]`; lo que cambia en Linux está en [packaging/linux](packaging/linux/README.md), en inglés.
 
 <details>
 <summary><b>Desarrollo</b></summary>

@@ -1,6 +1,43 @@
 {
   "versiones": [
     {
+      "version": "0.6.0",
+      "desde": "0.5.2",
+      "fecha": "2026-11-20",
+      "es": {
+        "titulo": "winshotx llega a Linux",
+        "puntos": [
+          "**winshotx funciona en Linux**, con X11 y con GNOME en Wayland: capturar una zona, el editor, grabar en GIF y MP4 con sonido y cámara, la captura con scroll, leer el texto, los últimos segundos y los agentes de IA. Se instala con el .deb (Debian y Ubuntu), el .rpm (Fedora) o el AppImage.",
+          "**El AppImage no guarda MP4**: no lleva dentro con qué escribirlo. Para vídeo MP4, el .deb o el .rpm; el GIF, el PNG y el JPG salen igual en los tres.",
+          "**En Wayland, los vídeos van sin los clics ni las teclas**: el escritorio no deja que otro programa los vea. En X11 salen como en Windows.",
+          "**La T lee el texto de las capturas con scroll muy largas**, que pasaban del tamaño que acepta el lector de Windows, y también el de una selección de un solo renglón.",
+          "**Tapar datos cubre el dato aunque el lector vea el texto torcido**, en las imágenes y en los vídeos. Y si una imagen no se puede abrir para leer su texto, lo dice claro, en tu idioma.",
+          "**Al desinstalar, Windows recupera Impr Pant y Win+Mayús+S**: Impr Pant vuelve a la Herramienta de Recortes, y la búsqueda con Win+S vuelve al cerrar sesión. Actualizar no las toca, y apagar Win+Mayús+S después de coger Impr Pant ya devuelve Win+S.",
+          "**La versión de la Microsoft Store no se queda con Impr Pant ni con Win+Mayús+S**, porque Windows no se lo deja: los ajustes y la bienvenida lo dicen claro y te llevan a winshotx.com.",
+          "**«Grabar siempre lo último» ya no acaba en una imagen congelada** ni pierde los clics de una pantalla quieta: cada captura que hacías con él encendido le adelantaba el reloj medio segundo.",
+          "**La pastilla de los atajos del vídeo sale en el idioma de la app**, y no siempre en español.",
+          "**El servidor MCP habla también la revisión 2026-07-28**, además de la 2025-06-18.",
+          "**En la pantalla de captura**, los errores y el color copiado salen debajo de la barra, cada captura sale en el idioma de tus ajustes, y una captura que se abría sin su foto se cierra sola. **En el editor**, el aviso se lee en el tema claro y «Tapado» dice los datos en el idioma de la app."
+        ]
+      },
+      "en": {
+        "titulo": "winshotx comes to Linux",
+        "puntos": [
+          "**winshotx runs on Linux**, with X11 and with GNOME on Wayland: area capture, the editor, GIF and MP4 recording with sound and webcam, scrolling capture, reading text, the last few seconds and AI agents. It installs from the .deb (Debian and Ubuntu), the .rpm (Fedora) or the AppImage.",
+          "**The AppImage does not save MP4**: it carries nothing to write it with. For MP4 video, use the .deb or the .rpm; GIF, PNG and JPG come out the same in all three.",
+          "**On Wayland, videos have no clicks or keys**: the desktop does not let another program see them. On X11 they come out as on Windows.",
+          "**T reads the text of very long scrolling captures**, which were bigger than the Windows text reader accepts, and of a selection of a single line too.",
+          "**Covering data covers it even when the reader sees the text as skewed**, in images and in videos. And when an image cannot be opened to read its text, it says so plainly, in your language.",
+          "**Uninstalling gives Windows its Print Screen and Win+Shift+S back**: Print Screen goes back to the Snipping Tool, and Win+S search comes back after you sign out. Updating leaves them alone, and turning Win+Shift+S off after taking Print Screen now gives Win+S back.",
+          "**The Microsoft Store version does not take Print Screen or Win+Shift+S**, because Windows does not let it: the settings and the welcome screen say so plainly and send you to winshotx.com.",
+          "**\"Always be recording\" no longer ends on a frozen frame** or misses the clicks on a still screen: every capture taken with it on pushed its clock half a second ahead.",
+          "**The shortcut pill in videos comes out in the app's language**, not always in Spanish.",
+          "**The MCP server also speaks revision 2026-07-28**, as well as 2025-06-18.",
+          "**On the capture screen**, errors and the copied colour show below the bar, each capture comes out in the language of your settings, and a capture that opened without its picture closes by itself. **In the editor**, the notice is readable on the light theme and \"Covered up\" names the data in the app's language."
+        ]
+      }
+    },
+    {
       "version": "0.5.2",
       "desde": "0.5.1",
       "fecha": "2026-11-16",

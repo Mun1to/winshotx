@@ -157,6 +157,17 @@ export const FILAS = [
       screentogif: M("Como fotograma", "As a frame"), obs: M("Una fuente o la escena", "A source or the scene"), lightshot: S(), picpick: S(), snagit: S() },
   },
   {
+    // Hasta la 0.6.0 era una sola fila, «También en Mac o Linux», y la ganaban las otras. Desde la
+    // 0.6.0 winshotx funciona en Linux, así que Linux va aquí, con lo que gana winshotx, y Mac
+    // abajo, con lo que gana la otra. Los valores de las otras son los de aquella fila, comprobados
+    // el 15 de noviembre: Flameshot y OBS, en Mac y en Linux; Lightshot y Snagit, solo en Mac.
+    id: "linux", es: "Funcionar en Linux", en: "Run on Linux",
+    vende: { es: "Funciona en Linux", en: "Runs on Linux" },
+    icono: "i-monitor",
+    v: { wx: S("X11 y GNOME con Wayland", "X11 and GNOME on Wayland"), recortes: N(), gamebar: N(), sharex: N(), greenshot: N(), flameshot: S(), screentogif: N(), obs: S(),
+      lightshot: N(), picpick: N(), snagit: N() },
+  },
+  {
     // No va en las listas: son las dos cifras grandes de cada pestaña.
     id: "instalador", es: "Instalador", en: "Installer",
     v: { wx: NUM("3,01 MB", "3.01 MB"), recortes: NUM("Viene con Windows", "Comes with Windows"), gamebar: NUM("Viene con Windows", "Comes with Windows"), sharex: NUM("145 MB"), greenshot: NUM("4 MB"),
@@ -178,10 +189,11 @@ export const FILAS = [
       obs: S("57", "57"), lightshot: NV, picpick: S("Más de 3", "More than 3"), snagit: S("6", "6") },
   },
   {
-    id: "sistemas", pierde: true, es: "También en Mac o Linux", en: "Also on Mac or Linux",
-    vende: { es: "Funciona también en Mac o en Linux", en: "Also runs on Mac or Linux" },
+    // Mac: lo que queda de la fila «También en Mac o Linux» de antes de la 0.6.0 (Linux, arriba).
+    id: "mac", pierde: true, es: "Funcionar en Mac", en: "Run on Mac",
+    vende: { es: "Funciona en Mac", en: "Runs on Mac" },
     icono: "i-monitor",
-    v: { wx: N(), recortes: N(), gamebar: N(), sharex: N(), greenshot: N(), flameshot: S("Mac y Linux", "Mac and Linux"), screentogif: N(), obs: S("Mac y Linux", "Mac and Linux"),
+    v: { wx: N(), recortes: N(), gamebar: N(), sharex: N(), greenshot: N(), flameshot: S("Mac", "Mac"), screentogif: N(), obs: S("Mac", "Mac"),
       lightshot: S("Mac", "Mac"), picpick: N(), snagit: S("Mac", "Mac") },
   },
   {
