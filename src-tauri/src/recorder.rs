@@ -1039,6 +1039,42 @@ fn cerrar_esta_barra(app: &AppHandle, barra: Option<&str>) {
     }
 }
 
+/// A donde va una grabacion ya terminada.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Destino {
+    /// Al editor.
+    Editor,
+    /// Directa a la carpeta de siempre, sin abrir nada.
+    Carpeta,
+}
+
+/// A donde va una grabacion ya terminada.
+///
+/// Con el editor apagado en los ajustes se guarda sola. Menos un video en un equipo que no
+/// puede escribir MP4 (en Linux, cuando falta el codificador de H.264 del sistema; en un
+/// AppImage, casi siempre): ahi guardarla fallaba, y la grabacion se quedaba en la carpeta
+/// temporal, sin archivo, sin aviso y sin forma de volver a ella. Esa va al editor, que dice
+/// que falta y deja guardarla como GIF. `hay_mp4` solo se mira cuando decide algo.
+fn destino(abrir_editor: bool, formato: &str, hay_mp4: impl FnOnce() -> bool) -> Destino {
+    if abrir_editor || (formato != "gif" && !hay_mp4()) {
+        Destino::Editor
+    } else {
+        Destino::Carpeta
+    }
+}
+
+/// Si este equipo puede escribir un MP4. En Windows, siempre.
+fn hay_mp4() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        crate::encode::gst::codificadores().video.is_some()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        true
+    }
+}
+
 /// Lo que pasa con la grabacion ya terminada: al editor, o directa a la carpeta.
 ///
 /// Corre en un hilo neutral: tocar ventanas desde el hilo del atajo bloquea el bucle de
@@ -1051,7 +1087,10 @@ fn entregar(app: &AppHandle, session: SessionData, open_editor: bool, barra: Opt
         .insert(session.id.clone(), session.clone());
     cerrar_esta_barra(app, barra);
 
-    if open_editor {
+    if destino(open_editor, &session.format, hay_mp4) == Destino::Editor {
+        if !open_editor {
+            eprintln!("[grabar] este equipo no puede escribir MP4: la grabación se abre en el editor");
+        }
         // Al lado del que haya: puede ser una foto hecha durante esta misma grabación.
         if let Err(error) = al_editor(app, &session, true) {
             eprintln!("no se ha podido abrir el editor: {error}");
@@ -1625,6 +1664,41 @@ mod pruebas_del_arranque {
         assert!(Arrancando::tomar().is_none(), "una segunda ha arrancado encima de la primera");
         drop(primera);
         assert!(Arrancando::tomar().is_some(), "acabada la primera, ya se puede");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_del_destino {
+    use super::*;
+
+    /// Con el editor apagado, un video en un equipo que no puede escribir MP4 (un AppImage, un
+    /// Ubuntu sin el codificador) no se puede guardar solo: va al editor, que lo dice. Antes
+    /// se quedaba en la carpeta temporal, sin archivo y sin aviso.
+    #[test]
+    fn sin_editor_un_video_que_no_se_puede_guardar_en_mp4_va_al_editor() {
+        assert_eq!(destino(false, "mp4", || false), Destino::Editor);
+    }
+
+    /// Lo de siempre no cambia: con el editor apagado se guarda sola si hay MP4, y un GIF
+    /// siempre, que no pasa por ningun codificador del sistema.
+    #[test]
+    fn sin_editor_se_guarda_sola_lo_que_se_puede_guardar() {
+        assert_eq!(destino(false, "mp4", || true), Destino::Carpeta);
+        assert_eq!(destino(false, "gif", || false), Destino::Carpeta);
+    }
+
+    /// Con el editor encendido va al editor, y ni se mira que codificadores hay (mirarlo
+    /// escribe un MP4 de prueba).
+    #[test]
+    fn con_editor_va_al_editor_sin_mirar_los_codificadores() {
+        assert_eq!(destino(true, "mp4", || unreachable!("no hace falta mirarlo")), Destino::Editor);
+        assert_eq!(destino(true, "gif", || unreachable!("no hace falta mirarlo")), Destino::Editor);
+    }
+
+    /// Un GIF con el editor apagado tampoco los mira.
+    #[test]
+    fn un_gif_no_mira_los_codificadores() {
+        assert_eq!(destino(false, "gif", || unreachable!("no hace falta mirarlo")), Destino::Carpeta);
     }
 }
 
