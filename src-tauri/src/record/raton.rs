@@ -27,8 +27,19 @@ impl Vigilante {
     /// Solo el momento de BAJAR cuenta: mientras se mantiene pulsado no se dibujan aros
     /// nuevos, que si no un arrastre de dos segundos dejaria sesenta aros encima.
     pub fn mirar(&mut self, ms: u64) -> Option<Clic> {
-        let izquierdo = pulsado(VK_LBUTTON);
-        let derecho = pulsado(VK_RBUTTON);
+        let (izquierdo, derecho) = botones();
+        self.mirar_botones(izquierdo, derecho, ms, donde)
+    }
+
+    /// La regla, aparte de la lectura: lo mismo que [`Vigilante::mirar`] con los botones ya
+    /// leidos y el sitio por pedir, para poder probarla con un raton de mentira.
+    pub fn mirar_botones(
+        &mut self,
+        izquierdo: bool,
+        derecho: bool,
+        ms: u64,
+        donde: impl FnOnce() -> Option<(i32, i32)>,
+    ) -> Option<Clic> {
         let nuevo = (izquierdo && !self.izquierdo) || (derecho && !self.derecho);
         let era_derecho = derecho && !self.derecho;
         self.izquierdo = izquierdo;
@@ -44,6 +55,11 @@ impl Vigilante {
             derecho: era_derecho,
         })
     }
+}
+
+/// Los dos botones ahora mismo: el izquierdo y el derecho.
+pub fn botones() -> (bool, bool) {
+    (pulsado(VK_LBUTTON), pulsado(VK_RBUTTON))
 }
 
 const VK_LBUTTON: i32 = 0x01;

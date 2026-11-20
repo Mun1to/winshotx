@@ -189,7 +189,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         return Ok(status(app));
     }
 
-    let (segundos, fps, alto_pedido, pedida, quiere_audio, quiere_micro, con_cursor) = {
+    let (segundos, fps, alto_pedido, pedida, quiere_audio, quiere_micro, con_cursor, rescate) = {
         let settings = state.settings.read();
         (
             settings.replay_seconds.clamp(SEGUNDOS_MIN, SEGUNDOS_MAX),
@@ -201,6 +201,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
             settings.record_audio,
             settings.record_microphone,
             settings.capture_cursor,
+            record::teclas::TeclaZoom::de_atajo(&settings.replay_shortcut),
         )
     };
     let monitor = pantalla_elegida(pedida)?;
@@ -266,6 +267,8 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
     let bytes = Arc::new(AtomicU64::new(0));
     let escritos = Arc::new(AtomicU64::new(0));
     let grabado_ms = Arc::new(AtomicU64::new(0));
+    // El cero del reloj de los fotogramas, el mismo para la captura y para la cocina.
+    let inicio = Instant::now();
 
     let hilo = {
         let app = app.clone();
@@ -273,6 +276,7 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
         let bytes = bytes.clone();
         let escritos = escritos.clone();
         let grabado_ms = grabado_ms.clone();
+        let (apartado, apartado_ms) = (pause.clone(), paused_ms.clone());
         std::thread::spawn(move || {
             let ventana_ms = u64::from(segundos) * 1000;
             let anillo = match Anillo::nuevo(
@@ -288,7 +292,26 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 }
             };
             let mut cocina = Cocina {
-                app,
+                // Coser treinta segundos tarda lo suyo, y mientras tanto el anillo tiene que
+                // seguir tragando fotogramas: si se parara, el hueco caeria justo en los
+                // segundos siguientes a lo que alguien acaba de guardar.
+                servir: Box::new(move |encargo| {
+                    let app = app.clone();
+                    std::thread::spawn(move || {
+                        if let Err(error) = servir(&app, encargo) {
+                            eprintln!("[replay] no se ha podido montar la sesión: {error}");
+                        }
+                    });
+                }),
+                reloj: record::anotador::Reloj { start: inicio, paused_ms: apartado_ms.clone() },
+                vigia: Vigia::empezar(
+                    Box::new(SentidosDeVerdad::default()),
+                    record::anotador::Reloj { start: inicio, paused_ms: apartado_ms },
+                    apartado,
+                    region,
+                    escala(region, destino),
+                    rescate,
+                ),
                 anillo,
                 audio_anillo: audio.as_ref().map(|captura| {
                     let info = AudioInfo {
@@ -300,15 +323,10 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
                 clics: Vec::new(),
                 teclas: Vec::new(),
                 cursor: Vec::new(),
-                vigilante: record::raton::Vigilante::default(),
-                teclado: record::teclas::Vigilante::default(),
-                region,
                 region_guardada,
-                destino,
                 fps,
                 ventana_ms,
                 con_cursor,
-                desde_la_limpieza: 0,
                 reciclados: reciclados_cocina,
                 imagen: crate::record::buffer::ImagenDelAnillo::nueva(region.width, region.height, destino),
             };
@@ -337,7 +355,8 @@ pub fn start(app: &AppHandle) -> Result<ReplayStatus> {
             pause: pause.clone(),
             paused_ms: paused_ms.clone(),
             min_interval_ms: 0,
-            start: Instant::now(),
+            // El mismo cero que la cocina: el «ahora» de rescatar y los clics van con este reloj.
+            start: inicio,
             reciclados,
             // S29: el anillo pide solo lo que cambia. Ver `Cocina::tragar`.
             solo_cambios: true,
@@ -455,25 +474,175 @@ pub fn save(app: &AppHandle) -> Result<()> {
         .map_err(|_| AppError::Msg("el anillo se ha parado".into()))
 }
 
+/// De donde lee el anillo el raton y el teclado. En la app es el sistema (`SentidosDeVerdad`);
+/// en las pruebas, uno de mentira que pulsa cuando se le dice.
+#[cfg(windows)]
+trait Sentidos: Send {
+    /// Los dos botones ahora mismo: el izquierdo y el derecho.
+    fn botones(&mut self) -> (bool, bool);
+    /// Donde esta el puntero, en coordenadas del escritorio virtual.
+    fn donde(&mut self) -> Option<(i32, i32)>;
+    /// El teclado ahora mismo.
+    fn teclado(&mut self) -> record::teclas::Foto;
+}
+
+/// El raton y el teclado de verdad.
+#[cfg(windows)]
+#[derive(Default)]
+struct SentidosDeVerdad {
+    lector: record::teclas::Lector,
+}
+
+#[cfg(windows)]
+impl Sentidos for SentidosDeVerdad {
+    fn botones(&mut self) -> (bool, bool) {
+        record::raton::botones()
+    }
+    fn donde(&mut self) -> Option<(i32, i32)> {
+        record::raton::cursor()
+    }
+    fn teclado(&mut self) -> record::teclas::Foto {
+        self.lector.leer()
+    }
+}
+
+/// Cuanto encoge un punto de la pantalla al guardarlo, en ancho y en alto.
+///
+/// Todo lo que se anota va YA en la escala a la que se guarda. Guardar a 720p desde una
+/// pantalla de 1080p y anotar el clic en coordenadas de 1080 dejaria la camara acercandose a
+/// un sitio que no es, y el puntero dibujado fuera de la pantalla.
+fn escala(region: Rect, destino: Option<(u32, u32)>) -> (f32, f32) {
+    match destino {
+        None => (1.0, 1.0),
+        Some((w, h)) => (w as f32 / region.width.max(1) as f32, h as f32 / region.height.max(1) as f32),
+    }
+}
+
+/// Los clics, los atajos y el rastro del raton que el `Vigia` ha visto y la cocina no ha
+/// recogido todavia, ya en la escala a la que se guarda.
+#[cfg(windows)]
+#[derive(Default)]
+struct Visto {
+    clics: Vec<crate::encode::zoom::Clic>,
+    teclas: Vec<record::teclas::Atajo>,
+    cursor: Vec<(u64, i32, i32)>,
+}
+
+/// El hilo que mira el raton y el teclado mientras el anillo graba.
+///
+/// Tiene hilo propio, como el `Muestreador` de grabar (y el `Vigia` de Linux), porque antes
+/// se miraba solo al llegar un fotograma, y con la pantalla quieta no llega ninguno: un clic
+/// sin nada que cambiara en pantalla no existia, y el puntero dibujado se quedaba quieto. Y
+/// con la pantalla entera cambiando, guardar un fotograma tarda mas que un clic rapido.
+#[cfg(windows)]
+struct Vigia {
+    visto: Arc<parking_lot::Mutex<Visto>>,
+    parar: Arc<AtomicBool>,
+    hilo: Option<JoinHandle<()>>,
+}
+
+#[cfg(windows)]
+impl Vigia {
+    /// Empieza a mirar. `escala` lleva un punto de la pantalla al tamanno al que se guarda, y
+    /// `rescate` es la tecla que rescata: es de winshotx, no de lo que se estaba haciendo, y
+    /// no se apunta como atajo (si no, cada rescate acabaria con su propia pastilla).
+    fn empezar(
+        mut sentidos: Box<dyn Sentidos>,
+        reloj: record::anotador::Reloj,
+        apartado: Arc<AtomicBool>,
+        region: Rect,
+        (fx, fy): (f32, f32),
+        rescate: Option<record::teclas::TeclaZoom>,
+    ) -> Self {
+        let visto = Arc::new(parking_lot::Mutex::new(Visto::default()));
+        let parar = Arc::new(AtomicBool::new(false));
+        let hilo = {
+            let (visto, parar) = (visto.clone(), parar.clone());
+            std::thread::spawn(move || {
+                let x_en = |x: i32| ((x - region.x) as f32 * fx).round() as i32;
+                let y_en = |y: i32| ((y - region.y) as f32 * fy).round() as i32;
+                let mut raton = record::raton::Vigilante::default();
+                let mut teclado = record::teclas::Vigilante::default();
+                loop {
+                    std::thread::sleep(record::anotador::CADA);
+                    if parar.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    // Apartado no se mira: los fotogramas tampoco llegan, y el reloj descuenta
+                    // lo apartado al soltarlo, asi que un punto de en medio iria hacia atras.
+                    if apartado.load(Ordering::Relaxed) {
+                        continue;
+                    }
+                    let ms = reloj.ms();
+                    let donde = sentidos.donde();
+                    let (izquierdo, derecho) = sentidos.botones();
+                    let clic = raton.mirar_botones(izquierdo, derecho, ms, || donde);
+                    let foto = sentidos.teclado();
+                    let es_rescate = rescate.as_ref().is_some_and(|tecla| tecla.pulsada(&foto));
+                    let atajo = teclado.mirar_foto(&foto, ms).filter(|_| !es_rescate);
+                    let mut visto = visto.lock();
+                    if let Some((x, y)) = donde {
+                        visto.cursor.push((ms, x_en(x), y_en(y)));
+                    }
+                    if let Some(clic) = clic {
+                        visto.clics.push(crate::encode::zoom::Clic {
+                            ms: clic.ms,
+                            x: x_en(clic.x),
+                            y: y_en(clic.y),
+                            derecho: clic.derecho,
+                        });
+                    }
+                    if let Some(atajo) = atajo {
+                        // Un atajo no tiene sitio propio: va donde este el raton.
+                        let (x, y) = donde.unwrap_or((region.x, region.y));
+                        visto.teclas.push(record::teclas::Atajo { x: x_en(x), y: y_en(y), ..atajo });
+                    }
+                }
+            })
+        };
+        Self { visto, parar, hilo: Some(hilo) }
+    }
+
+    /// Lo visto desde la ultima vez, que pasa a ser de quien lo recoge.
+    fn recoger(&self) -> Visto {
+        std::mem::take(&mut *self.visto.lock())
+    }
+}
+
+#[cfg(windows)]
+impl Drop for Vigia {
+    fn drop(&mut self) {
+        self.parar.store(true, Ordering::Relaxed);
+        if let Some(hilo) = self.hilo.take() {
+            let _ = hilo.join();
+        }
+    }
+}
+
 /// El hilo que alimenta el anillo y lo cosecha.
 struct Cocina {
-    app: AppHandle,
+    /// Que se hace con lo rescatado. En la app, coserlo y abrirlo en el editor (`servir`, en
+    /// otro hilo); en las pruebas, quedarselo. Va como funcion y no como `AppHandle` para que
+    /// las pruebas no arrastren las ventanas de Tauri (y con ellas comctl32 v6, que impide
+    /// arrancar el ejecutable de pruebas: ver la memoria del banco de Tauri).
+    servir: Box<dyn FnMut(Encargo) + Send>,
+    /// El reloj de los fotogramas: el mismo de `record::win`, lo transcurrido menos lo
+    /// apartado. El «ahora» de rescatar se cuenta con este y no con uno propio.
+    #[cfg(windows)]
+    reloj: record::anotador::Reloj,
+    /// Quien mira el raton y el teclado, en su hilo y a su ritmo.
+    #[cfg(windows)]
+    vigia: Vigia,
     anillo: Anillo,
     audio_anillo: Option<(AudioInfo, AnilloAudio)>,
     clics: Vec<crate::encode::zoom::Clic>,
     teclas: Vec<record::teclas::Atajo>,
     cursor: Vec<(u64, i32, i32)>,
-    vigilante: record::raton::Vigilante,
-    teclado: record::teclas::Vigilante,
-    region: Rect,
-    /// La misma region pero con el tamanno al que se guarda, que es el que ve el editor.
+    /// La region que se graba con el tamanno al que se guarda, que es el que ve el editor.
     region_guardada: Rect,
-    /// A que tamanno se guarda cada fotograma, si no es el de la pantalla.
-    destino: Option<(u32, u32)>,
     fps: u32,
     ventana_ms: u64,
     con_cursor: bool,
-    desde_la_limpieza: u32,
     /// Por donde vuelven los bufers a la captura. Ver `win::Reciclados`.
     #[cfg(windows)]
     reciclados: crate::record::win::Reciclados,
@@ -500,10 +669,10 @@ impl Cocina {
     ) {
         use std::time::Duration;
 
-        let arranque = Instant::now();
         let mut ultimo_ts = 0u64;
         let mut perdidos = 0u64;
         let mut avisado = 0u64;
+        let mut podado_ms = 0u64;
         loop {
             // Las ordenes se atienden ANTES de esperar fotograma: con la pantalla quieta
             // no llega ninguno, y quien pulsa la tecla no puede quedarse esperando a que
@@ -515,7 +684,11 @@ impl Cocina {
                 piden = true;
             }
             if piden {
-                let ahora = arranque.elapsed().as_millis() as u64;
+                // Con el reloj de los fotogramas, que descuenta lo apartado. Con uno propio,
+                // cada captura abierta con el anillo encendido adelantaba este «ahora» medio
+                // segundo: el rescate perdia ese trozo por delante y acababa congelado.
+                let ahora = self.reloj.ms();
+                self.recoger();
                 if let Err(error) = self.cosechar(ahora.max(ultimo_ts)) {
                     // Aqui NO se dice que el anillo se ha parado, porque no se ha parado:
                     // sigue grabando y la siguiente pulsacion puede ir bien. Lo que falla
@@ -577,7 +750,29 @@ impl Cocina {
             if let Some(captura) = audio {
                 self.tragar_sonido(captura);
             }
+
+            // Lo que ha visto el vigia se recoge y lo viejo se tira cada pocos segundos, lleguen
+            // fotogramas o no: con la pantalla quieta toda la tarde, el rastro del raton
+            // creceria sin que nadie lo podara.
+            let ahora = self.reloj.ms();
+            if ahora >= podado_ms + 5_000 {
+                podado_ms = ahora;
+                self.recoger();
+                let corte = ahora.saturating_sub(self.ventana_ms + crate::record::buffer::SEGMENTO_MS);
+                self.cursor.retain(|(ms, _, _)| *ms >= corte);
+                self.clics.retain(|clic| clic.ms >= corte);
+                self.teclas.retain(|atajo| atajo.ms >= corte);
+            }
         }
+    }
+
+    /// Se trae lo que el `Vigia` ha visto desde la ultima vez.
+    #[cfg(windows)]
+    fn recoger(&mut self) {
+        let visto = self.vigia.recoger();
+        self.clics.extend(visto.clics);
+        self.teclas.extend(visto.teclas);
+        self.cursor.extend(visto.cursor);
     }
 
     #[cfg(not(windows))]
@@ -593,68 +788,15 @@ impl Cocina {
     ) {
     }
 
-    /// Guarda la pantalla como esta (ya puesta al dia por `imagen.recibir`) y anota donde
-    /// estaba el raton, los clics y los atajos en ese instante.
+    /// Guarda la pantalla como esta (ya puesta al dia por `imagen.recibir`). Donde estaba el
+    /// raton, los clics y los atajos los apunta el `Vigia`, que no espera a los fotogramas.
     #[cfg(windows)]
     fn tragar(&mut self, ts_ms: u64) {
-        // Todo lo que se anota va YA en la escala a la que se guarda. Guardar a 720p desde
-        // una pantalla de 1080p y anotar el clic en coordenadas de 1080 dejaria la camara
-        // acercandose a un sitio que no es, y el puntero dibujado fuera de la pantalla.
-        let (x_en, y_en) = self.escalar_punto();
-
-        // Se anota lo mismo que en una grabacion normal (donde se pulso, que atajo y donde
-        // estaba el raton) para que el editor pueda acercar la camara y dibujar el puntero
-        // despues. Son doce bytes por clic: no se decide antes lo que se va a querer luego.
-        if let Some((cx, cy)) = record::raton::cursor() {
-            self.cursor
-                .push((ts_ms, x_en(cx - self.region.x), y_en(cy - self.region.y)));
-        }
-        if let Some(clic) = self.vigilante.mirar(ts_ms) {
-            self.clics.push(crate::encode::zoom::Clic {
-                ms: clic.ms,
-                x: x_en(clic.x - self.region.x),
-                y: y_en(clic.y - self.region.y),
-                derecho: clic.derecho,
-            });
-        }
-        if let Some(atajo) = self.teclado.mirar(ts_ms) {
-            self.teclas.push(record::teclas::Atajo {
-                x: x_en(atajo.x - self.region.x),
-                y: y_en(atajo.y - self.region.y),
-                ..atajo
-            });
-        }
-
         if let Err(error) = self.imagen.guardar(&mut self.anillo, ts_ms) {
             eprintln!("[replay] fotograma perdido: {error}");
         }
-
-        // Las anotaciones tambien se tiran cuando se salen de la ventana: un anillo que
-        // corre toda la tarde no puede ir acumulando el rastro del raton de toda la tarde.
-        self.desde_la_limpieza += 1;
-        if self.desde_la_limpieza >= 60 {
-            self.desde_la_limpieza = 0;
-            let corte = ts_ms.saturating_sub(self.ventana_ms + crate::record::buffer::SEGMENTO_MS);
-            self.cursor.retain(|(ms, _, _)| *ms >= corte);
-            self.clics.retain(|clic| clic.ms >= corte);
-            self.teclas.retain(|atajo| atajo.ms >= corte);
-        }
     }
 
-    /// Las dos funciones que llevan un punto de la pantalla a la escala guardada.
-    fn escalar_punto(&self) -> (impl Fn(i32) -> i32 + use<>, impl Fn(i32) -> i32 + use<>) {
-        let (fx, fy) = match self.destino {
-            None => (1.0f32, 1.0f32),
-            Some((w, h)) => (
-                w as f32 / self.region.width.max(1) as f32,
-                h as f32 / self.region.height.max(1) as f32,
-            ),
-        };
-        (
-            move |x: i32| (x as f32 * fx).round() as i32,
-            move |y: i32| (y as f32 * fy).round() as i32,
-        )
-    }
 
     #[cfg(windows)]
     fn tragar_sonido(&mut self, captura: &record::audio::Captura) {
@@ -688,15 +830,7 @@ impl Cocina {
             fps: self.fps,
             con_cursor: self.con_cursor,
         };
-        // Coser treinta segundos tarda lo suyo, y mientras tanto el anillo tiene que
-        // seguir tragando fotogramas: si se parara, el hueco caeria justo en los segundos
-        // siguientes a lo que alguien acaba de guardar.
-        let app = self.app.clone();
-        std::thread::spawn(move || {
-            if let Err(error) = servir(&app, encargo) {
-                eprintln!("[replay] no se ha podido montar la sesión: {error}");
-            }
-        });
+        (self.servir)(encargo);
         Ok(())
     }
 }
@@ -1765,6 +1899,194 @@ mod pruebas_con_pantalla {
             despues.abs_diff(antes) <= 20,
             "el fotograma de después tiene que caer donde se quedó el de antes ({antes} ms),              y ha caído en {despues}"
         );
+    }
+
+    /// Una cocina como la de `start`, sin aplicacion: lo rescatado sale por `encargos`.
+    fn cocina_de_prueba(
+        anillo: Anillo,
+        region: Rect,
+        sentidos: Box<dyn Sentidos>,
+        encargos: std::sync::mpsc::Sender<Encargo>,
+        inicio: Instant,
+        pause: Arc<AtomicBool>,
+        paused_ms: Arc<AtomicU64>,
+    ) -> Cocina {
+        Cocina {
+            servir: Box::new(move |encargo| {
+                let _ = encargos.send(encargo);
+            }),
+            reloj: record::anotador::Reloj { start: inicio, paused_ms: paused_ms.clone() },
+            vigia: Vigia::empezar(
+                sentidos,
+                record::anotador::Reloj { start: inicio, paused_ms },
+                pause,
+                region,
+                (1.0, 1.0),
+                record::teclas::TeclaZoom::de_atajo("Ctrl+Shift+6"),
+            ),
+            anillo,
+            audio_anillo: None,
+            clics: Vec::new(),
+            teclas: Vec::new(),
+            cursor: Vec::new(),
+            region_guardada: region,
+            fps: 15,
+            ventana_ms: 10_000,
+            con_cursor: false,
+            reciclados: crate::record::win::Reciclados::default(),
+            imagen: crate::record::buffer::ImagenDelAnillo::nueva(region.width, region.height, None),
+        }
+    }
+
+    /// Un raton y un teclado de mentira que la prueba mueve desde fuera.
+    #[derive(Clone, Default)]
+    struct Mando(Arc<parking_lot::Mutex<EstadoDelMando>>);
+
+    #[derive(Default)]
+    struct EstadoDelMando {
+        izquierdo: bool,
+        donde: (i32, i32),
+        teclas: Vec<u16>,
+    }
+
+    impl Sentidos for Mando {
+        fn botones(&mut self) -> (bool, bool) {
+            (self.0.lock().izquierdo, false)
+        }
+        fn donde(&mut self) -> Option<(i32, i32)> {
+            Some(self.0.lock().donde)
+        }
+        fn teclado(&mut self) -> record::teclas::Foto {
+            record::teclas::Foto::con(&self.0.lock().teclas)
+        }
+    }
+
+    /// **Lo rescatado cuadra aunque la pantalla se quede quieta y aunque se haya abierto una
+    /// captura entre medias.**
+    ///
+    /// La prueba hace de captura: manda fotogramas con la marca de tiempo de `record::win`
+    /// (lo transcurrido menos lo apartado), aparta el anillo un rato como hace `apartar` al
+    /// abrir una captura, y deja la pantalla quieta mientras pulsa un clic de 40 ms. Dos cosas
+    /// que se rompían en Windows:
+    /// - el clic, el raton y las teclas solo se miraban al llegar un fotograma, y con la
+    ///   pantalla quieta no llega ninguno: el clic no existia y el puntero no se movia;
+    /// - el «ahora» de rescatar se contaba con un reloj que no descontaba lo apartado, asi que
+    ///   cada captura abierta con el anillo encendido adelantaba medio segundo el rescate: se
+    ///   perdia ese trozo por delante y el ultimo fotograma se quedaba congelado ese rato.
+    #[test]
+    fn con_la_pantalla_quieta_y_tras_apartarlo_lo_rescatado_cuadra() {
+        use crate::record::win::CapturedFrame;
+        use std::sync::mpsc::channel;
+        use std::time::Duration;
+
+        let (ancho, alto) = (48u32, 32u32);
+        let raiz = std::env::temp_dir().join("winshotx-replay-reloj");
+        let _ = std::fs::remove_dir_all(&raiz);
+        let region = Rect { x: 0, y: 0, width: ancho, height: alto };
+        let mando = Mando::default();
+        mando.0.lock().donde = (10, 10);
+
+        // El reloj de la captura, como en `record::win`: lo transcurrido menos lo apartado.
+        let inicio = Instant::now();
+        let pause = Arc::new(AtomicBool::new(false));
+        let paused_ms = Arc::new(AtomicU64::new(0));
+        let reloj = {
+            let paused_ms = paused_ms.clone();
+            move || (inicio.elapsed().as_millis() as u64).saturating_sub(paused_ms.load(Ordering::Relaxed))
+        };
+
+        let (fotogramas, receiver) = channel::<CapturedFrame>();
+        let (ordenes, buzon) = channel::<Orden>();
+        let (tx_encargo, encargos) = channel::<Encargo>();
+        let stop = Arc::new(AtomicBool::new(false));
+        let hilo = {
+            let (raiz, mando, stop) = (raiz.clone(), mando.clone(), stop.clone());
+            let (pause, paused_ms) = (pause.clone(), paused_ms.clone());
+            std::thread::spawn(move || {
+                let anillo = Anillo::nuevo(
+                    &raiz.join("anillo"),
+                    10_000,
+                    15,
+                    crate::record::buffer::bytes_max(10, 15, ancho, alto),
+                )
+                .unwrap();
+                let mut cocina = cocina_de_prueba(anillo, region, Box::new(mando), tx_encargo, inicio, pause, paused_ms);
+                let (bytes, escritos, grabado) =
+                    (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)));
+                cocina.trabajar(&receiver, &buzon, &stop, &bytes, &escritos, &grabado, None);
+                cocina.anillo.limpiar();
+            })
+        };
+
+        let mut paso = 0u32;
+        let mut ultimo_ts = 0u64;
+        let mut primero_ts = None;
+        let mut un_segundo_cambiando = |paso: &mut u32| {
+            for _ in 0..15 {
+                let ts = reloj();
+                primero_ts.get_or_insert(ts);
+                ultimo_ts = ts;
+                // Cada uno distinto del anterior, para que el anillo no lo tire por repetido.
+                let mut bgra = vec![20u8; (ancho * alto * 4) as usize];
+                bgra[(*paso as usize * 4) % ((ancho * alto * 4) as usize)] = 200;
+                fotogramas.send(CapturedFrame { bgra, ts_ms: ts, zonas: None }).unwrap();
+                *paso += 1;
+                std::thread::sleep(Duration::from_millis(66));
+            }
+        };
+        un_segundo_cambiando(&mut paso);
+        // Se abre una captura: el anillo se aparta y no llega nada (`apartar` y su guardia).
+        pause.store(true, Ordering::Relaxed);
+        let desde = Instant::now();
+        std::thread::sleep(Duration::from_millis(1_500));
+        paused_ms.fetch_add(desde.elapsed().as_millis() as u64, Ordering::Relaxed);
+        pause.store(false, Ordering::Relaxed);
+        un_segundo_cambiando(&mut paso);
+        // Y la pantalla quieta: un clic de 40 ms sin que llegue ningun fotograma.
+        std::thread::sleep(Duration::from_millis(100));
+        mando.0.lock().izquierdo = true;
+        std::thread::sleep(Duration::from_millis(40));
+        mando.0.lock().izquierdo = false;
+        // Un atajo de lo que se esta haciendo (Ctrl+Alt+K) sale; la tecla que rescata
+        // (Ctrl+Shift+6) es de winshotx y no.
+        std::thread::sleep(Duration::from_millis(40));
+        mando.0.lock().teclas = vec![0x11, 0x12, 0x4B];
+        std::thread::sleep(Duration::from_millis(60));
+        mando.0.lock().teclas = vec![0x11, 0x10, 0x36];
+        std::thread::sleep(Duration::from_millis(60));
+        mando.0.lock().teclas.clear();
+        let pedido = reloj();
+        ordenes.send(Orden::Cosechar).unwrap();
+        let encargo = encargos.recv_timeout(Duration::from_secs(10)).expect("no ha llegado lo rescatado");
+        // Se cose con el anillo todavia vivo, como en la app: al pararlo se borra.
+        let session = montar(raiz.join("sesion"), "prueba".into(), encargo).unwrap();
+        stop.store(true, Ordering::Relaxed);
+        drop(fotogramas);
+        hilo.join().unwrap();
+
+        let t0 = primero_ts.unwrap();
+        let duracion = session.duration_ms();
+        let esperada = pedido - t0;
+        let quieta = session.cursor.iter().filter(|(ms, _, _)| *ms > ultimo_ts - t0).count();
+        let _ = std::fs::remove_dir_all(&raiz);
+        let mut mal = Vec::new();
+        if duracion.abs_diff(esperada) > 250 {
+            mal.push(format!(
+                "lo rescatado dura {duracion} ms y la pantalla duró {esperada} ms en el reloj de los \
+                 fotogramas: el rato apartado se ha colado como un fotograma congelado"
+            ));
+        }
+        if session.clics.len() != 1 {
+            mal.push(format!("con la pantalla quieta se han apuntado {} clics de 1", session.clics.len()));
+        }
+        if quieta < 5 {
+            mal.push(format!("con la pantalla quieta el raton solo se miró {quieta} veces"));
+        }
+        let atajos: Vec<&str> = session.teclas.iter().map(|a| a.texto.as_str()).collect();
+        if atajos != ["Ctrl + Alt + K"] {
+            mal.push(format!("los atajos apuntados son {atajos:?} y tenía que ser solo Ctrl + Alt + K"));
+        }
+        assert!(mal.is_empty(), "{}", mal.join("\n"));
     }
 
     #[test]
