@@ -120,3 +120,12 @@ codegen-units = 1
 panic = "abort"
 strip = true
 incremental = false
+
+# Solo Linux, y solo los binarios de depuracion y `cargo test`: `libspa` (lo trae `pipewire`)
+# sin sus comprobaciones de depuracion. El PipeWire 0.3.48 de Ubuntu 22.04 manda un «hecho» sin
+# la marca de asincrono mientras se listan los aparatos de sonido, y el `debug_assert!` de
+# `AsyncSeq::from_raw` salta dentro de una funcion a la que llama C, de donde un panico no puede
+# salir: el proceso aborta al arrancar. En release esa comprobacion no existe, asi que esto deja
+# `cargo test` y los binarios de depuracion igual que el que se reparte.
+[profile.dev.package.libspa]
+debug-assertions = false

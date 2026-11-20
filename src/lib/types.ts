@@ -472,18 +472,25 @@ export interface Plataforma {
   sistema: "windows" | "linux" | "macos";
   /** En Wayland las teclas no las pone winshotx: las elige la persona en el escritorio. */
   wayland: boolean;
+  /**
+   * S45: el escritorio ya toca su obturador cada vez que saca la foto de una captura (GNOME en
+   * Wayland, por el portal), y winshotx no puede callarlo: el nuestro no suena encima.
+   */
+  obturadorDelEscritorio?: boolean;
 }
 
 /**
  * Qué sonido se puede grabar en este sistema (el comando `sonido_disponible`). Solo existe en
- * Linux, donde el sonido llega por PipeWire y hay sistemas en los que PipeWire no lo lleva
- * (Ubuntu 22.04, Linux Mint 21): ahí se graba sin sonido, y los ajustes lo dicen.
+ * Linux, donde el sonido llega por PipeWire o, donde PipeWire no lo lleva (Ubuntu 22.04, Linux
+ * Mint 21), por PulseAudio. Si no hay de ninguno se graba sin sonido, y los ajustes lo dicen.
  */
 export interface SonidoDisponible {
   /** Hay una salida de sonido: se puede grabar lo que suena. */
   altavoz: boolean;
   /** Hay una entrada: se puede grabar el micrófono. */
   microfono: boolean;
+  /** El sonido lo lleva PulseAudio pero falta el plugin de GStreamer que lo graba. */
+  faltaElDePulse?: boolean;
 }
 
 /**

@@ -98,6 +98,8 @@ export interface DatosAjustes {
   cambiarTeclaDeRescate: () => void;
   /** S44 (Linux): qué sonido se puede grabar aquí. null en Windows y mientras contesta. */
   sonido: SonidoDisponible | null;
+  /** S45: al capturar ya suena el obturador del escritorio (GNOME en Wayland), y el nuestro calla. */
+  obturadorDelEscritorio: boolean;
   settings: Settings;
   patch: (partial: Partial<Settings>) => void;
   shortcuts: ShortcutStatus;
@@ -434,7 +436,7 @@ export function ApartadoCapturar({
 
 /* ------------------------------------------------------------------ Después de capturar */
 
-export function ApartadoDespues({ settings, patch }: DatosAjustes) {
+export function ApartadoDespues({ settings, patch, obturadorDelEscritorio }: DatosAjustes) {
   const t = useT();
   const flujos = FLUJOS.map((o) => ({ ...o, label: t(o.label) }));
   return (
@@ -473,6 +475,8 @@ export function ApartadoDespues({ settings, patch }: DatosAjustes) {
         icon={<Volume2 className="size-4" />}
         label={t("Sonido de obturador")}
         explicacion={t("Un clic de cámara al capturar, como el de una réflex. Sirve para saber que la captura ha salido sin mirar la pantalla. Viene apagado: en una reunión o grabando un tutorial, un sonido que no esperas es peor que ninguno.")}
+        // S45: en GNOME con Wayland el clic de la captura lo pone el escritorio, se quiera o no.
+        hint={obturadorDelEscritorio ? t("al capturar ya suena el de GNOME") : undefined}
         control={
           <Switch
             checked={settings.playSound}
@@ -505,20 +509,24 @@ export function ApartadoGrabar({
   const t = useT();
   const { pista: pistaDeAtajo, tono: tonoDeAtajo } = usePistaDeAtajo({ teclasAMano, enWayland });
   const teclaDeGrabar = teclasDelEscritorio?.record ?? null;
-  // S44 (Linux): donde PipeWire no lleva el sonido (Ubuntu 22.04, Linux Mint 21) se graba sin
-  // sonido. El interruptor sale apagado y dice por qué: nunca en silencio.
+  // S44 (Linux): donde no hay sonido que grabar, el interruptor sale apagado y dice por qué:
+  // nunca en silencio. S45: el sonido se pide a PipeWire y, donde no lo lleva (Ubuntu 22.04,
+  // Linux Mint 21), a PulseAudio; si PulseAudio está pero falta su plugin, se dice qué instalar.
   const sinSonidoAqui = sonido !== null && !sonido.altavoz && !sonido.microfono;
+  const porQueSinNada = sonido?.faltaElDePulse
+    ? t("para grabar el sonido falta el paquete gstreamer1.0-plugins-good")
+    : t("este sistema no da el sonido por PipeWire ni por PulseAudio");
   const porQueSinAltavoz =
     sonido === null || sonido.altavoz
       ? undefined
       : sinSonidoAqui
-        ? t("este sistema no da el sonido por PipeWire")
+        ? porQueSinNada
         : t("no hay ninguna salida de sonido");
   const porQueSinMicro =
     sonido === null || sonido.microfono
       ? undefined
       : sinSonidoAqui
-        ? t("este sistema no da el sonido por PipeWire")
+        ? porQueSinNada
         : t("no hay ningún micrófono conectado");
   return (
     <>

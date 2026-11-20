@@ -59,7 +59,7 @@ pub(crate) fn error_de(bus: &gst::Bus) -> Option<String> {
     }
 }
 
-fn monta(texto: &str) -> Result<gst::Pipeline> {
+pub(crate) fn monta(texto: &str) -> Result<gst::Pipeline> {
     encender()?;
     gst::parse_launch(texto)
         .map_err(|e| mal(format!("GStreamer no puede montar esto: {e}")))?

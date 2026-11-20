@@ -7,10 +7,12 @@
 //! Cada uno va a su WAV, los mismos archivos que en Windows (`record::pistas`), y de ahi en
 //! adelante el editor y el exportador no notan la diferencia.
 //!
-//! **Donde PipeWire no lleva el sonido, se graba sin sonido.** En Ubuntu 22.04 y Linux Mint
-//! 21 PipeWire esta, pero solo para compartir pantalla: el sonido lo lleva PulseAudio. Alli
-//! los flujos no encuentran a que engancharse, no llega nada y la grabacion sale sin pistas,
-//! sin colgarse y sin error. `disponible` lo dice antes, para que la interfaz apague los
+//! **Donde PipeWire no lleva el sonido, se le pide a PulseAudio.** En Ubuntu 22.04 y Linux
+//! Mint 21 PipeWire esta, pero solo para compartir pantalla: el sonido lo lleva PulseAudio, y
+//! aqui los flujos no encontrarian a que engancharse. `quien_lo_lleva` lo decide cada vez:
+//! si PipeWire tiene aparatos de sonido, es suyo y nada cambia; si no tiene ninguno, se graba
+//! por PulseAudio (`sonido_pulse`). Si no hay de ninguno de los dos, se graba sin sonido, sin
+//! colgarse y sin error, y `disponible` lo dice antes, para que la interfaz apague los
 //! interruptores y explique por que.
 //!
 //! **Cada pista mide lo mismo que el video.** Lo que llega se coloca segun el reloj de la
@@ -68,17 +70,48 @@ pub struct Disponible {
     pub altavoz: bool,
     /// Hay una entrada: se puede grabar el microfono.
     pub microfono: bool,
+    /// El sonido lo lleva PulseAudio pero falta el plugin de GStreamer que lo graba (va en
+    /// `gstreamer1.0-plugins-good`): no se ve ningun aparato, y los ajustes dicen que instalar.
+    pub falta_el_de_pulse: bool,
 }
 
-/// Mira que aparatos de sonido lleva PipeWire. Sin PipeWire, o con uno que solo lleva video
-/// (Ubuntu 22.04, Linux Mint 21), no hay ninguno.
+/// Quien lleva el sonido en este sistema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Motor {
+    PipeWire,
+    PulseAudio,
+}
+
+/// Quien lleva el sonido aqui y que hay para grabar. Donde PipeWire tiene aparatos de sonido
+/// es suyo, como siempre, y a PulseAudio ni se le pregunta (en esos sistemas quien contesta
+/// por PulseAudio es el propio PipeWire). Solo si PipeWire no tiene ninguno se mira PulseAudio.
+pub(crate) fn quien_lo_lleva(en_pipewire: Disponible, en_pulse: impl FnOnce() -> Disponible) -> (Motor, Disponible) {
+    if en_pipewire.altavoz || en_pipewire.microfono {
+        return (Motor::PipeWire, en_pipewire);
+    }
+    let en_pulse = en_pulse();
+    if en_pulse.altavoz || en_pulse.microfono {
+        (Motor::PulseAudio, en_pulse)
+    } else {
+        // Nada en ninguno de los dos: lo que diga PulseAudio de por que (le falta el plugin).
+        (Motor::PipeWire, en_pulse)
+    }
+}
+
+/// Lo de `quien_lo_lleva`, preguntando de verdad a los dos.
+fn mirar() -> (Motor, Disponible) {
+    quien_lo_lleva(listar().unwrap_or_default(), super::sonido_pulse::disponible)
+}
+
+/// Mira que sonido se puede grabar: los aparatos que lleva PipeWire y, si PipeWire no lleva
+/// ninguno (Ubuntu 22.04, Linux Mint 21), los de PulseAudio.
 pub fn disponible() -> Disponible {
     let (listo, esperando) = std::sync::mpsc::channel();
-    // En su hilo y con tope: si PipeWire no contesta, no se queda nadie esperando.
+    // En su hilo y con tope: si ninguno de los dos contesta, no se queda nadie esperando.
     std::thread::spawn(move || {
-        let _ = listo.send(listar().unwrap_or_default());
+        let _ = listo.send(mirar().1);
     });
-    esperando.recv_timeout(ESPERA_DE_LA_LISTA).unwrap_or_default()
+    esperando.recv_timeout(ESPERA_DE_LA_LISTA * 2).unwrap_or_default()
 }
 
 /// Que dice cada aparato de la lista de PipeWire: una salida, una entrada o ninguna de las dos.
@@ -87,6 +120,7 @@ pub(crate) fn clase_de_sonido(clase: &str) -> Disponible {
         // «Audio/Duplex» es un aparato que hace las dos cosas (unos cascos con microfono).
         altavoz: clase == "Audio/Sink" || clase == "Audio/Duplex",
         microfono: clase == "Audio/Source" || clase == "Audio/Duplex" || clase == "Audio/Source/Virtual",
+        falta_el_de_pulse: false,
     }
 }
 
@@ -507,16 +541,27 @@ fn oferta() -> std::result::Result<Vec<u8>, String> {
 
 /// Cual de las dos pistas alimenta un flujo.
 #[derive(Clone, Copy)]
-enum Cual {
+pub(super) enum Cual {
     Sistema,
     Microfono,
 }
 
 /// A donde va cada trozo que llega: de que flujo es, el sonido y el instante del reloj en el
-/// que acaba. Se llama en el hilo de PipeWire.
-type Recibir = Rc<dyn Fn(Cual, &[u8], u64)>;
+/// que acaba. Se llama en el hilo del sonido (el de PipeWire, o el que vacia lo de PulseAudio).
+pub(super) type Recibir = Rc<dyn Fn(Cual, &[u8], u64)>;
 
+/// Graba lo pedido hasta que `Marcha::stop` se pone a cierto, por quien lleve el sonido aqui.
 fn correr(fuentes: Fuentes, marcha: &Marcha, recibir: Recibir) -> std::result::Result<(), String> {
+    let antes = std::time::Instant::now();
+    let (motor, _) = mirar();
+    eprintln!("[grabar] el sonido lo lleva {motor:?} (mirado en {} ms)", antes.elapsed().as_millis());
+    match motor {
+        Motor::PipeWire => correr_en_pipewire(fuentes, marcha, recibir),
+        Motor::PulseAudio => super::sonido_pulse::correr(fuentes, marcha, recibir),
+    }
+}
+
+fn correr_en_pipewire(fuentes: Fuentes, marcha: &Marcha, recibir: Recibir) -> std::result::Result<(), String> {
     let mal = |error: pw::Error| error.to_string();
     pw::init();
     let bucle = pw::main_loop::MainLoopRc::new(None).map_err(mal)?;
@@ -744,12 +789,51 @@ mod tests {
 
     #[test]
     fn solo_cuentan_las_salidas_y_las_entradas_de_sonido() {
-        assert_eq!(clase_de_sonido("Audio/Sink"), Disponible { altavoz: true, microfono: false });
-        assert_eq!(clase_de_sonido("Audio/Source"), Disponible { altavoz: false, microfono: true });
-        assert_eq!(clase_de_sonido("Audio/Duplex"), Disponible { altavoz: true, microfono: true });
+        let nada = Disponible::default();
+        assert_eq!(clase_de_sonido("Audio/Sink"), Disponible { altavoz: true, ..nada });
+        assert_eq!(clase_de_sonido("Audio/Source"), Disponible { microfono: true, ..nada });
+        assert_eq!(clase_de_sonido("Audio/Duplex"), Disponible { altavoz: true, microfono: true, ..nada });
         // Lo que hay en un PipeWire que solo lleva video (Ubuntu 22.04): nada de esto cuenta.
         assert_eq!(clase_de_sonido("Video/Source"), Disponible::default());
         assert_eq!(clase_de_sonido("Stream/Output/Audio"), Disponible::default());
         assert_eq!(clase_de_sonido("Midi/Bridge"), Disponible::default());
+    }
+
+    /// Donde PipeWire lleva el sonido (Fedora, Ubuntu desde la 22.10, Debian 12 con GNOME)
+    /// nada cambia: es suyo, y a PulseAudio ni se le pregunta. Alli quien contestaria por
+    /// PulseAudio es el propio PipeWire, y se grabaria lo mismo por un camino mas largo.
+    #[test]
+    fn donde_pipewire_lleva_el_sonido_no_se_pregunta_a_pulseaudio() {
+        let nada = Disponible::default();
+        let no_se_pregunta = || -> Disponible { panic!("se ha preguntado a PulseAudio") };
+        for en_pipewire in [
+            Disponible { altavoz: true, microfono: true, ..nada },
+            Disponible { altavoz: true, ..nada },
+            Disponible { microfono: true, ..nada },
+        ] {
+            assert_eq!(quien_lo_lleva(en_pipewire, no_se_pregunta), (Motor::PipeWire, en_pipewire));
+        }
+    }
+
+    /// Ubuntu 22.04 y Linux Mint 21: PipeWire esta, pero sin un solo aparato de sonido. Se
+    /// graba por PulseAudio, con lo que PulseAudio tenga.
+    #[test]
+    fn si_pipewire_no_lleva_sonido_se_graba_por_pulseaudio() {
+        let nada = Disponible::default();
+        let con_todo = Disponible { altavoz: true, microfono: true, ..nada };
+        assert_eq!(quien_lo_lleva(nada, || con_todo), (Motor::PulseAudio, con_todo));
+        // Un PC sin microfono: el altavoz se graba igual.
+        let sin_micro = Disponible { altavoz: true, ..nada };
+        assert_eq!(quien_lo_lleva(nada, || sin_micro), (Motor::PulseAudio, sin_micro));
+    }
+
+    /// Sin sonido en ninguno de los dos se graba sin sonido, y si lo que pasa es que falta el
+    /// plugin de PulseAudio, eso llega a los ajustes.
+    #[test]
+    fn sin_sonido_en_ninguno_de_los_dos_se_dice_por_que() {
+        let nada = Disponible::default();
+        assert_eq!(quien_lo_lleva(nada, || nada), (Motor::PipeWire, nada));
+        let falta = Disponible { falta_el_de_pulse: true, ..nada };
+        assert_eq!(quien_lo_lleva(nada, || falta), (Motor::PipeWire, falta));
     }
 }

@@ -30,6 +30,15 @@ pnpm tauri build --bundles deb,rpm,appimage
 The packages are signed for the updater, so that last command needs `TAURI_SIGNING_PRIVATE_KEY`
 in the environment.
 
+Debug builds and `cargo test` compile `libspa` without its debug assertions
+(`[profile.dev.package.libspa]` in `Cargo.toml`). In a debug build pipewire-rs asserts that every
+"done" event carries the mark of an asynchronous call, and the PipeWire 0.3.48 of Ubuntu 22.04
+sends one without it while winshotx lists the sound devices. The assertion fires inside a
+callback that C calls, where a panic cannot unwind, so the process aborted at startup
+(`assertion failed: is_async(val)`). Release builds never had that check: the packages were not
+affected. Seen on Ubuntu 22.04 in a container: the debug build of the commit before aborts, and
+the same code with that line starts and lists the devices.
+
 ## What has been tested
 
 Everything below ran in a virtual session on Fedora 44, never on a physical machine.
@@ -152,11 +161,45 @@ of the video, so a screenshot can be taken in the middle of a recording. Linux c
 while a recording is running the capture shortcut does nothing, and a thumbnail that was on
 screen is closed when the recording starts.
 
-**Sound needs PipeWire.** System audio and the microphone are captured through PipeWire, the
-library that already brings the Wayland frames. Where PipeWire runs but does not carry audio
-(Ubuntu 22.04 and Linux Mint 21 use PulseAudio for sound), recording works without sound, and
-the two switches in Settings are off with a line that says why. Sound on PulseAudio-only systems
-is not supported yet.
+**Sound comes from PipeWire, or from PulseAudio where PipeWire does not carry it.** System audio
+and the microphone are captured through PipeWire, the library that already brings the Wayland
+frames. Where PipeWire runs but has no audio devices (Ubuntu 22.04 and Linux Mint 21 use
+PulseAudio for sound), winshotx asks PulseAudio instead, through GStreamer's `pulsesrc`: one
+stream for what is playing (the monitor of the default output) and one for the microphone. It
+asks for 10 ms chunks and places each one by its timestamp, not by when it arrives: with a
+player that keeps a two-second buffer, PulseAudio's default delivers the sound in bursts that
+land up to 1.4 s away from where they played. The buffer it asks for is three seconds long.
+That is not a delay: it is the most PulseAudio hands over in one piece, and a whole block of the
+source has to fit in it, because not every source delivers 10 ms at a time (PulseAudio's test
+source, `module-sine-source`, delivers two-second blocks). With a 200 ms buffer each of those
+blocks arrived cut up, part of it was lost and the rest landed 1.8 s late. If PipeWire has any
+audio device, PulseAudio is not even asked, so nothing changes where sound already worked; the
+app log says which one carries the sound of each recording. This goes for "Always be recording"
+too.
+
+`pulsesrc` is in GStreamer's "good" plugins: the package `gstreamer1.0-plugins-good` on Debian
+and Ubuntu, which the .deb already recommended, and `gstreamer1-plugins-good` on Fedora. (On
+Debian and Ubuntu `gstreamer1.0-pulseaudio` still exists, as an empty transitional package.)
+With PulseAudio running but without the plugin, the two switches in Settings are off and name
+the package by its Debian and Ubuntu name, since those are the systems where sound is still
+PulseAudio's (Ubuntu 22.04, Linux Mint 21, Debian with Xfce). With neither PipeWire audio nor
+PulseAudio they say that instead, and recording works without sound.
+
+**The app's own sounds.** The shutter after a capture and the marimba before a recording are the
+same two sounds as on Windows, played through GStreamer's `autoaudiosink`, which picks
+PulseAudio (or the PipeWire that answers in its place) and falls back to ALSA. As on Windows,
+when a recording has sound the marimba plays to its end before anything that could record it is
+opened, so it never ends up in the video; that delays the start by about 0.75 s. Without sound
+to record it plays while the recording starts.
+
+**One shutter on GNOME.** On GNOME on Wayland the screenshot comes from the portal, and GNOME
+Shell plays its own shutter every time it takes one. winshotx cannot turn that off, so its own
+click stays silent there: one capture, one shutter. The row in Settings says so, because GNOME's
+shutter plays whether the switch is on or off. winshotx only keeps quiet when it is sure: the
+windows are on Wayland, the desktop calls itself GNOME and GNOME Shell's screenshot service is
+on the session bus. If GNOME's event sounds are switched off (`org.gnome.desktop.sound
+event-sounds`), GNOME's shutter is silent and winshotx's comes back. The click after a recording
+is saved without the editor does not go through the portal and plays everywhere.
 
 **The editor plays media from a local server.** WebKitGTK plays video and audio through
 GStreamer, which cannot open Tauri's `asset:` protocol: without help the sound tracks of a
@@ -202,6 +245,34 @@ are served at once. What the page still fails to load is written to the app log.
 - Sound, with a virtual output and a virtual microphone: each lands in its own track and lasts
   as long as the video. Without audio devices, and without PipeWire running, the recording is
   saved without sound.
+- The app's own sounds, with the virtual output and a listener recording everything that came
+  out of it. On X11 the shutter is heard when a capture is copied. With sound being recorded,
+  the marimba is heard to its end before the recording starts (0.69 s of sound, played in
+  0.72 s) and is not in the recorded track, where the only sound is a 440 Hz tone played three
+  seconds in. The build from before plays neither. On GNOME 50 each capture has one shutter,
+  GNOME's own (0.31 s, when the screenshot is taken); winshotx's is not heard, the row in
+  Settings says so, and the marimba is heard before the recording and is not in it. With
+  GNOME's event sounds switched off, GNOME's shutter is not heard, winshotx's is, and the row
+  says nothing.
+- On Ubuntu 22.04, in a container with its PulseAudio 15.99 and a PipeWire 0.3.48 that carries
+  no sound, with the app built on Debian 12 the way CI builds the .deb (it asks for glibc 2.35
+  at most). The log says PulseAudio carries the sound. A 440 Hz tone played 3.02 s into the
+  recording is at 3.08 s of the system track and lasts what it lasted. The shutter and the
+  marimba are heard, and the marimba is not in the recording. With a virtual microphone that
+  delivers 10 ms at a time, its track is whole (8.74 s of tone in a recording of 8.78 s). With
+  PulseAudio's test source, which delivers two-second blocks, it is whole too and starts
+  0.03 s in; the block still being filled when the recording stops never arrives, so with a
+  source like that up to two seconds at the end are silent. With the 200 ms buffer the same
+  track came in four pieces, with gaps of 0.19 and 1.39 s. The build from before records the
+  same session without sound and plays neither of its own. With the PulseAudio plugin taken
+  away, the two switches are off and name the package.
+- The same PulseAudio pipeline without the app, on that Ubuntu, changing only the size of the
+  buffer. With the two-second-block source: 200 ms loses 0.19 s and places the rest 1.8 s
+  late, 1 s loses 0.99 s, and 2, 3 and 6 s lose nothing and start within 0.01 s of their place.
+  A source that delivers 10 ms at a time is whole and starts within 0.03 s of its place with
+  200 ms, 1 s, 3 s and 6 s. With every core busy (one spinning process per core) that source
+  still loses nothing, while the two-second-block source lost a whole block in five runs out
+  of eight, with 3, 4 and 6 s alike.
 - MP4, on X11 and on GNOME: a region recorded as video opens the editor with its preview, the
   preview plays, and saving writes an H.264 MP4. That file was read back frame by frame: it
   lasts as long as the recording and shows the same colours at the same instants as the
@@ -224,8 +295,13 @@ are served at once. What the page still fails to load is written to the app log.
   .rpm packages, in English and Spanish.
 
 Not tried: KDE Plasma, Sway and Hyprland, more than one monitor, display scaling, 30-bit
-screens, real sound hardware, and PulseAudio-only systems (Ubuntu 22.04, Linux Mint 21) beyond
-a PipeWire without audio devices. Hardware encoders (VA-API) are not used: the MP4 is encoded
+screens, and real sound hardware: every output and microphone above was a virtual one. With
+PulseAudio's virtual output, sound played in the first two seconds of a recording can be
+missing (that output works in two-second blocks and only changes pace when the current one
+ends); a sound card should not do that, and none was tried. Nor were Linux Mint 21, recordings
+hours long (how far a sound card's clock drifts from the system's), or whether KDE Plasma plays
+a shutter of its own when its portal takes the screenshot (winshotx's plays there). Hardware
+encoders (VA-API) are not used: the MP4 is encoded
 on the CPU. A custom click sound in MP3 is read through GStreamer, which is only covered by a
 test with a real file: the click sound tried in a saved MP4 was the built-in one.
 An AppImage built from this code has not been run: what is said about it comes from the one CI

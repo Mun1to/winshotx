@@ -30,6 +30,9 @@ pub mod portal;
 // S44 (Linux, grabar): con que se para una grabacion, para decirlo antes de que empiece.
 #[cfg(target_os = "linux")]
 pub mod como_parar;
+// S45 (Linux): donde el escritorio ya toca su obturador al capturar (GNOME en Wayland).
+#[cfg(target_os = "linux")]
+pub mod obturador_del_escritorio;
 // Lo nuevo del plan de CleanShot X y Screen Studio, cada sesión debajo de su marca.
 // S2 (grabación)
 // S3 (fondos)

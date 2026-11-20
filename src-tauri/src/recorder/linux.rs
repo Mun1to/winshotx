@@ -186,7 +186,17 @@ pub(super) fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Re
     };
     let encendida_en = Instant::now();
     let mut camara = camara_pedida.map(|dispositivo| record::camara::Encendida::encender(dispositivo, &dir));
-    std::thread::sleep(QUE_SE_VAYA_EL_OVERLAY);
+    // La marimba de empezar, como en Windows: con la camara ya encendiendose y ANTES de abrir
+    // nada que la pueda grabar (el sonido del sistema se graba de lo que sale por el altavoz, y
+    // el microfono la oye). Si se graba sonido, esto espera a que acabe. Que venga en
+    // `options` (un agente) manda sobre los ajustes.
+    let antes_de_sonar = Instant::now();
+    crate::platform::sonido::sonar_al_empezar(crate::platform::sonido::al_empezar(
+        options.marimba.unwrap_or_else(|| state.settings.read().sonido_al_empezar),
+        options.audio || options.microphone,
+    ));
+    // Lo que haya tardado la marimba ya es tiempo para que el overlay se vaya.
+    std::thread::sleep(QUE_SE_VAYA_EL_OVERLAY.saturating_sub(antes_de_sonar.elapsed()));
     if let Some(camara) = camara.as_mut() {
         let estado = camara.esperar_imagen(super::falta_por_la_camara(encendida_en.elapsed()));
         eprintln!("[grabar] la cámara a los {} ms de encenderla: {estado:?}", encendida_en.elapsed().as_millis());

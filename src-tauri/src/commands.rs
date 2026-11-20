@@ -213,7 +213,7 @@ fn entregar(
     // Grabando, no: se grabaria en el sonido del PC (y en el micro), y ese pico le quitaba
     // ademas a una pista casi muda la subida de `pistas::nivelar_si_casi_muda` (16-nov).
     if con_sonido && !state.is_recording() {
-        crate::platform::sonido::obturador();
+        crate::platform::sonido::obturador_de_captura();
     }
 
     let mut result = StillResult {
@@ -937,11 +937,17 @@ pub async fn pedir_permiso_de_capturas() -> Result<bool> {
 /// Donde corre winshotx, para que la interfaz no ensenne lo que ahi no existe (las teclas de
 /// Windows en Linux) y sepa quien pone los atajos: en Wayland, el escritorio.
 #[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Plataforma {
     /// `windows`, `linux` o `macos`.
     pub sistema: &'static str,
     /// Si las ventanas van por Wayland. Entonces las teclas las decide el escritorio.
     pub wayland: bool,
+    /// S45: el escritorio ya toca su obturador al sacar la foto de una captura (GNOME en
+    /// Wayland) y el nuestro calla; la fila del ajuste lo dice. Solo viaja cuando es que si:
+    /// en Windows la respuesta es la de siempre.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub obturador_del_escritorio: bool,
 }
 
 #[tauri::command]
@@ -957,7 +963,11 @@ pub fn plataforma() -> Plataforma {
     let wayland = crate::platform::xdg::es_wayland();
     #[cfg(not(target_os = "linux"))]
     let wayland = false;
-    Plataforma { sistema, wayland }
+    #[cfg(target_os = "linux")]
+    let obturador_del_escritorio = crate::platform::obturador_del_escritorio::lo_toca_ahora();
+    #[cfg(not(target_os = "linux"))]
+    let obturador_del_escritorio = false;
+    Plataforma { sistema, wayland, obturador_del_escritorio }
 }
 
 /// Deja en el registro de la app algo que le ha pasado a la pagina del editor y que no se
@@ -980,20 +990,23 @@ fn linea_del_editor(texto: &str) -> String {
 pub struct SonidoDisponible {
     pub altavoz: bool,
     pub microfono: bool,
+    /// El sonido lo lleva PulseAudio y falta el plugin de GStreamer que lo graba.
+    pub falta_el_de_pulse: bool,
 }
 
 /// Que sonido se puede grabar aqui, o `null` donde no hay nada que avisar (Windows).
 ///
-/// En Linux el sonido llega por PipeWire, y hay sistemas donde PipeWire esta pero no lo lleva
-/// (Ubuntu 22.04, Linux Mint 21: lo lleva PulseAudio). Alli se graba sin sonido, y los
-/// ajustes lo dicen con esto en vez de dejar un interruptor que no hace nada.
+/// En Linux el sonido llega por PipeWire, y donde PipeWire esta pero no lo lleva (Ubuntu
+/// 22.04, Linux Mint 21) por PulseAudio. Si no hay de ninguno de los dos se graba sin sonido,
+/// y los ajustes lo dicen con esto en vez de dejar un interruptor que no hace nada.
 #[tauri::command]
 pub async fn sonido_disponible() -> Option<SonidoDisponible> {
     #[cfg(target_os = "linux")]
     {
-        // Pregunta a PipeWire y espera su lista (con tope): fuera del hilo de las ventanas.
+        // Pregunta a PipeWire (y a PulseAudio si hace falta) y espera, con tope: fuera del
+        // hilo de las ventanas.
         let hay = tauri::async_runtime::spawn_blocking(crate::record::linux::sonido::disponible).await.ok()?;
-        Some(SonidoDisponible { altavoz: hay.altavoz, microfono: hay.microfono })
+        Some(SonidoDisponible { altavoz: hay.altavoz, microfono: hay.microfono, falta_el_de_pulse: hay.falta_el_de_pulse })
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -1663,5 +1676,30 @@ mod pruebas_del_registro_del_editor {
         assert_eq!(linea_del_editor("la pista no suena (pc: no se puede abrir)"), "la pista no suena (pc: no se puede abrir)");
         assert_eq!(linea_del_editor("uno\n[grabar] mentira\r\tdos"), "uno [grabar] mentira  dos");
         assert_eq!(linea_del_editor(&"a".repeat(5000)).chars().count(), 300);
+    }
+}
+
+#[cfg(test)]
+mod pruebas_de_la_plataforma {
+    use super::Plataforma;
+
+    /// Lo que lee la pagina (`Plataforma` en `src/lib/types.ts`). El obturador del escritorio
+    /// solo viaja cuando es que si: en Windows y fuera de GNOME la respuesta es la de siempre.
+    #[test]
+    fn viaja_a_la_pagina_con_los_nombres_que_ella_espera() {
+        let de_siempre = Plataforma { sistema: "windows", wayland: false, obturador_del_escritorio: false };
+        assert_eq!(serde_json::to_value(de_siempre).unwrap(), serde_json::json!({ "sistema": "windows", "wayland": false }));
+        let en_gnome = Plataforma { sistema: "linux", wayland: true, obturador_del_escritorio: true };
+        assert_eq!(
+            serde_json::to_value(en_gnome).unwrap(),
+            serde_json::json!({ "sistema": "linux", "wayland": true, "obturadorDelEscritorio": true })
+        );
+    }
+
+    /// En Windows nadie toca un obturador por nosotros.
+    #[cfg(windows)]
+    #[test]
+    fn en_windows_el_obturador_es_el_nuestro() {
+        assert!(!super::plataforma().obturador_del_escritorio);
     }
 }

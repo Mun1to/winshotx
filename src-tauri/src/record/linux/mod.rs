@@ -29,6 +29,7 @@ use crate::error::Result;
 pub mod camara;
 pub mod entrada;
 pub mod sonido;
+pub mod sonido_pulse;
 pub mod wayland;
 pub mod x11;
 

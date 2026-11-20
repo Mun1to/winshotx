@@ -878,8 +878,12 @@ export const EN: Record<string, string> = {
   "ponla en los atajos del escritorio": "add it to the desktop's shortcuts",
   // S44 (Linux, grabar): la tecla de grabar de Wayland y el sonido que no hay.
   "Recortas igual que para una captura, pero en vez de una foto sale un vídeo. En Wayland no hay barra de grabar, porque no se puede dejar fuera del vídeo: esta misma tecla es la que para.": "You crop the same way as for a screenshot, but what comes out is a video. On Wayland there is no recording bar, because it can't be kept out of the video: this same key is the one that stops it.",
-  "este sistema no da el sonido por PipeWire": "this system doesn't provide sound through PipeWire",
+  "este sistema no da el sonido por PipeWire ni por PulseAudio":
+    "this system doesn't provide sound through PipeWire or PulseAudio",
+  "para grabar el sonido falta el paquete gstreamer1.0-plugins-good":
+    "to record sound, the gstreamer1.0-plugins-good package is missing",
   "no hay ninguna salida de sonido": "no sound output found",
+  "al capturar ya suena el de GNOME": "GNOME already plays its own when you capture",
   "no hay ningún micrófono conectado": "no microphone connected",
   // S44 (Linux, grabar): cómo se para, dicho en la pantalla de elegir zona (`comoParar.ts`).
   "Para parar la grabación, pulsa {atajo}.": "To stop the recording, press {atajo}.",

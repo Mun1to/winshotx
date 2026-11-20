@@ -1162,13 +1162,14 @@ describe("en Linux", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("donde PipeWire no lleva el sonido, los dos interruptores salen apagados y dicen por qué", async () => {
+  // S45: el sonido se pide a PipeWire y, si no lo lleva, a PulseAudio. La frase gris dice los dos.
+  it("donde ni PipeWire ni PulseAudio dan el sonido, los dos interruptores salen apagados y dicen por qué", async () => {
     responde("plataforma", { sistema: "linux", wayland: false });
-    responde("sonido_disponible", { altavoz: false, microfono: false });
+    responde("sonido_disponible", { altavoz: false, microfono: false, faltaElDePulse: false });
     await abrirAjustes(undefined, undefined, { recordAudio: true, recordMicrophone: true });
     ir("Grabar");
     await waitFor(() =>
-      expect(screen.getAllByText("este sistema no da el sonido por PipeWire")).toHaveLength(2),
+      expect(screen.getAllByText("este sistema no da el sonido por PipeWire ni por PulseAudio")).toHaveLength(2),
     );
     for (const nombre of ["Audio del sistema", "Micrófono"]) {
       const interruptor = screen.getByRole("switch", { name: nombre });
@@ -1186,7 +1187,59 @@ describe("en Linux", () => {
     await waitFor(() => expect(screen.getByText("no hay ningún micrófono conectado")).toBeInTheDocument());
     expect(screen.getByRole("switch", { name: "Micrófono" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "Audio del sistema" })).not.toBeDisabled();
-    expect(screen.queryByText("este sistema no da el sonido por PipeWire")).not.toBeInTheDocument();
+    expect(screen.queryByText("este sistema no da el sonido por PipeWire ni por PulseAudio")).not.toBeInTheDocument();
+  });
+
+  // Un Debian con PulseAudio instalado sin los paquetes recomendados: el sonido existe, pero
+  // falta el plugin que lo graba. La frase dice qué instalar, no que el sistema no tiene sonido.
+  // El paquete es el de verdad: en Debian y Ubuntu `pulsesrc` va dentro de gstreamer1.0-plugins-good
+  // (gstreamer1.0-pulseaudio es un paquete vacío, de transición).
+  it("con PulseAudio pero sin su plugin de GStreamer, los interruptores dicen qué paquete falta", async () => {
+    responde("plataforma", { sistema: "linux", wayland: false });
+    responde("sonido_disponible", { altavoz: false, microfono: false, faltaElDePulse: true });
+    await abrirAjustes(undefined, undefined, { recordAudio: true, recordMicrophone: true });
+    ir("Grabar");
+    await waitFor(() =>
+      expect(screen.getAllByText("para grabar el sonido falta el paquete gstreamer1.0-plugins-good")).toHaveLength(2),
+    );
+    expect(screen.queryByText("este sistema no da el sonido por PipeWire ni por PulseAudio")).not.toBeInTheDocument();
+    for (const nombre of ["Audio del sistema", "Micrófono"]) {
+      const interruptor = screen.getByRole("switch", { name: nombre });
+      expect(interruptor).toHaveAttribute("aria-checked", "false");
+      expect(interruptor).toBeDisabled();
+    }
+  });
+
+  // S45: en GNOME con Wayland la foto se pide al portal y el escritorio toca SU obturador, que
+  // winshotx no puede callar. El nuestro no suena encima (una captura, un obturador), y la fila
+  // lo dice: si no, con el interruptor apagado sonaría un clic que nadie explica.
+  it("en GNOME con Wayland, la fila del obturador dice que ya suena el del escritorio", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true, obturadorDelEscritorio: true });
+    await abrirAjustes();
+    ir("Después de capturar");
+    await waitFor(() => expect(screen.getByText("al capturar ya suena el de GNOME")).toBeInTheDocument());
+    // El interruptor sigue ahí y se puede tocar: manda en lo que no pasa por el portal.
+    expect(screen.getByRole("switch", { name: "Sonido de obturador" })).not.toBeDisabled();
+  });
+
+  it("la frase del obturador de GNOME sale en inglés y en chino", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true, obturadorDelEscritorio: true });
+    aplicarIdioma("en");
+    await abrirAjustes();
+    ir("After capturing");
+    await waitFor(() =>
+      expect(screen.getByText("GNOME already plays its own when you capture")).toBeInTheDocument(),
+    );
+    act(() => aplicarIdioma("zh"));
+    await waitFor(() => expect(screen.getByText("截图时 GNOME 会播放自带的快门声")).toBeInTheDocument());
+  });
+
+  it("donde el escritorio no toca el suyo (X11, otro escritorio de Wayland, Windows), la fila no dice nada", async () => {
+    responde("plataforma", { sistema: "linux", wayland: true });
+    await abrirAjustes();
+    ir("Después de capturar");
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Sonido de obturador" })).toBeInTheDocument());
+    expect(screen.queryByText("al capturar ya suena el de GNOME")).not.toBeInTheDocument();
   });
 
   // El dibujo de «Así va a salir» cuenta lo que se va a grabar de verdad, no lo que pone en los
