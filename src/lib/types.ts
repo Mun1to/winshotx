@@ -94,10 +94,18 @@ export interface ComoParar {
   /** Lo que se escribe en una consola para parar («winshotx --record»). */
   orden: string;
   /**
-   * La tecla que para una captura con scroll antes de que llegue al final («Esc»). Se dice
-   * antes de empezar porque en Linux puede no haber barra: no se puede sacar de las fotos.
+   * La tecla que para una captura con scroll antes de que llegue al final («Esc» en X11, la
+   * de capturar en Wayland). Se dice antes de empezar porque en Linux puede no haber barra:
+   * no se puede sacar de las fotos. `null` si no hay ninguna (Wayland sin tecla puesta).
    */
   scroll?: string | null;
+  /** Lo que se escribe en una consola para pararla («winshotx --capture»). */
+  scrollOrden?: string;
+  /**
+   * Al empezar, el escritorio va a preguntar si deja mover el puntero (Wayland sin permiso
+   * guardado). Se avisa antes: en esa pregunta viene apagado, y sin él no baja sola.
+   */
+  scrollPregunta?: boolean;
 }
 
 export type StillAction = "copy" | "save" | "save_as" | "edit" | "pin" | "text" | /* S4 (capturas) */ "qr";

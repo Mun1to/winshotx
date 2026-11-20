@@ -755,6 +755,12 @@ export const EN: Record<string, string> = {
   "Recorta lo que se desplaza y winshotx lo bajará solo": "Select what scrolls and winshotx will scroll it for you",
   "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa {atajo}.":
     "Select what scrolls and winshotx will scroll it for you. To stop before the end, press {atajo}.",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, deja de compartir la pantalla desde el escritorio.":
+    "Select what scrolls and winshotx will scroll it for you. To stop before the end, stop sharing the screen from the desktop.",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, ejecuta {orden}.":
+    "Select what scrolls and winshotx will scroll it for you. To stop before the end, run {orden}.",
+  "Cuando el escritorio pregunte, permite la interacción remota: sin ella tendrás que bajarlo tú.":
+    "When the desktop asks, allow remote interaction: without it you will have to scroll it yourself.",
   "Bajando sola": "Scrolling by itself",
   "Desplázala tú": "Scroll it yourself",
   "Sube un poco, me he perdido": "Scroll back up a little, I lost track",
@@ -765,7 +771,6 @@ export const EN: Record<string, string> = {
   "Otra vez para tirar la captura": "Again to throw the capture away",
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "That area is too small to scroll: select something bigger.",
   "Ya hay una captura con scroll en marcha.": "A scrolling capture is already running.",
-  "En Wayland la captura con scroll todavía no funciona.": "On Wayland the scrolling capture does not work yet.",
   // S7 (cursor)
   "Nada": "None",
   "Esconderlo mientras escribes": "Hide it while you type",

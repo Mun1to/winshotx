@@ -344,6 +344,9 @@ pub fn run() {
             // Si este escritorio ensenna la bandeja, para decir como se para una grabacion.
             #[cfg(target_os = "linux")]
             platform::como_parar::mirar_la_bandeja();
+            // Y si la captura con scroll va a hacer que el escritorio pregunte por el puntero.
+            #[cfg(target_os = "linux")]
+            capture::scroll::mirar_si_preguntara(app.handle());
 
             // Si arranca sola con Windows, que arranque ESTA y no otra copia. Munir tenia
             // el registro apuntando a una instalacion de hace una semana en otra carpeta:

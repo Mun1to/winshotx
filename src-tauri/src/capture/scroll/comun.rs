@@ -63,8 +63,6 @@ pub(super) fn terminar_si_hay() -> bool {
 }
 
 pub(super) fn iniciar(app: &AppHandle, region: Rect) -> Result<()> {
-    #[cfg(target_os = "linux")]
-    super::linux::se_puede()?;
     if region.width < 40 || region.height < 80 {
         return Err(AppError::Msg(
             "Esa zona es muy pequeña para desplazarla: recorta algo más grande.".into(),

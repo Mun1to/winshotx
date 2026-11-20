@@ -755,6 +755,12 @@ export const ZH: Record<string, string> = {
   "Recorta lo que se desplaza y winshotx lo bajará solo": "框选会滚动的区域，winshotx 会自动向下滚动",
   "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, pulsa {atajo}.":
     "框选会滚动的区域，winshotx 会自动向下滚动。要在到底之前停止，请按 {atajo}。",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, deja de compartir la pantalla desde el escritorio.":
+    "框选会滚动的区域，winshotx 会自动向下滚动。要在到底之前停止，请在桌面上停止共享屏幕。",
+  "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, ejecuta {orden}.":
+    "框选会滚动的区域，winshotx 会自动向下滚动。要在到底之前停止，请运行 {orden}。",
+  "Cuando el escritorio pregunte, permite la interacción remota: sin ella tendrás que bajarlo tú.":
+    "桌面询问时，请允许远程交互：否则需要你自己滚动。",
   "Bajando sola": "正在自动滚动",
   "Desplázala tú": "请你自己滚动",
   "Sube un poco, me he perdido": "往回滚一点，我跟丢了",
@@ -765,7 +771,6 @@ export const ZH: Record<string, string> = {
   "Otra vez para tirar la captura": "再按一次丢弃这次截图",
   "Esa zona es muy pequeña para desplazarla: recorta algo más grande.": "这个区域太小，无法滚动：请框选大一点的区域。",
   "Ya hay una captura con scroll en marcha.": "已经有一个滚动截图在进行中。",
-  "En Wayland la captura con scroll todavía no funciona.": "在 Wayland 上滚动截图暂时还不能用。",
   // S7 (cursor)
   "Nada": "无",
   "Esconderlo mientras escribes": "打字时隐藏",

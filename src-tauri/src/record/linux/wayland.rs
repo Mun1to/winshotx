@@ -24,6 +24,11 @@
 //! que para la grabacion como si se hubiera pulsado el atajo. PipeWire no lo dice: la
 //! pantalla deja de llegar y nada mas. Quien lo dice es el portal, que cierra la sesion
 //! (`Sesion`).
+//!
+//! **La captura con scroll** saca de aqui sus fotos (`preparar_fotos`): la misma pantalla, sin
+//! el raton dentro de la imagen y sin redondear la zona a medidas pares, que es cosa del video.
+//! Y pide ademas el puntero, para girar la rueda ella: es el portal `RemoteDesktop`, que lleva
+//! la pantalla dentro de la misma sesion y lo pregunta todo junto (`Mando`).
 
 use std::cell::RefCell;
 use std::io::Cursor;
@@ -35,8 +40,9 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use ashpd::desktop::remote_desktop::{Axis, DeviceType, RemoteDesktop};
 use ashpd::desktop::screencast::{CursorMode, Screencast, SourceType};
-use ashpd::desktop::{PersistMode, Session};
+use ashpd::desktop::{PersistMode, Session, SessionPortal};
 use futures_channel::oneshot;
 use futures_util::future::{select, Either};
 use futures_util::StreamExt;
@@ -207,7 +213,12 @@ struct Sesion {
 type Cortes = Arc<parking_lot::Mutex<Option<pw::channel::Sender<Aviso>>>>;
 
 impl Sesion {
-    fn vigilada(sesion: Session<'static, Screencast<'static>>) -> Self {
+    /// La sesion va compartida porque la de «controlar» la usa tambien quien mueve el puntero
+    /// (`Mando`), mientras esta tarea la vigila.
+    fn vigilada<T>(sesion: Arc<Session<'static, T>>) -> Self
+    where
+        T: SessionPortal + Send + Sync + 'static,
+    {
         let (soltar, soltada) = oneshot::channel::<()>();
         let cortes = Cortes::default();
         let avisar = cortes.clone();
@@ -245,18 +256,79 @@ struct Permiso {
     fuentes: Vec<Fuente>,
     ficha: Option<String>,
     raton_aparte: bool,
+    /// Con que mover el puntero, si se ha pedido y el escritorio lo ha dejado.
+    control: Option<Control>,
 }
 
-async fn pedir(ficha: Option<String>) -> ashpd::Result<Permiso> {
-    // Antes de la primera llamada al portal, o se queda sin nombre para siempre.
-    crate::platform::portal::registrar_la_app().await;
-    let portal = Screencast::new().await?;
+/// El permiso de mover el puntero: el portal de «controlar» y su sesion, que es la misma por
+/// la que llega la pantalla.
+///
+/// **Se suelta dentro del motor de tareas** (`Drop`). Lo usa el hilo de la captura, que no es
+/// del motor, y zbus no deja soltar ahi lo suyo: el ultimo que suelta una sesion pide una
+/// tarea para dejar de escucharla, y fuera del motor eso revienta («there is no reactor
+/// running»). Pasaba cuando el escritorio cortaba la sesion a media captura: la tarea que la
+/// vigila ya habia acabado, el hilo de la captura soltaba el ultimo trozo y moria sin abrir
+/// el editor ni dejar empezar otra captura (laboratorio de S45, parar desde el indicador de
+/// GNOME).
+struct Control {
+    dentro: Option<(RemoteDesktop<'static>, Arc<Session<'static, RemoteDesktop<'static>>>)>,
+}
+
+impl Control {
+    fn nuevo(portal: RemoteDesktop<'static>, sesion: Arc<Session<'static, RemoteDesktop<'static>>>) -> Self {
+        Self { dentro: Some((portal, sesion)) }
+    }
+
+    fn partes(&self) -> Option<(&RemoteDesktop<'static>, &Session<'static, RemoteDesktop<'static>>)> {
+        self.dentro.as_ref().map(|(portal, sesion)| (portal, &**sesion))
+    }
+}
+
+impl Drop for Control {
+    fn drop(&mut self) {
+        if let Some(dentro) = self.dentro.take() {
+            tauri::async_runtime::spawn(async move { drop(dentro) });
+        }
+    }
+}
+
+/// Para que se quiere la pantalla: de eso depende que se hace con el raton.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Uso {
+    /// Grabar: el raton tiene que salir. Aparte si el escritorio sabe, y si no, dibujado.
+    Video,
+    /// Fotos para coser: el raton no puede salir en ellas. Aparte (y asi se sabe por donde
+    /// va) o, si el escritorio no sabe, escondido.
+    Fotos,
+}
+
+/// Como se le pide el raton al escritorio, y si lo va a mandar aparte.
+async fn modo_del_raton(portal: &Screencast<'_>, uso: Uso) -> (CursorMode, bool) {
     let raton_aparte = portal
         .available_cursor_modes()
         .await
         .map(|modos| modos.contains(CursorMode::Metadata))
         .unwrap_or(false);
-    let modo = if raton_aparte { CursorMode::Metadata } else { CursorMode::Embedded };
+    let modo = match (raton_aparte, uso) {
+        (true, _) => CursorMode::Metadata,
+        (false, Uso::Video) => CursorMode::Embedded,
+        (false, Uso::Fotos) => CursorMode::Hidden,
+    };
+    (modo, raton_aparte)
+}
+
+fn fuentes_de(flujos: &[ashpd::desktop::screencast::Stream]) -> Vec<Fuente> {
+    flujos
+        .iter()
+        .map(|s| Fuente { nodo: s.pipe_wire_node_id(), posicion: s.position(), medida: s.size() })
+        .collect()
+}
+
+async fn pedir(ficha: Option<String>, uso: Uso) -> ashpd::Result<Permiso> {
+    // Antes de la primera llamada al portal, o se queda sin nombre para siempre.
+    crate::platform::portal::registrar_la_app().await;
+    let portal = Screencast::new().await?;
+    let (modo, raton_aparte) = modo_del_raton(&portal, uso).await;
     let sesion = portal.create_session().await?;
     portal
         .select_sources(
@@ -273,17 +345,49 @@ async fn pedir(ficha: Option<String>) -> ashpd::Result<Permiso> {
         .response()?;
     let respuesta = portal.start(&sesion, None).await?.response()?;
     let conexion = portal.open_pipe_wire_remote(&sesion).await?;
-    let fuentes = respuesta
-        .streams()
-        .iter()
-        .map(|s| Fuente { nodo: s.pipe_wire_node_id(), posicion: s.position(), medida: s.size() })
-        .collect();
+    Ok(Permiso {
+        sesion: Sesion::vigilada(Arc::new(sesion)),
+        conexion,
+        fuentes: fuentes_de(respuesta.streams()),
+        ficha: respuesta.restore_token().map(str::to_string),
+        raton_aparte,
+        control: None,
+    })
+}
+
+/// La pantalla y ademas el puntero, para la captura con scroll, que gira la rueda ella. Es el
+/// portal `RemoteDesktop` con la pantalla dentro de su misma sesion: el escritorio lo pregunta
+/// todo junto, y si la persona deja ver la pantalla pero no controlar, sale sin `control`.
+async fn pedir_con_puntero(ficha: Option<String>) -> ashpd::Result<Permiso> {
+    crate::platform::portal::registrar_la_app().await;
+    let mando = RemoteDesktop::new().await?;
+    let pantalla = Screencast::new().await?;
+    let (modo, raton_aparte) = modo_del_raton(&pantalla, Uso::Fotos).await;
+    let sesion = mando.create_session().await?;
+    mando
+        .select_devices(&sesion, DeviceType::Pointer.into(), ficha.as_deref(), PersistMode::ExplicitlyRevoked)
+        .await?
+        .response()?;
+    // La ficha de estas sesiones es la de `select_devices`: por aqui el portal no deja pedir
+    // otra.
+    pantalla
+        .select_sources(&sesion, modo, SourceType::Monitor.into(), true, None, PersistMode::DoNot)
+        .await?
+        .response()?;
+    let respuesta = mando.start(&sesion, None).await?.response()?;
+    let conexion = pantalla.open_pipe_wire_remote(&sesion).await?;
+    let sesion = Arc::new(sesion);
+    let control = respuesta
+        .devices()
+        .contains(DeviceType::Pointer)
+        .then(|| Control::nuevo(mando, sesion.clone()));
     Ok(Permiso {
         sesion: Sesion::vigilada(sesion),
         conexion,
-        fuentes,
+        fuentes: fuentes_de(respuesta.streams().unwrap_or_default()),
         ficha: respuesta.restore_token().map(str::to_string),
         raton_aparte,
+        control,
     })
 }
 
@@ -340,7 +444,14 @@ pub struct Preparada {
     raton_cocido: bool,
     avisos: Option<pw::channel::Sender<Aviso>>,
     hilo: Option<JoinHandle<Rastro>>,
+    raton: RatonVivo,
 }
+
+/// Por donde va el raton ahora mismo, contado desde la esquina de la region y en sus pixeles.
+/// `None` mientras el escritorio no lo haya dicho (o si no sabe mandarlo aparte). Lo escribe el
+/// hilo de PipeWire con cada noticia del raton y lo lee la captura con scroll, que tiene que
+/// saber si quien captura lo ha cogido.
+pub type RatonVivo = Arc<parking_lot::Mutex<Option<(i32, i32)>>>;
 
 impl Drop for Preparada {
     fn drop(&mut self) {
@@ -351,6 +462,87 @@ impl Drop for Preparada {
     }
 }
 
+/// Lo que se le pide al escritorio.
+#[derive(Debug, Clone, Copy)]
+enum Pedido {
+    Pantalla(Uso),
+    PantallaYPuntero,
+}
+
+/// Por que no hay permiso.
+enum Fallo {
+    Portal(ashpd::Error),
+    Reventado,
+}
+
+impl Fallo {
+    fn frase(&self) -> String {
+        match self {
+            Fallo::Portal(error) => por_que_no(error),
+            Fallo::Reventado => "el portal de grabación ha reventado".into(),
+        }
+    }
+
+    /// Lo que ha dicho el portal, tal cual, para el registro.
+    fn detalle(&self) -> String {
+        match self {
+            Fallo::Portal(error) => error.to_string(),
+            Fallo::Reventado => "el portal ha reventado".into(),
+        }
+    }
+
+    /// La persona ha dicho que no en la pregunta del escritorio.
+    fn es_un_no(&self) -> bool {
+        matches!(self, Fallo::Portal(ashpd::Error::Response(ashpd::desktop::ResponseError::Cancelled)))
+    }
+}
+
+/// Pide el permiso presentando la ficha guardada en `ruta`, si la hay, y deja guardada la que
+/// toque para la vez siguiente. Puede tardar lo que tarde la persona en contestar.
+fn pedir_con_ficha(ruta: &Path, pedido: Pedido) -> std::result::Result<Permiso, Fallo> {
+    let guardada = std::fs::read_to_string(ruta)
+        .ok()
+        .map(|texto| texto.trim().to_string())
+        .filter(|texto| !texto.is_empty());
+    let habia_ficha = guardada.is_some();
+    // En su hilo: quien llama puede estar ya dentro del motor de tareas, que no deja esperar.
+    let en_su_hilo = move || {
+        tauri::async_runtime::block_on(async move {
+            match pedido {
+                Pedido::Pantalla(uso) => pedir(guardada, uso).await,
+                Pedido::PantallaYPuntero => pedir_con_puntero(guardada).await,
+            }
+        })
+    };
+    let permiso = match std::thread::spawn(en_su_hilo).join() {
+        Ok(Ok(permiso)) => permiso,
+        Ok(Err(error)) => {
+            // Con una ficha buena el escritorio no pregunta ni falla. Si no ha dejado grabar,
+            // esa ficha ya no abre nada: fuera, y la vez siguiente se pregunta de cero.
+            if habia_ficha {
+                let _ = std::fs::remove_file(ruta);
+            }
+            return Err(Fallo::Portal(error));
+        }
+        Err(_) => return Err(Fallo::Reventado),
+    };
+    // La ficha vieja ya no vale, se haya dado una nueva o no.
+    match &permiso.ficha {
+        Some(nueva) => {
+            if let Some(carpeta) = ruta.parent() {
+                let _ = std::fs::create_dir_all(carpeta);
+            }
+            if let Err(error) = guardar_la_ficha(ruta, nueva) {
+                eprintln!("[grabar] no se ha podido guardar el permiso del escritorio: {error}");
+            }
+        }
+        None => {
+            let _ = std::fs::remove_file(ruta);
+        }
+    }
+    Ok(permiso)
+}
+
 /// Pide permiso al escritorio (si hace falta), abre la pantalla que lleva la region y espera
 /// a que llegue la primera imagen. Puede tardar lo que tarde la persona en contestar.
 pub fn preparar(
@@ -359,38 +551,141 @@ pub fn preparar(
     ficha: &Path,
     al_cortarse: Box<dyn Fn() + Send>,
 ) -> Result<Preparada> {
-    let guardada = std::fs::read_to_string(ficha)
-        .ok()
-        .map(|texto| texto.trim().to_string())
-        .filter(|texto| !texto.is_empty());
-    let habia_ficha = guardada.is_some();
-    let permiso = match std::thread::spawn(move || tauri::async_runtime::block_on(pedir(guardada))).join() {
-        Ok(Ok(permiso)) => permiso,
-        Ok(Err(error)) => {
-            // Con una ficha buena el escritorio no pregunta ni falla. Si no ha dejado grabar,
-            // esa ficha ya no abre nada: fuera, y la vez siguiente se pregunta de cero.
-            if habia_ficha {
-                let _ = std::fs::remove_file(ficha);
-            }
-            return Err(AppError::Msg(por_que_no(&error)));
-        }
-        Err(_) => return Err(AppError::Msg("el portal de grabación ha reventado".into())),
+    let permiso = pedir_con_ficha(ficha, Pedido::Pantalla(Uso::Video)).map_err(|fallo| AppError::Msg(fallo.frase()))?;
+    Ok(abrir(permiso, region, fps, Uso::Video, ficha, al_cortarse)?.preparada)
+}
+
+/// Los fotogramas por segundo que se piden para las fotos de la captura con scroll. No es un
+/// video: es para que la ultima imagen que haya mandado el escritorio se tenga enseguida.
+const FPS_DE_LAS_FOTOS: u32 = 100;
+
+/// Lo que pide la captura con scroll: la pantalla para hacerle fotos y, si el escritorio deja,
+/// su puntero.
+pub struct ParaFotos {
+    pub preparada: Preparada,
+    /// `None` si el escritorio no deja mover el puntero: la rueda la pone quien captura.
+    pub mando: Option<Mando>,
+    /// El puntero se ha podido pedir (lo hayan dado o no): este escritorio tiene con que.
+    pub puntero_pedido: bool,
+}
+
+/// Si a este escritorio se le puede pedir el puntero: tiene el portal de «controlar» y el
+/// puntero esta entre lo que deja controlar. No pregunta nada a nadie.
+pub async fn se_puede_pedir_el_puntero() -> bool {
+    crate::platform::portal::registrar_la_app().await;
+    let Ok(portal) = RemoteDesktop::new().await else {
+        return false;
     };
-    // La ficha vieja ya no vale, se haya dado una nueva o no.
-    match &permiso.ficha {
-        Some(nueva) => {
-            if let Some(carpeta) = ficha.parent() {
-                let _ = std::fs::create_dir_all(carpeta);
-            }
-            if let Err(error) = guardar_la_ficha(ficha, nueva) {
-                eprintln!("[grabar] no se ha podido guardar el permiso del escritorio: {error}");
-            }
+    portal.available_device_types().await.is_ok_and(|tipos| tipos.contains(DeviceType::Pointer))
+}
+
+/// Lo mismo que `preparar`, para las fotos de la captura con scroll: la zona tal cual (sin
+/// redondearla a medidas pares), el raton fuera de la imagen, y ademas el puntero, para girar
+/// la rueda.
+///
+/// Se pide todo junto por el portal de «controlar», con su propia ficha (`ficha_con_puntero`).
+/// Si ese portal no esta o falla, se pide solo la pantalla, con la ficha de grabar: la captura
+/// sale igual, con la rueda de quien captura. Si la persona dice que no, no se le pregunta
+/// otra vez.
+///
+/// **Un permiso sin puntero no se guarda.** En la pregunta de GNOME «permitir la interaccion
+/// remota» viene apagado, y «recordar» encendido: quien pulsa «Compartir» sin mirar da la
+/// pantalla y no el puntero. Guardado eso, no volveria a preguntar nunca y la captura no
+/// bajaria sola jamas, sin nada en winshotx con que cambiarlo. Sin guardar, la vez siguiente
+/// vuelve a preguntar.
+pub fn preparar_fotos(
+    region: Rect,
+    ficha_con_puntero: &Path,
+    ficha_de_grabar: &Path,
+    al_cortarse: Box<dyn Fn() + Send>,
+) -> Result<ParaFotos> {
+    let (mut permiso, ficha, puntero_pedido) = match pedir_con_ficha(ficha_con_puntero, Pedido::PantallaYPuntero) {
+        Ok(permiso) => (permiso, ficha_con_puntero, true),
+        Err(fallo) if fallo.es_un_no() => return Err(AppError::Msg(fallo.frase())),
+        Err(fallo) => {
+            eprintln!("[scroll] a este escritorio no se le puede pedir el puntero ({}): se pide solo la pantalla", fallo.detalle());
+            let permiso = pedir_con_ficha(ficha_de_grabar, Pedido::Pantalla(Uso::Fotos))
+                .map_err(|fallo| AppError::Msg(fallo.frase()))?;
+            (permiso, ficha_de_grabar, false)
         }
-        None => {
-            let _ = std::fs::remove_file(ficha);
-        }
+    };
+    let control = permiso.control.take();
+    if puntero_pedido && control.is_none() {
+        let _ = std::fs::remove_file(ficha_con_puntero);
+    }
+    let abierta = abrir(permiso, region, FPS_DE_LAS_FOTOS, Uso::Fotos, ficha, al_cortarse)?;
+    let mando = control.map(|control| Mando {
+        control,
+        nodo: abierta.nodo,
+        monitor: abierta.monitor,
+        medida: abierta.medida,
+    });
+    Ok(ParaFotos { preparada: abierta.preparada, mando, puntero_pedido })
+}
+
+/// El puntero del escritorio en manos de la captura con scroll: ponerlo sobre la zona y girar
+/// su rueda. Existe solo si la persona ha dejado «controlar» en la pregunta del escritorio, y
+/// mientras viva la sesion de la pantalla, que es la misma.
+pub struct Mando {
+    control: Control,
+    /// La pantalla sobre la que se cuentan los puntos: su nodo, donde esta (en pixeles de la
+    /// foto) y lo que mide en las medidas del escritorio.
+    nodo: u32,
+    monitor: MonitorInfo,
+    medida: (i32, i32),
+}
+
+impl Mando {
+    /// Pone el puntero en ese punto del escritorio, en pixeles de la foto. `false` si el
+    /// escritorio ya no deja.
+    pub fn poner(&self, punto: (i32, i32)) -> bool {
+        let (x, y) = en_la_pantalla_del_portal(punto, &self.monitor, self.medida);
+        let Some((portal, sesion)) = self.control.partes() else {
+            return false;
+        };
+        tauri::async_runtime::block_on(portal.notify_pointer_motion_absolute(sesion, self.nodo, x, y)).is_ok()
     }
 
+    /// Gira la rueda, como una de verdad: las muescas positivas bajan la pagina y las negativas
+    /// la suben. `false` si el escritorio ya no deja.
+    pub fn rueda(&self, muescas: i32) -> bool {
+        let Some((portal, sesion)) = self.control.partes() else {
+            return false;
+        };
+        tauri::async_runtime::block_on(portal.notify_pointer_axis_discrete(sesion, Axis::Vertical, muescas)).is_ok()
+    }
+}
+
+/// Un punto del escritorio, en pixeles de la foto, como lo quiere el portal: contado desde la
+/// esquina de su pantalla y en las medidas del escritorio (pixeles logicos), que con la
+/// pantalla ampliada no son los de la foto.
+pub(crate) fn en_la_pantalla_del_portal(punto: (i32, i32), monitor: &MonitorInfo, medida: (i32, i32)) -> (f64, f64) {
+    let pasar = |valor: i32, de: u32, a: i32| f64::from(valor) * f64::from(a) / f64::from(de.max(1));
+    (
+        pasar(punto.0 - monitor.x, monitor.width, medida.0),
+        pasar(punto.1 - monitor.y, monitor.height, medida.1),
+    )
+}
+
+/// La pantalla ya abierta, con lo que hace falta para mover el puntero por ella.
+struct Abierta {
+    preparada: Preparada,
+    nodo: u32,
+    monitor: MonitorInfo,
+    /// Lo que mide esa pantalla en las medidas del escritorio, que es como habla el portal.
+    medida: (i32, i32),
+}
+
+/// Con el permiso dado: abre la pantalla que lleva la region y espera a su primera imagen.
+/// `ficha` es la que ha abierto ese permiso, por si hay que borrarla.
+fn abrir(
+    permiso: Permiso,
+    region: Rect,
+    fps: u32,
+    uso: Uso,
+    ficha: &Path,
+    al_cortarse: Box<dyn Fn() + Send>,
+) -> Result<Abierta> {
     let pantallas = crate::capture::wayland::pantallas()?;
     let monitores = crate::capture::wayland::monitores()?;
     let Some((nodo, monitor)) = elegir(&permiso.fuentes, &pantallas, &monitores, region) else {
@@ -400,29 +695,50 @@ pub fn preparar(
             "esa pantalla no está entre las que has dejado grabar: vuelve a intentarlo y elígela".into(),
         ));
     };
-    // La region, contada desde la esquina de su pantalla y sin salirse de ella.
+    // La region, contada desde la esquina de su pantalla y sin salirse de ella. Las medidas
+    // pares son cosa del video.
     let relativa = Rect { x: region.x - monitor.x, y: region.y - monitor.y, ..region };
-    let dentro = super::x11::dentro_de_la_pantalla(relativa, monitor.width, monitor.height)
-        .ok_or_else(|| AppError::Msg("esa región se sale de la pantalla".into()))?;
+    let dentro = match uso {
+        Uso::Video => super::x11::dentro_de_la_pantalla(relativa, monitor.width, monitor.height),
+        Uso::Fotos => super::x11::lo_que_cae_dentro(relativa, monitor.width, monitor.height),
+    }
+    .ok_or_else(|| AppError::Msg("esa región se sale de la pantalla".into()))?;
     let region = Rect { x: dentro.x + monitor.x, y: dentro.y + monitor.y, ..dentro };
-    eprintln!(
-        "[grabar] el escritorio deja grabar {} pantalla(s); nodo {nodo}, ratón {}",
-        permiso.fuentes.len(),
-        if permiso.raton_aparte { "aparte" } else { "dibujado en la imagen" }
-    );
+    if uso == Uso::Video {
+        eprintln!(
+            "[grabar] el escritorio deja grabar {} pantalla(s); nodo {nodo}, ratón {}",
+            permiso.fuentes.len(),
+            if permiso.raton_aparte { "aparte" } else { "dibujado en la imagen" }
+        );
+    }
+    let medida = permiso
+        .fuentes
+        .iter()
+        .find(|fuente| fuente.nodo == nodo)
+        .and_then(|fuente| fuente.medida)
+        .or_else(|| {
+            let i = monitores.iter().position(|m| m.id == monitor.id)?;
+            pantallas.get(i).map(|p| (p.ancho, p.alto))
+        })
+        .unwrap_or((monitor.width as i32, monitor.height as i32));
 
     let (avisos, recibidos) = pw::channel::channel::<Aviso>();
     *permiso.sesion.cortes.lock() = Some(avisos.clone());
     let (listo, esperando) = std::sync::mpsc::channel::<std::result::Result<(), String>>();
     let raton_aparte = permiso.raton_aparte;
     let plan = Plan { dentro, pantalla: (monitor.width, monitor.height), raton_aparte };
+    let raton = RatonVivo::default();
     let hilo = std::thread::Builder::new()
         .name("grabar-pipewire".into())
-        .spawn(move || bucle(permiso, nodo, plan, recibidos, listo, al_cortarse))
+        .spawn({
+            let raton = raton.clone();
+            move || bucle(permiso, nodo, plan, recibidos, listo, al_cortarse, raton)
+        })
         .map_err(|error| AppError::Msg(format!("no se ha podido empezar a grabar: {error}")))?;
-    let preparada = Preparada { region, fps, raton_cocido: !raton_aparte, avisos: Some(avisos), hilo: Some(hilo) };
+    let preparada =
+        Preparada { region, fps, raton_cocido: !raton_aparte, avisos: Some(avisos), hilo: Some(hilo), raton };
     match esperando.recv_timeout(ESPERA_DE_LA_IMAGEN) {
-        Ok(Ok(())) => Ok(preparada),
+        Ok(Ok(())) => Ok(Abierta { preparada, nodo, monitor, medida }),
         Ok(Err(error)) => Err(AppError::Msg(format!("el escritorio no manda la imagen de la pantalla: {error}"))),
         Err(_) => Err(AppError::Msg("el escritorio ha dado permiso, pero no llega la imagen de la pantalla".into())),
     }
@@ -436,6 +752,11 @@ impl Preparada {
     /// El raton viene ya dibujado dentro de la imagen: el exportador no tiene que dibujarlo.
     pub fn raton_cocido(&self) -> bool {
         self.raton_cocido
+    }
+
+    /// Por donde va el raton, mientras dure esta captura.
+    pub fn raton_vivo(&self) -> RatonVivo {
+        self.raton.clone()
     }
 
     pub fn grabar(mut self, marcha: Marcha, salida: Sender<Fotograma>, reciclados: Reciclados) -> EnMarcha {
@@ -476,6 +797,8 @@ struct Estado {
     cortada: bool,
     dejarlo: bool,
     al_cortarse: Box<dyn Fn() + Send>,
+    /// Lo mismo que `raton`, pero a la vista de quien ha pedido la captura y siempre al dia.
+    a_la_vista: RatonVivo,
 }
 
 impl Estado {
@@ -552,6 +875,7 @@ impl Estado {
         let sitio = cursor.position();
         let x = ((f64::from(sitio.x) - x0) * ancho / (x1 - x0)).round() as i32;
         let y = ((f64::from(sitio.y) - y0) * alto / (y1 - y0)).round() as i32;
+        *self.a_la_vista.lock() = Some((x, y));
         let ahora = self.emision.as_ref().filter(|e| !e.marcha.en_pausa()).map(|e| e.marcha.ms());
 
         if let Some(imagen) = cursor.bitmap().and_then(imagen_del_puntero) {
@@ -712,6 +1036,7 @@ fn bucle(
     avisos: pw::channel::Receiver<Aviso>,
     listo: Sender<std::result::Result<(), String>>,
     al_cortarse: Box<dyn Fn() + Send>,
+    a_la_vista: RatonVivo,
 ) -> Rastro {
     let Permiso { sesion, conexion, .. } = permiso;
     let estado = Rc::new(RefCell::new(Estado {
@@ -730,6 +1055,7 @@ fn bucle(
         cortada: false,
         dejarlo: false,
         al_cortarse,
+        a_la_vista,
     }));
     if let Err(error) = correr(conexion, nodo, avisos, &estado) {
         eprintln!("[grabar] PipeWire: {error}");
@@ -953,6 +1279,23 @@ mod tests {
         let mut destino = vec![7u8; 4];
         assert!(!recortar(&fotograma_de_prueba()[..20], 16, Orden::Bgr, &plan, &mut destino));
         assert_eq!(destino, [7, 7, 7, 7], "no se toca lo que habia");
+    }
+
+    #[test]
+    fn el_puntero_se_cuenta_desde_la_esquina_de_su_pantalla() {
+        // Una pantalla sola, sin ampliar: los pixeles de la foto son los del escritorio.
+        let sola = monitor(0, 0, 0, 1600, 1000);
+        assert_eq!(en_la_pantalla_del_portal((784, 504), &sola, (1600, 1000)), (784.0, 504.0));
+        // La de la derecha: el portal cuenta desde su esquina, no desde la del escritorio.
+        let derecha = monitor(1, 1920, 0, 1280, 720);
+        assert_eq!(en_la_pantalla_del_portal((2000, 100), &derecha, (1280, 720)), (80.0, 100.0));
+    }
+
+    #[test]
+    fn con_la_pantalla_ampliada_el_puntero_va_en_las_medidas_del_escritorio() {
+        // Al 200 %: la foto mide 3200x2000 y el escritorio dice 1600x1000.
+        let ampliada = monitor(0, 0, 0, 3200, 2000);
+        assert_eq!(en_la_pantalla_del_portal((1568, 1008), &ampliada, (1600, 1000)), (784.0, 504.0));
     }
 
     #[test]

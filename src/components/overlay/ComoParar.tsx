@@ -34,6 +34,54 @@ export function ScrollConSuTecla({ tecla }: { tecla: string }) {
   );
 }
 
+/**
+ * Lo mismo cuando no hay tecla que decir: Wayland sin tecla de capturar puesta en el
+ * escritorio. Allí no hay barra nunca ni se puede coger Esc, así que se nombra lo que queda:
+ * el botón de dejar de compartir del propio escritorio (GNOME, KDE) y, donde no lo hay, la
+ * orden. A nadie se le deja sin forma de parar.
+ */
+export function ScrollSinTecla({ como }: { como: Datos }) {
+  const t = useT();
+  if (como.escritorio) {
+    return (
+      <>
+        {t(
+          "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, deja de compartir la pantalla desde el escritorio.",
+        )}
+      </>
+    );
+  }
+  const [antes, despues] = t(
+    "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, ejecuta {orden}.",
+  ).split("{orden}");
+  return (
+    <>
+      {antes}
+      <strong className="font-semibold whitespace-nowrap text-white">
+        {como.scrollOrden ?? "winshotx --capture"}
+      </strong>
+      {despues}
+    </>
+  );
+}
+
+/**
+ * Lo que hay que contestarle al escritorio para que la captura con scroll baje sola.
+ *
+ * En Wayland la rueda la gira el escritorio, y antes pregunta. En la pregunta de GNOME eso
+ * viene apagado: quien pulsa «Compartir» sin tocarlo da la pantalla y no el puntero, y la
+ * página se queda quieta sin que nada en pantalla diga por qué (aquí no hay barra). Solo
+ * sale mientras el escritorio vaya a preguntar. Va en su renglón, y es una frase entera.
+ */
+export function ScrollPregunta() {
+  const t = useT();
+  return (
+    <span data-scroll-pregunta className="block">
+      {t("Cuando el escritorio pregunte, permite la interacción remota: sin ella tendrás que bajarlo tú.")}
+    </span>
+  );
+}
+
 export function ComoParar({ como }: { como: Datos }) {
   const t = useT();
   const trozos = t(fraseDeComoParar(como)).split(/(\{atajo\}|\{orden\})/);

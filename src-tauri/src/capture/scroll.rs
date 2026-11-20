@@ -622,6 +622,8 @@ mod comun;
 mod en_vivo;
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "linux")]
+mod wayland;
 
 /// Empieza a capturar esa zona (en píxeles del escritorio virtual): cierra el overlay,
 /// pone el marco y la barra, y baja la página. Vuelve enseguida; lo demás va en su hilo.
@@ -661,6 +663,13 @@ pub async fn scroll_descartar() {
 #[cfg(target_os = "linux")]
 pub fn terminar_la_que_haya() -> bool {
     comun::terminar_si_hay()
+}
+
+/// Al arrancar: si la captura con scroll va a hacer que el escritorio pregunte por el puntero
+/// (Wayland), para que la pantalla de elegir zona lo diga antes.
+#[cfg(target_os = "linux")]
+pub fn mirar_si_preguntara(app: &tauri::AppHandle) {
+    wayland::mirar_si_preguntara(app);
 }
 
 /// El evento con el que la barra se entera de cómo va la captura.

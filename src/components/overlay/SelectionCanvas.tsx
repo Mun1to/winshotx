@@ -67,7 +67,7 @@ import {
   type StillAction,
 } from "../../lib/types";
 import { BootScreen } from "./BootScreen";
-import { ComoParar, ScrollConSuTecla } from "./ComoParar";
+import { ComoParar, ScrollConSuTecla, ScrollPregunta, ScrollSinTecla } from "./ComoParar";
 import { DimensionBadge } from "./DimensionBadge";
 import { FloatingToolbar } from "./FloatingToolbar";
 import { Magnifier } from "./Magnifier";
@@ -1648,13 +1648,20 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
       {/* Lo que hace la captura con scroll, mientras se elige la zona: sin esto, el botón
           encendido no dice qué va a pasar al soltar. */}
       {conScroll && cursorAqui && !active && mode.kind === "idle" && !error && (
-        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center">
-          <div className="rounded-xl border border-white/10 bg-neutral-900/90 px-4 py-2.5 text-[14px] text-neutral-100 shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-x-0 top-[84px] flex justify-center px-6">
+          <div
+            data-scroll-aviso
+            className="max-w-[760px] rounded-xl border border-white/10 bg-neutral-900/90 px-4 py-2.5 text-center text-[14px] text-balance text-neutral-100 shadow-2xl backdrop-blur-md"
+          >
             {payload.comoParar?.scroll ? (
               <ScrollConSuTecla tecla={payload.comoParar.scroll} />
+            ) : payload.comoParar ? (
+              // Linux sin tecla que decir (Wayland): lo que queda para parar.
+              <ScrollSinTecla como={payload.comoParar} />
             ) : (
               t("Recorta lo que se desplaza y winshotx lo bajará solo")
             )}
+            {payload.comoParar?.scrollPregunta && <ScrollPregunta />}
           </div>
         </div>
       )}

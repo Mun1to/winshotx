@@ -134,11 +134,92 @@ describe("en el overlay", () => {
     expect(document.querySelector("[data-como-parar]")).toBeNull();
   });
 
-  it("y sin tecla que decir, la frase de siempre", async () => {
+  it("en Wayland sin tecla puesta, dice que se para dejando de compartir la pantalla", async () => {
     responde("overlay_bootstrap", {
       ...PAYLOAD,
-      comoParar: { atajo: null, bandeja: false, escritorio: false, orden: "winshotx --record", scroll: null },
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: true,
+        orden: "winshotx --record",
+        scroll: null,
+        scrollOrden: "winshotx --capture",
+      },
     });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() =>
+      expect(document.querySelector("[data-scroll-aviso]")).toHaveTextContent(
+        "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, deja de compartir la pantalla desde el escritorio.",
+      ),
+    );
+  });
+
+  it("y donde el escritorio no tiene ese botón, con la orden", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: false,
+        orden: "winshotx --record",
+        scroll: null,
+        scrollOrden: "winshotx --capture",
+      },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    const orden = await screen.findByText("winshotx --capture");
+    expect(orden.tagName).toBe("STRONG");
+    expect(orden.parentElement).toHaveTextContent(
+      "Recorta lo que se desplaza y winshotx lo bajará solo. Para parar antes del final, ejecuta winshotx --capture.",
+    );
+  });
+
+  it("si el escritorio va a preguntar por el puntero, dice antes qué contestar", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: true,
+        orden: "winshotx --record",
+        scroll: "Ctrl+Shift+2",
+        scrollOrden: "winshotx --capture",
+        scrollPregunta: true,
+      },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    await waitFor(() =>
+      expect(document.querySelector("[data-scroll-pregunta]")).toHaveTextContent(
+        "Cuando el escritorio pregunte, permite la interacción remota: sin ella tendrás que bajarlo tú.",
+      ),
+    );
+    // Además de lo de siempre, no en su lugar.
+    expect(document.querySelector("[data-scroll-aviso]")).toHaveTextContent("Para parar antes del final, pulsa Ctrl+Shift+2.");
+  });
+
+  it("y con el permiso ya guardado no lo repite", async () => {
+    responde("overlay_bootstrap", {
+      ...PAYLOAD,
+      comoParar: {
+        atajo: null,
+        bandeja: false,
+        escritorio: true,
+        orden: "winshotx --record",
+        scroll: "Ctrl+Shift+2",
+        scrollOrden: "winshotx --capture",
+        scrollPregunta: false,
+      },
+    });
+    await abrirOverlay();
+    fireEvent.keyDown(window, { key: "s" });
+    await screen.findByText("Ctrl+Shift+2");
+    expect(document.querySelector("[data-scroll-pregunta]")).toBeNull();
+  });
+
+  it("en Windows no hay nada que añadir: la frase de siempre", async () => {
     await abrirOverlay();
     fireEvent.keyDown(window, { key: "s" });
     expect(await screen.findByText("Recorta lo que se desplaza y winshotx lo bajará solo")).toBeInTheDocument();

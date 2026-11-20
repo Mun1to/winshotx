@@ -34,8 +34,16 @@ pub struct ComoParar {
     pub orden: String,
     /// La tecla que para una captura con scroll antes de que llegue al final, escrita para
     /// leerla. En X11 es Esc, que se coge mientras dura (`capture::scroll::linux`): la barrita
-    /// de la captura solo sale si cabe fuera de la zona, asi que hay capturas sin ella.
+    /// de la captura solo sale si cabe fuera de la zona, asi que hay capturas sin ella. En
+    /// Wayland no hay barra nunca ni se puede coger Esc: es la tecla de capturar, si el
+    /// escritorio ha puesto una. Sin tecla quedan `escritorio` y `scroll_orden`.
     pub scroll: Option<String>,
+    /// Lo que se escribe en una consola para pararla, para cuando no queda otra cosa.
+    pub scroll_orden: String,
+    /// Al empezar una captura con scroll, el escritorio va a preguntar si deja mover el
+    /// puntero (Wayland, mientras no haya permiso guardado). Se avisa antes porque en esa
+    /// pregunta viene apagado, y sin el la pagina no baja sola.
+    pub scroll_pregunta: bool,
 }
 
 /// Lo que hay ahora mismo para parar. No espera a nadie: va en el camino de abrir la captura.
@@ -48,8 +56,31 @@ pub fn de_ahora(state: &AppState) -> ComoParar {
         bandeja: BANDEJA.load(Ordering::Relaxed),
         escritorio: wayland && escritorio_con_boton_de_parar(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default()),
         orden: format!("{} --record", super::xdg::orden_de_la_app()),
-        scroll: (!wayland).then(|| "Esc".to_string()),
+        scroll: tecla_del_scroll(wayland),
+        scroll_orden: format!("{} --capture", super::xdg::orden_de_la_app()),
+        scroll_pregunta: wayland && PREGUNTA_DEL_PUNTERO.load(Ordering::Relaxed),
     }
+}
+
+/// Si la proxima captura con scroll va a hacer que el escritorio pregunte por el puntero,
+/// segun la ultima vez que se supo. Mientras no se sepa, que no: avisar de una pregunta que
+/// no llega confunde mas que callar.
+static PREGUNTA_DEL_PUNTERO: AtomicBool = AtomicBool::new(false);
+
+/// Lo apunta quien lo sabe: el arranque y cada captura con scroll (`capture::scroll::wayland`).
+pub fn apuntar_la_pregunta_del_puntero(preguntara: bool) {
+    PREGUNTA_DEL_PUNTERO.store(preguntara, Ordering::Relaxed);
+}
+
+/// La tecla que para una captura con scroll: Esc donde se puede coger (X11), y en Wayland la
+/// de capturar, que mientras baja una la termina (`capture::scroll::terminar_la_que_haya`).
+fn tecla_del_scroll(wayland: bool) -> Option<String> {
+    if !wayland {
+        return Some("Esc".to_string());
+    }
+    let tecla = super::portal::teclas_del_escritorio()?.capture?;
+    let leida = tecla.atajo.as_deref().map(atajo_legible);
+    Some(leida.unwrap_or(tecla.texto))
 }
 
 /// Un atajo de los ajustes (`CmdOrCtrl+Shift+Digit5`) como lo leeria una persona
@@ -160,6 +191,8 @@ mod tests {
             escritorio: false,
             orden: "winshotx --record".into(),
             scroll: Some("Esc".into()),
+            scroll_orden: "winshotx --capture".into(),
+            scroll_pregunta: true,
         };
         assert_eq!(
             serde_json::to_value(&como).unwrap(),
@@ -168,7 +201,9 @@ mod tests {
                 "bandeja": true,
                 "escritorio": false,
                 "orden": "winshotx --record",
-                "scroll": "Esc"
+                "scroll": "Esc",
+                "scrollOrden": "winshotx --capture",
+                "scrollPregunta": true
             })
         );
     }

@@ -2,7 +2,8 @@
 //! y lo de decidir cuánto se gira está en el módulo de arriba, igual que para Windows
 //! (`en_vivo`), y lo que no depende de la pantalla, en `comun`.
 //!
-//! **Por ahora, X11.** Ahí todo se le pide al servidor X:
+//! **Aquí está X11**, y Wayland en `wayland`, que es otro mundo: allí la pantalla y el puntero
+//! se le piden al escritorio. En X11 todo se le pide al servidor X:
 //!
 //! - **Las fotos**, por memoria compartida (MIT-SHM), con lo mismo que da los fotogramas al
 //!   grabar (`record::linux::x11`). El ratón no sale en ellas.
@@ -13,10 +14,11 @@
 //! - **Esc**, cogida en el servidor mientras dura (`XGrabKey`), que llega tenga el foco quien
 //!   lo tenga. Si otro programa ya la tiene, se mira el teclado a mano.
 //!
-//! **Aquí nada nuestro se puede sacar de una foto**: lo que está en pantalla, sale. Por eso el
-//! marco va siempre por fuera de la zona (`marco_x11`) y la barra solo se abre si cabe entera
-//! fuera de ella. Si no cabe (la pantalla entera, o casi), no hay barra: se para con Esc, con
-//! la tecla de capturar o llegando al final, y la pantalla de elegir zona ya lo ha dicho.
+//! **En Linux nada nuestro se puede sacar de una foto**: lo que está en pantalla, sale. Por
+//! eso en X11 el marco va siempre por fuera de la zona (`marco_x11`) y la barra solo se abre
+//! si cabe entera fuera de ella. Si no cabe (la pantalla entera, o casi), no hay barra: se
+//! para con Esc, con la tecla de capturar o llegando al final, y la pantalla de elegir zona
+//! ya lo ha dicho. En Wayland una ventana no elige su sitio, así que no hay ni barra ni marco.
 
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
@@ -66,15 +68,6 @@ enum Esc {
     AMano(u8),
     /// No se sabe ni qué tecla es en este teclado.
     Ninguna,
-}
-
-/// Si aquí se puede capturar con scroll. Se pregunta antes de cerrar la pantalla de elegir
-/// zona, para que el porqué salga en ella.
-pub(super) fn se_puede() -> Result<()> {
-    if crate::platform::xdg::es_wayland() {
-        return Err(AppError::Msg("En Wayland la captura con scroll todavía no funciona.".into()));
-    }
-    Ok(())
 }
 
 /// La conexión con el servidor X para lo que no son fotos: girar la rueda, saber dónde está
@@ -215,7 +208,7 @@ impl Drop for Mando {
 /// Donde se deja el ratón para girar la rueda: donde esté, metido 16 píxeles dentro de la
 /// zona. Al soltar el recorte ya está en una esquina, así que apenas se mueve. La misma
 /// cuenta que en Windows (`en_vivo::punto_dentro`).
-fn punto_dentro(region: Rect, raton: (i32, i32)) -> (i32, i32) {
+pub(super) fn punto_dentro(region: Rect, raton: (i32, i32)) -> (i32, i32) {
     let margen = 16.min(region.width as i32 / 4).min(region.height as i32 / 4);
     (
         raton.0.clamp(region.x + margen, region.x + region.width as i32 - 1 - margen),
@@ -273,6 +266,9 @@ pub(super) fn capturar(
     monitor: &MonitorInfo,
     orden: &AtomicU8,
 ) -> Result<Option<RgbaImage>> {
+    if crate::platform::xdg::es_wayland() {
+        return super::wayland::capturar(app, region, orden);
+    }
     // Que la pantalla de elegir zona se haya ido de verdad antes de la primera foto: aquí se
     // esconde, y el servidor tarda un momento en repintar lo que tapaba.
     std::thread::sleep(QUE_SE_VAYA_EL_OVERLAY);
@@ -323,6 +319,12 @@ pub(super) fn capturar(
 
 /// La barrita de la captura: cómo va, «Parar» y la X. Solo si cabe entera fuera de la zona.
 pub(super) fn abrir_barra(app: &AppHandle, region: Rect) -> Result<()> {
+    if crate::platform::xdg::es_wayland() {
+        eprintln!(
+            "[scroll] no hay barra (en Wayland una ventana no elige su sitio, y saldría en las fotos): se para con la tecla de capturar, dejando de compartir la pantalla o al llegar al final"
+        );
+        return Ok(());
+    }
     let (cx, cy) = region.center();
     let sitio = crate::windows_mgr::monitor_de(cx, cy)
         .and_then(|m| crate::windows_mgr::sitio_fuera(region, m, BARRA_ANCHO, BARRA_ALTO));

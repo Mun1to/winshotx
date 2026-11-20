@@ -100,7 +100,7 @@ pub(crate) fn dentro_de_la_pantalla(region: Rect, ancho: u32, alto: u32) -> Opti
 }
 
 /// Lo mismo sin redondear a pares, que es cosa del video: una foto mide lo que mida.
-fn lo_que_cae_dentro(region: Rect, ancho: u32, alto: u32) -> Option<Rect> {
+pub(crate) fn lo_que_cae_dentro(region: Rect, ancho: u32, alto: u32) -> Option<Rect> {
     let x0 = region.x.max(0);
     let y0 = region.y.max(0);
     let x1 = (region.x + region.width as i32).min(ancho as i32);
