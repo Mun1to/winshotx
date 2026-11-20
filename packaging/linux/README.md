@@ -126,6 +126,19 @@ extension) and the glow is left out. The windows are of type `dock` with the cla
 fall inside the video. On Wayland there is no frame, since a window cannot choose its position
 and the desktop already shows that the screen is being recorded.
 
+**Clicks and shortcuts are recorded on X11 only.** While it records, winshotx asks the X server
+sixty times a second where the pointer is and which buttons and keys are down (`QueryPointer`
+and `QueryKeymap`). It is the same polling as on Windows, with no grab and no event hook, so no
+other program loses a key or is slowed down. From it come the clicks (for the rings, the click
+sound and the zoom), the shortcuts shown in the pill, the zoom key and the stretches of typing,
+with the rules of Windows and in the same code: only shortcuts are kept, never what is typed,
+and AltGr counts as typing. Keys are translated to Windows key codes with the keyboard layout in
+use, and the table is rebuilt when the layout changes. A click outside the recorded area is not
+kept: that is where the recording bar is, and pausing is not part of the video. On Wayland an
+application cannot read the mouse buttons or the keyboard while another window has them, so a
+recording made there has no clicks, no shortcuts and no zoom marks. Settings says so on the zoom
+key, and the editor does not offer "Show the shortcuts" for a recording that has none.
+
 **How to stop is said before recording, not during.** Anything winshotx showed while recording
 (a notification, a window) would end up in the video, so it shows nothing. Instead the region
 picker says how to stop, in one line under the mode bar, whenever video or GIF is selected. The
@@ -164,6 +177,23 @@ are served at once. What the page still fails to load is written to the app log.
   that side is not drawn, and there is none when the whole screen is recorded. On GNOME the
   recording has no frame and is saved as before. Not tried: more than one monitor, a display
   scaled above 100%, and the compositors of KDE, Xfce and GNOME on X11.
+- Clicks and keys, on X11, with a left click, a right click, a shortcut (Ctrl+Shift+P), the
+  zoom key, a word typed and a capital letter, all made while recording: the recording keeps
+  the two clicks at their place inside the area, that one shortcut, one zoom mark and one
+  stretch of typing, and none of the clicks made on the recording bar to pause and resume. The
+  editor then offers the click rings and puts the zoom of the mark on the timeline, and the
+  saved MP4 shows the ring of each click and the pill of the shortcut. With the click sound
+  switched on, that MP4 has a sound track. With the keyboard switched to Spanish in the middle
+  of the recording, an @ typed with AltGr and an ñ are not taken for shortcuts. With the rings
+  and the keys asked for before recording, they are already in the preview: the pill, and each
+  ring in the frames the screen produces during its 0.4 s. A still screen sends no frames, as
+  on Windows: with a test window that changed every 0.4 s a ring fell in a single frame,
+  barely open, and with one that changed every 0.15 s both rings were seen. The same gestures
+  with the build from before this leave nothing in the recording. On GNOME the recording is
+  saved as before, without clicks or shortcuts, and the editor does not show their group (no
+  gestures were made there: nothing reads them). Not tried: a real mouse and keyboard (the
+  gestures came from `xdotool`, at the pace of a person), layouts other than US and Spanish,
+  and an input method (IBus) in between.
 - GNOME 50 on Wayland: a region to GIF, with the desktop's question the first time and without
   it the second; a token the desktop rejects, with the question cancelled and answered; and
   stopping from GNOME's screen sharing indicator, which saves the recording.
@@ -195,7 +225,7 @@ Not tried: KDE Plasma, Sway and Hyprland, more than one monitor, display scaling
 screens, real sound hardware, and PulseAudio-only systems (Ubuntu 22.04, Linux Mint 21) beyond
 a PipeWire without audio devices. Hardware encoders (VA-API) are not used: the MP4 is encoded
 on the CPU. A custom click sound in MP3 is read through GStreamer, which is only covered by a
-test with a real file: clicks are not recorded on Linux yet, so there is nothing to hear it in.
+test with a real file: the click sound tried in a saved MP4 was the built-in one.
 An AppImage built from this code has not been run: what is said about it comes from the one CI
 built before, unpacked, and from its GStreamer core loaded by itself.
 
