@@ -551,6 +551,96 @@ knowing of no desktop, which takes the same path); the AppImage; more than one m
 (this Xvfb does not list monitors made with `xrandr --setmonitor`), and recording the second
 one on Wayland; and display scaling.
 
+## Always be recording
+
+"Always be recording" (Settings, "The last few seconds") keeps the last 15, 30 or 60 seconds of
+the screen at all times, and a key saves them and opens them in the editor without stopping. It
+is the ring of the Windows version (`replay.rs`, `record/buffer.rs`): the screen as tiles on
+disk, only the ones that changed, the oldest dropped. What had to be written for Linux is where
+the screen, the pointer, the clicks and the sound come from.
+
+- **The screen** comes from the recording code (`record/linux`): MIT-SHM on X11, the ScreenCast
+  portal and PipeWire on Wayland. It hands over whole frames, and only when the screen changes.
+- **The pointer** is not in the image (except on the Wayland desktops that can only give it
+  already drawn): where it went and which cursor it had are noted by the capture, and the
+  editor draws it, as in a recording.
+- **Clicks and shortcuts** are read on X11 only (on Wayland a program cannot), every 16 ms and
+  on a thread of their own (`Vigia` in `replay.rs`). They were first read between one frame and
+  the next, on the thread that saves them, and saving a frame takes longer than a quick click
+  lasts: with the whole screen changing, a third of the clicks were missing from what was
+  rescued, and three out of four at 2560x1440.
+- **Sound** goes through PipeWire into one ring in memory per source, and comes out as the two
+  tracks of a recording: `sonido-pc.wav` and `microfono.wav`.
+
+**On Wayland the desktop asks, and shows that it is sharing.** The first time the switch is
+turned on the desktop asks which screen to share, so "Which screen" is not shown in Settings.
+The answer is kept in `~/.config/com.munir.winshotx/replay-token` (mode 600), apart from the
+token of the recordings: each use spends a token and the desktop hands back another, and with a
+single file one would overwrite the other. While it is on, the desktop shows its own screen
+sharing indicator. It cannot be removed, and the row in Settings says so before it is turned on.
+
+- **At startup it only comes back if the permission was kept.** Without it, starting the ring
+  would make the desktop ask at login, with nothing of winshotx in sight. The setting is turned
+  off instead, and its row says why in grey ("turned off at startup: it needs your permission to
+  share the screen") until the switch is touched. A setting left on with nothing recording would
+  be a lie to whoever counts on rescuing something.
+- **Stopping the sharing from the desktop's indicator turns the setting off** as well, and the
+  row says so ("turned off because screen sharing was stopped").
+- The reason is kept in `replay-apagado`, next to `settings.json`, so that it is still there
+  after a restart.
+
+**The key that rescues** is Ctrl+Shift+6 on X11, grabbed like the others. On Wayland it is one
+more shortcut asked of the desktop (see "Shortcuts on Wayland"), and only while the ring is on.
+Without a key, "Save now" in the same section and `winshotx --replay` do the same.
+
+**What it costs**, measured with the release binary on Fedora 44 under WSL2 (Core Ultra 7 255H),
+a 1600x1000 screen, both sound sources recording a tone and the pointer moving. Share of one
+core used by winshotx, with the screen still, with a small window changing ten times a second,
+and with the whole screen changing thirty times a second:
+
+| | still | a small part changes | everything changes |
+|---|---|---|---|
+| X11, 15 fps | 2.5 % | 4.5 % | 8.1 % |
+| X11, 60 fps | 5.2 % | 7.4 % | 16.9 % |
+| GNOME Wayland, 15 fps | 1.2 % | 3.6 % | 10.1 % |
+| GNOME Wayland, 60 fps | 1.0 % | 3.7 % | 15.1 % |
+
+With the ring off winshotx uses nothing measurable. Memory goes from 180 MB to 220-240 MB on
+X11 and from 172 MB to 280-286 MB on GNOME. On disk, 15 seconds of a whole screen changing take
+15 MB at 15 fps and 31 MB at 60. Rescuing takes about 0.6 s until the session is there. The
+binary grows by 152 KB (1.4 %).
+
+What was tried, in virtual sessions on Fedora 44, with the app itself:
+
+- X11 with openbox: on at startup, and on, off and on again from Settings (turning it off
+  deletes its folder); the key, `winshotx --replay` and a third rescue after a capture and a
+  recording made with the ring on; the session that comes out lasts its 15 seconds, with the
+  pointer, a left click, a right click and a shortcut where they were made, and each sound
+  source on its own track with its own tone; its preview and the exported MP4 last the same and
+  carry both tones. Clicks held for 120, 80, 60, 40 and 25 ms with the screen still, a small
+  part changing and everything changing, at 1600x1000 and at 2560x1440, 15 and 60 fps: all 40 of
+  each series are in what is rescued (before the thread of their own, up to 30 were missing).
+- GNOME 50 on Wayland: nothing is asked at startup with the ring off; turning it on asks for
+  the screen and then for the key. That question closed: the ring stays on, the three keys are
+  the same and still work, `atajos-sin-rescate` is left, and `winshotx --replay` and "Save now"
+  rescue, with both tracks and their tones. After a restart the ring comes back by itself and
+  nothing is asked. "Change" asks again; accepted, the four keys are bound, the file is gone
+  and the key rescues; after another restart there are four and no question. With the first
+  question of all closed (`atajos-sin-pedir`): a start does not ask, turning the ring on does
+  (the four), and closing it again leaves the ring on. Stopped from GNOME's indicator: the ring
+  and the setting go off, the row says why, and the app carries on.
+- GNOME with the setting on and no permission kept: nothing is asked at startup, the setting is
+  off, the row says why, also after another restart, and turning it on by hand clears it.
+- With "Remember this selection" unticked in GNOME's question no token is kept, so the next
+  start is the case above.
+
+**GNOME asks for the key again every time the ring is turned back on.** Turning it off binds the
+three keys alone, which is what frees the fourth for other programs, and GNOME then forgets it.
+
+Not tried: KDE Plasma (its questions and its indicator), Sway and Hyprland themselves (only the
+unit tests of the row with the command), a real pointer and a real keyboard, real sound devices,
+more than one monitor, display scaling, and X11 with a compositor.
+
 ## How the app identifies itself
 
 On Linux the app presents itself to the desktop as `com.munir.winshotx` (the identifier in
@@ -599,6 +689,18 @@ binds the keys, after which GNOME no longer asks. Not tried: KDE Plasma, and the
 directory moved from a desktop where the question was closed to another desktop (the file does
 not know which desktop asked, so the other one is asked from "Change" too).
 
+**The key that rescues the last few seconds is a fourth shortcut**, asked for only while "Always
+be recording" is on. The portal has no call to add one shortcut to a session: the session is
+closed and the whole list is asked for again, so GNOME shows its question with the four of them,
+the three it already had and the new one.
+
+- Turning the switch on is something the person does, so the desktop is asked even if the first
+  question had been closed (`atajos-sin-pedir`). A start never asks.
+- If that question is closed, the three keys of before are bound again as they were (GNOME has
+  them stored and does not ask), the ring stays on without a key, and a second empty file,
+  `atajos-sin-rescate`, keeps later starts from asking for the fourth. "Change" on its row asks
+  again, and adding the key removes the file.
+
 ### Desktops without the GlobalShortcuts portal
 
 Sway and the other wlroots compositors have no such portal, so the welcome screen and the
@@ -609,6 +711,9 @@ winshotx --capture   # capture a region
 winshotx --edit      # capture and open the editor
 winshotx --record    # record a region, or stop the recording in progress
 ```
+
+The row of the key that rescues, in "The last few seconds", shows a fourth one there:
+`winshotx --replay`, which saves the last few seconds while "Always be recording" is on.
 
 A second `winshotx` started with one of those flags hands it to the running one and exits, so
 the key works only while winshotx is running. Sway does not read XDG autostart entries, so the
