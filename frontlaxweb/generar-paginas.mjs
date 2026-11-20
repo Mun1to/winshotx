@@ -104,11 +104,11 @@ function entradillaAlternativa(h, L) {
   const deLaOtra = lista(pierde.map((f) => minuscula(f.vende[L])), L);
   if (L === "es") {
     const peso = traeWindows(h) ? `Su instalador pesa ${pesaWx(L)}, y ${x} viene con Windows.` : `Su instalador pesa ${pesaWx(L)}; el de ${h.es}, ${pesaOtra(h, L)}.`;
-    return `winshotx es una alternativa a ${x} para Windows 10 y 11, gratis y sin cuenta. ${peso} A favor de winshotx: ${suyas}. A favor de ${x}: ${deLaOtra}.`;
+    return `winshotx es una alternativa a ${x} para Windows 10 y 11 y para Linux, gratis y sin cuenta. ${peso} A favor de winshotx: ${suyas}. A favor de ${x}: ${deLaOtra}.`;
   }
   const un = /^[AEIOUX]/.test(h.en) || h.en.startsWith("OBS") ? "an" : "a";
   const peso = traeWindows(h) ? `Its installer weighs ${pesaWx(L)}, and ${x} comes with Windows.` : `Its installer weighs ${pesaWx(L)}; ${h.en}'s, ${pesaOtra(h, L)}.`;
-  return `winshotx is ${un} ${h.en} alternative for Windows 10 and 11, free and with no account. ${peso} Where winshotx wins: ${suyas}. Where ${x} wins: ${deLaOtra}.`;
+  return `winshotx is ${un} ${h.en} alternative for Windows 10 and 11 and for Linux, free and with no account. ${peso} Where winshotx wins: ${suyas}. Where ${x} wins: ${deLaOtra}.`;
 }
 
 // Cada respuesta se monta con los valores de comparativa.mjs, igual que las listas de la portada.

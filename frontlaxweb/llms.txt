@@ -1,8 +1,9 @@
 # winshotx
 
-> Free and open source screenshot and screen recording tool for Windows 10 and 11. It is a
-> lightweight alternative to the built-in Snipping Tool and to ShareX, Greenshot and
-> ScreenToGif. Region capture with a pixel magnifier, GIF and MP4 recording, a rolling
+> Free and open source screenshot and screen recording tool for Windows 10 and 11, and, since
+> version 0.6.0, for Linux (X11, and GNOME on Wayland). It is a lightweight alternative to the
+> built-in Snipping Tool and to ShareX, Greenshot and ScreenToGif. Region capture with a pixel
+> magnifier, GIF and MP4 recording, a rolling
 > buffer that keeps the last seconds you did not record, and an editor with a studio. MIT
 > licence, 3.01 MB installer, no account, no cloud and no telemetry.
 
@@ -21,6 +22,10 @@ clock stops when the selection is visible on screen.
   updated: https://apps.microsoft.com/detail/9P1NKWNRXD6Z
 - Ships a portable build on every release (`winshotx-<version>-portable-x64.zip`): one
   executable, nothing installed, settings still kept in %APPDATA%.
+- On Linux since 0.6.0, with X11 or with GNOME on Wayland: a .deb (Debian and Ubuntu), an
+  .rpm (Fedora) and an AppImage on every release. The AppImage does not save MP4 video (GIF,
+  PNG and JPG yes); the .deb and the .rpm write MP4 with the system's GStreamer. Not on macOS.
+  What changes on Linux: https://github.com/Mun1to/winshotx/blob/main/packaging/linux/README.md
 
 ## What winshotx does that the Snipping Tool does not
 

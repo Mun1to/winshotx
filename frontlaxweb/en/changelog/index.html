@@ -43,7 +43,7 @@
   h.classList.toggle("quieto", gain === 0);
 })();
 </script>
-<link rel="stylesheet" href="../../estilos.css?v=22675198">
+<link rel="stylesheet" href="../../estilos.css?v=bf66aa15">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -117,11 +117,12 @@
   <div class="env">
     <header class="leer-cabeza">
       <h1>What's new</h1>
-      <p class="entradilla">What each version brings, newest first. The app updates itself from <b>Settings</b>, and the latest is <b>0.5.2</b>.</p>
+      <p class="entradilla">What each version brings, newest first. The app updates itself from <b>Settings</b>, and the latest is <b>0.6.0</b>.</p>
     </header>
 
     <div class="leer-rejilla con-lado">
       <nav class="leer-indice" aria-label="Versions">
+        <a href="#v0-6-0">0.5.2 to 0.6.0</a>
         <a href="#v0-5-2">0.5.1 to 0.5.2</a>
         <a href="#v0-5-1">0.5.0 to 0.5.1</a>
         <a href="#v0-5-0">0.4.8 to 0.5.0</a>
@@ -178,6 +179,24 @@
       </nav>
 
       <div class="texto">
+<section id="v0-6-0">
+  <h2>winshotx comes to Linux</h2>
+  <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.6.0" rel="noopener">Versions 0.5.2 to 0.6.0</a> · 20 November 2026</p>
+  <ul class="lista">
+    <li><b>winshotx runs on Linux</b>, with X11 and with GNOME on Wayland: area capture, the editor, GIF and MP4 recording with sound and webcam, scrolling capture, reading text, the last few seconds and AI agents. It installs from the .deb (Debian and Ubuntu), the .rpm (Fedora) or the AppImage.</li>
+    <li><b>The AppImage does not save MP4</b>: it carries nothing to write it with. For MP4 video, use the .deb or the .rpm; GIF, PNG and JPG come out the same in all three.</li>
+    <li><b>On Wayland, videos have no clicks or keys</b>: the desktop does not let another program see them. On X11 they come out as on Windows.</li>
+    <li><b>T reads the text of very long scrolling captures</b>, which were bigger than the Windows text reader accepts, and of a selection of a single line too.</li>
+    <li><b>Covering data covers it even when the reader sees the text as skewed</b>, in images and in videos. And when an image cannot be opened to read its text, it says so plainly, in your language.</li>
+    <li><b>Uninstalling gives Windows its Print Screen and Win+Shift+S back</b>: Print Screen goes back to the Snipping Tool, and Win+S search comes back after you sign out. Updating leaves them alone, and turning Win+Shift+S off after taking Print Screen now gives Win+S back.</li>
+    <li><b>The Microsoft Store version does not take Print Screen or Win+Shift+S</b>, because Windows does not let it: the settings and the welcome screen say so plainly and send you to winshotx.com.</li>
+    <li><b>&quot;Always be recording&quot; no longer ends on a frozen frame</b> or misses the clicks on a still screen: every capture taken with it on pushed its clock half a second ahead.</li>
+    <li><b>The shortcut pill in videos comes out in the app's language</b>, not always in Spanish.</li>
+    <li><b>The MCP server also speaks revision 2026-07-28</b>, as well as 2025-06-18.</li>
+    <li><b>On the capture screen</b>, errors and the copied colour show below the bar, each capture comes out in the language of your settings, and a capture that opened without its picture closes by itself. <b>In the editor</b>, the notice is readable on the light theme and &quot;Covered up&quot; names the data in the app's language.</li>
+  </ul>
+</section>
+
 <section id="v0-5-2">
   <h2>No blank box when you stop recording</h2>
   <p class="version"><a href="https://github.com/Mun1to/winshotx/releases/tag/v0.5.2" rel="noopener">Versions 0.5.1 to 0.5.2</a> · 16 November 2026</p>
@@ -769,12 +788,13 @@
     <div class="pie-rejilla">
       <div class="quien">
         <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
-        <p>Screenshots and screen recording for Windows. Free, open source and with no account.</p>
+        <p>Screenshots and screen recording for Windows and Linux. Free, open source and with no account.</p>
       </div>
       <div>
         <h2 class="pie-titulo">Product</h2>
         <ul>
-          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe">Download for Windows</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Download for Linux</a></li>
           <li><a href="../changelog/">What's new</a></li>
           <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
           <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">Portable version</a></li>

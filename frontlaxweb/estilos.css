@@ -366,6 +366,23 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
 .nota a { color: var(--texto); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .nota a:hover { color: var(--azul); }
 
+/* ---------- la insignia oficial de la Microsoft Store ----------
+   Los SVG de Microsoft tal cual (img/microsoft-store/), sin estirar ni cambiarles el color: solo
+   crecen enteros, de los 44 px que miden a los 54 de los botones. Su propio componente pone la
+   clara con el tema oscuro y la oscura con el claro, y lo mismo aquí. Al pasar el ratón sube como
+   los botones: mover la insignia no es tocarla, y el componente de Microsoft también se mueve. */
+.tienda { margin-top: 22px; }
+.tienda a { display: inline-block; border-radius: 6px; transition: transform .18s; }
+.tienda a:hover { transform: translateY(calc(-2px * var(--motion-gain, 1))); }
+.tienda a:focus-visible { outline: 2px solid var(--azul); outline-offset: 4px; }
+.tienda img { display: block; height: 54px; width: auto; }
+.tienda .insignia-oscura { display: none; }
+@media (prefers-color-scheme: light) {
+  .tienda .insignia-clara { display: none; }
+  .tienda .insignia-oscura { display: block; }
+}
+.tienda + .nota { margin-top: 20px; }
+
 /* ---------- las notas giradas de los lados ----------
    Texto suelto, girado y como escrito a mano con rotulador, sin caja, con lo que tiene
    winshotx que no tienen las otras. En pantallas anchas van en los huecos de los lados del
@@ -402,7 +419,8 @@ h2 { font-size: clamp(32px, 3.2vw, 54px); line-height: 1.08; letter-spacing: -0.
   .portada > .env > .bajada { grid-row: 2; }
   .portada > .env > .botones { grid-row: 3; }
   .portada > .env > .nota { grid-row: 4; text-wrap: balance; }
-  .portada > .env > .nota + .nota { grid-row: 5; }
+  .portada > .env > .tienda { grid-row: 5; }
+  .portada > .env > .nota.linux { grid-row: 6; }
   .fans { display: contents; }
   .fan { width: 11em; max-width: 100%; font-size: clamp(20px, 1.45vw, 26px); }
   /* Un solo lienzo encima de la cabecera, quieto, con las flechas medidas en la página: el
@@ -1369,6 +1387,9 @@ html.capa-abierta { overflow: hidden; overscroll-behavior: none; }
 .novedad .cuando { color: var(--suave); font-size: 15px; }
 .novedad h3 { margin-top: 8px; font-size: clamp(21px, 1.5vw, 25px); line-height: 1.2; letter-spacing: -0.02em; font-weight: 700; }
 .novedad h3 a { color: var(--texto); }
+/* Un titular de un solo renglón («winshotx llega a Linux») dejaba el enlace en 28 px de alto, y en
+   el móvil lo que se pulsa mide 44 o más: la zona de dedo crece por arriba y por abajo sin mover nada. */
+@media (max-width: 860px) { .novedad h3 a { display: inline-block; padding-block: 10px; margin-block: -10px; } }
 .novedad h3 a:hover { color: var(--azul); text-decoration: none; }
 .novedad p { margin-top: 10px; color: var(--suave); font-size: 16.5px; }
 .novedades-mas { margin-top: 36px; }

@@ -43,7 +43,7 @@
   h.classList.toggle("quieto", gain === 0);
 })();
 </script>
-<link rel="stylesheet" href="../estilos.css?v=22675198">
+<link rel="stylesheet" href="../estilos.css?v=bf66aa15">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -129,7 +129,7 @@
       "name": "¿Funciona en macOS o en Linux?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Todavía no: hoy es solo para Windows 10 y 11."
+        "text": "En Linux sí, desde la versión 0.6.0: con X11 o con GNOME en Wayland, en .deb, .rpm o AppImage, que no guarda vídeo MP4. En macOS todavía no."
       }
     }
   ]
@@ -233,6 +233,10 @@
       <a class="btn dos" href="https://github.com/Mun1to/winshotx/releases" data-en="All versions">Todas las versiones</a>
     </div>
     </div>
+    <p class="tienda"><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener"><img class="insignia-clara" src="../img/microsoft-store/es-light.svg" data-src-en="../img/microsoft-store/en-us-light.svg" width="161" height="44" alt="Descargar desde Microsoft Store" data-alt-en="Download from the Microsoft Store"><img class="insignia-oscura" src="../img/microsoft-store/es-dark.svg" data-src-en="../img/microsoft-store/en-us-dark.svg" width="161" height="44" alt="Descargar desde Microsoft Store" data-alt-en="Download from the Microsoft Store"></a></p>
+    <p data-html data-en="On Linux it runs with X11 and with GNOME on Wayland. From the &lt;a href=&quot;https://github.com/Mun1to/winshotx/releases/latest&quot; rel=&quot;noopener&quot;&gt;latest version on GitHub&lt;/a&gt;, take the .deb for Debian and Ubuntu, the .rpm for Fedora or the AppImage for the rest. &lt;b&gt;The AppImage does not save MP4 video&lt;/b&gt;, only GIF, PNG and JPG: for MP4, the .deb or the .rpm. What changes on Linux is on &lt;a href=&quot;https://github.com/Mun1to/winshotx/blob/main/packaging/linux/README.md&quot; rel=&quot;noopener&quot;&gt;its own page&lt;/a&gt;.">
+      En Linux funciona con X11 y con GNOME en Wayland. De la <a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener">última versión en GitHub</a>, baja el .deb para Debian y Ubuntu, el .rpm para Fedora o el AppImage para los demás. <b>El AppImage no guarda vídeo MP4</b>, solo GIF, PNG y JPG: para MP4, el .deb o el .rpm. Lo que cambia en Linux está en <a href="https://github.com/Mun1to/winshotx/blob/main/packaging/linux/README.md" rel="noopener">su propia página</a>, en inglés.
+    </p>
     <p data-en="It lives in the system tray with no window of its own. Windows hides new tray icons, so if you cannot see it, look behind the &lt;code&gt;^&lt;/code&gt; arrow on the taskbar.">
       Vive en la bandeja del sistema, sin ventana propia. Windows esconde los iconos nuevos, así que si no lo ves está detrás de la flecha <code>^</code> de la barra de tareas.
     </p>
@@ -497,7 +501,7 @@
       </details>
       <details>
         <summary><h3 data-en="Does it work on macOS or Linux?">¿Funciona en macOS o en Linux?</h3><svg class="faq-chevron"><use href="#i-chevron-down"/></svg></summary>
-        <div class="faq-cajon"><p data-en="Not yet: today it is for Windows 10 and 11 only.">Todavía no: hoy es solo para Windows 10 y 11.</p></div>
+        <div class="faq-cajon"><p data-en="On Linux, yes, since version 0.6.0: with X11 or with GNOME on Wayland, as a .deb, an .rpm or an AppImage, which does not save MP4 video. Not on macOS yet.">En Linux sí, desde la versión 0.6.0: con X11 o con GNOME en Wayland, en .deb, .rpm o AppImage, que no guarda vídeo MP4. En macOS todavía no.</p></div>
       </details>
     </div>
   </section>
@@ -512,12 +516,13 @@
     <div class="pie-rejilla">
       <div class="quien">
         <a class="logo-nombre" href="../" aria-label="winshotx"><svg class="marca-svg" aria-hidden="true"><use href="#marca"/></svg>winshotx</a>
-        <p data-en="Screenshots and screen recording for Windows. Free, open source and with no account.">Capturas y grabación de pantalla para Windows. Gratis, de código abierto y sin cuenta.</p>
+        <p data-en="Screenshots and screen recording for Windows and Linux. Free, open source and with no account.">Capturas y grabación de pantalla para Windows y Linux. Gratis, de código abierto y sin cuenta.</p>
       </div>
       <div>
         <h2 class="pie-titulo" data-en="Product">Producto</h2>
         <ul>
-          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe" data-en="Download">Descargar</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest/download/winshotx-setup.exe" data-en="Download for Windows">Descargar para Windows</a></li>
+          <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener" data-en="Download for Linux">Descargar para Linux</a></li>
           <li><a href="../novedades/" data-en="What's new">Novedades</a></li>
           <li><a href="https://apps.microsoft.com/detail/9P1NKWNRXD6Z" rel="noopener">Microsoft Store</a></li>
           <li><a href="https://github.com/Mun1to/winshotx/releases/latest" rel="noopener" data-en="Portable version">Versión portable</a></li>
