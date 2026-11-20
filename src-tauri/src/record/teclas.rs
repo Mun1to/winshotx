@@ -237,7 +237,7 @@ impl Nombres {
         match idioma {
             Language::Es => Self::Es,
             Language::En | Language::Zh => Self::En,
-            Language::Sistema if windows_en_espanol() => Self::Es,
+            Language::Sistema if sistema_en_espanol() => Self::Es,
             Language::Sistema => Self::En,
         }
     }
@@ -252,10 +252,22 @@ impl Nombres {
 
 /// Si Windows enseña su interfaz en español, de cualquier país: el idioma principal son los
 /// diez bits de abajo del identificador, y el del español es 0x0A.
-fn windows_en_espanol() -> bool {
+#[cfg(windows)]
+fn sistema_en_espanol() -> bool {
     use windows::Win32::Globalization::GetUserDefaultUILanguage;
     let idioma = unsafe { GetUserDefaultUILanguage() };
     idioma & 0x3FF == 0x0A
+}
+
+/// Fuera de Windows (la rama de Linux compila este archivo), lo que dicen las variables de
+/// idioma, en el orden en que mandan; es lo mismo que le llega a la página.
+#[cfg(not(windows))]
+fn sistema_en_espanol() -> bool {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .iter()
+        .filter_map(|variable| std::env::var(variable).ok())
+        .find(|valor| !valor.is_empty())
+        .is_some_and(|valor| valor.starts_with("es"))
 }
 
 // --- Los atajos de la pastilla ---
