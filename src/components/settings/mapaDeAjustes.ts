@@ -130,6 +130,7 @@ export const BUSCABLES: AjusteBuscable[] = [
   { id: "graZoom", apartado: "grabar", nombre: "Tecla de zoom", palabras: "zoom acercar tecla key closer 缩放 放大" },
   { id: "graFps", apartado: "grabar", nombre: "Fotogramas por segundo", palabras: "fotogramas fps fluidez frames smooth 帧率 流畅" },
   { id: "graEditor", apartado: "grabar", nombre: "Abrir el editor al terminar", palabras: "editor terminar abrir stop open 编辑器 结束" },
+  { id: "graEditorExterno", apartado: "grabar", nombre: "Editor de vídeo externo", palabras: "editor externo ejecutable argumentos external video editor executable arguments 外部 视频 编辑器 参数" },
   { id: "graAudio", apartado: "grabar", nombre: "Audio del sistema", palabras: "audio sonido sistema pc altavoces sound system speakers 系统 声音 音频 扬声器" },
   { id: "graMicro", apartado: "grabar", nombre: "Micrófono", palabras: "micrófono micro voz microphone mic voice 麦克风 话筒" },
   { id: "graSonido", apartado: "grabar", nombre: "Sonido al empezar", palabras: "sonido empezar aviso marimba sound start beep 开始 提示音" },

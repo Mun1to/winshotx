@@ -76,6 +76,8 @@ pub struct Settings {
     pub language: Language,
     pub copy_after_capture: bool,
     pub open_editor_after_recording: bool,
+    pub editor_externo: Option<String>,
+    pub argumentos_editor_externo: String,
     pub capture_cursor: bool,
     pub record_audio: bool,
     /// Grabar tambien la voz por el microfono. Con el del sistema puesto, van mezclados.
@@ -205,6 +207,8 @@ impl Default for Settings {
             language: Language::Sistema,
             copy_after_capture: true,
             open_editor_after_recording: true,
+            editor_externo: None,
+            argumentos_editor_externo: String::new(),
             capture_cursor: true,
             record_audio: false,
             record_microphone: false,

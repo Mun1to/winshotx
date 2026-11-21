@@ -42,6 +42,8 @@ const AJUSTES: Settings = {
   saveDirectory: "C:\\Users\\prueba\\Pictures\\winshotx",
   copyAfterCapture: true,
   openEditorAfterRecording: true,
+  editorExterno: null,
+  argumentosEditorExterno: "",
   captureCursor: false,
   recordAudio: true,
   recordMicrophone: false,

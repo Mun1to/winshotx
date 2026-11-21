@@ -117,6 +117,8 @@ pub struct ExportResult {
     pub copied: bool,
     /// Por que no se pudo copiar, si se pidio copiar y no salio.
     pub copy_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_editor_externo: Option<String>,
     pub elapsed_ms: u64,
 }
 
@@ -833,6 +835,7 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
         bytes,
         copied,
         copy_error,
+        error_editor_externo: None,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
 }

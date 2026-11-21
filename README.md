@@ -56,6 +56,16 @@ Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>2</kbd> and the screen freezes, 
 
 Record a region, a whole screen or **one window**, even when something covers it. System sound and the microphone go **each on its own track**, and your webcam can go on top. The editor trims on a timeline, **zooms in on every click**, and adds a background, rounded corners, a shadow and a smooth pointer, all of it **shown live** before you export to MP4 or GIF.
 
+To send an edited recording to another program, choose its executable under **Settings → Record → External video editor**. In the studio, select **MP4** and click **Open in external editor**. winshotx saves the export in the selected folder and then opens it.
+
+Enter optional arguments one per line. Use `{file}` wherever the program expects the exported file path, or leave it out to append the path automatically. Paths containing spaces stay in a single argument. For Tuck's cut editor, choose `Tuck.exe` and use the arguments below.
+
+```text
+--sendto-task
+cut
+{file}
+```
+
 ### Settings that show what they do
 
 <p align="center"><img src="frontlaxweb/img/ajustes-en.webp" alt="The winshotx 0.5 settings: a column of icons on the left, a search box at the top, the Capture section with its shortcuts, and the How it will look drawing on the right"></p>

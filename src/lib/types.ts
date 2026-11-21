@@ -359,6 +359,7 @@ export interface ExportResult {
   copied: boolean;
   /** Por qué no se pudo copiar, si se pidió copiar y no salió. */
   copyError: string | null;
+  errorEditorExterno?: string;
   elapsedMs: number;
 }
 
@@ -384,6 +385,8 @@ export interface Settings {
   saveDirectory: string;
   copyAfterCapture: boolean;
   openEditorAfterRecording: boolean;
+  editorExterno: string | null;
+  argumentosEditorExterno: string;
   captureCursor: boolean;
   recordAudio: boolean;
   /** Grabar también la voz por el micrófono. */

@@ -70,6 +70,16 @@ export const ZH: Record<string, string> = {
 
   "Al terminar": "录制结束时",
   "Abrir el editor al terminar": "结束后打开编辑器",
+  "Editor de vídeo externo": "外部视频编辑器",
+  "Elegir ejecutable…": "选择可执行文件…",
+  "Quitar editor": "移除编辑器",
+  "Argumentos del editor": "编辑器参数",
+  "Un argumento por línea. Usa {file} para colocar la ruta del vídeo. Si lo omites, la ruta va al final.": "每行输入一个参数。用 {file} 指定视频路径的位置。省略时，路径会追加到末尾。",
+  "Guardar el MP4 y abrirlo en el editor externo": "保存 MP4 并在外部编辑器中打开",
+  "Abrir en editor externo": "在外部编辑器中打开",
+  "Se guardó el MP4, pero no se pudo abrir el editor externo. {error}": "MP4 已保存，但无法打开外部编辑器。{error}",
+  "Elige un ejecutable válido en los ajustes de grabación.": "请在录制设置中选择有效的可执行文件。",
+  "Solo se pueden abrir archivos MP4 desde el editor.": "只能从编辑器打开 MP4 文件。",
 
   // 最近几秒
   "Los últimos segundos": "最近几秒",

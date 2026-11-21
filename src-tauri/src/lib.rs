@@ -1,6 +1,7 @@
 pub mod archivos;
 pub mod capture;
 pub(crate) mod commands;
+mod editor_externo;
 pub mod contrato;
 pub mod crono;
 pub mod encode;
@@ -484,6 +485,7 @@ pub fn run() {
             commands::set_capture_flow,
             commands::open_settings,
             commands::pick_directory,
+            commands::elegir_editor_externo,
             commands::pick_save_file,
             commands::reveal_in_explorer,
             commands::discard_session,

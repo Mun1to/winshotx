@@ -850,8 +850,31 @@ fn caja_de(
 }
 
 #[tauri::command]
-pub async fn export_media(app: AppHandle, request: ExportRequest) -> Result<ExportResult> {
-    exporter::export(&app, request)
+pub async fn export_media(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    request: ExportRequest,
+    abrir_editor_externo: Option<bool>,
+) -> Result<ExportResult> {
+    if abrir_editor_externo != Some(true) {
+        return exporter::export(&app, request);
+    }
+    if !window.label().starts_with(windows_mgr::EDITOR_LABEL) || request.format != "mp4" {
+        return Err("Solo se pueden abrir archivos MP4 desde el editor.".into());
+    }
+    let (comando, argumentos) = {
+        let state = app.state::<AppState>();
+        let settings = state.settings.read();
+        (
+            crate::editor_externo::preparar(settings.editor_externo.as_deref())?,
+            settings.argumentos_editor_externo.clone(),
+        )
+    };
+    let mut resultado = exporter::export(&app, request)?;
+    resultado.error_editor_externo = crate::editor_externo::abrir(comando, &argumentos, &resultado.path)
+        .err()
+        .map(|error| error.to_string());
+    Ok(resultado)
 }
 
 #[tauri::command]
@@ -1473,6 +1496,15 @@ pub async fn pick_directory(app: AppHandle) -> Option<String> {
         .file()
         .blocking_pick_folder()
         .map(|folder| folder.to_string())
+}
+
+#[tauri::command]
+pub async fn elegir_editor_externo(app: AppHandle, window: tauri::WebviewWindow) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let dialogo = app.dialog().file().set_parent(&window);
+    #[cfg(windows)]
+    let dialogo = dialogo.add_filter("EXE", &["exe"]);
+    dialogo.blocking_pick_file().map(|archivo| archivo.to_string())
 }
 
 /// El dialogo de «Guardar como» de Windows, para elegir carpeta Y nombre de una vez.

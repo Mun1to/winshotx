@@ -52,6 +52,7 @@ import {
   openFolder,
   openUrl,
   openWindowsApps,
+  elegirEditorExterno,
   pickDirectory,
   replaySave,
   showScreenNumber,
@@ -588,6 +589,42 @@ export function ApartadoGrabar({
             />
           }
         />
+        <Row
+          id="graEditorExterno"
+          icon={<SquarePen className="size-4" />}
+          label={t("Editor de vídeo externo")}
+          hint={settings.editorExterno}
+          control={
+            <div className="flex items-center gap-2">
+              <RowButton onClick={() => void elegirEditorExterno().then((ruta) => ruta && patch({ editorExterno: ruta }))}>
+                {t("Elegir ejecutable…")}
+              </RowButton>
+              {settings.editorExterno && (
+                <RowButton onClick={() => patch({ editorExterno: null })}>{t("Quitar editor")}</RowButton>
+              )}
+            </div>
+          }
+        />
+        {settings.editorExterno && (
+          <Row
+            stacked
+            label={t("Argumentos del editor")}
+            hint={t("Un argumento por línea. Usa {file} para colocar la ruta del vídeo. Si lo omites, la ruta va al final.")}
+            control={
+              <textarea
+                aria-label={t("Argumentos del editor")}
+                className="w-full resize-y rounded-md border border-linea bg-realce px-2.5 py-1.5 font-mono text-[13px] text-titulo"
+                rows={3}
+                placeholder="{file}"
+                defaultValue={settings.argumentosEditorExterno}
+                onBlur={(evento) => {
+                  const valor = evento.currentTarget.value;
+                  if (valor !== settings.argumentosEditorExterno) patch({ argumentosEditorExterno: valor });
+                }}
+              />
+            }
+          />
+        )}
       </Grupo>
 
       <Grupo title={t("Sonido y cámara")}>

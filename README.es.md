@@ -56,6 +56,16 @@ Pulsa <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>2</kbd> y la pantalla se congel
 
 Graba una zona, una pantalla entera o **una sola ventana**, aunque algo la tape. El sonido del PC y el micrófono van **cada uno en su pista**, y tu cámara puede ir encima. El editor recorta en una línea de tiempo, **se acerca a cada clic** y pone fondo, esquinas redondeadas, sombra y un puntero suave, todo **a la vista** antes de exportar a MP4 o GIF.
 
+Para enviar una grabación editada a otro programa, elige su ejecutable en **Ajustes → Grabar → Editor de vídeo externo**. En el estudio, selecciona **MP4** y pulsa **Abrir en editor externo**. winshotx guarda la exportación en la carpeta elegida y después la abre.
+
+Puedes escribir un argumento por línea. Usa `{file}` donde el programa espera la ruta del archivo, u omítelo para añadir la ruta al final. Una ruta con espacios sigue siendo un argumento. Por ejemplo, para abrir el editor de corte de Tuck, elige `Tuck.exe` y escribe lo siguiente.
+
+```text
+--sendto-task
+cut
+{file}
+```
+
 ### Unos ajustes que enseñan lo que hacen
 
 <p align="center"><img src="frontlaxweb/img/ajustes-es.webp" alt="Los ajustes de winshotx 0.5: una columna de iconos a la izquierda, un buscador arriba, el apartado Capturar con sus atajos y el dibujo Así va a salir a la derecha"></p>

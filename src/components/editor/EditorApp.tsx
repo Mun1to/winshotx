@@ -240,6 +240,26 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       .catch((e) => setError(String(e)));
   }, [sessionId]);
 
+  // Si se elige un editor externo con la grabación abierta, el botón aparece al volver.
+  useEffect(() => {
+    let vigente = true;
+    const alVolver = () => {
+      void getSettings().then((frescos) => {
+        if (!vigente || !frescos) return;
+        setSettings((actuales) =>
+          actuales && actuales.editorExterno !== frescos.editorExterno
+            ? { ...actuales, editorExterno: frescos.editorExterno }
+            : actuales,
+        );
+      }).catch(() => {});
+    };
+    window.addEventListener("focus", alVolver);
+    return () => {
+      vigente = false;
+      window.removeEventListener("focus", alVolver);
+    };
+  }, []);
+
   // Lo anotado al grabar se pide una vez: no cambia. Sin ello la capa no dibuja nada.
   useEffect(() => {
     if (!session || session.format === "still") return;
@@ -1242,6 +1262,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           fpsMax={Math.max(15, session.fps)}
           hasFfmpeg={hasFfmpeg}
           saveDirectory={settings.saveDirectory}
+          editorExterno={settings.editorExterno}
           onEstudio={setEstudio}
           edicion={edicion}
           onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}

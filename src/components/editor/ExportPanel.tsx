@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { ChevronDown, Clipboard, FolderDown, FolderOpen, Link2, Save, Unlink2 } from "lucide-react";
+import { ChevronDown, Clipboard, ExternalLink, FolderDown, FolderOpen, Link2, Save, Unlink2 } from "lucide-react";
 import {
   camaraDeLaSesion,
   exportMedia,
@@ -145,6 +145,7 @@ interface Props {
   fpsMax: number;
   hasFfmpeg: boolean;
   saveDirectory: string;
+  editorExterno?: string | null;
   /**
    * Lo que se decide del estudio, cada vez que cambia, para que la vista previa lo
    * dibuje. El panel sigue mandando; esto es un aviso hacia arriba.
@@ -193,6 +194,7 @@ export function ExportPanel({
   fpsMax,
   hasFfmpeg,
   saveDirectory,
+  editorExterno,
   onEstudio,
   onRecorte,
   edicion,
@@ -336,6 +338,7 @@ export function ExportPanel({
   const [loop, setLoop] = useState(true);
   const [directory, setDirectory] = useState(saveDirectory);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
+  const exportando = useRef(false);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -501,9 +504,10 @@ export function ExportPanel({
   // sonido que perder.
   const aviso = falta && (falta.que === "video" || session.hasAudio || pistasAparte) ? falta : null;
 
-  const run = async (copyToClipboard: boolean, file: string | null = null) => {
+  const run = async (copyToClipboard: boolean, file: string | null = null, abrirEditorExterno = false) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
-    if (progress !== null || sinMp4) return;
+    if (exportando.current || sinMp4) return;
+    exportando.current = true;
     setError(null);
     setResult(null);
     setProgress({ stage: "reading", done: 0, total: 1 });
@@ -557,11 +561,12 @@ export function ExportPanel({
         microfono: session.microfono ? voz : null,
         // S25 (marco): la ventana con el tema de ahora, el mismo que enseña la vista previa.
         carcasa: carcasaParaPedir(carcasaPuesta, oscura),
-      });
+      }, abrirEditorExterno);
       setResult(res);
     } catch (e) {
       setError(String(e));
     } finally {
+      exportando.current = false;
       setProgress(null);
     }
   };
@@ -1072,6 +1077,19 @@ export function ExportPanel({
           </BotonSegundo>
         </div>
 
+        {editorExterno && !esCaptura && format === "mp4" && (
+          <div className="grid">
+            <BotonSegundo
+              onClick={() => void run(false, null, true)}
+              apagado={ocupado || sinMp4}
+              titulo={t("Guardar el MP4 y abrirlo en el editor externo")}
+              icono={<ExternalLink className="size-4" />}
+            >
+              {t("Abrir en editor externo")}
+            </BotonSegundo>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-3 text-[13px] text-suave">
           <button
             type="button"
@@ -1089,6 +1107,11 @@ export function ExportPanel({
 
         {result && (
           <div className="space-y-1.5">
+            {result.errorEditorExterno && (
+              <p role="alert" className={`text-[13px] ${ROJO}`}>
+                {t("Se guardó el MP4, pero no se pudo abrir el editor externo. {error}", { error: result.errorEditorExterno })}
+              </p>
+            )}
             {/* Copiar es lo que más se usa para mandarle el vídeo a alguien, así que se
                 dice en su propia línea y no escondido entre el tamaño y la carpeta. Un
                 vídeo no se pega como imagen: va como archivo (para el explorador y los
@@ -1120,7 +1143,7 @@ export function ExportPanel({
           </div>
         )}
 
-        {error && <p className={`text-[13px] ${ROJO}`}>{error}</p>}
+        {error && <p className={`text-[13px] ${ROJO}`}>{t(error)}</p>}
       </div>
     </aside>
   );

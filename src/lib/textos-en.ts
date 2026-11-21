@@ -71,6 +71,16 @@ export const EN: Record<string, string> = {
 
   "Al terminar": "When it ends",
   "Abrir el editor al terminar": "Open the editor when it ends",
+  "Editor de vídeo externo": "External video editor",
+  "Elegir ejecutable…": "Choose executable…",
+  "Quitar editor": "Remove editor",
+  "Argumentos del editor": "Editor arguments",
+  "Un argumento por línea. Usa {file} para colocar la ruta del vídeo. Si lo omites, la ruta va al final.": "Enter one argument per line. Use {file} to place the video path. If omitted, the path goes last.",
+  "Guardar el MP4 y abrirlo en el editor externo": "Save the MP4 and open it in the external editor",
+  "Abrir en editor externo": "Open in external editor",
+  "Se guardó el MP4, pero no se pudo abrir el editor externo. {error}": "The MP4 was saved, but the external editor could not be opened. {error}",
+  "Elige un ejecutable válido en los ajustes de grabación.": "Choose a valid executable in the recording settings.",
+  "Solo se pueden abrir archivos MP4 desde el editor.": "Only MP4 files can be opened from the editor.",
 
   // Los ultimos segundos
   "Los últimos segundos": "The last few seconds",
