@@ -362,7 +362,7 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
                     // En Wayland, casi siempre es el permiso de capturas, que no se puede
                     // pedir desde un atajo sin una ventana nuestra delante.
                     #[cfg(target_os = "linux")]
-                    if en_wayland() && intencion_del_portal(&error) {
+                    if crate::platform::xdg::es_wayland() && intencion_del_portal(&error) {
                         crate::platform::portal::pedir_permiso_con_la_ventana(&app);
                     }
                     continue;
@@ -841,18 +841,6 @@ pub(crate) fn intencion_del_portal(error: &crate::error::AppError) -> bool {
 /// en negro. En X11 el gestor de ventanas la devuelve hasta dejar un trozo dentro: con openbox,
 /// los 100 pixeles de abajo del overlay se quedaban arriba de la pantalla, con la foto congelada.
 const SE_PUEDE_APARCAR: bool = cfg!(windows);
-
-/// Si las ventanas van por Wayland, donde ninguna app puede colocar las suyas.
-fn en_wayland() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::xdg::es_wayland()
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        false
-    }
-}
 
 #[cfg(windows)]
 fn cursor_position() -> Option<(i32, i32)> {
