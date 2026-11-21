@@ -53,6 +53,7 @@ import {
   openUrl,
   openWindowsApps,
   elegirEditorExterno,
+  configurarRecortesDeWindows,
   pickDirectory,
   replaySave,
   showScreenNumber,
@@ -929,6 +930,23 @@ export function ApartadoTeclas({
   const tienda = imprPant?.storeBuild === true;
   return (
     <Grupo tour="las-teclas">
+      {!tienda && (
+        <Row
+          id="tecRecortesWindows"
+          icon={<AppWindow className="size-4" />}
+          label={t("Win+Mayús+S y Win+Mayús+R")}
+          hint={
+            settings.takeWinShiftS
+              ? t("Desactiva la opción antigua de Win+Mayús+S y vuelve a iniciar sesión.")
+              : t("Elige winshotx para MS-SCREENCLIP. Windows abrirá la captura o la grabación bajo demanda.")
+          }
+          control={
+            <RowButton onClick={() => void configurarRecortesDeWindows().catch(console.error)}>
+              {t("Aplicaciones predeterminadas…")}
+            </RowButton>
+          }
+        />
+      )}
       <Row
         id="tecImpr"
         icon={<Keyboard className="size-4" />}

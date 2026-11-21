@@ -61,7 +61,7 @@ import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
 const VERSION = __VERSION__;
 
 /** Las filas que en Linux no salen, para que el buscador tampoco las ofrezca. */
-const SOLO_EN_WINDOWS = new Set(["capIconos", "tecImpr", "tecWinS", "tecRecortes"]);
+const SOLO_EN_WINDOWS = new Set(["capIconos", "tecImpr", "tecWinS", "tecRecortes", "tecRecortesWindows"]);
 
 const APARTADO: Record<ApartadoId, (d: DatosAjustes) => React.ReactNode> = {
   capturar: ApartadoCapturar,

@@ -39,7 +39,7 @@ export type Language = "sistema" | "es" | "en" | "zh";
  * Con que se abrio el overlay: el mismo sirve para capturar, para grabar y para capturar
  * llevando la foto derecha al editor.
  */
-export type OverlayIntent = "capture" | "record" | "edit";
+export type OverlayIntent = "capture" | "record" | "edit" | "capturarWindows" | "grabarWindows";
 
 /** Que se hara con el recorte. Se elige en la barra de arriba, antes de recortar. */
 export type CaptureMode = "still" | "video" | "gif";

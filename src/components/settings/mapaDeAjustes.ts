@@ -142,6 +142,7 @@ export const BUSCABLES: AjusteBuscable[] = [
   { id: "ultCalidad", apartado: "ultimos", nombre: "Calidad", palabras: "calidad resolución tamaño disco quality resolution size disk 画质 分辨率 磁盘" },
   { id: "ultFluidez", apartado: "ultimos", nombre: "Fluidez", palabras: "fluidez fps fotogramas smoothness frames 流畅度 帧率" },
   { id: "historial", apartado: "historial", nombre: "Historial", palabras: "historial capturas grabaciones galería history captures recordings gallery 历史 截图 录屏" },
+  { id: "tecRecortesWindows", apartado: "teclas", nombre: "Win+Mayús+S y Win+Mayús+R", palabras: "recortes ms-screenclip aplicaciones predeterminadas windows native hotkeys shortcuts startup 原生 快捷键 截图 录屏" },
   { id: "tecImpr", apartado: "teclas", nombre: "Impr Pant", palabras: "impr pant imprimir pantalla tecla print screen key prtsc 截屏键 按键" },
   { id: "tecWinS", apartado: "teclas", nombre: "Win + Mayús + S", palabras: "win mayús s tecla recortes shift key snipping 按键 截图工具" },
   { id: "tecRecortes", apartado: "teclas", nombre: "Herramienta de Recortes", palabras: "herramienta recortes quitar desinstalar snipping tool remove uninstall 截图工具 卸载 移除" },

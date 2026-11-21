@@ -1,6 +1,37 @@
 ; Lo que hace el instalador de winshotx además de lo de Tauri. Tauri mete estas macros en su
 ; plantilla de NSIS (`bundle > windows > nsis > installerHooks` en `tauri.conf.json`).
 
+; El Explorador lanza las dos teclas mediante el protocolo ms-screenclip. Registrar
+; un candidato es distinto de elegirlo: Windows pide esa elección en Apps predeterminadas.
+!macro NSIS_HOOK_POSTINSTALL
+  ReadRegStr $0 HKCU "Software\RegisteredApplications" "winshotx"
+  WriteRegStr HKCU "Software\Classes\winshotx.ScreenClip" "" "winshotx"
+  WriteRegStr HKCU "Software\Classes\winshotx.ScreenClip" "URL Protocol" ""
+  WriteRegStr HKCU "Software\Classes\winshotx.ScreenClip\DefaultIcon" "" '"$INSTDIR\${MAINBINARYNAME}.exe",0'
+  WriteRegStr HKCU "Software\Classes\winshotx.ScreenClip\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" --screenclip "%1"'
+  WriteRegStr HKCU "Software\winshotx\Capabilities" "ApplicationName" "winshotx"
+  WriteRegStr HKCU "Software\winshotx\Capabilities" "ApplicationDescription" "Screen capture and recording with winshotx"
+  WriteRegStr HKCU "Software\winshotx\Capabilities\URLAssociations" "ms-screenclip" "winshotx.ScreenClip"
+  WriteRegStr HKCU "Software\RegisteredApplications" "winshotx" "Software\winshotx\Capabilities"
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+  ${If} $0 == ""
+  ${AndIfNot} ${Silent}
+  ${AndIf} $PassiveMode <> 1
+    MessageBox MB_YESNO|MB_ICONQUESTION "Set up winshotx for Win+Shift+S and Win+Shift+R? Choose winshotx for MS-SCREENCLIP in Windows Default apps." /SD IDNO IDNO +2
+    ExecShell "open" "ms-settings:defaultapps?registeredAppUser=winshotx"
+  ${EndIf}
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+  ${If} $UpdateMode <> 1
+  ${AndIf} $EXEDIR != $INSTDIR
+    DeleteRegValue HKCU "Software\RegisteredApplications" "winshotx"
+    DeleteRegKey HKCU "Software\winshotx\Capabilities"
+    DeleteRegKey HKCU "Software\Classes\winshotx.ScreenClip"
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+  ${EndIf}
+!macroend
+
 ; Antes de borrar nada: devolverle a Windows Impr Pant y Win+Mayús+S si winshotx se las quitó.
 ; Sin esto, quien desinstala con Win+Mayús+S cogida se queda sin Win+S (la búsqueda), y con Impr
 ; Pant cogida la tecla ya no abre la Herramienta de Recortes. Lo hace el propio winshotx.exe

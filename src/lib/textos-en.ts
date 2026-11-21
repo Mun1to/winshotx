@@ -71,6 +71,10 @@ export const EN: Record<string, string> = {
 
   "Al terminar": "When it ends",
   "Abrir el editor al terminar": "Open the editor when it ends",
+  "Win+Mayús+S y Win+Mayús+R": "Win+Shift+S and Win+Shift+R",
+  "Elige winshotx para MS-SCREENCLIP. Windows abrirá la captura o la grabación bajo demanda.": "Choose winshotx for MS-SCREENCLIP. Windows will open screenshot or video capture on demand.",
+  "Desactiva la opción antigua de Win+Mayús+S y vuelve a iniciar sesión.": "Turn off the legacy Win+Shift+S option and sign in again.",
+  "Aplicaciones predeterminadas…": "Default apps…",
   "Editor de vídeo externo": "External video editor",
   "Elegir ejecutable…": "Choose executable…",
   "Quitar editor": "Remove editor",

@@ -423,6 +423,7 @@ pub fn start(app: &AppHandle, region: Rect, options: RecordOptions) -> Result<Se
 
     use crate::record::win::{self, CaptureFlags};
 
+    let _trabajo = crate::activacion::trabajando(app);
     let state = app.state::<AppState>();
     // S12 (cámara antes): hasta que la grabación queda en `state.recording` pasan hasta
     // `TOPE_DE_LA_CAMARA`, y en ese rato `is_recording` todavía dice que no.
@@ -1003,6 +1004,7 @@ fn terminar(mut recording: RecordingState) -> Result<SessionData> {
 /// Ahora la barra recibe un ultimo tick con `saving` y se queda diciendo «Guardando…»
 /// hasta que se cierra sola.
 pub fn stop(app: &AppHandle) -> Result<()> {
+    let trabajo = crate::activacion::trabajando(app);
     let state = app.state::<AppState>();
     let Some(recording) = state.recording.lock().take() else {
         return Err(AppError::NoRecording);
@@ -1016,18 +1018,21 @@ pub fn stop(app: &AppHandle) -> Result<()> {
     let barra = recording.barra.clone();
 
     let handle = app.clone();
-    std::thread::spawn(move || match terminar(recording) {
-        Ok(session) if session.frames.is_empty() => {
-            eprintln!("no se ha capturado ningún fotograma; prueba a bajar los fps");
-            let _ = std::fs::remove_dir_all(&session.dir);
-            cerrar_esta_barra(&handle, barra.as_deref());
-        }
-        Ok(session) => entregar(&handle, session, open_editor, barra.as_deref()),
-        Err(error) => {
-            eprintln!("fallo al parar: {error}");
-            // La barra es always-on-top y no tiene aspa: si esto se fuera sin cerrarla,
-            // se quedaria encima de todo y no habria forma de quitarla.
-            cerrar_esta_barra(&handle, barra.as_deref());
+    std::thread::spawn(move || {
+        let _trabajo = trabajo;
+        match terminar(recording) {
+            Ok(session) if session.frames.is_empty() => {
+                eprintln!("no se ha capturado ningún fotograma; prueba a bajar los fps");
+                let _ = std::fs::remove_dir_all(&session.dir);
+                cerrar_esta_barra(&handle, barra.as_deref());
+            }
+            Ok(session) => entregar(&handle, session, open_editor, barra.as_deref()),
+            Err(error) => {
+                eprintln!("fallo al parar: {error}");
+                // La barra es always-on-top y no tiene aspa: si esto se fuera sin cerrarla,
+                // se quedaria encima de todo y no habria forma de quitarla.
+                cerrar_esta_barra(&handle, barra.as_deref());
+            }
         }
     });
     Ok(())
@@ -1335,6 +1340,7 @@ fn cerrar_barra(app: &AppHandle, barra: Option<String>) {
 
 /// Tira la grabacion. Vuelve enseguida, como `stop`, y la carpeta se borra por detras.
 pub fn cancel(app: &AppHandle) -> Result<()> {
+    let trabajo = crate::activacion::trabajando(app);
     let state = app.state::<AppState>();
     let Some(recording) = state.recording.lock().take() else {
         cerrar_barra(app, None);
@@ -1346,11 +1352,14 @@ pub fn cancel(app: &AppHandle) -> Result<()> {
     #[cfg(target_os = "linux")]
     crate::tray::al_cambiar_la_grabacion(app);
     cerrar_barra(app, recording.barra.clone());
-    std::thread::spawn(move || match terminar(recording) {
-        Ok(session) => {
-            let _ = std::fs::remove_dir_all(&session.dir);
+    std::thread::spawn(move || {
+        let _trabajo = trabajo;
+        match terminar(recording) {
+            Ok(session) => {
+                let _ = std::fs::remove_dir_all(&session.dir);
+            }
+            Err(error) => eprintln!("fallo al descartar: {error}"),
         }
-        Err(error) => eprintln!("fallo al descartar: {error}"),
     });
     Ok(())
 }

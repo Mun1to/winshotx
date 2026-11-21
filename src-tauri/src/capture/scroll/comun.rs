@@ -86,6 +86,7 @@ pub(super) fn iniciar(app: &AppHandle, region: Rect) -> Result<()> {
         *en_marcha = Some(orden.clone());
     }
 
+    let trabajo = crate::activacion::trabajando(app);
     crate::windows_mgr::close_overlays(app);
     // Sin barra se puede capturar igual (Esc termina), así que no se para por eso.
     if let Err(e) = abrir_barra(app, region) {
@@ -96,6 +97,7 @@ pub(super) fn iniciar(app: &AppHandle, region: Rect) -> Result<()> {
     let lanzado = std::thread::Builder::new()
         .name("winshotx-scroll".into())
         .spawn(move || {
+            let _trabajo = trabajo;
             let resultado = capturar(&handle, region, &monitor, &orden);
             cerrar_barra(&handle);
             *EN_MARCHA.lock() = None;

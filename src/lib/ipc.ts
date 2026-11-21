@@ -283,6 +283,8 @@ export const useWinShiftS = (enabled: boolean) =>
 /** Hace que el escritorio relea la lista de teclas apagadas, sin cerrar sesión. */
 export const restartShell = () => invoke<ShortcutStatus>("restart_shell");
 
+export const configurarRecortesDeWindows = () => invoke<void>("configurar_recortes_de_windows");
+
 export const quitApp = () => invoke<void>("quit_app");
 
 /** Lo que el menú de la bandeja necesita para pintarse: versión, atajos y qué corre. */

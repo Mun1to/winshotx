@@ -70,6 +70,10 @@ export const ZH: Record<string, string> = {
 
   "Al terminar": "录制结束时",
   "Abrir el editor al terminar": "结束后打开编辑器",
+  "Win+Mayús+S y Win+Mayús+R": "Win+Shift+S 和 Win+Shift+R",
+  "Elige winshotx para MS-SCREENCLIP. Windows abrirá la captura o la grabación bajo demanda.": "将 winshotx 设为 MS-SCREENCLIP 的默认应用。Windows 会按需打开截图或录屏。",
+  "Desactiva la opción antigua de Win+Mayús+S y vuelve a iniciar sesión.": "关闭旧版 Win+Shift+S 选项，然后重新登录。",
+  "Aplicaciones predeterminadas…": "默认应用…",
   "Editor de vídeo externo": "外部视频编辑器",
   "Elegir ejecutable…": "选择可执行文件…",
   "Quitar editor": "移除编辑器",

@@ -57,12 +57,19 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
     let monitores = capture::monitors()
         .unwrap_or_else(|_| freezes.iter().map(|f| f.monitor.clone()).collect());
 
+    let intent = *state.intent.read();
+    let mut settings = state.settings.read().clone();
+    match intent {
+        windows_mgr::OverlayIntent::CapturarWindows => settings.capture_flow = crate::settings::CaptureFlow::Instant,
+        windows_mgr::OverlayIntent::GrabarWindows => settings.capture_flow = crate::settings::CaptureFlow::Toolbar,
+        _ => {}
+    }
     Ok(OverlayPayload {
         monitor: freeze.monitor.clone(),
         generation: windows_mgr::generacion_actual(),
         windows: capture::window_rects(),
-        settings: state.settings.read().clone(),
-        intent: *state.intent.read(),
+        settings,
+        intent,
         // El id es el indice del monitor en la enumeracion del sistema, asi que el numero
         // que se pinta en cada pantalla es siempre el mismo entre disparo y disparo, aunque
         // las capturas lleguen en dos tandas (primero la del raton) y `freezes` no este
@@ -191,6 +198,7 @@ fn entregar(
     region: Rect,
     action: &str,
 ) -> Result<StillResult> {
+    let _trabajo = crate::activacion::trabajando(app);
     let state = app.state::<AppState>();
     // S4 (capturas): el fondo de las capturas (E1), en lo que se copia y se guarda.
     let marco_capturas = {
@@ -856,6 +864,7 @@ pub async fn export_media(
     request: ExportRequest,
     abrir_editor_externo: Option<bool>,
 ) -> Result<ExportResult> {
+    let _trabajo = crate::activacion::trabajando(&app);
     if abrir_editor_externo != Some(true) {
         return exporter::export(&app, request);
     }
@@ -1347,6 +1356,14 @@ pub async fn restart_shell(app: AppHandle) -> Result<crate::hotkeys::ShortcutSta
 }
 
 #[tauri::command]
+pub fn configurar_recortes_de_windows() -> Result<()> {
+    #[cfg(windows)]
+    return crate::platform::abrir_url(crate::screenclip::AJUSTES);
+    #[cfg(not(windows))]
+    Err(AppError::Unsupported)
+}
+
+#[tauri::command]
 pub async fn get_settings(window: tauri::WebviewWindow, state: State<'_, AppState>) -> Result<Settings> {
     // La primera orden que manda casi cualquier pagina al montarse: su marca dice cuando ha
     // cargado cada ventana (los ajustes, el editor, el menu de la bandeja...).
@@ -1600,6 +1617,7 @@ pub async fn set_capture_flow(app: AppHandle, flow: crate::settings::CaptureFlow
 /// tres overlays a pantalla completa y siempre encima es abrirla donde no se ve.
 #[tauri::command]
 pub async fn open_settings(app: AppHandle) -> Result<()> {
+    let _trabajo = crate::activacion::trabajando(&app);
     windows_mgr::close_overlays(&app);
     windows_mgr::show_settings(&app)
 }
