@@ -6477,6 +6477,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "tempfile",
  "thiserror 2.0.20",
  "uuid",
  "windows 0.62.2",

@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WelcomeApp } from "./WelcomeApp";
 import { aplicarIdioma } from "../../lib/i18n";
 import { llamadas, responde } from "../../test/preparar";
-import type { Settings } from "../../lib/types";
+import type { PrintScreenState, Settings } from "../../lib/types";
 
 const AJUSTES = {
   captureShortcut: "CmdOrCtrl+Shift+KeyS",
@@ -20,7 +20,7 @@ const AJUSTES = {
   onboarded: false,
 } as unknown as Settings;
 
-async function abrir(imprPant = { enabled: false, active: false, takenByWindows: true, storeBuild: false }) {
+async function abrir(imprPant: PrintScreenState = { enabled: false, active: false, takenByWindows: true, storeBuild: false }) {
   responde("get_settings", AJUSTES);
   responde("set_settings", null);
   responde("shortcut_status", { capture: true, record: true, replay: false, printScreen: false, winShiftS: false });
@@ -72,7 +72,7 @@ describe("los cuatro pasos", () => {
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     await screen.findByRole("heading", { name: "Listo, ya puedes capturar" });
     fireEvent.click(screen.getByRole("button", { name: "Todo listo" }));
-    expect(onDone).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
     expect(guardado()?.onboarded).toBe(true);
   });
 
@@ -82,6 +82,20 @@ describe("los cuatro pasos", () => {
     fireEvent.click(within(nav).getByRole("button", { name: "Listo" }));
     await screen.findByRole("heading", { name: "Listo, ya puedes capturar" });
     expect(pasoActual()).toBe("Listo");
+  });
+});
+
+describe("los atajos nativos del shell", () => {
+  it.each([true, false])("muestra las dos rutas y el ajuste independiente de Impr Pant (%s)", async (takenByWindows) => {
+    await abrir({ enabled: false, active: false, storeBuild: false, screenclip: true, porEncargo: true, takenByWindows });
+    expect(await screen.findByText("Win + Shift + S")).toBeVisible();
+    expect(screen.getByText("Win + Shift + R")).toBeVisible();
+    expect(screen.queryByText(/Esta la tiene otra aplicación/)).toBeNull();
+    const nav = screen.getByRole("navigation");
+    fireEvent.click(within(nav).getByRole("button", { name: "Impr Pant" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Impr Pant" })).toBeVisible());
+    expect(screen.getByText(takenByWindows ? "abre winshotx" : "La captura con Impr Pant está desactivada en Windows.")).toBeVisible();
+    expect(screen.queryByText(/Se queda en Windows:/)).toBeNull();
   });
 });
 

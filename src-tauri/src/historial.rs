@@ -255,6 +255,9 @@ pub async fn historial_lista(
     cuantas: usize,
     buscar: Option<String>,
 ) -> Pagina {
+    if app.try_state::<crate::historial_texto::Buscador>().is_none() {
+        crate::historial_texto::arrancar(&app);
+    }
     let mut todas = leer(&carpeta(&app), filtro.as_deref());
     let (mut buscable, mut por_leer) = (false, 0);
     if let Some(buscador) = app.try_state::<crate::historial_texto::Buscador>() {

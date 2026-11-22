@@ -1242,6 +1242,7 @@ pub(crate) fn al_editor(app: &AppHandle, session: &SessionData, al_lado: bool) -
 /// Con `solo`, para únicamente si lo que se graba es esa sesión: es lo que usa el tope de
 /// `maxSeconds`, que no debe parar la grabación de otro que haya empezado entretanto.
 pub fn parar_sin_editor(app: &AppHandle, solo: Option<&str>) -> Result<SessionData> {
+    let _trabajo = crate::activacion::trabajando(app);
     let state = app.state::<AppState>();
     let recording = {
         let mut guard = state.recording.lock();

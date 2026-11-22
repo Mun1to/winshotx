@@ -74,6 +74,12 @@ export const ZH: Record<string, string> = {
   "Elige winshotx para MS-SCREENCLIP. Windows abrirá la captura o la grabación bajo demanda.": "将 winshotx 设为 MS-SCREENCLIP 的默认应用。Windows 会按需打开截图或录屏。",
   "Desactiva la opción antigua de Win+Mayús+S y vuelve a iniciar sesión.": "关闭旧版 Win+Shift+S 选项，然后重新登录。",
   "Aplicaciones predeterminadas…": "默认应用…",
+  "Windows abre winshotx al pulsar los atajos de recorte.": "使用截图快捷键时，Windows 会打开 winshotx。",
+  "Arrastra para copiar una captura. Para grabar, selecciona la zona y pulsa Grabar vídeo.": "拖动以复制截图。录屏时，选择区域并点击录制视频。",
+  "La captura con Impr Pant está desactivada en Windows.": "Windows 已关闭 Print Screen 键的截图功能。",
+  "Atajo de Windows": "Windows 快捷键",
+  "Disponible en el modo de bandeja": "在托盘模式下可用",
+  "Windows decide qué aplicación abre los atajos de recorte en Aplicaciones predeterminadas.": "可在默认应用中选择 Windows 截图快捷键打开的应用。",
   "Editor de vídeo externo": "外部视频编辑器",
   "Elegir ejecutable…": "选择可执行文件…",
   "Quitar editor": "移除编辑器",
@@ -285,9 +291,6 @@ export const ZH: Record<string, string> = {
   "Qué pasa al soltar el ratón": "松开鼠标时发生什么",
   "Con «Se copia sola» la imagen va al portapapeles y se acabó, cero clics. Con «Sale la barra» eliges cada vez entre copiar, guardar, editar o grabar.":
     "选择「自动复制」时，图片直接进剪贴板，零点击。选择「显示工具栏」时，每次都可以选择复制、保存、编辑或录屏。",
-  "Quitarle las teclas a Windows": "从 Windows 手中接管快捷键",
-  "Impr Pant es gratis. Win+Mayús+S cuesta perder Win+S, la búsqueda, y la fila te lo dice antes de que pulses nada.":
-    "Print Screen 没有代价。Win+Shift+S 会失去 Win+S 搜索，这一行会在你操作前说明。",
   "Ya está: así puedes ayudar": "就到这里：你可以这样支持",
   "winshotx es gratis, sin cuentas y sin anuncios, y lo hago yo solo. Si te ahorra tiempo, un café es lo que lo mantiene en pie. Y si no, una estrella en GitHub o contar un fallo ayudan igual.":
     "winshotx 免费、无账号、无广告，由我一个人开发。如果它帮你节省了时间，请我喝杯咖啡就是它活下去的动力。如果不方便，在 GitHub 点个星或反馈问题同样有帮助。",

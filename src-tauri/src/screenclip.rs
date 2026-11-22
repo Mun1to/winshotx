@@ -1,5 +1,51 @@
 //! Activación nativa del Explorador mediante la asociación de ms-screenclip.
 use crate::windows_mgr::OverlayIntent;
+use parking_lot::Mutex;
+
+/// El plugin de instancia única ya acepta mensajes mientras Tauri aún crea AppState.
+/// Durante el arranque prevalece la última selección (o su cancelación).
+pub(crate) enum Inicio {
+    Pendiente(Option<Orden>),
+    Listo,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum Orden {
+    Mostrar(OverlayIntent),
+    Cancelar,
+}
+
+impl Inicio {
+    pub(crate) fn recibir(&mut self, orden: Orden) -> Option<Orden> {
+        match self {
+            Self::Pendiente(siguiente) => {
+                *siguiente = Some(orden);
+                None
+            }
+            Self::Listo => Some(orden),
+        }
+    }
+    pub(crate) fn listo(&mut self) -> Option<Orden> {
+        match std::mem::replace(self, Self::Listo) {
+            Self::Pendiente(orden) => orden,
+            Self::Listo => None,
+        }
+    }
+}
+
+pub(crate) fn entregar(app: &tauri::AppHandle, orden: Option<Orden>) {
+    match orden {
+        Some(Orden::Mostrar(intent)) => disparar(app, intent),
+        Some(Orden::Cancelar) => crate::windows_mgr::close_overlays(app),
+        None => {}
+    }
+}
+
+pub(crate) fn recibir(app: &tauri::AppHandle, orden: Orden) {
+    use tauri::Manager;
+    let orden = app.state::<Mutex<Inicio>>().lock().recibir(orden);
+    entregar(app, orden);
+}
 
 const BANDERA: &str = "--screenclip";
 pub(crate) const AJUSTES: &str = "ms-settings:defaultapps?registeredAppUser=winshotx";
@@ -92,23 +138,53 @@ pub(crate) fn es_predeterminado() -> bool {
 /// Conserva, si sigue instalada, la aplicación a la que iban las solicitudes de terceros.
 /// El destino explícito evita que Windows vuelva a invocar esta asociación recursivamente.
 pub(crate) fn reenviar(enlace: &str) -> crate::error::Result<()> {
-    use windows::core::HSTRING;
+    use windows::core::{w, Interface, HSTRING};
     use windows::Foundation::{Collections::ValueSet, Uri};
     use windows::System::{Launcher, LauncherOptions};
     use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED};
+    use windows::Win32::UI::Shell::IInitializeWithWindow;
+    use windows::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, WS_POPUP};
 
     unsafe { RoInitialize(RO_INIT_MULTITHREADED)? };
     let resultado = (|| {
-        let opciones = LauncherOptions::new()?;
-        opciones.SetTargetApplicationPackageFamilyName(&HSTRING::from(
-            "Microsoft.ScreenSketch_8wekyb3d8bbwe",
-        ))?;
-        let uri = Uri::CreateUri(&HSTRING::from(enlace))?;
-        if Launcher::LaunchUriWithDataAsync(&uri, &opciones, &ValueSet::new()?)?.join()? {
-            Ok(())
-        } else {
-            Err("Windows no pudo abrir la Herramienta de Recortes".into())
+        let ventana = unsafe {
+            CreateWindowExW(
+                Default::default(),
+                w!("STATIC"),
+                None,
+                WS_POPUP,
+                0,
+                0,
+                0,
+                0,
+                None,
+                None,
+                None,
+                None,
+            )?
+        };
+        let lanzar = || -> crate::error::Result<()> {
+            let opciones = LauncherOptions::new()?;
+            unsafe {
+                opciones
+                    .cast::<IInitializeWithWindow>()?
+                    .Initialize(ventana)?
+            };
+            opciones.SetTargetApplicationPackageFamilyName(&HSTRING::from(
+                "Microsoft.ScreenSketch_8wekyb3d8bbwe",
+            ))?;
+            let uri = Uri::CreateUri(&HSTRING::from(enlace))?;
+            if Launcher::LaunchUriWithDataAsync(&uri, &opciones, &ValueSet::new()?)?.join()? {
+                Ok(())
+            } else {
+                Err("Windows no pudo abrir la Herramienta de Recortes".into())
+            }
+        };
+        let resultado = lanzar();
+        unsafe {
+            let _ = DestroyWindow(ventana);
         }
+        resultado
     })();
     unsafe { RoUninitialize() };
     resultado
@@ -135,6 +211,33 @@ mod tests {
             pedir("ms-screenclip://?source=ScreenRecorderHotKey&type=recording"),
             OverlayIntent::GrabarWindows,
         );
+    }
+
+    #[test]
+    fn shell_normaliza_la_uri_y_serializa_el_modo_que_lee_la_interfaz() {
+        for (uri, esperado) in [
+            ("ms-screenclip:///?source=HotKey", "capturarWindows"),
+            (
+                "ms-screenclip:///?source=ScreenRecorderHotKey&type=recording",
+                "grabarWindows",
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(pedir(uri)).unwrap(), esperado);
+        }
+    }
+
+    #[test]
+    fn cancelar_antes_de_ready_sustituye_la_captura_inicial() {
+        let mut inicio = Inicio::Pendiente(Some(Orden::Mostrar(OverlayIntent::CapturarWindows)));
+        assert!(inicio
+            .recibir(Orden::Mostrar(OverlayIntent::GrabarWindows))
+            .is_none());
+        assert!(inicio.recibir(Orden::Cancelar).is_none());
+        assert!(matches!(inicio.listo(), Some(Orden::Cancelar)));
+        assert!(matches!(
+            inicio.recibir(Orden::Mostrar(OverlayIntent::GrabarWindows)),
+            Some(Orden::Mostrar(OverlayIntent::GrabarWindows))
+        ));
     }
 
     #[test]

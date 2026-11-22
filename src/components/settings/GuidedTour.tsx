@@ -80,9 +80,9 @@ const TODOS_LOS_PASOS: Paso[] = [
     id: "teclas",
     apartado: "teclas",
     objetivo: "las-teclas",
-    titulo: "Quitarle las teclas a Windows",
+    titulo: "Teclas de Windows",
     texto:
-      "Impr Pant es gratis. Win+Mayús+S cuesta perder Win+S, la búsqueda, y la fila te lo dice antes de que pulses nada.",
+      "Windows decide qué aplicación abre los atajos de recorte en Aplicaciones predeterminadas.",
   },
   {
     id: "ayudar",

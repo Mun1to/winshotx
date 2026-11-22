@@ -126,7 +126,13 @@ const VELOCIDADES_DE_ZOOM: { valor: number; nombre: string }[] = [
   { valor: 1.6, nombre: "Rápida" },
 ];
 
+export interface ExportacionDelEditor {
+  pendiente: Promise<ExportResult> | null;
+  cerrando: boolean;
+}
+
 interface Props {
+  actividad?: ExportacionDelEditor;
   /** Lo dibujado encima en el editor, que Rust pinta sobre cada fotograma. */
   anotaciones: Anotacion[];
   /** El trozo que se exporta, de 0 a 1. Sin marco puesto sale la captura entera. */
@@ -195,6 +201,7 @@ export function ExportPanel({
   hasFfmpeg,
   saveDirectory,
   editorExterno,
+  actividad,
   onEstudio,
   onRecorte,
   edicion,
@@ -506,14 +513,14 @@ export function ExportPanel({
 
   const run = async (copyToClipboard: boolean, file: string | null = null, abrirEditorExterno = false) => {
     // Sin esto, dos pulsaciones seguidas lanzan dos exportaciones a la vez.
-    if (exportando.current || sinMp4) return;
+    if (actividad?.cerrando || exportando.current || sinMp4) return;
     exportando.current = true;
     setError(null);
     setResult(null);
     setProgress({ stage: "reading", done: 0, total: 1 });
     try {
       const foto = esUnaFoto(format);
-      const res = await exportMedia({
+      const pendiente = exportMedia({
         ...(foto ? { ...edicion, zooms: null, tramos: null } : edicion),
         sessionId: session.id,
         format,
@@ -562,10 +569,12 @@ export function ExportPanel({
         // S25 (marco): la ventana con el tema de ahora, el mismo que enseña la vista previa.
         carcasa: carcasaParaPedir(carcasaPuesta, oscura),
       }, abrirEditorExterno);
-      setResult(res);
+      if (actividad) actividad.pendiente = pendiente;
+      setResult(await pendiente);
     } catch (e) {
       setError(String(e));
     } finally {
+      if (actividad) actividad.pendiente = null;
       exportando.current = false;
       setProgress(null);
     }

@@ -236,7 +236,12 @@ pub fn run() {
     // exista, el agente no puede haber conectado ni haberlo quitado.
     let lo_arranca_un_agente = agente::cliente::la_esta_arrancando_un_agente();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(windows)]
+    let builder = builder.manage(parking_lot::Mutex::new(screenclip::Inicio::Pendiente(
+        atajo_del_shell.map(screenclip::Orden::Mostrar),
+    )));
+    builder
         // Tiene que ir la primera: si ya hay un winshotx vivo, esta instancia se
         // cierra y le pasa el testigo, en vez de robarle los atajos globales.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -245,7 +250,7 @@ pub fn run() {
             if let Some(screenclip::Solicitud::Recortar(intent)) =
                 screenclip::solicitud(args.get(1..).unwrap_or_default())
             {
-                screenclip::disparar(app, intent);
+                screenclip::recibir(app, screenclip::Orden::Mostrar(intent));
                 return;
             }
             // Una segunda instancia con `--capture` es la forma de disparar una captura
@@ -273,6 +278,9 @@ pub fn run() {
                 return;
             }
             if args.iter().any(|arg| arg == "--cancel") {
+                #[cfg(windows)]
+                screenclip::recibir(app, screenclip::Orden::Cancelar);
+                #[cfg(not(windows))]
                 windows_mgr::close_overlays(app);
                 return;
             }
@@ -362,18 +370,12 @@ pub fn run() {
                 // Abrir un recorte desde el shell nunca requiere bandeja, ni siquiera en
                 // el primer arranque. Los ajustes también salen al cerrarse en este modo.
                 let a_mano = argumentos.is_empty() || argumentos == [arranque::AJUSTES];
-                if atajo_del_shell.is_some() || (a_mano
-                    && !lo_arranca_un_agente
-                    && !config.start_with_windows
-                    && !config.replay_enabled
-                    && screenclip::es_predeterminado())
+                if !config.start_with_windows && !config.replay_enabled
+                    && (atajo_del_shell.is_some() || (a_mano && !lo_arranca_un_agente && screenclip::es_predeterminado()))
                 {
                     app.manage(activacion::PorEncargo::default());
-                    if let Some(intent) = atajo_del_shell {
-                        // El bucle ya estará listo para recibir las ventanas que abre la captura.
-                        let inicio = handle.clone();
-                        handle.run_on_main_thread(move || screenclip::disparar(&inicio, intent))?;
-                    } else {
+                    agente::arrancar(&handle);
+                    if atajo_del_shell.is_none() {
                         windows_mgr::show_settings(&handle)?;
                     }
                     return Ok(());
@@ -463,7 +465,11 @@ pub fn run() {
             // que es el mismo problema: si no, se reinicia y no se ve nada. Y abierta a mano
             // tambien (S22), pero no cuando arranca sola con Windows, desde la Store al
             // iniciar sesion o la arranca un agente. Ver `arranque`.
-            if arranque::ensenar_ajustes(&arranque::Arranque {
+            #[cfg(windows)]
+            let pedido_por_tecla = atajo_del_shell.is_some();
+            #[cfg(not(windows))]
+            let pedido_por_tecla = false;
+            if !pedido_por_tecla && arranque::ensenar_ajustes(&arranque::Arranque {
                 argumentos: &argumentos,
                 onboarded: config.onboarded,
                 recien_actualizado,
@@ -612,6 +618,11 @@ pub fn run() {
         .run(|app, event| {
             if let RunEvent::Ready = event {
                 crono::marca("bucle");
+                #[cfg(windows)]
+                {
+                    let orden = app.state::<parking_lot::Mutex<screenclip::Inicio>>().lock().listo();
+                    screenclip::entregar(app, orden);
+                }
             }
             if let RunEvent::ExitRequested { ref api, code, .. } = event {
                 // Sin ventanas abiertas la app sigue en la bandeja, salvo que se pida salir.

@@ -576,6 +576,8 @@ export interface ReplayStatus {
 }
 
 export interface PrintScreenState {
+  screenclip?: boolean;
+  porEncargo?: boolean;
   /** winshotx ha pedido la tecla. */
   enabled: boolean;
   /** Y Windows se la ha dado de verdad. */

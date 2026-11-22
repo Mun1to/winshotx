@@ -96,6 +96,9 @@ pub fn al_encender_el_anillo(app: &AppHandle, settings: &Settings) -> ShortcutSt
 fn registrar(app: &AppHandle, settings: &Settings, por_la_persona: bool) -> ShortcutStatus {
     static DE_UNO_EN_UNO: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
     let _turno = DE_UNO_EN_UNO.lock();
+    if crate::activacion::es_por_encargo(app) {
+        return ShortcutStatus::default();
+    }
 
     // En Wayland el plugin no puede coger ninguna tecla (solo sabe X11) y aun asi dice que la
     // tiene: los atajos los pone el escritorio, por el portal.

@@ -69,6 +69,20 @@ beforeEach(() => {
   destruir.mockClear();
 });
 
+it("espera al MP4 antes de descartar sus fotogramas al cerrar", async () => {
+  let terminar!: () => void;
+  responde("export_media", new Promise(resolve => {
+    terminar = () => resolve({ path: "clip.mp4", bytes: 10, copied: false });
+  }));
+  await abrirRescatada();
+  fireEvent.click(screen.getByRole("button", { name: "Guardar MP4" }));
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(llamadas.some(l => l.comando === "discard_session")).toBe(false);
+  terminar();
+  await waitFor(() => expect(destruir).toHaveBeenCalledOnce());
+  expect(llamadas.some(l => l.comando === "discard_session")).toBe(true);
+});
+
 describe("dónde caen las capas de dibujar", () => {
   it("la imagen y las capas viven en una caja con la proporción de la captura", async () => {
     // La vista previa se ajusta con `object-contain`: en un hueco de otra proporción deja

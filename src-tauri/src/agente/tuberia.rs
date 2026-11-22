@@ -83,7 +83,9 @@ fn usuario() -> String {
 }
 
 #[cfg(windows)]
-pub use win::{abrir, dueno_es_este_usuario, escuchar, esperar_libre};
+pub use win::{abrir, dueno_es_este_usuario, escuchar_con_actividad, esperar_libre};
+#[cfg(all(windows, test))]
+pub use win::escuchar;
 
 #[cfg(target_os = "linux")]
 pub use linux::{abrir, carpeta, dueno_es_este_usuario, escuchar, esperar_libre};
@@ -301,7 +303,14 @@ mod win {
 
     /// Abre la tubería y la atiende en un hilo propio. Vuelve cuando ya se puede conectar
     /// alguien, o con el error si no se ha podido crear (por ejemplo, porque otro la tiene).
+    #[cfg(test)]
     pub fn escuchar(nombre: &str, manejador: Manejador) -> std::io::Result<()> {
+        escuchar_con_actividad(nombre, manejador, || ())
+    }
+
+    pub fn escuchar_con_actividad<T: Send + 'static>(
+        nombre: &str, manejador: Manejador, al_conectar: impl Fn() -> T + Send + 'static,
+    ) -> std::io::Result<()> {
         let nombre = ancho(nombre);
         let descriptor = Descriptor::de_este_usuario()?;
         let primera = instancia(&nombre, &descriptor, true)?;
@@ -334,10 +343,12 @@ mod win {
                     if !conectado {
                         continue;
                     }
+                    let trabajo = al_conectar();
                     let manejador = manejador.clone();
                     let _ = std::thread::Builder::new()
                         .name("agente-conexion".into())
                         .spawn(move || {
+                            let _trabajo = trabajo;
                             if let Err(error) = atender_conexion(&actual, &manejador) {
                                 // Que el otro lado cuelgue a media respuesta no es un fallo nuestro.
                                 if error.kind() != std::io::ErrorKind::BrokenPipe {

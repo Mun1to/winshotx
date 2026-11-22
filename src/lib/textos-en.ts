@@ -75,6 +75,12 @@ export const EN: Record<string, string> = {
   "Elige winshotx para MS-SCREENCLIP. Windows abrirá la captura o la grabación bajo demanda.": "Choose winshotx for MS-SCREENCLIP. Windows will open screenshot or video capture on demand.",
   "Desactiva la opción antigua de Win+Mayús+S y vuelve a iniciar sesión.": "Turn off the legacy Win+Shift+S option and sign in again.",
   "Aplicaciones predeterminadas…": "Default apps…",
+  "Windows abre winshotx al pulsar los atajos de recorte.": "Windows opens winshotx when you use the snipping shortcuts.",
+  "Arrastra para copiar una captura. Para grabar, selecciona la zona y pulsa Grabar vídeo.": "Drag to copy a screenshot. To record, select the region and click Record video.",
+  "La captura con Impr Pant está desactivada en Windows.": "Windows screen snipping is turned off for Print Screen.",
+  "Atajo de Windows": "Windows shortcut",
+  "Disponible en el modo de bandeja": "Available in tray mode",
+  "Windows decide qué aplicación abre los atajos de recorte en Aplicaciones predeterminadas.": "Choose the app for Windows snipping shortcuts in Default apps.",
   "Editor de vídeo externo": "External video editor",
   "Elegir ejecutable…": "Choose executable…",
   "Quitar editor": "Remove editor",
@@ -291,9 +297,6 @@ export const EN: Record<string, string> = {
   "Qué pasa al soltar el ratón": "What happens when you let go",
   "Con «Se copia sola» la imagen va al portapapeles y se acabó, cero clics. Con «Sale la barra» eliges cada vez entre copiar, guardar, editar o grabar.":
     "With «Copy it for me» the image goes to the clipboard and that is that, no clicks. With «Show the bar» you choose each time between copy, save, edit or record.",
-  "Quitarle las teclas a Windows": "Taking the keys off Windows",
-  "Impr Pant es gratis. Win+Mayús+S cuesta perder Win+S, la búsqueda, y la fila te lo dice antes de que pulses nada.":
-    "Print Screen is free. Win+Shift+S costs you Win+S, the search, and the row tells you before you press anything.",
   "Ya está: así puedes ayudar": "That is it, and here is how you can help",
   "winshotx es gratis, sin cuentas y sin anuncios, y lo hago yo solo. Si te ahorra tiempo, un café es lo que lo mantiene en pie. Y si no, una estrella en GitHub o contar un fallo ayudan igual.":
     "winshotx is free, with no accounts and no ads, and I build it on my own. If it saves you time, a coffee is what keeps it going. If not, a star on GitHub or a bug report helps just as much.",

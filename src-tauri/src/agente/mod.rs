@@ -60,7 +60,14 @@ pub fn arrancar(app: &tauri::AppHandle) {
     #[cfg(any(windows, target_os = "linux"))]
     {
         let manejador = en_la_app::manejador(app.clone());
-        match tuberia::escuchar(&tuberia::nombre(), manejador) {
+        #[cfg(windows)]
+        let resultado = {
+            let app = app.clone();
+            tuberia::escuchar_con_actividad(&tuberia::nombre(), manejador, move || crate::activacion::trabajando(&app))
+        };
+        #[cfg(not(windows))]
+        let resultado = tuberia::escuchar(&tuberia::nombre(), manejador);
+        match resultado {
             Ok(()) => eprintln!("[agente] escuchando en {}", tuberia::nombre()),
             Err(error) => eprintln!("[agente] sin canal para agentes: {error}"),
         }

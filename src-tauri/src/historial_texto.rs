@@ -351,12 +351,12 @@ impl Buscador {
 pub fn arrancar(app: &AppHandle) {
     let archivo = app.path().app_local_data_dir().ok().map(|d| d.join(ARCHIVO));
     let (aviso, avisos) = mpsc::channel();
-    app.manage(Buscador {
+    if !app.manage(Buscador {
         indice: Mutex::new(Indice::default()),
         archivo,
         aviso: Mutex::new(aviso),
         disponible: AtomicBool::new(false),
-    });
+    }) { return; }
     #[cfg(any(windows, target_os = "linux"))]
     {
         let app = app.clone();
