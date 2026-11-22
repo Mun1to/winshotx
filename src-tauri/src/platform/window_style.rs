@@ -178,11 +178,6 @@ pub fn colocar_y_ensennar_hwnd(ventana: isize, x: i32, y: i32) -> bool {
     }
 }
 
-#[cfg(not(windows))]
-pub fn colocar_y_ensennar(_window: &tauri::WebviewWindow, _x: i32, _y: i32) -> bool {
-    false
-}
-
 /// Esconde la ventana por el mismo camino por el que la ensenna [`colocar_y_ensennar`]:
 /// directamente con Windows, sin pasar por lo que Tauri cree. Quien llama hace despues el
 /// `hide()` de Tauri, que no hace nada si Tauri ya la creia escondida y la pone al dia si no.

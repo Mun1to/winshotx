@@ -183,9 +183,9 @@ fn el_marco_sigue_a_la_ventana_que_se_graba() {
     ventana.mover(mas_grande);
     assert!(hasta(|| sitios() == esperado(mas_grande)), "no ha crecido con la ventana: {:?}", sitios());
 
-    unsafe { ShowWindow(ventana.0, SW_HIDE) };
+    unsafe { let _ = ShowWindow(ventana.0, SW_HIDE); }
     assert!(hasta(|| tiras_en_pantalla(&marco).iter().all(|(_, v)| !*v)), "con la ventana escondida, el marco se ve");
-    unsafe { ShowWindow(ventana.0, SW_SHOWNOACTIVATE) };
+    unsafe { let _ = ShowWindow(ventana.0, SW_SHOWNOACTIVATE); }
     assert!(hasta(vistas), "la ventana ha vuelto y el marco no");
 
     drop(ventana);

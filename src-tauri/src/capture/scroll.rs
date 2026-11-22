@@ -681,6 +681,7 @@ pub const BARRA_LABEL: &str = "scroll-barra";
 
 /// Dónde va la barra: debajo de la zona si cabe, encima si no, y si la zona ocupa la
 /// pantalla entera, dentro y pegada abajo (no sale en las fotos: se aparta de la captura).
+#[cfg(any(windows, test))]
 pub(crate) fn sitio_de_la_barra(
     region: super::Rect,
     pantalla: Option<(i32, i32, i32, i32)>,

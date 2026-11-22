@@ -317,6 +317,7 @@ fn dirs_pictures() -> Option<PathBuf> {
 }
 
 /// El identificador de `tauri.conf.json`, que es el nombre de la carpeta de los ajustes.
+#[cfg(any(windows, test))]
 pub(crate) const IDENTIFICADOR: &str = "com.munir.winshotx";
 
 /// Los ajustes leídos sin la app arrancada y sin tocar el archivo, o None si no hay o no se

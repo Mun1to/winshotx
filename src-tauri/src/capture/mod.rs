@@ -139,6 +139,8 @@ pub fn monitors() -> Result<Vec<MonitorInfo>> {
 /// negro, y en los videos no. GDI se queda de reserva para el Windows que no la tenga o por
 /// si un dia falla, y cuando se usa, el registro lo dice.
 fn fotografiar(monitor: &xcap::Monitor, info: &MonitorInfo) -> Result<RgbaImage> {
+    #[cfg(not(windows))]
+    let _ = info;
     #[cfg(windows)]
     if wgc::disponible() {
         match wgc::fotografiar(info) {

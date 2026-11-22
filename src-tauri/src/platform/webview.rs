@@ -22,16 +22,12 @@ pub fn version() -> Option<String> {
     tauri::webview_version().ok()
 }
 
-#[cfg(not(windows))]
-pub fn version() -> Option<String> {
-    Some(String::new())
-}
-
 /// El texto del aviso, en los dos idiomas de la aplicacion.
 ///
 /// Aparte y puro para poder probarlo: lo que aqui importa es que diga QUE falta y COMO se
 /// arregla, porque quien lo lea no va a tener ni consola ni interfaz donde mirar nada mas.
 /// El idioma no puede salir de `i18n`, que vive en el frontend y es justo lo que no hay.
+#[cfg(any(windows, test))]
 pub fn aviso(en_espannol: bool) -> (String, String) {
     if en_espannol {
         (

@@ -617,6 +617,7 @@ fn mostrar_cuenta_atras(app: &AppHandle, segundos: u32) {
 }
 
 /// La ventana de la cuenta atras a pelo, guardada al crearla. 0 si no existe todavia.
+#[cfg(windows)]
 static CUENTA_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
 
 /// La pone en el centro del monitor donde esta el cursor, que es el que el usuario esta
@@ -992,6 +993,7 @@ fn aparcadero(app: &AppHandle) -> PhysicalPosition<i32> {
 /// Devuelve la etiqueta de la ventana, para que quien la abrio cierre ESA barra y no la que
 /// haya: desde que parar vuelve enseguida, una grabacion nueva puede empezar mientras la
 /// anterior todavia esta guardando, y la limpieza de la vieja no puede llevarse la nueva.
+#[cfg(windows)]
 pub fn open_recorder(app: &AppHandle, region: Rect) -> Result<String> {
     close_recorder(app);
     let label = format!(
@@ -1035,6 +1037,7 @@ pub fn close_recorder_label(app: &AppHandle, label: &str) {
 /// coordenadas del escritorio son NEGATIVAS, y recortarlas a cero es literalmente saltar
 /// de pantalla. Y el escalado se le preguntaba a la ventana, que acaba de nacer y todavia
 /// esta en la pantalla equivocada.
+#[cfg(windows)]
 fn colocar_barra(window: &tauri::WebviewWindow, region: Rect) {
     let centro = (
         region.x + region.width as i32 / 2,
@@ -1048,6 +1051,7 @@ fn colocar_barra(window: &tauri::WebviewWindow, region: Rect) {
 ///
 /// Si no se sabe en que monitor cae, se coloca debajo de la region y se deja estar: es
 /// preferible una barra un poco fuera de sitio que una barra en otra pantalla.
+#[cfg(any(windows, test))]
 fn sitio_de_la_barra(region: Rect, monitor: Option<MonitorSitio>) -> (i32, i32) {
     let escala = monitor.map(|m| m.escala).unwrap_or(1.0);
     let ancho_px = (BARRA_ANCHO * escala) as i32;

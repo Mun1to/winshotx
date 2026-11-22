@@ -7,6 +7,7 @@ use crate::error::{AppError, Result};
 const NO_WINDOW: u32 = 0x0800_0000; // CREATE_NO_WINDOW: nada de consolas parpadeando
 
 fn command() -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut cmd = Command::new("ffmpeg");
     #[cfg(windows)]
     {

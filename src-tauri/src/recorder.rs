@@ -1,4 +1,6 @@
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+#[cfg(windows)]
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -9,7 +11,9 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::capture::Rect;
 use crate::error::{AppError, Result};
 use crate::record::{self, FrameCache, SessionData};
-use crate::state::{AppState, Cabecera, RecordingState};
+#[cfg(windows)]
+use crate::state::Cabecera;
+use crate::state::{AppState, RecordingState};
 use crate::windows_mgr;
 
 pub const EVENT_TICK: &str = "winshotx://recording-tick";
@@ -40,6 +44,7 @@ pub struct RecordOptions {
     /// por delante no sale en el video. Sin esto, se graba la region de la pantalla, que
     /// es lo de siempre y lo que vale para grabar varias cosas a la vez.
     #[serde(default)]
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub window: Option<isize>,
     // S15 (agente)
     /// La webcam de ESTA grabación. `None` es lo de los ajustes (`record_camera`), que es lo
@@ -174,6 +179,7 @@ fn dar_la_vuelta(v: u32) -> u32 {
 /// Escribe en un buffer que se le presta y se reutiliza fotograma tras fotograma: reservar
 /// ocho megabytes nuevos treinta veces por segundo era una parte medible de lo que
 /// costaba grabar, y el codificador solo necesita los bytes mientras se los manda.
+#[cfg(windows)]
 fn flip_rows_en(input: &[u8], width: u32, height: u32, out: &mut Vec<u8>) {
     let stride = width as usize * 4;
     out.clear();
@@ -203,6 +209,7 @@ fn dentro_de_su_monitor(region: Rect, pantallas: &[Rect]) -> Rect {
         .unwrap_or(region)
 }
 
+#[cfg(windows)]
 fn monitor_origin(app: &AppHandle, region: Rect) -> (i32, i32) {
     let state = app.state::<AppState>();
     let (cx, cy) = region.center();

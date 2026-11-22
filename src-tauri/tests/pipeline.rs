@@ -5,8 +5,12 @@
 use std::path::PathBuf;
 
 use image::{Rgba, RgbaImage};
-use winshotx_lib::capture::{self, Rect};
-use winshotx_lib::encode::{gif as gif_encoder, mp4};
+#[cfg(windows)]
+use winshotx_lib::capture;
+use winshotx_lib::capture::Rect;
+#[cfg(windows)]
+use winshotx_lib::encode::mp4;
+use winshotx_lib::encode::gif as gif_encoder;
 use winshotx_lib::record::{self, FrameCache};
 
 fn scratch(name: &str) -> PathBuf {

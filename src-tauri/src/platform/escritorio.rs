@@ -6,7 +6,8 @@
 
 use std::path::PathBuf;
 
-/// Lo que tiene puesto el escritorio.
+/// Lo que tiene puesto el escritorio. En Linux no se pregunta (`actual` da `None`).
+#[cfg_attr(not(windows), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FondoDeEscritorio {
     /// Una imagen. Ojo: con el pase de diapositivas o con Windows Spotlight es
@@ -61,14 +62,13 @@ pub fn actual() -> Option<FondoDeEscritorio> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod pruebas {
     use super::*;
 
     /// En una máquina con Windows siempre hay algo puesto: una imagen que existe o un color.
     /// No se compara con nada concreto porque depende de la máquina que corre la prueba.
     #[test]
-    #[cfg(windows)]
     fn windows_contesta_con_una_imagen_que_existe_o_con_un_color() {
         match actual() {
             Some(FondoDeEscritorio::Imagen(ruta)) => assert!(ruta.is_file(), "{ruta:?} no existe"),

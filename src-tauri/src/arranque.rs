@@ -8,6 +8,7 @@
 //! decide cuál de esos arranques es este, en una función pura para poder probarla entera.
 
 /// La bandera de la entrada de arranque con Windows (ver `platform::autostart`).
+#[cfg(any(windows, test))]
 pub const AL_ENCENDER: &str = "--autostart";
 
 /// Abre los ajustes siempre, venga de donde venga.

@@ -189,9 +189,6 @@ pub fn fuera_de_la_lista_hwnd(ventana: isize, otros: u32, cerrojo: bool) {
     win::vigilar(ventana, WS_EX_TOOLWINDOW.0 | otros, WS_EX_APPWINDOW.0, cerrojo);
 }
 
-#[cfg(not(windows))]
-pub fn fuera_de_la_lista_hwnd(_ventana: isize, _otros: u32, _cerrojo: bool) {}
-
 /// Lo mismo, sobre una ventana de Tauri.
 pub fn fuera_de_la_lista(window: &tauri::WebviewWindow, otros: u32, cerrojo: bool) {
     #[cfg(windows)]

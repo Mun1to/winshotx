@@ -205,9 +205,6 @@ pub fn revisar_ruta() {
     }
 }
 
-#[cfg(not(windows))]
-pub fn revisar_ruta() {}
-
 /// La carpeta que Windows tiene apuntada como la instalacion de winshotx, si la hay.
 ///
 /// Es lo que escribe el instalador de NSIS, o sea la carpeta que el usuario eligio en el

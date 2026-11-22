@@ -349,6 +349,7 @@ pub fn restart_shell() -> Result<()> {
 /// `ventana` es la del escritorio (`GetShellWindow`): 0 mientras no hay ninguno, y otra
 /// distinta de `antes` cuando ha arrancado uno nuevo. `relanzar` se llama solo si el
 /// escritorio se ha ido y no vuelve por su cuenta.
+#[cfg(any(windows, test))]
 pub(crate) fn esperar_shell_nuevo(
     antes: isize,
     ventana: impl Fn() -> isize,

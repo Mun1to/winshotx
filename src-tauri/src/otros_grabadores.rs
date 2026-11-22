@@ -34,9 +34,11 @@ pub struct OtrosGrabadores {
 }
 
 /// Los procesos de NVIDIA que dicen que su panel (y con él su grabador) está en marcha.
+#[cfg(any(windows, test))]
 const DE_NVIDIA: [&str; 2] = ["nvidia overlay.exe", "nvsphelper64.exe"];
 
 /// Si alguno de esos nombres de proceso es de NVIDIA. Aparte para probarlo sin procesos.
+#[cfg(any(windows, test))]
 fn hay_nvidia<'a>(procesos: impl IntoIterator<Item = &'a str>) -> bool {
     procesos
         .into_iter()
@@ -45,6 +47,7 @@ fn hay_nvidia<'a>(procesos: impl IntoIterator<Item = &'a str>) -> bool {
 
 /// La Barra de juego graba en segundo plano solo con las dos cosas: la captura encendida
 /// (si no está el valor, lo está: es lo de fábrica) y «grabar lo que ha pasado» puesto.
+#[cfg(any(windows, test))]
 fn barra_grabando(captura: Option<u32>, en_segundo_plano: Option<u32>) -> bool {
     captura.unwrap_or(1) != 0 && en_segundo_plano == Some(1)
 }

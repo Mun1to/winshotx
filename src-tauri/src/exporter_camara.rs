@@ -18,6 +18,7 @@ const ALTO: u32 = 180;
 const GRIS: [u8; 3] = [128, 128, 128];
 
 /// Lo que mide la cámara de mentira: H.264 la quiere en múltiplos de 16.
+#[cfg(windows)]
 const CAM: (u32, u32) = (320, 240);
 
 /// Una sesión de verdad en el disco: una pantalla gris quieta que dura `total_ms`.
@@ -65,8 +66,11 @@ fn con_camara(session: &mut SessionData, segundos: u32, desfase_ms: i64) -> bool
 }
 
 /// Los tres colores de la cámara de mentira, en YUV (BT.601, rango de vídeo).
+#[cfg(windows)]
 const ROJO_YUV: [u8; 3] = [81, 90, 240];
+#[cfg(windows)]
 const AZUL_YUV: [u8; 3] = [41, 240, 110];
+#[cfg(windows)]
 const VERDE_YUV: [u8; 3] = [145, 54, 34];
 
 /// La imagen `n` de la cámara (a 30 por segundo), en NV12: la mitad izquierda roja el primer
@@ -191,6 +195,7 @@ fn gif(
 }
 
 /// El fotograma que se ve en ese instante del GIF.
+#[cfg(windows)]
 fn en(gif: &[(u64, u64, image::RgbaImage)], ms: u64) -> &image::RgbaImage {
     &gif.iter()
         .find(|(d, h, _)| ms >= *d && ms < *h)
@@ -198,18 +203,22 @@ fn en(gif: &[(u64, u64, image::RgbaImage)], ms: u64) -> &image::RgbaImage {
         .2
 }
 
+#[cfg(windows)]
 fn es_rojo(p: &image::Rgba<u8>) -> bool {
     p.0[0] > 150 && p.0[1] < 90 && p.0[2] < 90
 }
+#[cfg(windows)]
 fn es_azul(p: &image::Rgba<u8>) -> bool {
     p.0[2] > 150 && p.0[0] < 90 && p.0[1] < 90
 }
+#[cfg(windows)]
 fn es_verde(p: &image::Rgba<u8>) -> bool {
     p.0[1] > 150 && p.0[0] < 90 && p.0[2] < 90
 }
 fn es_gris(p: &image::Rgba<u8>) -> bool {
     p.0.iter().take(3).all(|&c| (110..=146).contains(&c))
 }
+#[cfg(windows)]
 fn es_blanco(p: &image::Rgba<u8>) -> bool {
     p.0.iter().take(3).all(|&c| c > 225)
 }
@@ -575,6 +584,7 @@ fn el_editor_recibe_la_ruta_solo_si_existe() {
 }
 
 /// El color medio de un cuadrado de 9 x 9 alrededor de un punto.
+#[cfg(windows)]
 fn medio(imagen: &image::RgbaImage, cx: u32, cy: u32) -> [u8; 3] {
     let mut suma = [0u32; 3];
     for y in cy - 4..=cy + 4 {
