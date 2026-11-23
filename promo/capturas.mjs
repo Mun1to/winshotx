@@ -7,6 +7,8 @@
  *                          node capturas.mjs overlay    solo una parte (escritorio, overlay, editor, ajustes)
  *                          node capturas.mjs --raiz=<carpeta>   la app, el banco y la web de otro árbol
  *                                                       (el de la versión que sale, con su dist/ compilado)
+ *                          node capturas.mjs --fondo=luz    la pantalla que se captura es pantallas/luz.html (una gráfica)
+ *                                                       y no la guía de la web: el vídeo de Reddit
  *
  * El peso del instalador vive en UN sitio, `cifras.json`: el vídeo lo dice con ese número y la
  * guía de la web que se fotografía de fondo se pone a ese mismo número antes de la foto (la web
@@ -33,7 +35,7 @@ import { spawn } from "node:child_process";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, extname, dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const raizPedida = process.argv.find((a) => a.startsWith("--raiz="))?.slice("--raiz=".length);
@@ -60,6 +62,14 @@ const PANTALLA = { ancho: 1920, alto: 1080, escala: 2 };
 const FPS = 30;
 const partes = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const quiero = (n) => partes.length === 0 || partes.includes(n);
+/** Con `--fondo=luz`, la pantalla que se congela es `pantallas/luz.html` (un artículo con una gráfica) y no la guía
+    de la web: así el vídeo enseña a winshotx capturando algo de verdad y no su propia web. Lo que se selecciona es lo
+    que esa página marca con `data-demo="recorte"`, con el mismo margen que alrededor de los botones de la guía. */
+const fondo = process.argv.find((a) => a.startsWith("--fondo="))?.slice("--fondo=".length);
+if (fondo && !/^[a-z0-9-]+$/.test(fondo)) {
+  console.error(`--fondo=${fondo}: tiene que ser el nombre de una página de pantallas/, sin ruta`);
+  process.exit(1);
+}
 
 /* ------------------------------------------------ la web, servida tal cual */
 const TIPOS = {
@@ -143,6 +153,21 @@ try {
       colorScheme: "dark",
     });
     const p = await ctx.newPage();
+    medidas.fondo = fondo ?? null;
+    if (fondo) {
+      await p.goto(pathToFileURL(join(aqui, "pantallas", `${fondo}.html`)).href, { waitUntil: "load" });
+      await p.evaluate(() => document.fonts.ready);
+      await p.waitForTimeout(300);
+      medidas.boton = await p.evaluate(() => {
+        const r = document.querySelector('[data-demo="recorte"]')?.getBoundingClientRect();
+        return r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } : null;
+      });
+      if (!medidas.boton) throw new Error(`pantallas/${fondo}.html no marca data-demo="recorte"`);
+      medidas.fondo = fondo;
+      await p.screenshot({ path: pngEscritorio });
+      await ctx.close();
+      console.log(`la pantalla: pantallas/${fondo}.html, y se selecciona ${JSON.stringify(medidas.boton)}`);
+    } else {
     // ?motion=off: nada a medio entrar en la foto.
     await p.goto(`${urlWeb}/en/docs/?motion=off`, { waitUntil: "load" });
     await p.evaluate(() => document.fonts.ready);
@@ -166,7 +191,17 @@ try {
     if (!medidas.boton) throw new Error('la guía no marca data-demo="boton"');
     await p.screenshot({ path: pngEscritorio });
     await ctx.close();
+    }
   }
+
+  /** Lo que se selecciona: de la esquina de arriba a la izquierda a la de abajo a la derecha, con aire. En la guía, los
+      dos botones (440 x 94 desde 18 px a la izquierda y 20 por encima del primero); en otra pantalla, lo marcado. */
+  const objetivo = (() => {
+    const b = medidas.boton;
+    const esquina = { x: b.x - 18, y: b.y - 20 };
+    const fin = fondo ? { x: b.x + b.w + 18, y: b.y + b.h + 20 } : { x: b.x + 422, y: b.y + 74 };
+    return { esquina, fin, recorte: { x: esquina.x, y: esquina.y, w: fin.x - esquina.x, h: fin.y - esquina.y } };
+  })();
 
   /* ---------------- 2. el overlay con un ratón de verdad, fotograma a fotograma */
   if (quiero("overlay")) {
@@ -202,10 +237,8 @@ try {
 
     // El recorrido: entra por la derecha, va a la esquina de arriba del botón, se para a
     // mirar la lupa, arrastra hasta cubrir los dos botones, suelta y deja ver la barra.
-    const b = medidas.boton;
     const desde = { x: 1240, y: 300 };
-    const esquina = { x: b.x - 18, y: b.y - 20 };
-    const fin = { x: b.x + 422, y: b.y + 74 };
+    const { esquina, fin } = objetivo;
     const tramos = [
       { s: 0.5, de: desde, a: desde },
       { s: 1.4, de: desde, a: esquina },
@@ -239,8 +272,7 @@ try {
 
   /* ---------------- 3. el editor con ese recorte, del tamaño que se abre en una pantalla 1920 */
   if (quiero("editor")) {
-    const b = medidas.boton;
-    const recorte = { x: b.x - 18, y: b.y - 20, w: 440, h: 94 };
+    const { recorte } = objetivo;
     // El recorte, sacado del escritorio a su tamaño de verdad (a la escala de la foto).
     const e = PANTALLA.escala;
     const pngRecorte = join(salida, "recorte.png");

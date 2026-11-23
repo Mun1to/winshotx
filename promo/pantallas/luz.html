@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How much daylight Madrid gets</title>
+<!--
+  The "screen" the promo video captures (capturas.mjs --fondo=luz): an ordinary article in dark
+  mode with one chart, so the video shows winshotx capturing something real instead of its own
+  website. The figures are real: hours of daylight in Madrid on the 15th of each month, rounded.
+  The chart is marked with data-demo="recorte": that is what the overlay selects.
+-->
+<style>
+  :root {
+    --fondo: #101217;
+    --tarjeta: #161920;
+    --linea: #262a33;
+    --tinta: #eceef3;
+    --suave: #9ba2ae;
+    --sol: #ffb547;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--fondo); color: var(--tinta);
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+  header { height: 64px; border-bottom: 1px solid var(--linea); display: flex; align-items: center; gap: 40px; padding: 0 64px; }
+  header strong { font-size: 20px; font-weight: 650; }
+  header span { font-size: 16px; color: var(--suave); }
+  main { width: 1100px; margin: 0 auto; padding-top: 56px; }
+  h1 { font-size: 46px; font-weight: 700; letter-spacing: -0.01em; }
+  p { font-size: 19px; line-height: 1.6; color: var(--suave); max-width: 960px; margin-top: 16px; }
+  figure { margin-top: 40px; width: 860px; padding: 30px 34px 22px; background: var(--tarjeta); border: 2px solid var(--linea); border-radius: 10px; }
+  figcaption { font-size: 22px; font-weight: 600; }
+  figcaption small { display: block; margin-top: 4px; font-size: 16px; font-weight: 400; color: var(--suave); }
+  svg { display: block; margin-top: 18px; }
+  svg text { font-family: inherit; }
+</style>
+</head>
+<body>
+<header><strong>Field notes</strong><span>Weather</span><span>Cities</span><span>Maps</span></header>
+<main>
+  <h1>How much daylight Madrid gets</h1>
+  <p>In June the sun is up for more than fifteen hours. In December, a little over nine. The difference is almost six hours a day, and most of it changes in spring and autumn.</p>
+  <figure data-demo="recorte">
+    <figcaption>Hours of daylight in Madrid<small>On the 15th of each month</small></figcaption>
+    <svg id="grafica" width="792" height="330" viewBox="0 0 792 330"></svg>
+  </figure>
+  <p>Around the equinoxes the day grows or shrinks by more than two minutes every day. Near the solstices it hardly moves for weeks.</p>
+</main>
+<script>
+  // Hours of daylight on the 15th, Madrid (40.4 N), rounded to the nearest few minutes.
+  const horas = [9.6, 10.65, 11.9, 13.3, 14.4, 15.05, 14.75, 13.7, 12.4, 11.0, 9.9, 9.3];
+  const meses = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const W = 792, H = 330, izq = 44, der = 18, arriba = 34, abajo = 40;
+  const min = 8, max = 16;
+  const x = (i) => izq + (i * (W - izq - der)) / (horas.length - 1);
+  const y = (v) => arriba + ((max - v) * (H - arriba - abajo)) / (max - min);
+  const pts = horas.map((v, i) => [x(i), y(v)]);
+  // A smooth line through every point (Catmull-Rom as Bezier curves).
+  let linea = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    linea += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`;
+  }
+  const base = y(min);
+  const area = `${linea} L${pts.at(-1)[0]},${base} L${pts[0][0]},${base} Z`;
+  let svg = `<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb547" stop-opacity="0.55"/><stop offset="1" stop-color="#ff7a59" stop-opacity="0.04"/></linearGradient></defs>`;
+  for (let h = 8; h <= 16; h += 2) {
+    svg += `<line x1="${izq}" x2="${W - der}" y1="${y(h)}" y2="${y(h)}" stroke="#262a33" stroke-width="1"/>`;
+    svg += `<text x="${izq - 12}" y="${y(h) + 5}" text-anchor="end" font-size="14" fill="#9ba2ae">${h} h</text>`;
+  }
+  svg += `<path d="${area}" fill="url(#g)"/>`;
+  svg += `<path d="${linea}" fill="none" stroke="#ffb547" stroke-width="4" stroke-linecap="round"/>`;
+  meses.forEach((m, i) => (svg += `<text x="${x(i)}" y="${H - 12}" text-anchor="middle" font-size="14" fill="#9ba2ae">${m}</text>`));
+  // The longest and the shortest day, with their figure next to the point: above the top of the curve, and below
+  // the end of it (above, the line coming down from November would cross the text).
+  for (const [i, texto, dy, ancla] of [[5, "15 h 03 min", -18, "middle"], [11, "9 h 17 min", 34, "end"]]) {
+    svg += `<circle cx="${x(i)}" cy="${y(horas[i])}" r="7" fill="#101217" stroke="#ffb547" stroke-width="4"/>`;
+    svg += `<text x="${x(i)}" y="${y(horas[i]) + dy}" text-anchor="${ancla}" font-size="17" font-weight="600" fill="#eceef3">${texto}</text>`;
+  }
+  document.getElementById("grafica").innerHTML = svg;
+</script>
+</body>
+</html>

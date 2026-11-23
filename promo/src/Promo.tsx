@@ -6,7 +6,7 @@ import { COLOR, FPS, s } from "./casa";
 import { fotosDeLinux } from "./linux";
 import { Camara, type Toma } from "./piezas/Camara";
 import { Cursor } from "./piezas/Cursor";
-import { AJUSTES, Arriba, Centro, Cierre, EDITOR, EnElEditor, EnLinux, EnLosAjustes, cajaDeLinux, centroDelRecorte } from "./piezas/Escenas";
+import { AJUSTES, Arriba, Centro, Cierre, EDITOR, EnElEditor, EnLinux, EnLosAjustes, cajaDeLinux, centroDelRecorte, RECORTE } from "./piezas/Escenas";
 import { Logo } from "./piezas/Logo";
 import { Overlay } from "./piezas/Overlay";
 import { Palabras } from "./piezas/Palabras";
@@ -56,6 +56,13 @@ import { Teclas } from "./piezas/Teclas";
  * medio y un segundo cada una. Los cortes siguen cayendo en golpes de la música, y el logo, en el
  * mismo golpe de Be Happy (`musica.mjs --desde` corre lo mismo que se corre el logo: 1 s antes).
  * El cierre dice «For Windows and Linux», y el peso del instalador sale de `cifras.json`.
+ */
+/*
+ * Para Reddit (23-nov): «¿no crees que puedes mostrar mejor winshotx?». Lo que no vendía: capturaba y grababa su propia
+ * web (los botones de descarga), la app salía pequeña para un móvil, y la velocidad no se veía al lado de la otra. Sin
+ * tocar lo que eligió él (Be Happy, las siete preguntas, los cortes en golpes, 45,5 s): la pantalla que se captura es
+ * una gráfica de un artículo (`capturas.mjs --fondo=luz`), la cámara llega más cerca a lo que se nombra en cada
+ * pregunta, y las dos cifras dicen también las de la Herramienta de Recortes (920 ms y 253 MB, medidas en su PC).
  */
 const GOLPES = {
   lento: 0,
@@ -166,16 +173,29 @@ function Raton({ de, a, sale, llega, clic }: { de: { x: number; y: number }; a: 
  */
 const Q1 = { aparece: PREGUNTA + s(1.0), desde: OVERLAY.vaAlBoton + 13 };
 
+/**
+ * Cuánto se acerca la cámara al recorte de la primera pregunta. Con la gráfica (`capturas.mjs --fondo=luz`, Reddit,
+ * 23-nov) el recorte mide 896 x 499 y no 440 x 94 como los botones de la guía: a 1,72 se salía del cuadro. Lo más
+ * cerca que cabe con la barra de debajo y la respuesta de arriba: la cámara mira 15 px por ENCIMA del centro, para
+ * que el borde de arriba del recorte quede debajo de la respuesta.
+ */
+const ZOOM_RECORTE = RECORTE.w > 600 ? { cerca: 1.3, dentro: 1.42, fin: 1.48, baja: -15 } : { cerca: 1.52, dentro: 1.65, fin: 1.72, baja: 40 };
+
 /** La sexta pregunta: lo que dura sola (lleva más letra que las otras) y cuándo se hace clic. */
 const ATAJO = { sola: s(1.4), llega: s(1.4) + 20, clic: s(1.4) + 22 };
 /**
  * La cámara de la pregunta de Linux acaba con este zoom, y mirando a la altura que deja el borde de
  * arriba de la pantalla en el mismo sitio que al empezar (y = 540 + (borde − y) · z = borde).
  */
-const ZOOM_LINUX = 1.08;
+const ZOOM_LINUX = 1.45;
+/**
+ * Dónde mira la cámara para que el borde de arriba de la ventana de winshotx (en las dos fotos, unos 175 px por debajo
+ * del borde de la pantalla de 1080) quede a 200 px del borde del cuadro, debajo de la respuesta. A 1,45 la foto sale a
+ * 1,09 de su tamaño: todavía nítida, y la ventana ya se lee (a 1,08 ocupaba un tercio del ancho).
+ */
 const ARRIBA_LINUX = (() => {
-  const borde = cajaDeLinux(1920, 1080).y;
-  return borde + (540 - borde) / ZOOM_LINUX;
+  const c = cajaDeLinux(1920, 1080);
+  return c.y + (175 * c.h) / 1080 + (540 - 200) / ZOOM_LINUX;
 })();
 /** El interruptor de «Take Win+Shift+S», apagado, en el escenario (su centro). */
 const INTERRUPTOR = (() => {
@@ -274,16 +294,16 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
           texto="How fast?"
           dura={T.atajo - T.rapido}
           respuestaEn={PREGUNTA + s(3.1)}
-          respuesta="*114 ms*, with three screens"
+          respuesta="*114 ms*. The Snipping Tool: 920 ms"
           cuenta={15}
           app={
             <Camara
               tomas={[
                 { f: 0, x: 960, y: 540, z: 1 },
                 { f: PREGUNTA + s(1.2), x: 960, y: 540, z: 1 },
-                { f: PREGUNTA + s(2.8), x: centroDelRecorte.x, y: centroDelRecorte.y, z: 1.52 },
-                { f: PREGUNTA + s(4.4), x: centroDelRecorte.x, y: centroDelRecorte.y + 40, z: 1.65 },
-                { f: T.atajo - T.rapido, x: centroDelRecorte.x, y: centroDelRecorte.y + 40, z: 1.72 },
+                { f: PREGUNTA + s(2.8), x: centroDelRecorte.x, y: centroDelRecorte.y, z: ZOOM_RECORTE.cerca },
+                { f: PREGUNTA + s(4.4), x: centroDelRecorte.x, y: centroDelRecorte.y + ZOOM_RECORTE.baja, z: ZOOM_RECORTE.dentro },
+                { f: T.atajo - T.rapido, x: centroDelRecorte.x, y: centroDelRecorte.y + ZOOM_RECORTE.baja, z: ZOOM_RECORTE.fin },
               ]}
             >
               {/* A su ritmo entero: a 1,25 se saltaba un fotograma de cada cuatro y el ratón daba
@@ -320,8 +340,8 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
               luego={{ img: "ajustes-teclas-si.png", en: ATAJO.clic }}
               tomas={[
                 { f: 0, x: 960, y: 540, z: 1 },
-                { f: ATAJO.llega, x: 1090, y: 450, z: 1.35 },
-                { f: T.graba - T.atajo, x: 1150, y: 485, z: 1.45 },
+                { f: ATAJO.llega, x: 975, y: 485, z: 1.6 },
+                { f: T.graba - T.atajo, x: 978, y: 480, z: 1.8 },
               ]}
             >
               <Raton de={{ x: INTERRUPTOR.x + 210, y: INTERRUPTOR.y + 260 }} a={{ x: INTERRUPTOR.x + 2, y: INTERRUPTOR.y + 2 }} sale={ATAJO.sola + 2} llega={ATAJO.llega} clic={ATAJO.clic} />
@@ -345,9 +365,10 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
               cambia={Math.round((PREGUNTA + PASO + (T.graba - T.linux - PASO)) / 2)}
               tomas={[
                 { f: 0, x: 960, y: 540, z: 1 },
-                // Se acerca poco (las fotos son de 1920 x 1080 a escala 1 y más cerca se emborronan)
-                // y apuntando un poco por encima del centro, para que el borde de arriba de la
-                // pantalla, con la barra de GNOME, no suba hasta debajo de la respuesta.
+                // A la ventana de winshotx, que es lo que se nombra (Reddit, 23-nov: a 1,08 no se leía), y
+                // ya cerca cuando sale la respuesta: la barra de GNOME se queda fuera, y lo que dice «Linux»
+                // es la respuesta.
+                { f: PREGUNTA + PASO, x: 960, y: ARRIBA_LINUX + 12, z: ZOOM_LINUX - 0.12 },
                 { f: T.graba - T.linux, x: 960, y: ARRIBA_LINUX, z: ZOOM_LINUX },
               ]}
             />
@@ -385,8 +406,8 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
             <EnElEditor
               fondo={PREGUNTA + s(1.0)}
               tomas={[
-                { f: 0, x: EDITOR.x + 590, y: EDITOR.y + 395, z: 1.1 },
-                { f: T.ultimos - T.estudio, x: EDITOR.x + 560, y: EDITOR.y + 380, z: 1.3 },
+                { f: 0, x: EDITOR.x + 580, y: EDITOR.y + 390, z: 1.15 },
+                { f: T.ultimos - T.estudio, x: EDITOR.x + 570, y: EDITOR.y + 380, z: 1.45 },
               ]}
             />
           }
@@ -403,8 +424,8 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
             <EnLosAjustes
               tomas={[
                 { f: 0, x: 960, y: 540, z: 1.05 },
-                { f: PREGUNTA + s(0.8), x: 960, y: 560, z: 1.12 },
-                { f: T.peso - T.ultimos, x: AJUSTES.x + 290, y: AJUSTES.y + 230, z: 1.6 },
+                { f: PREGUNTA + s(0.8), x: 975, y: 500, z: 1.5 },
+                { f: T.peso - T.ultimos, x: AJUSTES.x + 475, y: AJUSTES.y + 305, z: 1.75 },
               ]}
             />
           }
@@ -425,7 +446,7 @@ export function Promo({ bpm, whoosh: conWhoosh = true }: PropsPromo) {
             <Palabras texto={`*${cifras.pesoInstalador} MB* to install`} tam={104} cada={3} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
           </Centro>
           <Centro y={80}>
-            <Palabras texto="33 MB of memory while it runs" entra={s(0.7)} cada={3} tam={50} peso={500} color={COLOR.suave} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
+            <Palabras texto="33 MB of memory. The Snipping Tool: 253 MB" entra={s(0.7)} cada={3} tam={50} peso={500} color={COLOR.suave} cuenta={15} sale={T.libre - T.peso - PREGUNTA - 8} />
           </Centro>
         </Sequence>
       </Sequence>
