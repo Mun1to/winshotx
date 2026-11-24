@@ -923,4 +923,8 @@ export const EN: Record<string, string> = {
   "Buscando…": "Checking…",
   "Ya tienes la última": "You have the latest",
   "Apoyar": "Support",
+  "Más pequeño": "Smaller",
+  "Más grande": "Larger",
+  "Arrastra para cambiar el tamaño": "Drag to resize",
+  "Color y tamaño": "Color and size",
 };

@@ -1,4 +1,6 @@
 import {
+  AArrowDown,
+  AArrowUp,
   ArrowUpRight,
   ChevronDown,
   Circle,
@@ -15,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { COLORES, type Herramienta } from "../../lib/anotaciones";
+import { COLORES, TAMANOS, tamanoSiguiente, type Herramienta } from "../../lib/anotaciones";
 import { useT } from "../../lib/i18n";
 import { TECLA_COPIAR_TEXTO, TECLA_DE, TECLA_TAPAR_DATOS, conTecla } from "./teclas";
 
@@ -43,6 +45,12 @@ interface Props {
   onElegir: (herramienta: Herramienta | null) => void;
   color: string;
   onColor: (color: string) => void;
+  /**
+   * El tamaño del texto o del paso (issues 18 y 19): el de lo elegido si es uno de ellos, y si
+   * no, el de lo próximo que se ponga con la herramienta. `null` donde no hay tamaño que dar.
+   */
+  tamano?: number | null;
+  onTamano?: (escala: number) => void;
   cuantas: number;
   /**
    * Si hay algo que deshacer. No es lo mismo que haber marcas: con todas quitadas se puede
@@ -97,6 +105,8 @@ export function BarraAnotar({
   onElegir,
   color,
   onColor,
+  tamano = null,
+  onTamano = () => {},
   cuantas,
   puedeDeshacer = cuantas > 0,
   onDeshacer,
@@ -140,19 +150,38 @@ export function BarraAnotar({
             ))}
           </span>
           <span className="@[64rem]:hidden">
-            <ColoresPlegados color={color} onColor={onColor} />
+            <ColoresPlegados
+              color={color}
+              onColor={onColor}
+              tamano={tamano}
+              onTamano={onTamano}
+            />
           </span>
         </>
+      )}
+
+      {/*
+        El tamaño del texto y del paso (issues 18 y 19), al lado del color porque se usan igual:
+        con uno elegido es el suyo, y si no, el de lo próximo. Con la barra justa va dentro de
+        los colores plegados: aquí no cabe sin partir la barra en dos filas. Y el número, solo
+        con la barra muy ancha: el texto o el paso ya enseñan su tamaño al crecer.
+      */}
+      {tamano !== null && (
+        <span className="hidden items-center @[64rem]:flex">
+          <Raya />
+          <MandosDeTamano tamano={tamano} onTamano={onTamano} numero="@[72rem]:inline" />
+        </span>
       )}
 
       {/*
         El texto se escribe encima de la imagen, donde se pulsa («CapaAnotaciones»). Antes se
         escribía aquí y se pegaba con un clic, y lo escrito se quedaba en la barra para el
         siguiente: no se veía dónde iba a caer ni cómo iba a quedar hasta soltarlo. El aviso
-        solo cabe con la barra ancha; si no, partiría la barra en dos filas.
+        solo sale donde cabe junto al tamaño: con menos de 80rem partía la barra en dos filas
+        (a 1366 y a 1440 de ventana ya lo hacía antes de que hubiera tamaño, medido el 24-nov).
       */}
       {activa === "text" && (
-        <span className="hidden px-1 text-[13px] whitespace-nowrap text-texto @[64rem]:inline">
+        <span className="hidden px-1 text-[13px] whitespace-nowrap text-texto @[80rem]:inline">
           {t("Pulsa en la imagen y escribe")}
         </span>
       )}
@@ -256,6 +285,7 @@ function Boton({
   tecla,
   atajo,
   dibujo = false,
+  conservaFoco = false,
   activa,
   onClick,
   apagada = false,
@@ -270,6 +300,8 @@ function Boton({
   atajo?: string;
   /** Las de dibujar, que son las que estrechan primero con la barra justa. */
   dibujo?: boolean;
+  /** Que pulsarlo no le quite el foco a lo que lo tenga: un texto a medias se queda abierto. */
+  conservaFoco?: boolean;
   activa: boolean;
   onClick: () => void;
   apagada?: boolean;
@@ -278,6 +310,7 @@ function Boton({
     <button
       type="button"
       onClick={onClick}
+      onMouseDown={conservaFoco ? (e) => e.preventDefault() : undefined}
       disabled={apagada}
       title={conTecla(etiqueta, tecla)}
       aria-label={etiqueta}
@@ -353,11 +386,68 @@ function PuntoDeColor({ color, puesto, onClick }: { color: string; puesto: boole
 }
 
 /**
+ * Más pequeño, el tamaño y más grande (issues 18 y 19). Los botones no se llevan el foco, así
+ * que un texto a medias sigue abierto y crece mientras se escribe. `numero` dice desde qué
+ * ancho de barra se ve el tanto por ciento; sin él, siempre.
+ */
+function MandosDeTamano({
+  tamano,
+  onTamano,
+  numero,
+}: {
+  tamano: number;
+  onTamano: (escala: number) => void;
+  numero?: string;
+}) {
+  const t = useT();
+  return (
+    <span role="group" aria-label={t("Tamaño")} className="flex items-center">
+      <Boton
+        icono={AArrowDown}
+        etiqueta={t("Más pequeño")}
+        activa={false}
+        conservaFoco
+        onClick={() => onTamano(tamanoSiguiente(tamano, -1))}
+        apagada={tamano <= TAMANOS[0]}
+      />
+      <span
+        data-tamano
+        className={`w-11 text-center text-[13px] font-medium tabular-nums text-texto ${numero ? `hidden ${numero}` : ""}`}
+      >
+        {Math.round(tamano * 100)} %
+      </span>
+      <Boton
+        icono={AArrowUp}
+        etiqueta={t("Más grande")}
+        activa={false}
+        conservaFoco
+        onClick={() => onTamano(tamanoSiguiente(tamano, 1))}
+        apagada={tamano >= TAMANOS[TAMANOS.length - 1]}
+      />
+    </span>
+  );
+}
+
+/**
  * Los cinco colores plegados en uno, para la barra justa: el puesto, con su flecha, y al
  * pulsarlo los cinco debajo. Elegir uno lo cierra, y también pulsar fuera o Escape (que no
  * llega al editor: ahí cerraría la ventana).
+ *
+ * Con un texto o un paso, debajo de los colores va también su tamaño (issues 18 y 19), que
+ * en la barra justa no cabe. Cambiarlo no lo cierra: se pulsa varias veces hasta que queda.
+ * Y abrirlo no se lleva el foco, para que un texto a medias crezca mientras se escribe.
  */
-function ColoresPlegados({ color, onColor }: { color: string; onColor: (color: string) => void }) {
+function ColoresPlegados({
+  color,
+  onColor,
+  tamano = null,
+  onTamano = () => {},
+}: {
+  color: string;
+  onColor: (color: string) => void;
+  tamano?: number | null;
+  onTamano?: (escala: number) => void;
+}) {
   const t = useT();
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLSpanElement>(null);
@@ -383,8 +473,9 @@ function ColoresPlegados({ color, onColor }: { color: string; onColor: (color: s
       <button
         type="button"
         onClick={() => setAbierto((a) => !a)}
-        title={t("Color")}
-        aria-label={t("Color")}
+        onMouseDown={(e) => e.preventDefault()}
+        title={tamano === null ? t("Color") : t("Color y tamaño")}
+        aria-label={tamano === null ? t("Color") : t("Color y tamaño")}
         aria-haspopup="true"
         aria-expanded={abierto}
         className="flex h-8 items-center gap-0.5 rounded-md px-1 text-suave transition-colors hover:bg-realce hover:text-titulo"
@@ -393,22 +484,25 @@ function ColoresPlegados({ color, onColor }: { color: string; onColor: (color: s
         <ChevronDown className={`size-3.5 transition-transform duration-150 ${abierto ? "rotate-180" : ""}`} />
       </button>
       {abierto && (
-        <span
-          role="group"
-          aria-label={t("Color")}
-          className="absolute top-full left-0 z-30 mt-1.5 flex gap-1.5 rounded-lg border border-linea bg-flotante p-2 shadow-xl shadow-black/40"
-        >
-          {COLORES.map((c) => (
-            <PuntoDeColor
-              key={c}
-              color={c}
-              puesto={color === c}
-              onClick={() => {
-                onColor(c);
-                setAbierto(false);
-              }}
-            />
-          ))}
+        <span className="absolute top-full left-0 z-30 mt-1.5 flex flex-col gap-1.5 rounded-lg border border-linea bg-flotante p-2 shadow-xl shadow-black/40">
+          <span role="group" aria-label={t("Color")} className="flex gap-1.5">
+            {COLORES.map((c) => (
+              <PuntoDeColor
+                key={c}
+                color={c}
+                puesto={color === c}
+                onClick={() => {
+                  onColor(c);
+                  setAbierto(false);
+                }}
+              />
+            ))}
+          </span>
+          {tamano !== null && (
+            <span className="flex justify-center border-t border-linea pt-1.5">
+              <MandosDeTamano tamano={tamano} onTamano={onTamano} />
+            </span>
+          )}
         </span>
       )}
     </span>

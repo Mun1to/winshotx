@@ -290,3 +290,82 @@ describe("la barra de arriba: cada botón con su tecla", () => {
     expect(container.querySelector('[data-agarre="0"]')).not.toBeNull();
   });
 });
+
+// Las issues 18 y 19: el texto y los pasos llevan su tamaño, y la barra lo cambia como el color.
+describe("el tamaño del texto y de los pasos, con el editor entero", () => {
+  const pasoEn = (container: HTMLElement, i = 0) =>
+    container.querySelector<HTMLElement>(`[data-marca="step"][data-agarre="${i}"]`)!;
+  const tamanoDeLaBarra = (container: HTMLElement) => container.querySelector("[data-tamano]")?.textContent ?? null;
+
+  /** Un paso en el centro, y la herramienta suelta. */
+  function ponerPaso(container: HTMLElement) {
+    fireEvent.keyDown(window, { key: "5" });
+    fireEvent.pointerDown(container.querySelector("svg.cursor-crosshair")!, { clientX: 300, clientY: 150 });
+    fireEvent.keyDown(window, { key: "Escape" });
+  }
+
+  it("con la herramienta del paso puesta, la barra da el tamaño de lo próximo", async () => {
+    const { container } = await abrir();
+    // Sin texto ni paso a la vista, no hay tamaño que dar.
+    expect(tamanoDeLaBarra(container)).toBeNull();
+    fireEvent.keyDown(window, { key: "5" });
+    expect(tamanoDeLaBarra(container)).toBe("100 %");
+    fireEvent.click(screen.getByRole("button", { name: "Más grande" }));
+    expect(tamanoDeLaBarra(container)).toBe("125 %");
+    fireEvent.pointerDown(container.querySelector("svg.cursor-crosshair")!, { clientX: 300, clientY: 150 });
+    const [paso] = await loQueSeGuarda();
+    expect(paso).toMatchObject({ kind: "step", escala: 1.25 });
+  });
+
+  it("con un paso elegido, se lo cambia, «Guardar» lo manda y Ctrl+Z se lo devuelve", async () => {
+    const { container } = await abrir();
+    ponerPaso(container);
+    fireEvent.pointerDown(pasoEn(container), { button: 0, clientX: 300, clientY: 150 });
+    fireEvent.pointerUp(window, { clientX: 300, clientY: 150 });
+    expect(tamanoDeLaBarra(container)).toBe("100 %");
+    fireEvent.click(screen.getByRole("button", { name: "Más grande" }));
+    fireEvent.click(screen.getByRole("button", { name: "Más grande" }));
+    expect(tamanoDeLaBarra(container)).toBe("150 %");
+    expect((await loQueSeGuarda())[0]).toMatchObject({ kind: "step", escala: 1.5 });
+    // Cada pulsación es un cambio: Ctrl+Z quita la última.
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect((await loQueSeGuarda())[0]).toMatchObject({ kind: "step", escala: 1.25 });
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    expect((await loQueSeGuarda())[0]).not.toHaveProperty("escala");
+  });
+
+  it("un texto a medias se queda abierto al cambiarle el tamaño, y sale con el nuevo", async () => {
+    const { container } = await abrir();
+    fireEvent.keyDown(window, { key: "3" });
+    fireEvent.pointerDown(container.querySelector("svg.cursor-crosshair")!, { clientX: 300, clientY: 150 });
+    const campo = screen.getByRole("textbox");
+    fireEvent.change(campo, { target: { value: "grande" } });
+    const mas = screen.getByRole("button", { name: "Más grande" });
+    // El botón no se lleva el foco: el texto sigue abierto.
+    expect(fireEvent.mouseDown(mas)).toBe(false);
+    fireEvent.click(mas);
+    expect(screen.getByRole("textbox")).toBe(campo);
+    fireEvent.keyDown(campo, { key: "Enter" });
+    expect((await loQueSeGuarda())[0]).toMatchObject({ kind: "text", text: "grande", escala: 1.25 });
+  });
+});
+
+// Con la barra justa el tamaño no cabe a la vista: va dentro de los colores plegados.
+describe("el tamaño en la barra justa", () => {
+  it("los colores plegados lo llevan debajo con el texto, y cambiarlo no los cierra", async () => {
+    await abrir();
+    // Sin texto ni paso, plegados solo llevan el color.
+    expect(screen.getByRole("button", { name: "Color" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "3" });
+    const plegados = screen.getByRole("button", { name: "Color y tamaño" });
+    fireEvent.click(plegados);
+    const dentro = plegados.parentElement!;
+    const mas = [...dentro.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.getAttribute("aria-label") === "Más grande")!;
+    fireEvent.click(mas);
+    fireEvent.click(mas);
+    expect(dentro.querySelector("[data-tamano]")!.textContent).toBe("150 %");
+    expect(plegados).toHaveAttribute("aria-expanded", "true");
+    // Y abrirlos no se lleva el foco: un texto a medias seguiría abierto.
+    expect(fireEvent.mouseDown(plegados)).toBe(false);
+  });
+});

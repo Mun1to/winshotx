@@ -846,6 +846,7 @@ fn caja_de(
         color: String::new(),
         text: String::new(),
         puntos: Vec::new(),
+        escala: None,
     })
 }
 

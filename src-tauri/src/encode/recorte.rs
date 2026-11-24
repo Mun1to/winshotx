@@ -91,6 +91,8 @@ impl Recorte {
                 .iter()
                 .map(|p| [(p[0] - x1) / ancho, (p[1] - y1) / alto])
                 .collect(),
+            // El tamaño va contra el de siempre, que ya sale del ancho de lo que se exporta.
+            escala: marca.escala,
         }
     }
 }
@@ -115,6 +117,7 @@ mod tests {
             color: "#ef4444".into(),
             text: String::new(),
             puntos: Vec::new(),
+            escala: None,
         }
     }
 

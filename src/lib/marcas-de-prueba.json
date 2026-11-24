@@ -3,6 +3,14 @@
   "ancho": 400,
   "alto": 200,
   "focoOscurece": 0.55,
+  "escalaMinima": 0.5,
+  "escalaMaxima": 4,
+  "pasos": [
+    { "ancho": 1300, "escala": 1, "radio": 50, "aro": 51.8, "letra": 58 },
+    { "ancho": 1300, "escala": 2, "radio": 100, "aro": 103.6, "letra": 115 },
+    { "ancho": 1920, "escala": 1, "radio": 60, "aro": 63, "letra": 69 },
+    { "ancho": 200, "escala": 0.5, "radio": 7.5, "aro": 8.4, "letra": 9 }
+  ],
   "casos": [
     {
       "nombre": "flecha curva",

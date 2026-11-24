@@ -920,4 +920,8 @@ export const ZH: Record<string, string> = {
   "Buscando…": "正在检查…",
   "Ya tienes la última": "已是最新版本",
   "Apoyar": "支持",
+  "Más pequeño": "缩小",
+  "Más grande": "放大",
+  "Arrastra para cambiar el tamaño": "拖动以调整大小",
+  "Color y tamaño": "颜色和大小",
 };

@@ -50,6 +50,51 @@ export interface Anotacion {
    * uno solo: el punto de control, de donde «tira» la curva. Las demás no lo llevan.
    */
   puntos?: Punto[];
+  /**
+   * El tamaño de un texto o de un paso contra el de siempre: 2 es el doble (issues 18 y 19).
+   * Sin él, 1, y así se leen las marcas de antes. Multiplica el tamaño que sale del ancho de
+   * la imagen en vez de sustituirlo, así que sigue creciendo con ella: un texto al doble sigue
+   * al doble exportando al 50 %. Las demás marcas no lo llevan.
+   */
+  escala?: number;
+}
+
+/** Hasta dónde se puede encoger y agrandar un texto o un paso. Rust lee los mismos topes. */
+export const ESCALA_MINIMA = 0.5;
+export const ESCALA_MAXIMA = 4;
+
+/** Los tamaños por los que van pasando los botones de la barra, de menos a más. */
+export const TAMANOS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4];
+
+/** Las marcas que llevan tamaño: las que se ponen con un clic y llevan letra. */
+export function seEscala(marca: Anotacion | undefined): boolean {
+  return marca?.kind === "text" || marca?.kind === "step";
+}
+
+/** El tamaño de una marca, de 1 si no lleva ninguno y dentro de sus topes si lleva uno raro. */
+export function escalaDe(marca: Anotacion): number {
+  const e = marca.escala;
+  if (e === undefined || !Number.isFinite(e) || e <= 0) return 1;
+  return Math.min(ESCALA_MAXIMA, Math.max(ESCALA_MINIMA, e));
+}
+
+/**
+ * La marca con ese tamaño. Con el de siempre no se guarda nada: una marca devuelta a su
+ * tamaño es igual que una que nunca se tocó, y deshacer o comparar no ve diferencia.
+ */
+export function conEscala(marca: Anotacion, escala: number): Anotacion {
+  const { escala: _antes, ...resto } = marca;
+  return escala === 1 ? resto : { ...resto, escala };
+}
+
+/**
+ * El tamaño siguiente de la lista hacia arriba o hacia abajo. Desde uno que no está en ella
+ * (el que deja el asa al estirar), el primero que ya es más grande o más pequeño.
+ */
+export function tamanoSiguiente(actual: number, sentido: 1 | -1): number {
+  const casi = 0.001;
+  if (sentido === 1) return TAMANOS.find((t) => t > actual + casi) ?? TAMANOS[TAMANOS.length - 1];
+  return [...TAMANOS].reverse().find((t) => t < actual - casi) ?? TAMANOS[0];
 }
 
 /** Los colores de las marcas. Cinco, y el primero es el de señalar. */

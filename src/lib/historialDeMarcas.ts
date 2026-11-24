@@ -11,7 +11,7 @@
  * Elegir no es un cambio: no se deshace, porque Ctrl+Z que solo quitara el halo de lo
  * elegido parecería que no ha hecho nada.
  */
-import { renumerarPasos, type Anotacion } from "./anotaciones";
+import { conEscala, escalaDe, renumerarPasos, seEscala, type Anotacion } from "./anotaciones";
 
 export interface Marcas {
   /** Lo dibujado, en el orden en que se pinta: lo último va encima. */
@@ -34,7 +34,13 @@ export type CambioDeMarcas =
    * que lo haga el reductor con la lista de ese momento: si un texto estaba abierto, pinchar
    * el color lo guarda primero, y con la marca copiada al pinchar se perdería lo escrito.
    */
-  | { tipo: "colorear"; indice: number; color: string };
+  | { tipo: "colorear"; indice: number; color: string }
+  /**
+   * El tamaño de un texto o de un paso elegido, desde los botones de la barra (issues 18 y
+   * 19). Va aparte de `cambiar` por lo mismo que el color: si el texto estaba abierto, se
+   * aplica a la marca de ese momento.
+   */
+  | { tipo: "escalar"; indice: number; escala: number };
 
 /**
  * Las marcas que llevan el color que se elige. El resaltado es siempre amarillo (es un
@@ -88,6 +94,15 @@ export function aplicarCambio(m: Marcas, c: CambioDeMarcas): Marcas {
       if (!seColorea(vieja) || vieja.color === c.color) return m;
       return con(
         m.lista.map((a, i) => (i === c.indice ? { ...a, color: c.color } : a)),
+        m.elegida,
+      );
+    }
+    case "escalar": {
+      const vieja = m.lista[c.indice];
+      // Lo que no lleva tamaño no se toca, y su mismo tamaño no gasta un Ctrl+Z.
+      if (!seEscala(vieja) || escalaDe(vieja) === c.escala) return m;
+      return con(
+        m.lista.map((a, i) => (i === c.indice ? conEscala(a, c.escala) : a)),
         m.elegida,
       );
     }

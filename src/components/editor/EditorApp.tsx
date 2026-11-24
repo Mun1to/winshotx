@@ -37,7 +37,7 @@ import { TECLA_COPIAR_TEXTO, TECLA_TAPAR_DATOS, herramientaDeTecla } from "./tec
 import { CapaAnotaciones } from "./CapaAnotaciones";
 import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
-import { COLORES, COLOR_RESALTADO, type Herramienta } from "../../lib/anotaciones";
+import { COLORES, COLOR_RESALTADO, escalaDe, seEscala, type Herramienta } from "../../lib/anotaciones";
 import { aplicarCambio, seColorea, SIN_MARCAS } from "../../lib/historialDeMarcas";
 import { ExportPanel } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
@@ -162,6 +162,17 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
   // Cambiar de herramienta suelta lo elegido: quien coge otra herramienta va a dibujar.
   useEffect(() => elegirMarca(null), [herramienta, elegirMarca]);
   const [colorMarca, setColorMarca] = useState(COLORES[0]);
+  /**
+   * El tamaño del texto y del paso que se pongan ahora, cada uno el suyo (issues 18 y 19): quien
+   * agranda los números de una guía no siempre quiere agrandar también lo que escribe.
+   */
+  const [tamanos, setTamanos] = useState<Record<"text" | "step", number>>({ text: 1, step: 1 });
+  /** De qué es el tamaño que enseña la barra: lo elegido si lleva, y si no, la herramienta. */
+  const tamanoDe: "text" | "step" | null = seEscala(marcaElegida)
+    ? (marcaElegida!.kind as "text" | "step")
+    : herramienta === "text" || herramienta === "step"
+      ? herramienta
+      : null;
   /**
    * Lo que se oye en la vista previa: callada o no (el altavoz y la M) y su volumen (S31, el
    * deslizador de al lado). Solo cambia lo que se oye aquí: el archivo sale con el sonido que
@@ -931,6 +942,16 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 cambiarMarcas({ tipo: "colorear", indice: marcas.elegida, color });
               }
             }}
+            // Igual que el color: con un texto o un paso elegido, la barra enseña SU tamaño y
+            // cambiarlo se lo cambia (con su Ctrl+Z), y también el de lo próximo de su clase.
+            tamano={tamanoDe === null ? null : seEscala(marcaElegida) ? escalaDe(marcaElegida!) : tamanos[tamanoDe]}
+            onTamano={(escala) => {
+              if (tamanoDe === null) return;
+              setTamanos((antes) => ({ ...antes, [tamanoDe]: escala }));
+              if (marcas.elegida !== null && seEscala(marcaElegida)) {
+                cambiarMarcas({ tipo: "escalar", indice: marcas.elegida, escala });
+              }
+            }}
             cuantas={anotaciones.length}
             puedeDeshacer={marcas.antes.length > 0}
             onDeshacer={() => cambiarMarcas({ tipo: "deshacer" })}
@@ -1147,6 +1168,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 color={herramienta === "highlight" ? COLOR_RESALTADO : colorMarca}
                 anotaciones={anotaciones}
                 onAnadir={(marca) => cambiarMarcas({ tipo: "anadir", marcas: [marca] })}
+                escala={herramienta === "text" || herramienta === "step" ? tamanos[herramienta] : 1}
                 anchoImagen={session.region.width}
                 elegida={marcas.elegida}
                 onElegir={elegirMarca}

@@ -8,9 +8,9 @@
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CapaAnotaciones, letraDelTexto } from "./CapaAnotaciones";
+import { CapaAnotaciones, estiloDelPaso, letraDelTexto, medidaDelPaso } from "./CapaAnotaciones";
 import { aplicarIdioma } from "../../lib/i18n";
-import type { Anotacion } from "../../lib/anotaciones";
+import { ESCALA_MAXIMA, ESCALA_MINIMA, type Anotacion } from "../../lib/anotaciones";
 
 /**
  * En happy-dom nada tiene tamaño, así que `getBoundingClientRect` devuelve ceros y la
@@ -276,34 +276,149 @@ describe("los pasos numerados", () => {
    * que lo que se ve en la vista previa es lo que sale en el archivo.
    */
   it("uno contra el borde se mete para que quepa entero", () => {
-    conTamanno();
-    const enLaEsquina: Anotacion[] = [
-      { kind: "step", x1: 0, y1: 0, x2: 0, y2: 0, color: "#ef4444", text: "1" },
-    ];
-    const { svg } = pintar({ herramienta: null, anotaciones: enLaEsquina });
-    const aro = svg.querySelector("ellipse")!;
-    expect(Number(aro.getAttribute("cx"))).toBeGreaterThanOrEqual(38);
-    expect(Number(aro.getAttribute("cy"))).toBeGreaterThanOrEqual(38);
+    // En una de 1920 el disco llega a su tope de 60 px y el aro va 3 px por fuera: 63 px, que
+    // son 3,28 cqw.
+    const aro = (medidaDelPaso(1920).aro * 100) / 1920;
+    const enLaEsquina = estiloDelPaso(1920, 0, 0);
+    expect(enLaEsquina.left).toBe(`clamp(${aro}cqw, 0cqw, ${100 - aro}cqw)`);
+    expect(enLaEsquina.top).toBe(`clamp(${aro}cqw, 0cqh, calc(100cqh - ${aro}cqw))`);
   });
 
   it("y uno que ya cabía no se mueve de donde se puso", () => {
-    conTamanno();
-    const enMedio: Anotacion[] = [
-      { kind: "step", x1: 0.5, y1: 0.5, x2: 0.5, y2: 0.5, color: "#ef4444", text: "1" },
-    ];
-    const { svg } = pintar({ herramienta: null, anotaciones: enMedio });
-    const aro = svg.querySelector("ellipse")!;
-    expect(aro.getAttribute("cx")).toBe("500");
-    expect(aro.getAttribute("cy")).toBe("500");
+    const aro = (medidaDelPaso(1920).aro * 100) / 1920;
+    const enMedio = estiloDelPaso(1920, 0.5, 0.25);
+    expect(enMedio.left).toBe(`clamp(${aro}cqw, 50cqw, ${100 - aro}cqw)`);
+    expect(enMedio.top).toBe(`clamp(${aro}cqw, 25cqh, calc(100cqh - ${aro}cqw))`);
   });
 
   it("se dibuja con su número dentro para verlo antes de exportar", () => {
-    conTamanno();
     const puesto: Anotacion[] = [
       { kind: "step", x1: 0.5, y1: 0.5, x2: 0.5, y2: 0.5, color: "#0a9bff", text: "4" },
     ];
     pintar({ herramienta: null, anotaciones: puesto });
     expect(screen.getByText("4")).toBeInTheDocument();
+  });
+
+  /**
+   * La issue 19: en una captura apaisada el paso salía ovalado, con el número estirado. El
+   * SVG va estirado a 1000 x 1000 (`preserveAspectRatio="none"`), y un círculo dibujado ahí
+   * dentro se estira con él. Al exportar salía redondo; en la vista previa, no.
+   */
+  it("sale redondo aunque la captura sea apaisada (issue 19)", () => {
+    const puesto: Anotacion[] = [
+      { kind: "step", x1: 0.5, y1: 0.5, x2: 0.5, y2: 0.5, color: "#ef4444", text: "1" },
+    ];
+    const { container } = pintar({ herramienta: null, anotaciones: puesto });
+    // Nada del paso queda en el SVG estirado.
+    expect(container.querySelector("svg ellipse")).toBeNull();
+    expect(container.querySelector('[data-marca="step"]')).not.toBeNull();
+    // Y su caja es igual de ancha que de alta, en la misma unidad: la del ancho de la capa.
+    const estilo = estiloDelPaso(1920, 0.5, 0.5);
+    expect(estilo.width).toBe(estilo.height);
+    expect(String(estilo.width)).toMatch(/cqw$/);
+  });
+
+  /** Lo mismo que pinta Rust (`encode::anotacion::paso`), para que lo que se ve sea lo que sale. */
+  it("mide lo que va a medir en el archivo", () => {
+    // Una de 1300: 50 px de disco, sin llegar a ningún tope.
+    const { radio, aro, letra } = medidaDelPaso(1300);
+    expect(radio).toBeCloseTo(1300 / 26);
+    // El grosor del trazo ahí son 3 px, y el aro blanco va un 60 % de eso por fuera.
+    expect(aro).toBeCloseTo(1300 / 26 + 1.8);
+    // Con la cuenta en f32, como Rust: 50 x 1,15 da justo 57,5 y sube a 58 (en doble, 57,49...).
+    expect(letra).toBe(58);
+    // En una de 1920 el disco ya está en su tope, y el trazo es de 5 px.
+    expect(medidaDelPaso(1920).aro).toBeCloseTo(63);
+    // Entre 15 y 60 px de radio, como al exportar.
+    expect(medidaDelPaso(200).radio).toBe(15);
+    expect(medidaDelPaso(4000).radio).toBe(60);
+  });
+});
+
+/**
+ * Las issues 18 y 19: el texto y los pasos salían siempre a un tamaño que nadie podía
+ * cambiar. Ahora cada uno lleva el suyo (`escala`, de 1 de serie), que multiplica el tamaño
+ * de siempre: así sigue creciendo con la imagen y exportar al 50 % no lo deja enorme.
+ */
+describe("el tamaño del texto y de los pasos", () => {
+  const paso: Anotacion = { kind: "step", x1: 0.5, y1: 0.5, x2: 0.5, y2: 0.5, color: "#ef4444", text: "1" };
+
+  it("un paso al doble mide el doble, aro y número incluidos", () => {
+    const uno = medidaDelPaso(1920);
+    const doble = medidaDelPaso(1920, 2);
+    expect(doble.radio).toBeCloseTo(uno.radio * 2);
+    expect(doble.aro).toBeCloseTo(uno.aro * 2);
+    expect(doble.letra).toBe(Math.round(uno.radio * 2 * 1.15));
+  });
+
+  it("un texto al doble lleva la letra al doble", () => {
+    expect(letraDelTexto(1920, 0.2, 0.3, "#22c55e", 2).fontSize).toBe(
+      `calc(clamp(${14 * (100 / 1920)}cqw, ${100 / 42}cqw, ${72 * (100 / 1920)}cqw) * 2 / 1.33)`,
+    );
+  });
+
+  it("lo nuevo sale al tamaño elegido, y al de siempre sin guardar nada de más", () => {
+    const { onAnadir, svg } = pintar({ herramienta: "step", escala: 1.5 });
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    expect(onAnadir).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "step", escala: 1.5 }));
+
+    const deSiempre = pintar({ herramienta: "step" });
+    fireEvent.pointerDown(deSiempre.svg, { clientX: 300, clientY: 150 });
+    expect(deSiempre.onAnadir.mock.calls[0][0]).not.toHaveProperty("escala");
+  });
+
+  it("un texto nuevo sale al tamaño elegido", () => {
+    const { onAnadir, svg } = pintar({ herramienta: "text", escala: 2 });
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: 150 });
+    const campo = screen.getByRole("textbox");
+    fireEvent.change(campo, { target: { value: "grande" } });
+    fireEvent.keyDown(campo, { key: "Enter" });
+    expect(onAnadir).toHaveBeenCalledWith(expect.objectContaining({ kind: "text", text: "grande", escala: 2 }));
+  });
+
+  it("solo lo elegido lleva el asa para estirarlo", () => {
+    const sinElegir = pintar({ herramienta: null, anotaciones: [paso] });
+    expect(sinElegir.container.querySelector("[data-estirar]")).toBeNull();
+    const elegido = pintar({ herramienta: null, anotaciones: [paso], elegida: 0 });
+    expect(elegido.container.querySelector('[data-agarre="0"] [data-estirar]')).not.toBeNull();
+  });
+
+  /**
+   * Con el asa se estira desde el centro del paso: lo que se aleja el ratón del centro es lo
+   * que crece. Todo mide 400 x 200 desde (100, 50), así que el centro cae en (300, 150).
+   */
+  it("arrastrar el asa lo estira, y el cambio sale una vez, al soltar", () => {
+    const onCambiar = vi.fn();
+    const { container } = pintar({ herramienta: null, anotaciones: [paso], elegida: 0, onCambiar });
+    const asa = container.querySelector("[data-estirar]")!;
+    fireEvent.pointerDown(asa, { button: 0, clientX: 400, clientY: 150 });
+    fireEvent.pointerMove(window, { clientX: 450, clientY: 150 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 150 });
+    expect(onCambiar).not.toHaveBeenCalled();
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 150 });
+    expect(onCambiar).toHaveBeenCalledTimes(1);
+    expect(onCambiar).toHaveBeenCalledWith(0, expect.objectContaining({ kind: "step", escala: 2 }));
+  });
+
+  it("estirar se para en sus topes", () => {
+    const onCambiar = vi.fn();
+    const { container } = pintar({ herramienta: null, anotaciones: [paso], elegida: 0, onCambiar });
+    const asa = container.querySelector("[data-estirar]")!;
+    fireEvent.pointerDown(asa, { button: 0, clientX: 301, clientY: 150 });
+    fireEvent.pointerMove(window, { clientX: 1000, clientY: 150 });
+    fireEvent.pointerUp(window, { clientX: 1000, clientY: 150 });
+    expect(onCambiar).toHaveBeenLastCalledWith(0, expect.objectContaining({ escala: ESCALA_MAXIMA }));
+  });
+
+  it("pulsar el asa no mueve la marca ni la suelta", () => {
+    const onCambiar = vi.fn();
+    const onElegir = vi.fn();
+    const { container } = pintar({ herramienta: null, anotaciones: [paso], elegida: 0, onCambiar, onElegir });
+    const asa = container.querySelector("[data-estirar]")!;
+    fireEvent.pointerDown(asa, { button: 0, clientX: 400, clientY: 150 });
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 150 });
+    expect(onCambiar).not.toHaveBeenCalled();
+    expect(onElegir).not.toHaveBeenCalledWith(null);
   });
 });
 
@@ -469,5 +584,23 @@ describe("las marcas nuevas", () => {
     // El control en medio de los extremos: una cuadrática así es una recta.
     expect(marca.puntos![0][0]).toBeCloseTo((marca.x1 + marca.x2) / 2, 5);
     expect(marca.puntos![0][1]).toBeCloseTo((marca.y1 + marca.y2) / 2, 5);
+  });
+});
+
+/**
+ * Lo que mide un paso aquí y al exportar, con los mismos casos que lee Rust
+ * (`el_paso_mide_lo_mismo_que_en_la_vista_previa`): si un lado cambia sus cuentas y el otro
+ * no, se pone roja una de las dos.
+ */
+describe("el paso y sus topes, contra la prueba compartida", () => {
+  it("mide lo mismo que en el archivo y tiene los mismos topes", () => {
+    expect([prueba.escalaMinima, prueba.escalaMaxima]).toEqual([ESCALA_MINIMA, ESCALA_MAXIMA]);
+    expect(prueba.pasos.length).toBeGreaterThan(0);
+    for (const p of prueba.pasos) {
+      const m = medidaDelPaso(p.ancho, p.escala);
+      expect(m.radio, `radio en ${p.ancho} al ${p.escala}`).toBeCloseTo(p.radio, 2);
+      expect(m.aro, `aro en ${p.ancho} al ${p.escala}`).toBeCloseTo(p.aro, 2);
+      expect(m.letra, `letra en ${p.ancho} al ${p.escala}`).toBe(p.letra);
+    }
   });
 });

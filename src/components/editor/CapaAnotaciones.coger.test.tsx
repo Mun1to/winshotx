@@ -197,13 +197,15 @@ describe("coger lo dibujado", () => {
     ];
     const { container } = pintar({ anotaciones: varias });
     // El foco por su borde: dentro de él es donde se dibuja lo que se quiere señalar.
-    expect([0, 1, 2, 3, 4].map((i) => zonaDe(container, i).style.pointerEvents)).toEqual([
+    expect([0, 1, 2, 4].map((i) => zonaDe(container, i).style.pointerEvents)).toEqual([
       "stroke",
-      "all",
       "all",
       "all",
       "stroke",
     ]);
+    // El paso va en HTML (issue 19), y se coge por todo su disco.
+    const paso = container.querySelector<HTMLElement>('[data-marca="step"][data-agarre="3"]')!;
+    expect(paso.style.pointerEvents).toBe("auto");
   });
 
   it("mientras se coloca el punto de un zoom, lo dibujado no se coge", () => {

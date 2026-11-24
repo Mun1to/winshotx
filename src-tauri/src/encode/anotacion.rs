@@ -50,7 +50,18 @@ pub struct Anotacion {
     /// en el JSON ni aparece: una marca de las de antes se lee y se escribe igual.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub puntos: Vec<[f32; 2]>,
+    /// El tamaño de un texto o de un paso contra el de siempre: 2 es el doble (issues 18 y
+    /// 19). Sin él, 1: así se leen las marcas de antes, y una sin tocar no lo escribe.
+    /// Multiplica el tamaño que sale del ancho de la imagen en vez de sustituirlo, así que
+    /// sigue creciendo con ella. Las demás marcas lo ignoran.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub escala: Option<f32>,
 }
+
+/// Hasta dónde se puede encoger y agrandar un texto o un paso: los mismos topes que
+/// `ESCALA_MINIMA` y `ESCALA_MAXIMA` de `src/lib/anotaciones.ts`.
+pub const ESCALA_MINIMA: f32 = 0.5;
+pub const ESCALA_MAXIMA: f32 = 4.0;
 
 impl Anotacion {
     /// Las dos esquinas en píxeles de esta imagen, ordenadas.
@@ -67,6 +78,15 @@ impl Anotacion {
 
     fn rgb(&self) -> [u8; 3] {
         color_de(&self.color)
+    }
+
+    /// Su tamaño, de 1 si no lleva ninguno, y dentro de los topes si lleva uno raro: un
+    /// número absurdo (o un `NaN`) pediría escribir una letra de kilómetros.
+    fn escala(&self) -> f32 {
+        match self.escala {
+            Some(e) if e.is_finite() && e > 0.0 => e.clamp(ESCALA_MINIMA, ESCALA_MAXIMA),
+            _ => 1.0,
+        }
     }
 }
 
@@ -132,11 +152,11 @@ pub fn pintar(imagen: &mut RgbaImage, anotaciones: &[Anotacion]) {
             // menor de las dos, y eso los mandaba a todos al borde de la imagen.
             "text" => {
                 let (x, y, _, _) = anotacion.caja_sin_ordenar(ancho, alto);
-                texto(imagen, x, y, &anotacion.text, anotacion.rgb());
+                texto(imagen, x, y, &anotacion.text, anotacion.rgb(), anotacion.escala());
             }
             "step" => {
                 let (x, y, _, _) = anotacion.caja_sin_ordenar(ancho, alto);
-                paso(imagen, x, y, &anotacion.text, anotacion.rgb());
+                paso(imagen, x, y, &anotacion.text, anotacion.rgb(), anotacion.escala());
             }
             _ => {}
         }
@@ -606,13 +626,14 @@ fn difuminar(imagen: &mut RgbaImage, x1: i32, y1: i32, x2: i32, y2: i32) {
 }
 
 /// Texto sobre la captura, dibujado con la fuente del sistema.
-fn texto(imagen: &mut RgbaImage, x: i32, y: i32, texto: &str, color: [u8; 3]) {
+fn texto(imagen: &mut RgbaImage, x: i32, y: i32, texto: &str, color: [u8; 3], escala: f32) {
     if texto.is_empty() {
         return;
     }
     // El tamaño de la letra sale del ancho de la imagen, igual que el grosor del trazo: un
-    // texto de 22 px sobre una captura de 3.000 no se lee.
-    let alto_letra = ((imagen.width() as f32 / 42.0).round() as i32).clamp(14, 72);
+    // texto de 22 px sobre una captura de 3.000 no se lee. Y después, por el suyo (issue 18).
+    let de_siempre = ((imagen.width() as f32 / 42.0).round() as i32).clamp(14, 72);
+    let alto_letra = ((de_siempre as f32 * escala).round() as i32).max(1);
     // El clic manda, pero el texto tiene que caber: puesto contra el borde derecho se iba
     // fuera y se perdía casi entero. Y si el clic cayó fuera de la imagen, que es lo normal
     // cuando el recorte se llevó esa zona, no se escribe nada.
@@ -657,6 +678,17 @@ fn radio_del_paso(ancho: u32) -> f32 {
     (ancho as f32 / 26.0).clamp(15.0, 60.0)
 }
 
+/// El radio del disco, el del aro blanco y el alto de la letra de un paso, por su tamaño.
+///
+/// Todo crece junto: un paso al doble lleva el aro y el número al doble, no un disco grande
+/// con un número pequeño. La vista previa hace la misma cuenta (`medidaDelPaso`), y las dos
+/// pruebas leen los mismos casos de `marcas-de-prueba.json`.
+fn medida_del_paso(ancho: u32, escala: f32) -> (f32, f32, i32) {
+    let radio = radio_del_paso(ancho) * escala;
+    let aro = radio + grosor(ancho) as f32 * 0.6 * escala;
+    (radio, aro, (radio * 1.15).round() as i32)
+}
+
 /// Un paso numerado: un disco del color elegido con su número dentro, en blanco.
 ///
 /// Es la marca de las instrucciones: «primero esto, luego esto otro». Se pone con un clic y
@@ -665,9 +697,8 @@ fn radio_del_paso(ancho: u32) -> f32 {
 ///
 /// El disco se mide contra el ancho de la imagen, como el grosor del trazo: uno de 40 px
 /// sobre una captura de 3.000 sería un lunar.
-fn paso(imagen: &mut RgbaImage, cx: i32, cy: i32, numero: &str, color: [u8; 3]) {
-    let radio = radio_del_paso(imagen.width());
-    let aro = radio + grosor(imagen.width()) as f32 * 0.6;
+fn paso(imagen: &mut RgbaImage, cx: i32, cy: i32, numero: &str, color: [u8; 3], escala: f32) {
+    let (radio, aro, alto_letra) = medida_del_paso(imagen.width(), escala);
     // Entero o nada: un cuarto de disco con el número fuera no es un paso, es una mancha.
     let Some((cx, cy)) = centro_metido(imagen, cx, cy, aro.ceil() as i32, aro.ceil() as i32)
     else {
@@ -680,7 +711,6 @@ fn paso(imagen: &mut RgbaImage, cx: i32, cy: i32, numero: &str, color: [u8; 3]) 
     if numero.is_empty() {
         return;
     }
-    let alto_letra = (radio * 1.15).round() as i32;
     let (ancho_texto, alto_texto) = medida_del_texto(numero, alto_letra);
     escribir_en(
         imagen,
@@ -710,6 +740,7 @@ mod tests {
             color: "#ef4444".into(),
             text: String::new(),
             puntos: Vec::new(),
+            escala: None,
         }
     }
 
@@ -806,6 +837,84 @@ mod tests {
         assert!(letra > 8, "el número no se ve dentro del disco: {letra} píxeles blancos");
     }
 
+    /// Las issues 18 y 19: un paso al doble mide el doble, con su aro y su número.
+    #[test]
+    fn un_paso_al_doble_mide_el_doble() {
+        let fondo = [20, 20, 20, 255];
+        let pintado = |escala: Option<f32>| {
+            let mut imagen = RgbaImage::from_pixel(400, 400, Rgba(fondo));
+            let mut uno = marca("step", 0.5, 0.5, 0.5, 0.5);
+            uno.text = "1".into();
+            uno.escala = escala;
+            pintar(&mut imagen, &[uno]);
+            imagen
+        };
+        // De siempre: 15,4 px de disco y el aro hasta 17,2. A 25 px del centro no hay nada.
+        assert_eq!(pintado(None).get_pixel(225, 200).0, fondo);
+        // Al doble: 30,8 px de disco y el aro hasta 34,4.
+        let doble = pintado(Some(2.0));
+        assert_eq!(doble.get_pixel(225, 200).0, [239, 68, 68, 255], "a 25 px tenía que estar el disco");
+        assert_eq!(doble.get_pixel(200, 168).0, [255, 255, 255, 255], "a 32 px, el aro blanco");
+        assert_eq!(doble.get_pixel(200, 160).0, fondo, "y a 40 px, nada");
+    }
+
+    /// Las cuentas del paso son las mismas que las de la vista previa (`medidaDelPaso`), con
+    /// los casos de `marcas-de-prueba.json` que lee también `CapaAnotaciones.test.tsx`.
+    #[test]
+    fn el_paso_mide_lo_mismo_que_en_la_vista_previa() {
+        let prueba = la_prueba_compartida();
+        assert_eq!(prueba.escala_minima, ESCALA_MINIMA, "los topes del tamaño no son los de la vista previa");
+        assert_eq!(prueba.escala_maxima, ESCALA_MAXIMA, "los topes del tamaño no son los de la vista previa");
+        assert!(!prueba.pasos.is_empty());
+        for p in &prueba.pasos {
+            let (radio, aro, letra) = medida_del_paso(p.ancho, p.escala);
+            assert!((radio - p.radio).abs() < 0.01, "radio en {} al {}: {radio}", p.ancho, p.escala);
+            assert!((aro - p.aro).abs() < 0.01, "aro en {} al {}: {aro}", p.ancho, p.escala);
+            assert_eq!(letra, p.letra, "letra en {} al {}", p.ancho, p.escala);
+        }
+    }
+
+    /// La issue 18: un texto al doble sale con la letra al doble.
+    #[test]
+    #[cfg_attr(
+        not(any(windows, target_os = "linux")),
+        ignore = "en macOS todavía no hay con qué escribir"
+    )]
+    fn un_texto_al_doble_sale_al_doble() {
+        let alto_pintado = |escala: Option<f32>| {
+            let mut imagen = lienzo(840, 300);
+            let mut hola = marca("text", 0.05, 0.05, 0.05, 0.05);
+            hola.text = "Hola".into();
+            hola.escala = escala;
+            pintar(&mut imagen, &[hola]);
+            let filas: Vec<u32> = (0..imagen.height())
+                .filter(|&y| (0..imagen.width()).any(|x| imagen.get_pixel(x, y).0 != [255, 255, 255, 255]))
+                .collect();
+            (filas.last().unwrap() - filas.first().unwrap() + 1) as f32
+        };
+        let (uno, dos) = (alto_pintado(None), alto_pintado(Some(2.0)));
+        let veces = dos / uno;
+        assert!((1.8..=2.2).contains(&veces), "al doble salió {veces} veces más alto ({uno} y {dos} px)");
+    }
+
+    /// Una marca de antes se lee con su tamaño de siempre, y una sin tocar no escribe ninguno:
+    /// lo que devuelve tapar datos sale como salía.
+    #[test]
+    fn el_tamano_es_opcional_y_tiene_topes() {
+        let antes: Anotacion = serde_json::from_str(r##"{"kind":"text","x1":0.1,"y1":0.1,"x2":0.1,"y2":0.1,"color":"#ef4444","text":"a"}"##).unwrap();
+        assert_eq!(antes.escala(), 1.0);
+        assert!(!serde_json::to_string(&antes).unwrap().contains("escala"));
+        let doble: Anotacion = serde_json::from_str(r#"{"kind":"step","x1":0,"y1":0,"x2":0,"y2":0,"escala":2}"#).unwrap();
+        assert_eq!(doble.escala(), 2.0);
+        let mut raro = doble.clone();
+        raro.escala = Some(1000.0);
+        assert_eq!(raro.escala(), ESCALA_MAXIMA);
+        raro.escala = Some(f32::NAN);
+        assert_eq!(raro.escala(), 1.0);
+        raro.escala = Some(-3.0);
+        assert_eq!(raro.escala(), 1.0);
+    }
+
     /// Y uno que no comprueba nada, para mirarlo con los ojos:
     /// `cargo test --lib ver_los_pasos -- --ignored --nocapture`
     #[test]
@@ -879,7 +988,7 @@ mod tests {
         // Y tapada de verdad: el teléfono escrito con la letra del sistema, debajo del
         // mosaico, deja como mucho dos colores distintos en cada columna de la línea.
         let mut imagen = lienzo(300, 30);
-        texto(&mut imagen, 4, 4, "600 12 34 56", [0, 0, 0]);
+        texto(&mut imagen, 4, 4, "600 12 34 56", [0, 0, 0], 1.0);
         pintar(&mut imagen, &[marca("blur", 0.0, 0.0, 1.0, 1.0)]);
         for x in 0..300 {
             let mut colores: Vec<Rgba<u8>> = (0..30).map(|y| *imagen.get_pixel(x, y)).collect();
@@ -996,6 +1105,7 @@ mod tests {
                     color: "#fbbf24".into(),
                     text: String::new(),
                     puntos: Vec::new(),
+                    escala: None,
                 },
                 Anotacion {
                     kind: "box".into(),
@@ -1006,6 +1116,7 @@ mod tests {
                     color: "#ef4444".into(),
                     text: String::new(),
                     puntos: Vec::new(),
+                    escala: None,
                 },
                 Anotacion {
                     kind: "arrow".into(),
@@ -1016,6 +1127,7 @@ mod tests {
                     color: "#0a9bff".into(),
                     text: String::new(),
                     puntos: Vec::new(),
+                    escala: None,
                 },
                 Anotacion {
                     kind: "blur".into(),
@@ -1026,6 +1138,7 @@ mod tests {
                     color: String::new(),
                     text: String::new(),
                     puntos: Vec::new(),
+                    escala: None,
                 },
                 Anotacion {
                     kind: "text".into(),
@@ -1036,6 +1149,7 @@ mod tests {
                     color: "#ef4444".into(),
                     text: "esto es lo que falla".into(),
                     puntos: Vec::new(),
+                    escala: None,
                 },
             ],
         );
@@ -1202,6 +1316,7 @@ mod tests {
                 color: "#ef4444".into(),
                 text: "1".into(),
                 puntos: Vec::new(),
+                escala: None,
             },
             Anotacion {
                 kind: "step".into(),
@@ -1212,6 +1327,7 @@ mod tests {
                 color: "#0a9bff".into(),
                 text: "2".into(),
                 puntos: Vec::new(),
+                escala: None,
             },
             Anotacion {
                 kind: "text".into(),
@@ -1222,6 +1338,7 @@ mod tests {
                 color: "#111827".into(),
                 text: "pegado al borde".into(),
                 puntos: Vec::new(),
+                escala: None,
             },
             // Un rectángulo del que solo entra un trozo.
             Anotacion {
@@ -1233,6 +1350,7 @@ mod tests {
                 color: "#22c55e".into(),
                 text: String::new(),
                 puntos: Vec::new(),
+                escala: None,
             },
             // Una flecha que apunta fuera: tiene que salir con su ángulo.
             Anotacion {
@@ -1244,6 +1362,7 @@ mod tests {
                 color: "#ef4444".into(),
                 text: String::new(),
                 puntos: Vec::new(),
+                escala: None,
             },
             // Un resaltado que se sale por abajo.
             Anotacion {
@@ -1255,6 +1374,7 @@ mod tests {
                 color: "#fbbf24".into(),
                 text: String::new(),
                 puntos: Vec::new(),
+                escala: None,
             },
         ];
 
@@ -1300,7 +1420,20 @@ mod tests {
         ancho: u32,
         alto: u32,
         foco_oscurece: f32,
+        escala_minima: f32,
+        escala_maxima: f32,
         casos: Vec<Caso>,
+        pasos: Vec<MedidaDePaso>,
+    }
+
+    /// Lo que mide un paso en una imagen de ese ancho y a ese tamaño.
+    #[derive(Deserialize)]
+    struct MedidaDePaso {
+        ancho: u32,
+        escala: f32,
+        radio: f32,
+        aro: f32,
+        letra: i32,
     }
 
     #[derive(Deserialize)]

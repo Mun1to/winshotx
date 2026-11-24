@@ -205,3 +205,49 @@ describe("cambiar el color de lo elegido", () => {
     expect(aplicarCambio(antes, colorear(3))).toBe(antes);
   });
 });
+
+/**
+ * Las issues 18 y 19: el texto y los pasos llevan su tamaño, y cambiárselo a lo elegido es
+ * un cambio como el color, con su Ctrl+Z.
+ */
+describe("cambiar el tamaño de lo elegido", () => {
+  const escalar = (indice: number, escala: number): CambioDeMarcas => ({ tipo: "escalar", indice, escala });
+
+  it("al texto y al paso se lo cambia, y los deja elegidos", () => {
+    const m = seguidos(poner(flecha, texto, paso(1, 0.2)), { tipo: "elegir", indice: 1 }, escalar(1, 2), escalar(2, 1.5));
+    expect(m.lista[1]).toEqual({ ...texto, escala: 2 });
+    expect(m.lista[2]).toEqual({ ...paso(1, 0.2), escala: 1.5 });
+    expect(m.lista[0]).toEqual(flecha);
+    expect(m.elegida).toBe(1);
+  });
+
+  it("Ctrl+Z le devuelve el tamaño de antes", () => {
+    const m = seguidos(poner(texto), escalar(0, 2), { tipo: "deshacer" });
+    expect(m.lista).toEqual([texto]);
+  });
+
+  it("volver al de siempre no deja nada guardado de más", () => {
+    const m = seguidos(poner(texto), escalar(0, 2), escalar(0, 1));
+    expect(m.lista[0]).toEqual(texto);
+    expect(m.lista[0]).not.toHaveProperty("escala");
+  });
+
+  it("no toca lo que no tiene tamaño: flechas, cajas, trazos, el mosaico, el foco", () => {
+    for (const kind of ["arrow", "curve", "line", "box", "ellipse", "pen", "highlight", "blur", "focus"] as const) {
+      const antes = seguidos(poner({ ...flecha, kind }));
+      expect(aplicarCambio(antes, escalar(0, 2)), kind).toBe(antes);
+    }
+  });
+
+  it("su mismo tamaño no gasta un Ctrl+Z", () => {
+    const antes = seguidos(poner(texto));
+    expect(aplicarCambio(antes, escalar(0, 1))).toBe(antes);
+    const grande = seguidos(poner({ ...texto, escala: 2 }));
+    expect(aplicarCambio(grande, escalar(0, 2))).toBe(grande);
+  });
+
+  it("una que no existe no cambia", () => {
+    const antes = seguidos(poner(texto));
+    expect(aplicarCambio(antes, escalar(3, 2))).toBe(antes);
+  });
+});

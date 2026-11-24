@@ -1,7 +1,11 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import {
+  conEscala,
   controlDeCurva,
   desplazar,
+  ESCALA_MAXIMA,
+  ESCALA_MINIMA,
+  escalaDe,
   FOCO_OSCURECE,
   simplificarTrazo,
   type Anotacion,
@@ -55,6 +59,11 @@ interface Props {
    * acercarla, no llevarse la flecha.
    */
   quieta?: boolean;
+  /**
+   * El tamaño con el que salen el texto y el paso nuevos, contra el de siempre (issues 18 y
+   * 19). Lo elige la barra de arriba; de serie, 1.
+   */
+  escala?: number;
 }
 
 /** Dónde se está escribiendo un texto, de 0 a 1, y lo que lleva escrito. */
@@ -77,7 +86,7 @@ const UMBRAL = 3;
 const DOBLE_CLIC_MS = 500;
 
 /** Las marcas que se cogen por dentro, porque son una mancha y no un trazo. */
-const LLENAS: ReadonlySet<Herramienta> = new Set(["highlight", "blur", "step"]);
+const LLENAS: ReadonlySet<Herramienta> = new Set(["highlight", "blur"]);
 
 const nada = () => {};
 
@@ -92,8 +101,12 @@ export function CapaAnotaciones({
   onCambiar = nada,
   onBorrar = nada,
   quieta = false,
+  escala = 1,
 }: Props) {
   const t = useT();
+  // El de ahora, para el texto que se guarda desde un oyente o un efecto viejo.
+  const escalaViva = useRef(escala);
+  escalaViva.current = escala;
   const marco = useRef<SVGSVGElement>(null);
   const [dibujando, setDibujando] = useState<Anotacion | null>(null);
   /** La marca que se está arrastrando, ya movida, mientras no se suelta. */
@@ -155,7 +168,12 @@ export function CapaAnotaciones({
       return;
     }
     if (escrito) {
-      onAnadir({ kind: "text", x1: sitio.x, y1: sitio.y, x2: sitio.x, y2: sitio.y, color: sitio.color, text: escrito });
+      onAnadir(
+        conEscala(
+          { kind: "text", x1: sitio.x, y1: sitio.y, x2: sitio.x, y2: sitio.y, color: sitio.color, text: escrito },
+          escalaViva.current,
+        ),
+      );
     }
   };
 
@@ -199,16 +217,56 @@ export function CapaAnotaciones({
       return;
     }
 
+    seguirArrastre(e, indice, marca, (dx, dy) => {
+      // Un arrastre no es la mitad de un doble clic.
+      ultimoClic.current = null;
+      return desplazar(marca, dx / caja.width, dy / caja.height);
+    });
+  };
+
+  /**
+   * Arrastrar el asa de un texto o de un paso elegido: lo agranda o lo encoge (issues 18 y
+   * 19). Crece lo que se aleja el ratón del sitio fijo de la marca (el centro del paso, la
+   * esquina de arriba a la izquierda del texto), así que da igual hacia dónde se tire.
+   */
+  const estirar = (e: React.PointerEvent, indice: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const marca = anotaciones[indice];
+    const caja = (e.currentTarget as Element).closest("[data-agarre]")?.getBoundingClientRect();
+    if (!marca || !caja) return;
+    const [fx, fy] =
+      marca.kind === "step" ? [caja.left + caja.width / 2, caja.top + caja.height / 2] : [caja.left, caja.top];
+    const desde = Math.hypot(e.clientX - fx, e.clientY - fy);
+    if (desde < 1) return;
+    const antes = escalaDe(marca);
+    seguirArrastre(e, indice, marca, (dx, dy) => {
+      const lejos = Math.hypot(e.clientX + dx - fx, e.clientY + dy - fy);
+      const escala = Math.min(ESCALA_MAXIMA, Math.max(ESCALA_MINIMA, (antes * lejos) / desde));
+      // A centésimas: el asa no necesita más, y así «Guardar» no manda 1,4999999.
+      return conEscala(marca, Math.round(escala * 100) / 100);
+    });
+  };
+
+  /**
+   * Sigue un arrastre desde la ventana hasta que se suelta. `cambio` dice cómo queda la marca
+   * con el ratón movido tanto desde donde se pulsó.
+   */
+  const seguirArrastre = (
+    e: React.PointerEvent,
+    indice: number,
+    marca: Anotacion,
+    cambio: (dx: number, dy: number) => Anotacion,
+  ) => {
     const [x0, y0] = [e.clientX, e.clientY];
     let movido = false;
     let ultima = marca;
     const seguir = (ev: PointerEvent) => {
       const [dx, dy] = [ev.clientX - x0, ev.clientY - y0];
       if (!movido && Math.hypot(dx, dy) < UMBRAL) return;
-      // Un arrastre no es la mitad de un doble clic.
       movido = true;
-      ultimoClic.current = null;
-      ultima = desplazar(marca, dx / caja.width, dy / caja.height);
+      ultima = cambio(dx, dy);
       setMovida({ indice, marca: ultima });
     };
     const quitar = () => {
@@ -290,7 +348,7 @@ export function CapaAnotaciones({
     // cuando alguien mete un paso en medio, y entonces hay dos treses en la misma imagen.
     if (herramienta === "step") {
       const siguiente = anotaciones.filter((a) => a.kind === "step").length + 1;
-      onAnadir({ kind: "step", x1: x, y1: y, x2: x, y2: y, color, text: String(siguiente) });
+      onAnadir(conEscala({ kind: "step", x1: x, y1: y, x2: x, y2: y, color, text: String(siguiente) }, escala));
       return;
     }
     camino.current = [[x, y]];
@@ -339,7 +397,23 @@ export function CapaAnotaciones({
   const textos = puestas
     .map((a, i) => [a, i] as const)
     .filter(([a, i]) => a.kind === "text" && i !== escribiendo?.indice);
+  const pasos = puestas.map((a, i) => [a, i] as const).filter(([a]) => a.kind === "step");
   const coger = quieta ? "none" : undefined;
+  /**
+   * El asa de estirar, en la esquina de abajo a la derecha de lo elegido y solo cuando se
+   * puede coger. Mide lo mismo a cualquier tamaño de la vista: es para el ratón, no es parte
+   * del dibujo.
+   */
+  const asa = (i: number) =>
+    i === elegida && !quieta ? (
+      <span
+        data-estirar=""
+        onPointerDown={(e) => estirar(e, i)}
+        title={t("Arrastra para cambiar el tamaño")}
+        className="absolute size-3 rounded-full border-2 border-[#0a76c9] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
+        style={{ pointerEvents: "auto", cursor: "nwse-resize", translate: "-50% -50%" }}
+      />
+    ) : null;
 
   return (
     <>
@@ -388,14 +462,14 @@ export function CapaAnotaciones({
         // La que se está dibujando todavía no es de nadie: no se coge.
         i >= puestas.length ? (
           <Marca key={i} anotacion={a} />
-        ) : a.kind === "text" ? null : (
+        ) : a.kind === "text" || a.kind === "step" ? null : (
           <g key={i} data-agarre={i} onPointerDown={(e) => agarrar(e, i)}>
             {i === elegida && <Halo anotacion={a} />}
             <Marca anotacion={a} />
             {/*
               Lo que se pulsa: la misma silueta, invisible y con unos píxeles más de trazo,
-              para coger una línea fina sin tener que acertarle. Las manchas (resaltado,
-              tapado, paso) se cogen además por dentro.
+              para coger una línea fina sin tener que acertarle. Las manchas (resaltado y
+              tapado) se cogen además por dentro.
             */}
             <g
               data-silueta=""
@@ -413,13 +487,32 @@ export function CapaAnotaciones({
       )}
     </svg>
     {/*
-      Los textos van en HTML y no en el SVG: el SVG va estirado a 1000 x 1000, y un texto
-      ahí dentro salía ensanchado en una captura apaisada. Aquí miden lo que van a medir en
-      el archivo, y el campo donde se escribe es la misma letra en el mismo sitio, así que
-      al pulsar Intro no se mueve nada.
+      Los textos y los pasos van en HTML y no en el SVG: el SVG va estirado a 1000 x 1000, y
+      ahí dentro un texto salía ensanchado y un paso, ovalado, en cuanto la captura no era
+      cuadrada (la issue 19). Aquí miden lo que van a medir en el archivo, y el campo donde se
+      escribe es la misma letra en el mismo sitio, así que al pulsar Intro no se mueve nada.
     */}
-    {(textos.length > 0 || escribiendo) && (
+    {(textos.length > 0 || pasos.length > 0 || escribiendo) && (
       <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ containerType: "size" }}>
+        {pasos.map(([a, i]) => (
+          <span
+            key={i}
+            data-marca="step"
+            data-agarre={i}
+            onPointerDown={(e) => agarrar(e, i)}
+            style={{
+              ...estiloDelPaso(anchoImagen, a.x1, a.y1, escalaDe(a)),
+              pointerEvents: coger ?? "auto",
+              cursor: "move",
+              userSelect: "none",
+              ...(i === elegida ? { boxShadow: HALO_DEL_PASO } : {}),
+            }}
+          >
+            <span style={estiloDelNumero(anchoImagen, a.color, escalaDe(a))}>{a.text}</span>
+            {/* En el aro, a 45 grados: la esquina de su caja quedaría fuera del círculo. */}
+            {asa(i) && <span className="absolute top-[85.4%] left-[85.4%]">{asa(i)}</span>}
+          </span>
+        ))}
         {textos.map(([a, i]) => (
           <span
             key={i}
@@ -427,7 +520,7 @@ export function CapaAnotaciones({
             data-agarre={i}
             onPointerDown={(e) => agarrar(e, i)}
             style={{
-              ...letraDelTexto(anchoImagen, a.x1, a.y1, a.color),
+              ...letraDelTexto(anchoImagen, a.x1, a.y1, a.color, escalaDe(a)),
               pointerEvents: coger ?? "auto",
               cursor: "move",
               userSelect: "none",
@@ -435,6 +528,7 @@ export function CapaAnotaciones({
             }}
           >
             {a.text}
+            {asa(i) && <span className="absolute top-full left-full">{asa(i)}</span>}
           </span>
         ))}
         {escribiendo && (
@@ -464,7 +558,16 @@ export function CapaAnotaciones({
             className="pointer-events-auto rounded-sm border-0 bg-transparent outline-[1.5px] outline-offset-2 outline-current outline-dashed placeholder:text-current placeholder:opacity-55"
             style={
               {
-                ...letraDelTexto(anchoImagen, escribiendo.x, escribiendo.y, escribiendo.color),
+                ...letraDelTexto(
+                  anchoImagen,
+                  escribiendo.x,
+                  escribiendo.y,
+                  escribiendo.color,
+                  // Uno que se reescribe, a su tamaño; uno nuevo, al elegido en la barra.
+                  escribiendo.indice !== undefined && anotaciones[escribiendo.indice]
+                    ? escalaDe(anotaciones[escribiendo.indice])
+                    : escala,
+                ),
                 caretColor: escribiendo.color,
                 // El campo crece con lo que se escribe, como el texto que va a quedar.
                 fieldSizing: "content",
@@ -483,15 +586,22 @@ export function CapaAnotaciones({
 /**
  * La letra de un texto en la vista previa, sacada como la saca Rust al exportar
  * (`encode::anotacion::texto`): Segoe UI seminegrita, con la celda a un cuarentaidosavo del
- * ancho de la imagen y entre 14 y 72 píxeles de ella, con dos de aire, y metida dentro si
- * se sale por la derecha o por abajo (`esquina_metida`).
+ * ancho de la imagen y entre 14 y 72 píxeles de ella, por su tamaño (`escala`), con dos de
+ * aire, y metida dentro si se sale por la derecha o por abajo (`esquina_metida`).
  *
  * Va en unidades del contenedor para no medir la capa: 100 cqw es su ancho, que es el de
  * la imagen, así que un píxel de la imagen son `100 / anchoImagen` cqw a cualquier tamaño.
  */
-export function letraDelTexto(anchoImagen: number, x: number, y: number, color: string): CSSProperties {
+export function letraDelTexto(
+  anchoImagen: number,
+  x: number,
+  y: number,
+  color: string,
+  escala = 1,
+): CSSProperties {
   const px = 100 / Math.max(1, anchoImagen);
-  const celda = `clamp(${14 * px}cqw, ${100 / 42}cqw, ${72 * px}cqw)`;
+  // El de siempre por su tamaño (issue 18), igual que `encode::anotacion::texto`.
+  const celda = `clamp(${14 * px}cqw, ${100 / 42}cqw, ${72 * px}cqw)${escala === 1 ? "" : ` * ${escala}`}`;
   return {
     position: "absolute",
     left: `${x * 100}%`,
@@ -527,17 +637,14 @@ function conCamino(marca: Anotacion, camino: Punto[], final = false): Anotacion 
   return marca;
 }
 
-/** Lo que mide el aro de un paso, en el sistema de 1000 del SVG. */
-const RADIO_PASO = 38;
-
 /**
  * El contorno de una marca, sin color ni grosor: lo pinta quien lo usa.
  *
  * Sirve para dos cosas que tienen que caer justo encima de lo dibujado: la silueta invisible
- * que se pulsa para coger la marca y el halo de la elegida. El texto no está, porque va en
- * HTML y se coge y se marca él solo.
+ * que se pulsa para coger la marca y el halo de la elegida. El texto y el paso no están,
+ * porque van en HTML y se cogen y se marcan ellos solos.
  */
-function Silueta({ anotacion: a, radioPaso = RADIO_PASO }: { anotacion: Anotacion; radioPaso?: number }) {
+function Silueta({ anotacion: a }: { anotacion: Anotacion }) {
   const [x1, y1, x2, y2] = [a.x1 * 1000, a.y1 * 1000, a.x2 * 1000, a.y2 * 1000];
   const [izq, arr] = [Math.min(x1, x2), Math.min(y1, y2)];
   const [ancho, alto] = [Math.abs(x2 - x1), Math.abs(y2 - y1)];
@@ -582,10 +689,6 @@ function Silueta({ anotacion: a, radioPaso = RADIO_PASO }: { anotacion: Anotacio
           vectorEffect={ve}
         />
       );
-    case "step":
-      return (
-        <ellipse cx={metido(x1, RADIO_PASO)} cy={metido(y1, RADIO_PASO)} rx={radioPaso} ry={radioPaso} vectorEffect={ve} />
-      );
     default:
       return null;
   }
@@ -594,22 +697,21 @@ function Silueta({ anotacion: a, radioPaso = RADIO_PASO }: { anotacion: Anotacio
 /**
  * Cómo se ve la marca elegida: con un borde blanco pegado a su forma y una sombra corta por
  * fuera, como una pegatina levantada del papel. Sin recuadro alrededor ni asas en las
- * esquinas: las asas dirían que se puede estirar, y aquí solo se mueve. El blanco se ve
- * sobre lo oscuro y la sombra sobre lo claro, así que se ve elegida sobre cualquier
- * captura y con cualquiera de los cinco colores.
+ * esquinas: las asas dirían que se puede estirar, y estas solo se mueven. El texto y el paso
+ * sí se estiran (issues 18 y 19), y llevan su asa. El blanco se ve sobre lo oscuro y la
+ * sombra sobre lo claro, así que se ve elegida sobre cualquier captura y con cualquiera de
+ * los cinco colores.
  */
 function Halo({ anotacion: a }: { anotacion: Anotacion }) {
-  // Las manchas no tienen trazo: el halo va por su borde. Y el del paso, un poco por fuera
-  // de su aro blanco, que si no se fundiría con él.
+  // Las manchas no tienen trazo: el halo va por su borde.
   const trazo = LLENAS.has(a.kind) ? 0 : GROSOR;
-  const radioPaso = RADIO_PASO + 9;
   return (
     <g data-halo="" fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
       <g stroke="rgba(0, 0, 0, 0.45)" strokeWidth={trazo + 10}>
-        <Silueta anotacion={a} radioPaso={radioPaso} />
+        <Silueta anotacion={a} />
       </g>
       <g stroke="#ffffff" strokeWidth={trazo + 6}>
-        <Silueta anotacion={a} radioPaso={radioPaso} />
+        <Silueta anotacion={a} />
       </g>
     </g>
   );
@@ -620,14 +722,70 @@ const HALO_DEL_TEXTO =
   "drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55))";
 
 /**
- * El centro de una marca de un clic, metido lo justo para que la marca quepa entera.
- *
- * Al exportar se hace lo mismo (`encode::anotacion::centro_metido`), y por la misma razón:
- * un disco partido por el borde no se lee, porque el número se va fuera y lo que queda es
- * una mancha. Aquí hace falta además para que la vista previa enseñe lo que va a salir.
+ * El halo del paso elegido: una raya oscura pegada a su aro blanco (si no, se fundirían), una
+ * banda blanca y otra raya oscura por fuera, como el de las demás.
  */
-function metido(v: number, radio: number): number {
-  return Math.min(1000 - radio, Math.max(radio, v));
+const HALO_DEL_PASO = "0 0 0 2px rgba(0, 0, 0, 0.45), 0 0 0 5px #ffffff, 0 0 0 7px rgba(0, 0, 0, 0.45)";
+
+/**
+ * Lo que mide un paso en píxeles de la imagen, como lo pinta Rust (`encode::anotacion::paso`):
+ * el disco a un veintiseisavo del ancho y entre 15 y 60 px, el aro blanco un 60 % del trazo
+ * por fuera, y la celda del número 1,15 veces el radio. Todo por su tamaño (`escala`).
+ *
+ * Con las cuentas en `f32`, como Rust (`Math.fround` es redondear a eso): en doble precisión,
+ * en una de 1300 de ancho la celda salía de 57 px, y en el archivo, de 58.
+ */
+export function medidaDelPaso(anchoImagen: number, escala = 1): { radio: number; aro: number; letra: number } {
+  const f = Math.fround;
+  const radio = f(Math.min(60, Math.max(15, f(anchoImagen / 26))) * f(escala));
+  const grosor = Math.min(9, Math.max(3, Math.round(f(anchoImagen / 400))));
+  const aro = f(radio + f(f(grosor * f(0.6)) * f(escala)));
+  return { radio, aro, letra: Math.round(f(radio * f(1.15))) };
+}
+
+/**
+ * La caja de un paso en la vista previa: el aro blanco, redondo de verdad porque se mide en
+ * unidades del ancho del contenedor en las dos direcciones (100 cqw es el ancho de la imagen).
+ *
+ * Su centro se mete lo justo para que quepa entero, como al exportar
+ * (`encode::anotacion::centro_metido`) y por la misma razón: un disco partido por el borde
+ * no se lee, porque el número se va fuera y lo que queda es una mancha.
+ */
+export function estiloDelPaso(anchoImagen: number, x: number, y: number, escala = 1): CSSProperties {
+  const px = 100 / Math.max(1, anchoImagen);
+  const aro = medidaDelPaso(anchoImagen, escala).aro * px;
+  return {
+    position: "absolute",
+    left: `clamp(${aro}cqw, ${x * 100}cqw, ${100 - aro}cqw)`,
+    top: `clamp(${aro}cqw, ${y * 100}cqh, calc(100cqh - ${aro}cqw))`,
+    width: `${aro * 2}cqw`,
+    height: `${aro * 2}cqw`,
+    translate: "-50% -50%",
+    borderRadius: "50%",
+    background: "#ffffff",
+    display: "grid",
+    placeItems: "center",
+  };
+}
+
+/** El disco de color de dentro del aro, con su número en blanco: Segoe UI seminegrita. */
+function estiloDelNumero(anchoImagen: number, color: string, escala: number): CSSProperties {
+  const px = 100 / Math.max(1, anchoImagen);
+  const { radio, letra } = medidaDelPaso(anchoImagen, escala);
+  return {
+    width: `${radio * 2 * px}cqw`,
+    height: `${radio * 2 * px}cqw`,
+    borderRadius: "50%",
+    background: color,
+    color: "#ffffff",
+    display: "grid",
+    placeItems: "center",
+    fontFamily: '"Segoe UI", system-ui, sans-serif',
+    fontWeight: 600,
+    // La celda de GDI son 1,33 emes, como en el texto.
+    fontSize: `${(letra / 1.33) * px}cqw`,
+    lineHeight: 1,
+  };
 }
 
 /** Una marca dibujada, en el sistema de 1000 x 1000 del SVG. */
@@ -752,31 +910,9 @@ function Marca({ anotacion: a }: { anotacion: Anotacion }) {
     case "text":
       // Lo pinta la capa de HTML de encima, a su tamaño de verdad.
       return null;
-    case "step": {
-      // El disco lleva un aro blanco por fuera, igual que al exportar: sobre una captura
-      // oscura un disco de color sin borde se pierde, y sobre una clara se pierde el
-      // número. El SVG va estirado a 1000 x 1000, así que el círculo se dibuja con dos
-      // radios y sale ovalado si la captura no es cuadrada; al exportar lo pinta Rust
-      // redondo, que es lo que cuenta.
-      const [cx, cy] = [metido(x1, RADIO_PASO), metido(y1, RADIO_PASO)];
-      return (
-        <g>
-          <ellipse cx={cx} cy={cy} rx={RADIO_PASO} ry={RADIO_PASO} fill="#ffffff" />
-          <ellipse cx={cx} cy={cy} rx={32} ry={32} fill={a.color} />
-          <text
-            x={cx}
-            y={cy}
-            fill="#ffffff"
-            fontSize={38}
-            fontWeight={700}
-            textAnchor="middle"
-            dominantBaseline="central"
-          >
-            {a.text}
-          </text>
-        </g>
-      );
-    }
+    case "step":
+      // Lo pinta la capa de HTML de encima, redondo y a su tamaño de verdad (issue 19).
+      return null;
     default:
       return null;
   }

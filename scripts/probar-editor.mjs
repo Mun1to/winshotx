@@ -21,6 +21,8 @@
  *  3. Que «Guardar» manda a Rust justo el tramo recortado, en milisegundos.
  *  4. Que con diez minutos de grabación la línea de tiempo sigue yendo fluida: cuánto
  *     tarda en salir y cuánto tarda cada movimiento del asa.
+ *  5. Issues 18 y 19: que un paso sale redondo en una captura apaisada y mide lo del archivo,
+ *     que «Más grande» y el asa cambian el tamaño del paso y del texto, y que «Guardar» lo manda.
  *
  * Sale con 0 si todo cuadra y con 1 si algo no.
  */
@@ -1236,6 +1238,94 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
   comprueba(porPaso < 34, `arrastrar el asa: ${porPaso.toFixed(1)} ms por movimiento`);
   comprueba(peor < 100, `la pintada más lenta mientras se arrastra tarda ${peor.toFixed(0)} ms`);
   if (fotos) await pagina.screenshot({ path: join(fotos, "5-diez-minutos.png") });
+  await pagina.close();
+  apagar();
+}
+
+// ── Issues 18 y 19: el paso sale redondo, y el texto y el paso cambian de tamaño ───────
+{
+  const { url, apagar } = await servir(duracion);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  console.log("\nIssues 18 y 19: el paso redondo en una captura apaisada, y el tamaño del texto y del paso");
+  const anchoImagen = readFileSync(fotograma).readUInt32BE(16);
+  const cajaDelPaso = (i) =>
+    pagina.evaluate((i) => {
+      const r = document.querySelector(`[data-marca="step"][data-agarre="${i}"]`)?.getBoundingClientRect();
+      return r && { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, i);
+
+  await pagina.getByRole("button", { name: "Paso numerado", exact: true }).click();
+  const capa = await pagina.locator("svg.cursor-crosshair").boundingBox();
+  const en = (x, y) => [capa.x + capa.width * x, capa.y + capa.height * y];
+  await pagina.mouse.click(...en(0.3, 0.5));
+  const uno = await cajaDelPaso(0);
+  comprueba(
+    uno && Math.abs(uno.w - uno.h) < 0.5,
+    `en una vista de ${capa.width.toFixed(0)} x ${capa.height.toFixed(0)} el paso sale redondo: ${uno?.w.toFixed(1)} x ${uno?.h.toFixed(1)}`,
+  );
+  // El aro, como `medida_del_paso` de Rust: el disco entre 15 y 60 px y el aro un 60 % del trazo por fuera.
+  const aro = Math.min(60, Math.max(15, anchoImagen / 26)) + Math.min(9, Math.max(3, Math.round(anchoImagen / 400))) * 0.6;
+  const esperado = (2 * aro * capa.width) / anchoImagen;
+  comprueba(uno && Math.abs(uno.w - esperado) < 1, `y mide lo del archivo: ${uno?.w.toFixed(1)} px (debía ${esperado.toFixed(1)})`);
+
+  // «Más grande» dos veces con la herramienta puesta: el siguiente sale al 150 %.
+  await pagina.getByRole("button", { name: "Más grande" }).click();
+  await pagina.getByRole("button", { name: "Más grande" }).click();
+  await pagina.mouse.click(...en(0.6, 0.5));
+  const dos = await cajaDelPaso(1);
+  comprueba(dos && Math.abs(dos.w / uno.w - 1.5) < 0.03, `el siguiente, con «Más grande» dos veces, sale al 150 %: ${(dos?.w / uno.w).toFixed(2)}`);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "14-pasos-redondos.png") });
+
+  // Sin herramienta, se coge el primero y se estira con su asa hasta el doble de lejos del centro.
+  await pagina.keyboard.press("Escape");
+  await pagina.mouse.click(uno.x + uno.w / 2, uno.y + uno.h / 2);
+  const asa = await pagina.locator("[data-estirar]").boundingBox();
+  comprueba(!!asa, "el paso elegido lleva su asa");
+  if (asa) {
+    const centro = [uno.x + uno.w / 2, uno.y + uno.h / 2];
+    const desde = [asa.x + asa.width / 2, asa.y + asa.height / 2];
+    await pagina.mouse.move(...desde);
+    await pagina.mouse.down();
+    await pagina.mouse.move(centro[0] + (desde[0] - centro[0]) * 2, centro[1] + (desde[1] - centro[1]) * 2, { steps: 10 });
+    await pagina.mouse.up();
+    const estirado = await cajaDelPaso(0);
+    comprueba(
+      estirado && Math.abs(estirado.w / uno.w - 2) < 0.06 && Math.abs(estirado.w - estirado.h) < 0.5,
+      `estirado con el asa al doble y sigue redondo: ${(estirado?.w / uno.w).toFixed(2)} veces, ${estirado?.w.toFixed(1)} x ${estirado?.h.toFixed(1)}`,
+    );
+    const quieto = estirado && Math.hypot(estirado.x + estirado.w / 2 - centro[0], estirado.y + estirado.h / 2 - centro[1]);
+    comprueba(quieto !== undefined && quieto < 1, `y crece desde su centro, sin moverse: ${quieto?.toFixed(2)} px`);
+    if (fotos) {
+      await pagina.screenshot({
+        path: join(fotos, "14b-paso-estirado.png"),
+        clip: { x: centro[0] - 160, y: centro[1] - 160, width: 320, height: 320 },
+      });
+    }
+  }
+
+  // El texto, al 200 %: con la herramienta puesta, «Más grande» va 100, 125, 150 y 200.
+  await pagina.getByRole("button", { name: "Texto", exact: true }).click();
+  for (let i = 0; i < 3; i++) await pagina.getByRole("button", { name: "Más grande" }).click();
+  await pagina.mouse.click(...en(0.1, 0.12));
+  await pagina.keyboard.type("Grande");
+  await pagina.keyboard.press("Enter");
+  const letra = await pagina.evaluate(() => {
+    const span = [...document.querySelectorAll('[data-marca="text"]')].find((e) => e.textContent === "Grande");
+    return span && parseFloat(getComputedStyle(span).fontSize);
+  });
+  const letraEsperada = (Math.min(72, Math.max(14, anchoImagen / 42)) * 2 * (capa.width / anchoImagen)) / 1.33;
+  comprueba(letra && Math.abs(letra - letraEsperada) < 1, `el texto al 200 % lleva la letra al doble: ${letra?.toFixed(1)} px (debía ${letraEsperada.toFixed(1)})`);
+  if (fotos) await pagina.screenshot({ path: join(fotos, "14c-texto-grande.png") });
+
+  await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+  await pagina.waitForFunction(() => (window.__llamadas ?? []).some((l) => l.cmd === "export_media"));
+  const marcas = await pagina.evaluate(
+    () => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request.annotations,
+  );
+  const tamanos = marcas.map((m) => `${m.kind}:${m.escala ?? 1}`).join(" ");
+  comprueba(tamanos === "step:2 step:1.5 text:2", `«Guardar» manda a Rust el tamaño de cada uno: ${tamanos}`);
   await pagina.close();
   apagar();
 }
