@@ -1,4 +1,13 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   conEscala,
   controlDeCurva,
@@ -46,6 +55,12 @@ interface Props {
    * que se escribe encima mida lo que va a medir en el archivo.
    */
   anchoImagen: number;
+  /**
+   * Lo que mide de alto la imagen de verdad. Con el ancho dice cuánto estira el SVG de 1000 x
+   * 1000 cada eje, que es lo que hace falta para que la punta de una flecha abra lo mismo en
+   * una captura apaisada que en el archivo. Sin él, se cuenta cuadrada.
+   */
+  altoImagen?: number;
   /** El sitio en `anotaciones` de la marca elegida, que se ve con su halo. */
   elegida?: number | null;
   onElegir?: (indice: number | null) => void;
@@ -96,6 +111,7 @@ export function CapaAnotaciones({
   anotaciones,
   onAnadir,
   anchoImagen,
+  altoImagen = anchoImagen,
   elegida = null,
   onElegir = nada,
   onCambiar = nada,
@@ -416,7 +432,7 @@ export function CapaAnotaciones({
     ) : null;
 
   return (
-    <>
+    <Proporcion.Provider value={Math.max(1, altoImagen) / Math.max(1, anchoImagen)}>
     <svg
       ref={marco}
       onPointerDown={empezar}
@@ -579,7 +595,7 @@ export function CapaAnotaciones({
         )}
       </div>
     )}
-    </>
+    </Proporcion.Provider>
   );
 }
 
@@ -645,12 +661,13 @@ function conCamino(marca: Anotacion, camino: Punto[], final = false): Anotacion 
  * porque van en HTML y se cogen y se marcan ellos solos.
  */
 function Silueta({ anotacion: a }: { anotacion: Anotacion }) {
+  const proporcion = useContext(Proporcion);
   const [x1, y1, x2, y2] = [a.x1 * 1000, a.y1 * 1000, a.x2 * 1000, a.y2 * 1000];
   const [izq, arr] = [Math.min(x1, x2), Math.min(y1, y2)];
   const [ancho, alto] = [Math.abs(x2 - x1), Math.abs(y2 - y1)];
   const ve = "non-scaling-stroke";
   const puntas = (desdeX: number, desdeY: number) =>
-    puntaDeFlecha(desdeX, desdeY, x2, y2).map(([px, py], i) => (
+    puntaDeFlecha(desdeX, desdeY, x2, y2, proporcion).map(([px, py], i) => (
       <line key={i} x1={x2} y1={y2} x2={px} y2={py} vectorEffect={ve} />
     ));
   switch (a.kind) {
@@ -790,6 +807,7 @@ function estiloDelNumero(anchoImagen: number, color: string, escala: number): CS
 
 /** Una marca dibujada, en el sistema de 1000 x 1000 del SVG. */
 function Marca({ anotacion: a }: { anotacion: Anotacion }) {
+  const proporcion = useContext(Proporcion);
   const [x1, y1, x2, y2] = [a.x1 * 1000, a.y1 * 1000, a.x2 * 1000, a.y2 * 1000];
   const [izq, arr] = [Math.min(x1, x2), Math.min(y1, y2)];
   const [ancho, alto] = [Math.abs(x2 - x1), Math.abs(y2 - y1)];
@@ -834,7 +852,7 @@ function Marca({ anotacion: a }: { anotacion: Anotacion }) {
       return (
         <g stroke={a.color} strokeWidth={6} fill="none" vectorEffect="non-scaling-stroke">
           <line x1={x1} y1={y1} x2={x2} y2={y2} vectorEffect="non-scaling-stroke" />
-          {puntaDeFlecha(x1, y1, x2, y2).map(([px, py], i) => (
+          {puntaDeFlecha(x1, y1, x2, y2, proporcion).map(([px, py], i) => (
             <line
               key={i}
               x1={x2}
@@ -855,7 +873,7 @@ function Marca({ anotacion: a }: { anotacion: Anotacion }) {
       return (
         <g data-marca="curve" stroke={a.color} strokeWidth={6} fill="none" strokeLinecap="round">
           <path d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`} vectorEffect="non-scaling-stroke" />
-          {puntaDeFlecha(dx, dy, x2, y2).map(([px, py], i) => (
+          {puntaDeFlecha(dx, dy, x2, y2, proporcion).map(([px, py], i) => (
             <line key={i} x1={x2} y1={y2} x2={px} y2={py} vectorEffect="non-scaling-stroke" />
           ))}
         </g>
@@ -918,12 +936,29 @@ function Marca({ anotacion: a }: { anotacion: Anotacion }) {
   }
 }
 
-/** Los dos extremos de la punta, treinta grados a cada lado de la línea. */
-function puntaDeFlecha(x1: number, y1: number, x2: number, y2: number): [number, number][] {
-  const angulo = Math.atan2(y2 - y1, x2 - x1);
+/**
+ * Lo que mide de alto la imagen por cada unidad de ancho (alto / ancho): cuánto estira el SVG
+ * de 1000 x 1000 el eje vertical contra el horizontal.
+ */
+const Proporcion = createContext(1);
+
+/**
+ * Los dos extremos de la punta, a 0,52 rad (unos 30 grados) a cada lado de la línea, como los
+ * pinta Rust (`encode::anotacion::punta`).
+ *
+ * Las cuentas van en píxeles de la imagen y no en el sistema de 1000 x 1000, que va estirado
+ * (`preserveAspectRatio="none"`): ahí, en una captura apaisada una flecha horizontal salía con
+ * la punta más cerrada y una vertical más abierta que en el archivo (lo avisó ProNotion en la
+ * #19, «otras herramientas tienen fallos parecidos»). `proporcion` es alto / ancho de la imagen.
+ * El largo es el de siempre en horizontal, un 4,8 % del ancho, a juego con el trazo de la vista
+ * previa, que es más gordo que el del archivo para que se vea.
+ */
+function puntaDeFlecha(x1: number, y1: number, x2: number, y2: number, proporcion = 1): [number, number][] {
+  // Con el eje vertical en las mismas unidades que el horizontal, los ángulos son los de verdad.
+  const angulo = Math.atan2((y2 - y1) * proporcion, x2 - x1);
   const largo = 48;
   return [-0.52, 0.52].map((lado) => {
     const a = angulo + Math.PI + lado;
-    return [x2 + Math.cos(a) * largo, y2 + Math.sin(a) * largo] as [number, number];
+    return [x2 + Math.cos(a) * largo, y2 + (Math.sin(a) * largo) / proporcion] as [number, number];
   });
 }

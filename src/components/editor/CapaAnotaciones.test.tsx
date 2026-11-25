@@ -604,3 +604,53 @@ describe("el paso y sus topes, contra la prueba compartida", () => {
     }
   });
 });
+
+/**
+ * Lo que avisó ProNotion en la #19: otras marcas tenían el mismo fallo que el paso. La punta de
+ * la flecha se calculaba en el SVG estirado a 1000 x 1000, y en una captura apaisada salía más
+ * cerrada en horizontal y más abierta en vertical que en el archivo, donde Rust la pinta a
+ * 0,52 rad de la línea (`encode::anotacion::punta`). Ahora abre eso mismo y sus dos alas miden
+ * igual. Lo que mide no es lo del archivo, y a propósito: la vista previa dibuja todos los
+ * trazos más gruesos (6 px de pantalla), y su punta va a juego, un 4,8 % del ancho.
+ */
+describe("la punta de la flecha en una captura apaisada", () => {
+  const [ancho, alto] = [1920, 1080];
+  const enPx = ([x, y]: number[]) => [(x * ancho) / 1000, (y * alto) / 1000];
+  const num = (l: Element, a: string) => Number(l.getAttribute(a));
+
+  /** Las alas de la punta, en píxeles de la imagen: el ángulo con la línea y lo que miden. */
+  function alas(marca: Anotacion, selector: string) {
+    const { container } = pintar({ herramienta: null, anotaciones: [marca], anchoImagen: ancho, altoImagen: alto });
+    const lineas = [...container.querySelectorAll(selector)];
+    // La última línea de la marca acaba en la punta, y las dos alas salen de ella.
+    const alasSvg = lineas.slice(-2);
+    const [px2, py2] = enPx([num(alasSvg[0], "x1"), num(alasSvg[0], "y1")]);
+    return { alas: alasSvg.map((l) => enPx([num(l, "x2"), num(l, "y2")]).map((v, k) => v - [px2, py2][k])), punta: [px2, py2] };
+  }
+
+  function comprueba(desde: number[], { alas: [a, b], punta }: ReturnType<typeof alas>) {
+    // De la punta hacia atrás, por donde llega la línea.
+    const atras = Math.atan2(desde[1] - punta[1], desde[0] - punta[0]);
+    for (const ala of [a, b]) {
+      expect(Math.hypot(ala[0], ala[1])).toBeCloseTo(0.048 * ancho, 1);
+      const abre = Math.abs(Math.atan2(Math.sin(Math.atan2(ala[1], ala[0]) - atras), Math.cos(Math.atan2(ala[1], ala[0]) - atras)));
+      expect(abre).toBeCloseTo(0.52, 2);
+    }
+  }
+
+  it("la recta, en horizontal y en vertical, abre lo mismo que en el archivo", () => {
+    const horizontal: Anotacion = { kind: "arrow", x1: 0.1, y1: 0.5, x2: 0.9, y2: 0.5, color: "#ef4444", text: "" };
+    comprueba([0.1 * ancho, 0.5 * alto], alas(horizontal, '[data-agarre="0"] > g:not([data-silueta]) > line'));
+    const vertical: Anotacion = { kind: "arrow", x1: 0.5, y1: 0.1, x2: 0.5, y2: 0.9, color: "#ef4444", text: "" };
+    comprueba([0.5 * ancho, 0.1 * alto], alas(vertical, '[data-agarre="0"] > g:not([data-silueta]) > line'));
+    const diagonal: Anotacion = { kind: "arrow", x1: 0.2, y1: 0.2, x2: 0.7, y2: 0.8, color: "#ef4444", text: "" };
+    comprueba([0.2 * ancho, 0.2 * alto], alas(diagonal, '[data-agarre="0"] > g:not([data-silueta]) > line'));
+  });
+
+  it("y la curva, mirando desde su punto de control", () => {
+    const curva: Anotacion = {
+      kind: "curve", x1: 0.1, y1: 0.8, x2: 0.9, y2: 0.8, color: "#ef4444", text: "", puntos: [[0.5, 0.2]],
+    };
+    comprueba([0.5 * ancho, 0.2 * alto], alas(curva, '[data-marca="curve"] > line'));
+  });
+});

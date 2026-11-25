@@ -1170,6 +1170,7 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
                 onAnadir={(marca) => cambiarMarcas({ tipo: "anadir", marcas: [marca] })}
                 escala={herramienta === "text" || herramienta === "step" ? tamanos[herramienta] : 1}
                 anchoImagen={session.region.width}
+                altoImagen={session.region.height}
                 elegida={marcas.elegida}
                 onElegir={elegirMarca}
                 onCambiar={(indice, marca) => cambiarMarcas({ tipo: "cambiar", indice, marca })}
