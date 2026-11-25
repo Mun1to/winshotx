@@ -268,6 +268,60 @@ describe("mientras suena", () => {
     await act(() => new Promise((listo) => setTimeout(listo, 50)));
     expect(alFinal).not.toHaveBeenCalled();
   });
+
+  it("salta lo quitado UNA vez y cae dentro de lo que sigue, aunque el corte no vuelva entero", async () => {
+    // Munito, 25-nov: después de lo recortado, el vídeo no se reproducía bien. Lo quitado acaba
+    // en 16333 ms, y 16333 / 1000 * 1000 da 16332,99...: el salto caía en el borde, se leía
+    // otra vez dentro de lo quitado y volvía a saltar en cada pintada, sin reproducir nunca.
+    // Este vídeo de mentira no avanza solo, como uno que sigue buscando el instante.
+    let segundos = 5;
+    let saltos = 0;
+    const video = {
+      get currentTime() {
+        return segundos;
+      },
+      set currentTime(s: number) {
+        segundos = s;
+        saltos++;
+      },
+      playbackRate: 1,
+      muted: false,
+    };
+    const piezas: Pieza[] = [
+      { desdeMs: 0, hastaMs: 4_000, velocidad: 1, cortada: false },
+      { desdeMs: 4_000, hastaMs: 16_333, velocidad: 1, cortada: true },
+      { desdeMs: 16_333, hastaMs: 20_000, velocidad: 1, cortada: false },
+    ];
+    expect((16_333 / 1000) * 1000).toBeLessThan(16_333);
+    function ConVideo() {
+      const videoRef = useRef<HTMLVideoElement | null>(video as unknown as HTMLVideoElement);
+      return (
+        <LineaDeTiempo
+          frames={fotogramas(Array(200).fill(100))}
+          desdeMs={0}
+          hastaMs={20_000}
+          posicionMs={0}
+          videoRef={videoRef}
+          reproduciendo
+          proporcion={16 / 10}
+          delante={null}
+          onTramo={() => {}}
+          onIr={() => {}}
+          onFinal={() => {}}
+          piezas={piezas}
+          onPiezas={() => {}}
+        />
+      );
+    }
+    render(<ConVideo />);
+    await waitFor(() => expect(saltos).toBeGreaterThan(0));
+    // Unas cuantas pintadas más con el vídeo quieto donde cayó.
+    await act(() => new Promise((listo) => setTimeout(listo, 120)));
+    expect(saltos).toBe(1);
+    expect(segundos * 1000).toBeGreaterThanOrEqual(16_333);
+    // Y no más allá de lo que se ve: un fotograma dura 33 ms.
+    expect(segundos * 1000).toBeLessThan(16_333 + 5);
+  });
 });
 
 /**

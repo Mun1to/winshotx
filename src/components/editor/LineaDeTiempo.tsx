@@ -53,6 +53,16 @@ const ASA = 14;
 const BORDE_DE_ZOOM = 8;
 /** La velocidad de «Acelerar lo escrito»: lo bastante para saltarse la espera, y aún se lee. */
 export const VELOCIDAD_DE_LO_ESCRITO = 4;
+/**
+ * Lo que se mete el salto dentro del trozo que sigue a lo quitado, en vez de caer en su borde.
+ *
+ * `currentTime` va en segundos con decimales de coma flotante, y uno de cada cincuenta
+ * instantes vuelve un pelo por debajo (16333 / 1000 * 1000 da 16332,99..., y Edge redondea a
+ * microsegundos): caído en el borde, el vídeo se leía dentro de lo quitado, volvía a saltar en
+ * cada pintada y no llegaba a reproducir nunca (Munito, 25-nov). Un milisegundo no se ve: un
+ * fotograma dura 33.
+ */
+const DENTRO_DEL_TROZO_MS = 1;
 
 interface Props {
   frames: FrameMeta[];
@@ -295,7 +305,7 @@ export function LineaDeTiempo({
           if (trozos[i]?.cortada) {
             while (i < trozos.length && trozos[i].cortada) i++;
             ms = i < trozos.length ? trozos[i].desdeMs : total;
-            if (ms < vivo.current.hastaMs) video.currentTime = ms / 1000;
+            if (ms < vivo.current.hastaMs) video.currentTime = (ms + DENTRO_DEL_TROZO_MS) / 1000;
           }
           const velocidad = trozos[i]?.velocidad ?? 1;
           if (video.playbackRate !== velocidad) video.playbackRate = velocidad;

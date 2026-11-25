@@ -23,6 +23,8 @@
  *     tarda en salir y cuánto tarda cada movimiento del asa.
  *  5. Issues 18 y 19: que un paso sale redondo en una captura apaisada y mide lo del archivo,
  *     que «Más grande» y el asa cambian el tamaño del paso y del texto, y que «Guardar» lo manda.
+ *  6. Que lo que sigue a un trozo quitado con las tijeras se reproduce, también cuando el corte
+ *     cae en un milisegundo que Edge no devuelve entero (el vídeo se quedaba congelado ahí).
  *
  * Sale con 0 si todo cuadra y con 1 si algo no.
  */
@@ -371,6 +373,81 @@ const navegador = await chromium.launch({ channel: "msedge", headless: true });
     `al reproducir se salta lo quitado: ${dentro.length} de ${sonando.length} pintadas cayeron dentro`,
   );
 
+  await pagina.close();
+  apagar();
+}
+
+// ── Lo que sigue a un trozo quitado se reproduce, caiga donde caiga el corte ────────────
+// Munito, 25-nov: «el vídeo después de recortar una parte no se reproduce bien después de la
+// parte recortada». Saltar lo quitado ponía `currentTime = ms / 1000`, y uno de cada cincuenta
+// instantes vuelve un pelo por debajo (16333 / 1000 * 1000 da 16332,99...): el vídeo seguía
+// dentro de lo quitado, volvía a saltar en cada pintada y no llegaba a reproducir nunca.
+{
+  const { url, apagar } = await servir(duracion);
+  const pagina = await navegador.newPage({ viewport: { width: 1440, height: 842 } });
+  await pagina.goto(url);
+  await pagina.locator("[data-pista]").waitFor();
+  await pagina.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+  console.log("\nLo que sigue a un trozo quitado, con el corte en un milisegundo que no vuelve entero");
+  const total = duracion * 1000;
+  const tira = await pagina.locator("[data-pista]").boundingBox();
+  const medio = tira.y + tira.height / 2;
+  // Un píxel de la tira cuyo instante, ida y vuelta por segundos, se lee por debajo de sí mismo.
+  // Con 30 s los hay entre 16002 y 16380 ms; se busca desde el 54 % hacia los dos lados.
+  const malo = await pagina.evaluate((total) => {
+    const caja = document.querySelector("[data-pista]").getBoundingClientRect();
+    const msDe = (px) => Math.round(Math.min(1, Math.max(0, (px - caja.left) / caja.width)) * total);
+    const desde = Math.round(caja.left + caja.width * 0.54);
+    for (let d = 0; d < caja.width; d++) {
+      for (const px of [desde + d, desde - d]) {
+        const ms = msDe(px);
+        if (ms > 5000 && (ms / 1000) * 1000 < ms) return { px, ms };
+      }
+    }
+    return null;
+  }, total);
+  if (!malo) {
+    comprueba(false, `con ${duracion} s no hay ningún píxel de la tira en un milisegundo que no vuelva entero`);
+  } else {
+    // Se quita lo que va de cuatro segundos antes hasta ese píxel.
+    await pagina.mouse.click(tira.x + tira.width * ((malo.ms - 4000) / total), medio);
+    await pagina.getByRole("button", { name: /Cortar aquí/ }).click();
+    await pagina.mouse.click(malo.px, medio);
+    await pagina.getByRole("button", { name: /Cortar aquí/ }).click();
+    await pagina.mouse.click(tira.x + tira.width * ((malo.ms - 2000) / total), medio);
+    await pagina.getByRole("button", { name: "Quitar este trozo" }).click();
+    await pagina.getByRole("button", { name: "Guardar MP4" }).click();
+    await pagina.waitForFunction(() => (window.__llamadas ?? []).some((l) => l.cmd === "export_media"));
+    const tramos = await pagina.evaluate(
+      () => window.__llamadas.findLast((l) => l.cmd === "export_media").args.request.tramos,
+    );
+    comprueba(
+      tramos?.length === 2 && tramos[1].desdeMs === malo.ms,
+      `lo quitado acaba en ${malo.ms} ms, que ida y vuelta se lee ${(malo.ms / 1000) * 1000}: ${JSON.stringify(tramos)}`,
+    );
+
+    // Desde un segundo y medio antes de lo quitado, a reproducir cruzándolo.
+    await pagina.mouse.click(tira.x + tira.width * ((malo.ms - 5500) / total), medio);
+    await pagina.evaluate(() => {
+      const v = document.querySelector("video");
+      window.__saltos = 0;
+      v.addEventListener("seeking", () => window.__saltos++);
+    });
+    await pagina.getByRole("button", { name: "Reproducir" }).click();
+    const meta = malo.ms + 1500;
+    const llega = await pagina
+      .waitForFunction((m) => document.querySelector("video").currentTime * 1000 > m, meta, { timeout: 8_000 })
+      .then(() => true, () => false);
+    const { t, saltos } = await pagina.evaluate(() => ({
+      t: document.querySelector("video").currentTime * 1000,
+      saltos: window.__saltos,
+    }));
+    await pagina.evaluate(() => document.querySelector("video").pause());
+    comprueba(
+      llega && saltos <= 2,
+      `pasado lo quitado sigue sonando: llega a ${Math.round(t)} ms (hacía falta ${meta}) con ${saltos} saltos`,
+    );
+  }
   await pagina.close();
   apagar();
 }
