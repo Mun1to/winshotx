@@ -275,6 +275,46 @@ pub fn fuera_de_la_captura(window: &tauri::WebviewWindow, fuera: bool) -> bool {
     return fuera_de_la_captura_hwnd(handle.0 as isize, fuera);
 }
 
+/// Aparta la ventana de la vista del compositor (`DWMWA_CLOAK`) sin esconderla, o la devuelve.
+///
+/// Es para los overlays aparcados entre captura y captura (issue #20). Aparcados fuera de las
+/// pantallas no los ve nadie, pero para Windows siguen siendo ventanas visibles con su título,
+/// y Discord listaba una «aplicación» winshotx por pantalla al elegir qué compartir, con la
+/// foto de la última captura en la miniatura. Una ventana apartada es lo que Windows hace con
+/// las de otro escritorio virtual: sigue viva (no se duerme, que es por lo que se aparcan en
+/// vez de esconderse, ver `close_overlays`), y los selectores de compartir la dejan fuera.
+/// WebRTC, que es lo que usan Discord y los navegadores, lo mira en
+/// `WindowCaptureHelperWin::IsWindowCloaked` (comprobado en su código el 25-nov-2026).
+#[cfg(windows)]
+pub fn apartada_de_la_vista(window: &tauri::WebviewWindow, apartada: bool) -> bool {
+    let Ok(handle) = window.hwnd() else { return false };
+    apartada_de_la_vista_hwnd(handle.0 as isize, apartada)
+}
+
+#[cfg(not(windows))]
+pub fn apartada_de_la_vista(_window: &tauri::WebviewWindow, _apartada: bool) -> bool {
+    false
+}
+
+/// Lo mismo, sobre una ventana de Windows a pelo, para poder probarlo.
+#[cfg(windows)]
+pub fn apartada_de_la_vista_hwnd(ventana: isize, apartada: bool) -> bool {
+    use windows::core::BOOL;
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CLOAK};
+
+    let valor = BOOL::from(apartada);
+    unsafe {
+        DwmSetWindowAttribute(
+            HWND(ventana as *mut core::ffi::c_void),
+            DWMWA_CLOAK,
+            (&raw const valor).cast(),
+            std::mem::size_of_val(&valor) as u32,
+        )
+    }
+    .is_ok()
+}
+
 /// Lo mismo, sobre una ventana de Windows a pelo. Va aparte para poder probarlo: crear un
 /// `WebviewWindow` en una prueba significa levantar media aplicacion, y una ventana del
 /// sistema son tres lineas.
@@ -468,6 +508,50 @@ mod tests {
         esconder_hwnd(ventana);
         assert!(!se_ve(ventana));
 
+        unsafe {
+            let _ = DestroyWindow(HWND(ventana as *mut core::ffi::c_void));
+        }
+    }
+
+    /// Si el compositor la tiene apartada (`DWMWA_CLOAKED`), que es lo que miran los
+    /// selectores de «compartir una ventana» para dejarla fuera de su lista.
+    fn apartada(ventana: isize) -> bool {
+        use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+        let mut valor = 0u32;
+        unsafe {
+            DwmGetWindowAttribute(
+                HWND(ventana as *mut core::ffi::c_void),
+                DWMWA_CLOAKED,
+                (&raw mut valor).cast(),
+                std::mem::size_of::<u32>() as u32,
+            )
+            .expect("no se ha podido preguntar al compositor");
+        }
+        valor != 0
+    }
+
+    /// La issue #20: Discord listaba una «aplicación» winshotx por pantalla, que eran los
+    /// overlays aparcados entre captura y captura: visibles para Windows, con su título y sin
+    /// apartar. WebRTC (y con él Discord y los navegadores) quita de la lista las ventanas
+    /// apartadas por el compositor, así que aparcada tiene que estarlo; y enseñada, ya no.
+    /// La ventana se enseña fuera de todas las pantallas, como un overlay aparcado.
+    #[test]
+    fn la_ventana_aparcada_no_sale_al_compartir_pantalla() {
+        let ventana = ventana_de_prueba();
+        assert!(colocar_y_ensennar_hwnd(ventana, -20_000, -20_000));
+        assert!(!apartada(ventana), "una ventana recién enseñada no está apartada");
+
+        assert!(
+            apartada_de_la_vista_hwnd(ventana, true),
+            "Windows no ha aceptado apartar la ventana"
+        );
+        assert!(apartada(ventana), "aparcada, el compositor tiene que tenerla apartada");
+        assert!(se_ve(ventana), "y sigue viva para Windows: no se esconde, que eso la dormía");
+
+        assert!(apartada_de_la_vista_hwnd(ventana, false));
+        assert!(!apartada(ventana), "para enseñarse en su pantalla tiene que volver");
+
+        esconder_hwnd(ventana);
         unsafe {
             let _ = DestroyWindow(HWND(ventana as *mut core::ffi::c_void));
         }

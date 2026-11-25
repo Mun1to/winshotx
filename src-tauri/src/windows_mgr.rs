@@ -416,6 +416,13 @@ fn preparar_overlay(app: &AppHandle, state: &AppState, monitor: &MonitorInfo) ->
         // las tres pantallas recibian el payload de la ultima que se procesaba en
         // este bucle y se pisaban entre si. `emit_to` con la etiqueta de esta ventana
         // es lo que lo manda solo a ella.
+        //
+        // Aparcada estaba apartada de la vista (issue #20, ver `close_overlays`), y vuelve
+        // ANTES del aviso: asi pinta la imagen aparcada y sin apartar, igual que antes de la
+        // #20, y no hay forma de que su `overlay_listo` llegue y se ensenne todavia apartada,
+        // que seria una ventana invisible a pantalla completa quedandose el raton. Cuesta unos
+        // 0,35 ms por ventana (medido el 25-nov-2026), el 0,3 % de lo que tarda el atajo.
+        crate::platform::window_style::apartada_de_la_vista(&existente, false);
         if let Ok(payload) = crate::commands::build_overlay_payload(state, monitor.id) {
             let _ = existente.emit_to(label.as_str(), crate::EVENT_OVERLAY_SHOW, payload);
         }
@@ -826,6 +833,8 @@ pub fn precrear_overlays(app: &AppHandle) {
         let _ = window.set_position(aparcadero_de(monitor, &monitors));
         let _ = window.set_size(PhysicalSize::new(monitor.width, monitor.height));
         let _ = window.show();
+        // Y apartada de la vista hasta la primera captura, como entre captura y captura.
+        crate::platform::window_style::apartada_de_la_vista(&window, true);
     }
 }
 
@@ -898,6 +907,12 @@ pub fn close_overlays(app: &AppHandle) {
             .map(|m| aparcadero_de(m, &monitores))
             .unwrap_or_else(|| aparcadero(app));
         let _ = window.set_position(sitio);
+        // **Y apartada de la vista del compositor** (issue #20). Aparcada no la ve nadie, pero
+        // para Windows seguia siendo una ventana visible con su titulo: Discord listaba una
+        // «aplicacion» winshotx por pantalla al elegir que compartir, con la foto de la ultima
+        // captura en la miniatura. Apartada sigue viva igual (no es esconderla), y vuelve al
+        // empezar la captura siguiente, en `preparar_overlay`.
+        crate::platform::window_style::apartada_de_la_vista(&window, true);
         // Aparcada sigue recibiendo el raton del arrastre que llevara: que lo suelte, o el
         // boton soltado despues de un Escape captura igual (ver `EVENT_OVERLAY_HIDE`).
         let _ = window.emit_to(label.as_str(), crate::EVENT_OVERLAY_HIDE, ());
