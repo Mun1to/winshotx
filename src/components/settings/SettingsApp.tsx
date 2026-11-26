@@ -61,7 +61,7 @@ import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
 const VERSION = __VERSION__;
 
 /** Las filas que en Linux no salen, para que el buscador tampoco las ofrezca. */
-const SOLO_EN_WINDOWS = new Set(["capIconos", "tecImpr", "tecWinS", "tecRecortes"]);
+const SOLO_EN_WINDOWS = new Set(["capIconos", "tecImpr", "tecWinS", "tecRecortes", "tecRecortesWindows"]);
 
 const APARTADO: Record<ApartadoId, (d: DatosAjustes) => React.ReactNode> = {
   capturar: ApartadoCapturar,
@@ -237,6 +237,8 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // monta una vez por sesion. Sin volver a preguntar al reaparecer, el tamanno de la
   // cache se quedaba en el que tenia al arrancar y el boton de vaciar, muerto.
   useEffect(() => {
+    const refrescarTeclas = () => void printScreenState().then(setImprPant).catch(() => {});
+    window.addEventListener("focus", refrescarTeclas);
     refrescar();
     setError(null);
     // Se pregunta una sola vez y en un solo sitio: en Rust la respuesta se consume al
@@ -270,6 +272,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
     return () => {
       void unlisten.then((fn) => fn());
       void unReplay.then((fn) => fn());
+      window.removeEventListener("focus", refrescarTeclas);
     };
   }, [refrescar]);
 
@@ -428,8 +431,9 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
   // lo que solo existe en Windows.
   const hay = useCallback(
     (id: string) =>
+      !(imprPant?.screenclip && (id === "tecRecortes" || (id === "tecImpr" && !settings?.printScreenCapture) || (id === "tecWinS" && !settings?.takeWinShiftS))) &&
       (id !== "ultPantalla" || (pantallas.length > 1 && !enWayland)) && !(enLinux && SOLO_EN_WINDOWS.has(id)),
-    [pantallas, enLinux, enWayland],
+    [pantallas, enLinux, enWayland, imprPant, settings],
   );
 
   // Hasta saber dónde corre no se pinta nada: en Linux se verían un instante las teclas de Windows.
@@ -533,6 +537,7 @@ export function SettingsApp({ onVerBienvenida, arrancarTour = false }: SettingsA
                     >
                       <p className="mb-4 text-[15px] font-bold text-titulo">{t("Así va a salir")}</p>
                       <VistaPrevia
+                        imprPant={imprPant}
                         apartado={seccion}
                         settings={settings}
                         replay={replay}

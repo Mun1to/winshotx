@@ -39,7 +39,7 @@ export type Language = "sistema" | "es" | "en" | "zh";
  * Con que se abrio el overlay: el mismo sirve para capturar, para grabar y para capturar
  * llevando la foto derecha al editor.
  */
-export type OverlayIntent = "capture" | "record" | "edit";
+export type OverlayIntent = "capture" | "record" | "edit" | "capturarWindows" | "grabarWindows";
 
 /** Que se hara con el recorte. Se elige en la barra de arriba, antes de recortar. */
 export type CaptureMode = "still" | "video" | "gif";
@@ -359,6 +359,7 @@ export interface ExportResult {
   copied: boolean;
   /** Por qué no se pudo copiar, si se pidió copiar y no salió. */
   copyError: string | null;
+  errorEditorExterno?: string;
   elapsedMs: number;
 }
 
@@ -384,6 +385,8 @@ export interface Settings {
   saveDirectory: string;
   copyAfterCapture: boolean;
   openEditorAfterRecording: boolean;
+  editorExterno: string | null;
+  argumentosEditorExterno: string;
   captureCursor: boolean;
   recordAudio: boolean;
   /** Grabar también la voz por el micrófono. */
@@ -573,6 +576,8 @@ export interface ReplayStatus {
 }
 
 export interface PrintScreenState {
+  screenclip?: boolean;
+  porEncargo?: boolean;
   /** winshotx ha pedido la tecla. */
   enabled: boolean;
   /** Y Windows se la ha dado de verdad. */

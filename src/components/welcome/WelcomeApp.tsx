@@ -37,6 +37,7 @@ import { ShortcutField } from "../settings/ShortcutField";
 import { RowButton } from "../settings/Section";
 import { EjemploDeSway, OrdenDelAtajo, TeclaPuesta } from "../settings/TeclaDelEscritorio";
 import { usePlataforma, useTeclasDelEscritorio } from "../../lib/plataforma";
+import { TeclasNativas } from "../settings/TeclasNativas";
 import { Marca } from "../ui/Marca";
 import { Segmented } from "../ui/Segmented";
 import { Switch } from "../ui/Switch";
@@ -78,6 +79,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   const t = useT();
   const [paso, setPaso] = useState(0);
   const [ajustes, setAjustes] = useState<Settings | null>(null);
+  const [teclasLeidas, setTeclasLeidas] = useState(false);
   const [imprPant, setImprPant] = useState<PrintScreenState | null>(null);
   const [atajos, setAtajos] = useState<ShortcutStatus>({
     capture: true,
@@ -98,8 +100,10 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
   const delEscritorio = useTeclasDelEscritorio(enWayland);
   const teclas =
     delEscritorio && sinVentanaDeTeclas ? { ...delEscritorio, aMano: true } : delEscritorio;
-  const pasos = enLinux ? PASOS_EN_LINUX : PASOS;
-  const nombre = pasos[paso];
+  const nativo = !enLinux && imprPant?.screenclip === true;
+  const pasos = nativo ? ["Tus teclas", "Impr Pant"] : enLinux ? PASOS_EN_LINUX : PASOS;
+  const pasoActual = Math.min(paso, pasos.length - 1);
+  const nombre = pasos[pasoActual];
   const cambiarTeclas = useCallback(() => {
     void cambiarTeclasEnElEscritorio().catch(() => setSinVentanaDeTeclas(true));
   }, []);
@@ -109,9 +113,16 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
     void shortcutStatus().then(setAtajos);
     // Lo que hay hoy, para que la opcion elegida del paso 3 sea la de verdad. Si no se
     // puede saber, se queda como Windows la trae: la tecla abre la Herramienta de Recortes.
-    void printScreenState()
-      .then(setImprPant)
-      .catch(() => undefined);
+    let consulta = 0;
+    const refrescarTeclas = () => {
+      const turno = ++consulta;
+      void printScreenState()
+        .then((estado) => { if (consulta === turno) setImprPant(estado); })
+        .catch(() => {})
+        .finally(() => { if (consulta === turno) setTeclasLeidas(true); });
+    };
+    refrescarTeclas();
+    window.addEventListener("focus", refrescarTeclas);
     // Ahora winshotx tiene el foco, y es el unico momento en que GNOME deja preguntar por el
     // permiso de capturas: desde un atajo no sale el dialogo. Fuera de Wayland no hace nada.
     let conPermiso = false;
@@ -139,6 +150,8 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
       if (!conPermiso) pedirPermiso();
     });
     return () => {
+      consulta++;
+      window.removeEventListener("focus", refrescarTeclas);
       void cambios.then((quitar) => quitar());
     };
   }, []);
@@ -174,20 +187,25 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
     [ocupado],
   );
 
-  const terminar = useCallback(() => {
-    setAjustes((previo) => {
-      if (previo) void setSettings({ ...previo, onboarded: true }).catch(() => undefined);
-      return previo;
-    });
-    onDone();
-  }, [onDone]);
+  const terminar = async () => {
+    if (!ajustes || ocupado) return;
+    setOcupado(true);
+    try {
+      await setSettings({ ...ajustes, onboarded: true });
+      onDone();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setOcupado(false);
+    }
+  };
 
   // Hasta saber dónde corre no se pinta nada: en Linux se vería un instante el paso de Impr Pant.
-  if (!ajustes || !donde) {
+  if (!ajustes || !donde || (!enLinux && !teclasLeidas)) {
     return <div className="h-full bg-lienzo" />;
   }
 
-  const ultimo = paso === pasos.length - 1;
+  const ultimo = pasoActual === pasos.length - 1;
 
   return (
     <div className="flex h-full flex-col bg-lienzo text-texto">
@@ -203,9 +221,9 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
               key={cual}
               type="button"
               onClick={() => setPaso(i)}
-              aria-current={i === paso ? "step" : undefined}
+              aria-current={i === pasoActual ? "step" : undefined}
               className={`-mb-px border-b-[3px] pt-[3px] text-[14px] font-semibold whitespace-nowrap transition-colors ${
-                i === paso
+                i === pasoActual
                   ? "border-marca text-titulo"
                   : "border-transparent text-apagado hover:text-titulo"
               }`}
@@ -227,7 +245,18 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
             exit={{ opacity: 0, x: -14 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
           >
-            {nombre === "Tus teclas" && (
+            {nativo && (
+              <Paso
+                titulo={t(nombre === "Impr Pant" ? "Impr Pant" : "Tus teclas")}
+                sub={t("Windows abre winshotx al pulsar los atajos de recorte.")}
+                derecha={<Escenario titulo={t("Lo que vas a ver")} dibujo={<DibujoAtajos conBarra={!imprPant?.porEncargo} />} frases={[
+                  t("Arrastra para copiar una captura. Para grabar, selecciona la zona y pulsa Grabar vídeo."),
+                ]} />}
+              >
+                <TeclasNativas estado={imprPant} legado={ajustes.takeWinShiftS} mostrarImprPant={nombre === "Impr Pant"} />
+              </Paso>
+            )}
+            {!nativo && nombre === "Tus teclas" && (
               <Atajos
                 ajustes={ajustes}
                 atajos={atajos}
@@ -244,7 +273,7 @@ export function WelcomeApp({ onDone }: { onDone: () => void }) {
                 onChange={(v) => guardar({ captureFlow: v })}
               />
             )}
-            {nombre === "Impr Pant" && (
+            {!nativo && nombre === "Impr Pant" && (
               <TeclaImprPant estado={imprPant} onElegir={(quiere) => void pedirTecla(quiere)} />
             )}
             {nombre === "Listo" && (

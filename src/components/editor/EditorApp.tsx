@@ -39,7 +39,7 @@ import { CapaEstudio } from "./CapaEstudio";
 import { CapaRecorte } from "./CapaRecorte";
 import { COLORES, COLOR_RESALTADO, escalaDe, seEscala, type Herramienta } from "../../lib/anotaciones";
 import { aplicarCambio, seColorea, SIN_MARCAS } from "../../lib/historialDeMarcas";
-import { ExportPanel } from "./ExportPanel";
+import { ExportPanel, type ExportacionDelEditor } from "./ExportPanel";
 import { LineaDeTiempo } from "./LineaDeTiempo";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { medida as medidaDelRecorte, type Recorte } from "../../lib/recorte";
@@ -250,6 +250,26 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
       })
       .catch((e) => setError(String(e)));
   }, [sessionId]);
+
+  // Si se elige un editor externo con la grabación abierta, el botón aparece al volver.
+  useEffect(() => {
+    let vigente = true;
+    const alVolver = () => {
+      void getSettings().then((frescos) => {
+        if (!vigente || !frescos) return;
+        setSettings((actuales) =>
+          actuales && actuales.editorExterno !== frescos.editorExterno
+            ? { ...actuales, editorExterno: frescos.editorExterno }
+            : actuales,
+        );
+      }).catch(() => {});
+    };
+    window.addEventListener("focus", alVolver);
+    return () => {
+      vigente = false;
+      window.removeEventListener("focus", alVolver);
+    };
+  }, []);
 
   // Lo anotado al grabar se pide una vez: no cambia. Sin ello la capa no dibuja nada.
   useEffect(() => {
@@ -613,9 +633,18 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
    * el marco de Windows: su X, Alt+F4 y el menu de la barra de tareas pasan todos por
    * aqui, y colgarlo de un boton dibujado dejaria la carpeta llena en los otros tres.
    */
+  const actividad = useRef<ExportacionDelEditor>({ pendiente: null, cerrando: false });
   const cerrar = useCallback(async () => {
-    if (session) await discardSession(session.id);
-    await getCurrentWindow().destroy();
+    if (actividad.current.cerrando) return;
+    actividad.current.cerrando = true;
+    try {
+      await actividad.current.pendiente;
+      if (session) await discardSession(session.id);
+      await getCurrentWindow().destroy();
+    } catch (e) {
+      actividad.current.cerrando = false;
+      setError(String(e));
+    }
   }, [session]);
 
   useEffect(() => {
@@ -1265,6 +1294,8 @@ export function EditorApp({ sessionId }: { sessionId: string }) {
           fpsMax={Math.max(15, session.fps)}
           hasFfmpeg={hasFfmpeg}
           saveDirectory={settings.saveDirectory}
+          actividad={actividad.current}
+          editorExterno={settings.editorExterno}
           onEstudio={setEstudio}
           edicion={edicion}
           onEdicion={(cambio) => setEdicion((antes) => ({ ...antes, ...cambio }))}

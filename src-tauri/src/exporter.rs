@@ -117,6 +117,8 @@ pub struct ExportResult {
     pub copied: bool,
     /// Por que no se pudo copiar, si se pidio copiar y no salio.
     pub copy_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_editor_externo: Option<String>,
     pub elapsed_ms: u64,
 }
 
@@ -809,7 +811,18 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
         );
     };
 
-    escribir(&session, &request, &path, &emit)?;
+    let path = if request.file.as_deref().is_some_and(|f| !f.trim().is_empty()) {
+        escribir(&session, &request, &path, &emit)?;
+        path
+    } else {
+        // Dos editores pueden calcular el mismo nombre antes de acabar de codificar.
+        // Se publica el archivo terminado en el mismo volumen, sin pisar el del otro.
+        let dir = path.parent().unwrap_or(Path::new("."));
+        let temporal = tempfile::tempdir_in(dir)?;
+        let archivo = temporal.path().join(format!("export.{extension}"));
+        escribir(&session, &request, &archivo, &emit)?;
+        publicar_exportacion(archivo, path, extension)?
+    };
     // S26: si es una foto de la carpeta de capturas, su texto se lee ya para el historial.
     crate::historial_texto::avisar(app);
 
@@ -833,8 +846,43 @@ pub fn export(app: &AppHandle, request: ExportRequest) -> Result<ExportResult> {
         bytes,
         copied,
         copy_error,
+        error_editor_externo: None,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
+}
+
+fn publicar_exportacion(archivo: PathBuf, mut destino: PathBuf, extension: &str) -> Result<PathBuf> {
+    let mut temporal = tempfile::TempPath::try_from_path(archivo)?;
+    loop {
+        match temporal.persist_noclobber(&destino) {
+            Ok(()) => return Ok(destino),
+            Err(e) if e.error.kind() == std::io::ErrorKind::AlreadyExists => {
+                temporal = e.path;
+                destino = crate::archivos::destino(destino.parent().unwrap_or(Path::new(".")), extension)?;
+            }
+            Err(e) => return Err(e.error.into()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod publicacion {
+    use super::*;
+
+    #[test]
+    fn dos_exportaciones_que_eligieron_el_mismo_nombre_conservan_su_contenido() {
+        let dir = tempfile::tempdir().unwrap();
+        let destino = dir.path().join("winshotx.mp4");
+        let uno = dir.path().join("uno.tmp");
+        let dos = dir.path().join("dos.tmp");
+        std::fs::write(&uno, b"primera").unwrap();
+        std::fs::write(&dos, b"segunda").unwrap();
+        let a = publicar_exportacion(uno, destino.clone(), "mp4").unwrap();
+        let b = publicar_exportacion(dos, destino, "mp4").unwrap();
+        assert_ne!(a, b);
+        assert_eq!(std::fs::read(a).unwrap(), b"primera");
+        assert_eq!(std::fs::read(b).unwrap(), b"segunda");
+    }
 }
 
 /// Escribe el archivo de la exportacion en `path`. Es todo lo de exportar que no necesita
@@ -883,11 +931,11 @@ pub(crate) fn escribir(
         "gif" => {
             let pasos = pasos_de(session, request);
             if request.engine == "ffmpeg" && ffmpeg::available() {
-                let temporary = session.dir.join("export-source.mp4");
+                let dir = tempfile::tempdir_in(&session.dir)?;
+                let temporary = dir.path().join("source.mp4");
                 encode_mp4(session, &pasos, &temporary, request, emit)?;
                 emit("encoding", 0, 1);
                 ffmpeg::gif_from_video(&temporary, path, request.fps, ancho_final, request.quality)?;
-                let _ = std::fs::remove_file(&temporary);
             } else {
                 let mut vestidor = Vestidor::nuevo(session, request, &pasos);
                 // La paleta se saca de unos pocos pasos repartidos, leidos cada uno desde su
@@ -948,7 +996,8 @@ pub(crate) fn escribir(
         "mp4" => {
             let pasos = pasos_de(session, request);
             if request.engine == "ffmpeg" && ffmpeg::available() {
-                let temporary = session.dir.join("export-source.mp4");
+                let dir = tempfile::tempdir_in(&session.dir)?;
+                let temporary = dir.path().join("source.mp4");
                 encode_mp4(session, &pasos, &temporary, request, emit)?;
                 emit("encoding", 0, 1);
                 ffmpeg::mp4_from_video(
@@ -959,7 +1008,6 @@ pub(crate) fn escribir(
                     alto_final,
                     request.quality,
                 )?;
-                let _ = std::fs::remove_file(&temporary);
             } else {
                 encode_mp4(session, &pasos, path, request, emit)?;
             }

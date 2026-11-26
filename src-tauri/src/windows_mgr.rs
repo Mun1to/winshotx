@@ -168,13 +168,15 @@ pub enum OverlayIntent {
     /// Capturar y abrir el editor de una vez, sin pasar por la barra de la selección.
     Edit,
     Record,
+    CapturarWindows,
+    GrabarWindows,
 }
 
 impl OverlayIntent {
     /// Si lo que se va a llevar el usuario es una foto, que es lo que decide si el
     /// temporizador tiene sentido y si la barra de modos arranca en «foto».
     pub fn es_foto(self) -> bool {
-        self != Self::Record
+        !matches!(self, Self::Record | Self::GrabarWindows)
     }
 
     /// Si se puede abrir con una grabacion en marcha. Otra grabacion, nunca: el atajo de
@@ -222,9 +224,14 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
     // La espera es solo del atajo de capturar, aunque el overlay sea el mismo. Al grabar,
     // la pantalla congelada es un fondo para elegir la region y no la foto que se lleva
     // nadie: hacer esperar cinco segundos ahi solo seria una espera.
-    let segundos = state.settings.read().capture_delay_seconds;
+    let trabajo = crate::activacion::trabajando(app);
+    let segundos = if intent == OverlayIntent::CapturarWindows {
+        0
+    } else {
+        state.settings.read().capture_delay_seconds
+    };
     if segundos == 0 || !intent.es_foto() {
-        return congelar_y_abrir(app, candado);
+        return congelar_y_abrir(app, candado, trabajo);
     }
 
     // **El temporizador no puede dormir aqui.** Esta funcion la llama el manejador del
@@ -253,7 +260,7 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
         std::thread::sleep(MARGEN_REPINTADO);
         let seguir = espera.clone();
         let _ = espera.run_on_main_thread(move || {
-            if let Err(error) = congelar_y_abrir(&seguir, candado) {
+            if let Err(error) = congelar_y_abrir(&seguir, candado, trabajo) {
                 eprintln!("no se ha podido abrir el overlay: {error}");
             }
         });
@@ -274,7 +281,11 @@ pub fn open_overlays(app: &AppHandle, intent: OverlayIntent) -> Result<()> {
 ///
 /// El candado entra por parametro y se suelta al terminar: con el temporizador puesto se
 /// cogio hace tres segundos, en otro hilo, y no se puede volver a pedir aqui.
-fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
+fn congelar_y_abrir(
+    app: &AppHandle,
+    candado: CandadoCaptura,
+    trabajo: Option<crate::activacion::Trabajo>,
+) -> Result<()> {
     let state = app.state::<AppState>();
 
     // El anillo de los ultimos segundos se aparta mientras dura esto, y vuelve solo cuando
@@ -381,6 +392,9 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
             }
             let dentro = app.clone();
             let _ = app.run_on_main_thread(move || {
+                if generacion_actual() != generacion {
+                    return;
+                }
                 let state = dentro.state::<AppState>();
                 for monitor in &monitores {
                     if let Err(error) = preparar_overlay(&dentro, &state, monitor) {
@@ -392,6 +406,7 @@ fn congelar_y_abrir(app: &AppHandle, candado: CandadoCaptura) -> Result<()> {
         drop(iconos);
         drop(anillo);
         drop(candado);
+        drop(trabajo);
 
         // Si alguna no avisa a tiempo, se ensenna igual: mejor ver la pantalla de error del
         // overlay, con su Escape, que quedarse sin nada tras pulsar el atajo.
@@ -876,6 +891,17 @@ pub fn close_overlays(app: &AppHandle) {
         pendientes.generacion += 1;
         pendientes.ventanas.clear();
         pendientes.sin_pintar.clear();
+    }
+    if crate::activacion::es_por_encargo(app) {
+        for (label, window) in app.webview_windows() {
+            if label.starts_with(OVERLAY_PREFIX) {
+                // Fuera de la pantalla desde ya, aunque Destroyed llegue en el siguiente ciclo.
+                let _ = window.hide();
+                let _ = window.destroy();
+            }
+        }
+        crate::activacion::salir_si_termino(app);
+        return;
     }
     let monitores = capture::monitors().unwrap_or_default();
     for (label, window) in app.webview_windows() {

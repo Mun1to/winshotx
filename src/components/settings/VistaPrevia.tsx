@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 
 import type { ReplayStatus, Settings, SonidoDisponible, TeclasDelEscritorio } from "../../lib/types";
 import { FONDOS } from "../../lib/fondos";
-import { partesDeAtajo } from "../../lib/teclas";
+import { CAPTURA_WINDOWS, GRABACION_WINDOWS, partesDeAtajo } from "../../lib/teclas";
 import { useT } from "../../lib/i18n";
 import type { ApartadoId } from "./mapaDeAjustes";
 
@@ -507,6 +507,7 @@ function App({ s, enLinux }: { s: Settings; enLinux: boolean }) {
 export function VistaPrevia({
   apartado,
   settings,
+  imprPant,
   enLinux = false,
   enWayland = false,
   sonido = null,
@@ -517,6 +518,7 @@ export function VistaPrevia({
 }: {
   apartado: ApartadoId;
   settings: Settings;
+  imprPant?: import("../../lib/types").PrintScreenState | null;
   /** S21 (Linux): las frases que hablan de Windows hablan allí del sistema. */
   enLinux?: boolean;
   /** S44 (Linux): en Wayland no hay barra de grabar, y el dibujo de Grabar no la pinta. */
@@ -535,17 +537,24 @@ export function VistaPrevia({
   const wayland: TeclasEnWayland | null = enWayland
     ? { delEscritorio: teclasDelEscritorio, aMano: teclasAMano, orden: ordenDeLaApp }
     : null;
+  const t = useT();
+  const vista = imprPant?.screenclip ? {
+    ...settings, captureShortcut: CAPTURA_WINDOWS, recordShortcut: GRABACION_WINDOWS,
+    captureDelaySeconds: 0, captureFlow: "instant" as const,
+  } : settings;
   switch (apartado) {
     case "capturar":
-      return <Capturar s={settings} wayland={wayland} />;
+      return <Capturar s={vista} wayland={wayland} />;
     case "despues":
-      return <Despues s={settings} />;
+      return <Despues s={vista} />;
     case "grabar":
-      return <Grabar s={settings} hay={sonido} conBarra={!enWayland} wayland={wayland} />;
+      return <Grabar s={vista} hay={sonido} conBarra={!enWayland} wayland={wayland} />;
     case "ultimos":
       return <Ultimos s={settings} wayland={wayland} encendido={replay?.running ?? settings.replayEnabled} />;
     case "teclas":
-      return <Teclas s={settings} />;
+      return imprPant?.screenclip
+        ? <Frases lineas={[t("Windows abre winshotx al pulsar los atajos de recorte."), t("Arrastra para copiar una captura. Para grabar, selecciona la zona y pulsa Grabar vídeo.")]} />
+        : <Teclas s={settings} />;
     case "app":
       return <App s={settings} enLinux={enLinux} />;
     default:

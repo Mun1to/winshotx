@@ -152,8 +152,8 @@ export const tapaDatos = (sessionId: string, index: number) =>
 export const frameImage = (sessionId: string, index: number) =>
   invoke<string>("frame_image", { sessionId, index });
 
-export const exportMedia = (request: ExportRequest) =>
-  invoke<ExportResult>("export_media", { request });
+export const exportMedia = (request: ExportRequest, abrirEditorExterno = false) =>
+  invoke<ExportResult>("export_media", abrirEditorExterno ? { request, abrirEditorExterno } : { request });
 
 export const ffmpegAvailable = () => invoke<boolean>("ffmpeg_available");
 
@@ -179,6 +179,8 @@ export const setCaptureFlow = (flow: CaptureFlow) =>
 export const openSettings = () => invoke<void>("open_settings");
 
 export const pickDirectory = () => invoke<string | null>("pick_directory");
+
+export const elegirEditorExterno = () => invoke<string | null>("elegir_editor_externo");
 
 /** El diálogo de «Guardar como» de Windows: carpeta y nombre de una vez, o null si se cancela. */
 export const pickSaveFile = (extension: string, directory?: string | null) =>
@@ -280,6 +282,8 @@ export const useWinShiftS = (enabled: boolean) =>
 
 /** Hace que el escritorio relea la lista de teclas apagadas, sin cerrar sesión. */
 export const restartShell = () => invoke<ShortcutStatus>("restart_shell");
+
+export const configurarRecortesDeWindows = () => invoke<void>("configurar_recortes_de_windows");
 
 export const quitApp = () => invoke<void>("quit_app");
 

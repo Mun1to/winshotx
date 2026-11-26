@@ -32,6 +32,7 @@ function pintar(
   session: Partial<SessionInfo> = {},
   recorte: Recorte | null = null,
   tramo: { desdeMs?: number; hastaMs?: number } = {},
+  editorExterno?: string,
 ) {
   return render(
     <ExportPanel
@@ -45,6 +46,7 @@ function pintar(
       fpsMax={60}
       hasFfmpeg={false}
       saveDirectory="C:\\capturas"
+      editorExterno={editorExterno}
       onRecorte={alRecorte}
     />,
   );
@@ -137,6 +139,38 @@ describe("elegir el formato", () => {
     expect(screen.getByText("Vídeo con sonido. Se abre en cualquier sitio.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "GIF" }));
     expect(screen.getByText(/Se repite solo y sin sonido/)).toBeInTheDocument();
+  });
+});
+
+describe("abrir en editor externo", () => {
+  const nombre = "Abrir en editor externo";
+  const editor = "C:\\Mis programas\\editor.exe";
+
+  it("solo se ofrece con un editor configurado y el formato MP4", () => {
+    const { unmount } = pintar();
+    expect(screen.queryByRole("button", { name: nombre })).toBeNull();
+    unmount();
+    pintar({}, null, {}, editor);
+    expect(screen.getByRole("button", { name: nombre })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "GIF" }));
+    expect(screen.queryByRole("button", { name: nombre })).toBeNull();
+  });
+
+  it("pide exportar el tramo y conserva el acceso al MP4 si falla el editor", async () => {
+    responde("export_media", {
+      path: "C:\\capturas\\vídeo.mp4",
+      bytes: 1024,
+      copied: false,
+      errorEditorExterno: "Acceso denegado",
+    });
+    pintar({}, null, { desdeMs: 300, hastaMs: 1600 }, editor);
+    fireEvent.click(screen.getByRole("button", { name: nombre }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Acceso denegado");
+    expect(screen.getByRole("button", { name: /abrir carpeta/ })).toBeInTheDocument();
+    expect(llamadas.find((l) => l.comando === "export_media")?.args).toMatchObject({
+      abrirEditorExterno: true,
+      request: { format: "mp4", desdeMs: 300, hastaMs: 1600, copyToClipboard: false },
+    });
   });
 });
 

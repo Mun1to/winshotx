@@ -685,7 +685,8 @@ export function SelectionCanvas({ monitorId }: { monitorId: number }) {
         .catch(() => {});
       // Quien pulsa el atajo de grabar quiere grabar: la barra abre en vídeo y ya.
       grabandoRef.current = data.recording ?? false;
-      setModo(data.intent === "record" && !data.recording ? "video" : "still");
+      const grabar = data.intent === "record" || data.intent === "grabarWindows";
+      setModo(grabar && !data.recording ? "video" : "still");
       setConBarra(data.settings.captureFlow === "toolbar");
       void getCurrentWindow().setFocus();
 

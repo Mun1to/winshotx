@@ -42,6 +42,8 @@ const AJUSTES: Settings = {
   saveDirectory: "C:\\Users\\prueba\\Pictures\\winshotx",
   copyAfterCapture: true,
   openEditorAfterRecording: true,
+  editorExterno: null,
+  argumentosEditorExterno: "",
   captureCursor: false,
   recordAudio: true,
   recordMicrophone: false,
@@ -499,6 +501,19 @@ describe("el dibujo de cada apartado", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Grabar también la cámara" }));
     await waitFor(() => expect(dibujo()?.querySelector('[data-dibujo="camara"]')).not.toBeNull());
     expect(dibujo()?.textContent).toContain("Con tu cámara en una esquina");
+  });
+
+  it("al volver de Aplicaciones predeterminadas, los tres apartados muestran las teclas del shell", async () => {
+    await abrirAjustes();
+    responde("print_screen_state", { enabled: false, active: false, takenByWindows: true, storeBuild: false, screenclip: true, porEncargo: true });
+    fireEvent.focus(window);
+    await waitFor(() => expect(dibujo()).toHaveTextContent("Win + Shift + S"));
+    ir("Grabar");
+    expect(dibujo()).toHaveTextContent("Win + Shift + R");
+    ir("Teclas de Windows");
+    expect(screen.getByText("Win + Shift + S")).toBeVisible();
+    expect(screen.getByText("Win + Shift + R")).toBeVisible();
+    expect(screen.queryByText("cuesta Win+S, la búsqueda")).toBeNull();
   });
 
   it("en Teclas, Impr Pant se ilumina al dársela a winshotx", async () => {

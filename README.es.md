@@ -48,13 +48,32 @@ Pulsa <kbd>Ctrl</kbd> + <kbd>Mayús</kbd> + <kbd>2</kbd> y la pantalla se congel
 - `F`, `G` y `V` eligen qué sale antes de recortar: foto, GIF o vídeo.
 - `S` saca una **página larga**, bajando sola. `X` fija el recorte a 16:9, 1:1, 9:16 o 4:3.
 - Sin barra, si lo prefieres: la captura va directa al portapapeles. La bienvenida lo pregunta la primera vez.
-- ¿Prefieres pulsar **Impr Pant** o **Win + Mayús + S**? **Ajustes > Teclas de Windows** se las quita a la Herramienta de Recortes, y se las devuelve.
+- Cambia **Impr Pant** y los atajos de recorte en **Ajustes → Teclas de Windows**.
+
+#### Usa los atajos de recorte de Windows
+
+Instala winshotx con el instalador de Windows y elige **winshotx** para **MS-SCREENCLIP** en **Aplicaciones predeterminadas**. El instalador ofrece abrir esa página. También está en **Ajustes → Teclas de Windows → Aplicaciones predeterminadas**.
+
+- **Win+Mayús+S** abre la selección de captura y copia el recorte al soltar.
+- **Win+Mayús+R** abre la selección de vídeo. Selecciona una zona y pulsa **Grabar**.
+
+Windows arranca winshotx al pulsar cualquiera de los dos atajos. La sesión termina cuando se cierra la última captura, el editor o la vista previa. La elección se conserva al volver a iniciar sesión. Si usabas la opción antigua de Win+Mayús+S, apágala y vuelve a iniciar sesión para devolver el atajo al Explorador. Para volver a la Herramienta de Recortes, elígela para **MS-SCREENCLIP**.
 
 ### Graba, y luego edita con un estudio
 
 <p align="center"><img src="frontlaxweb/img/editor-es.webp" alt="El editor de winshotx: una captura sobre el fondo azul Océano con esquinas redondeadas y sombra, la línea de tiempo debajo y el panel del Estudio a la derecha"></p>
 
 Graba una zona, una pantalla entera o **una sola ventana**, aunque algo la tape. El sonido del PC y el micrófono van **cada uno en su pista**, y tu cámara puede ir encima. El editor recorta en una línea de tiempo, **se acerca a cada clic** y pone fondo, esquinas redondeadas, sombra y un puntero suave, todo **a la vista** antes de exportar a MP4 o GIF.
+
+Para enviar una grabación editada a otro programa, elige su ejecutable en **Ajustes → Grabar → Editor de vídeo externo**. En el estudio, selecciona **MP4** y pulsa **Abrir en editor externo**. winshotx guarda la exportación en la carpeta elegida y después la abre.
+
+Puedes escribir un argumento por línea. Usa `{file}` donde el programa espera la ruta del archivo, u omítelo para añadir la ruta al final. Una ruta con espacios sigue siendo un argumento. Por ejemplo, para abrir el editor de corte de Tuck, elige `Tuck.exe` y escribe lo siguiente.
+
+```text
+--sendto-task
+cut
+{file}
+```
 
 ### Unos ajustes que enseñan lo que hacen
 

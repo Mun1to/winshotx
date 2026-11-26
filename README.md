@@ -48,13 +48,32 @@ Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>2</kbd> and the screen freezes, 
 - `F`, `G` and `V` choose what comes out before you crop: photo, GIF or video.
 - `S` takes a **long page**, scrolling it by itself. `X` locks the crop to 16:9, 1:1, 9:16 or 4:3.
 - No bar if you prefer: the shot goes straight to the clipboard. The welcome asks on the first run.
-- Would you rather press **Print Screen** or **Win + Shift + S**? **Settings > Windows keys** takes them from the Snipping Tool, and gives them back.
+- Change **Print Screen** and the Windows snipping shortcuts in **Settings → Windows keys**.
+
+#### Use the Windows snipping shortcuts
+
+Install with the Windows installer and choose **winshotx** for **MS-SCREENCLIP** in Windows **Default apps**. The installer offers to open that page. You can also open it from **Settings → Windows keys → Default apps**.
+
+- **Win+Shift+S** opens screenshot selection and copies the snip when you release the selection.
+- **Win+Shift+R** opens video selection. Choose the region and press **Record**.
+
+Windows launches winshotx when you press either shortcut. A shortcut-launched session exits when its last capture, editor, or preview closes. This setup persists across sign-ins. If you used the legacy Win+Shift+S takeover, turn it off and sign in again to restore the shell shortcut. To switch back, select Microsoft's Snipping Tool for **MS-SCREENCLIP** in Default apps.
 
 ### Record, then edit with a studio
 
 <p align="center"><img src="frontlaxweb/img/editor-en.webp" alt="The winshotx editor: a screenshot on the blue Ocean background with rounded corners and a shadow, the timeline below and the Studio panel on the right"></p>
 
 Record a region, a whole screen or **one window**, even when something covers it. System sound and the microphone go **each on its own track**, and your webcam can go on top. The editor trims on a timeline, **zooms in on every click**, and adds a background, rounded corners, a shadow and a smooth pointer, all of it **shown live** before you export to MP4 or GIF.
+
+To send an edited recording to another program, choose its executable under **Settings → Record → External video editor**. In the studio, select **MP4** and click **Open in external editor**. winshotx saves the export in the selected folder and then opens it.
+
+Enter optional arguments one per line. Use `{file}` wherever the program expects the exported file path, or leave it out to append the path automatically. Paths containing spaces stay in a single argument. For Tuck's cut editor, choose `Tuck.exe` and use the arguments below.
+
+```text
+--sendto-task
+cut
+{file}
+```
 
 ### Settings that show what they do
 

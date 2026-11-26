@@ -1,6 +1,7 @@
 pub mod archivos;
 pub mod capture;
 pub(crate) mod commands;
+mod editor_externo;
 pub mod contrato;
 pub mod crono;
 pub mod encode;
@@ -42,6 +43,9 @@ mod sonidos;
 mod agente;
 // S22 (abrir a mano)
 mod arranque;
+mod activacion;
+#[cfg(windows)]
+mod screenclip;
 // S26 (buscar en el historial)
 mod historial_texto;
 // Las teclas de Windows: quitárselas y devolvérselas (también al desinstalar).
@@ -197,6 +201,20 @@ pub fn run() {
     if let Some(codigo) = teclas_windows::desde_la_linea_de_ordenes() {
         std::process::exit(codigo);
     }
+    let argumentos: Vec<String> = std::env::args().skip(1).collect();
+    #[cfg(windows)]
+    let atajo_del_shell = match screenclip::solicitud(&argumentos) {
+        Some(screenclip::Solicitud::Recortar(intent)) => Some(intent),
+        Some(screenclip::Solicitud::OtroEnlace(enlace)) => {
+            if let Err(error) = screenclip::reenviar(enlace) {
+                eprintln!("[ms-screenclip] {error}");
+                std::process::exit(1);
+            }
+            return;
+        }
+        Some(screenclip::Solicitud::Invalida) => std::process::exit(2),
+        None => None,
+    };
     // Antes que nada, y antes de crear una sola ventana: sin WebView2 la ventana se abriria
     // igual y dentro saldria la pagina de error del navegador, que no dice ni que ha pasado
     // ni que hacer. Es por lo que la Microsoft Store rechazo el envio el 1 de septiembre de
@@ -216,14 +234,25 @@ pub fn run() {
     // Quien ha arrancado este proceso, para saber si se abren los ajustes (ver `arranque`).
     // El aviso del agente se mira aqui, antes de abrir su tuberia: hasta que la tuberia
     // exista, el agente no puede haber conectado ni haberlo quitado.
-    let argumentos: Vec<String> = std::env::args().skip(1).collect();
     let lo_arranca_un_agente = agente::cliente::la_esta_arrancando_un_agente();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(windows)]
+    let builder = builder.manage(parking_lot::Mutex::new(screenclip::Inicio::Pendiente(
+        atajo_del_shell.map(screenclip::Orden::Mostrar),
+    )));
+    builder
         // Tiene que ir la primera: si ya hay un winshotx vivo, esta instancia se
         // cierra y le pasa el testigo, en vez de robarle los atajos globales.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             crono::marca("segunda-instancia");
+            #[cfg(windows)]
+            if let Some(screenclip::Solicitud::Recortar(intent)) =
+                screenclip::solicitud(args.get(1..).unwrap_or_default())
+            {
+                screenclip::recibir(app, screenclip::Orden::Mostrar(intent));
+                return;
+            }
             // Una segunda instancia con `--capture` es la forma de disparar una captura
             // desde fuera (un guion, otra herramienta, el cronometro, el atajo puesto a mano
             // en Sway), `--edit` la de capturar y abrir el editor, y `--cancel` la cierra. Abierta a
@@ -249,6 +278,9 @@ pub fn run() {
                 return;
             }
             if args.iter().any(|arg| arg == "--cancel") {
+                #[cfg(windows)]
+                screenclip::recibir(app, screenclip::Orden::Cancelar);
+                #[cfg(not(windows))]
                 windows_mgr::close_overlays(app);
                 return;
             }
@@ -333,6 +365,22 @@ pub fn run() {
             purge_replay(&temp_root);
 
             app.manage(AppState::new(config.clone(), temp_root, recien_actualizado));
+            #[cfg(windows)]
+            {
+                // Abrir un recorte desde el shell nunca requiere bandeja, ni siquiera en
+                // el primer arranque. Los ajustes también salen al cerrarse en este modo.
+                let a_mano = argumentos.is_empty() || argumentos == [arranque::AJUSTES];
+                if !config.start_with_windows && !config.replay_enabled
+                    && (atajo_del_shell.is_some() || (a_mano && !lo_arranca_un_agente && screenclip::es_predeterminado()))
+                {
+                    app.manage(activacion::PorEncargo::default());
+                    agente::arrancar(&handle);
+                    if atajo_del_shell.is_none() {
+                        windows_mgr::show_settings(&handle)?;
+                    }
+                    return Ok(());
+                }
+            }
             // S15 (agente): el canal para agentes de IA, con el estado ya puesto.
             agente::arrancar(&handle);
             // S26 (buscar en el historial): el lector del texto de las fotos, en su hilo.
@@ -417,7 +465,11 @@ pub fn run() {
             // que es el mismo problema: si no, se reinicia y no se ve nada. Y abierta a mano
             // tambien (S22), pero no cuando arranca sola con Windows, desde la Store al
             // iniciar sesion o la arranca un agente. Ver `arranque`.
-            if arranque::ensenar_ajustes(&arranque::Arranque {
+            #[cfg(windows)]
+            let pedido_por_tecla = atajo_del_shell.is_some();
+            #[cfg(not(windows))]
+            let pedido_por_tecla = false;
+            if !pedido_por_tecla && arranque::ensenar_ajustes(&arranque::Arranque {
                 argumentos: &argumentos,
                 onboarded: config.onboarded,
                 recien_actualizado,
@@ -446,6 +498,7 @@ pub fn run() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                    activacion::salir_si_termino(window.app_handle());
                 }
             }
         })
@@ -484,6 +537,7 @@ pub fn run() {
             commands::set_capture_flow,
             commands::open_settings,
             commands::pick_directory,
+            commands::elegir_editor_externo,
             commands::pick_save_file,
             commands::reveal_in_explorer,
             commands::discard_session,
@@ -507,6 +561,7 @@ pub fn run() {
             commands::print_screen_state,
             commands::use_print_screen,
             commands::use_win_shift_s,
+            commands::configurar_recortes_de_windows,
             commands::restart_shell,
             commands::open_folder,
             commands::open_url,
@@ -560,15 +615,23 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("no se ha podido construir la aplicacion")
-        .run(|_app, event| {
+        .run(|app, event| {
             if let RunEvent::Ready = event {
                 crono::marca("bucle");
+                #[cfg(windows)]
+                {
+                    let orden = app.state::<parking_lot::Mutex<screenclip::Inicio>>().lock().listo();
+                    screenclip::entregar(app, orden);
+                }
             }
-            if let RunEvent::ExitRequested { api, code, .. } = event {
+            if let RunEvent::ExitRequested { ref api, code, .. } = event {
                 // Sin ventanas abiertas la app sigue en la bandeja, salvo que se pida salir.
                 if code.is_none() {
                     api.prevent_exit();
                 }
+            }
+            if let RunEvent::WindowEvent { event: WindowEvent::Destroyed, .. } = event {
+                activacion::salir_si_termino(app);
             }
         });
 }

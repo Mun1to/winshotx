@@ -109,9 +109,11 @@ pub fn despues_de_capturar(app: &AppHandle, imagen: &RgbaImage, region: Rect, gu
     if !activa {
         return;
     }
+    let trabajo = crate::activacion::trabajando(app);
     let app = app.clone();
     let imagen = imagen.clone();
     std::thread::spawn(move || {
+        let _trabajo = trabajo;
         if let Err(e) = preparar(&app, &imagen, region, guardada) {
             eprintln!("[winshotx] la miniatura no ha salido: {e}");
             return;
@@ -368,7 +370,13 @@ fn ensennar(app: &AppHandle, segundos: u32) {
         PILA.lock().clear();
     }
     let cuantas = PILA.lock().len();
-    let Ok(window) = ventana(app) else { return };
+    let Ok(window) = ventana(app) else {
+        if crate::activacion::es_por_encargo(app) {
+            PILA.lock().clear();
+            crate::activacion::salir_si_termino(app);
+        }
+        return;
+    };
     let _ = app.emit_to(ETIQUETA, EVENTO, vista_de_la_pila(segundos));
     let hwnd = VENTANA.load(Ordering::Relaxed);
     if cuantas == 0 {
@@ -378,6 +386,7 @@ fn ensennar(app: &AppHandle, segundos: u32) {
             crate::platform::window_style::esconder_hwnd(hwnd);
         }
         let _ = window.hide();
+        crate::activacion::salir_si_termino(app);
         return;
     }
     // Con la pagina aun cargando, se ensenna cuando avise (`miniaturas_lista`).
@@ -410,6 +419,10 @@ fn ensennar(app: &AppHandle, segundos: u32) {
         let _ = window.set_position(PhysicalPosition::new(x, y));
         let _ = window.show();
     }
+}
+
+pub(crate) fn hay_miniaturas() -> bool {
+    !PILA.lock().is_empty()
 }
 
 fn quitar(app: &AppHandle, id: u64) {

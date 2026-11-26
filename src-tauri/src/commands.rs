@@ -57,12 +57,19 @@ pub fn build_overlay_payload(state: &AppState, monitor_id: u32) -> Result<Overla
     let monitores = capture::monitors()
         .unwrap_or_else(|_| freezes.iter().map(|f| f.monitor.clone()).collect());
 
+    let intent = *state.intent.read();
+    let mut settings = state.settings.read().clone();
+    match intent {
+        windows_mgr::OverlayIntent::CapturarWindows => settings.capture_flow = crate::settings::CaptureFlow::Instant,
+        windows_mgr::OverlayIntent::GrabarWindows => settings.capture_flow = crate::settings::CaptureFlow::Toolbar,
+        _ => {}
+    }
     Ok(OverlayPayload {
         monitor: freeze.monitor.clone(),
         generation: windows_mgr::generacion_actual(),
         windows: capture::window_rects(),
-        settings: state.settings.read().clone(),
-        intent: *state.intent.read(),
+        settings,
+        intent,
         // El id es el indice del monitor en la enumeracion del sistema, asi que el numero
         // que se pinta en cada pantalla es siempre el mismo entre disparo y disparo, aunque
         // las capturas lleguen en dos tandas (primero la del raton) y `freezes` no este
@@ -191,6 +198,7 @@ fn entregar(
     region: Rect,
     action: &str,
 ) -> Result<StillResult> {
+    let _trabajo = crate::activacion::trabajando(app);
     let state = app.state::<AppState>();
     // S4 (capturas): el fondo de las capturas (E1), en lo que se copia y se guarda.
     let marco_capturas = {
@@ -851,8 +859,32 @@ fn caja_de(
 }
 
 #[tauri::command]
-pub async fn export_media(app: AppHandle, request: ExportRequest) -> Result<ExportResult> {
-    exporter::export(&app, request)
+pub async fn export_media(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    request: ExportRequest,
+    abrir_editor_externo: Option<bool>,
+) -> Result<ExportResult> {
+    let _trabajo = crate::activacion::trabajando(&app);
+    if abrir_editor_externo != Some(true) {
+        return exporter::export(&app, request);
+    }
+    if !window.label().starts_with(windows_mgr::EDITOR_LABEL) || request.format != "mp4" {
+        return Err("Solo se pueden abrir archivos MP4 desde el editor.".into());
+    }
+    let (comando, argumentos) = {
+        let state = app.state::<AppState>();
+        let settings = state.settings.read();
+        (
+            crate::editor_externo::preparar(settings.editor_externo.as_deref())?,
+            settings.argumentos_editor_externo.clone(),
+        )
+    };
+    let mut resultado = exporter::export(&app, request)?;
+    resultado.error_editor_externo = crate::editor_externo::abrir(comando, &argumentos, &resultado.path)
+        .err()
+        .map(|error| error.to_string());
+    Ok(resultado)
 }
 
 #[tauri::command]
@@ -1204,6 +1236,8 @@ pub struct PrintScreenState {
     /// La Herramienta de Recortes la sigue teniendo asignada en el registro. Cuando el
     /// valor no existe se da por asignada, que es como viene Windows 11 de fabrica.
     taken_by_windows: bool,
+    screenclip: bool,
+    por_encargo: bool,
     /// Esta copia viene de la Microsoft Store y Windows no ve lo que escribe en sus ajustes
     /// (`snipping::windows_ve_el_registro`): no puede quitarle ni Impr Pant ni Win+Mayús+S.
     store_build: bool,
@@ -1226,24 +1260,31 @@ fn estado_impr_pant(
     PrintScreenState {
         enabled: pedida && ve_el_registro,
         active: registrada && ve_el_registro,
+        screenclip: false,
+        por_encargo: false,
         taken_by_windows: !ve_el_registro || valor.unwrap_or(1) == 1,
         store_build: !ve_el_registro,
     }
 }
 
-fn print_screen_now(state: &AppState) -> PrintScreenState {
+fn print_screen_now(app: &AppHandle) -> PrintScreenState {
     use crate::platform::snipping;
-    estado_impr_pant(
+    let state = app.state::<AppState>();
+    let mut estado = estado_impr_pant(
         state.settings.read().print_screen_capture,
         state.shortcuts.read().print_screen,
         snipping::read(),
         snipping::windows_ve_el_registro(),
-    )
+    );
+    #[cfg(windows)]
+    { estado.screenclip = crate::screenclip::es_predeterminado(); }
+    estado.por_encargo = crate::activacion::es_por_encargo(app);
+    estado
 }
 
 #[tauri::command]
-pub async fn print_screen_state(state: State<'_, AppState>) -> Result<PrintScreenState> {
-    Ok(print_screen_now(&state))
+pub async fn print_screen_state(app: AppHandle) -> Result<PrintScreenState> {
+    Ok(print_screen_now(&app))
 }
 
 /// Le quita la tecla Impr Pant a la Herramienta de Recortes y se la da a winshotx,
@@ -1271,7 +1312,7 @@ pub async fn use_print_screen(app: AppHandle, enabled: bool) -> Result<PrintScre
     *state.settings.write() = settings.clone();
     crate::settings::save(&app, &settings)?;
     crate::hotkeys::register(&app, &settings);
-    Ok(print_screen_now(&state))
+    Ok(print_screen_now(&app))
 }
 
 /// Le quita `Win+Mayus+S` al escritorio, o se la devuelve.
@@ -1322,6 +1363,14 @@ pub async fn restart_shell(app: AppHandle) -> Result<crate::hotkeys::ShortcutSta
 
     let settings = app.state::<AppState>().settings.read().clone();
     Ok(crate::hotkeys::register(&app, &settings))
+}
+
+#[tauri::command]
+pub fn configurar_recortes_de_windows() -> Result<()> {
+    #[cfg(windows)]
+    return crate::platform::abrir_url(crate::screenclip::AJUSTES);
+    #[cfg(not(windows))]
+    Err(AppError::Unsupported)
 }
 
 #[tauri::command]
@@ -1382,6 +1431,11 @@ pub async fn set_settings(app: AppHandle, settings: Settings) -> Result<Settings
     //
     // Encender el anillo trae su tecla, y lo acaba de hacer la persona: en Wayland eso cuenta
     // como pedirle la tecla al escritorio a mano. En Windows y en X11 es el registro de siempre.
+    if (!previous.replay_enabled && settings.replay_enabled)
+        || (!previous.start_with_windows && settings.start_with_windows)
+    {
+        crate::activacion::pasar_a_bandeja(&app)?;
+    }
     if !previous.replay_enabled && settings.replay_enabled {
         crate::hotkeys::al_encender_el_anillo(&app, &settings);
     } else {
@@ -1474,6 +1528,15 @@ pub async fn pick_directory(app: AppHandle) -> Option<String> {
         .file()
         .blocking_pick_folder()
         .map(|folder| folder.to_string())
+}
+
+#[tauri::command]
+pub async fn elegir_editor_externo(app: AppHandle, window: tauri::WebviewWindow) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let dialogo = app.dialog().file().set_parent(&window);
+    #[cfg(windows)]
+    let dialogo = dialogo.add_filter("EXE", &["exe"]);
+    dialogo.blocking_pick_file()?.into_path().ok()?.into_os_string().into_string().ok()
 }
 
 /// El dialogo de «Guardar como» de Windows, para elegir carpeta Y nombre de una vez.
@@ -1569,6 +1632,7 @@ pub async fn set_capture_flow(app: AppHandle, flow: crate::settings::CaptureFlow
 /// tres overlays a pantalla completa y siempre encima es abrirla donde no se ve.
 #[tauri::command]
 pub async fn open_settings(app: AppHandle) -> Result<()> {
+    let _trabajo = crate::activacion::trabajando(&app);
     windows_mgr::close_overlays(&app);
     windows_mgr::show_settings(&app)
 }

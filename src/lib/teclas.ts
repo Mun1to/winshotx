@@ -5,6 +5,9 @@
  * unico que no cambia con la distribucion del teclado. Eso no se le puede enseñar a nadie:
  * en pantalla tiene que poner `Ctrl Shift S`.
  */
+export const CAPTURA_WINDOWS = "Super+Shift+KeyS";
+export const GRABACION_WINDOWS = "Super+Shift+KeyR";
+
 const BONITOS: Record<string, string> = {
   CmdOrCtrl: "Ctrl",
   CommandOrControl: "Ctrl",
